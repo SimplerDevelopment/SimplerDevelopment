@@ -73,8 +73,9 @@ export function Navigation() {
                   </svg>
                 </Link>
               )}
-              <Link href="/" className="text-xl  font-heading" onClick={closeMobileMenu}>
-                <b>Simpler</b> Development
+              <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
+                <img src="/iconLogo.png" alt="" className="h-14 w-14 -mr-2 dark:invert" />
+                <span><b>Simpler</b> Development</span>
               </Link>
             </div>
 

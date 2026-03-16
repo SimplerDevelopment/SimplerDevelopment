@@ -1,12 +1,12 @@
 import { generateSEO } from '@/lib/utils/seo';
-import { HomeClientComingSoon } from './(pages)/HomeClientComingSoon';
+import { HomeClient } from './(pages)/HomeClient';
 
 export const metadata = generateSEO({
-  title: 'Coming Soon',
-  description: 'Something amazing is on the way. Stay tuned.',
+  title: 'Web & Mobile Development Agency',
+  description: 'Full-stack web and mobile development agency. We build beautiful, scalable applications with modern technology, stunning design, and seamless user experiences.',
   path: '/',
 });
 
 export default function HomePage() {
-  return <HomeClientComingSoon />;
+  return <HomeClient />;
 }
