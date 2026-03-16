@@ -1,0 +1,278 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e4]:
+      - link "Simpler Development" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e6]:
+        - button "Toggle theme" [ref=e7]:
+          - img [ref=e8]
+        - button "AU" [ref=e123]:
+          - generic [ref=e124]: AU
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - complementary [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]:
+            - link "CMS" [ref=e16] [cursor=pointer]:
+              - /url: /admin
+            - button "chevron_left" [ref=e17]:
+              - generic [ref=e18]: chevron_left
+          - navigation [ref=e19]:
+            - list [ref=e20]:
+              - listitem [ref=e21]:
+                - link "dashboard Dashboard" [ref=e22] [cursor=pointer]:
+                  - /url: /admin
+                  - generic [ref=e23]: dashboard
+                  - generic [ref=e24]: Dashboard
+              - listitem [ref=e25]:
+                - link "article Posts" [ref=e26] [cursor=pointer]:
+                  - /url: /admin/posts
+                  - generic [ref=e27]: article
+                  - generic [ref=e28]: Posts
+                - list [ref=e29]:
+                  - listitem [ref=e30]:
+                    - link "category Post Types" [ref=e31] [cursor=pointer]:
+                      - /url: /admin/post-types
+                      - generic [ref=e32]: category
+                      - generic [ref=e33]: Post Types
+                  - listitem [ref=e34]:
+                    - link "folder Categories" [ref=e35] [cursor=pointer]:
+                      - /url: /admin/categories
+                      - generic [ref=e36]: folder
+                      - generic [ref=e37]: Categories
+                  - listitem [ref=e38]:
+                    - link "label Tags" [ref=e39] [cursor=pointer]:
+                      - /url: /admin/tags
+                      - generic [ref=e40]: label
+                      - generic [ref=e41]: Tags
+              - listitem [ref=e42]:
+                - link "perm_media Media" [ref=e43] [cursor=pointer]:
+                  - /url: /admin/media
+                  - generic [ref=e44]: perm_media
+                  - generic [ref=e45]: Media
+              - listitem [ref=e46]:
+                - link "group Users" [ref=e47] [cursor=pointer]:
+                  - /url: /admin/users
+                  - generic [ref=e48]: group
+                  - generic [ref=e49]: Users
+          - generic [ref=e50]:
+            - button "keyboard_double_arrow_left Collapse Menu" [ref=e51]:
+              - generic [ref=e52]: keyboard_double_arrow_left
+              - generic [ref=e53]: Collapse Menu
+            - link "arrow_back Back to Site" [ref=e54] [cursor=pointer]:
+              - /url: /
+              - generic [ref=e55]: arrow_back
+              - generic [ref=e56]: Back to Site
+      - main [ref=e58]:
+        - main [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - navigation [ref=e63]:
+                - button "General" [ref=e64]
+                - button "Custom Fields1" [ref=e125]
+                - button "Content" [active] [ref=e66]
+              - generic [ref=e126]:
+                - generic [ref=e127]:
+                  - generic [ref=e128]: Content Editor
+                  - generic [ref=e129]:
+                    - button "Block Editor" [ref=e130]
+                    - button "Raw HTML/Markdown" [ref=e131]
+                - generic [ref=e132]:
+                  - generic [ref=e133]: "Editor Mode:"
+                  - generic [ref=e134]:
+                    - button "✨ Visual (Gutenberg-style)" [ref=e135]
+                    - button "📋 Classic" [ref=e136]
+                - generic [ref=e137]:
+                  - generic [ref=e138]:
+                    - generic [ref=e140]: Edit Mode
+                    - button "Preview" [ref=e141]:
+                      - img [ref=e142]
+                      - generic [ref=e145]: Preview
+                  - generic [ref=e146]:
+                    - generic [ref=e147]:
+                      - button "Undo" [disabled] [ref=e148]:
+                        - img [ref=e149]
+                        - generic [ref=e151]: Undo
+                      - button "Redo" [disabled] [ref=e152]:
+                        - img [ref=e153]
+                        - generic [ref=e155]: Redo
+                    - generic [ref=e157]:
+                      - generic [ref=e158]:
+                        - generic [ref=e159]:
+                          - heading "How UX Design Principles Can Supercharge Your Web Development Projects" [level=1] [ref=e162] [cursor=pointer]
+                          - button "Insert block below" [ref=e164]:
+                            - img [ref=e165]
+                        - generic [ref=e167]:
+                          - generic [ref=e170] [cursor=pointer]:
+                            - generic [ref=e176]: As a developer, you know how to write clean code and build functional interfaces—but is your product truly user-friendly? In today’s competitive digital landscape, understanding **UX/UI design principles** isn’t just a bonus—it's a necessity. By integrating user-centered design into your development workflow, you can boost conversion rates, reduce user frustration, and create apps that people actually love to use.
+                            - generic [ref=e182]:
+                              - img "Team of developers and designers collaborating on UX design in a modern office" [ref=e183]
+                              - paragraph [ref=e184]: Collaboration between developers and designers is essential for great UX.
+                          - button "Insert block below" [ref=e186]:
+                            - img [ref=e187]
+                        - generic [ref=e189]:
+                          - heading "Why Developers Need UX/UI Skills" [level=2] [ref=e192] [cursor=pointer]
+                          - button "Insert block below" [ref=e194]:
+                            - img [ref=e195]
+                        - generic [ref=e197]:
+                          - generic [ref=e200] [cursor=pointer]: Gone are the days when development and design worked in silos. Today’s developers benefit immensely from understanding UX/UI principles. Not only does this knowledge help you create more polished, functional products when working solo, but it also enhances collaboration with designers and increases your value in cross-functional teams.
+                          - button "Insert block below" [ref=e202]:
+                            - img [ref=e203]
+                        - generic [ref=e205]:
+                          - blockquote [ref=e208] [cursor=pointer]:
+                            - generic [ref=e209]: By gaining insight into the design process, developers can converse more effectively with designers, bridging the gap that often exists between these roles.
+                            - generic [ref=e210]:
+                              - generic [ref=e211]: — DesignerUp Blog
+                              - generic [ref=e212]: ", https://designerup.co/blog/adding-ux-ui-to-your-web-development-skills/"
+                          - button "Insert block below" [ref=e214]:
+                            - img [ref=e215]
+                        - generic [ref=e217]:
+                          - generic [ref=e220] [cursor=pointer]:
+                            - generic [ref=e226]: "**Key benefits for developers include:** - Building user-centered applications using personas and journey maps to identify real user needs - Smoother communication and collaboration with designers through shared vocabulary and goals - Increased industry competitiveness—design-led companies have outperformed the S&P Index by 219% over ten years ([Ironhack](https://www.ironhack.com/us/blog/the-role-of-ux-ui-in-web-development))"
+                            - generic [ref=e232]:
+                              - img "Team of developers and designers collaborating on UX design in a modern office" [ref=e233]
+                              - paragraph [ref=e234]: Collaboration between developers and designers is essential for great UX.
+                          - button "Insert block below" [ref=e236]:
+                            - img [ref=e237]
+                        - generic [ref=e239]:
+                          - heading "Essential UX Design Principles Every Developer Should Know" [level=2] [ref=e242] [cursor=pointer]
+                          - button "Insert block below" [ref=e244]:
+                            - img [ref=e245]
+                        - generic [ref=e247]:
+                          - generic [ref=e250] [cursor=pointer]: "UX design isn’t just about wireframes and aesthetics—it’s about creating intuitive, enjoyable experiences that meet real user needs. Here are the core principles you should apply to your development process:"
+                          - button "Insert block below" [ref=e252]:
+                            - img [ref=e253]
+                        - generic [ref=e255]:
+                          - generic [ref=e258] [cursor=pointer]:
+                            - generic [ref=e264]: "**1. User Research First**: Use interviews, surveys, and analytics to understand your users before writing a single line of code. **2. Prioritize Usability**: Ensure your app is easy to learn and frictionless to use. This includes logical flows, responsive design, and accessibility. **3. Iterate Based on Feedback**: Build prototypes, test with real users, and refine based on data—not assumptions. **4. Use Design Systems**: Tools like atomic design (atoms → molecules → organisms → templates → pages) help you build scalable, consistent interfaces ([PNMG](https://pnmg.com/the-benefit-of-building-with-ux-design-systems/))."
+                            - generic [ref=e270]:
+                              - img "Team of developers and designers collaborating on UX design in a modern office" [ref=e271]
+                              - paragraph [ref=e272]: Collaboration between developers and designers is essential for great UX.
+                          - button "Insert block below" [ref=e274]:
+                            - img [ref=e275]
+                        - generic [ref=e277]:
+                          - heading "Key UI Design Principles to Code By" [level=2] [ref=e280] [cursor=pointer]
+                          - button "Insert block below" [ref=e282]:
+                            - img [ref=e283]
+                        - generic [ref=e285]:
+                          - blockquote [ref=e288] [cursor=pointer]:
+                            - generic [ref=e289]: A good interface feels familiar from the first click... users stop thinking about the interface and focus on their tasks.
+                            - generic [ref=e290]:
+                              - generic [ref=e291]: — Figma Resource Library
+                              - generic [ref=e292]: ", https://www.figma.com/resource-library/ui-design-principles/"
+                          - button "Insert block below" [ref=e294]:
+                            - img [ref=e295]
+                        - generic [ref=e297]:
+                          - generic [ref=e300] [cursor=pointer]: "**| Principle | Description | How Developers Apply It | |-----------|-------------|--------------------------| | Consistency | Predictable patterns and behavior | Use reusable components and avoid style inconsistencies | | Clarity & Simplicity | Reduce user effort | Write clean HTML/CSS, avoid clutter, and follow accessibility standards | | User-Centered Visuals | Align visuals with user goals | Use responsive layouts, visual hierarchy, and smooth transitions**"
+                          - button "Insert block below" [ref=e302]:
+                            - img [ref=e303]
+                        - generic [ref=e305]:
+                          - heading "Design Best Practices for Developers" [level=2] [ref=e308] [cursor=pointer]
+                          - button "Insert block below" [ref=e310]:
+                            - img [ref=e311]
+                        - generic [ref=e313]:
+                          - generic [ref=e316] [cursor=pointer]: "Adopting design thinking doesn’t mean you need to become a full-time designer. It means embedding a user-first mindset into every part of your workflow. Here's how:"
+                          - button "Insert block below" [ref=e318]:
+                            - img [ref=e319]
+                        - generic [ref=e321]:
+                          - generic [ref=e324] [cursor=pointer]: "- **Prototype and test early** using tools like Figma or Adobe XD - **Follow atomic design** to maintain consistency across components - **Ensure accessibility** with semantic HTML and WCAG-compliant patterns - **Measure success** using usability testing, heatmaps, and user analytics - **Start every project with user research** and end it with iteration ([UXMatters](https://www.uxmatters.com/mt/archives/2024/04/15-essential-ux-design-principles-and-practices-for-developers.php))"
+                          - button "Insert block below" [ref=e326]:
+                            - img [ref=e327]
+                        - generic [ref=e329]:
+                          - heading "Real-World Impact of UX/UI on Development Success" [level=2] [ref=e332] [cursor=pointer]
+                          - button "Insert block below" [ref=e334]:
+                            - img [ref=e335]
+                        - generic [ref=e337]:
+                          - generic [ref=e340] [cursor=pointer]:
+                            - generic [ref=e346]: "**| Metric | Result | Source | |--------|--------|--------| | Conversion Rates | +200% (UI), +400% (UX) | [Ironhack](https://www.ironhack.com/us/blog/the-role-of-ux-ui-in-web-development) | | Design System Efficiency | 34% faster task completion | [Figma](https://www.figma.com/resource-library/ui-design-principles/) | | Business Performance | 219% ROI increase over 10 years | [Ironhack](https://www.ironhack.com/us/blog/the-role-of-ux-ui-in-web-development) | | User Loyalty | Higher engagement, lower abandonment | [Ekeria](https://www.ekeria.com/en/web-development/blog/the-importance-of-ux-and-ui-design-in-website-creation)**"
+                            - generic [ref=e352]:
+                              - img "Team of developers and designers collaborating on UX design in a modern office" [ref=e353]
+                              - paragraph [ref=e354]: Collaboration between developers and designers is essential for great UX.
+                          - button "Insert block below" [ref=e356]:
+                            - img [ref=e357]
+                        - generic [ref=e359]:
+                          - generic [ref=e362] [cursor=pointer]: "Take Airbnb, for example: their seamless booking experience is the result of tight collaboration between developers and UX/UI teams. Every micro-interaction, from calendar selection to payment flow, is optimized for usability—proving that design and development synergy drives business results."
+                          - button "Insert block below" [ref=e364]:
+                            - img [ref=e365]
+                        - generic [ref=e367]:
+                          - heading "UX/UI Integration Roadmap for Developers" [level=2] [ref=e370] [cursor=pointer]
+                          - button "Insert block below" [ref=e372]:
+                            - img [ref=e373]
+                        - generic [ref=e375]:
+                          - generic [ref=e378] [cursor=pointer]:
+                            - generic [ref=e384]: "Ready to embed UX/UI into your dev workflow? Follow this roadmap: 1. **Start with foundational knowledge**: Study design principles via Figma’s UI library or DesignerUp. 2. **Do user research**: Identify your audience’s goals and pain points. 3. **Prototype before you code**: Use tools like Figma to visualize and test. 4. **Use component libraries**: Leverage Tailwind, Material UI, or your own design system. 5. **Test and iterate**: Use analytics and usability tests to refine over time. 6. **Collaborate continuously**: Share ideas and feedback with designers throughout the project."
+                            - generic [ref=e390]:
+                              - img "Team of developers and designers collaborating on UX design in a modern office" [ref=e391]
+                              - paragraph [ref=e392]: Collaboration between developers and designers is essential for great UX.
+                          - button "Insert block below" [ref=e394]:
+                            - img [ref=e395]
+                        - generic [ref=e397]:
+                          - 'heading "Conclusion: Transform Code Into Experiences" [level=2] [ref=e400] [cursor=pointer]'
+                          - button "Insert block below" [ref=e402]:
+                            - img [ref=e403]
+                        - generic [ref=e405]:
+                          - generic [ref=e408] [cursor=pointer]: UX/UI design isn’t just for designers. For developers, embracing these principles leads to better code, better products, and better outcomes. When you prioritize the user, collaborate effectively, and iterate with purpose, you’re not just building features—you’re creating experiences that drive engagement, loyalty, and growth.
+                          - button "Insert block below" [ref=e410]:
+                            - img [ref=e411]
+                        - generic [ref=e413]:
+                          - generic [ref=e416] [cursor=pointer]:
+                            - textbox "CTA Title" [ref=e417]: Ready to Level Up Your Developer Toolkit?
+                            - textbox "Description (optional)" [ref=e418]: Start integrating UX/UI design into your next project with our curated list of resources and tools.
+                            - generic [ref=e419]:
+                              - button "Explore UX/UI Tools" [ref=e420]
+                              - button "Read More on DesignerUp" [ref=e421]
+                          - button "Insert block below" [ref=e423]:
+                            - img [ref=e424]
+                      - status [ref=e426]
+            - generic [ref=e87]:
+              - button "Update Post" [ref=e88]
+              - button "Cancel" [ref=e89]
+  - contentinfo [ref=e90]:
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - heading "SimplerDevelopment" [level=3] [ref=e94]
+          - paragraph [ref=e95]: Design, Dev, and Automation Agency - Creating impressive, interactive web experiences
+        - generic [ref=e96]:
+          - heading "Services" [level=4] [ref=e97]
+          - list [ref=e98]:
+            - listitem [ref=e99]:
+              - link "View Solutions" [ref=e100] [cursor=pointer]:
+                - /url: /solutions
+        - generic [ref=e101]:
+          - heading "Company" [level=4] [ref=e102]
+          - list [ref=e103]:
+            - listitem [ref=e104]:
+              - link "About Us" [ref=e105] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e106]:
+              - link "Blog" [ref=e107] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e108]:
+              - link "Contact" [ref=e109] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e110]:
+          - heading "Connect" [level=4] [ref=e111]
+          - list [ref=e112]:
+            - listitem [ref=e113]:
+              - link "Twitter" [ref=e114] [cursor=pointer]:
+                - /url: https://twitter.com/simplerdevelopment
+            - listitem [ref=e115]:
+              - link "GitHub" [ref=e116] [cursor=pointer]:
+                - /url: https://github.com/simplerdevelopment
+            - listitem [ref=e117]:
+              - link "LinkedIn" [ref=e118] [cursor=pointer]:
+                - /url: https://linkedin.com/company/simplerdevelopment
+      - paragraph [ref=e120]: © 2026 SimplerDevelopment. All rights reserved.
+  - generic [ref=e431] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e432]:
+      - img [ref=e433]
+    - generic [ref=e436]:
+      - button "Open issues overlay" [ref=e437]:
+        - generic [ref=e438]:
+          - generic [ref=e439]: "0"
+          - generic [ref=e440]: "1"
+        - generic [ref=e441]: Issue
+      - button "Collapse issues badge" [ref=e442]:
+        - img [ref=e443]
+  - alert [ref=e121]

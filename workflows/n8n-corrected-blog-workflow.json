@@ -1,0 +1,687 @@
+{
+  "name": "Blog Research and Content Writer - AI Agent Version (Corrected)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{}]
+        }
+      },
+      "id": "209b9cd9-1530-4374-919d-130ea7c2c6d6",
+      "name": "Daily Run",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [528, 976]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/categories",
+        "options": {}
+      },
+      "id": "181cd8ef-fced-428d-bbed-29ffdbba74ed",
+      "name": "Get Categories",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [784, 880]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/tags",
+        "options": {}
+      },
+      "id": "95257bf8-4699-470d-9e67-4c984169eeeb",
+      "name": "Get Tags",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [784, 1088]
+    },
+    {
+      "parameters": {
+        "jsCode": "const categories = $input.first().json.data || $input.first().json || [];\nconst tags = $input.last().json.data || $input.last().json || [];\n\nreturn [{\n  json: {\n    categories: Array.isArray(categories) ? categories : [categories],\n    tags: Array.isArray(tags) ? tags : [tags],\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "7d6aa028-6ad8-4ff0-b5be-f943aaa289d6",
+      "name": "Format Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1072, 976]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a content strategist. Given a list of blog categories and tags, generate ONE unique and engaging blog topic idea that would perform well for SEO and reader engagement.\n\nYou must respond with valid JSON only, no markdown, no explanation. Use this exact format:\n{\n  \"topic\": \"The main topic/title idea\",\n  \"searchQueries\": [\"query 1\", \"query 2\", \"query 3\"],\n  \"targetCategoryId\": 1,\n  \"targetTagIds\": [1, 2],\n  \"angle\": \"The unique angle or hook for this article\",\n  \"targetAudience\": \"Who this article is for\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Generate a blog topic based on these categories and tags:\n\nCategories: {{ JSON.stringify($json.categories) }}\n\nTags: {{ JSON.stringify($json.tags) }}\n\nChoose a category and 1-3 relevant tags, then create an engaging topic that combines them in an interesting way. Make sure to use actual IDs from the provided data."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "temperature": 0.8
+        }
+      },
+      "id": "e483d480-3b72-4088-b8aa-cbc7ecfd6743",
+      "name": "Generate Topic",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1280, 976]
+    },
+    {
+      "parameters": {
+        "jsCode": "let content = $input.first().json.message?.content || $input.first().json.text || $input.first().json;\n\nif (typeof content === 'string') {\n  content = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  try {\n    content = JSON.parse(content);\n  } catch (e) {\n    content = {\n      topic: content,\n      searchQueries: [content],\n      targetCategoryId: 1,\n      targetTagIds: [1],\n      angle: \"General overview\",\n      targetAudience: \"General readers\"\n    };\n  }\n}\n\nreturn [{ json: content }];"
+      },
+      "id": "227d52ee-3af7-4f2d-b57b-80175127c856",
+      "name": "Parse Topic Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1488, 976]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"sonar\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a research assistant. Provide comprehensive, well-sourced research on the given topic. Include: key facts, recent statistics, expert opinions, trends, and actionable insights. Structure your research clearly with sections.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Research this topic thoroughly for a professional blog post: {{ $json.topic }}\\n\\nAngle to focus on: {{ $json.angle }}\\n\\nTarget audience: {{ $json.targetAudience }}\\n\\nSpecific aspects to research:\\n{{ $json.searchQueries.join('\\\\n') }}\\n\\nProvide comprehensive research with facts, statistics, expert quotes, and recent developments. Include source references where possible.\"\n    }\n  ],\n  \"max_tokens\": 4000,\n  \"temperature\": 0.2,\n  \"return_citations\": true\n}",
+        "options": {}
+      },
+      "id": "6e5c97b5-0d72-4c5f-98b7-113aac65f9a4",
+      "name": "Research Topic (Perplexity)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 880]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/blocks",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1680, 1120],
+      "id": "e5ced40b-ca53-4967-8a31-91546d6b26b9",
+      "name": "Content Editor Blocks"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1872, 992],
+      "id": "5c1564b2-7557-4859-85c7-ef3877b654ce",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst topicData = $('Parse Topic Response').first().json;\n\nlet researchContent = '';\nlet citations = [];\n\nif (response.choices && response.choices[0]) {\n  researchContent = response.choices[0].message?.content || '';\n}\n\nif (response.citations) {\n  citations = response.citations;\n}\n\nreturn [{\n  json: {\n    ...topicData,\n    research: researchContent,\n    citations: citations,\n    researchedAt: new Date().toISOString(),\n    blocks: $('Merge').last().json.data.blocks\n  }\n}];"
+      },
+      "id": "dbe3b8aa-32fc-4b38-8a7f-db33743dbd24",
+      "name": "Parse Research",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2032, 992]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an expert blog content writer. Write engaging, well-structured, SEO-optimized blog posts based on provided research.\n\nYour writing should:\n- Have a compelling hook in the introduction\n- Use clear headings and subheadings (H2, H3)\n- Include practical examples and actionable advice\n- Be conversational yet professional\n- Naturally incorporate relevant keywords\n- End with a strong conclusion and call-to-action\n\nFormat the content using the provided block structure.",
+              "role": "system"
+            },
+            {
+              "content": "=Write a comprehensive blog post based on this research:\n\n**Topic:** {{ $json.topic }}\n\n**Angle:** {{ $json.angle }}\n\n**Target Audience:** {{ $json.targetAudience }}\n\n**Research:**\n{{ $json.research }}\n\n**Citations/Sources:**\n{{ JSON.stringify($json.citations || []) }}\n\nWrite a 1500-2000 word blog post in JSON format. Include:\n1. An attention-grabbing title\n2. A compelling introduction with a hook\n3. 3-5 main sections with H2 headings\n4. Practical tips or examples\n5. A conclusion with a call-to-action\n6. Naturally reference sources where relevant\n\nOutput JSON with this structure:\n{\n  \"excerpt\": \"An apt description of the current blog post...\",\n  \"blocks\": [\n    {\n      \"id\": \"block-1705432123457-def456\",\n      \"type\": \"text\",\n      \"order\": 1,\n      \"content\": \"This is the introduction paragraph.\"\n    }\n  ],\n  \"version\": \"1.0\"\n}\n\nBase the block structure on: {{ JSON.stringify($json.blocks) }}\n\nUse different combinations of blocks to give the page more flare.\nExcerpt is plain text."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "maxTokens": 4000,
+          "temperature": 0.7
+        }
+      },
+      "id": "3f7a6cbc-090b-48ba-91bd-51853006885f",
+      "name": "Write Article",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [2224, 992]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a content editor specialized in visual storytelling. Review the blog post content and identify 3-5 strategic locations where images would enhance the article.\n\nFor each image, provide:\n1. The block order/position where it should be inserted\n2. A detailed DALL-E prompt for generating the image\n3. Alt text for accessibility\n4. A brief description of why this image placement is effective\n\nConsider:\n- Hero image at the top\n- Supporting images for main sections\n- Infographic-style images for data/statistics\n- Conceptual images for abstract ideas\n\nRespond with JSON only:\n{\n  \"images\": [\n    {\n      \"insertAfterBlock\": 0,\n      \"prompt\": \"Detailed DALL-E prompt here\",\n      \"altText\": \"Descriptive alt text\",\n      \"caption\": \"Brief caption\",\n      \"purpose\": \"Why this image is needed\"\n    }\n  ]\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Review this blog post and suggest 3-5 strategic image placements:\n\n**Topic:** {{ $('Parse Research').first().json.topic }}\n\n**Content Blocks:**\n{{ JSON.stringify($input.first().json.message.content.blocks) }}\n\nAnalyze the content flow and suggest where images would:\n1. Break up long text sections\n2. Illustrate key concepts\n3. Add visual interest\n4. Support the narrative\n\nProvide detailed, specific DALL-E prompts that match the article's tone and subject matter.\n\nEncourage: Hyper realistic photos. People centric photos. Stock Image like photos.\n\nAvoid: Fantasy, Overly Futuristic."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "95b14a73-940e-4161-b6c5-1dced16baccd",
+      "name": "Review & Plan Images",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [2560, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "let imageSuggestions = $input.first().json.message?.content;\n\nif (typeof imageSuggestions === 'string') {\n  imageSuggestions = imageSuggestions.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  try {\n    imageSuggestions = JSON.parse(imageSuggestions);\n  } catch (e) {\n    imageSuggestions = { images: [] };\n  }\n}\n\nconst images = imageSuggestions.images || [];\n\nreturn images.map((img, index) => ({\n  json: {\n    ...img,\n    imageIndex: index,\n    totalImages: images.length\n  }\n}));"
+      },
+      "id": "cb383771-8003-40a0-b269-72882c6438b0",
+      "name": "Parse Image Suggestions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 992]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [3072, 992],
+      "id": "93f3c3e5-5233-4570-bf4d-fbf833df83d2",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "model": "gpt-image-1",
+        "prompt": "={{ $json.prompt }}\n\nStyle Note: Realistic, less artsy and fantastical. Professional stock photo quality.",
+        "options": {
+          "size": "1024x1024",
+          "quality": "standard"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [3264, 992],
+      "id": "9490c913-0d6a-4a3c-bd6d-ac1f5158219c",
+      "name": "Generate Image"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3456, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the binary data from the downloaded image\nconst binaryData = $input.first().binary.data;\nconst itemData = $('Loop Over Items').first().json;\n\n// Convert binary to base64\nconst base64Data = binaryData.data;\n\n// Generate filename\nconst timestamp = Date.now();\nconst filename = `blog-image-${timestamp}-${itemData.imageIndex}.png`;\n\nreturn [{\n  json: {\n    filename: filename,\n    mimeType: 'image/png',\n    data: base64Data,\n    altText: itemData.altText,\n    caption: itemData.caption,\n    insertAfterBlock: itemData.insertAfterBlock,\n    purpose: itemData.purpose\n  }\n}];"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Prepare Upload Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3648, 992]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/upload",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filename\": {{ JSON.stringify($json.filename) }},\n  \"mimeType\": {{ JSON.stringify($json.mimeType) }},\n  \"data\": {{ JSON.stringify($json.data) }}\n}",
+        "options": {}
+      },
+      "id": "0d05fdff-6011-4c83-9995-f5e1501da120",
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3840, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare data for media library registration\nconst uploadResponse = $input.first().json;\nconst prepareData = $('Prepare Upload Data').first().json;\n\nif (!uploadResponse.success || !uploadResponse.data) {\n  throw new Error('Upload failed: ' + JSON.stringify(uploadResponse));\n}\n\nconst uploadData = uploadResponse.data;\n\nreturn [{\n  json: {\n    url: uploadData.url,\n    storedFilename: uploadData.storedFilename,\n    mimeType: uploadData.mimeType,\n    fileSize: uploadData.fileSize,\n    altText: prepareData.altText,\n    caption: prepareData.caption,\n    insertAfterBlock: prepareData.insertAfterBlock,\n    purpose: prepareData.purpose\n  }\n}];"
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Prepare Media Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4032, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all generated images with their metadata\nconst allItems = $input.all();\n\nconst images = allItems.map(item => ({\n  insertAfterBlock: item.json.insertAfterBlock || 0,\n  url: item.json.url || '',\n  altText: item.json.altText || '',\n  caption: item.json.caption || '',\n  purpose: item.json.purpose || ''\n}));\n\nreturn [{\n  json: {\n    images: images,\n    imageCount: images.length,\n    processedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "9f52725d-f540-408a-b49d-cf21bef9ac68",
+      "name": "Collect Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4224, 992]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a content formatter. Rewrite blog post blocks to include images in 2-column layouts.\n\nFor each image placement:\n1. Find the block at insertAfterBlock position\n2. Create a columns block with 2 columns (60/40 width split)\n3. Left column: Original text content\n4. Right column: Image block with the generated image\n\nMaintain all original content while enhancing it with visual elements.\n\nReturn the complete updated blocks array in JSON format:\n{\n  \"blocks\": [...],\n  \"version\": \"1.0\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Rewrite these blocks to include images in column layouts:\n\n**Original Blocks:**\n{{ JSON.stringify($('Write Article').first().json.message.content.blocks) }}\n\n**Generated Images:**\n{{ JSON.stringify($json.images) }}\n\nFor each image:\n1. Identify the block to enhance (based on insertAfterBlock)\n2. Convert it to a columns block with text on left (60% width) and image on right (40% width)\n3. Use this structure:\n\n{\n  \"id\": \"unique-id\",\n  \"type\": \"columns\",\n  \"order\": X,\n  \"gap\": \"md\",\n  \"columns\": [\n    {\n      \"id\": \"col-1\",\n      \"width\": 60,\n      \"blocks\": [{ original text block }]\n    },\n    {\n      \"id\": \"col-2\",\n      \"width\": 40,\n      \"blocks\": [\n        {\n          \"id\": \"img-block-id\",\n          \"type\": \"image\",\n          \"order\": 0,\n          \"url\": \"image-url\",\n          \"alt\": \"alt-text\",\n          \"caption\": \"caption\",\n          \"width\": \"full\",\n          \"alignment\": \"center\"\n        }\n      ]\n    }\n  ]\n}\n\nReturn the complete updated blocks array."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "68df702c-2bfc-487a-97ab-16a2795fa6a8",
+      "name": "Rewrite Blocks with Images",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [4416, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "const enhancedContent = $input.first().json.message?.content;\nconst originalArticle = $('Write Article').first().json.message?.content;\nconst topicData = $('Parse Research').first().json;\n\nlet blocks = enhancedContent?.blocks || originalArticle?.blocks || [];\nlet excerpt = originalArticle?.excerpt || '';\nlet title = topicData.topic;\n\nconst slug = title\n  .toLowerCase()\n  .replace(/[^a-z0-9\\s-]/g, '')\n  .replace(/\\s+/g, '-')\n  .replace(/-+/g, '-')\n  .substring(0, 100);\n\nconst content = {\n  blocks: blocks,\n  version: \"1.0\"\n};\n\nreturn [{\n  json: {\n    title: title,\n    slug: slug,\n    postType: 'blog',\n    excerpt: excerpt,\n    content: JSON.stringify(content),\n    coverImage: '',\n    published: false,\n    publishedAt: null,\n    categoryIds: topicData.targetCategoryId ? [topicData.targetCategoryId] : [],\n    tagIds: topicData.targetTagIds || [],\n    customFields: {\n      generatedAt: new Date().toISOString(),\n      researchSources: JSON.stringify(topicData.citations || []),\n      aiEnhanced: true,\n      imageCount: blocks.filter(b => b.type === 'columns').length\n    },\n    _metadata: {\n      topic: topicData.topic,\n      angle: topicData.angle,\n      targetAudience: topicData.targetAudience\n    }\n  }\n}];"
+      },
+      "id": "ee63fa90-3711-4311-b08a-421e211ea8c1",
+      "name": "Format for API",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4608, 992]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/posts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"postType\": {{ JSON.stringify($json.postType) }},\n  \"excerpt\": {{ JSON.stringify($json.excerpt) }},\n  \"content\": {{ JSON.stringify($json.content) }},\n  \"coverImage\": {{ JSON.stringify($json.coverImage) }},\n  \"published\": {{ $json.published }},\n  \"publishedAt\": {{ JSON.stringify($json.publishedAt) }},\n  \"categoryIds\": {{ JSON.stringify($json.categoryIds) }},\n  \"tagIds\": {{ JSON.stringify($json.tagIds) }},\n  \"customFields\": {{ JSON.stringify($json.customFields) }}\n}",
+        "options": {}
+      },
+      "id": "a3a77a87-5d28-4700-acf1-1c51cf5779bc",
+      "name": "Create Blog Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4800, 992]
+    },
+    {
+      "parameters": {
+        "jsCode": "const postResponse = $input.first().json;\nconst formatData = $('Format for API').first().json;\n\nconst postId = postResponse.id || postResponse.post?.id || 'unknown';\nconst postSlug = postResponse.slug || formatData.slug;\n\nconst baseUrl = 'http://localhost:3000';\nconst reviewUrl = `${baseUrl}/admin/posts/${postId}/edit`;\nconst previewUrl = `${baseUrl}/blog/${postSlug}`;\n\nreturn [{\n  json: {\n    postId: postId,\n    title: formatData.title,\n    slug: postSlug,\n    excerpt: formatData.excerpt,\n    reviewUrl: reviewUrl,\n    previewUrl: previewUrl,\n    metadata: formatData._metadata,\n    imageCount: formatData.customFields.imageCount,\n    createdAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "529f56a4-5667-4cd2-9e5d-17caa3818909",
+      "name": "Prepare Email Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4992, 992]
+    },
+    {
+      "parameters": {
+        "sendTo": "info@danielpcoyle.com",
+        "subject": "=New AI-Enhanced Post: {{ $json.title }}",
+        "message": "=<h1>{{ $json.title }}</h1>\n<p>{{ $json.excerpt }}</p>\n<p><strong>{{ $json.imageCount }} AI-generated images added</strong></p>\n<a href='{{ $json.reviewUrl }}' style='display:inline-block;padding:10px 20px;background:#0066cc;color:white;text-decoration:none;border-radius:5px;'>Review & Publish</a>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [5184, 992],
+      "id": "de714f3e-c5c9-4bcf-a6e3-d11a41588bdd",
+      "name": "Send Email Notification",
+      "webhookId": "f5d59584-d860-4114-ac4d-2de4a2c86e2f"
+    },
+    {
+      "parameters": {},
+      "id": "78abea56-7040-4309-84e7-70fcdb6871f3",
+      "name": "Success",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [5376, 992]
+    }
+  ],
+  "connections": {
+    "Daily Run": {
+      "main": [
+        [
+          {
+            "node": "Get Categories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Categories": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tags": {
+      "main": [
+        [
+          {
+            "node": "Format Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Topic": {
+      "main": [
+        [
+          {
+            "node": "Parse Topic Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Topic Response": {
+      "main": [
+        [
+          {
+            "node": "Research Topic (Perplexity)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Content Editor Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Topic (Perplexity)": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Editor Blocks": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Parse Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Research": {
+      "main": [
+        [
+          {
+            "node": "Write Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Article": {
+      "main": [
+        [
+          {
+            "node": "Review & Plan Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review & Plan Images": {
+      "main": [
+        [
+          {
+            "node": "Parse Image Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Image Suggestions": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Prepare Media Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare Upload Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Upload Data": {
+      "main": [
+        [
+          {
+            "node": "Upload to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Storage": {
+      "main": [
+        [
+          {
+            "node": "Prepare Media Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Media Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Images": {
+      "main": [
+        [
+          {
+            "node": "Rewrite Blocks with Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rewrite Blocks with Images": {
+      "main": [
+        [
+          {
+            "node": "Format for API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for API": {
+      "main": [
+        [
+          {
+            "node": "Create Blog Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Blog Post": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Notification": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
