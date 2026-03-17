@@ -20,6 +20,7 @@ import {
   NotebookTabs,
   ChevronDown,
   Layers,
+  SquareDashedBottom,
   GalleryHorizontalEnd,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
@@ -47,6 +48,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   columns: Columns3,
   tabs: NotebookTabs,
   accordion: ChevronDown,
+  section: SquareDashedBottom,
 
   // Component blocks
   hero: Target,
