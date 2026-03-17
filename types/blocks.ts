@@ -262,8 +262,24 @@ export type Block =
 
 export type BlockType = Block['type'];
 
+export interface PageSettings {
+  backgroundColor?: string;
+  backgroundImage?: string;
+  backgroundSize?: 'cover' | 'contain' | 'auto';
+  backgroundPosition?: string;
+  maxWidth?: string; // e.g., '1200px', '100%', '960px'
+  paddingTop?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  paddingRight?: string;
+  fontFamily?: string;
+  color?: string;
+  cssClass?: string;
+}
+
 export interface BlockEditorData {
   blocks: Block[];
+  pageSettings?: PageSettings;
   version: string;
 }
 

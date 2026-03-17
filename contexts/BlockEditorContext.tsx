@@ -15,6 +15,7 @@ import {
   SaveStatus,
   ContentStats,
   HistoryAction,
+  PageSettings,
 } from '@/types/blocks';
 import { Breakpoint } from '@/types/responsive';
 import { useBlockHistory } from '@/lib/hooks/useBlockHistory';
@@ -72,6 +73,10 @@ interface BlockEditorContextValue {
   // Viewport
   currentViewport: Breakpoint;
   setCurrentViewport: (viewport: Breakpoint) => void;
+
+  // Page settings
+  pageSettings: PageSettings;
+  updatePageSettings: (updates: Partial<PageSettings>) => void;
 }
 
 const BlockEditorContext = createContext<BlockEditorContextValue | undefined>(
@@ -85,6 +90,8 @@ interface BlockEditorProviderProps {
   onBlocksChange?: (blocks: Block[]) => void;
   initialViewport?: Breakpoint;
   onViewportChange?: (viewport: Breakpoint) => void;
+  initialPageSettings?: PageSettings;
+  onPageSettingsChange?: (settings: PageSettings) => void;
 }
 
 /**
@@ -102,6 +109,8 @@ export function BlockEditorProvider({
   onBlocksChange,
   initialViewport = 'desktop',
   onViewportChange,
+  initialPageSettings = {},
+  onPageSettingsChange,
 }: BlockEditorProviderProps) {
   console.log('[BlockEditorProvider] Rendered with initialBlocks:', initialBlocks.length);
 
@@ -152,6 +161,18 @@ export function BlockEditorProvider({
 
   // Viewport state
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>(initialViewport);
+
+  // Page settings
+  const [pageSettings, setPageSettings] = useState<PageSettings>(initialPageSettings);
+
+  const updatePageSettings = useCallback((updates: Partial<PageSettings>) => {
+    setPageSettings((prev) => {
+      const next = { ...prev, ...updates };
+      onPageSettingsChange?.(next);
+      setHasUnsavedChanges(true);
+      return next;
+    });
+  }, [onPageSettingsChange]);
 
   // Calculate content stats
   const stats: ContentStats = useMemo(() => {
@@ -543,6 +564,8 @@ export function BlockEditorProvider({
       dockSettings,
       currentViewport,
       setCurrentViewport,
+      pageSettings,
+      updatePageSettings,
     }),
     [
       state,
@@ -572,6 +595,8 @@ export function BlockEditorProvider({
       dockSettings,
       currentViewport,
       setCurrentViewport,
+      pageSettings,
+      updatePageSettings,
     ]
   );
 

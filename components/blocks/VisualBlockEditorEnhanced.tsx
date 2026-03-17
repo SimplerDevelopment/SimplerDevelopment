@@ -12,6 +12,7 @@ import { ResponsiveIndicator } from './ResponsiveIndicator';
 import { ResponsiveHelpButton } from './ResponsiveHelpModal';
 import { SaveAsTemplateModal } from './SaveAsTemplateModal';
 import { TemplateLibrary } from './TemplateLibrary';
+import { PageSettingsPanel } from './visual/PageSettingsPanel';
 import {
   DndContext,
   closestCenter,
@@ -328,6 +329,8 @@ export function EditorInner({
     openSettingsPopOut,
     currentViewport,
     setCurrentViewport,
+    pageSettings,
+    updatePageSettings,
   } = useBlockEditor();
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
@@ -622,7 +625,7 @@ export function EditorInner({
         <div
           className={`flex-1 min-h-[500px] flex transition-all ${
             currentViewport === 'desktop' ? '' : 'justify-center'
-          } ${selectedBlock && !isSettingsPoppedOut ? 'mr-72' : ''}`}
+          } ${!isSettingsPoppedOut ? 'mr-72' : ''}`}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setSelectedBlockId(null);
@@ -662,7 +665,19 @@ export function EditorInner({
             <DndContext sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <SortableContext items={state.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                 <div
-                  className="p-8 space-y-2"
+                  className={`space-y-2 ${pageSettings.fontFamily || ''} ${pageSettings.cssClass || ''}`}
+                  style={{
+                    padding: `${pageSettings.paddingTop || '2rem'} ${pageSettings.paddingRight || '2rem'} ${pageSettings.paddingBottom || '2rem'} ${pageSettings.paddingLeft || '2rem'}`,
+                    ...(pageSettings.backgroundColor ? { backgroundColor: pageSettings.backgroundColor } : {}),
+                    ...(pageSettings.backgroundImage ? {
+                      backgroundImage: `url(${pageSettings.backgroundImage})`,
+                      backgroundSize: pageSettings.backgroundSize || 'cover',
+                      backgroundPosition: pageSettings.backgroundPosition || 'center',
+                    } : {}),
+                    ...(pageSettings.maxWidth ? { maxWidth: pageSettings.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
+                    ...(pageSettings.color ? { color: pageSettings.color } : {}),
+                    minHeight: '500px',
+                  }}
                   onClick={(e) => {
                     if (e.target === e.currentTarget) {
                       setSelectedBlockId(null);
@@ -712,37 +727,43 @@ export function EditorInner({
         </div>
 
         {/* Settings Sidebar */}
-        {selectedBlock && !isSettingsPoppedOut && (
+        {!isSettingsPoppedOut && (
           <div className="w-72 bg-white dark:bg-gray-900 border-l border-border fixed right-0 top-[120px] bottom-0 z-10 overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">
-                  {blockTypes.find((bt) => bt.type === selectedBlock.type)?.label || 'Block'} Settings
-                </h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={openSettingsPopOut}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
-                    title="Pop out settings"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedBlockId(null)}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
-                    title="Close settings"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <BlockSettings block={selectedBlock} onChange={(updates) => updateBlock(selectedBlock.id, updates)} currentViewport={currentViewport} />
+            <div className="p-5">
+              {selectedBlock ? (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold">
+                      {blockTypes.find((bt) => bt.type === selectedBlock.type)?.label || 'Block'} Settings
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={openSettingsPopOut}
+                        className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                        title="Pop out settings"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBlockId(null)}
+                        className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                        title="Close settings"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <BlockSettings block={selectedBlock} onChange={(updates) => updateBlock(selectedBlock.id, updates)} currentViewport={currentViewport} />
+                </>
+              ) : (
+                <PageSettingsPanel settings={pageSettings} onChange={updatePageSettings} />
+              )}
             </div>
           </div>
         )}
