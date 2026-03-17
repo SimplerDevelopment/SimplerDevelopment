@@ -36,7 +36,6 @@ export function Navigation() {
 
   const navLinks = [
     { href: '/solutions', label: 'Solutions' },
-    { href: '/apps-and-products', label: 'Apps & Products' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
   ];
