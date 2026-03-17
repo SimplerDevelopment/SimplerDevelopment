@@ -288,6 +288,15 @@ function SortableBlock({
             ))}
           </div>
         )}
+        {isDraggingAny && block.type === 'section' && (
+          <div className="px-4 pb-3">
+            <ContainerDropZone
+              id={`drop-zone-section-${block.id}`}
+              isActive={isDraggingAny}
+              label="Section"
+            />
+          </div>
+        )}
       </div>
 
       {/* Insert Block Button */}
@@ -471,7 +480,8 @@ export function EditorInner({
           // Prevent dropping a container into itself
           const isSelfNest =
             (draggedBlock.type === 'columns' && draggedBlock.columns?.some((c) => c.id === targetId)) ||
-            (draggedBlock.type === 'tabs' && draggedBlock.tabs?.some((t) => t.id === targetId));
+            (draggedBlock.type === 'tabs' && draggedBlock.tabs?.some((t) => t.id === targetId)) ||
+            (draggedBlock.type === 'section' && targetId === `section-${draggedBlock.id}`);
           if (isSelfNest) {
             setActiveId(null);
             setNestTargetId(null);
@@ -507,6 +517,12 @@ export function EditorInner({
                   ),
                 };
               }
+            }
+            if (block.type === 'section' && targetId === `section-${block.id}`) {
+              return {
+                ...block,
+                blocks: [...block.blocks, { ...draggedBlock, order: block.blocks.length }],
+              };
             }
             return block;
           });
@@ -583,6 +599,12 @@ export function EditorInner({
           if (found) return found;
         }
       }
+
+      // Check nested blocks in sections
+      if (block.type === 'section') {
+        const found = findBlock(blockId, block.blocks);
+        if (found) return found;
+      }
     }
     return null;
   };
@@ -601,6 +623,9 @@ export function EditorInner({
       return containerBlock.tabs.some(tab =>
         tab.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
       );
+    }
+    if (containerBlock.type === 'section') {
+      return containerBlock.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b));
     }
     return false;
   };
@@ -908,6 +933,7 @@ export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, o
     { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Display content in columns' },
     { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible content sections' },
     { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
+    { type: 'section', label: 'Section', icon: '📦', category: 'Layout', description: 'Container wrapper with styling' },
     { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
     { type: 'services-grid', label: 'Services', icon: '📦', category: 'Components', description: 'Grid of services' },
     { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
@@ -970,6 +996,8 @@ function createDefaultBlock(type: BlockType, order: number): Block {
         { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
         { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] }
       ]};
+    case 'section':
+      return { ...base, type: 'section', blocks: [] };
     case 'hero':
       return { ...base, type: 'hero', title: 'Hero Title', subtitle: 'Subtitle', description: 'Description', ctaText: 'Get Started', ctaLink: '/contact' };
     case 'services-grid':

@@ -1,6 +1,7 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock } from '@/types/blocks';
+import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -110,6 +111,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <FeaturedContentBlockSettings block={block as FeaturedContentBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'accordion':
               return <AccordionBlockSettings block={block as AccordionBlock} onChange={onChange} currentViewport={currentViewport} />;
+            case 'section':
+              return <SectionBlockSettings block={block as SectionBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -1314,6 +1317,48 @@ function AccordionBlockSettings({ block, onChange, currentViewport }: { block: A
         />
       </div>
       <p className="text-xs text-muted-foreground">Use the controls in the editor to add, remove, or edit accordion items.</p>
+    </div>
+  );
+}
+
+function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChange: (updates: Partial<SectionBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">HTML Tag</label>
+        <select
+          value={block.htmlTag || 'section'}
+          onChange={(e) => onChange({ htmlTag: e.target.value as SectionBlock['htmlTag'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="section">section</option>
+          <option value="div">div</option>
+          <option value="article">article</option>
+          <option value="aside">aside</option>
+          <option value="header">header</option>
+          <option value="footer">footer</option>
+        </select>
+      </div>
+      <div className="border-t border-border pt-4">
+        <PageSettingsPanel
+          settings={{
+            backgroundColor: block.backgroundColor,
+            backgroundImage: block.backgroundImage,
+            backgroundSize: block.backgroundSize,
+            backgroundPosition: block.backgroundPosition,
+            maxWidth: block.maxWidth,
+            paddingTop: block.paddingTop,
+            paddingBottom: block.paddingBottom,
+            paddingLeft: block.paddingLeft,
+            paddingRight: block.paddingRight,
+            color: block.color,
+            fontFamily: block.fontFamily,
+            cssClass: block.cssClass,
+          }}
+          onChange={(updates) => onChange(updates as Partial<SectionBlock>)}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">{block.blocks.length} nested block{block.blocks.length !== 1 ? 's' : ''}</p>
     </div>
   );
 }

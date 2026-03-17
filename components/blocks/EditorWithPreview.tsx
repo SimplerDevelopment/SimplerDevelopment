@@ -25,6 +25,7 @@ import { CardGridBlockRender } from './render/CardGridBlockRender';
 import { AccordionBlockRender } from './render/AccordionBlockRender';
 import { TabsBlockRender } from './render/TabsBlockRender';
 import { Block } from '@/types/blocks';
+import { SectionBlockRender } from './render/SectionBlockRender';
 import { getViewportWidth } from '@/lib/utils/responsive';
 
 interface EditorWithPreviewProps {
@@ -80,6 +81,8 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
         return <AccordionBlockRender block={block} />;
       case 'tabs':
         return <TabsBlockRender block={block} />;
+      case 'section':
+        return <SectionBlockRender block={block} />;
       default:
         return <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded">Unsupported block type: {block.type}</div>;
     }

@@ -237,6 +237,24 @@ export interface CardGridBlock extends BaseBlock {
 }
 
 // Union type of all blocks
+export interface SectionBlock extends BaseBlock {
+  type: 'section';
+  blocks: Block[];
+  backgroundColor?: string;
+  backgroundImage?: string;
+  backgroundSize?: 'cover' | 'contain' | 'auto';
+  backgroundPosition?: string;
+  maxWidth?: string;
+  paddingTop?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  paddingRight?: string;
+  color?: string;
+  fontFamily?: string;
+  cssClass?: string;
+  htmlTag?: 'section' | 'div' | 'article' | 'aside' | 'header' | 'footer';
+}
+
 export type Block =
   | TextBlock
   | HeadingBlock
@@ -258,7 +276,8 @@ export type Block =
   | FeaturedContentBlock
   | AccordionBlock
   | TabsBlock
-  | CardGridBlock;
+  | CardGridBlock
+  | SectionBlock;
 
 export type BlockType = Block['type'];
 

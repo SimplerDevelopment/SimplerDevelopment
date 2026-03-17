@@ -22,6 +22,7 @@ import { StatsBlockRender } from './StatsBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
+import { SectionBlockRender } from './SectionBlockRender';
 
 interface BlockRendererProps {
   content: string;
@@ -102,6 +103,8 @@ function renderBlock(block: Block) {
       return <FeaturedContentBlockRender block={block} />;
     case 'card-grid':
       return <CardGridBlockRender block={block} />;
+    case 'section':
+      return <SectionBlockRender block={block} />;
     default:
       return null;
   }
