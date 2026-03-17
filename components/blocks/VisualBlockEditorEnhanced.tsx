@@ -455,9 +455,16 @@ export function EditorInner({
       {/* Editor */}
       <div className="relative flex gap-0" ref={editorRef}>
         {/* Responsive Preview Container */}
-        <div className={`flex-1 min-h-[500px] flex transition-all ${
-          currentViewport === 'desktop' ? '' : 'justify-center'
-        } ${selectedBlock && !isSettingsPoppedOut ? 'mr-80' : ''}`}>
+        <div
+          className={`flex-1 min-h-[500px] flex transition-all ${
+            currentViewport === 'desktop' ? '' : 'justify-center'
+          } ${selectedBlock && !isSettingsPoppedOut ? 'mr-80' : ''}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedBlockId(null);
+            }
+          }}
+        >
           <div
             className={`bg-background transition-all duration-300 ease-in-out ${
               currentViewport === 'desktop' ? 'w-full' : 'shadow-sm'
@@ -465,6 +472,11 @@ export function EditorInner({
             style={{
               width: currentViewport === 'desktop' ? '100%' : `${getViewportWidth(currentViewport)}px`,
               maxWidth: '100%',
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedBlockId(null);
+              }
             }}
           >
           {state.blocks.length === 0 ? (
@@ -485,7 +497,14 @@ export function EditorInner({
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <SortableContext items={state.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
-                <div className="p-8 space-y-2">
+                <div
+                  className="p-8 space-y-2"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                      setSelectedBlockId(null);
+                    }
+                  }}
+                >
                   {state.blocks.map((block, index) => (
                     <SortableBlock
                       key={block.id}
