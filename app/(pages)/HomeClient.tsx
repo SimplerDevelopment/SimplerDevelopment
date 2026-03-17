@@ -109,10 +109,6 @@ export function HomeClient() {
                     <div className="mt-12 flex items-center gap-6 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <span className="material-icons text-accent-secondary text-lg">check_circle</span>
-                        <span>50+ Projects Delivered</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="material-icons text-accent-secondary text-lg">check_circle</span>
                         <span>10+ Years Experience</span>
                       </div>
                     </div>
