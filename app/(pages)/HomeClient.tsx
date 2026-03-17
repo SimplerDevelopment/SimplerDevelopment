@@ -128,9 +128,9 @@ export function HomeClient() {
               </h2>
             </FadeIn>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="flex flex-wrap justify-center gap-5">
               {services.map((service, index) => (
-                <SlideIn key={service.title} direction="up" delay={index * 0.06}>
+                <SlideIn key={service.title} direction="up" delay={index * 0.06} className="w-full md:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)]">
                   <Link href={service.href} className="group block h-full">
                     <div
                       className="relative h-full p-6 rounded-xl bg-background border border-border hover:shadow-lg transition-all duration-300 overflow-hidden"
