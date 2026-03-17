@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { Block } from '@/types/blocks';
+import { useBlockEditor } from '@/contexts/BlockEditorContext';
+import { SpacingSize } from '@/types/responsive';
 import { TextBlockPreview } from './TextBlockPreview';
 import { HeadingBlockPreview } from './HeadingBlockPreview';
 import { ImageBlockPreview } from './ImageBlockPreview';
@@ -32,7 +34,18 @@ interface VisualBlockPreviewProps {
   onSelectBlock?: (id: string | null) => void;
 }
 
+const SPACING_CSS: Record<string, string> = {
+  none: '0', xs: '0.25rem', sm: '0.5rem', md: '1rem', lg: '1.5rem', xl: '2rem', '2xl': '3rem',
+};
+
+function spacingToCss(size?: string): string | undefined {
+  if (!size) return undefined;
+  return SPACING_CSS[size] || undefined;
+}
+
 export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockId, onSelectBlock }: VisualBlockPreviewProps) {
+  const { currentViewport } = useBlockEditor();
+
   // Build custom styles from block.style
   const customStyles: React.CSSProperties = {};
 
@@ -50,6 +63,32 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
     if (block.style.margin) customStyles.margin = block.style.margin;
     if (block.style.boxShadow) customStyles.boxShadow = block.style.boxShadow;
     if (block.style.opacity) customStyles.opacity = block.style.opacity;
+  }
+
+  // Apply responsive spacing for the current viewport (overrides static if set)
+  if (block.responsive) {
+    const r = block.responsive;
+    const vp = currentViewport;
+    const pt = spacingToCss(r.paddingTop?.[vp]);
+    const pb = spacingToCss(r.paddingBottom?.[vp]);
+    const pl = spacingToCss(r.paddingLeft?.[vp]);
+    const pr = spacingToCss(r.paddingRight?.[vp]);
+    const mt = spacingToCss(r.marginTop?.[vp]);
+    const mb = spacingToCss(r.marginBottom?.[vp]);
+    const ml = spacingToCss(r.marginLeft?.[vp]);
+    const mr = spacingToCss(r.marginRight?.[vp]);
+
+    if (pt || pb || pl || pr) {
+      customStyles.padding = `${pt || '0'} ${pr || '0'} ${pb || '0'} ${pl || '0'}`;
+    }
+    if (mt || mb || ml || mr) {
+      customStyles.margin = `${mt || '0'} ${mr || '0'} ${mb || '0'} ${ml || '0'}`;
+    }
+
+    // Responsive visibility
+    if (r.visibility?.[vp] === false) {
+      customStyles.display = 'none';
+    }
   }
 
   // Get font family class
