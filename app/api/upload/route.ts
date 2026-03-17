@@ -11,8 +11,7 @@ export async function POST(request: NextRequest) {
 
     // Handle multipart/form-data (regular file upload)
     if (contentType.includes('multipart/form-data')) {
-      // @ts-expect-error -- Next.js Request.formData() returns Web API FormData
-      const formData: globalThis.FormData = await request.formData();
+      const formData = await request.formData();
       const file = formData.get('file');
 
       if (!file) {

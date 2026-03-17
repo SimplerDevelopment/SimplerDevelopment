@@ -18,8 +18,7 @@ export async function POST(request: NextRequest) {
     //   );
     // }
 
-    // @ts-expect-error -- Next.js Request.formData() returns Web API FormData
-    const formData: globalThis.FormData = await request.formData();
+    const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const alt = formData.get('alt') as string | null;
     const caption = formData.get('caption') as string | null;
