@@ -75,6 +75,7 @@ export interface ColumnsBlock extends BaseBlock {
   gap?: 'sm' | 'md' | 'lg';
   stackOnMobile?: boolean; // Default: true
   stackOnTablet?: boolean; // Default: false
+  reverseOnStack?: boolean; // Default: false — reverse column order when stacked
 }
 
 export interface Column {

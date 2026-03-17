@@ -42,13 +42,16 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
     ? (editorViewport === 'mobile' && stackOnMobile) || (editorViewport === 'tablet' && stackOnTablet)
     : null;
 
+  const reverseOnStack = block.reverseOnStack === true;
+  const colClass = reverseOnStack ? 'flex-col-reverse' : 'flex-col';
+
   // CSS classes for real page rendering (no editor context)
   const stackingClasses = shouldStackFromEditor !== null
-    ? (shouldStackFromEditor ? 'flex-col' : 'flex-row')
+    ? (shouldStackFromEditor ? colClass : 'flex-row')
     : stackOnMobile
       ? stackOnTablet
-        ? 'flex-col lg:flex-row'
-        : 'flex-col md:flex-row'
+        ? `${colClass} lg:flex-row`
+        : `${colClass} md:flex-row`
       : 'flex-row';
 
   const colStackAttr = shouldStackFromEditor !== null

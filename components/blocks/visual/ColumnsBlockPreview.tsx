@@ -429,7 +429,10 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     (currentViewport === 'mobile' && stackOnMobile) ||
     (currentViewport === 'tablet' && stackOnTablet);
 
-  const stackingClasses = shouldStack ? 'flex-col' : 'flex-row';
+  const reverseOnStack = block.reverseOnStack === true;
+  const stackingClasses = shouldStack
+    ? (reverseOnStack ? 'flex-col-reverse' : 'flex-col')
+    : 'flex-row';
 
   return (
     <div className="p-6">

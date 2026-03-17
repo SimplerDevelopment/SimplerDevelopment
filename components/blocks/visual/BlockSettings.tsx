@@ -781,6 +781,18 @@ function ColumnsBlockSettings({ block, onChange, currentViewport }: { block: Col
               <div className="text-xs text-muted-foreground">Columns display vertically on screens 768px - 1023px</div>
             </div>
           </label>
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={block.reverseOnStack === true}
+              onChange={(e) => onChange({ reverseOnStack: e.target.checked })}
+              className="rounded border-border mt-0.5"
+            />
+            <div>
+              <div className="font-medium">Reverse on Stack</div>
+              <div className="text-xs text-muted-foreground">Show last column first when stacked vertically</div>
+            </div>
+          </label>
         </div>
       </div>
 
