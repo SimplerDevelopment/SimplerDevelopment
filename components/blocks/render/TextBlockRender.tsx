@@ -15,10 +15,10 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
   }[block.alignment || 'left'];
 
   const sizeClass = {
-    sm: 'text-sm',
-    base: 'text-base',
-    lg: 'text-lg',
-    xl: 'text-xl',
+    sm: 'text-sm leading-relaxed',
+    base: 'text-base md:text-lg leading-relaxed',
+    lg: 'text-lg leading-relaxed',
+    xl: 'text-xl leading-relaxed',
   }[block.size || 'base'];
 
   // Generate responsive classes from block settings

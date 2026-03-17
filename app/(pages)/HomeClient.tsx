@@ -370,12 +370,12 @@ export function HomeClient() {
               {/* Left — text */}
               <div>
                 <FadeIn>
-                  <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-40">// LET&apos;S TALK</p>
+                  <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-40 dark:opacity-70">// LET&apos;S TALK</p>
                   <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                     Have a project in mind?<br />
                     <span style={{ color: '#60a5fa' }}>Let&apos;s make it real.</span>
                   </h2>
-                  <p className="text-lg md:text-xl mb-10 max-w-xl opacity-60 leading-relaxed">
+                  <p className="text-lg md:text-xl mb-10 max-w-xl opacity-60 dark:opacity-85 leading-relaxed">
                     Tell us what you&apos;re building. We&apos;ll respond within 24 hours
                     with a plan and honest estimate — no strings attached.
                   </p>
@@ -389,7 +389,7 @@ export function HomeClient() {
                     </a>
                     <a
                       href="/solutions"
-                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-white/10 text-white border border-white/40 hover:bg-white/20 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-white/10 text-white border border-white/40 hover:bg-white/20 dark:bg-black/10 dark:text-black/80 dark:border-black/30 dark:hover:bg-black/15 transition-colors"
                     >
                       Explore Solutions
                     </a>
@@ -400,26 +400,26 @@ export function HomeClient() {
               {/* Right — quick info cards */}
               <FadeIn delay={0.2}>
                 <div className="hidden lg:flex flex-col gap-4 w-[280px]">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                  <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="material-icons text-2xl" style={{ color: '#60a5fa' }}>schedule</span>
                       <span className="font-heading font-bold">Quick Turnaround</span>
                     </div>
-                    <p className="text-sm opacity-50">Most projects kick off within a week of our first conversation.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">Most projects kick off within a week of our first conversation.</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                  <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="material-icons text-2xl" style={{ color: '#34d399' }}>handshake</span>
-                      <span className="font-heading font-bold">No Lock-in</span>
+                      <span className="font-heading font-bold">Transparent Process</span>
                     </div>
-                    <p className="text-sm opacity-50">You own everything we build. No proprietary lock-in, ever.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">Clear milestones, honest pricing, and no surprises along the way.</p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                  <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="material-icons text-2xl" style={{ color: '#fbbf24' }}>verified</span>
-                      <span className="font-heading font-bold">Proven Track Record</span>
+                      <span className="font-heading font-bold">16+ Years of Experience</span>
                     </div>
-                    <p className="text-sm opacity-50">50+ projects delivered across web, mobile, and automation.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">Deep expertise across web, mobile, and automation — built over a decade and a half.</p>
                   </div>
                 </div>
               </FadeIn>

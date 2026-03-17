@@ -51,7 +51,7 @@ export function BlockRenderer({ content }: BlockRendererProps) {
   }
 
   return (
-    <div className="block-content">
+    <div className="block-content space-y-6">
       {blocks.map((block) => (
         <div key={block.id} className="block-wrapper">
           <BlockStyleWrapper block={block}>

@@ -69,8 +69,8 @@ export default async function BlogPostPage({ params }: PageProps) {
         )}
       />
 
-      <article className="container mx-auto px-4 py-12">
-        <header className="max-w-4xl mx-auto mb-12">
+      <article className="container mx-auto px-4 py-16">
+        <header className="max-w-3xl mx-auto mb-12">
           {post.category && (
             <Link href={`/blog/category/${post.category.slug}`}>
               <div
@@ -82,10 +82,10 @@ export default async function BlogPostPage({ params }: PageProps) {
             </Link>
           )}
 
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">{post.title}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">{post.title}</h1>
 
           {post.excerpt && (
-            <p className="text-xl md:text-2xl text-muted-foreground mb-8">
+            <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed">
               {post.excerpt}
             </p>
           )}
@@ -126,11 +126,11 @@ export default async function BlogPostPage({ params }: PageProps) {
           </div>
         )}
 
-        <div className="max-w-4xl mx-auto mb-12">
+        <div className="max-w-3xl mx-auto mb-12">
           <BlockRenderer content={post.content} />
         </div>
 
-        <div className="max-w-4xl mx-auto mt-12 pt-8 border-t">
+        <div className="max-w-3xl mx-auto mt-12 pt-8 border-t">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
             <Link
               href="/blog"
