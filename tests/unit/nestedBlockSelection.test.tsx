@@ -13,8 +13,23 @@ vi.mock('@/lib/db', () => ({
   db: {},
 }));
 
+// Mock the BlockEditorContext hook
+vi.mock('@/contexts/BlockEditorContext', () => ({
+  useBlockEditor: () => ({
+    currentViewport: 'desktop',
+    state: { blocks: [], selectedBlockId: null, canUndo: false, canRedo: false },
+    selectBlock: vi.fn(),
+    togglePreviewMode: vi.fn(),
+  }),
+  BlockEditorProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 import { ColumnsBlockPreview } from '@/components/blocks/visual/ColumnsBlockPreview';
 import { TabsBlockPreview } from '@/components/blocks/visual/TabsBlockPreview';
+
+function renderWithProvider(ui: React.ReactElement) {
+  return render(ui);
+}
 
 describe('Nested Block Selection', () => {
   describe('ColumnsBlockPreview', () => {
@@ -51,7 +66,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      render(
+      renderWithProvider(
         <ColumnsBlockPreview
           block={columnsBlock}
           isSelected={true}
@@ -74,7 +89,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      render(
+      renderWithProvider(
         <ColumnsBlockPreview
           block={columnsBlock}
           isSelected={true}
@@ -94,7 +109,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      const { container } = render(
+      const { container } = renderWithProvider(
         <ColumnsBlockPreview
           block={columnsBlock}
           isSelected={true}
@@ -113,7 +128,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      const { container } = render(
+      const { container } = renderWithProvider(
         <ColumnsBlockPreview
           block={columnsBlock}
           isSelected={true}
@@ -132,7 +147,7 @@ describe('Nested Block Selection', () => {
       const onChange = vi.fn();
       const parentClickHandler = vi.fn();
 
-      const { container } = render(
+      const { container } = renderWithProvider(
         <div onClick={parentClickHandler}>
           <ColumnsBlockPreview
             block={columnsBlock}
@@ -156,7 +171,7 @@ describe('Nested Block Selection', () => {
     it('renders column editing UI when container is active via nested selection', () => {
       const onChange = vi.fn();
 
-      render(
+      renderWithProvider(
         <ColumnsBlockPreview
           block={columnsBlock}
           isSelected={true}
@@ -197,7 +212,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      render(
+      renderWithProvider(
         <TabsBlockPreview
           block={tabsBlock}
           isSelected={true}
@@ -217,7 +232,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      const { container } = render(
+      const { container } = renderWithProvider(
         <TabsBlockPreview
           block={tabsBlock}
           isSelected={true}
@@ -236,7 +251,7 @@ describe('Nested Block Selection', () => {
       const onChange = vi.fn();
       const parentClickHandler = vi.fn();
 
-      render(
+      renderWithProvider(
         <div onClick={parentClickHandler}>
           <TabsBlockPreview
             block={tabsBlock}
@@ -292,7 +307,7 @@ describe('Nested Block Selection', () => {
       const onSelectBlock = vi.fn();
       const onChange = vi.fn();
 
-      render(
+      renderWithProvider(
         <ColumnsBlockPreview
           block={outerColumns}
           isSelected={true}
@@ -324,7 +339,7 @@ describe('Nested Block Selection', () => {
         ],
       };
 
-      render(
+      renderWithProvider(
         <ColumnsBlockPreview
           block={emptyColumnsBlock}
           isSelected={true}

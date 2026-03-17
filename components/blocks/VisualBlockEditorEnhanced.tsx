@@ -15,13 +15,18 @@ import { TemplateLibrary } from './TemplateLibrary';
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
   DragStartEvent,
+  DragOverEvent,
   DragOverlay,
+  useDroppable,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -37,6 +42,41 @@ interface VisualBlockEditorEnhancedProps {
   onChange: (blocks: Block[]) => void;
   initialViewport?: Breakpoint;
   onViewportChange?: (viewport: Breakpoint) => void;
+}
+
+// Custom collision detection: prefer drop zones when pointer is inside them
+const nestingCollisionDetection: CollisionDetection = (args) => {
+  // First check if pointer is within a drop zone
+  const pointerCollisions = pointerWithin(args);
+  const dropZoneHit = pointerCollisions.find(
+    (c) => typeof c.id === 'string' && c.id.startsWith('drop-zone-')
+  );
+  if (dropZoneHit) return [dropZoneHit];
+
+  // Otherwise use closestCenter for standard reordering
+  return closestCenter(args);
+};
+
+// Droppable zone inside a container block (column or tab)
+function ContainerDropZone({ id, isActive, label }: { id: string; isActive: boolean; label: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`border-2 border-dashed rounded-lg transition-all text-center text-xs py-3 ${
+        isOver
+          ? 'border-primary bg-primary/10 text-primary'
+          : isActive
+          ? 'border-primary/40 bg-primary/5 text-primary/60'
+          : 'border-transparent'
+      }`}
+    >
+      {(isOver || isActive) && (
+        <span>Drop here to nest in {label}</span>
+      )}
+    </div>
+  );
 }
 
 // Sortable block wrapper component
@@ -56,6 +96,8 @@ function SortableBlock({
   onDuplicate,
   onInsertAfter,
   onSaveAsTemplate,
+  isDraggingAny,
+  nestTargetId,
   blockTypes,
 }: {
   block: Block;
@@ -73,6 +115,8 @@ function SortableBlock({
   onDuplicate: (id: string) => void;
   onInsertAfter: (id: string) => void;
   onSaveAsTemplate: (block: Block) => void;
+  isDraggingAny: boolean;
+  nestTargetId: string | null;
   blockTypes: Array<{ type: BlockType; label: string }>;
 }) {
   const {
@@ -215,6 +259,34 @@ function SortableBlock({
           selectedBlockId={selectedBlockId}
           onSelectBlock={onSelect}
         />
+
+        {/* Drop zones for nesting into container blocks */}
+        {isDraggingAny && block.type === 'columns' && (
+          <div className="flex gap-2 px-4 pb-3">
+            {block.columns.map((col, i) => (
+              <div key={col.id} className="flex-1">
+                <ContainerDropZone
+                  id={`drop-zone-${col.id}`}
+                  isActive={isDraggingAny}
+                  label={`Column ${i + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {isDraggingAny && block.type === 'tabs' && (
+          <div className="flex gap-2 px-4 pb-3">
+            {block.tabs.map((tab) => (
+              <div key={tab.id} className="flex-1">
+                <ContainerDropZone
+                  id={`drop-zone-${tab.id}`}
+                  isActive={isDraggingAny}
+                  label={tab.label}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Insert Block Button */}
@@ -363,23 +435,96 @@ export function EditorInner({
     onChange(state.blocks);
   }, [state.blocks, onChange]);
 
+  const [nestTargetId, setNestTargetId] = useState<string | null>(null);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setNestTargetId(null);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (over && typeof over.id === 'string' && over.id.startsWith('drop-zone-')) {
+      setNestTargetId(over.id);
+    } else {
+      setNestTargetId(null);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = state.blocks.findIndex((b) => b.id === active.id);
-      const newIndex = state.blocks.findIndex((b) => b.id === over.id);
+      const overId = over.id as string;
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderBlocks(oldIndex, newIndex);
+      // Check if dropping into a container zone (e.g., "drop-zone-col-123" or "drop-zone-tab-456")
+      if (overId.startsWith('drop-zone-')) {
+        const targetId = overId.replace('drop-zone-', '');
+        const draggedBlockIndex = state.blocks.findIndex((b) => b.id === active.id);
+
+        if (draggedBlockIndex !== -1) {
+          const draggedBlock = state.blocks[draggedBlockIndex];
+
+          // Prevent dropping a container into itself
+          const isSelfNest =
+            (draggedBlock.type === 'columns' && draggedBlock.columns?.some((c) => c.id === targetId)) ||
+            (draggedBlock.type === 'tabs' && draggedBlock.tabs?.some((t) => t.id === targetId));
+          if (isSelfNest) {
+            setActiveId(null);
+            setNestTargetId(null);
+            return;
+          }
+
+          const newBlocks = state.blocks.filter((b) => b.id !== active.id);
+
+          // Find the container block and nest the dragged block
+          const updatedBlocks = newBlocks.map((block) => {
+            if (block.type === 'columns') {
+              const colIndex = block.columns.findIndex((c) => c.id === targetId);
+              if (colIndex !== -1) {
+                return {
+                  ...block,
+                  columns: block.columns.map((col) =>
+                    col.id === targetId
+                      ? { ...col, blocks: [...col.blocks, { ...draggedBlock, order: col.blocks.length }] }
+                      : col
+                  ),
+                };
+              }
+            }
+            if (block.type === 'tabs') {
+              const tabIndex = block.tabs.findIndex((t) => t.id === targetId);
+              if (tabIndex !== -1) {
+                return {
+                  ...block,
+                  tabs: block.tabs.map((tab) =>
+                    tab.id === targetId
+                      ? { ...tab, blocks: [...tab.blocks, { ...draggedBlock, order: tab.blocks.length }] }
+                      : tab
+                  ),
+                };
+              }
+            }
+            return block;
+          });
+
+          // Update order
+          const reorderedBlocks = updatedBlocks.map((b, i) => ({ ...b, order: i }));
+          setBlocks(reorderedBlocks);
+        }
+      } else {
+        // Standard reorder
+        const oldIndex = state.blocks.findIndex((b) => b.id === active.id);
+        const newIndex = state.blocks.findIndex((b) => b.id === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          reorderBlocks(oldIndex, newIndex);
+        }
       }
     }
 
     setActiveId(null);
+    setNestTargetId(null);
   };
 
   const moveBlock = (id: string, direction: 'up' | 'down') => {
@@ -514,7 +659,7 @@ export function EditorInner({
               </button>
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <DndContext sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <SortableContext items={state.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
                 <div
                   className="p-8 space-y-2"
@@ -545,6 +690,8 @@ export function EditorInner({
                         setShowBlockInserter(true);
                       }}
                       onSaveAsTemplate={(block) => setSaveTemplateBlock(block)}
+                      isDraggingAny={!!activeId}
+                      nestTargetId={nestTargetId}
                       blockTypes={blockTypes}
                     />
                   ))}

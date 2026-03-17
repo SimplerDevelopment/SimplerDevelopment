@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ColumnsBlock } from '@/types/blocks';
-
 // Mock the blog actions module to avoid DATABASE_URL requirement
 vi.mock('@/lib/actions/blog', () => ({
   getAllBlogPosts: vi.fn().mockResolvedValue([]),
@@ -10,6 +9,13 @@ vi.mock('@/lib/actions/blog', () => ({
 
 vi.mock('@/lib/db', () => ({
   db: {},
+}));
+
+vi.mock('@/contexts/BlockEditorContext', () => ({
+  useBlockEditor: () => ({
+    currentViewport: 'desktop',
+    state: { blocks: [], selectedBlockId: null },
+  }),
 }));
 
 import { ColumnsBlockPreview } from '@/components/blocks/visual/ColumnsBlockPreview';
