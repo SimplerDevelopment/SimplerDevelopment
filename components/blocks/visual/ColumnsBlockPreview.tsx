@@ -857,62 +857,20 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
         })}
       </div>
 
-      {/* Controls */}
+      {/* Add Column Button */}
       {isSelected && (
-        <div className="mt-4 pt-4 border-t border-border space-y-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                addColumn();
-              }}
-              disabled={block.columns.length >= 12}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-            >
-              + Add Column ({block.columns.length}/12)
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Gap Between Columns</label>
-            <select
-              value={block.gap || 'md'}
-              onChange={(e) => onChange({ gap: e.target.value as ColumnsBlock['gap'] })}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-            >
-              <option value="sm">Small</option>
-              <option value="md">Medium</option>
-              <option value="lg">Large</option>
-            </select>
-          </div>
-
-          {/* Responsive Stacking Options */}
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Responsive Stacking</label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={block.stackOnMobile !== false}
-                onChange={(e) => onChange({ stackOnMobile: e.target.checked })}
-                className="rounded border-border"
-              />
-              <span>Stack on Mobile (≤ 767px)</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={block.stackOnTablet === true}
-                onChange={(e) => onChange({ stackOnTablet: e.target.checked })}
-                className="rounded border-border"
-              />
-              <span>Stack on Tablet (768px - 1023px)</span>
-            </label>
-            <p className="text-xs text-muted-foreground mt-1">
-              When stacked, columns display vertically instead of horizontally
-            </p>
-          </div>
+        <div className="mt-4 pt-4 border-t border-border">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              addColumn();
+            }}
+            disabled={block.columns.length >= 12}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+          >
+            + Add Column ({block.columns.length}/12)
+          </button>
         </div>
       )}
 
