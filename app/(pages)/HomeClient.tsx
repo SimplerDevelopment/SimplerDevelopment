@@ -377,7 +377,7 @@ export function HomeClient() {
                     </a>
                     <a
                       href="/solutions"
-                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-white/15 text-white border border-white/70 hover:bg-white/25 dark:bg-black/10 dark:text-black/80 dark:border-black/30 dark:hover:bg-black/15 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-white text-zinc-900 hover:bg-white/90 dark:bg-black/10 dark:text-black/80 dark:border dark:border-black/30 dark:hover:bg-black/15 transition-colors"
                     >
                       Explore Solutions
                     </a>
