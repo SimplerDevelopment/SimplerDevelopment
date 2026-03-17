@@ -34,10 +34,13 @@ export const BREAKPOINTS: Record<Breakpoint, BreakpointConfig> = {
 
 export type SpacingSize = 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
+// Accepts preset sizes or custom CSS values (e.g., "48px", "10%")
+export type SpacingValue = SpacingSize | (string & {});
+
 export interface ResponsiveSpacing {
-  mobile?: SpacingSize;
-  tablet?: SpacingSize;
-  desktop?: SpacingSize;
+  mobile?: SpacingValue;
+  tablet?: SpacingValue;
+  desktop?: SpacingValue;
 }
 
 export interface ResponsiveVisibility {

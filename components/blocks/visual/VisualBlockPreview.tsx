@@ -40,7 +40,11 @@ const SPACING_CSS: Record<string, string> = {
 
 function spacingToCss(size?: string): string | undefined {
   if (!size) return undefined;
-  return SPACING_CSS[size] || undefined;
+  // Check preset names first
+  if (SPACING_CSS[size]) return SPACING_CSS[size];
+  // Pass through raw CSS values (e.g., "48px", "10%", "2rem")
+  if (/^[\d.]+(%|px|rem|em|vh|vw)$/.test(size)) return size;
+  return undefined;
 }
 
 export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockId, onSelectBlock }: VisualBlockPreviewProps) {

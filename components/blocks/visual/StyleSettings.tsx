@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Block } from '@/types/blocks';
-import { Breakpoint, BREAKPOINTS, SpacingSize, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
+import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
 
 interface StyleSettingsProps {
   block: Block;
@@ -54,25 +55,124 @@ interface BoxModelControlProps {
   color: 'blue' | 'green' | 'orange';
 }
 
-function BoxModelControl({ top, right, bottom, left, onTopChange, onRightChange, onBottomChange, onLeftChange, sizes, outerLabel, color }: BoxModelControlProps) {
-  const borderColor = color === 'blue' ? 'border-blue-400/50' : color === 'green' ? 'border-green-400/50' : 'border-orange-400/50';
-  const bgColor = color === 'blue' ? 'bg-blue-500/5' : color === 'green' ? 'bg-green-500/5' : 'bg-orange-500/5';
-  const labelColor = color === 'blue' ? 'text-blue-400/60' : color === 'green' ? 'text-green-400/60' : 'text-orange-400/60';
+function isCustomValue(value: string, sizes: string[]): boolean {
+  if (!value) return false;
+  return !sizes.includes(value);
+}
 
-  const renderSelect = (value: string, onChange: (v: string) => void, position: string) => (
+function SpacingInput({
+  value,
+  onChange,
+  position,
+  label,
+  sizes,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  position: string;
+  label: string;
+  sizes: string[];
+}) {
+  const [customMode, setCustomMode] = useState(() => isCustomValue(value, sizes));
+  const [customNum, setCustomNum] = useState(() => {
+    if (!value) return '';
+    const match = value.match(/^([\d.]+)/);
+    return match ? match[1] : '';
+  });
+  const [customUnit, setCustomUnit] = useState<'px' | '%'>(() => {
+    if (value?.includes('%')) return '%';
+    return 'px';
+  });
+
+  // Sync custom fields when value changes externally
+  useEffect(() => {
+    if (isCustomValue(value, sizes)) {
+      setCustomMode(true);
+      const match = value.match(/^([\d.]+)/);
+      if (match) setCustomNum(match[1]);
+      if (value?.includes('%')) setCustomUnit('%');
+      else setCustomUnit('px');
+    }
+  }, [value, sizes]);
+
+  if (customMode) {
+    return (
+      <div className="flex items-center gap-0.5">
+        <input
+          type="number"
+          value={customNum}
+          onChange={(e) => {
+            setCustomNum(e.target.value);
+            if (e.target.value) {
+              onChange(`${e.target.value}${customUnit}`);
+            }
+          }}
+          className="w-10 text-[10px] text-center rounded-l border border-border bg-background py-1 text-foreground"
+          title={`${label}-${position}`}
+          min="0"
+          step="1"
+          placeholder="0"
+        />
+        <select
+          value={customUnit}
+          onChange={(e) => {
+            const unit = e.target.value as 'px' | '%';
+            setCustomUnit(unit);
+            if (customNum) {
+              onChange(`${customNum}${unit}`);
+            }
+          }}
+          className="w-8 text-[9px] rounded-none border-y border-border bg-background py-1 text-foreground appearance-none cursor-pointer text-center"
+        >
+          <option value="px">px</option>
+          <option value="%">%</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => {
+            setCustomMode(false);
+            setCustomNum('');
+            onChange('');
+          }}
+          className="w-5 h-[26px] flex items-center justify-center rounded-r border border-border bg-background text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          title="Back to presets"
+        >
+          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
+  return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => {
+        if (e.target.value === '__custom__') {
+          setCustomMode(true);
+          setCustomNum('');
+          return;
+        }
+        onChange(e.target.value);
+      }}
       className="w-14 text-[10px] text-center rounded border border-border bg-background px-0.5 py-1 text-foreground appearance-none cursor-pointer"
-      title={`${outerLabel}-${position}`}
+      title={`${label}-${position}`}
     >
       {sizes.map((size) => (
         <option key={size} value={size}>
           {pxLabels[size] !== undefined ? pxLabels[size] : size || '-'}
         </option>
       ))}
+      <option value="__custom__">...</option>
     </select>
   );
+}
+
+function BoxModelControl({ top, right, bottom, left, onTopChange, onRightChange, onBottomChange, onLeftChange, sizes, outerLabel, color }: BoxModelControlProps) {
+  const borderColor = color === 'blue' ? 'border-blue-400/50' : color === 'green' ? 'border-green-400/50' : 'border-orange-400/50';
+  const bgColor = color === 'blue' ? 'bg-blue-500/5' : color === 'green' ? 'bg-green-500/5' : 'bg-orange-500/5';
+  const labelColor = color === 'blue' ? 'text-blue-400/60' : color === 'green' ? 'text-green-400/60' : 'text-orange-400/60';
 
   return (
     <div className={`relative border ${borderColor} ${bgColor} rounded-md p-1`}>
@@ -83,21 +183,21 @@ function BoxModelControl({ top, right, bottom, left, onTopChange, onRightChange,
 
       {/* Top */}
       <div className="flex justify-center pt-3 pb-1">
-        {renderSelect(top, onTopChange, 'top')}
+        <SpacingInput value={top} onChange={onTopChange} position="top" label={outerLabel} sizes={sizes} />
       </div>
 
       {/* Left - Content - Right */}
       <div className="flex items-center justify-between px-1">
-        {renderSelect(left, onLeftChange, 'left')}
+        <SpacingInput value={left} onChange={onLeftChange} position="left" label={outerLabel} sizes={sizes} />
         <div className="flex-1 mx-2 h-8 border border-border/50 rounded bg-background/50 flex items-center justify-center">
           <span className="text-[9px] text-muted-foreground/50">content</span>
         </div>
-        {renderSelect(right, onRightChange, 'right')}
+        <SpacingInput value={right} onChange={onRightChange} position="right" label={outerLabel} sizes={sizes} />
       </div>
 
       {/* Bottom */}
       <div className="flex justify-center pt-1 pb-1">
-        {renderSelect(bottom, onBottomChange, 'bottom')}
+        <SpacingInput value={bottom} onChange={onBottomChange} position="bottom" label={outerLabel} sizes={sizes} />
       </div>
     </div>
   );
@@ -173,10 +273,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           bottom={responsive.marginBottom?.[currentViewport] || ''}
           left={responsive.marginLeft?.[currentViewport] || ''}
           right={responsive.marginRight?.[currentViewport] || ''}
-          onTopChange={(v) => updateResponsiveSetting('marginTop', currentViewport, v as SpacingSize)}
-          onBottomChange={(v) => updateResponsiveSetting('marginBottom', currentViewport, v as SpacingSize)}
-          onLeftChange={(v) => updateResponsiveSetting('marginLeft', currentViewport, v as SpacingSize)}
-          onRightChange={(v) => updateResponsiveSetting('marginRight', currentViewport, v as SpacingSize)}
+          onTopChange={(v) => updateResponsiveSetting('marginTop', currentViewport, v as SpacingValue)}
+          onBottomChange={(v) => updateResponsiveSetting('marginBottom', currentViewport, v as SpacingValue)}
+          onLeftChange={(v) => updateResponsiveSetting('marginLeft', currentViewport, v as SpacingValue)}
+          onRightChange={(v) => updateResponsiveSetting('marginRight', currentViewport, v as SpacingValue)}
           sizes={spacingSizes}
           outerLabel="margin"
           color="blue"
@@ -191,10 +291,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           bottom={responsive.paddingBottom?.[currentViewport] || ''}
           left={responsive.paddingLeft?.[currentViewport] || ''}
           right={responsive.paddingRight?.[currentViewport] || ''}
-          onTopChange={(v) => updateResponsiveSetting('paddingTop', currentViewport, v as SpacingSize)}
-          onBottomChange={(v) => updateResponsiveSetting('paddingBottom', currentViewport, v as SpacingSize)}
-          onLeftChange={(v) => updateResponsiveSetting('paddingLeft', currentViewport, v as SpacingSize)}
-          onRightChange={(v) => updateResponsiveSetting('paddingRight', currentViewport, v as SpacingSize)}
+          onTopChange={(v) => updateResponsiveSetting('paddingTop', currentViewport, v as SpacingValue)}
+          onBottomChange={(v) => updateResponsiveSetting('paddingBottom', currentViewport, v as SpacingValue)}
+          onLeftChange={(v) => updateResponsiveSetting('paddingLeft', currentViewport, v as SpacingValue)}
+          onRightChange={(v) => updateResponsiveSetting('paddingRight', currentViewport, v as SpacingValue)}
           sizes={spacingSizes}
           outerLabel="padding"
           color="green"
