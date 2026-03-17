@@ -105,14 +105,6 @@ export function HomeClient() {
                       </Button>
                     </div>
                   </FadeIn>
-                  <FadeIn delay={0.6}>
-                    <div className="mt-12 flex items-center gap-6 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <span className="material-icons text-accent-secondary text-lg">check_circle</span>
-                        <span>10+ Years Experience</span>
-                      </div>
-                    </div>
-                  </FadeIn>
                 </div>
 
                 {/* Right — visual mockup */}
