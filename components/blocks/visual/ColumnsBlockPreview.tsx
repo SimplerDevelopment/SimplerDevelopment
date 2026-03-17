@@ -150,9 +150,22 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     if (!draggedColumnId || draggedColumnId === columnId) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const midpoint = rect.left + rect.width / 2;
-    const position = e.clientX < midpoint ? 'left' : 'right';
-    setDropColumnTarget({ columnId, position });
+    // Use vertical midpoint when stacked, horizontal when side-by-side
+    const stackOnMobile = block.stackOnMobile !== false;
+    const stackOnTablet = block.stackOnTablet === true;
+    const isStacked =
+      (currentViewport === 'mobile' && stackOnMobile) ||
+      (currentViewport === 'tablet' && stackOnTablet);
+
+    if (isStacked) {
+      const midpoint = rect.top + rect.height / 2;
+      const position = e.clientY < midpoint ? 'left' : 'right'; // left=above, right=below
+      setDropColumnTarget({ columnId, position });
+    } else {
+      const midpoint = rect.left + rect.width / 2;
+      const position = e.clientX < midpoint ? 'left' : 'right';
+      setDropColumnTarget({ columnId, position });
+    }
   };
 
   const handleColumnDrop = (e: React.DragEvent) => {
@@ -438,9 +451,11 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
 
           return (
           <React.Fragment key={columnId}>
-            {/* Drop indicator - left */}
+            {/* Drop indicator - left/top */}
             {isColumnDropTarget && dropColumnTarget?.position === 'left' && (
-              <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
+              shouldStack
+                ? <div className="h-1 bg-primary rounded-full w-full flex-shrink-0" />
+                : <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
             )}
             <div
               className={`rounded-lg relative group flex flex-col ${verticalAlignClass} ${column.cssClass || ''} ${
@@ -807,25 +822,35 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
             )}
           </div>
 
-          {/* Drop indicator - right */}
+          {/* Drop indicator - right/bottom */}
           {isColumnDropTarget && dropColumnTarget?.position === 'right' && (
-            <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
+            shouldStack
+              ? <div className="h-1 bg-primary rounded-full w-full flex-shrink-0" />
+              : <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
           )}
 
-          {/* Resize Handle */}
+          {/* Resize / Divider Handle */}
           {columnIndex < block.columns.length - 1 && isSelected && (
-            <div
-              className="relative flex items-center justify-center cursor-col-resize group/resize"
-              style={{ width: '16px', marginLeft: `-${gapValue / 2}px`, marginRight: `-${gapValue / 2}px` }}
-              onMouseDown={(e) => startResize(columnIndex, e)}
-            >
-              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-border group-hover/resize:bg-primary transition-colors rounded-full" />
-              <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-4 opacity-0 group-hover/resize:opacity-100 transition-opacity">
-                <div className="h-full w-full flex items-center justify-center">
-                  <div className="w-1 h-8 bg-primary rounded-full" />
+            shouldStack ? (
+              /* Horizontal divider when stacked - visual separator only (no resize in stacked mode) */
+              <div className="relative flex items-center justify-center my-1" style={{ height: '12px' }}>
+                <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-px bg-border rounded-full" />
+              </div>
+            ) : (
+              /* Vertical divider when side-by-side */
+              <div
+                className="relative flex items-center justify-center cursor-col-resize group/resize"
+                style={{ width: '16px', marginLeft: `-${gapValue / 2}px`, marginRight: `-${gapValue / 2}px` }}
+                onMouseDown={(e) => startResize(columnIndex, e)}
+              >
+                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-border group-hover/resize:bg-primary transition-colors rounded-full" />
+                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-4 opacity-0 group-hover/resize:opacity-100 transition-opacity">
+                  <div className="h-full w-full flex items-center justify-center">
+                    <div className="w-1 h-8 bg-primary rounded-full" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
           </React.Fragment>
           );
