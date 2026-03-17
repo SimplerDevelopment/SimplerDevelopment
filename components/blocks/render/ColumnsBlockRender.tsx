@@ -18,27 +18,46 @@ interface ColumnsBlockRenderProps {
 }
 
 export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
+  // Try to get editor viewport context (available in inline preview, not on real pages)
+  let editorViewport: string | null = null;
+  try {
+    const { useBlockEditor } = require('@/contexts/BlockEditorContext');
+    const ctx = useBlockEditor();
+    editorViewport = ctx.currentViewport;
+  } catch {
+    // Not in editor context — use CSS-based responsive approach
+  }
+
   const gapClasses = {
     sm: 'gap-4',
     md: 'gap-6',
     lg: 'gap-8',
   };
 
-  // Generate responsive stacking classes
-  const stackOnMobile = block.stackOnMobile !== false; // Default to true
-  const stackOnTablet = block.stackOnTablet === true; // Default to false
+  const stackOnMobile = block.stackOnMobile !== false;
+  const stackOnTablet = block.stackOnTablet === true;
 
-  const stackingClasses = stackOnMobile
-    ? stackOnTablet
-      ? 'flex-col lg:flex-row' // Stack on mobile and tablet, row on desktop
-      : 'flex-col md:flex-row' // Stack on mobile, row on tablet and desktop
-    : 'flex-row'; // Never stack
+  // If in editor context, use JS-driven stacking based on viewport selector
+  const shouldStackFromEditor = editorViewport
+    ? (editorViewport === 'mobile' && stackOnMobile) || (editorViewport === 'tablet' && stackOnTablet)
+    : null;
 
-  const colStackAttr = stackOnMobile
-    ? stackOnTablet
-      ? 'data-col-stacks-lg'
-      : 'data-col-stacks-md'
-    : 'data-col-stacks-never';
+  // CSS classes for real page rendering (no editor context)
+  const stackingClasses = shouldStackFromEditor !== null
+    ? (shouldStackFromEditor ? 'flex-col' : 'flex-row')
+    : stackOnMobile
+      ? stackOnTablet
+        ? 'flex-col lg:flex-row'
+        : 'flex-col md:flex-row'
+      : 'flex-row';
+
+  const colStackAttr = shouldStackFromEditor !== null
+    ? null // Don't need data attr when using JS-driven stacking
+    : stackOnMobile
+      ? stackOnTablet
+        ? 'data-col-stacks-lg'
+        : 'data-col-stacks-md'
+      : 'data-col-stacks-never';
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
@@ -66,11 +85,17 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
             <div
               key={column.id}
               className={`${paddingClass} ${verticalAlignClass} ${column.cssClass || ''}`}
-              {...{ [colStackAttr]: '' }}
+              {...(colStackAttr ? { [colStackAttr]: '' } : {})}
               style={{
-                '--col-width': `${column.width}%`,
+                ...(shouldStackFromEditor !== null
+                  ? {
+                      width: shouldStackFromEditor ? '100%' : `${column.width}%`,
+                      flex: shouldStackFromEditor ? '0 0 100%' : `0 0 ${column.width}%`,
+                    }
+                  : { '--col-width': `${column.width}%` } as React.CSSProperties
+                ),
                 ...(column.backgroundColor ? { backgroundColor: column.backgroundColor } : {}),
-              } as React.CSSProperties}
+              }}
             >
               {column.blocks.map((nestedBlock) => (
                 <div key={nestedBlock.id}>
