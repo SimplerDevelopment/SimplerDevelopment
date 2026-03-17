@@ -9,6 +9,100 @@ interface StyleSettingsProps {
   currentViewport: Breakpoint;
 }
 
+const pxSizes = ['', '0', '0.25rem', '0.5rem', '0.75rem', '1rem', '1.5rem', '2rem', '3rem', '4rem'];
+const pxLabels: Record<string, string> = {
+  '': '-', '0': '0', '0.25rem': '4', '0.5rem': '8', '0.75rem': '12',
+  '1rem': '16', '1.5rem': '24', '2rem': '32', '3rem': '48', '4rem': '64',
+};
+
+function parseSide(shorthand: string | undefined, side: 'top' | 'right' | 'bottom' | 'left'): string {
+  if (!shorthand) return '';
+  const parts = shorthand.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return side === 'top' || side === 'bottom' ? parts[0] : parts[1];
+  if (parts.length === 3) {
+    if (side === 'top') return parts[0];
+    if (side === 'left' || side === 'right') return parts[1];
+    return parts[2];
+  }
+  if (parts.length === 4) {
+    return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] }[side];
+  }
+  return parts[0];
+}
+
+function buildShorthand(top: string, right: string, bottom: string, left: string): string {
+  const t = top || '0', r = right || '0', b = bottom || '0', l = left || '0';
+  if (t === '0' && r === '0' && b === '0' && l === '0') return '';
+  if (t === r && r === b && b === l) return t;
+  if (t === b && r === l) return `${t} ${r}`;
+  if (r === l) return `${t} ${r} ${b}`;
+  return `${t} ${r} ${b} ${l}`;
+}
+
+interface BoxModelControlProps {
+  top: string;
+  right: string;
+  bottom: string;
+  left: string;
+  onTopChange: (v: string) => void;
+  onRightChange: (v: string) => void;
+  onBottomChange: (v: string) => void;
+  onLeftChange: (v: string) => void;
+  sizes: string[];
+  outerLabel: string;
+  color: 'blue' | 'green' | 'orange';
+}
+
+function BoxModelControl({ top, right, bottom, left, onTopChange, onRightChange, onBottomChange, onLeftChange, sizes, outerLabel, color }: BoxModelControlProps) {
+  const borderColor = color === 'blue' ? 'border-blue-400/50' : color === 'green' ? 'border-green-400/50' : 'border-orange-400/50';
+  const bgColor = color === 'blue' ? 'bg-blue-500/5' : color === 'green' ? 'bg-green-500/5' : 'bg-orange-500/5';
+  const labelColor = color === 'blue' ? 'text-blue-400/60' : color === 'green' ? 'text-green-400/60' : 'text-orange-400/60';
+
+  const renderSelect = (value: string, onChange: (v: string) => void, position: string) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-14 text-[10px] text-center rounded border border-border bg-background px-0.5 py-1 text-foreground appearance-none cursor-pointer"
+      title={`${outerLabel}-${position}`}
+    >
+      {sizes.map((size) => (
+        <option key={size} value={size}>
+          {pxLabels[size] !== undefined ? pxLabels[size] : size || '-'}
+        </option>
+      ))}
+    </select>
+  );
+
+  return (
+    <div className={`relative border ${borderColor} ${bgColor} rounded-md p-1`}>
+      {/* Label */}
+      <span className={`absolute top-1 left-2 text-[9px] uppercase tracking-wider ${labelColor}`}>
+        {outerLabel}
+      </span>
+
+      {/* Top */}
+      <div className="flex justify-center pt-3 pb-1">
+        {renderSelect(top, onTopChange, 'top')}
+      </div>
+
+      {/* Left - Content - Right */}
+      <div className="flex items-center justify-between px-1">
+        {renderSelect(left, onLeftChange, 'left')}
+        <div className="flex-1 mx-2 h-8 border border-border/50 rounded bg-background/50 flex items-center justify-center">
+          <span className="text-[9px] text-muted-foreground/50">content</span>
+        </div>
+        {renderSelect(right, onRightChange, 'right')}
+      </div>
+
+      {/* Bottom */}
+      <div className="flex justify-center pt-1 pb-1">
+        {renderSelect(bottom, onBottomChange, 'bottom')}
+      </div>
+    </div>
+  );
+}
+
 export function StyleSettings({ block, onChange, currentViewport }: StyleSettingsProps) {
   // Get current style values or defaults
   const style = typeof block.style === 'object' ? block.style : {};
@@ -71,108 +165,40 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         </p>
       </div>
 
-      {/* Responsive Padding */}
+      {/* Margin - Box Model Control */}
       <div>
-        <label className="block text-sm font-semibold text-foreground mb-3">Responsive Padding</label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Top</label>
-            <select
-              value={responsive.paddingTop?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('paddingTop', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Bottom</label>
-            <select
-              value={responsive.paddingBottom?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('paddingBottom', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Left</label>
-            <select
-              value={responsive.paddingLeft?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('paddingLeft', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Right</label>
-            <select
-              value={responsive.paddingRight?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('paddingRight', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Margin</label>
+        <BoxModelControl
+          top={responsive.marginTop?.[currentViewport] || ''}
+          bottom={responsive.marginBottom?.[currentViewport] || ''}
+          left={responsive.marginLeft?.[currentViewport] || ''}
+          right={responsive.marginRight?.[currentViewport] || ''}
+          onTopChange={(v) => updateResponsiveSetting('marginTop', currentViewport, v as SpacingSize)}
+          onBottomChange={(v) => updateResponsiveSetting('marginBottom', currentViewport, v as SpacingSize)}
+          onLeftChange={(v) => updateResponsiveSetting('marginLeft', currentViewport, v as SpacingSize)}
+          onRightChange={(v) => updateResponsiveSetting('marginRight', currentViewport, v as SpacingSize)}
+          sizes={spacingSizes}
+          outerLabel="margin"
+          color="blue"
+        />
       </div>
 
-      {/* Responsive Margin */}
+      {/* Padding - Box Model Control */}
       <div>
-        <label className="block text-sm font-semibold text-foreground mb-3">Responsive Margin</label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Top</label>
-            <select
-              value={responsive.marginTop?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('marginTop', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Bottom</label>
-            <select
-              value={responsive.marginBottom?.[currentViewport] || ''}
-              onChange={(e) => updateResponsiveSetting('marginBottom', currentViewport, e.target.value as SpacingSize)}
-              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">Default</option>
-              {spacingSizes.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Padding</label>
+        <BoxModelControl
+          top={responsive.paddingTop?.[currentViewport] || ''}
+          bottom={responsive.paddingBottom?.[currentViewport] || ''}
+          left={responsive.paddingLeft?.[currentViewport] || ''}
+          right={responsive.paddingRight?.[currentViewport] || ''}
+          onTopChange={(v) => updateResponsiveSetting('paddingTop', currentViewport, v as SpacingSize)}
+          onBottomChange={(v) => updateResponsiveSetting('paddingBottom', currentViewport, v as SpacingSize)}
+          onLeftChange={(v) => updateResponsiveSetting('paddingLeft', currentViewport, v as SpacingSize)}
+          onRightChange={(v) => updateResponsiveSetting('paddingRight', currentViewport, v as SpacingSize)}
+          sizes={spacingSizes}
+          outerLabel="padding"
+          color="green"
+        />
       </div>
 
       {/* Responsive Font Size (for text-based blocks) */}
@@ -394,42 +420,42 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         </div>
       </div>
 
-      {/* Spacing */}
+      {/* Spacing - Static (non-responsive) */}
       <div>
-        <label className="block text-sm font-semibold text-foreground mb-3">Spacing</label>
+        <label className="block text-sm font-semibold text-foreground mb-3">Static Spacing</label>
+        <p className="text-xs text-muted-foreground mb-3">Applied at all breakpoints. Use responsive spacing above for per-breakpoint control.</p>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Padding</label>
-            <select
-              value={style.padding || ''}
-              onChange={(e) => updateStyle('padding', e.target.value)}
-              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-            >
-              <option value="">None</option>
-              <option value="0.5rem">XS (8px)</option>
-              <option value="1rem">SM (16px)</option>
-              <option value="1.5rem">MD (24px)</option>
-              <option value="2rem">LG (32px)</option>
-              <option value="3rem">XL (48px)</option>
-              <option value="4rem">2XL (64px)</option>
-            </select>
+            <label className="block text-xs text-muted-foreground mb-1.5">Padding (all sides)</label>
+            <BoxModelControl
+              top={parseSide(style.padding, 'top')}
+              right={parseSide(style.padding, 'right')}
+              bottom={parseSide(style.padding, 'bottom')}
+              left={parseSide(style.padding, 'left')}
+              onTopChange={(v) => updateStyle('padding', buildShorthand(v, parseSide(style.padding, 'right'), parseSide(style.padding, 'bottom'), parseSide(style.padding, 'left')))}
+              onRightChange={(v) => updateStyle('padding', buildShorthand(parseSide(style.padding, 'top'), v, parseSide(style.padding, 'bottom'), parseSide(style.padding, 'left')))}
+              onBottomChange={(v) => updateStyle('padding', buildShorthand(parseSide(style.padding, 'top'), parseSide(style.padding, 'right'), v, parseSide(style.padding, 'left')))}
+              onLeftChange={(v) => updateStyle('padding', buildShorthand(parseSide(style.padding, 'top'), parseSide(style.padding, 'right'), parseSide(style.padding, 'bottom'), v))}
+              sizes={pxSizes}
+              outerLabel="padding"
+              color="green"
+            />
           </div>
-
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Margin</label>
-            <select
-              value={style.margin || ''}
-              onChange={(e) => updateStyle('margin', e.target.value)}
-              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-            >
-              <option value="">None</option>
-              <option value="0.5rem">XS (8px)</option>
-              <option value="1rem">SM (16px)</option>
-              <option value="1.5rem">MD (24px)</option>
-              <option value="2rem">LG (32px)</option>
-              <option value="3rem">XL (48px)</option>
-              <option value="4rem">2XL (64px)</option>
-            </select>
+            <label className="block text-xs text-muted-foreground mb-1.5">Margin (all sides)</label>
+            <BoxModelControl
+              top={parseSide(style.margin, 'top')}
+              right={parseSide(style.margin, 'right')}
+              bottom={parseSide(style.margin, 'bottom')}
+              left={parseSide(style.margin, 'left')}
+              onTopChange={(v) => updateStyle('margin', buildShorthand(v, parseSide(style.margin, 'right'), parseSide(style.margin, 'bottom'), parseSide(style.margin, 'left')))}
+              onRightChange={(v) => updateStyle('margin', buildShorthand(parseSide(style.margin, 'top'), v, parseSide(style.margin, 'bottom'), parseSide(style.margin, 'left')))}
+              onBottomChange={(v) => updateStyle('margin', buildShorthand(parseSide(style.margin, 'top'), parseSide(style.margin, 'right'), v, parseSide(style.margin, 'left')))}
+              onLeftChange={(v) => updateStyle('margin', buildShorthand(parseSide(style.margin, 'top'), parseSide(style.margin, 'right'), parseSide(style.margin, 'bottom'), v))}
+              sizes={pxSizes}
+              outerLabel="margin"
+              color="blue"
+            />
           </div>
         </div>
       </div>
