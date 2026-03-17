@@ -181,7 +181,9 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
                 return (
                   <div key={tabBlock.id} className="relative group/block">
                     <div
-                      className={isSelected ? "rounded border border-border bg-card overflow-hidden" : "overflow-hidden"}
+                      className={`${isSelected ? "rounded border bg-card overflow-hidden" : "overflow-hidden"} ${
+                        isNestedBlockSelected ? 'border-primary ring-2 ring-primary ring-offset-1 ring-offset-background' : 'border-border'
+                      } cursor-pointer transition-all`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onSelectBlock) {

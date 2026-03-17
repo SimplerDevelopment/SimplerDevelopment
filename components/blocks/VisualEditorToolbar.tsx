@@ -1,9 +1,47 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
 
 export function VisualEditorToolbar() {
   const { state, undo, redo, togglePreviewMode } = useBlockEditor();
+  const previewChannelRef = useRef<BroadcastChannel | null>(null);
+
+  // Keep a BroadcastChannel open to send live updates to the preview tab
+  useEffect(() => {
+    previewChannelRef.current = new BroadcastChannel('block-editor-preview');
+    return () => previewChannelRef.current?.close();
+  }, []);
+
+  // Send block updates to preview tab whenever blocks change
+  useEffect(() => {
+    previewChannelRef.current?.postMessage({
+      type: 'BLOCKS_UPDATE',
+      blocks: state.blocks,
+    });
+  }, [state.blocks]);
+
+  const openFullPreview = () => {
+    // Store current blocks in sessionStorage for the preview page to read
+    sessionStorage.setItem('previewBlocks', JSON.stringify(state.blocks));
+
+    // Try to get the post title from the page
+    const titleEl = document.querySelector('[data-post-title]');
+    const title = titleEl?.textContent || document.title || 'Preview';
+    sessionStorage.setItem('previewTitle', title);
+
+    // Also send via BroadcastChannel for live updates
+    previewChannelRef.current?.postMessage({
+      type: 'BLOCKS_UPDATE',
+      blocks: state.blocks,
+    });
+    previewChannelRef.current?.postMessage({
+      type: 'TITLE_UPDATE',
+      title,
+    });
+
+    window.open('/preview/live', '_blank');
+  };
 
   return (
     <div className="flex items-center gap-2">
@@ -33,12 +71,16 @@ export function VisualEditorToolbar() {
         </svg>
       </button>
 
-      {/* Preview Toggle Button */}
+      {/* Inline Preview Toggle */}
       <button
         type="button"
         onClick={() => togglePreviewMode()}
-        className="flex items-center justify-center px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
-        title={state.previewMode ? 'Exit Preview (Cmd+Shift+P)' : 'Preview (Cmd+Shift+P)'}
+        className={`flex items-center justify-center px-3 py-1.5 text-xs rounded border transition-colors ${
+          state.previewMode
+            ? 'border-primary bg-primary/10 text-primary'
+            : 'border-border hover:bg-accent'
+        }`}
+        title={state.previewMode ? 'Exit Preview' : 'Inline Preview'}
       >
         {state.previewMode ? (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,6 +92,19 @@ export function VisualEditorToolbar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
         )}
+      </button>
+
+      {/* Full Page Preview Button */}
+      <button
+        type="button"
+        onClick={openFullPreview}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-border hover:bg-accent transition-colors"
+        title="Full Page Preview (opens in new tab)"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        <span className="hidden sm:inline">Preview</span>
       </button>
     </div>
   );

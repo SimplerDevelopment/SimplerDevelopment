@@ -1,7 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ColumnsBlockPreview } from '@/components/blocks/visual/ColumnsBlockPreview';
 import { ColumnsBlock } from '@/types/blocks';
+
+// Mock the blog actions module to avoid DATABASE_URL requirement
+vi.mock('@/lib/actions/blog', () => ({
+  getAllBlogPosts: vi.fn().mockResolvedValue([]),
+  getBlogPostsByCategory: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/lib/db', () => ({
+  db: {},
+}));
+
+import { ColumnsBlockPreview } from '@/components/blocks/visual/ColumnsBlockPreview';
 
 describe('ColumnsBlockPreview', () => {
   it('renders columns with unique keys', () => {

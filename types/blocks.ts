@@ -81,6 +81,11 @@ export interface Column {
   id: string;
   width: number; // Percentage or fraction (e.g., 50 for 50%, or 1/2)
   blocks: Block[];
+  // Per-column settings
+  backgroundColor?: string;
+  padding?: 'none' | 'sm' | 'md' | 'lg';
+  verticalAlign?: 'top' | 'center' | 'bottom';
+  cssClass?: string;
 }
 
 export interface CodeBlock extends BaseBlock {

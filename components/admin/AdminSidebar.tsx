@@ -46,6 +46,7 @@ export default function AdminSidebar() {
         { href: '/admin/tags', label: 'Tags', icon: 'label' },
       ],
     },
+    { href: '/admin/templates', label: 'Templates', icon: 'bookmark' },
     { href: '/admin/media', label: 'Media', icon: 'perm_media' },
     { href: '/admin/users', label: 'Users', icon: 'group' },
   ];

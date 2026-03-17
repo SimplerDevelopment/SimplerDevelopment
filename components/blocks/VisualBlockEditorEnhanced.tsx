@@ -10,6 +10,8 @@ import { Breakpoint } from '@/types/responsive';
 import { getViewportWidth } from '@/lib/utils/responsive';
 import { ResponsiveIndicator } from './ResponsiveIndicator';
 import { ResponsiveHelpButton } from './ResponsiveHelpModal';
+import { SaveAsTemplateModal } from './SaveAsTemplateModal';
+import { TemplateLibrary } from './TemplateLibrary';
 import {
   DndContext,
   closestCenter,
@@ -42,6 +44,8 @@ function SortableBlock({
   block,
   isSelected,
   isHovered,
+  hasNestedSelection,
+  selectedBlockId,
   index,
   totalBlocks,
   onSelect,
@@ -51,11 +55,14 @@ function SortableBlock({
   onMove,
   onDuplicate,
   onInsertAfter,
+  onSaveAsTemplate,
   blockTypes,
 }: {
   block: Block;
   isSelected: boolean;
   isHovered: boolean;
+  hasNestedSelection: boolean;
+  selectedBlockId: string | null;
   index: number;
   totalBlocks: number;
   onSelect: (id: string | null) => void;
@@ -65,6 +72,7 @@ function SortableBlock({
   onMove: (id: string, direction: 'up' | 'down') => void;
   onDuplicate: (id: string) => void;
   onInsertAfter: (id: string) => void;
+  onSaveAsTemplate: (block: Block) => void;
   blockTypes: Array<{ type: BlockType; label: string }>;
 }) {
   const {
@@ -109,6 +117,19 @@ function SortableBlock({
             <span className="text-xs font-medium text-muted-foreground">
               {blockTypes.find((bt) => bt.type === block.type)?.label || block.type}
             </span>
+            {hasNestedSelection && !isSelected && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(block.id);
+                }}
+                className="ml-1 px-2 py-0.5 text-xs bg-accent hover:bg-accent/80 rounded transition-colors"
+                title="Select container"
+              >
+                Select container
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1">
@@ -147,6 +168,16 @@ function SortableBlock({
             </button>
             <button
               type="button"
+              onClick={() => onSaveAsTemplate(block)}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+              title="Save as template"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </button>
+            <button
+              type="button"
               onClick={() => onDelete(block.id)}
               className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
               title="Delete"
@@ -161,10 +192,16 @@ function SortableBlock({
 
       {/* Block Content */}
       <div
-        onClick={() => onSelect(block.id)}
+        onClick={(e) => {
+          // For container blocks, nested block clicks are stopped by e.stopPropagation().
+          // This handler fires for clicks on empty container space.
+          onSelect(block.id);
+        }}
         className={`rounded-lg transition-all cursor-pointer relative ${
           isSelected
             ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+            : hasNestedSelection
+            ? 'ring-2 ring-primary/40 ring-offset-2 ring-offset-background'
             : isHovered
             ? 'ring-2 ring-border'
             : ''
@@ -173,9 +210,9 @@ function SortableBlock({
         <ResponsiveIndicator block={block} />
         <VisualBlockPreview
           block={block}
-          isSelected={isSelected}
+          isSelected={isSelected || hasNestedSelection}
           onChange={(updates) => onUpdate(block.id, updates)}
-          selectedBlockId={isSelected ? block.id : null}
+          selectedBlockId={selectedBlockId}
           onSelectBlock={onSelect}
         />
       </div>
@@ -228,6 +265,8 @@ export function EditorInner({
   }, [selectedBlockId, selectBlock]);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [showBlockInserter, setShowBlockInserter] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [saveTemplateBlock, setSaveTemplateBlock] = useState<Block | null>(null);
   const [insertAfterBlockId, setInsertAfterBlockId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -263,8 +302,49 @@ export function EditorInner({
           return false;
         },
       },
+      {
+        keys: 'mod+d',
+        description: 'Duplicate block',
+        handler: () => {
+          if (selectedBlockId) duplicateBlock(selectedBlockId);
+          return false;
+        },
+      },
+      {
+        keys: 'mod+enter',
+        description: 'Insert block after selected',
+        handler: () => {
+          if (selectedBlockId) {
+            setInsertAfterBlockId(selectedBlockId);
+            setShowBlockInserter(true);
+          }
+          return false;
+        },
+      },
+      {
+        keys: 'mod+shift+up',
+        description: 'Move block up',
+        handler: () => {
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            if (idx > 0) reorderBlocks(idx, idx - 1);
+          }
+          return false;
+        },
+      },
+      {
+        keys: 'mod+shift+down',
+        description: 'Move block down',
+        handler: () => {
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            if (idx >= 0 && idx < state.blocks.length - 1) reorderBlocks(idx, idx + 1);
+          }
+          return false;
+        },
+      },
     ],
-    [undo, redo, state.canUndo, state.canRedo]
+    [undo, redo, state.canUndo, state.canRedo, selectedBlockId, duplicateBlock, reorderBlocks, state.blocks]
   );
 
   // Sync blocks to parent
@@ -348,6 +428,24 @@ export function EditorInner({
     return null;
   };
 
+  // Check if a nested block within a container is selected
+  const isNestedBlockSelected = (containerBlock: Block): boolean => {
+    if (!selectedBlockId) return false;
+    if (selectedBlockId === containerBlock.id) return false;
+
+    if (containerBlock.type === 'columns') {
+      return containerBlock.columns.some(col =>
+        col.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    if (containerBlock.type === 'tabs') {
+      return containerBlock.tabs.some(tab =>
+        tab.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    return false;
+  };
+
   const categories = Array.from(new Set(blockTypes.map((bt) => bt.category)));
   const selectedBlock = selectedBlockId ? findBlock(selectedBlockId) : null;
   const activeBlock = state.blocks.find((b) => b.id === activeId);
@@ -394,6 +492,8 @@ export function EditorInner({
                       block={block}
                       isSelected={selectedBlockId === block.id}
                       isHovered={hoveredBlockId === block.id}
+                      hasNestedSelection={isNestedBlockSelected(block)}
+                      selectedBlockId={selectedBlockId}
                       index={index}
                       totalBlocks={state.blocks.length}
                       onSelect={setSelectedBlockId}
@@ -406,6 +506,7 @@ export function EditorInner({
                         setInsertAfterBlockId(id);
                         setShowBlockInserter(true);
                       }}
+                      onSaveAsTemplate={(block) => setSaveTemplateBlock(block)}
                       blockTypes={blockTypes}
                     />
                   ))}
@@ -478,18 +579,34 @@ export function EditorInner({
             <div className="p-6 border-b border-border bg-white dark:bg-gray-900">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-foreground">Add a Block</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBlockInserter(false);
-                    setInsertAfterBlockId(null);
-                  }}
-                  className="p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBlockInserter(false);
+                      setInsertAfterBlockId(null);
+                      setShowTemplateLibrary(true);
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-primary border border-primary rounded-md hover:bg-primary/10 transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    From Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBlockInserter(false);
+                      setInsertAfterBlockId(null);
+                    }}
+                    className="p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -526,6 +643,44 @@ export function EditorInner({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Template Library Modal */}
+      {showTemplateLibrary && (
+        <TemplateLibrary
+          onInsert={(templateBlocks) => {
+            // Insert template blocks into the editor
+            const newBlocks = [...state.blocks];
+            const insertIndex = insertAfterBlockId
+              ? newBlocks.findIndex((b) => b.id === insertAfterBlockId) + 1
+              : newBlocks.length;
+
+            // Update order for inserted blocks
+            const updatedBlocks = [
+              ...newBlocks.slice(0, insertIndex),
+              ...templateBlocks.map((b, i) => ({ ...b, order: insertIndex + i })),
+              ...newBlocks.slice(insertIndex).map((b, i) => ({ ...b, order: insertIndex + templateBlocks.length + i })),
+            ];
+
+            setBlocks(updatedBlocks);
+            setInsertAfterBlockId(null);
+            if (templateBlocks.length === 1) {
+              setSelectedBlockId(templateBlocks[0].id);
+            }
+          }}
+          onClose={() => {
+            setShowTemplateLibrary(false);
+            setInsertAfterBlockId(null);
+          }}
+        />
+      )}
+
+      {/* Save As Template Modal */}
+      {saveTemplateBlock && (
+        <SaveAsTemplateModal
+          blocks={[saveTemplateBlock]}
+          onClose={() => setSaveTemplateBlock(null)}
+        />
       )}
     </div>
   );

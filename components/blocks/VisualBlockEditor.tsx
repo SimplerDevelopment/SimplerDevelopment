@@ -177,6 +177,24 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
   }, []);
 
   const categories = Array.from(new Set(blockTypes.map(bt => bt.category)));
+  // Check if a nested block within a container is selected
+  const isNestedBlockSelected = (containerBlock: Block): boolean => {
+    if (!selectedBlockId) return false;
+    if (selectedBlockId === containerBlock.id) return false; // It's the container itself
+
+    if (containerBlock.type === 'columns') {
+      return containerBlock.columns.some(col =>
+        col.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    if (containerBlock.type === 'tabs') {
+      return containerBlock.tabs.some(tab =>
+        tab.blocks.some(b => b.id === selectedBlockId || isNestedBlockSelected(b))
+      );
+    }
+    return false;
+  };
+
   const selectedBlock = selectedBlockId ? findBlock(selectedBlockId) : null;
 
   return (
@@ -218,20 +236,40 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
               }
             }}
           >
-            {blocks.map((block, index) => (
+            {blocks.map((block, index) => {
+              const isContainerBlock = block.type === 'columns' || block.type === 'tabs';
+              const isBlockSelected = selectedBlockId === block.id;
+              const hasNestedSelection = isContainerBlock && isNestedBlockSelected(block);
+              // Keep container "active" (showing editing UI) when it or a child is selected
+              const isBlockActive = isBlockSelected || hasNestedSelection;
+
+              return (
               <div
                 key={block.id}
                 className="group relative"
                 onMouseEnter={() => setHoveredBlockId(block.id)}
                 onMouseLeave={() => setHoveredBlockId(null)}
               >
-                {/* Block Toolbar */}
-                {(selectedBlockId === block.id || hoveredBlockId === block.id) && (
+                {/* Block Toolbar - show for the block itself, or for container when directly selected */}
+                {(isBlockSelected || hoveredBlockId === block.id) && (
                   <div className="absolute -top-10 left-0 right-0 flex items-center justify-between gap-2 bg-card border border-border rounded-t-lg px-3 py-2 shadow-lg z-10">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span className="font-medium">
                         {blockTypes.find(bt => bt.type === block.type)?.label || block.type}
                       </span>
+                      {hasNestedSelection && !isBlockSelected && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBlockId(block.id);
+                          }}
+                          className="ml-2 px-2 py-0.5 text-xs bg-accent hover:bg-accent/80 rounded transition-colors"
+                          title="Select container"
+                        >
+                          Select container
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -285,20 +323,19 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
                 {/* Block Content */}
                 <div
                   onClick={(e) => {
-                    // For blocks with nested blocks, only select if clicking the container itself
-                    // not nested content. Nested blocks will call onSelectBlock directly.
-                    if (block.type === 'columns' || block.type === 'tabs') {
-                      // For blocks with nested blocks, only select on direct clicks
-                      // Nested blocks handle their own selection
+                    if (isContainerBlock) {
+                      // For container blocks, select the container when clicking empty space.
+                      // Nested block clicks are stopped by e.stopPropagation() in their handlers.
+                      setSelectedBlockId(block.id);
                       return;
                     }
                     setSelectedBlockId(block.id);
                   }}
-                  className={`rounded-lg transition-all ${
-                    block.type !== 'columns' && block.type !== 'tabs' ? 'cursor-pointer' : ''
-                  } ${
-                    selectedBlockId === block.id
+                  className={`rounded-lg transition-all cursor-pointer ${
+                    isBlockSelected
                       ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                      : hasNestedSelection
+                      ? 'ring-2 ring-primary/40 ring-offset-2 ring-offset-background'
                       : hoveredBlockId === block.id
                       ? 'ring-2 ring-border'
                       : ''
@@ -306,7 +343,7 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
                 >
                   <VisualBlockPreview
                     block={block}
-                    isSelected={selectedBlockId === block.id}
+                    isSelected={isBlockActive}
                     onChange={(updates) => updateBlock(block.id, updates)}
                     selectedBlockId={selectedBlockId}
                     onSelectBlock={setSelectedBlockId}
@@ -338,7 +375,8 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Add Block at End */}
             {blocks.length > 0 && (

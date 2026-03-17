@@ -40,7 +40,7 @@ export function PostEditorLayout({ children, postTitle, onOpenSettings, editorCo
               </svg>
             </Link>
 
-            <h1 className="text-xl font-bold font-heading truncate">
+            <h1 className="text-xl font-bold font-heading truncate" data-post-title>
               {postTitle || 'New Post'}
             </h1>
           </div>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ColumnsBlock, Block, BlockType } from '@/types/blocks';
 import { VisualBlockPreview } from './VisualBlockPreview';
+import { useBlockEditor } from '@/contexts/BlockEditorContext';
 
 interface ColumnsBlockPreviewProps {
   block: ColumnsBlock;
@@ -13,12 +14,16 @@ interface ColumnsBlockPreviewProps {
 }
 
 export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlockId, onSelectBlock }: ColumnsBlockPreviewProps) {
+  const { currentViewport } = useBlockEditor();
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [showBlockInserter, setShowBlockInserter] = useState(false);
   const [insertIntoColumnId, setInsertIntoColumnId] = useState<string | null>(null);
   const [resizing, setResizing] = useState<{ index: number; startX: number; startWidths: number[] } | null>(null);
   const [draggedBlock, setDraggedBlock] = useState<{ columnId: string; blockId: string } | null>(null);
   const [dragOverBlock, setDragOverBlock] = useState<{ columnId: string; blockId: string; position: 'top' | 'bottom' } | null>(null);
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
+  const [dropColumnTarget, setDropColumnTarget] = useState<{ columnId: string; position: 'left' | 'right' } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const gapClasses = {
@@ -115,6 +120,60 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     newColumns.splice(columnIndex + 1, 0, copiedColumn);
 
     onChange({ columns: newColumns });
+  };
+
+  const reorderColumns = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const newColumns = [...block.columns];
+    const [moved] = newColumns.splice(fromIndex, 1);
+    newColumns.splice(toIndex, 0, moved);
+    onChange({ columns: newColumns });
+  };
+
+  const updateColumnSettings = (columnId: string, updates: Partial<typeof block.columns[0]>) => {
+    onChange({
+      columns: block.columns.map(col =>
+        col.id === columnId ? { ...col, ...updates } : col
+      ),
+    });
+  };
+
+  const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
+    e.stopPropagation();
+    setDraggedColumnId(columnId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleColumnDragOver = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedColumnId || draggedColumnId === columnId) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midpoint = rect.left + rect.width / 2;
+    const position = e.clientX < midpoint ? 'left' : 'right';
+    setDropColumnTarget({ columnId, position });
+  };
+
+  const handleColumnDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedColumnId || !dropColumnTarget) return;
+
+    const fromIndex = block.columns.findIndex(c => c.id === draggedColumnId);
+    let toIndex = block.columns.findIndex(c => c.id === dropColumnTarget.columnId);
+
+    if (dropColumnTarget.position === 'right') toIndex++;
+    if (fromIndex < toIndex) toIndex--;
+
+    reorderColumns(fromIndex, toIndex);
+    setDraggedColumnId(null);
+    setDropColumnTarget(null);
+  };
+
+  const handleColumnDragEnd = () => {
+    setDraggedColumnId(null);
+    setDropColumnTarget(null);
   };
 
   const addBlockToColumn = (columnId: string, blockType: BlockType) => {
@@ -349,15 +408,15 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
   const gapValue = block.gap === 'sm' ? 8 : block.gap === 'lg' ? 24 : 16;
   const effectiveGap = isSelected ? gapValue : 0;
 
-  // Generate responsive stacking classes
+  // Determine stacking based on editor viewport setting (not CSS media queries)
   const stackOnMobile = block.stackOnMobile !== false; // Default to true
   const stackOnTablet = block.stackOnTablet === true; // Default to false
 
-  const stackingClasses = stackOnMobile
-    ? stackOnTablet
-      ? 'flex-col lg:flex-row' // Stack on mobile and tablet, row on desktop
-      : 'flex-col md:flex-row' // Stack on mobile, row on tablet and desktop
-    : 'flex-row'; // Never stack
+  const shouldStack =
+    (currentViewport === 'mobile' && stackOnMobile) ||
+    (currentViewport === 'tablet' && stackOnTablet);
+
+  const stackingClasses = shouldStack ? 'flex-col' : 'flex-row';
 
   return (
     <div className="p-6">
@@ -369,29 +428,82 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
         {block.columns.map((column, columnIndex) => {
           // Ensure column has an ID
           const columnId = column.id || `col-temp-${columnIndex}`;
+          const isColumnDragging = draggedColumnId === columnId;
+          const isColumnDropTarget = dropColumnTarget?.columnId === columnId;
+
+          // Per-column padding
+          const columnPaddingClass = !isSelected ? '' : '';
+          const contentPadding = column.padding === 'sm' ? 'p-2' : column.padding === 'lg' ? 'p-6' : column.padding === 'md' ? 'p-4' : '';
+          const verticalAlignClass = column.verticalAlign === 'center' ? 'justify-center' : column.verticalAlign === 'bottom' ? 'justify-end' : 'justify-start';
 
           return (
           <React.Fragment key={columnId}>
+            {/* Drop indicator - left */}
+            {isColumnDropTarget && dropColumnTarget?.position === 'left' && (
+              <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
+            )}
             <div
-              className={`rounded-lg relative group ${
+              className={`rounded-lg relative group flex flex-col ${verticalAlignClass} ${column.cssClass || ''} ${
                 isSelected
-                  ? `border-2 p-3 min-h-[200px] bg-muted/10 ${
+                  ? `border-2 p-3 min-h-[200px] ${
                       selectedColumnId === column.id
-                        ? 'border-primary'
-                        : 'border-dashed border-border'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-dashed border-border bg-muted/10'
                     }`
-                  : 'p-0'
-              }`}
-              style={{ width: `${column.width}%` }}
+                  : `${contentPadding}`
+              } ${isColumnDragging ? 'opacity-40' : ''}`}
+              style={{
+                width: shouldStack ? '100%' : `${column.width}%`,
+                flex: shouldStack ? '0 0 100%' : `0 0 ${column.width}%`,
+                ...(column.backgroundColor ? { backgroundColor: column.backgroundColor } : {}),
+              }}
+              onClick={(e) => {
+                if (isSelected) {
+                  e.stopPropagation();
+                  setSelectedColumnId(column.id);
+                }
+              }}
+              onDragOver={(e) => {
+                if (draggedColumnId) handleColumnDragOver(e, columnId);
+              }}
+              onDrop={handleColumnDrop}
+              onDragEnd={handleColumnDragEnd}
             >
             {/* Column Header with Actions - Only show when selected */}
             {isSelected && (
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-border">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Column ({Math.round(column.width * 10) / 10}%)
-                </p>
+                <div className="flex items-center gap-1.5">
+                  {/* Drag handle for column reorder */}
+                  <div
+                    className="p-0.5 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
+                    draggable={true}
+                    onDragStart={(e) => handleColumnDragStart(e, column.id)}
+                    title="Drag to reorder column"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Col {columnIndex + 1} ({Math.round(column.width * 10) / 10}%)
+                  </p>
+                </div>
 
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingColumnId(editingColumnId === column.id ? null : column.id);
+                    }}
+                    className={`p-1 rounded transition-colors ${editingColumnId === column.id ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+                    title="Column settings"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -420,6 +532,90 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Column Settings Panel - Inline */}
+            {isSelected && editingColumnId === column.id && (
+              <div className="mb-3 p-3 bg-card border border-border rounded-md space-y-3" onClick={(e) => e.stopPropagation()}>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Width (%)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={95}
+                    value={Math.round(column.width)}
+                    onChange={(e) => {
+                      const newWidth = Math.max(5, Math.min(95, parseInt(e.target.value) || 5));
+                      updateColumnSettings(column.id, { width: newWidth });
+                    }}
+                    className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Background Color</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={column.backgroundColor || '#ffffff'}
+                      onChange={(e) => updateColumnSettings(column.id, { backgroundColor: e.target.value })}
+                      className="w-8 h-8 rounded border border-border cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={column.backgroundColor || ''}
+                      onChange={(e) => updateColumnSettings(column.id, { backgroundColor: e.target.value || undefined })}
+                      placeholder="transparent"
+                      className="flex-1 text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
+                    />
+                    {column.backgroundColor && (
+                      <button
+                        type="button"
+                        onClick={() => updateColumnSettings(column.id, { backgroundColor: undefined })}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Padding</label>
+                    <select
+                      value={column.padding || 'none'}
+                      onChange={(e) => updateColumnSettings(column.id, { padding: e.target.value as any })}
+                      className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
+                    >
+                      <option value="none">None</option>
+                      <option value="sm">Small</option>
+                      <option value="md">Medium</option>
+                      <option value="lg">Large</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Vertical Align</label>
+                    <select
+                      value={column.verticalAlign || 'top'}
+                      onChange={(e) => updateColumnSettings(column.id, { verticalAlign: e.target.value as any })}
+                      className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
+                    >
+                      <option value="top">Top</option>
+                      <option value="center">Center</option>
+                      <option value="bottom">Bottom</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">CSS Class</label>
+                  <input
+                    type="text"
+                    value={column.cssClass || ''}
+                    onChange={(e) => updateColumnSettings(column.id, { cssClass: e.target.value || undefined })}
+                    placeholder="e.g., rounded-lg shadow-sm"
+                    className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
+                  />
                 </div>
               </div>
             )}
@@ -500,9 +696,11 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                             }
                           }
                         }}
-                        className={`${isSelected ? "rounded border border-border bg-card overflow-hidden" : "overflow-hidden"} ${
+                        className={`${isSelected ? "rounded border bg-card overflow-hidden" : "overflow-hidden"} ${
+                          isNestedBlockSelected ? 'border-primary ring-2 ring-primary ring-offset-1 ring-offset-background' : 'border-border'
+                        } ${
                           isDragging ? 'opacity-50' : ''
-                        } cursor-pointer transition-opacity`}
+                        } cursor-pointer transition-all`}
                       >
                         <VisualBlockPreview
                           block={columnBlock}
@@ -608,6 +806,11 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
               </button>
             )}
           </div>
+
+          {/* Drop indicator - right */}
+          {isColumnDropTarget && dropColumnTarget?.position === 'right' && (
+            <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
+          )}
 
           {/* Resize Handle */}
           {columnIndex < block.columns.length - 1 && isSelected && (

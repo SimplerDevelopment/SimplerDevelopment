@@ -43,6 +43,13 @@
       "when": 1768420965146,
       "tag": "0005_flippant_scourge",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773704101985,
+      "tag": "0006_real_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

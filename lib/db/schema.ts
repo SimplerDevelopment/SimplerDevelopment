@@ -88,6 +88,34 @@ export const postCustomFieldValues = pgTable('post_custom_field_values', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Block Templates - saved reusable block configurations
+export const blockTemplates = pgTable('block_templates', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  description: text('description'),
+  category: varchar('category', { length: 100 }).default('custom').notNull(), // custom, section, global
+  scope: varchar('scope', { length: 50 }).default('block').notNull(), // block (single), section (multi-block), global (synced)
+  blocks: json('blocks').notNull(), // JSON array of Block objects
+  thumbnail: varchar('thumbnail', { length: 500 }), // preview image URL
+  tags: json('tags').$type<string[]>().default([]), // searchable tags
+  lockedFields: json('locked_fields').$type<string[]>().default([]), // field paths that can't be edited (e.g., "0.type", "0.style.backgroundColor")
+  version: integer('version').default(1).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Tracks which posts use global templates (for sync)
+export const blockTemplateUsages = pgTable('block_template_usages', {
+  id: serial('id').primaryKey(),
+  templateId: integer('template_id').notNull().references(() => blockTemplates.id, { onDelete: 'cascade' }),
+  postId: integer('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  blockPath: varchar('block_path', { length: 255 }).notNull(), // JSON path to the block in the post content (e.g., "blocks[2]" or "blocks[0].columns[1].blocks[0]")
+  syncedVersion: integer('synced_version').default(1).notNull(), // which template version this usage is on
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const media = pgTable('media', {
   id: serial('id').primaryKey(),
   filename: varchar('filename', { length: 255 }).notNull(),

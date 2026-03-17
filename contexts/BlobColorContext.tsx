@@ -10,7 +10,7 @@ interface BlobColorContextType {
 const BlobColorContext = createContext<BlobColorContextType | undefined>(undefined);
 
 export function BlobColorProvider({ children }: { children: ReactNode }) {
-  const [color, setColor] = useState('#8b5cf6');
+  const [color, setColor] = useState('#3b82f6');
 
   return (
     <BlobColorContext.Provider value={{ color, setColor }}>

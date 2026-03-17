@@ -34,6 +34,12 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
       : 'flex-col md:flex-row' // Stack on mobile, row on tablet and desktop
     : 'flex-row'; // Never stack
 
+  const colStackAttr = stackOnMobile
+    ? stackOnTablet
+      ? 'data-col-stacks-lg'
+      : 'data-col-stacks-md'
+    : 'data-col-stacks-never';
+
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
@@ -52,15 +58,28 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
   return (
     <div className={`py-8 my-8 ${responsiveClasses}`}>
       <div className={`flex ${stackingClasses} ${gapClasses[block.gap || 'md']}`}>
-        {block.columns.map((column) => (
-          <div key={column.id} className="flex-1">
-            {column.blocks.map((nestedBlock) => (
-              <div key={nestedBlock.id}>
-                {renderNestedBlock(nestedBlock)}
-              </div>
-            ))}
-          </div>
-        ))}
+        {block.columns.map((column) => {
+          const paddingClass = column.padding === 'sm' ? 'p-2' : column.padding === 'md' ? 'p-4' : column.padding === 'lg' ? 'p-6' : '';
+          const verticalAlignClass = column.verticalAlign === 'center' ? 'flex flex-col justify-center' : column.verticalAlign === 'bottom' ? 'flex flex-col justify-end' : '';
+
+          return (
+            <div
+              key={column.id}
+              className={`${paddingClass} ${verticalAlignClass} ${column.cssClass || ''}`}
+              {...{ [colStackAttr]: '' }}
+              style={{
+                '--col-width': `${column.width}%`,
+                ...(column.backgroundColor ? { backgroundColor: column.backgroundColor } : {}),
+              } as React.CSSProperties}
+            >
+              {column.blocks.map((nestedBlock) => (
+                <div key={nestedBlock.id}>
+                  {renderNestedBlock(nestedBlock)}
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
