@@ -16,12 +16,12 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
   }[block.alignment || 'left'];
 
   const headingClasses = {
-    1: 'text-4xl md:text-5xl font-bold',
-    2: 'text-3xl md:text-4xl font-bold',
-    3: 'text-2xl md:text-3xl font-semibold',
-    4: 'text-xl md:text-2xl font-semibold',
-    5: 'text-lg md:text-xl font-medium',
-    6: 'text-base md:text-lg font-medium',
+    1: 'text-4xl md:text-5xl font-extrabold',
+    2: 'text-3xl md:text-4xl font-extrabold',
+    3: 'text-2xl md:text-3xl font-bold',
+    4: 'text-xl md:text-2xl font-bold',
+    5: 'text-lg md:text-xl font-semibold',
+    6: 'text-base md:text-lg font-semibold',
   }[block.level];
 
   // Generate responsive classes from block settings

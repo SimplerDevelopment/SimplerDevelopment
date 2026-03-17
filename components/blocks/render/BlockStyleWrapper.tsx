@@ -19,12 +19,8 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     return <>{children}</>;
   }
 
-  const hasAnyStyle = style.backgroundColor || style.color || style.fontSize ||
-    style.fontWeight || style.lineHeight || style.letterSpacing || style.borderWidth ||
-    style.borderColor || style.borderStyle || style.borderRadius || style.padding ||
-    style.margin || style.boxShadow || style.opacity || style.fontFamily ||
-    style.display || style.flexDirection || style.justifyContent || style.alignItems ||
-    style.flexWrap || style.gap || style.alignSelf;
+  // Check if any style property is set
+  const hasAnyStyle = Object.values(style).some((v) => v !== undefined && v !== '');
 
   if (!hasAnyStyle) {
     return <>{children}</>;
@@ -63,6 +59,59 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.flexWrap) customStyles.flexWrap = style.flexWrap;
   if (style.gap) customStyles.gap = style.gap;
   if (style.alignSelf) customStyles.alignSelf = style.alignSelf;
+
+  // Dimensions
+  if (style.width) customStyles.width = style.width;
+  if (style.height) customStyles.height = style.height;
+  if (style.minWidth) customStyles.minWidth = style.minWidth;
+  if (style.minHeight) customStyles.minHeight = style.minHeight;
+  if (style.maxWidth) customStyles.maxWidth = style.maxWidth;
+  if (style.maxHeight) customStyles.maxHeight = style.maxHeight;
+
+  // Overflow
+  if (style.overflow) customStyles.overflow = style.overflow;
+
+  // Position
+  if (style.position) customStyles.position = style.position;
+  if (style.top) customStyles.top = style.top;
+  if (style.right) customStyles.right = style.right;
+  if (style.bottom) customStyles.bottom = style.bottom;
+  if (style.left) customStyles.left = style.left;
+  if (style.zIndex) customStyles.zIndex = style.zIndex;
+
+  // Text
+  if (style.textAlign) customStyles.textAlign = style.textAlign;
+  if (style.textDecoration) customStyles.textDecoration = style.textDecoration;
+  if (style.textTransform) customStyles.textTransform = style.textTransform;
+
+  // Background image
+  if (style.backgroundImage) customStyles.backgroundImage = `url(${style.backgroundImage})`;
+  if (style.backgroundSize) customStyles.backgroundSize = style.backgroundSize;
+  if (style.backgroundPosition) customStyles.backgroundPosition = style.backgroundPosition;
+  if (style.backgroundRepeat) customStyles.backgroundRepeat = style.backgroundRepeat;
+
+  // Transition
+  if (style.transition) customStyles.transition = style.transition;
+
+  // Grid layout
+  if (style.gridTemplateColumns) customStyles.gridTemplateColumns = style.gridTemplateColumns;
+  if (style.gridTemplateRows) customStyles.gridTemplateRows = style.gridTemplateRows;
+  if (style.gridGap) customStyles.gap = style.gridGap;
+
+  // Cursor
+  if (style.cursor) customStyles.cursor = style.cursor;
+
+  // Custom CSS - parse "key: value; key: value;" into CSSProperties
+  if (style.customCSS) {
+    style.customCSS.split(';').forEach((rule) => {
+      const [prop, val] = rule.split(':').map((s) => s.trim());
+      if (prop && val) {
+        // Convert kebab-case to camelCase
+        const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        (customStyles as Record<string, string>)[camelProp] = val;
+      }
+    });
+  }
 
   // fontFamily stores Tailwind class names (e.g., "font-sans"), apply as className
   const fontFamilyClass = style.fontFamily || '';

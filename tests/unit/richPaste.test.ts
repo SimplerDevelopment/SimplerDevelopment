@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { parseRichContent, convertNodesToBlocks } from '@/lib/utils/richPaste';
-import { Block } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock } from '@/types/blocks';
+
+// Helpers for accessing typed properties on the Block union
+function contentOf(block: Block): string {
+  return (block as TextBlock | HeadingBlock).content ?? '';
+}
+function urlOf(block: Block): string {
+  return (block as ImageBlock).url ?? '';
+}
 
 describe('richPaste utility', () => {
   describe('parseRichContent', () => {
@@ -53,9 +61,9 @@ describe('richPaste utility', () => {
       const blocks = parseRichContent(html);
 
       expect(blocks).toHaveLength(1);
-      expect(blocks[0].content).toContain('<strong>bold</strong>');
-      expect(blocks[0].content).toContain('<em>italic</em>');
-      expect(blocks[0].content).toContain('<a href="https://example.com">a link</a>');
+      expect(contentOf(blocks[0])).toContain('<strong>bold</strong>');
+      expect(contentOf(blocks[0])).toContain('<em>italic</em>');
+      expect(contentOf(blocks[0])).toContain('<a href="https://example.com">a link</a>');
     });
 
     it('parses blockquotes to quote blocks', () => {
@@ -115,9 +123,9 @@ describe('richPaste utility', () => {
       const blocks = parseRichContent(html);
 
       expect(blocks).toHaveLength(1);
-      expect(blocks[0].content).toBe('Clean content');
-      expect(blocks[0].content).not.toContain('MsoNormal');
-      expect(blocks[0].content).not.toContain('margin-left');
+      expect(contentOf(blocks[0])).toBe('Clean content');
+      expect(contentOf(blocks[0])).not.toContain('MsoNormal');
+      expect(contentOf(blocks[0])).not.toContain('margin-left');
     });
 
     it('handles mixed content types', () => {
@@ -169,7 +177,7 @@ describe('richPaste utility', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0].type).toBe('image');
-      expect(blocks[0].url).toContain('data:image/png;base64');
+      expect(urlOf(blocks[0])).toContain('data:image/png;base64');
     });
 
     it('skips unsupported elements', () => {

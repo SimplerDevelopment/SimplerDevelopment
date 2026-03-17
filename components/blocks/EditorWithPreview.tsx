@@ -87,8 +87,10 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
         return <SectionBlockRender block={block} />;
       case 'gallery':
         return <GalleryBlockRender block={block} />;
-      default:
-        return <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded">Unsupported block type: {block.type}</div>;
+      default: {
+        const unknownBlock = block as Block;
+        return <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded">Unsupported block type: {unknownBlock.type}</div>;
+      }
     }
   };
 

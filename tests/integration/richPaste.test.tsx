@@ -1,8 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { VisualBlockEditorComplete } from '@/components/blocks/VisualBlockEditorComplete';
-import { Block } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock } from '@/types/blocks';
 import { parseRichContent } from '@/lib/utils/richPaste';
+
+// Helper to access content property on parsed blocks (headings, text, quotes)
+function contentOf(block: Block): string {
+  return (block as TextBlock | HeadingBlock).content ?? '';
+}
 
 describe('Rich Paste Integration', () => {
   const initialBlocks: Block[] = [
@@ -33,9 +38,9 @@ describe('Rich Paste Integration', () => {
 
     expect(blocks).toHaveLength(2);
     expect(blocks[0].type).toBe('heading');
-    expect(blocks[0].content).toBe('Main Title');
+    expect(contentOf(blocks[0])).toBe('Main Title');
     expect(blocks[1].type).toBe('heading');
-    expect(blocks[1].content).toBe('Subtitle');
+    expect(contentOf(blocks[1])).toBe('Subtitle');
   });
 
   it('parseRichContent converts paragraphs to text blocks', () => {
@@ -52,8 +57,8 @@ describe('Rich Paste Integration', () => {
     const blocks = parseRichContent(html);
 
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].content).toContain('<strong>bold</strong>');
-    expect(blocks[0].content).toContain('<em>italic</em>');
+    expect(contentOf(blocks[0])).toContain('<strong>bold</strong>');
+    expect(contentOf(blocks[0])).toContain('<em>italic</em>');
   });
 
   it('parseRichContent handles mixed content types', () => {
@@ -69,7 +74,7 @@ describe('Rich Paste Integration', () => {
     expect(blocks.some(b => b.type === 'heading')).toBe(true);
     expect(blocks.some(b => b.type === 'text')).toBe(true);
     expect(blocks.some(b => b.type === 'quote')).toBe(true);
-    expect(blocks.some(b => b.type === 'text' && b.content.includes('•'))).toBe(true);
+    expect(blocks.some(b => b.type === 'text' && contentOf(b).includes('•'))).toBe(true);
   });
 
   it('parseRichContent strips Word/Google Docs styles', () => {
@@ -77,7 +82,7 @@ describe('Rich Paste Integration', () => {
     const blocks = parseRichContent(html);
 
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].content).toBe('Clean content');
-    expect(blocks[0].content).not.toContain('MsoNormal');
+    expect(contentOf(blocks[0])).toBe('Clean content');
+    expect(contentOf(blocks[0])).not.toContain('MsoNormal');
   });
 });

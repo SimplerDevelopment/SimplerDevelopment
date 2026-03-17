@@ -24,6 +24,41 @@ export interface BlockStyle {
   flexWrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
   gap?: string;
   alignSelf?: 'auto' | 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
+  // Dimensions
+  width?: string;
+  height?: string;
+  minWidth?: string;
+  minHeight?: string;
+  maxWidth?: string;
+  maxHeight?: string;
+  // Overflow
+  overflow?: 'visible' | 'hidden' | 'scroll' | 'auto';
+  // Positioning
+  position?: 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky';
+  top?: string;
+  right?: string;
+  bottom?: string;
+  left?: string;
+  zIndex?: string;
+  // Text
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  // Background
+  backgroundImage?: string;
+  backgroundSize?: string;
+  backgroundPosition?: string;
+  backgroundRepeat?: string;
+  // Transitions
+  transition?: string;
+  // Grid layout
+  gridTemplateColumns?: string;
+  gridTemplateRows?: string;
+  gridGap?: string;
+  // Cursor
+  cursor?: string;
+  // Custom CSS (raw key:value pairs for anything not covered above)
+  customCSS?: string;
 }
 
 export interface BaseBlock {

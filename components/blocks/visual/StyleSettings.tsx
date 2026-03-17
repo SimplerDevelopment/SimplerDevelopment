@@ -683,6 +683,228 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         </div>
       </div>
 
+      {/* Dimensions */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Size</label>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Width</label>
+              <input type="text" value={style.width || ''} onChange={(e) => updateStyle('width', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Height</label>
+              <input type="text" value={style.height || ''} onChange={(e) => updateStyle('height', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Min Width</label>
+              <input type="text" value={style.minWidth || ''} onChange={(e) => updateStyle('minWidth', e.target.value)} placeholder="0" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Max Width</label>
+              <input type="text" value={style.maxWidth || ''} onChange={(e) => updateStyle('maxWidth', e.target.value)} placeholder="none" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Min Height</label>
+              <input type="text" value={style.minHeight || ''} onChange={(e) => updateStyle('minHeight', e.target.value)} placeholder="0" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Max Height</label>
+              <input type="text" value={style.maxHeight || ''} onChange={(e) => updateStyle('maxHeight', e.target.value)} placeholder="none" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Overflow</label>
+            <select value={style.overflow || ''} onChange={(e) => updateStyle('overflow', e.target.value)} className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground">
+              <option value="">Visible</option>
+              <option value="hidden">Hidden</option>
+              <option value="scroll">Scroll</option>
+              <option value="auto">Auto</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Position */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Position</label>
+        <div className="space-y-3">
+          <select value={style.position || ''} onChange={(e) => updateStyle('position', e.target.value)} className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground">
+            <option value="">Static</option>
+            <option value="relative">Relative</option>
+            <option value="absolute">Absolute</option>
+            <option value="fixed">Fixed</option>
+            <option value="sticky">Sticky</option>
+          </select>
+          {style.position && style.position !== 'static' && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Top</label>
+                  <input type="text" value={style.top || ''} onChange={(e) => updateStyle('top', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Right</label>
+                  <input type="text" value={style.right || ''} onChange={(e) => updateStyle('right', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Bottom</label>
+                  <input type="text" value={style.bottom || ''} onChange={(e) => updateStyle('bottom', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Left</label>
+                  <input type="text" value={style.left || ''} onChange={(e) => updateStyle('left', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Z-Index</label>
+                <input type="text" value={style.zIndex || ''} onChange={(e) => updateStyle('zIndex', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Text Formatting */}
+      {hasTextContent && (
+        <div>
+          <label className="block text-sm font-semibold text-foreground mb-3">Text Format</label>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5">Text Align</label>
+              <div className="grid grid-cols-4 gap-1">
+                {([
+                  { value: '', label: 'Auto' },
+                  { value: 'left', label: 'Left' },
+                  { value: 'center', label: 'Center' },
+                  { value: 'right', label: 'Right' },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => updateStyle('textAlign', value)}
+                    className={`px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                      (style.textAlign || '') === value
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5">Transform</label>
+              <div className="grid grid-cols-4 gap-1">
+                {([
+                  { value: '', label: 'None' },
+                  { value: 'uppercase', label: 'ABC' },
+                  { value: 'lowercase', label: 'abc' },
+                  { value: 'capitalize', label: 'Abc' },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => updateStyle('textTransform', value)}
+                    className={`px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                      (style.textTransform || '') === value
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5">Decoration</label>
+              <div className="grid grid-cols-3 gap-1">
+                {([
+                  { value: '', label: 'None' },
+                  { value: 'underline', label: 'Underline' },
+                  { value: 'line-through', label: 'Strike' },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => updateStyle('textDecoration', value)}
+                    className={`px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                      (style.textDecoration || '') === value
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-foreground/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Background Image */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Background Image</label>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Image URL</label>
+            <input type="text" value={style.backgroundImage || ''} onChange={(e) => updateStyle('backgroundImage', e.target.value)} placeholder="https://..." className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+          </div>
+          {style.backgroundImage && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Size</label>
+                <select value={style.backgroundSize || ''} onChange={(e) => updateStyle('backgroundSize', e.target.value)} className="w-full text-xs rounded border border-border bg-background px-2 py-1 text-foreground">
+                  <option value="">Auto</option>
+                  <option value="cover">Cover</option>
+                  <option value="contain">Contain</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Position</label>
+                <select value={style.backgroundPosition || ''} onChange={(e) => updateStyle('backgroundPosition', e.target.value)} className="w-full text-xs rounded border border-border bg-background px-2 py-1 text-foreground">
+                  <option value="">Center</option>
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grid Layout (when display is grid) */}
+      {style.display === 'grid' && (
+        <div>
+          <label className="block text-sm font-semibold text-foreground mb-3">Grid</label>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Columns</label>
+              <input type="text" value={style.gridTemplateColumns || ''} onChange={(e) => updateStyle('gridTemplateColumns', e.target.value)} placeholder="1fr 1fr 1fr" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Rows</label>
+              <input type="text" value={style.gridTemplateRows || ''} onChange={(e) => updateStyle('gridTemplateRows', e.target.value)} placeholder="auto" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Gap</label>
+              <input type="text" value={style.gridGap || ''} onChange={(e) => updateStyle('gridGap', e.target.value)} placeholder="16px" className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Spacing - Static (non-responsive) */}
       <div>
         <label className="block text-sm font-semibold text-foreground mb-3">Static Spacing</label>
@@ -760,6 +982,38 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             {style.opacity ? Math.round(parseFloat(style.opacity) * 100) : 100}%
           </div>
         </div>
+      </div>
+
+      {/* Transition */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Transition</label>
+        <select
+          value={style.transition || ''}
+          onChange={(e) => updateStyle('transition', e.target.value)}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="">None</option>
+          <option value="all 0.15s ease">Fast (150ms)</option>
+          <option value="all 0.3s ease">Normal (300ms)</option>
+          <option value="all 0.5s ease">Slow (500ms)</option>
+          <option value="all 0.3s ease-in-out">Smooth (300ms)</option>
+          <option value="transform 0.3s ease, opacity 0.3s ease">Transform + Opacity</option>
+        </select>
+      </div>
+
+      {/* Custom CSS */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Custom CSS</label>
+        <textarea
+          value={style.customCSS || ''}
+          onChange={(e) => updateStyle('customCSS', e.target.value)}
+          placeholder="property: value; property: value;"
+          rows={3}
+          className="w-full text-xs rounded border border-border bg-background px-3 py-2 text-foreground font-mono resize-y"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Raw CSS rules for anything not covered above. Use semicolons to separate. Example: <code>filter: blur(2px); mix-blend-mode: multiply</code>
+        </p>
       </div>
     </div>
   );

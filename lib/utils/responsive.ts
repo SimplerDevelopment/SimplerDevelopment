@@ -17,6 +17,10 @@ const SPACING_MAP: Record<SpacingSize, string> = {
   '2xl': '12',
 };
 
+function getSpacingClass(value: string): string {
+  return (SPACING_MAP as Record<string, string>)[value] ?? value;
+}
+
 /**
  * Typography size to Tailwind class mapping
  */
@@ -56,13 +60,13 @@ export function generateResponsivePaddingClasses(
   const dir = dirMap[direction];
 
   if (spacing.mobile) {
-    classes.push(`p${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.mobile]}`);
+    classes.push(`p${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.mobile)}`);
   }
   if (spacing.tablet) {
-    classes.push(`md:p${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.tablet]}`);
+    classes.push(`md:p${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.tablet)}`);
   }
   if (spacing.desktop) {
-    classes.push(`lg:p${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.desktop]}`);
+    classes.push(`lg:p${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.desktop)}`);
   }
 
   return classes.join(' ');
@@ -91,13 +95,13 @@ export function generateResponsiveMarginClasses(
   const dir = dirMap[direction];
 
   if (spacing.mobile) {
-    classes.push(`m${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.mobile]}`);
+    classes.push(`m${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.mobile)}`);
   }
   if (spacing.tablet) {
-    classes.push(`md:m${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.tablet]}`);
+    classes.push(`md:m${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.tablet)}`);
   }
   if (spacing.desktop) {
-    classes.push(`lg:m${dir ? dir : ''}${dir ? '-' : ''}${SPACING_MAP[spacing.desktop]}`);
+    classes.push(`lg:m${dir ? dir : ''}${dir ? '-' : ''}${getSpacingClass(spacing.desktop)}`);
   }
 
   return classes.join(' ');
