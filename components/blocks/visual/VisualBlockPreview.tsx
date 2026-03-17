@@ -26,6 +26,7 @@ import { AccordionBlockPreview } from './AccordionBlockPreview';
 import { TabsBlockPreview } from './TabsBlockPreview';
 import { ColumnsBlockPreview } from './ColumnsBlockPreview';
 import { SectionBlockPreview } from './SectionBlockPreview';
+import { GalleryBlockPreview } from './GalleryBlockPreview';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -154,6 +155,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <TabsBlockPreview block={block} isSelected={isSelected} onChange={onChange} selectedBlockId={selectedBlockId} onSelectBlock={onSelectBlock} />;
     case 'section':
       return <SectionBlockPreview block={block} isSelected={isSelected} onChange={onChange} selectedBlockId={selectedBlockId} onSelectBlock={onSelectBlock} />;
+    case 'gallery':
+      return <GalleryBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

@@ -245,6 +245,20 @@ export interface CardGridBlock extends BaseBlock {
   columns?: 2 | 3 | 4;
 }
 
+export interface GalleryBlock extends BaseBlock {
+  type: 'gallery';
+  images: Array<{
+    id: string;
+    url: string;
+    alt: string;
+    caption?: string;
+  }>;
+  layout?: 'grid' | 'masonry';
+  columns?: 2 | 3 | 4;
+  lightbox?: boolean;
+  gap?: 'sm' | 'md' | 'lg';
+}
+
 // Union type of all blocks
 export interface SectionBlock extends BaseBlock {
   type: 'section';
@@ -286,7 +300,8 @@ export type Block =
   | AccordionBlock
   | TabsBlock
   | CardGridBlock
-  | SectionBlock;
+  | SectionBlock
+  | GalleryBlock;
 
 export type BlockType = Block['type'];
 

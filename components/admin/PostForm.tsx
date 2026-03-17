@@ -12,6 +12,7 @@ import { PostSettingsModal } from './PostSettingsModal';
 import { PostEditorLayout } from './PostEditorLayout';
 import { ViewportSelector } from '@/components/blocks/ViewportSelector';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
+import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { PostFormInnerControls } from './PostFormInner';
 
 interface Post {
@@ -97,6 +98,7 @@ export default function PostForm({ post, mode }: PostFormProps) {
     { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Customer testimonial' },
     { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
     { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
+    { type: 'gallery', label: 'Gallery', icon: '🖼️', category: 'Media', description: 'Image gallery with lightbox' },
   ];
 
   // Parse existing content to blocks or initialize empty
@@ -475,22 +477,24 @@ export default function PostForm({ post, mode }: PostFormProps) {
   );
 
   return (
-    <BlockEditorProvider
-      initialBlocks={blocks}
-      onBlocksChange={setBlocks}
-      initialViewport={currentViewport}
-      onViewportChange={setCurrentViewport}
-    >
-      <PostEditorLayout
-        postTitle={formData.title}
-        onOpenSettings={() => setSettingsModalOpen(true)}
-        editorControls={renderEditorControls()}
-        published={formData.published}
-        onPublish={handleSubmit}
-        onStatusChange={(status) => setFormData({ ...formData, published: status === 'published' })}
+    <DesignTokensProvider>
+      <BlockEditorProvider
+        initialBlocks={blocks}
+        onBlocksChange={setBlocks}
+        initialViewport={currentViewport}
+        onViewportChange={setCurrentViewport}
       >
-        {layoutContent}
-      </PostEditorLayout>
-    </BlockEditorProvider>
+        <PostEditorLayout
+          postTitle={formData.title}
+          onOpenSettings={() => setSettingsModalOpen(true)}
+          editorControls={renderEditorControls()}
+          published={formData.published}
+          onPublish={handleSubmit}
+          onStatusChange={(status) => setFormData({ ...formData, published: status === 'published' })}
+        >
+          {layoutContent}
+        </PostEditorLayout>
+      </BlockEditorProvider>
+    </DesignTokensProvider>
   );
 }

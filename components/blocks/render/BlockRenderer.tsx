@@ -23,6 +23,7 @@ import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
+import { GalleryBlockRender } from './GalleryBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface BlockRendererProps {
@@ -108,6 +109,8 @@ function renderBlock(block: Block) {
       return <CardGridBlockRender block={block} />;
     case 'section':
       return <SectionBlockRender block={block} />;
+    case 'gallery':
+      return <GalleryBlockRender block={block} />;
     default:
       return null;
   }

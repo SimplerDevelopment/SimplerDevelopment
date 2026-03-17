@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
@@ -113,6 +113,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <AccordionBlockSettings block={block as AccordionBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'section':
               return <SectionBlockSettings block={block as SectionBlock} onChange={onChange} />;
+            case 'gallery':
+              return <GalleryBlockSettings block={block as GalleryBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -1359,6 +1361,114 @@ function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChan
         />
       </div>
       <p className="text-xs text-muted-foreground">{block.blocks.length} nested block{block.blocks.length !== 1 ? 's' : ''}</p>
+    </div>
+  );
+}
+
+function GalleryBlockSettings({ block, onChange }: { block: GalleryBlock; onChange: (updates: Partial<GalleryBlock>) => void }) {
+  const addImage = () => {
+    const newImage = { id: crypto.randomUUID(), url: '', alt: '', caption: '' };
+    onChange({ images: [...block.images, newImage] });
+  };
+
+  const updateImage = (index: number, updates: Partial<GalleryBlock['images'][0]>) => {
+    const images = [...block.images];
+    images[index] = { ...images[index], ...updates };
+    onChange({ images });
+  };
+
+  const removeImage = (index: number) => {
+    onChange({ images: block.images.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
+        <select
+          value={block.layout || 'grid'}
+          onChange={(e) => onChange({ layout: e.target.value as GalleryBlock['layout'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="grid">Grid</option>
+          <option value="masonry">Masonry</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 3}
+          onChange={(e) => onChange({ columns: Number(e.target.value) as GalleryBlock['columns'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value={2}>2</option>
+          <option value={3}>3</option>
+          <option value={4}>4</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Gap</label>
+        <select
+          value={block.gap || 'md'}
+          onChange={(e) => onChange({ gap: e.target.value as GalleryBlock['gap'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="gallery-lightbox"
+          checked={block.lightbox !== false}
+          onChange={(e) => onChange({ lightbox: e.target.checked })}
+          className="rounded border-border"
+        />
+        <label htmlFor="gallery-lightbox" className="text-sm text-foreground">Enable lightbox</label>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-foreground">Images ({block.images.length})</label>
+          <button type="button" onClick={addImage} className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90">Add Image</button>
+        </div>
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {block.images.map((image, index) => (
+            <div key={image.id} className="p-3 border border-border rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Image {index + 1}</span>
+                <button type="button" onClick={() => removeImage(index)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+              </div>
+              <input
+                type="text"
+                value={image.url}
+                onChange={(e) => updateImage(index, { url: e.target.value })}
+                placeholder="Image URL"
+                className="w-full text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground"
+              />
+              <input
+                type="text"
+                value={image.alt}
+                onChange={(e) => updateImage(index, { alt: e.target.value })}
+                placeholder="Alt text"
+                className="w-full text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground"
+              />
+              <input
+                type="text"
+                value={image.caption || ''}
+                onChange={(e) => updateImage(index, { caption: e.target.value })}
+                placeholder="Caption (optional)"
+                className="w-full text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

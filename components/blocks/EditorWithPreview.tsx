@@ -26,6 +26,7 @@ import { AccordionBlockRender } from './render/AccordionBlockRender';
 import { TabsBlockRender } from './render/TabsBlockRender';
 import { Block } from '@/types/blocks';
 import { SectionBlockRender } from './render/SectionBlockRender';
+import { GalleryBlockRender } from './render/GalleryBlockRender';
 import { BlockStyleWrapper } from './render/BlockStyleWrapper';
 import { getViewportWidth } from '@/lib/utils/responsive';
 
@@ -84,6 +85,8 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
         return <TabsBlockRender block={block} />;
       case 'section':
         return <SectionBlockRender block={block} />;
+      case 'gallery':
+        return <GalleryBlockRender block={block} />;
       default:
         return <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded">Unsupported block type: {block.type}</div>;
     }

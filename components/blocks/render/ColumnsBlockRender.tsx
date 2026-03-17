@@ -12,6 +12,18 @@ import { QuoteBlockRender } from './QuoteBlockRender';
 import { CodeBlockRender } from './CodeBlockRender';
 import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
+import { GalleryBlockRender } from './GalleryBlockRender';
+import { HeroBlockRender } from './HeroBlockRender';
+import { ServicesGridBlockRender } from './ServicesGridBlockRender';
+import { CtaBlockRender } from './CtaBlockRender';
+import { TestimonialBlockRender } from './TestimonialBlockRender';
+import { StatsBlockRender } from './StatsBlockRender';
+import { BlogPostsBlockRender } from './BlogPostsBlockRender';
+import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
+import { CardGridBlockRender } from './CardGridBlockRender';
+import { AccordionBlockRender } from './AccordionBlockRender';
+import { TabsBlockRender } from './TabsBlockRender';
+import { SectionBlockRender } from './SectionBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
@@ -138,6 +150,30 @@ function renderNestedBlock(block: Block) {
       return <VideoBlockRender block={block} />;
     case 'youtube':
       return <YoutubeBlockRender block={block} />;
+    case 'gallery':
+      return <GalleryBlockRender block={block} />;
+    case 'hero':
+      return <HeroBlockRender block={block} />;
+    case 'services-grid':
+      return <ServicesGridBlockRender block={block} />;
+    case 'cta':
+      return <CtaBlockRender block={block} />;
+    case 'testimonial':
+      return <TestimonialBlockRender block={block} />;
+    case 'stats':
+      return <StatsBlockRender block={block} />;
+    case 'blog-posts':
+      return <BlogPostsBlockRender block={block} />;
+    case 'featured-content':
+      return <FeaturedContentBlockRender block={block} />;
+    case 'card-grid':
+      return <CardGridBlockRender block={block} />;
+    case 'accordion':
+      return <AccordionBlockRender block={block} />;
+    case 'tabs':
+      return <TabsBlockRender block={block} />;
+    case 'section':
+      return <SectionBlockRender block={block} />;
     default:
       return null;
   }

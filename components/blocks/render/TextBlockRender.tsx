@@ -37,11 +37,20 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
       )
     : '';
 
+  const hasHtml = block.content.includes('<');
+
   return (
     <div className={responsiveClasses}>
-      <p className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
-        {block.content}
-      </p>
+      {hasHtml ? (
+        <div
+          className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}
+          dangerouslySetInnerHTML={{ __html: block.content }}
+        />
+      ) : (
+        <p className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
+          {block.content}
+        </p>
+      )}
     </div>
   );
 }

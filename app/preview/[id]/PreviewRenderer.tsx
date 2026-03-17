@@ -23,6 +23,7 @@ import { BlogPostsBlockRender } from '@/components/blocks/render/BlogPostsBlockR
 import { FeaturedContentBlockRender } from '@/components/blocks/render/FeaturedContentBlockRender';
 import { CardGridBlockRender } from '@/components/blocks/render/CardGridBlockRender';
 import { SectionBlockRender } from '@/components/blocks/render/SectionBlockRender';
+import { GalleryBlockRender } from '@/components/blocks/render/GalleryBlockRender';
 import { BlockStyleWrapper } from '@/components/blocks/render/BlockStyleWrapper';
 import Link from 'next/link';
 
@@ -80,6 +81,8 @@ function renderBlock(block: Block) {
       return <CardGridBlockRender block={block} />;
     case 'section':
       return <SectionBlockRender block={block} />;
+    case 'gallery':
+      return <GalleryBlockRender block={block} />;
     default:
       return null;
   }

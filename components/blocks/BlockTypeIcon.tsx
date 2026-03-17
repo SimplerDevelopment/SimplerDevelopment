@@ -203,6 +203,18 @@ export function BlockTypeIcon({ type, className = 'w-10 h-10' }: BlockTypeIconPr
           <rect x="29" y="15" width="6" height="2" rx="0.5" fill="currentColor" opacity="0.25" />
         </svg>
       );
+    case 'gallery':
+      return (
+        <svg className={baseClass} viewBox="0 0 40 40" fill="none">
+          <rect x="3" y="4" width="10" height="10" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="15" y="4" width="10" height="10" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="27" y="4" width="10" height="10" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="3" y="16" width="10" height="14" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="15" y="16" width="10" height="8" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="27" y="16" width="10" height="12" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+          <rect x="15" y="26" width="10" height="8" rx="2" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+        </svg>
+      );
     default:
       return (
         <svg className={baseClass} viewBox="0 0 40 40" fill="none">

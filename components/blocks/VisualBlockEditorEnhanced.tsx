@@ -14,6 +14,7 @@ import { SaveAsTemplateModal } from './SaveAsTemplateModal';
 import { TemplateLibrary } from './TemplateLibrary';
 import { PageSettingsPanel } from './visual/PageSettingsPanel';
 import { BlockTypeIcon } from './BlockTypeIcon';
+import { LayersPanel } from './LayersPanel';
 import {
   DndContext,
   closestCenter,
@@ -634,9 +635,21 @@ export function EditorInner({
   const categories = Array.from(new Set(blockTypes.map((bt) => bt.category)));
   const selectedBlock = selectedBlockId ? findBlock(selectedBlockId) : null;
   const activeBlock = state.blocks.find((b) => b.id === activeId);
+  const [layersCollapsed, setLayersCollapsed] = useState(false);
 
   return (
     <div className="relative">
+      {/* Layers Panel */}
+      <LayersPanel
+        blocks={state.blocks}
+        selectedBlockId={selectedBlockId}
+        onSelect={setSelectedBlockId}
+        onHover={setHoveredBlockId}
+        hoveredBlockId={hoveredBlockId}
+        collapsed={layersCollapsed}
+        onCollapsedChange={setLayersCollapsed}
+      />
+
       {/* Editor */}
       <div
         className="relative flex gap-0"
@@ -651,7 +664,7 @@ export function EditorInner({
         <div
           className={`flex-1 min-h-[500px] flex transition-all ${
             currentViewport === 'desktop' ? '' : 'justify-center'
-          } ${!isSettingsPoppedOut ? 'mr-72' : ''}`}
+          } ${!layersCollapsed ? 'ml-56' : 'ml-8'} ${!isSettingsPoppedOut ? 'mr-72' : ''}`}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setSelectedBlockId(null);
@@ -943,6 +956,7 @@ export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, o
     { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Customer testimonial' },
     { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
     { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
+    { type: 'gallery', label: 'Gallery', icon: '🖼️', category: 'Media', description: 'Image gallery with lightbox' },
   ];
 
   return (
@@ -1015,6 +1029,8 @@ function createDefaultBlock(type: BlockType, order: number): Block {
       return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
     case 'blog-posts':
       return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
+    case 'gallery':
+      return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3, lightbox: true, gap: 'md' };
     default:
       return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
   }

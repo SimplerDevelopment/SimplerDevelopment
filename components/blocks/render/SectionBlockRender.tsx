@@ -22,6 +22,7 @@ import { StatsBlockRender } from './StatsBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
+import { GalleryBlockRender } from './GalleryBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
 
@@ -89,6 +90,7 @@ function renderNestedBlock(block: Block) {
     case 'featured-content': return <FeaturedContentBlockRender block={block} />;
     case 'card-grid': return <CardGridBlockRender block={block} />;
     case 'section': return <SectionBlockRender block={block} />;
+    case 'gallery': return <GalleryBlockRender block={block} />;
     default: return null;
   }
 }

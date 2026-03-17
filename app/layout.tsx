@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, DM_Sans, Inter } from "next/font/google";
+import { Geist, Geist_Mono, DM_Sans, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
@@ -27,6 +27,12 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+});
+
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = defaultSEO;
@@ -65,7 +71,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} antialiased min-h-screen flex flex-col`}
       >
         <SessionProvider>
           <LayoutContent>{children}</LayoutContent>

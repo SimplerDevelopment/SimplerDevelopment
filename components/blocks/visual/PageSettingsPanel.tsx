@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { PageSettings } from '@/types/blocks';
+import { TokenColorPicker } from './TokenColorPicker';
+import { DesignTokensEditor } from './DesignTokensEditor';
 
 interface PageSettingsPanelProps {
   settings: PageSettings;
@@ -55,31 +56,12 @@ export function PageSettingsPanel({ settings, onChange }: PageSettingsPanelProps
 
       {/* Background */}
       <div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Background Color</label>
-        <div className="flex gap-2">
-          <input
-            type="color"
-            value={settings.backgroundColor || '#ffffff'}
-            onChange={(e) => onChange({ backgroundColor: e.target.value })}
-            className="w-10 h-9 rounded border border-border cursor-pointer"
-          />
-          <input
-            type="text"
-            value={settings.backgroundColor || ''}
-            onChange={(e) => onChange({ backgroundColor: e.target.value || undefined })}
-            placeholder="transparent"
-            className="flex-1 text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono"
-          />
-          {settings.backgroundColor && (
-            <button
-              type="button"
-              onClick={() => onChange({ backgroundColor: undefined })}
-              className="text-xs text-muted-foreground hover:text-foreground px-1"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        <TokenColorPicker
+          label="Background Color"
+          value={settings.backgroundColor || ''}
+          onChange={(v) => onChange({ backgroundColor: v || undefined })}
+          placeholder="transparent"
+        />
       </div>
 
       {/* Background Image */}
@@ -126,22 +108,12 @@ export function PageSettingsPanel({ settings, onChange }: PageSettingsPanelProps
 
       {/* Text Color */}
       <div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Text Color</label>
-        <div className="flex gap-2">
-          <input
-            type="color"
-            value={settings.color || '#000000'}
-            onChange={(e) => onChange({ color: e.target.value })}
-            className="w-10 h-9 rounded border border-border cursor-pointer"
-          />
-          <input
-            type="text"
-            value={settings.color || ''}
-            onChange={(e) => onChange({ color: e.target.value || undefined })}
-            placeholder="inherit"
-            className="flex-1 text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono"
-          />
-        </div>
+        <TokenColorPicker
+          label="Text Color"
+          value={settings.color || ''}
+          onChange={(v) => onChange({ color: v || undefined })}
+          placeholder="inherit"
+        />
       </div>
 
       {/* Font Family */}
@@ -224,6 +196,11 @@ export function PageSettingsPanel({ settings, onChange }: PageSettingsPanelProps
           placeholder="e.g., dark-theme prose"
           className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground"
         />
+      </div>
+
+      {/* Design Tokens */}
+      <div className="border-t border-border pt-5">
+        <DesignTokensEditor />
       </div>
     </div>
   );

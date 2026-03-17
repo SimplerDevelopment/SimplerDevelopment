@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Block } from '@/types/blocks';
 import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
+import { TokenColorPicker } from './TokenColorPicker';
 
 interface StyleSettingsProps {
   block: Block;
@@ -330,24 +331,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       <div>
         <label className="block text-sm font-semibold text-foreground mb-3">Background</label>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Background Color</label>
-            <div className="flex gap-2">
-              <input
-                type="color"
-                value={style.backgroundColor || '#ffffff'}
-                onChange={(e) => updateStyle('backgroundColor', e.target.value)}
-                className="w-12 h-10 rounded border border-border cursor-pointer"
-              />
-              <input
-                type="text"
-                value={style.backgroundColor || '#ffffff'}
-                onChange={(e) => updateStyle('backgroundColor', e.target.value)}
-                className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
-                placeholder="#ffffff"
-              />
-            </div>
-          </div>
+          <TokenColorPicker
+            label="Background Color"
+            value={style.backgroundColor || ''}
+            onChange={(v) => updateStyle('backgroundColor', v)}
+            placeholder="#ffffff"
+          />
         </div>
       </div>
 
@@ -355,24 +344,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       <div>
         <label className="block text-sm font-semibold text-foreground mb-3">Text</label>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">Text Color</label>
-            <div className="flex gap-2">
-              <input
-                type="color"
-                value={style.color || '#000000'}
-                onChange={(e) => updateStyle('color', e.target.value)}
-                className="w-12 h-10 rounded border border-border cursor-pointer"
-              />
-              <input
-                type="text"
-                value={style.color || '#000000'}
-                onChange={(e) => updateStyle('color', e.target.value)}
-                className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
-                placeholder="#000000"
-              />
-            </div>
-          </div>
+          <TokenColorPicker
+            label="Text Color"
+            value={style.color || ''}
+            onChange={(v) => updateStyle('color', v)}
+            placeholder="#000000"
+          />
 
           {/* Font Size */}
           {hasTextContent && (
@@ -496,24 +473,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
 
           {style.borderWidth && (
             <>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1.5">Border Color</label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={style.borderColor || '#e5e7eb'}
-                    onChange={(e) => updateStyle('borderColor', e.target.value)}
-                    className="w-12 h-10 rounded border border-border cursor-pointer"
-                  />
-                  <input
-                    type="text"
-                    value={style.borderColor || '#e5e7eb'}
-                    onChange={(e) => updateStyle('borderColor', e.target.value)}
-                    className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
-                    placeholder="#e5e7eb"
-                  />
-                </div>
-              </div>
+              <TokenColorPicker
+                label="Border Color"
+                value={style.borderColor || ''}
+                onChange={(v) => updateStyle('borderColor', v)}
+                placeholder="#e5e7eb"
+              />
 
               <div>
                 <label className="block text-xs text-muted-foreground mb-1.5">Border Style</label>

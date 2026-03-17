@@ -60,6 +60,7 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-inter);
   --font-display: var(--font-dm-sans);
+  --font-playfair: var(--font-playfair);
 }
 
 body {
@@ -158,4 +159,18 @@ html,body {
 [data-col-stacks-never] {
   width: var(--col-width);
   flex: 0 0 var(--col-width);
+}
+
+/* Peters Outdoor theme */
+.peters-outdoor {
+  --po-bg: #FAF9F6;
+  --po-text: #1A2E1A;
+  --po-gold: #C8A951;
+  --po-forest: #2D4A2D;
+  --po-forest-light: #7A9B6D;
+  --po-forest-medium: #3D5A3D;
+}
+
+.font-playfair {
+  font-family: var(--font-playfair), serif;
 }

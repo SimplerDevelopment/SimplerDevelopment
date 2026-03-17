@@ -20,6 +20,7 @@ import {
   NotebookTabs,
   ChevronDown,
   Layers,
+  GalleryHorizontalEnd,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -56,6 +57,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   testimonial: MessageSquareQuote,
   'blog-posts': Newspaper,
   'featured-content': Layers,
+  gallery: GalleryHorizontalEnd,
 };
 
 /**
@@ -116,6 +118,7 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'testimonial', label: 'Testimonial', icon: MessageSquareQuote, category: 'Components' },
   { type: 'blog-posts', label: 'Blog Posts', icon: Newspaper, category: 'Components' },
   { type: 'featured-content', label: 'Featured Content', icon: Layers, category: 'Components' },
+  { type: 'gallery', label: 'Gallery', icon: GalleryHorizontalEnd, category: 'Media' },
 ];
 
 /**

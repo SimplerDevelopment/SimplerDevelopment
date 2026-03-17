@@ -31,6 +31,8 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'featured-content': 'Featured Content',
   youtube: 'YouTube',
   'card-grid': 'Card Grid',
+  gallery: 'Gallery',
+  section: 'Section',
 };
 
 function SettingsPopupContent() {
