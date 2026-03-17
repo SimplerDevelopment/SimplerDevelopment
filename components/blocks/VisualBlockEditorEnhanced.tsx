@@ -13,6 +13,7 @@ import { ResponsiveHelpButton } from './ResponsiveHelpModal';
 import { SaveAsTemplateModal } from './SaveAsTemplateModal';
 import { TemplateLibrary } from './TemplateLibrary';
 import { PageSettingsPanel } from './visual/PageSettingsPanel';
+import { BlockTypeIcon } from './BlockTypeIcon';
 import {
   DndContext,
   closestCenter,
@@ -856,7 +857,7 @@ export function EditorInner({
                           className="p-4 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group bg-white dark:bg-gray-900"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="text-2xl flex-shrink-0">{blockType.icon}</div>
+                            <BlockTypeIcon type={blockType.type} className="w-10 h-10 flex-shrink-0 group-hover:text-primary transition-colors" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-foreground group-hover:text-primary mb-1">
                                 {blockType.label}
