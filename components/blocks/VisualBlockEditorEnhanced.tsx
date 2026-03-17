@@ -464,12 +464,20 @@ export function EditorInner({
   return (
     <div className="relative">
       {/* Editor */}
-      <div className="relative flex gap-0" ref={editorRef}>
+      <div
+        className="relative flex gap-0"
+        ref={editorRef}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setSelectedBlockId(null);
+          }
+        }}
+      >
         {/* Responsive Preview Container */}
         <div
           className={`flex-1 min-h-[500px] flex transition-all ${
             currentViewport === 'desktop' ? '' : 'justify-center'
-          } ${selectedBlock && !isSettingsPoppedOut ? 'mr-80' : ''}`}
+          } ${selectedBlock && !isSettingsPoppedOut ? 'mr-72' : ''}`}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setSelectedBlockId(null);
@@ -558,7 +566,7 @@ export function EditorInner({
 
         {/* Settings Sidebar */}
         {selectedBlock && !isSettingsPoppedOut && (
-          <div className="w-80 bg-white dark:bg-gray-900 border-l border-border fixed right-0 top-[120px] bottom-0 z-10 overflow-y-auto">
+          <div className="w-72 bg-white dark:bg-gray-900 border-l border-border fixed right-0 top-[120px] bottom-0 z-10 overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">
