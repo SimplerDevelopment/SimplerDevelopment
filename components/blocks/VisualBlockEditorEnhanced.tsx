@@ -271,6 +271,17 @@ export function EditorInner({
   const [activeId, setActiveId] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
+  // Click outside editor to deselect
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (editorRef.current && !editorRef.current.contains(e.target as Node)) {
+        setSelectedBlockId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Configure drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
