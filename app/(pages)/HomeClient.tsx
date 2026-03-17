@@ -140,7 +140,7 @@ export function HomeClient() {
                         className="absolute top-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5"
                         style={{ backgroundColor: service.color }}
                       />
-                      <div className="flex items-start gap-4 mt-2">
+                      <div className="flex flex-col items-center text-center gap-3 mt-2">
                         <div
                           className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: `${service.color}15` }}
