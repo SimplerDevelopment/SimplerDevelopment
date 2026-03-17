@@ -88,6 +88,7 @@ export default function PostForm({ post, mode }: PostFormProps) {
     { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Display content in columns' },
     { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible content sections' },
     { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
+    { type: 'section', label: 'Section', icon: '📦', category: 'Layout', description: 'Container wrapper with styling' },
     { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
     { type: 'services-grid', label: 'Services', icon: '📦', category: 'Components', description: 'Grid of services' },
     { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
