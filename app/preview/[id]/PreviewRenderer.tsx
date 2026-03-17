@@ -1,6 +1,6 @@
 'use client';
 
-import { Block } from '@/types/blocks';
+import { Block, PageSettings } from '@/types/blocks';
 import { TextBlockRender } from '@/components/blocks/render/TextBlockRender';
 import { HeadingBlockRender } from '@/components/blocks/render/HeadingBlockRender';
 import { ImageBlockRender } from '@/components/blocks/render/ImageBlockRender';
@@ -29,6 +29,7 @@ interface PreviewRendererProps {
   blocks: Block[];
   htmlContent?: string;
   isDraft: boolean;
+  pageSettings?: PageSettings;
 }
 
 function renderBlock(block: Block) {
@@ -80,7 +81,8 @@ function renderBlock(block: Block) {
   }
 }
 
-export function PreviewRenderer({ title, blocks, htmlContent, isDraft }: PreviewRendererProps) {
+export function PreviewRenderer({ title, blocks, htmlContent, isDraft, pageSettings = {} }: PreviewRendererProps) {
+  const ps = pageSettings;
   return (
     <div className="min-h-screen bg-background">
       {/* Preview banner */}
@@ -105,7 +107,20 @@ export function PreviewRenderer({ title, blocks, htmlContent, isDraft }: Preview
       </div>
 
       {/* Page content */}
-      <article className="block-content">
+      <article
+        className={`block-content ${ps.fontFamily || ''} ${ps.cssClass || ''}`}
+        style={{
+          ...(ps.backgroundColor ? { backgroundColor: ps.backgroundColor } : {}),
+          ...(ps.backgroundImage ? {
+            backgroundImage: `url(${ps.backgroundImage})`,
+            backgroundSize: ps.backgroundSize || 'cover',
+            backgroundPosition: ps.backgroundPosition || 'center',
+          } : {}),
+          ...(ps.maxWidth ? { maxWidth: ps.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
+          ...(ps.color ? { color: ps.color } : {}),
+          padding: `${ps.paddingTop || '0'} ${ps.paddingRight || '0'} ${ps.paddingBottom || '0'} ${ps.paddingLeft || '0'}`,
+        }}
+      >
         {htmlContent ? (
           <div className="max-w-4xl mx-auto px-4 py-12">
             <div

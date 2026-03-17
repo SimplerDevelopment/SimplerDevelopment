@@ -4,7 +4,7 @@ import { useRef, useEffect } from 'react';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
 
 export function VisualEditorToolbar() {
-  const { state, undo, redo, togglePreviewMode } = useBlockEditor();
+  const { state, undo, redo, togglePreviewMode, pageSettings } = useBlockEditor();
   const previewChannelRef = useRef<BroadcastChannel | null>(null);
 
   // Keep a BroadcastChannel open to send live updates to the preview tab
@@ -13,7 +13,7 @@ export function VisualEditorToolbar() {
     return () => previewChannelRef.current?.close();
   }, []);
 
-  // Send block updates to preview tab whenever blocks change
+  // Send block and page settings updates to preview tab
   useEffect(() => {
     previewChannelRef.current?.postMessage({
       type: 'BLOCKS_UPDATE',
@@ -21,24 +21,26 @@ export function VisualEditorToolbar() {
     });
   }, [state.blocks]);
 
-  const openFullPreview = () => {
-    // Store current blocks in sessionStorage for the preview page to read
-    sessionStorage.setItem('previewBlocks', JSON.stringify(state.blocks));
+  useEffect(() => {
+    previewChannelRef.current?.postMessage({
+      type: 'PAGE_SETTINGS_UPDATE',
+      pageSettings,
+    });
+  }, [pageSettings]);
 
-    // Try to get the post title from the page
+  const openFullPreview = () => {
+    // Store current state in sessionStorage for the preview page to read
+    sessionStorage.setItem('previewBlocks', JSON.stringify(state.blocks));
+    sessionStorage.setItem('previewPageSettings', JSON.stringify(pageSettings));
+
     const titleEl = document.querySelector('[data-post-title]');
     const title = titleEl?.textContent || document.title || 'Preview';
     sessionStorage.setItem('previewTitle', title);
 
     // Also send via BroadcastChannel for live updates
-    previewChannelRef.current?.postMessage({
-      type: 'BLOCKS_UPDATE',
-      blocks: state.blocks,
-    });
-    previewChannelRef.current?.postMessage({
-      type: 'TITLE_UPDATE',
-      title,
-    });
+    previewChannelRef.current?.postMessage({ type: 'BLOCKS_UPDATE', blocks: state.blocks });
+    previewChannelRef.current?.postMessage({ type: 'TITLE_UPDATE', title });
+    previewChannelRef.current?.postMessage({ type: 'PAGE_SETTINGS_UPDATE', pageSettings });
 
     window.open('/preview/live', '_blank');
   };
