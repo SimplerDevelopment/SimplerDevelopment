@@ -122,8 +122,8 @@ export function HomeClient() {
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// WHAT WE DO</p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold mb-12">
+              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">// WHAT WE DO</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-12 text-center">
                 Five disciplines, one team.
               </h2>
             </FadeIn>
