@@ -5,23 +5,23 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
-function WaveMesh({ isInView, mousePos }: { isInView: boolean; mousePos: { x: number; y: number } }) {
+function WaveMesh({ isInView, mousePos, isHovered }: { isInView: boolean; mousePos: { x: number; y: number }; isHovered: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const smoothMouse = useRef({ x: 0, y: 0 });
-  const debugCount = useRef(0);
+  const hoverBlend = useRef(0); // 0 = idle, 1 = fully hovering
 
   const geometry = useMemo(() => {
     return new THREE.PlaneGeometry(50, 15, 60, 24);
   }, []);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!meshRef.current || !isInView) return;
 
-    // Debug logging (only log every 60 frames)
-    debugCount.current++;
-    if (debugCount.current % 60 === 0) {
-      console.log('WaveMesh - mouse:', mousePos.x.toFixed(2), mousePos.y.toFixed(2));
-    }
+    const time = state.clock.getElapsedTime();
+
+    // Smooth transition between idle and hover states
+    const targetBlend = isHovered ? 1 : 0;
+    hoverBlend.current += (targetBlend - hoverBlend.current) * 0.08;
 
     // Smoothly interpolate mouse position for fluid tracking
     smoothMouse.current.x += (mousePos.x - smoothMouse.current.x) * 0.15;
@@ -30,28 +30,33 @@ function WaveMesh({ isInView, mousePos }: { isInView: boolean; mousePos: { x: nu
     const positions = meshRef.current.geometry.attributes.position;
 
     // Convert normalized mouse position (-1 to 1) to mesh coordinate space
-    // Mesh width is 50, height is 15
-    const mouseX = smoothMouse.current.x * 25; // -25 to 25 (mesh width)
-    const mouseY = smoothMouse.current.y * 7.5; // -7.5 to 7.5 (mesh height)
+    const mouseX = smoothMouse.current.x * 25;
+    const mouseY = smoothMouse.current.y * 7.5;
 
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i);
       const y = positions.getY(i);
 
-      // Calculate distance from mouse position to this vertex
+      // === Hover spike effect ===
       const distanceToMouse = Math.sqrt(
         Math.pow(x - mouseX, 2) + Math.pow(y - mouseY, 2)
       );
-
-      // Create a sharp spike effect like a sound wave
-      // The spike is strongest at the cursor position and falls off with distance
-      // Using an exponential falloff for a sharper, more dramatic spike
-      const falloff = 4; // Tighter falloff for sharper spike
-      const spikeHeight = 5; // Height of the spike
+      const falloff = 4;
+      const spikeHeight = 5;
       const spike = Math.exp(-distanceToMouse / falloff) * spikeHeight;
 
-      // Apply the spike to the Z coordinate
-      positions.setZ(i, spike);
+      // === Idle wave animation ===
+      // Gentle rolling waves
+      const wave1 = Math.sin(x * 0.12 + time * 0.4) * 0.5;
+      const wave2 = Math.sin(y * 0.2 + time * 0.3) * 0.25;
+      const wave3 = Math.sin((x + y) * 0.08 + time * 0.5) * 0.3;
+      const idleZ = wave1 + wave2 + wave3;
+
+      // Blend between idle and hover
+      const blend = hoverBlend.current;
+      const z = idleZ * (1 - blend) + spike * blend;
+
+      positions.setZ(i, z);
     }
 
     positions.needsUpdate = true;
@@ -65,8 +70,8 @@ function WaveMesh({ isInView, mousePos }: { isInView: boolean; mousePos: { x: nu
       rotation={[-Math.PI / 2.3, 0, 0]}
     >
       <meshStandardMaterial
-        color="#8b5cf6"
-        emissive="#8b5cf6"
+        color="#2563eb"
+        emissive="#2563eb"
         emissiveIntensity={3.0}
         wireframe
         side={THREE.DoubleSide}
@@ -75,17 +80,17 @@ function WaveMesh({ isInView, mousePos }: { isInView: boolean; mousePos: { x: nu
   );
 }
 
-function Scene({ isInView, mousePos }: { isInView: boolean; mousePos: { x: number; y: number } }) {
+function Scene({ isInView, mousePos, isHovered }: { isInView: boolean; mousePos: { x: number; y: number }; isHovered: boolean }) {
   return (
     <>
       {/* Lighting */}
       <ambientLight intensity={0.5} />
-      <pointLight position={[0, -5, 10]} intensity={6.0} color="#8b5cf6" />
-      <pointLight position={[15, -5, 5]} intensity={4.0} color="#a855f7" />
-      <pointLight position={[-15, -5, 5]} intensity={4.0} color="#ec4899" />
+      <pointLight position={[0, -5, 10]} intensity={6.0} color="#2563eb" />
+      <pointLight position={[15, -5, 5]} intensity={4.0} color="#06b6d4" />
+      <pointLight position={[-15, -5, 5]} intensity={4.0} color="#f59e0b" />
 
       {/* Wave mesh */}
-      <WaveMesh isInView={isInView} mousePos={mousePos} />
+      <WaveMesh isInView={isInView} mousePos={mousePos} isHovered={isHovered} />
     </>
   );
 }
@@ -94,6 +99,7 @@ export function FeaturesBackground() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -117,7 +123,7 @@ export function FeaturesBackground() {
     };
   }, []);
 
-  // Track mouse position relative to the section
+  // Track mouse position and hover state relative to the section
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
@@ -130,12 +136,19 @@ export function FeaturesBackground() {
       setMousePos({ x, y });
     };
 
+    const handleMouseEnter = () => setIsHovered(true);
+    const handleMouseLeave = () => setIsHovered(false);
+
     // Add listener to the parent section (not the canvas)
     const section = containerRef.current?.parentElement;
     if (section) {
       section.addEventListener('mousemove', handleMouseMove);
+      section.addEventListener('mouseenter', handleMouseEnter);
+      section.addEventListener('mouseleave', handleMouseLeave);
       return () => {
         section.removeEventListener('mousemove', handleMouseMove);
+        section.removeEventListener('mouseenter', handleMouseEnter);
+        section.removeEventListener('mouseleave', handleMouseLeave);
       };
     }
   }, []);
@@ -148,7 +161,7 @@ export function FeaturesBackground() {
         style={{ width: '100%', height: '100%' }}
       >
         <Suspense fallback={null}>
-          <Scene isInView={isInView} mousePos={mousePos} />
+          <Scene isInView={isInView} mousePos={mousePos} isHovered={isHovered} />
         </Suspense>
       </Canvas>
     </div>

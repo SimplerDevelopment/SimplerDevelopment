@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 
-type ButtonVariant = 'default' | 'outline' | 'ghost';
+type ButtonVariant = 'default' | 'outline' | 'ghost' | 'warm';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -23,6 +23,7 @@ const variants = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/90',
   outline: 'border-2 border-primary bg-transparent hover:bg-primary hover:text-primary-foreground',
   ghost: 'bg-transparent hover:bg-primary/10',
+  warm: 'bg-accent-warm text-white hover:bg-amber-600',
 };
 
 const sizes = {
@@ -42,7 +43,7 @@ export function Button({
   type = 'button',
   style,
 }: ButtonProps) {
-  const baseClasses = `inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${variants[variant]} ${sizes[size]} ${className}`;
+  const baseClasses = `inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${variants[variant]} ${sizes[size]} ${className}`;
 
   const content = (
     <motion.span

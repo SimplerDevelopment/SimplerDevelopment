@@ -116,8 +116,8 @@ function MorphingBlob({ color = '#8b5cf6' }: { color?: string }) {
       <sphereGeometry ref={geometryRef} args={[0.95, 32, 32]} />
       <meshStandardMaterial
         color={color}
-        metalness={0.8}
-        roughness={0.2}
+        metalness={0.4}
+        roughness={0.5}
         emissive={color}
         emissiveIntensity={0.3}
       />
@@ -153,7 +153,7 @@ function ResponsiveCluster({ sceneType, color }: { sceneType: 'view1' | 'view2' 
   if (!showCluster) return null;
 
   return (
-    <group position={[clusterX, 1.5, 0]}>
+    <group position={[clusterX, -1, 0]}>
       {/* Morphing blob */}
       <MorphingBlob color={color} />
       <AnimatedRings formation={sceneType} />
@@ -238,18 +238,18 @@ export function HeroScene({ className = 'h-screen w-full', sceneType = 'view1', 
           <ambientLight intensity={0.3} />
           <pointLight position={[10, 10, 10]} intensity={1.5} color="#ffffff" />
           <pointLight position={[-10, -10, -10]} intensity={0.8} color="#3b82f6" />
-          <pointLight position={[0, 0, 5]} intensity={1} color="#8b5cf6" />
+          <pointLight position={[0, 0, 5]} intensity={1} color="#06b6d4" />
           <spotLight
             position={[0, 10, 0]}
             angle={0.3}
             penumbra={1}
             intensity={1}
-            color="#ec4899"
+            color="#f59e0b"
           />
 
           {/* Additional area-specific lighting */}
-          <pointLight position={[-15, 5, 10]} intensity={2} color="#8b5cf6" />
-          <pointLight position={[15, -5, 10]} intensity={2} color="#ec4899" />
+          <pointLight position={[-15, 5, 10]} intensity={2} color="#2563eb" />
+          <pointLight position={[15, -5, 10]} intensity={2} color="#f59e0b" />
 
           {/* Environment for reflections */}
           <Environment preset="city" />

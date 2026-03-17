@@ -39,7 +39,7 @@ export function Hero({
           )}
 
           <FadeIn delay={0.2}>
-            <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent tracking-wide">
+            <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               {title}
             </h1>
           </FadeIn>

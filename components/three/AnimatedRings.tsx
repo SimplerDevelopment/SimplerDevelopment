@@ -197,10 +197,10 @@ export function AnimatedRings({ formation = 'view1' }: AnimatedRingsProps) {
 }
 
 const ringColors = [
-  '#22c55e', // green-500 - innermost
-  '#3b82f6', // blue-500
-  '#a855f7', // purple-500
-  '#ec4899', // pink-500
+  '#3b82f6', // blue-500 - innermost
+  '#06b6d4', // cyan-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
   '#f97316', // orange-500 - outermost
 ];
 

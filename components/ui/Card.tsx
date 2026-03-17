@@ -23,10 +23,10 @@ export function Card({
   const content = (
     <motion.div
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className={`group relative h-full rounded-lg border border-green-500/30 bg-black/80 backdrop-blur-sm p-6 shadow-lg shadow-green-500/20 transition-all hover:shadow-xl hover:shadow-green-500/40 hover:border-green-500/60 ${className}`}
+      className={`group relative h-full rounded-xl border border-border bg-background/80 backdrop-blur-sm p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/40 ${className}`}
     >
       {image && (
-        <div className="mb-4 overflow-hidden rounded-md">
+        <div className="mb-4 overflow-hidden rounded-lg">
           <img
             src={image}
             alt={title}
@@ -36,17 +36,17 @@ export function Card({
       )}
 
       {icon && (
-        <span className="material-icons text-green-400 text-5xl mb-4 block">{icon}</span>
+        <span className="material-icons text-5xl text-primary mb-4 block">{icon}</span>
       )}
 
-      <h3 className="font-heading text-xl font-bold mb-2 text-green-400 group-hover:text-green-300 transition-colors">
+      <h3 className="font-heading text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors">
         {title}
       </h3>
 
-      <p className="text-green-100/70 mb-4">{description}</p>
+      <p className="text-muted-foreground mb-4">{description}</p>
 
       {link && (
-        <div className="flex items-center text-green-400 font-medium group-hover:gap-2 transition-all">
+        <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all">
           Learn more
           <svg
             className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"

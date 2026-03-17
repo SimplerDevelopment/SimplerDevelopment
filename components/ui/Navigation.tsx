@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
 import { UserDropdown } from './UserDropdown';
+import { Button } from './Button';
 
 export function Navigation() {
   const { data: session } = useSession();
@@ -35,10 +36,9 @@ export function Navigation() {
 
   const navLinks = [
     { href: '/solutions', label: 'Solutions' },
-    { href: '/apps-and-products', label: 'Apps and Products' },
+    { href: '/apps-and-products', label: 'Apps & Products' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
-    { href: '/contact', label: 'Contact' },
   ];
 
   // Check if we're on a post edit/new screen
@@ -74,7 +74,7 @@ export function Navigation() {
                 </Link>
               )}
               <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
-                <img src="/iconLogo.png" alt="" className="h-14 w-14 -mr-2 dark:invert" />
+                <img src="/iconLogo.png" alt="" className="h-14 w-14 -mr-2 dark:brightness-0 dark:invert transition-[filter] duration-300" />
                 <span><b>Simpler</b> Development</span>
               </Link>
             </div>
@@ -87,7 +87,9 @@ export function Navigation() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="text-sm font-heading font-semibold hover:text-primary transition-colors"
+                      className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
+                        pathname === link.href ? 'text-primary' : ''
+                      }`}
                     >
                       {link.label}
                     </Link>
@@ -99,6 +101,10 @@ export function Navigation() {
 
               {session ? (
                 <UserDropdown user={session.user} />
+              ) : !pathname.startsWith('/admin') ? (
+                <Button href="/contact" size="sm">
+                  Book a Call
+                </Button>
               ) : (
                 <Link
                   href="/admin/login"
@@ -158,7 +164,7 @@ export function Navigation() {
           <div className="px-4 py-6 space-y-2">
             {!pathname.startsWith('/admin') && (
               <>
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-3">
+                <div className="text-xs font-semibold text-muted-foreground tracking-wider mb-4 px-3">
                   Navigation
                 </div>
                 {navLinks.map((link, index) => (
@@ -173,9 +179,16 @@ export function Navigation() {
                       animation: mobileMenuOpen ? `slideIn 0.3s ease-out ${index * 0.05}s both` : 'none'
                     }}
                   >
-                    <span className="uppercase tracking-wide">{link.label}</span>
+                    <span>{link.label}</span>
                   </Link>
                 ))}
+
+                {/* Mobile CTA */}
+                <div className="pt-2 px-4">
+                  <Button href="/contact" size="md" className="w-full justify-center" onClick={closeMobileMenu}>
+                    Book a Call
+                  </Button>
+                </div>
               </>
             )}
 
@@ -183,7 +196,7 @@ export function Navigation() {
               {session ? (
                 <div className="space-y-2">
                   <div className="px-4 py-2">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                    <div className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">
                       Account
                     </div>
                     <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-accent/50">
@@ -205,23 +218,23 @@ export function Navigation() {
                     onClick={closeMobileMenu}
                     className="flex items-center px-4 py-4 rounded-lg text-lg font-heading font-semibold hover:bg-accent transition-all duration-200 hover:translate-x-1"
                   >
-                    <span className="uppercase tracking-wide">Dashboard</span>
+                    <span>Dashboard</span>
                   </Link>
                   <Link
                     href="/admin/settings"
                     onClick={closeMobileMenu}
                     className="flex items-center px-4 py-4 rounded-lg text-lg font-heading font-semibold hover:bg-accent transition-all duration-200 hover:translate-x-1"
                   >
-                    <span className="uppercase tracking-wide">Settings</span>
+                    <span>Settings</span>
                   </Link>
                 </div>
               ) : (
                 <Link
                   href="/admin/login"
                   onClick={closeMobileMenu}
-                  className="flex items-center justify-center px-4 py-4 rounded-lg text-lg font-heading font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105"
+                  className="flex items-center justify-center px-4 py-3 rounded-lg text-base font-heading font-semibold text-muted-foreground hover:text-primary transition-all duration-200"
                 >
-                  <span className="uppercase tracking-wide">Login</span>
+                  Admin Login
                 </Link>
               )}
             </div>

@@ -15,25 +15,25 @@ const values = [
     id: '1',
     title: 'Innovation',
     description: 'We push boundaries with cutting-edge technologies like Three.js, React, and modern automation tools.',
-    icon: '🚀',
+    icon: 'lightbulb',
   },
   {
     id: '2',
     title: 'Quality',
     description: 'Every project is crafted with meticulous attention to detail, ensuring exceptional results.',
-    icon: '⭐',
+    icon: 'workspace_premium',
   },
   {
     id: '3',
     title: 'Collaboration',
     description: 'We work closely with our clients, making their vision our mission.',
-    icon: '🤝',
+    icon: 'group',
   },
   {
     id: '4',
     title: 'Simplicity',
     description: 'Complex problems deserve elegant solutions. We make the complicated simple.',
-    icon: '✨',
+    icon: 'auto_awesome',
   },
 ];
 
@@ -58,11 +58,11 @@ export default function AboutPage() {
       />
 
       {/* Mission Section */}
-      <section className="py-20 bg-gradient-to-b from-background to-primary/5">
+      <section className="py-20 bg-gradient-to-b from-background to-primary/3">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <FadeIn>
-              <h2 className="font-display text-3xl md:text-5xl font-bold mb-6 tracking-tight">Our Mission</h2>
+              <h2 className="font-display text-3xl md:text-5xl font-bold mb-6">Our Mission</h2>
               <p className="text-xl text-muted-foreground leading-relaxed">
                 At SimplerDevelopment, we believe that exceptional digital experiences shouldn&apos;t be complicated.
                 Our mission is to harness the power of modern web technologies, interactive design, and intelligent
@@ -78,7 +78,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <FadeIn>
-              <h2 className="font-display text-3xl md:text-5xl font-bold mb-4 tracking-tight">Our Values</h2>
+              <h2 className="font-display text-3xl md:text-5xl font-bold mb-4">Our Values</h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 The principles that guide everything we do
               </p>
@@ -100,7 +100,7 @@ export default function AboutPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-r from-primary/10 to-primary/5">
+      <section className="py-20 bg-gradient-to-r from-primary/5 to-primary/3">
         <div className="container mx-auto px-4">
           <FadeIn>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
@@ -124,15 +124,15 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <FadeIn>
-              <h2 className="font-display text-3xl md:text-5xl font-bold mb-12 text-center tracking-tight">
+              <h2 className="font-display text-3xl md:text-5xl font-bold mb-12 text-center">
                 What Sets Us Apart
               </h2>
             </FadeIn>
 
             <div className="space-y-12">
               <SlideIn direction="left">
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-                  <div className="text-5xl">🎨</div>
+                <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
+                  <span className="material-icons text-5xl text-primary">palette</span>
                   <div>
                     <h3 className="font-heading text-2xl font-bold mb-3">Interactive Design</h3>
                     <p className="text-muted-foreground">
@@ -145,8 +145,8 @@ export default function AboutPage() {
               </SlideIn>
 
               <SlideIn direction="right">
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-                  <div className="text-5xl">⚡</div>
+                <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
+                  <span className="material-icons text-5xl text-primary">bolt</span>
                   <div>
                     <h3 className="font-heading text-2xl font-bold mb-3">Modern Development</h3>
                     <p className="text-muted-foreground">
@@ -159,8 +159,8 @@ export default function AboutPage() {
               </SlideIn>
 
               <SlideIn direction="left">
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-                  <div className="text-5xl">🤖</div>
+                <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
+                  <span className="material-icons text-5xl text-primary">smart_toy</span>
                   <div>
                     <h3 className="font-heading text-2xl font-bold mb-3">Intelligent Automation</h3>
                     <p className="text-muted-foreground">
@@ -177,10 +177,10 @@ export default function AboutPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-b from-primary/5 to-background">
+      <section className="py-20 bg-gradient-to-b from-primary/3 to-background">
         <div className="container mx-auto px-4 text-center">
           <FadeIn>
-            <h2 className="font-display text-3xl md:text-4xl font-bold mb-6 tracking-tight">
+            <h2 className="font-display text-3xl md:text-4xl font-bold mb-6">
               Ready to Work Together?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
@@ -189,7 +189,7 @@ export default function AboutPage() {
             </p>
             <a
               href="/contact"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-8 py-4 text-lg font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-8 py-4 text-lg font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Get in Touch
             </a>
