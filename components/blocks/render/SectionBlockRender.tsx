@@ -22,6 +22,7 @@ import { StatsBlockRender } from './StatsBlockRender';
 import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
+import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
 
 interface SectionBlockRenderProps {
@@ -54,7 +55,9 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
       <div style={innerStyle}>
         {block.blocks.map((nestedBlock) => (
           <div key={nestedBlock.id}>
-            {renderNestedBlock(nestedBlock)}
+            <BlockStyleWrapper block={nestedBlock}>
+              {renderNestedBlock(nestedBlock)}
+            </BlockStyleWrapper>
           </div>
         ))}
       </div>

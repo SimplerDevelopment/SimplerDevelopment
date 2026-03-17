@@ -3,6 +3,7 @@ import { ResponsiveSettings } from './responsive';
 export interface BlockStyle {
   backgroundColor?: string;
   color?: string;
+  fontSize?: string;
   fontFamily?: string;
   fontWeight?: string;
   lineHeight?: string;
@@ -15,6 +16,14 @@ export interface BlockStyle {
   margin?: string;
   boxShadow?: string;
   opacity?: string;
+  // Flex layout
+  display?: 'block' | 'flex' | 'inline-flex' | 'grid' | 'inline-block' | 'none';
+  flexDirection?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
+  justifyContent?: 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly';
+  alignItems?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
+  flexWrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
+  gap?: string;
+  alignSelf?: 'auto' | 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
 }
 
 export interface BaseBlock {

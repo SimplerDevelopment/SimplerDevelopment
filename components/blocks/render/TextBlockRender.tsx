@@ -39,7 +39,7 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
 
   return (
     <div className={responsiveClasses}>
-      <p className={`${alignmentClass} ${sizeClass} text-foreground whitespace-pre-wrap`}>
+      <p className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
         {block.content}
       </p>
     </div>

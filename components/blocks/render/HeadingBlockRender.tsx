@@ -40,7 +40,7 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
       )
     : '';
 
-  const className = `${alignmentClass} ${headingClasses} text-foreground mb-4`;
+  const className = `${alignmentClass} ${headingClasses} ${block.style?.color ? '' : 'text-foreground'} mb-4`;
   const tag = `h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
   return (

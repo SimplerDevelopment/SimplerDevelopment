@@ -41,7 +41,7 @@ export function HeadingBlockPreview({ block, isSelected, onChange }: HeadingBloc
         html={block.content}
         onChange={(content) => onChange({ content })}
         tagName={levelTags[block.level]}
-        className={`focus:outline-none text-foreground mb-4 ${
+        className={`focus:outline-none ${block.style?.color ? '' : 'text-foreground'} mb-4 ${
           levelClasses[block.level]
         } ${alignmentClasses[block.alignment || 'left']}`}
         placeholder="Write your heading..."

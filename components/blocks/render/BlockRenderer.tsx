@@ -23,6 +23,7 @@ import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
+import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface BlockRendererProps {
   content: string;
@@ -52,7 +53,9 @@ export function BlockRenderer({ content }: BlockRendererProps) {
     <div className="block-content">
       {blocks.map((block) => (
         <div key={block.id} className="block-wrapper">
-          {renderBlock(block)}
+          <BlockStyleWrapper block={block}>
+            {renderBlock(block)}
+          </BlockStyleWrapper>
         </div>
       ))}
     </div>

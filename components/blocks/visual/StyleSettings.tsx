@@ -238,6 +238,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   const spacingSizes: SpacingSize[] = ['none', 'xs', 'sm', 'md', 'lg', 'xl', '2xl'];
   const fontSizes = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'];
 
+  // Blocks that don't have meaningful text content — no font size controls needed
+  const nonTextBlocks: string[] = ['spacer', 'divider', 'image', 'video', 'youtube'];
+  const hasTextContent = !nonTextBlocks.includes(block.type);
+
   return (
     <div className="space-y-6">
       {/* Viewport Indicator */}
@@ -301,8 +305,8 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         />
       </div>
 
-      {/* Responsive Font Size (for text-based blocks) */}
-      {(block.type === 'text' || block.type === 'heading' || block.type === 'quote') && (
+      {/* Responsive Font Size */}
+      {hasTextContent && (
         <div>
           <label className="block text-sm font-semibold text-foreground mb-3">Responsive Font Size</label>
           <select
@@ -317,6 +321,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               </option>
             ))}
           </select>
+          <p className="text-[10px] text-muted-foreground mt-1">Per-breakpoint size. Use static font size below for all breakpoints.</p>
         </div>
       )}
 
@@ -368,6 +373,32 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               />
             </div>
           </div>
+
+          {/* Font Size */}
+          {hasTextContent && (
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1.5">Font Size</label>
+              <select
+                value={style.fontSize || ''}
+                onChange={(e) => updateStyle('fontSize', e.target.value)}
+                className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+              >
+                <option value="">Default</option>
+                <option value="0.75rem">XS (12px)</option>
+                <option value="0.875rem">SM (14px)</option>
+                <option value="1rem">Base (16px)</option>
+                <option value="1.125rem">LG (18px)</option>
+                <option value="1.25rem">XL (20px)</option>
+                <option value="1.5rem">2XL (24px)</option>
+                <option value="1.875rem">3XL (30px)</option>
+                <option value="2.25rem">4XL (36px)</option>
+                <option value="3rem">5XL (48px)</option>
+                <option value="3.75rem">6XL (60px)</option>
+                <option value="4.5rem">7XL (72px)</option>
+                <option value="6rem">8XL (96px)</option>
+              </select>
+            </div>
+          )}
 
           {/* Font Family */}
           <div>
@@ -516,6 +547,173 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
               <option value="1.5rem">3XL (24px)</option>
               <option value="9999px">Full (Pill)</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Layout (Flex/Grid) */}
+      <div>
+        <label className="block text-sm font-semibold text-foreground mb-3">Layout</label>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1.5">Display</label>
+            <select
+              value={style.display || ''}
+              onChange={(e) => updateStyle('display', e.target.value)}
+              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+            >
+              <option value="">Default (block)</option>
+              <option value="flex">Flex</option>
+              <option value="inline-flex">Inline Flex</option>
+              <option value="grid">Grid</option>
+              <option value="inline-block">Inline Block</option>
+              <option value="none">None (hidden)</option>
+            </select>
+          </div>
+
+          {(style.display === 'flex' || style.display === 'inline-flex') && (
+            <>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">Direction</label>
+                <div className="grid grid-cols-4 gap-1">
+                  {([
+                    { value: 'row', label: 'Row', icon: '→' },
+                    { value: 'column', label: 'Col', icon: '↓' },
+                    { value: 'row-reverse', label: 'Row ←', icon: '←' },
+                    { value: 'column-reverse', label: 'Col ↑', icon: '↑' },
+                  ] as const).map(({ value, label, icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => updateStyle('flexDirection', value)}
+                      className={`px-2 py-1.5 text-[10px] rounded border transition-colors text-center ${
+                        (style.flexDirection || 'row') === value
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                      title={label}
+                    >
+                      <span className="text-sm block">{icon}</span>
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">Justify Content</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    { value: 'flex-start', label: 'Start' },
+                    { value: 'center', label: 'Center' },
+                    { value: 'flex-end', label: 'End' },
+                    { value: 'space-between', label: 'Between' },
+                    { value: 'space-around', label: 'Around' },
+                    { value: 'space-evenly', label: 'Evenly' },
+                  ] as const).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => updateStyle('justifyContent', value)}
+                      className={`px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                        (style.justifyContent || 'flex-start') === value
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">Align Items</label>
+                <div className="grid grid-cols-5 gap-1">
+                  {([
+                    { value: 'flex-start', label: 'Start' },
+                    { value: 'center', label: 'Center' },
+                    { value: 'flex-end', label: 'End' },
+                    { value: 'stretch', label: 'Stretch' },
+                    { value: 'baseline', label: 'Base' },
+                  ] as const).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => updateStyle('alignItems', value)}
+                      className={`px-1 py-1.5 text-[10px] rounded border transition-colors ${
+                        (style.alignItems || 'stretch') === value
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">Wrap</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    { value: 'nowrap', label: 'No Wrap' },
+                    { value: 'wrap', label: 'Wrap' },
+                    { value: 'wrap-reverse', label: 'Reverse' },
+                  ] as const).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => updateStyle('flexWrap', value)}
+                      className={`px-2 py-1.5 text-[10px] rounded border transition-colors ${
+                        (style.flexWrap || 'nowrap') === value
+                          ? 'border-primary bg-primary/10 text-primary font-medium'
+                          : 'border-border text-muted-foreground hover:border-foreground/30'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5">Gap</label>
+                <select
+                  value={style.gap || ''}
+                  onChange={(e) => updateStyle('gap', e.target.value)}
+                  className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+                >
+                  <option value="">None</option>
+                  <option value="0.25rem">4px (xs)</option>
+                  <option value="0.5rem">8px (sm)</option>
+                  <option value="0.75rem">12px</option>
+                  <option value="1rem">16px (md)</option>
+                  <option value="1.5rem">24px (lg)</option>
+                  <option value="2rem">32px (xl)</option>
+                  <option value="3rem">48px (2xl)</option>
+                  <option value="4rem">64px (3xl)</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* Align Self — always available (positions this block within a parent flex) */}
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1.5">Align Self</label>
+            <select
+              value={style.alignSelf || ''}
+              onChange={(e) => updateStyle('alignSelf', e.target.value)}
+              className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+            >
+              <option value="">Auto (inherit)</option>
+              <option value="flex-start">Start</option>
+              <option value="center">Center</option>
+              <option value="flex-end">End</option>
+              <option value="stretch">Stretch</option>
+              <option value="baseline">Baseline</option>
+            </select>
+            <p className="text-[10px] text-muted-foreground mt-1">Position within a parent flex container</p>
           </div>
         </div>
       </div>

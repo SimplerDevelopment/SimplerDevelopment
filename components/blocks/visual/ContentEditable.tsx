@@ -24,7 +24,7 @@ export function ContentEditable({
     if (contentRef.current && html !== contentRef.current.innerHTML) {
       contentRef.current.innerHTML = html;
     }
-  }, [html]);
+  }, [html, tagName]);
 
   const handleInput = () => {
     if (contentRef.current) {

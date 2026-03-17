@@ -13,6 +13,7 @@ import { QuoteBlockRender } from './QuoteBlockRender';
 import { CodeBlockRender } from './CodeBlockRender';
 import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
+import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface TabsBlockRenderProps {
   block: TabsBlock;
@@ -64,7 +65,9 @@ export function TabsBlockRender({ block }: TabsBlockRenderProps) {
             <div className="space-y-4">
               {activeTab.blocks.map((nestedBlock) => (
                 <div key={nestedBlock.id}>
-                  {renderNestedBlock(nestedBlock)}
+                  <BlockStyleWrapper block={nestedBlock}>
+                    {renderNestedBlock(nestedBlock)}
+                  </BlockStyleWrapper>
                 </div>
               ))}
             </div>

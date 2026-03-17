@@ -12,6 +12,7 @@ import { QuoteBlockRender } from './QuoteBlockRender';
 import { CodeBlockRender } from './CodeBlockRender';
 import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
+import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
   block: ColumnsBlock;
@@ -102,7 +103,9 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
             >
               {column.blocks.map((nestedBlock) => (
                 <div key={nestedBlock.id}>
-                  {renderNestedBlock(nestedBlock)}
+                  <BlockStyleWrapper block={nestedBlock}>
+                    {renderNestedBlock(nestedBlock)}
+                  </BlockStyleWrapper>
                 </div>
               ))}
             </div>

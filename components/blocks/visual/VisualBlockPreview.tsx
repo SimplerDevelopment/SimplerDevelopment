@@ -57,6 +57,7 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
   if (block.style && typeof block.style === 'object') {
     if (block.style.backgroundColor) customStyles.backgroundColor = block.style.backgroundColor;
     if (block.style.color) customStyles.color = block.style.color;
+    if (block.style.fontSize) customStyles.fontSize = block.style.fontSize;
     if (block.style.fontWeight) customStyles.fontWeight = block.style.fontWeight;
     if (block.style.lineHeight) customStyles.lineHeight = block.style.lineHeight;
     if (block.style.letterSpacing) customStyles.letterSpacing = block.style.letterSpacing;
@@ -68,6 +69,14 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
     if (block.style.margin) customStyles.margin = block.style.margin;
     if (block.style.boxShadow) customStyles.boxShadow = block.style.boxShadow;
     if (block.style.opacity) customStyles.opacity = block.style.opacity;
+    // Flex layout
+    if (block.style.display) customStyles.display = block.style.display;
+    if (block.style.flexDirection) customStyles.flexDirection = block.style.flexDirection;
+    if (block.style.justifyContent) customStyles.justifyContent = block.style.justifyContent;
+    if (block.style.alignItems) customStyles.alignItems = block.style.alignItems;
+    if (block.style.flexWrap) customStyles.flexWrap = block.style.flexWrap;
+    if (block.style.gap) customStyles.gap = block.style.gap;
+    if (block.style.alignSelf) customStyles.alignSelf = block.style.alignSelf;
   }
 
   // Apply responsive spacing for the current viewport (overrides static if set)

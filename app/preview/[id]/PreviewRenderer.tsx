@@ -23,6 +23,7 @@ import { BlogPostsBlockRender } from '@/components/blocks/render/BlogPostsBlockR
 import { FeaturedContentBlockRender } from '@/components/blocks/render/FeaturedContentBlockRender';
 import { CardGridBlockRender } from '@/components/blocks/render/CardGridBlockRender';
 import { SectionBlockRender } from '@/components/blocks/render/SectionBlockRender';
+import { BlockStyleWrapper } from '@/components/blocks/render/BlockStyleWrapper';
 import Link from 'next/link';
 
 interface PreviewRendererProps {
@@ -138,7 +139,9 @@ export function PreviewRenderer({ title, blocks, htmlContent, isDraft, pageSetti
         ) : (
           blocks.map((block) => (
             <div key={block.id} className="block-wrapper">
-              {renderBlock(block)}
+              <BlockStyleWrapper block={block}>
+                {renderBlock(block)}
+              </BlockStyleWrapper>
             </div>
           ))
         )}

@@ -26,6 +26,7 @@ import { AccordionBlockRender } from './render/AccordionBlockRender';
 import { TabsBlockRender } from './render/TabsBlockRender';
 import { Block } from '@/types/blocks';
 import { SectionBlockRender } from './render/SectionBlockRender';
+import { BlockStyleWrapper } from './render/BlockStyleWrapper';
 import { getViewportWidth } from '@/lib/utils/responsive';
 
 interface EditorWithPreviewProps {
@@ -111,7 +112,9 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
                 >
                   {/* Preview Content */}
                   <div className="block-preview">
-                    {renderBlockPreview(block)}
+                    <BlockStyleWrapper block={block}>
+                      {renderBlockPreview(block)}
+                    </BlockStyleWrapper>
                   </div>
 
                   {/* Hover Overlay with Edit Button */}
