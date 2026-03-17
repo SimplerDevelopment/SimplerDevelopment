@@ -101,7 +101,7 @@ export function HomeClient() {
                         <span className="material-icons text-lg ml-1">arrow_forward</span>
                       </Button>
                       <Button href="/solutions" variant="outline" size="lg" className="w-full sm:w-auto justify-center bg-background/80">
-                        See Our Work
+                        Solutions
                       </Button>
                     </div>
                   </FadeIn>
