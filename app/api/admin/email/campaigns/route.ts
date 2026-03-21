@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailLists } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 
 async function requireStaff() {
   const session = await auth();
@@ -12,9 +12,12 @@ async function requireStaff() {
   return session;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const clientId = searchParams.get('clientId');
 
   const campaigns = await db
     .select({
@@ -36,6 +39,7 @@ export async function GET() {
     })
     .from(emailCampaigns)
     .leftJoin(emailLists, eq(emailCampaigns.listId, emailLists.id))
+    .where(clientId ? eq(emailCampaigns.clientId, parseInt(clientId)) : undefined)
     .orderBy(sql`${emailCampaigns.createdAt} desc`);
 
   return NextResponse.json({ success: true, data: campaigns });

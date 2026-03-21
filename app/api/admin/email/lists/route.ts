@@ -12,9 +12,12 @@ async function requireStaff() {
   return session;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const clientId = searchParams.get('clientId');
 
   const lists = await db
     .select({
@@ -27,6 +30,7 @@ export async function GET() {
     })
     .from(emailLists)
     .leftJoin(emailSubscribers, eq(emailSubscribers.listId, emailLists.id))
+    .where(clientId ? eq(emailLists.clientId, parseInt(clientId)) : undefined)
     .groupBy(emailLists.id)
     .orderBy(sql`${emailLists.createdAt} desc`);
 

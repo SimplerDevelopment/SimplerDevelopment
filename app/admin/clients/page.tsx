@@ -154,8 +154,8 @@ export default function AdminClientsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/admin/portal-projects?clientId=${client.id}`} className="text-xs text-primary hover:underline">
-                      View Projects
+                    <Link href={`/admin/clients/${client.id}`} className="text-xs text-primary hover:underline">
+                      Manage
                     </Link>
                   </td>
                 </tr>
