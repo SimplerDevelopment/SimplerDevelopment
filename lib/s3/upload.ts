@@ -30,9 +30,7 @@ export async function uploadToS3(
 
   await s3Client.send(command);
 
-  // Use Next.js API proxy to avoid CORS issues
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const url = `${siteUrl}/api/media/proxy/${key}`;
+  const url = `/api/media/proxy/${key}`;
 
   return {
     url,

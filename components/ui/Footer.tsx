@@ -120,7 +120,7 @@ export function Footer() {
               </svg>
             </Link>
             <p className="text-sm text-muted-foreground mt-4">
-              contact@simplerdevelopment.com
+              info@simplerdevelopment.com
             </p>
           </div>
         </div>

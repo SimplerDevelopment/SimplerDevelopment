@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface NavItem {
   href: string;
@@ -12,6 +13,7 @@ interface NavItem {
 }
 
 export default function AdminSidebar() {
+  const { status } = useSession();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -23,6 +25,8 @@ export default function AdminSidebar() {
       setIsCollapsed(saved === 'true');
     }
   }, []);
+
+  if (status !== 'authenticated') return null;
 
   // Save collapsed state to localStorage
   const toggleCollapsed = () => {
@@ -51,10 +55,25 @@ export default function AdminSidebar() {
     { href: '/admin/users', label: 'Users', icon: 'group' },
   ];
 
+  const portalNavItems: NavItem[] = [
+    { href: '/admin/clients', label: 'Clients', icon: 'business' },
+    { href: '/admin/portal-projects', label: 'Projects', icon: 'view_kanban' },
+    { href: '/admin/portal-suggested-projects', label: 'Suggested Projects', icon: 'rocket_launch' },
+    { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
+    { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
+    { href: '/admin/portal-services', label: 'Services', icon: 'storefront' },
+    { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
+    { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'rocket_launch' },
+    { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
+  ];
+
   const isPostsActive = pathname.startsWith('/admin/posts') ||
     pathname.startsWith('/admin/post-types') ||
     pathname.startsWith('/admin/categories') ||
     pathname.startsWith('/admin/tags');
+
+  const isPortalActive = pathname.startsWith('/admin/clients') ||
+    pathname.startsWith('/admin/portal-');
 
   return (
     <>
@@ -110,6 +129,10 @@ export default function AdminSidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4">
             <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+              {/* CMS section */}
+              {!isCollapsed && (
+                <li className="px-4 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">CMS</li>
+              )}
               {navItems.map((item) => (
                 <li key={item.href}>
                   <Link
@@ -154,6 +177,36 @@ export default function AdminSidebar() {
                       ))}
                     </ul>
                   )}
+                </li>
+              ))}
+              {/* Client Portal section */}
+              {!isCollapsed && (
+                <li className="px-4 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t border-border mt-2">
+                  Client Portal
+                </li>
+              )}
+              {isCollapsed && <li className="border-t border-border mt-2 pt-2" />}
+              {portalNavItems.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 ${
+                      isCollapsed ? 'justify-center px-3' : 'px-4'
+                    } py-3 rounded-md text-sm font-medium transition-colors relative group ${
+                      pathname.startsWith(item.href)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    }`}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <span className="material-icons text-xl">{item.icon}</span>
+                    {!isCollapsed && <span>{item.label}</span>}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                        {item.label}
+                      </div>
+                    )}
+                  </Link>
                 </li>
               ))}
             </ul>

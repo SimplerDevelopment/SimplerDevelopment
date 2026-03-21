@@ -71,11 +71,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnAdminPanel = nextUrl.pathname.startsWith('/admin');
-      const isOnLoginPage = nextUrl.pathname === '/admin/login';
+      const role = (auth?.user as { role?: string })?.role;
 
-      if (isOnAdminPanel && !isOnLoginPage) {
-        return isLoggedIn;
+      const isOnAdmin = nextUrl.pathname.startsWith('/admin');
+      const isOnAdminLogin = nextUrl.pathname === '/admin/login';
+      const isOnPortal = nextUrl.pathname.startsWith('/portal');
+      const isOnPortalLogin = nextUrl.pathname === '/portal/login';
+
+      // Admin panel: require auth, block clients
+      if (isOnAdmin && !isOnAdminLogin) {
+        if (!isLoggedIn) return false;
+        if (role === 'client') {
+          return Response.redirect(new URL('/portal/dashboard', nextUrl));
+        }
+        return true;
+      }
+
+      // Portal: require auth
+      if (isOnPortal && !isOnPortalLogin) {
+        if (!isLoggedIn) {
+          return Response.redirect(new URL('/portal/login', nextUrl));
+        }
+        return true;
+      }
+
+      // Redirect already-logged-in users away from portal login
+      if (isOnPortalLogin && isLoggedIn) {
+        return Response.redirect(new URL('/portal/dashboard', nextUrl));
       }
 
       return true;

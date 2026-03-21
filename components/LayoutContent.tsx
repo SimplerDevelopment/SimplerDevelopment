@@ -8,8 +8,9 @@ import { usePathname } from 'next/navigation';
 export function LayoutContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isPetersOutdoor = pathname.startsWith('/p/');
+  const isAdminOrPortal = pathname.startsWith('/admin') || pathname.startsWith('/portal');
 
-  if (isPetersOutdoor) {
+  if (isPetersOutdoor || isAdminOrPortal) {
     return <>{children}</>;
   }
 

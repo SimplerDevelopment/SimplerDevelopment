@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     // const { Resend } = require('resend');
     // const resend = new Resend(process.env.RESEND_API_KEY);
     // await resend.emails.send({
-    //   from: 'contact@simplerdevelopment.com',
+    //   from: 'info@simplerdevelopment.com',
     //   to: 'admin@simplerdevelopment.com',
     //   subject: validatedData.subject || 'New Contact Form Submission',
     //   html: `

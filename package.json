@@ -19,6 +19,7 @@
     "db:seed": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@aws-sdk/client-s3": "^3.968.0",
     "@aws-sdk/s3-request-presigner": "^3.968.0",
     "@builder.io/sdk-react-nextjs": "^0.24.0",
@@ -26,6 +27,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
+    "@next/swc-darwin-x64": "^16.2.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "bcryptjs": "^3.0.3",
@@ -47,6 +49,7 @@
     "react-email": "^5.2.3",
     "react-hook-form": "^7.71.0",
     "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
     "remark-html": "^16.0.1",
     "remark-parse": "^11.0.0",
     "resend": "^6.7.0",
