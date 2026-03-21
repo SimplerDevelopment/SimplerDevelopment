@@ -401,3 +401,66 @@ export const aiMessages = pgTable('ai_messages', {
   outputTokens: integer('output_tokens').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── EMAIL MARKETING ──────────────────────────────────────────────────────────
+
+export const emailLists = pgTable('email_lists', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }), // null = global (agency newsletter etc.)
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const emailSubscribers = pgTable('email_subscribers', {
+  id: serial('id').primaryKey(),
+  listId: integer('list_id').notNull().references(() => emailLists.id, { onDelete: 'cascade' }),
+  email: varchar('email', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // active, unsubscribed, bounced, complained
+  unsubscribeToken: varchar('unsubscribe_token', { length: 64 }).notNull().unique(),
+  metadata: json('metadata').$type<Record<string, string>>(),
+  subscribedAt: timestamp('subscribed_at').defaultNow().notNull(),
+  unsubscribedAt: timestamp('unsubscribed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const emailCampaigns = pgTable('email_campaigns', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(), // internal name
+  subject: varchar('subject', { length: 255 }).notNull(),
+  previewText: varchar('preview_text', { length: 255 }),
+  fromName: varchar('from_name', { length: 255 }).notNull(),
+  fromEmail: varchar('from_email', { length: 255 }).notNull(),
+  replyTo: varchar('reply_to', { length: 255 }),
+  listId: integer('list_id').notNull().references(() => emailLists.id, { onDelete: 'restrict' }),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'set null' }), // which client this is for (optional)
+  htmlContent: text('html_content').notNull(), // final rendered HTML
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, scheduled, sending, sent, cancelled
+  scheduledAt: timestamp('scheduled_at'),
+  sentAt: timestamp('sent_at'),
+  totalRecipients: integer('total_recipients').default(0).notNull(),
+  totalSent: integer('total_sent').default(0).notNull(),
+  totalOpened: integer('total_opened').default(0).notNull(),
+  totalClicked: integer('total_clicked').default(0).notNull(),
+  totalBounced: integer('total_bounced').default(0).notNull(),
+  totalUnsubscribed: integer('total_unsubscribed').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const emailCampaignSends = pgTable('email_campaign_sends', {
+  id: serial('id').primaryKey(),
+  campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),
+  subscriberId: integer('subscriber_id').notNull().references(() => emailSubscribers.id, { onDelete: 'cascade' }),
+  resendEmailId: varchar('resend_email_id', { length: 255 }), // ID returned by Resend
+  sentAt: timestamp('sent_at'),
+  openedAt: timestamp('opened_at'),
+  clickedAt: timestamp('clicked_at'),
+  bouncedAt: timestamp('bounced_at'),
+  complainedAt: timestamp('complained_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

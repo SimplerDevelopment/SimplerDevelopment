@@ -40,6 +40,7 @@ const navItems: NavItem[] = [
   { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
   { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long' },
   { href: '/portal/services', label: 'Services', icon: 'storefront' },
+  { href: '/portal/email', label: 'Email Campaigns', icon: 'email' },
 ];
 
 export default function PortalSidebar() {

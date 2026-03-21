@@ -65,6 +65,7 @@ export default function AdminSidebar() {
     { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
     { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'rocket_launch' },
     { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
+    { href: '/admin/email', label: 'Email Marketing', icon: 'email' },
   ];
 
   const isPostsActive = pathname.startsWith('/admin/posts') ||
