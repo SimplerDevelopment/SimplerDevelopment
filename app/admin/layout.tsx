@@ -13,6 +13,8 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  const isLoginPage = pathname === '/admin/login';
+
   // Check if we're on a post edit/new screen
   const isPostEditScreen = pathname.includes('/posts/new') ||
                           pathname.includes('/posts/edit') ||
@@ -36,6 +38,16 @@ export default function AdminLayout({
       window.removeEventListener('sidebarToggle', handleSidebarToggle as EventListener);
     };
   }, []);
+
+  if (isLoginPage) {
+    return (
+      <SessionProvider>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          {children}
+        </div>
+      </SessionProvider>
+    );
+  }
 
   return (
     <SessionProvider>
