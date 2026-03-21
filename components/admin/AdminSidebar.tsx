@@ -65,7 +65,16 @@ export default function AdminSidebar() {
     { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
     { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'rocket_launch' },
     { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
-    { href: '/admin/email', label: 'Email Marketing', icon: 'email' },
+    {
+      href: '/admin/email',
+      label: 'Email Marketing',
+      icon: 'email',
+      subItems: [
+        { href: '/admin/email/lists', label: 'Lists', icon: 'list_alt' },
+        { href: '/admin/email/campaigns', label: 'Campaigns', icon: 'campaign' },
+        { href: '/admin/email/domains', label: 'Domains', icon: 'domain' },
+      ],
+    },
   ];
 
   const isPostsActive = pathname.startsWith('/admin/posts') ||

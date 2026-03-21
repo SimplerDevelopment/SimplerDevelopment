@@ -88,7 +88,7 @@ export default function EmailDashboardPage() {
       </div>
 
       {/* Quick nav */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link href="/admin/email/lists" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
             <span className="material-icons text-2xl text-primary">list_alt</span>
@@ -104,6 +104,15 @@ export default function EmailDashboardPage() {
             <div>
               <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Campaigns</p>
               <p className="text-sm text-muted-foreground">{loading ? '…' : `${campaigns.length} total, ${sentCampaigns.length} sent`}</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/admin/email/domains" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-2xl text-primary">domain</span>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Sending Domains</p>
+              <p className="text-sm text-muted-foreground">Verify &amp; manage domains</p>
             </div>
           </div>
         </Link>
