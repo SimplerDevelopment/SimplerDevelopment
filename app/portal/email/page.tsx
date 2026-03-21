@@ -1,8 +1,26 @@
-import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { clients, emailCampaigns, emailLists, emailCampaignSends, emailSubscribers } from '@/lib/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+interface Campaign {
+  id: number;
+  name: string;
+  subject: string;
+  status: string;
+  totalSent: number;
+  totalOpened: number;
+  totalClicked: number;
+  sentAt: string | null;
+  createdAt: string;
+  listName: string | null;
+}
+
+interface EmailList {
+  id: number;
+  name: string;
+  subscriberCount: number;
+}
 
 const statusColor: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -12,133 +30,131 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-export default async function PortalEmailPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect('/portal/login');
+export default function PortalEmailPage() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [lists, setLists] = useState<EmailList[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const userId = parseInt(session.user.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
-
-  if (!client) {
-    return (
-      <div className="max-w-2xl mx-auto text-center py-20">
-        <span className="material-icons text-5xl text-muted-foreground">person_off</span>
-        <h2 className="mt-4 text-xl font-semibold">No client profile found</h2>
-        <p className="mt-2 text-muted-foreground text-sm">Please contact us to set up your account.</p>
-      </div>
-    );
-  }
-
-  // Campaigns sent for this client
-  const campaigns = await db
-    .select({
-      id: emailCampaigns.id,
-      name: emailCampaigns.name,
-      subject: emailCampaigns.subject,
-      status: emailCampaigns.status,
-      sentAt: emailCampaigns.sentAt,
-      totalSent: emailCampaigns.totalSent,
-      totalOpened: emailCampaigns.totalOpened,
-      totalClicked: emailCampaigns.totalClicked,
-      listName: emailLists.name,
-    })
-    .from(emailCampaigns)
-    .leftJoin(emailLists, eq(emailCampaigns.listId, emailLists.id))
-    .where(eq(emailCampaigns.clientId, client.id))
-    .orderBy(emailCampaigns.createdAt);
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/portal/email/campaigns').then(r => r.json()),
+      fetch('/api/portal/email/lists').then(r => r.json()),
+    ]).then(([c, l]) => {
+      setCampaigns(c.data ?? []);
+      setLists(l.data ?? []);
+      setLoading(false);
+    });
+  }, []);
 
   const sentCampaigns = campaigns.filter(c => c.status === 'sent');
   const totalSent = sentCampaigns.reduce((sum, c) => sum + c.totalSent, 0);
   const totalOpened = sentCampaigns.reduce((sum, c) => sum + c.totalOpened, 0);
   const avgOpenRate = totalSent > 0 ? Math.round(totalOpened / totalSent * 100) : 0;
+  const totalSubscribers = lists.reduce((sum, l) => sum + (l.subscriberCount ?? 0), 0);
 
-  // Subscriber count for this client's lists
-  const clientLists = await db
-    .select({ id: emailLists.id })
-    .from(emailLists)
-    .where(eq(emailLists.clientId, client.id));
-
-  const listIds = clientLists.map(l => l.id);
-  const subscriberCount = listIds.length > 0
-    ? await db
-        .select({ id: emailSubscribers.id })
-        .from(emailSubscribers)
-        .where(and(inArray(emailSubscribers.listId, listIds), eq(emailSubscribers.status, 'active')))
-        .then(rows => rows.length)
-    : 0;
+  async function deleteCampaign(id: number, status: string) {
+    if (status === 'sending') { alert('Cannot delete a campaign that is currently sending.'); return; }
+    if (!confirm('Delete this campaign?')) return;
+    await fetch(`/api/portal/email/campaigns/${id}`, { method: 'DELETE' });
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Email Campaigns</h1>
-        <p className="text-muted-foreground mt-1">Campaigns sent on your behalf.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Email Marketing</h1>
+          <p className="text-muted-foreground mt-1">Manage your campaigns and subscriber lists.</p>
+        </div>
+        <Link
+          href="/portal/email/campaigns/new"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+        >
+          <span className="material-icons text-base">add</span>
+          New Campaign
+        </Link>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Campaigns Sent', value: sentCampaigns.length, icon: 'send' },
-          { label: 'Total Subscribers', value: subscriberCount, icon: 'group' },
-          { label: 'Avg Open Rate', value: `${avgOpenRate}%`, icon: 'drafts' },
+          { label: 'Lists', value: lists.length, icon: 'list_alt', href: '/portal/email/lists' },
+          { label: 'Subscribers', value: totalSubscribers, icon: 'group', href: '/portal/email/lists' },
+          { label: 'Campaigns Sent', value: sentCampaigns.length, icon: 'send', href: '/portal/email/campaigns' },
+          { label: 'Avg Open Rate', value: `${avgOpenRate}%`, icon: 'drafts', href: null },
         ].map(stat => (
           <div key={stat.label} className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
               <span className="material-icons text-sm">{stat.icon}</span>
               <span className="text-xs">{stat.label}</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? '—' : stat.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Campaign list */}
+      {/* Quick nav */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Link href="/portal/email/lists" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-2xl text-primary">list_alt</span>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Subscriber Lists</p>
+              <p className="text-sm text-muted-foreground">{loading ? '…' : `${lists.length} list${lists.length !== 1 ? 's' : ''}, ${totalSubscribers} subscribers`}</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/portal/email/campaigns" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-2xl text-primary">campaign</span>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">All Campaigns</p>
+              <p className="text-sm text-muted-foreground">{loading ? '…' : `${campaigns.length} total, ${sentCampaigns.length} sent`}</p>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Recent campaigns */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="font-semibold text-foreground">Campaign History</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-foreground">Recent Campaigns</h2>
+          <Link href="/portal/email/campaigns" className="text-sm text-primary hover:underline">View all</Link>
         </div>
-        {campaigns.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="material-icons text-4xl text-muted-foreground mb-3 block">campaign</span>
-            <p className="text-muted-foreground text-sm">No email campaigns yet.</p>
-            <p className="text-muted-foreground text-xs mt-1">Campaigns we send on your behalf will appear here.</p>
+        {loading ? (
+          <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+        ) : campaigns.length === 0 ? (
+          <div className="p-10 text-center">
+            <span className="material-icons text-3xl text-muted-foreground mb-2 block">campaign</span>
+            <p className="text-muted-foreground text-sm mb-3">No campaigns yet.</p>
+            <Link href="/portal/email/campaigns/new" className="text-sm text-primary hover:underline">Create your first campaign</Link>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="text-left px-5 py-3 font-medium text-muted-foreground">Campaign</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">List</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Open Rate</th>
-                <th className="text-right px-5 py-3 font-medium text-muted-foreground hidden md:table-cell">Sent</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {campaigns.map(c => {
-                const openRate = c.totalSent > 0 ? Math.round(c.totalOpened / c.totalSent * 100) : 0;
-                return (
-                  <tr key={c.id} className="hover:bg-accent transition-colors">
-                    <td className="px-5 py-3">
-                      <p className="font-medium text-foreground">{c.name}</p>
-                      <p className="text-xs text-muted-foreground truncate max-w-xs">{c.subject}</p>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{c.listName ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground hidden md:table-cell">
-                      {c.status === 'sent' ? `${openRate}%` : '—'}
-                    </td>
-                    <td className="px-5 py-3 text-right text-muted-foreground hidden md:table-cell">
-                      {c.status === 'sent' ? c.totalSent.toLocaleString() : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="divide-y divide-border">
+            {campaigns.slice(0, 5).map(c => (
+              <div key={c.id} className="flex items-center justify-between px-5 py-3">
+                <Link href={`/portal/email/campaigns/${c.id}`} className="flex-1 hover:text-primary">
+                  <p className="font-medium text-foreground text-sm">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.subject} · {c.listName ?? 'No list'}</p>
+                </Link>
+                <div className="flex items-center gap-3">
+                  {c.status === 'sent' && (
+                    <span className="text-xs text-muted-foreground hidden sm:block">
+                      {c.totalSent > 0 ? Math.round(c.totalOpened / c.totalSent * 100) : 0}% open
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                    {c.status}
+                  </span>
+                  {(c.status === 'draft' || c.status === 'scheduled') && (
+                    <button onClick={() => deleteCampaign(c.id, c.status)} className="p-1 text-muted-foreground hover:text-red-500 transition-colors">
+                      <span className="material-icons text-sm">delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
