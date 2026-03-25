@@ -138,6 +138,35 @@ export async function createDeployment(
 }
 
 /**
+ * Set environment variables on a Vercel project.
+ */
+export async function setEnvVars(
+  projectId: string,
+  vars: Array<{ key: string; value: string; target?: string[] }>,
+): Promise<void> {
+  for (const v of vars) {
+    const res = await fetch(`${VERCEL_API}/v10/projects/${projectId}/env${teamParam()}`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        key: v.key,
+        value: v.value,
+        type: 'plain',
+        target: v.target || ['production', 'preview', 'development'],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      // 409 = already exists, skip
+      if (res.status !== 409) {
+        throw new Error(`Vercel setEnvVar ${v.key} failed (${res.status}): ${body}`);
+      }
+    }
+  }
+}
+
+/**
  * Get recent deployments for a Vercel project.
  */
 export async function getDeployments(

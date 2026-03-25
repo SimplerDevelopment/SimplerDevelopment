@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
-import { createProject, addDomain, removeDomain, getDomainConfig, createDeployment } from '@/lib/vercel';
+import { createProject, addDomain, removeDomain, getDomainConfig, createDeployment, setEnvVars } from '@/lib/vercel';
 import { createCnameRecord, updateCnameRecord, deleteDnsRecord, listDnsRecords } from '@/lib/cloudflare-dns';
 
 /**
@@ -59,6 +59,12 @@ export async function provisionWebsite(
         .set({ vercelProjectId: vercelId, vercelProjectUrl: vercelUrl, updatedAt: new Date() })
         .where(eq(clientWebsites.id, siteId));
     }
+
+    // Step 3b: Set CMS environment variables so the starter can fetch content
+    await setEnvVars(vercelId!, [
+      { key: 'CMS_API_URL', value: process.env.CMS_API_URL || 'https://simplerdevelopment.com' },
+      { key: 'SITE_ID', value: String(siteId) },
+    ]);
 
     // Step 4: Add domain to Vercel project (do this before DNS so we can get the correct target)
     await addDomain(vercelId!, fullDomain);
