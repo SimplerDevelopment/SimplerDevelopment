@@ -4,8 +4,9 @@ import { db } from '@/lib/db';
 import { aiConversations, aiMessages, clients, users } from '@/lib/db/schema';
 import { eq, desc, count } from 'drizzle-orm';
 
-function requireAdmin(session: Awaited<ReturnType<typeof auth>>) {
-  const role = (session?.user as { role?: string })?.role;
+function requireAdmin(session: unknown) {
+  const s = session as { user?: { role?: string } } | null;
+  const role = s?.user?.role;
   return role === 'admin' || role === 'employee';
 }
 

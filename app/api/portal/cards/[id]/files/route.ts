@@ -8,12 +8,14 @@ import { uploadToS3 } from '@/lib/s3/upload';
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
-async function authorizeCard(cardId: number, session: Awaited<ReturnType<typeof auth>>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function authorizeCard(cardId: number, session: any) {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
-  const role = (session?.user as { role?: string })?.role;
+  const s = session as unknown as { user?: { id: string; role?: string } } | null;
+  const role = s?.user?.role;
   if (role === 'admin' || role === 'employee') return card;
-  const userId = parseInt(session!.user!.id, 10);
+  const userId = parseInt(s!.user!.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return null;
   const [proj] = await db.select().from(projects)
@@ -33,7 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const card = await authorizeCard(cardId, session);
     if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-    const formData = await req.formData();
+    const formData = await req.formData() as unknown as globalThis.FormData;
     const file = formData.get('file') as File | null;
     if (!file) return NextResponse.json({ success: false, message: 'No file provided' }, { status: 400 });
     if (file.size > MAX_SIZE) return NextResponse.json({ success: false, message: 'File exceeds 20MB limit' }, { status: 400 });

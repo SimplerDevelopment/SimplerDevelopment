@@ -163,9 +163,21 @@ export const clientMembers = pgTable('client_members', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  role: varchar('role', { length: 20 }).default('member').notNull(), // owner, member
+  role: varchar('role', { length: 20 }).default('member').notNull(), // owner, admin, member, viewer
   invitedBy: integer('invited_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// GitHub OAuth connections for portal users (repo collaborator access)
+export const githubConnections = pgTable('github_connections', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  githubUserId: integer('github_user_id').notNull(),
+  githubUsername: varchar('github_username', { length: 100 }).notNull(),
+  accessToken: text('access_token').notNull(),
+  scope: varchar('scope', { length: 500 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const projects = pgTable('projects', {
@@ -489,6 +501,16 @@ export const clientWebsites = pgTable('client_websites', {
   domain: varchar('domain', { length: 255 }),
   description: text('description'),
   active: boolean('active').default(true).notNull(),
+  // Repository & deployment
+  subdomain: varchar('subdomain', { length: 100 }), // slug for <slug>.simplerdevelopment.com
+  githubRepoName: varchar('github_repo_name', { length: 255 }), // e.g. "simplerdevelopment/acme-main"
+  githubRepoUrl: varchar('github_repo_url', { length: 500 }),
+  vercelProjectId: varchar('vercel_project_id', { length: 255 }),
+  vercelProjectUrl: varchar('vercel_project_url', { length: 500 }),
+  vercelDomain: varchar('vercel_domain', { length: 255 }),
+  deploymentStatus: varchar('deployment_status', { length: 50 }).default('pending'), // pending, provisioning, active, failed
+  lastDeployedAt: timestamp('last_deployed_at'),
+  provisionError: text('provision_error'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -661,5 +683,18 @@ export const emailCampaignSends = pgTable('email_campaign_sends', {
   clickedAt: timestamp('clicked_at'),
   bouncedAt: timestamp('bounced_at'),
   complainedAt: timestamp('complained_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Saved payment methods (mirrors Stripe PaymentMethod objects)
+export const paymentMethods = pgTable('payment_methods', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  stripePaymentMethodId: varchar('stripe_payment_method_id', { length: 255 }).notNull(),
+  brand: varchar('brand', { length: 50 }).notNull(), // visa, mastercard, amex, etc.
+  last4: varchar('last4', { length: 4 }).notNull(),
+  expMonth: integer('exp_month').notNull(),
+  expYear: integer('exp_year').notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

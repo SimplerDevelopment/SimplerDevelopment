@@ -20,15 +20,22 @@ function applyTheme(theme: Theme) {
   }
 }
 
+interface NavChild {
+  href: string;
+  label: string;
+  icon: string;
+}
+
 interface NavItem {
   href: string;
   label: string;
   icon: string;
   menuOnly?: boolean; // renders as a toggle button, not a link
-  children?: { href: string; label: string; icon: string }[];
+  children?: NavChild[];
+  dynamic?: boolean; // children are fetched at runtime
 }
 
-const navItems: NavItem[] = [
+const staticNavItems: NavItem[] = [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
   {
     href: '/portal/projects',
@@ -39,46 +46,36 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    href: '/portal/cms',
-    label: 'Websites',
-    icon: 'web',
-    menuOnly: true,
-    children: [
-      { href: '/portal/cms', label: 'My Websites', icon: 'language' },
-      { href: '/portal/hosting', label: 'Hosting & DNS', icon: 'cloud' },
-    ],
-  },
-  {
     href: '/portal/services',
     label: 'Services',
     icon: 'storefront',
     menuOnly: true,
-    children: [
-      { href: '/portal/email', label: 'Email Marketing', icon: 'email' },
-      { href: '/portal/services', label: 'Add a Service', icon: 'add_circle' },
-    ],
+    dynamic: true,
+    children: [],
   },
-  {
-    href: '/portal/tools',
-    label: 'Tools',
-    icon: 'build_circle',
-    menuOnly: true,
-    children: [
-      { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
-    ],
-  },
-  { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long' },
+  { href: '/portal/billing', label: 'Billing', icon: 'payments' },
   { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
+  { href: '/portal/team', label: 'Team', icon: 'group' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
-// CMS nav items — shown when inside /portal/cms/[siteId]
+// CMS nav items — shown when inside /portal/websites/[siteId]
 const cmsNavItems = (siteId: string) => [
-  { href: `/portal/cms/${siteId}`, label: 'Pages & Posts', icon: 'article', exact: true, alsoActiveOn: `/portal/cms/${siteId}/posts` },
-  { href: `/portal/cms/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/cms/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/cms/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}`, label: 'Pages & Posts', icon: 'article', exact: true, alsoActiveOn: `/portal/websites/${siteId}/posts` },
+  { href: `/portal/websites/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
 ];
+
+interface NavService {
+  id: number;
+  name: string;
+  category: string;
+  icon: string;
+  href: string;
+  subscribed: boolean;
+}
 
 export default function PortalSidebar() {
   const { status } = useSession();
@@ -88,10 +85,11 @@ export default function PortalSidebar() {
   const [theme, setTheme] = useState<Theme>('system');
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [cmsTitle, setCmsTitle] = useState('');
+  const [navServices, setNavServices] = useState<NavService[]>([]);
   const prevSiteIdRef = useRef<string | null>(null);
 
-  // Detect CMS context: /portal/cms/[numeric-siteId]/...
-  const cmsMatch = pathname.match(/^\/portal\/cms\/(\d+)(\/|$)/);
+  // Detect CMS context: /portal/websites/[numeric-siteId]/...
+  const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
   const activeSiteId = cmsMatch ? cmsMatch[1] : null;
 
   useEffect(() => {
@@ -99,6 +97,14 @@ export default function PortalSidebar() {
     if (saved !== null) setIsCollapsed(saved === 'true');
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
+  }, []);
+
+  // Fetch services for nav
+  useEffect(() => {
+    fetch('/api/portal/services/nav')
+      .then(r => r.json())
+      .then(res => { if (res.success) setNavServices(res.data); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -114,6 +120,23 @@ export default function PortalSidebar() {
       })
       .catch(() => {});
   }, [activeSiteId]);
+
+  // Build nav items with dynamic services
+  const navItems: NavItem[] = staticNavItems.map(item => {
+    if (!item.dynamic) return item;
+    const serviceChildren: NavChild[] = navServices.map(svc => ({
+      href: svc.href,
+      label: svc.name,
+      icon: svc.icon,
+    }));
+    return {
+      ...item,
+      children: [
+        ...serviceChildren,
+        ...(item.children ?? []),
+      ],
+    };
+  });
 
   const cycleTheme = () => {
     const next = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
@@ -158,7 +181,7 @@ export default function PortalSidebar() {
               activeSiteId ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <Link
-                    href="/portal/cms"
+                    href="/portal/websites"
                     className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                     title="Back to Websites"
                     onClick={() => setIsMobileOpen(false)}
@@ -197,7 +220,7 @@ export default function PortalSidebar() {
                 {isCollapsed && (
                   <li>
                     <Link
-                      href="/portal/cms"
+                      href="/portal/websites"
                       className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
                       title="Back to Websites"
                     >

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { generateUniqueSubdomain, validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 
 export async function GET() {
   const session = await auth();
@@ -31,15 +32,31 @@ export async function POST(req: Request) {
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, domain, description } = body;
+  const { name, domain, description, subdomain: requestedSubdomain } = body;
 
   if (!name) return NextResponse.json({ success: false, message: 'Website name is required' }, { status: 400 });
+
+  // Generate or validate subdomain
+  let subdomain: string;
+  if (requestedSubdomain) {
+    const error = validateSubdomain(requestedSubdomain);
+    if (error) return NextResponse.json({ success: false, message: error }, { status: 400 });
+    if (!(await isSubdomainAvailable(requestedSubdomain))) {
+      return NextResponse.json({ success: false, message: 'That subdomain is already taken.' }, { status: 409 });
+    }
+    subdomain = requestedSubdomain;
+  } else {
+    const companyName = client.company || 'site';
+    subdomain = await generateUniqueSubdomain(companyName, name);
+  }
 
   const [site] = await db.insert(clientWebsites).values({
     clientId: client.id,
     name,
     domain: domain || null,
     description: description || null,
+    subdomain,
+    deploymentStatus: 'pending',
     active: true,
   }).returning();
 

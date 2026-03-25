@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     // Handle multipart/form-data (regular file upload)
     if (contentType.includes('multipart/form-data')) {
-      const formData = await request.formData();
+      const formData = await request.formData() as unknown as globalThis.FormData;
       const file = formData.get('file');
 
       if (!file) {

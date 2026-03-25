@@ -98,7 +98,7 @@ export class ApiClient {
         multipart[key] = value;
       }
     }
-    const res = await this.ctx.post(path, { multipart });
+    const res = await this.ctx.post(path, { multipart: multipart as Record<string, string | number | boolean | { name: string; mimeType: string; buffer: Buffer }> });
     return {
       status: res.status(),
       data: await res.json().catch(() => null),

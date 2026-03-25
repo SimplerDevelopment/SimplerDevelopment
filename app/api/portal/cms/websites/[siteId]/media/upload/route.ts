@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
   const site = await resolveClientSite(userId, parseInt(siteId));
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  const formData = await req.formData();
+  const formData = await req.formData() as unknown as globalThis.FormData;
   const file = formData.get('file') as File | null;
   const alt = formData.get('alt') as string | null;
   const caption = formData.get('caption') as string | null;

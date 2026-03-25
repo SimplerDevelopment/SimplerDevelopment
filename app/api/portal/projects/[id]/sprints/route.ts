@@ -6,13 +6,14 @@ import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { isPortalStaff } from '@/lib/portal';
 
-async function authorizeProject(projectId: number, session: Awaited<ReturnType<typeof auth>>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function authorizeProject(projectId: number, session: any) {
   const staff = await isPortalStaff();
   if (staff) {
     const [p] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
     return p ?? null;
   }
-  const userId = parseInt(session!.user!.id, 10);
+  const userId = parseInt((session as unknown as { user: { id: string } }).user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return null;
   const [p] = await db.select().from(projects)

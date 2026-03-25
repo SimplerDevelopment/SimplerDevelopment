@@ -5,14 +5,16 @@ import { kanbanCards, kanbanCardComments, kanbanCardFiles, projects } from '@/li
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, inArray } from 'drizzle-orm';
 
-async function authorizeCard(cardId: number, session: Awaited<ReturnType<typeof auth>>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function authorizeCard(cardId: number, session: any) {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
 
-  const role = (session?.user as { role?: string })?.role;
+  const s = session as unknown as { user?: { id: string; role?: string } } | null;
+  const role = s?.user?.role;
   if (role === 'admin' || role === 'employee') return card;
 
-  const userId = parseInt(session!.user!.id, 10);
+  const userId = parseInt(s!.user!.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return null;
 

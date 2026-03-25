@@ -28,7 +28,7 @@ interface Card {
   title: string;
   description: string | null;
   priority: string | null;
-  dueDate: Date | null;
+  dueDate: string | Date | null;
   order: number;
   sprintId?: number | null;
   attachments?: CardAttachment[];

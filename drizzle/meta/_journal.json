@@ -64,6 +64,27 @@
       "when": 1774405067832,
       "tag": "0008_rich_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774406425005,
+      "tag": "0009_curious_morlun",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774408481604,
+      "tag": "0010_fresh_retro_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774411693380,
+      "tag": "0011_mature_sage",
+      "breakpoints": true
     }
   ]
 }

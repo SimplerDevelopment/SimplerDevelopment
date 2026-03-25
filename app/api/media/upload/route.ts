@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     //   );
     // }
 
-    const formData = await request.formData();
+    const formData = await request.formData() as unknown as globalThis.FormData;
     const file = formData.get('file') as File | null;
     const alt = formData.get('alt') as string | null;
     const caption = formData.get('caption') as string | null;

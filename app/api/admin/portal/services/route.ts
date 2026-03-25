@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       if (body.billingCycle === 'monthly') priceParams.recurring = { interval: 'month' };
       else if (body.billingCycle === 'annually') priceParams.recurring = { interval: 'year' };
 
-      const price = await stripe.prices.create(priceParams as Parameters<typeof stripe.prices.create>[0]);
+      const price = await stripe.prices.create(priceParams as unknown as Parameters<typeof stripe.prices.create>[0]);
 
       const [updated] = await db.update(services).set({
         stripeProductId: product.id,

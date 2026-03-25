@@ -54,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         if (cycle === 'monthly') priceParams.recurring = { interval: 'month' };
         else if (cycle === 'annually') priceParams.recurring = { interval: 'year' };
 
-        const newPrice = await stripe.prices.create(priceParams as Parameters<typeof stripe.prices.create>[0]);
+        const newPrice = await stripe.prices.create(priceParams as unknown as Parameters<typeof stripe.prices.create>[0]);
         updates.stripePriceId = newPrice.id;
       }
     } catch (err) {

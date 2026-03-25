@@ -39,8 +39,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const isRecurring = svc.billingCycle === 'monthly' || svc.billingCycle === 'annually';
   const mode = isRecurring ? 'subscription' : 'payment';
 
-  type LineItem = Parameters<typeof stripe.checkout.sessions.create>[0]['line_items'];
-  let lineItems: LineItem;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let lineItems: any;
 
   if (svc.stripePriceId) {
     lineItems = [{ price: svc.stripePriceId, quantity: 1 }];
@@ -52,10 +52,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     };
     if (svc.billingCycle === 'monthly') priceData.recurring = { interval: 'month' };
     else if (svc.billingCycle === 'annually') priceData.recurring = { interval: 'year' };
-    lineItems = [{ price_data: priceData as Parameters<typeof stripe.checkout.sessions.create>[0]['line_items'][0]['price_data'], quantity: 1 }];
+    lineItems = [{ price_data: priceData, quantity: 1 }];
   }
 
-  const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionParams: any = {
     mode,
     line_items: lineItems,
     success_url: `${origin}/portal/services?purchased=1`,
