@@ -301,7 +301,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
             setBlocks([...blocks, newBlock]);
           }}
           onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
-          onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? { ...b, ...updates } : b))}
+          onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
         />
       ) : (
         <div className="bg-card border border-border shadow rounded-lg">
