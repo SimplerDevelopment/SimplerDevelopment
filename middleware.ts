@@ -6,12 +6,15 @@ const APP_HOSTNAMES = new Set([
   'localhost',
   'localhost:3000',
   'localhost:3001',
+  'localhost:3005',
   '127.0.0.1',
   '127.0.0.1:3000',
+  'simplerdevelopment.com',
+  'www.simplerdevelopment.com',
 ]);
 
 function getAppHostname(): string | null {
-  const url = process.env.NEXT_PUBLIC_APP_URL;
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (!url) return null;
   try {
     return new URL(url).host;
