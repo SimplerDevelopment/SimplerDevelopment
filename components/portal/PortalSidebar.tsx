@@ -99,13 +99,13 @@ export default function PortalSidebar() {
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
   }, []);
 
-  // Fetch services for nav
+  // Fetch services for nav — re-fetch on route change (e.g. after login redirect)
   useEffect(() => {
     fetch('/api/portal/services/nav')
       .then(r => r.json())
       .then(res => { if (res.success) setNavServices(res.data); })
       .catch(() => {});
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!activeSiteId || activeSiteId === prevSiteIdRef.current) return;
