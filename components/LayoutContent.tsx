@@ -10,8 +10,9 @@ export function LayoutContent({ children }: { children: ReactNode }) {
   const isPetersOutdoor = pathname.startsWith('/p/');
   const isAdminOrPortal = pathname.startsWith('/admin') || pathname.startsWith('/portal');
   const isPitchDeck = pathname.startsWith('/pitch-deck');
+  const isBooking = pathname.startsWith('/book');
 
-  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck) {
+  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking) {
     return <>{children}</>;
   }
 

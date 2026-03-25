@@ -143,7 +143,7 @@ export default function PortalPostForm({ siteId, post, mode }: PortalPostFormPro
 
       const data = await response.json();
       if (data.success) {
-        router.push(`/portal/cms/${siteId}`);
+        router.push(`/portal/websites/${siteId}`);
         router.refresh();
       } else {
         alert(data.message || 'Failed to save');
@@ -309,7 +309,7 @@ export default function PortalPostForm({ siteId, post, mode }: PortalPostFormPro
         </button>
         <button
           type="button"
-          onClick={() => router.push(`/portal/cms/${siteId}`)}
+          onClick={() => router.push(`/portal/websites/${siteId}`)}
           className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent"
         >
           Cancel

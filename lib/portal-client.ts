@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { clients, clientMembers, clientWebsites } from '@/lib/db/schema';
+import { clients, clientMembers, clientWebsites, clientServices, services } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 /**
@@ -34,4 +34,36 @@ export async function resolveClientSite(userId: number, siteId: number) {
     .where(and(eq(clientWebsites.id, siteId), eq(clientWebsites.clientId, client.id)))
     .limit(1);
   return site ?? null;
+}
+
+/**
+ * Checks if a client has an active subscription for a service by category slug.
+ * Returns the service row if subscribed, null otherwise.
+ */
+export async function checkServiceSubscription(clientId: number, category: string) {
+  const [row] = await db
+    .select({ service: services, subscription: clientServices })
+    .from(clientServices)
+    .innerJoin(services, eq(services.id, clientServices.serviceId))
+    .where(
+      and(
+        eq(clientServices.clientId, clientId),
+        eq(clientServices.status, 'active'),
+        eq(services.category, category),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Gets the service catalog entry for a given category.
+ */
+export async function getServiceByCategory(category: string) {
+  const [svc] = await db
+    .select()
+    .from(services)
+    .where(and(eq(services.category, category), eq(services.active, true)))
+    .limit(1);
+  return svc ?? null;
 }

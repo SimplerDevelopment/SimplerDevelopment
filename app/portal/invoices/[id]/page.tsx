@@ -39,7 +39,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/portal/invoices" className="hover:text-foreground transition-colors">Invoices</Link>
+        <Link href="/portal/billing" className="hover:text-foreground transition-colors">Billing</Link>
         <span className="material-icons text-sm">chevron_right</span>
         <span className="text-foreground">{invoice.number}</span>
       </div>

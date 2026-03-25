@@ -13,8 +13,8 @@ async function seedServices() {
 
     await db.insert(services).values([
       {
-        name: 'CMS',
-        slug: 'cms',
+        name: 'Websites',
+        slug: 'websites',
         description: 'A fully managed content management system for your website. Create and edit pages, blog posts, and landing pages using a powerful drag-and-drop block editor — no coding required.',
         category: 'cms',
         price: 4900,
@@ -239,14 +239,69 @@ async function seedServices() {
           },
         ],
       },
+      {
+        name: 'Pitch Decks',
+        slug: 'pitch-decks',
+        description: 'Create AI-powered pitch decks branded to your company. Enter a prompt, provide your website URL, and get a polished, on-brand deck generated in seconds.',
+        category: 'pitch-decks',
+        price: 1900,
+        billingCycle: 'monthly',
+        active: true,
+        features: [
+          'AI-generated slide decks',
+          'Auto-brand from your website',
+          'Edit slides with AI prompts',
+          'Version history & restore',
+          'Export to PDF',
+          'Unlimited decks',
+        ],
+        surveyFields: [],
+      },
+      {
+        name: 'Hosting & DNS',
+        slug: 'hosting-dns',
+        description: 'Managed hosting and DNS for your websites. We handle server configuration, SSL certificates, CDN, backups, and DNS management so you can focus on your business.',
+        category: 'hosting',
+        price: 2900,
+        billingCycle: 'monthly',
+        active: true,
+        features: [
+          'Managed server hosting',
+          'Free SSL certificates',
+          'CDN for fast loading',
+          'Automated daily backups',
+          'DNS management',
+          '99.9% uptime SLA',
+        ],
+        surveyFields: [
+          {
+            id: 'domain',
+            type: 'text',
+            label: 'Domain name (if you have one)',
+            placeholder: 'yoursite.com',
+            required: false,
+            order: 0,
+          },
+          {
+            id: 'current_host',
+            type: 'text',
+            label: 'Current hosting provider (if migrating)',
+            placeholder: 'e.g. GoDaddy, Bluehost',
+            required: false,
+            order: 1,
+          },
+        ],
+      },
     ]);
 
     console.log('✅ Services seeded:');
-    console.log('   • CMS — $49/mo');
+    console.log('   • Websites — $49/mo');
     console.log('   • Email Marketing — $29/mo');
     console.log('   • Booking System — $39/mo');
     console.log('   • Project Management System — $49/mo');
     console.log('   • Chat Bot — $59/mo');
+    console.log('   • Pitch Decks — $19/mo');
+    console.log('   • Hosting & DNS — $29/mo');
 
   } catch (error) {
     console.error('❌ Error seeding services:', error);
