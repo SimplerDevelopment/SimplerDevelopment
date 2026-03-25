@@ -352,8 +352,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           editorControls={
             <PostFormInnerControls
               contentMode="blocks"
-              editorMode={editorMode}
-              onEditorModeChange={setEditorMode}
+              editorMode={editorMode === 'iframe' ? 'visual' : editorMode}
+              onEditorModeChange={(mode) => setEditorMode(mode)}
               contentMenuOpen={contentMenuOpen}
               onContentMenuToggle={() => setContentMenuOpen(prev => !prev)}
               onContentModeChange={() => {}}
