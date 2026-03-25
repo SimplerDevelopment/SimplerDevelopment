@@ -29,7 +29,8 @@ function LoginForm() {
     if (result?.error) {
       setError('Invalid email or password.');
     } else {
-      router.push(callbackUrl);
+      // Full page navigation to ensure session is picked up by the sidebar
+      window.location.href = callbackUrl;
     }
   }
 
