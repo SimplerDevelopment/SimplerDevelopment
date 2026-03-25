@@ -336,14 +336,16 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           editorControls={
-            <PostFormInnerControls
-              contentMode="blocks"
-              editorMode={editorMode === 'iframe' ? 'visual' : editorMode}
-              onEditorModeChange={(mode) => setEditorMode(mode)}
-              contentMenuOpen={contentMenuOpen}
-              onContentMenuToggle={() => setContentMenuOpen(prev => !prev)}
-              onContentModeChange={() => {}}
-            />
+            editorMode === 'iframe' ? undefined : (
+              <PostFormInnerControls
+                contentMode="blocks"
+                editorMode={editorMode}
+                onEditorModeChange={(mode) => setEditorMode(mode)}
+                contentMenuOpen={contentMenuOpen}
+                onContentMenuToggle={() => setContentMenuOpen(prev => !prev)}
+                onContentModeChange={() => {}}
+              />
+            )
           }
           published={formData.published}
           onPublish={handleSubmit}
