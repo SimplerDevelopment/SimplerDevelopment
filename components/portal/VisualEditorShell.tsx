@@ -124,6 +124,7 @@ export function VisualEditorShell({
       <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto">
         <div className="p-3">
           <button
+            type="button"
             onClick={() => setPickerOpen(!pickerOpen)}
             className="w-full flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
@@ -138,6 +139,7 @@ export function VisualEditorShell({
             <div className="flex flex-wrap gap-1 mb-3">
               {categories.map((cat) => (
                 <button
+                  type="button"
                   key={cat}
                   onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
                   className={`px-2 py-1 text-xs rounded ${
@@ -157,6 +159,7 @@ export function VisualEditorShell({
                 .filter((b) => !pickerCategory || b.category === pickerCategory)
                 .map((blockType) => (
                   <button
+                    type="button"
                     key={blockType.type}
                     onClick={() => {
                       onAddBlock(blockType.type);
@@ -178,8 +181,9 @@ export function VisualEditorShell({
           <div className="space-y-0.5">
             {blocks.map((block) => (
               <button
+                type="button"
                 key={block.id}
-                onClick={() => onSelectBlock(block.id)}
+                onClick={() => { setInternalSelectedBlockId(block.id); onSelectBlock(block.id); }}
                 className={`w-full flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
                   selectedBlockId === block.id
                     ? 'bg-blue-100 text-blue-700'
@@ -207,6 +211,7 @@ export function VisualEditorShell({
           <div className="flex items-center gap-2">
             {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
               <button
+                type="button"
                 key={vp}
                 onClick={() => setViewport(vp)}
                 className={`rounded p-1.5 ${
@@ -260,6 +265,7 @@ export function VisualEditorShell({
                 {selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)} Settings
               </h3>
               <button
+                type="button"
                 onClick={() => onDeleteBlock(selectedBlock.id)}
                 className="text-xs text-red-500 hover:text-red-700"
               >

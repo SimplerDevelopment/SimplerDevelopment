@@ -288,22 +288,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
         </div>
       )}
 
-      {/* Content Editor */}
-      {editorMode === 'iframe' && siteUrl && post?.slug ? (
-        <VisualEditorShell
-          blocks={blocks}
-          selectedBlockId={null}
-          iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
-          onBlocksChange={setBlocks}
-          onSelectBlock={() => {}}
-          onAddBlock={(type) => {
-            const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
-            setBlocks([...blocks, newBlock]);
-          }}
-          onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
-          onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
-        />
-      ) : (
+      {/* Content Editor (non-iframe modes only — iframe mode renders outside the form) */}
+      {editorMode !== 'iframe' && (
         <div className="bg-card border border-border shadow rounded-lg">
           <div className="p-6">
             {editorMode === 'visual' ? (
@@ -363,7 +349,23 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           onPublish={handleSubmit}
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
         >
-          {layoutContent}
+          {editorMode === 'iframe' && siteUrl && post?.slug ? (
+            <VisualEditorShell
+              blocks={blocks}
+              selectedBlockId={null}
+              iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
+              onBlocksChange={setBlocks}
+              onSelectBlock={() => {}}
+              onAddBlock={(type) => {
+                const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
+                setBlocks([...blocks, newBlock]);
+              }}
+              onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+              onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
+            />
+          ) : (
+            layoutContent
+          )}
         </PostEditorLayout>
       </BlockEditorProvider>
     </DesignTokensProvider>
