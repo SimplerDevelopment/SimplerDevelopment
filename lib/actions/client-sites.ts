@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { clientWebsites, posts, categories, postCategories } from '@/lib/db/schema';
+import { clientWebsites, posts, categories, postCategories, pitchDecks, clients } from '@/lib/db/schema';
 import { eq, and, or } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
@@ -66,6 +66,46 @@ export async function getClientBlogPosts(websiteId: number) {
       )
     )
     .orderBy(posts.publishedAt);
+}
+
+export async function getPitchDeckByDomainAndSlug(domain: string, slug: string) {
+  // Find client by domain (from clientWebsites)
+  const [site] = await db
+    .select({ clientId: clientWebsites.clientId })
+    .from(clientWebsites)
+    .where(and(eq(clientWebsites.domain, domain), eq(clientWebsites.active, true)))
+    .limit(1);
+
+  if (!site) return null;
+
+  const [deck] = await db
+    .select()
+    .from(pitchDecks)
+    .where(
+      and(
+        eq(pitchDecks.clientId, site.clientId),
+        eq(pitchDecks.slug, slug),
+        eq(pitchDecks.status, 'published'),
+      )
+    )
+    .limit(1);
+
+  return deck ?? null;
+}
+
+export async function getClientPitchDecks(domain: string) {
+  const [site] = await db
+    .select({ clientId: clientWebsites.clientId })
+    .from(clientWebsites)
+    .where(and(eq(clientWebsites.domain, domain), eq(clientWebsites.active, true)))
+    .limit(1);
+
+  if (!site) return [];
+
+  return db
+    .select({ id: pitchDecks.id, title: pitchDecks.title, slug: pitchDecks.slug })
+    .from(pitchDecks)
+    .where(and(eq(pitchDecks.clientId, site.clientId), eq(pitchDecks.status, 'published')));
 }
 
 export async function getClientSiteNav(websiteId: number) {

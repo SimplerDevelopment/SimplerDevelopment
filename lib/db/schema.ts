@@ -512,6 +512,55 @@ export const hostedSites = pgTable('hosted_sites', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── PITCH DECKS (Tools) ─────────────────────────────────────────────────────
+
+export interface PitchDeckSlide {
+  id: string;
+  type: 'cover' | 'problem' | 'solution' | 'features' | 'process' | 'metrics' | 'testimonial' | 'team' | 'pricing' | 'cta' | 'custom';
+  headline?: string;
+  subheadline?: string;
+  body?: string;
+  bullets?: string[];
+  stats?: { label: string; value: string }[];
+  steps?: { title: string; description: string }[];
+  members?: { name: string; role: string; image?: string }[];
+  tiers?: { name: string; price: string; features: string[]; highlighted?: boolean }[];
+  image?: string;
+  notes?: string;
+}
+
+export interface PitchDeckTheme {
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  headingFont: string;
+  bodyFont: string;
+  logo?: string;
+}
+
+export const pitchDecks = pgTable('pitch_decks', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  description: text('description'),
+  status: varchar('status', { length: 50 }).default('draft').notNull(), // draft, published, archived
+  slides: json('slides').$type<PitchDeckSlide[]>().default([]),
+  theme: json('theme').$type<PitchDeckTheme>().default({
+    primaryColor: '#1a2744',
+    accentColor: '#c9a84c',
+    backgroundColor: '#0f1b2d',
+    textColor: '#ffffff',
+    headingFont: 'Cormorant Garamond',
+    bodyFont: 'Plus Jakarta Sans',
+  }),
+  sourceUrl: varchar('source_url', { length: 500 }), // website used for branding
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const emailCampaignSends = pgTable('email_campaign_sends', {
   id: serial('id').primaryKey(),
   campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),

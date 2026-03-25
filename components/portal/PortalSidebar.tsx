@@ -58,6 +58,15 @@ const navItems: NavItem[] = [
       { href: '/portal/services', label: 'Add a Service', icon: 'add_circle' },
     ],
   },
+  {
+    href: '/portal/tools',
+    label: 'Tools',
+    icon: 'build_circle',
+    menuOnly: true,
+    children: [
+      { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
+    ],
+  },
   { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long' },
   { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
