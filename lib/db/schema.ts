@@ -573,6 +573,84 @@ export const pitchDeckVersions = pgTable('pitch_deck_versions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ─── BOOKING TOOL ─────────────────────────────────────────────────────────────
+
+export interface BookingAvailabilitySlot {
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0=Sunday
+  startTime: string; // "09:00"
+  endTime: string;   // "17:00"
+  enabled: boolean;
+}
+
+export interface BookingQuestion {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'select';
+  required: boolean;
+  options?: string[];
+}
+
+export const bookingPages = pgTable('booking_pages', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  description: text('description'),
+  duration: integer('duration').default(30).notNull(), // minutes
+  bufferBefore: integer('buffer_before').default(0).notNull(), // minutes
+  bufferAfter: integer('buffer_after').default(15).notNull(), // minutes
+  maxAdvanceDays: integer('max_advance_days').default(60).notNull(),
+  minNoticeMins: integer('min_notice_mins').default(60).notNull(),
+  timezone: varchar('timezone', { length: 100 }).default('America/New_York').notNull(),
+  availability: json('availability').$type<BookingAvailabilitySlot[]>().default([
+    { day: 1, startTime: '09:00', endTime: '17:00', enabled: true },
+    { day: 2, startTime: '09:00', endTime: '17:00', enabled: true },
+    { day: 3, startTime: '09:00', endTime: '17:00', enabled: true },
+    { day: 4, startTime: '09:00', endTime: '17:00', enabled: true },
+    { day: 5, startTime: '09:00', endTime: '17:00', enabled: true },
+    { day: 0, startTime: '09:00', endTime: '17:00', enabled: false },
+    { day: 6, startTime: '09:00', endTime: '17:00', enabled: false },
+  ]),
+  questions: json('questions').$type<BookingQuestion[]>().default([]),
+  color: varchar('color', { length: 7 }).default('#2563eb'),
+  active: boolean('active').default(true).notNull(),
+  googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const bookings = pgTable('bookings', {
+  id: serial('id').primaryKey(),
+  bookingPageId: integer('booking_page_id').notNull().references(() => bookingPages.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  guestName: varchar('guest_name', { length: 255 }).notNull(),
+  guestEmail: varchar('guest_email', { length: 255 }).notNull(),
+  guestPhone: varchar('guest_phone', { length: 50 }),
+  startTime: timestamp('start_time').notNull(),
+  endTime: timestamp('end_time').notNull(),
+  timezone: varchar('timezone', { length: 100 }).notNull(),
+  status: varchar('status', { length: 20 }).default('confirmed').notNull(), // confirmed, cancelled, completed, no_show
+  answers: json('answers').$type<Record<string, string>>(),
+  notes: text('notes'),
+  googleEventId: varchar('google_event_id', { length: 255 }),
+  cancelToken: varchar('cancel_token', { length: 64 }).notNull(),
+  cancelledAt: timestamp('cancelled_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const googleCalendarTokens = pgTable('google_calendar_tokens', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  calendarId: varchar('calendar_id', { length: 255 }).default('primary').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const emailCampaignSends = pgTable('email_campaign_sends', {
   id: serial('id').primaryKey(),
   campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),

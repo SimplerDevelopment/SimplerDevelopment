@@ -95,6 +95,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [savingVersion, setSavingVersion] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const fetchDeck = useCallback(async () => {
     try {
@@ -149,6 +150,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     if (data.success) {
       setDeck(data.data);
       setSlidePrompt('');
+      setHasUnsavedChanges(false);
     } else {
       setError(data.message || 'Failed to edit slide');
     }
@@ -172,39 +174,43 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
       setRegeneratePrompt('');
       setShowRegenerate(false);
       setActiveSlide(0);
+      setHasUnsavedChanges(false);
     } else {
       setError(data.message || 'Failed to regenerate');
     }
   }
 
-  async function handleManualSlideUpdate(field: string, value: unknown) {
+  function handleManualSlideUpdate(field: string, value: unknown) {
     if (!deck) return;
     const newSlides = [...deck.slides];
     newSlides[activeSlide] = { ...newSlides[activeSlide], [field]: value };
     setDeck({ ...deck, slides: newSlides });
-
-    setSaving(true);
-    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slides: newSlides }),
-    });
-    setSaving(false);
+    setHasUnsavedChanges(true);
   }
 
-  async function handleThemeUpdate(updates: Partial<Theme>) {
+  async function saveDeck() {
+    if (!deck) return;
+    setSaving(true);
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slides: deck.slides, theme: deck.theme }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (data.success) {
+      setHasUnsavedChanges(false);
+    }
+  }
+
+  function handleThemeUpdate(updates: Partial<Theme>) {
     if (!deck) return;
     const newTheme = { ...deck.theme, ...updates };
     setDeck({ ...deck, theme: newTheme });
-
-    setSaving(true);
-    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme: newTheme }),
-    });
-    setSaving(false);
+    setHasUnsavedChanges(true);
   }
+
+  // Theme changes are saved via the main Update button (saveDeck)
 
   async function togglePublish() {
     if (!deck) return;
@@ -226,7 +232,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     router.push('/portal/tools/pitch-decks');
   }
 
-  async function addSlide() {
+  function addSlide() {
     if (!deck) return;
     const newSlide: Slide = {
       id: `slide-${Date.now()}`,
@@ -237,33 +243,19 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     const newSlides = [...deck.slides, newSlide];
     setDeck({ ...deck, slides: newSlides });
     setActiveSlide(newSlides.length - 1);
-
-    setSaving(true);
-    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slides: newSlides }),
-    });
-    setSaving(false);
+    setHasUnsavedChanges(true);
   }
 
-  async function removeSlide(idx: number) {
+  function removeSlide(idx: number) {
     if (!deck || deck.slides.length <= 1) return;
     if (!confirm('Remove this slide?')) return;
     const newSlides = deck.slides.filter((_, i) => i !== idx);
     setDeck({ ...deck, slides: newSlides });
     if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
-
-    setSaving(true);
-    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slides: newSlides }),
-    });
-    setSaving(false);
+    setHasUnsavedChanges(true);
   }
 
-  async function moveSlide(idx: number, dir: -1 | 1) {
+  function moveSlide(idx: number, dir: -1 | 1) {
     if (!deck) return;
     const target = idx + dir;
     if (target < 0 || target >= deck.slides.length) return;
@@ -271,14 +263,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     [newSlides[idx], newSlides[target]] = [newSlides[target], newSlides[idx]];
     setDeck({ ...deck, slides: newSlides });
     setActiveSlide(target);
-
-    setSaving(true);
-    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slides: newSlides }),
-    });
-    setSaving(false);
+    setHasUnsavedChanges(true);
   }
 
   async function saveTitle() {
@@ -411,6 +396,12 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
                   <span className="text-primary">Saving...</span>
                 </>
               )}
+              {!saving && hasUnsavedChanges && (
+                <>
+                  <span>·</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">Unsaved changes</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -435,6 +426,22 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
           >
             <span className="material-icons text-base">history</span>
             History
+          </button>
+          <button
+            onClick={saveDeck}
+            disabled={saving || !hasUnsavedChanges}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
+              hasUnsavedChanges
+                ? 'bg-green-600 text-white hover:bg-green-700 shadow-sm'
+                : 'border border-border text-muted-foreground'
+            }`}
+          >
+            {saving ? (
+              <span className="material-icons animate-spin text-base">autorenew</span>
+            ) : (
+              <span className="material-icons text-base">save</span>
+            )}
+            {saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}
           </button>
           <Link
             href={`/pitch-deck/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
