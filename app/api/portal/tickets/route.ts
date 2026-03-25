@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, supportTickets, ticketMessages } from '@/lib/db/schema';
+import { supportTickets, ticketMessages } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, count } from 'drizzle-orm';
 
 export async function GET() {
@@ -9,7 +10,7 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+  const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const data = await db.select().from(supportTickets).where(eq(supportTickets.clientId, client.id)).orderBy(supportTickets.createdAt);
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const userId = parseInt(session.user.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+  const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const body = await req.json();

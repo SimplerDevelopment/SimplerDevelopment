@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { services, clients, clientServices } from '@/lib/db/schema';
+import { services, clientServices } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 
 export const runtime = 'nodejs';
@@ -14,7 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const serviceId = parseInt(id, 10);
   const userId = parseInt(session.user.id, 10);
 
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+  const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const [svc] = await db.select().from(services).where(eq(services.id, serviceId)).limit(1);

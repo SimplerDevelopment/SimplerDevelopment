@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, invoices, invoiceItems } from '@/lib/db/schema';
+import { invoices, invoiceItems } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   let clientId: number | undefined;
   if (!isStaff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     clientId = client.id;
   }

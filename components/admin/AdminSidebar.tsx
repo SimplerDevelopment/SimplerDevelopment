@@ -57,24 +57,36 @@ export default function AdminSidebar() {
 
   const portalNavItems: NavItem[] = [
     { href: '/admin/clients', label: 'Clients', icon: 'business' },
-    { href: '/admin/portal-projects', label: 'Projects', icon: 'view_kanban' },
-    { href: '/admin/portal-suggested-projects', label: 'Suggested Projects', icon: 'rocket_launch' },
-    { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
-    { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
-    { href: '/admin/portal-services', label: 'Services', icon: 'storefront' },
-    { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
-    { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'rocket_launch' },
-    { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
     {
-      href: '/admin/email',
-      label: 'Email Marketing',
-      icon: 'email',
+      href: '/admin/portal-projects',
+      label: 'Projects',
+      icon: 'view_kanban',
       subItems: [
-        { href: '/admin/email/lists', label: 'Lists', icon: 'list_alt' },
-        { href: '/admin/email/campaigns', label: 'Campaigns', icon: 'campaign' },
-        { href: '/admin/email/domains', label: 'Domains', icon: 'domain' },
+        { href: '/admin/portal-suggested-projects', label: 'Project Market', icon: 'rocket_launch' },
+        { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'assignment_add' },
       ],
     },
+    {
+      href: '/admin/portal-websites',
+      label: 'Websites',
+      icon: 'web',
+      subItems: [
+        { href: '/admin/portal-websites', label: 'Websites', icon: 'language' },
+        { href: '/admin/portal-hosting', label: 'Hosting & DNS', icon: 'cloud' },
+      ],
+    },
+    { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
+    { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
+    {
+      href: '/admin/portal-services',
+      label: 'Services',
+      icon: 'storefront',
+      subItems: [
+        { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
+        { href: '/admin/email', label: 'Email Marketing', icon: 'email' },
+      ],
+    },
+    { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
   ];
 
   const isPostsActive = pathname.startsWith('/admin/posts') ||
@@ -83,7 +95,8 @@ export default function AdminSidebar() {
     pathname.startsWith('/admin/tags');
 
   const isPortalActive = pathname.startsWith('/admin/clients') ||
-    pathname.startsWith('/admin/portal-');
+    pathname.startsWith('/admin/portal-') ||
+    pathname.startsWith('/admin/portal-websites');
 
   return (
     <>
@@ -217,6 +230,27 @@ export default function AdminSidebar() {
                       </div>
                     )}
                   </Link>
+
+                  {/* Sub-items - only show when expanded and parent section is active */}
+                  {item.subItems && !isCollapsed && (pathname.startsWith(item.href) || item.subItems.some(s => pathname.startsWith(s.href))) && (
+                    <ul className="mt-1 ml-4 space-y-1">
+                      {item.subItems.map((subItem) => (
+                        <li key={subItem.href}>
+                          <Link
+                            href={subItem.href}
+                            className={`flex items-center gap-3 px-4 py-2 rounded-md text-sm transition-colors ${
+                              pathname === subItem.href || pathname.startsWith(subItem.href + '/')
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                            }`}
+                          >
+                            <span className="material-icons text-base">{subItem.icon}</span>
+                            <span>{subItem.label}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

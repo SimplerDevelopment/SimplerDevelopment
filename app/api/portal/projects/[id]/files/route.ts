@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { kanbanCardFiles, kanbanCards, users, clients, projects } from '@/lib/db/schema';
+import { kanbanCardFiles, kanbanCards, users, projects } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, asc } from 'drizzle-orm';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     if (!isStaff) {
       const userId = parseInt(session.user.id, 10);
-      const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+      const client = await getPortalClient(userId);
       if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
       const [proj] = await db.select().from(projects)
         .where(and(eq(projects.id, projectId), eq(projects.clientId, client.id)))

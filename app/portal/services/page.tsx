@@ -7,17 +7,15 @@ import { formatCents } from '@/lib/portal';
 import Link from 'next/link';
 
 const categoryIcon: Record<string, string> = {
+  cms: 'web',
+  email: 'email',
+  booking: 'calendar_month',
+  'project-mgmt': 'view_kanban',
+  ai: 'smart_toy',
   domain: 'language',
   hosting: 'cloud',
   development: 'code',
   maintenance: 'build',
-};
-
-const categoryLabel: Record<string, string> = {
-  domain: 'White Label Domains',
-  hosting: 'White Label Hosting (Railway)',
-  development: 'Development',
-  maintenance: 'Maintenance',
 };
 
 export default async function PortalServicesPage({
@@ -35,7 +33,7 @@ export default async function PortalServicesPage({
   const { purchased, requested } = await searchParams;
 
   const [allServices, myServices] = await Promise.all([
-    db.select().from(services).where(eq(services.active, true)).orderBy(services.category, services.name),
+    db.select().from(services).where(eq(services.active, true)).orderBy(services.name),
     db.select({ serviceId: clientServices.serviceId, status: clientServices.status })
       .from(clientServices)
       .where(eq(clientServices.clientId, client.id)),
@@ -43,33 +41,27 @@ export default async function PortalServicesPage({
 
   const myServiceIds = new Set(myServices.filter(s => s.status === 'active').map(s => s.serviceId));
 
-  const grouped = allServices.reduce((acc, svc) => {
-    if (!acc[svc.category]) acc[svc.category] = [];
-    acc[svc.category].push(svc);
-    return acc;
-  }, {} as Record<string, typeof allServices>);
-
-  const categories = Object.keys(grouped);
-
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Services</h1>
-        <p className="text-muted-foreground mt-1">White-label domains, hosting, and more — powered by Simpler Development.</p>
+        <h1 className="text-2xl font-bold text-foreground">Add a Service</h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Extend your workspace with powerful add-ons managed by Simpler Development.
+        </p>
       </div>
 
       {purchased === '1' && (
-        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800">
+        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           <span className="material-icons text-green-600">check_circle</span>
           <div>
             <p className="font-medium text-sm">Payment successful!</p>
-            <p className="text-xs mt-0.5">Your service is being activated. It will appear as Active below shortly.</p>
+            <p className="text-xs mt-0.5">Your service is being activated. It will appear as active shortly.</p>
           </div>
         </div>
       )}
 
       {requested === '1' && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-800">
+        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
           <span className="material-icons text-blue-600">check_circle</span>
           <div>
             <p className="font-medium text-sm">Request submitted!</p>
@@ -78,81 +70,131 @@ export default async function PortalServicesPage({
         </div>
       )}
 
-      {categories.length === 0 ? (
+      {allServices.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">storefront</span>
           <h3 className="mt-4 font-semibold text-foreground">No services available</h3>
           <p className="mt-2 text-sm text-muted-foreground">Check back soon or contact us about custom services.</p>
         </div>
       ) : (
-        categories.map((category) => (
-          <section key={category}>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="material-icons text-primary">{categoryIcon[category] ?? 'category'}</span>
-              <h2 className="text-lg font-semibold text-foreground">{categoryLabel[category] ?? category}</h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {grouped[category].map((svc) => {
-                const owned = myServiceIds.has(svc.id);
-                const hasSurvey = (svc.surveyFields as unknown[])?.length > 0;
-                return (
-                  <div key={svc.id} className={`bg-card border rounded-xl p-5 flex flex-col ${owned ? 'border-primary/50 bg-primary/5' : 'border-border'}`}>
-                    {owned && (
-                      <div className="flex items-center gap-1 text-xs text-primary font-medium mb-2">
-                        <span className="material-icons text-xs">check_circle</span>
-                        Active
+        <div className="space-y-3">
+          {allServices.map((svc) => {
+            const owned = myServiceIds.has(svc.id);
+            const hasSurvey = (svc.surveyFields as unknown[])?.length > 0;
+            const icon = categoryIcon[svc.category] ?? 'category';
+            const features = svc.features as string[];
+
+            return (
+              <div
+                key={svc.id}
+                className={`bg-card border rounded-xl p-5 transition-colors ${
+                  owned ? 'border-primary/40 bg-primary/3' : 'border-border hover:border-border/80'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  {/* Icon */}
+                  <div className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${owned ? 'bg-primary/10' : 'bg-muted'}`}>
+                    <span className={`material-icons text-xl ${owned ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {icon}
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{svc.name}</h3>
+                          {owned && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                              <span className="material-icons text-xs">check_circle</span>
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        {svc.description && (
+                          <p className="text-sm text-muted-foreground mt-0.5">{svc.description}</p>
+                        )}
+                      </div>
+
+                      {/* Price + CTA — desktop */}
+                      <div className="hidden sm:flex flex-col items-end gap-2 shrink-0">
+                        <div className="text-right">
+                          <span className="text-lg font-bold text-foreground">{formatCents(svc.price)}</span>
+                          {svc.billingCycle !== 'once' && (
+                            <span className="text-xs text-muted-foreground">/{svc.billingCycle}</span>
+                          )}
+                        </div>
+                        {owned ? (
+                          <span className="text-xs text-primary flex items-center gap-0.5 font-medium">
+                            <span className="material-icons text-xs">verified</span>
+                            Subscribed
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/portal/services/${svc.id}/request`}
+                            className="flex items-center gap-1 text-sm px-4 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                          >
+                            {hasSurvey ? 'Get Started' : 'Request'}
+                            <span className="material-icons text-base">arrow_forward</span>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Features */}
+                    {features.length > 0 && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+                        {features.map((f, i) => (
+                          <span key={i} className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="material-icons text-xs text-green-500">check</span>
+                            {f}
+                          </span>
+                        ))}
                       </div>
                     )}
-                    <h3 className="font-semibold text-foreground">{svc.name}</h3>
-                    {svc.description && (
-                      <p className="mt-1 text-sm text-muted-foreground flex-1">{svc.description}</p>
-                    )}
-                    {(svc.features as string[]).length > 0 && (
-                      <ul className="mt-3 space-y-1">
-                        {(svc.features as string[]).map((f, i) => (
-                          <li key={i} className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className="material-icons text-xs text-green-600">check</span>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="mt-4 flex items-center justify-between">
+
+                    {/* Price + CTA — mobile */}
+                    <div className="flex sm:hidden items-center justify-between mt-4 pt-3 border-t border-border">
                       <div>
-                        <span className="text-xl font-bold text-foreground">{formatCents(svc.price)}</span>
+                        <span className="text-base font-bold text-foreground">{formatCents(svc.price)}</span>
                         {svc.billingCycle !== 'once' && (
                           <span className="text-xs text-muted-foreground">/{svc.billingCycle}</span>
                         )}
                       </div>
                       {owned ? (
                         <span className="text-xs text-primary flex items-center gap-0.5 font-medium">
-                          <span className="material-icons text-xs">verified</span>Active
+                          <span className="material-icons text-xs">verified</span>
+                          Subscribed
                         </span>
                       ) : (
                         <Link
                           href={`/portal/services/${svc.id}/request`}
-                          className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                          className="flex items-center gap-1 text-sm px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
                         >
-                          <span className="material-icons text-xs">{hasSurvey ? 'assignment' : 'send'}</span>
-                          {hasSurvey ? 'Get Started' : 'Request Service'}
+                          {hasSurvey ? 'Get Started' : 'Request'}
+                          <span className="material-icons text-base">arrow_forward</span>
                         </Link>
                       )}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        ))
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      <div className="bg-muted/50 border border-border rounded-xl p-6 text-center">
-        <span className="material-icons text-2xl text-muted-foreground">help_outline</span>
-        <p className="mt-2 text-sm text-muted-foreground">Need something not listed here?</p>
-        <a href="/contact" className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-          Contact us for a custom quote
+      <div className="flex items-center gap-3 p-4 bg-muted/40 border border-border rounded-xl">
+        <span className="material-icons text-muted-foreground">help_outline</span>
+        <p className="text-sm text-muted-foreground flex-1">Need something not listed here?</p>
+        <Link
+          href="/portal/tickets/new"
+          className="flex items-center gap-1 text-sm text-primary hover:underline shrink-0"
+        >
+          Contact us
           <span className="material-icons text-sm">arrow_forward</span>
-        </a>
+        </Link>
       </div>
     </div>
   );

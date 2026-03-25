@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { sprints, kanbanCards, kanbanColumns, projects, clients } from '@/lib/db/schema';
+import { sprints, kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { isPortalStaff } from '@/lib/portal';
 
@@ -12,7 +13,7 @@ async function authorizeProject(projectId: number, session: Awaited<ReturnType<t
     return p ?? null;
   }
   const userId = parseInt(session!.user!.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+  const client = await getPortalClient(userId);
   if (!client) return null;
   const [p] = await db.select().from(projects)
     .where(and(eq(projects.id, projectId), eq(projects.clientId, client.id)))

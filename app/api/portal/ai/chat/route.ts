@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { aiConversations, aiMessages, clients } from '@/lib/db/schema';
+import { aiConversations, aiMessages } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     // Staff can't use the client chat widget
     if (isStaff) return NextResponse.json({ success: false, message: 'Staff do not have a client portal chat.' }, { status: 403 });
 
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
     const { message, conversationId } = await req.json();

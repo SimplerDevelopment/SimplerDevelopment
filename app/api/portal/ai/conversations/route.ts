@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { aiConversations, clients } from '@/lib/db/schema';
+import { aiConversations } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, desc } from 'drizzle-orm';
 
 export async function GET() {
@@ -10,7 +11,7 @@ export async function GET() {
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
     const userId = parseInt(session.user.id, 10);
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
     const conversations = await db.select().from(aiConversations)

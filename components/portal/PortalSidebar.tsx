@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -24,6 +24,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
+  menuOnly?: boolean; // renders as a toggle button, not a link
   children?: { href: string; label: string; icon: string }[];
 }
 
@@ -37,10 +38,37 @@ const navItems: NavItem[] = [
       { href: '/portal/suggested-projects', label: 'Suggested Projects', icon: 'rocket_launch' },
     ],
   },
-  { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
+  {
+    href: '/portal/cms',
+    label: 'Websites',
+    icon: 'web',
+    menuOnly: true,
+    children: [
+      { href: '/portal/cms', label: 'My Websites', icon: 'language' },
+      { href: '/portal/hosting', label: 'Hosting & DNS', icon: 'cloud' },
+    ],
+  },
+  {
+    href: '/portal/services',
+    label: 'Services',
+    icon: 'storefront',
+    menuOnly: true,
+    children: [
+      { href: '/portal/email', label: 'Email Marketing', icon: 'email' },
+      { href: '/portal/services', label: 'Add a Service', icon: 'add_circle' },
+    ],
+  },
   { href: '/portal/invoices', label: 'Invoices', icon: 'receipt_long' },
-  { href: '/portal/services', label: 'Services', icon: 'storefront' },
-  { href: '/portal/email', label: 'Email Campaigns', icon: 'email' },
+  { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
+  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
+];
+
+// CMS nav items — shown when inside /portal/cms/[siteId]
+const cmsNavItems = (siteId: string) => [
+  { href: `/portal/cms/${siteId}`, label: 'Pages & Posts', icon: 'article', exact: true, alsoActiveOn: `/portal/cms/${siteId}/posts` },
+  { href: `/portal/cms/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/cms/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/cms/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
 ];
 
 export default function PortalSidebar() {
@@ -49,6 +77,13 @@ export default function PortalSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const [cmsTitle, setCmsTitle] = useState('');
+  const prevSiteIdRef = useRef<string | null>(null);
+
+  // Detect CMS context: /portal/cms/[numeric-siteId]/...
+  const cmsMatch = pathname.match(/^\/portal\/cms\/(\d+)(\/|$)/);
+  const activeSiteId = cmsMatch ? cmsMatch[1] : null;
 
   useEffect(() => {
     const saved = localStorage.getItem('portalSidebarCollapsed');
@@ -56,6 +91,20 @@ export default function PortalSidebar() {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
   }, []);
+
+  useEffect(() => {
+    if (!activeSiteId || activeSiteId === prevSiteIdRef.current) return;
+    prevSiteIdRef.current = activeSiteId;
+    fetch(`/api/portal/cms/websites`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          const site = res.data?.find((s: { id: number; name: string }) => String(s.id) === activeSiteId);
+          if (site) setCmsTitle(site.name);
+        }
+      })
+      .catch(() => {});
+  }, [activeSiteId]);
 
   const cycleTheme = () => {
     const next = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
@@ -94,17 +143,34 @@ export default function PortalSidebar() {
         } bg-card border-r border-border`}
       >
         <div className="h-full flex flex-col">
-          {/* Logo */}
+          {/* Logo / Header */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-16 border-b border-border px-4`}>
             {!isCollapsed && (
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Client Portal</p>
-                <p className="text-sm font-bold text-foreground">Simpler Development</p>
-              </div>
+              activeSiteId ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    href="/portal/cms"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    title="Back to Websites"
+                    onClick={() => setIsMobileOpen(false)}
+                  >
+                    <span className="material-icons text-xl">arrow_back</span>
+                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Simpler CMS</p>
+                    <p className="text-sm font-bold text-foreground truncate">{cmsTitle || 'Loading…'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Client Portal</p>
+                  <p className="text-sm font-bold text-foreground">Simpler Development</p>
+                </div>
+              )
             )}
             <button
               onClick={toggleCollapsed}
-              className="hidden lg:flex p-2 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+              className="hidden lg:flex p-2 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors shrink-0"
               title={isCollapsed ? 'Expand' : 'Collapse'}
             >
               <span className="material-icons text-xl">
@@ -115,58 +181,139 @@ export default function PortalSidebar() {
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto py-4">
-            <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-              {navItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                const hasActiveChild = item.children?.some(
-                  (c) => pathname === c.href || pathname.startsWith(c.href + '/')
-                );
-                return (
-                  <li key={item.href}>
+            {activeSiteId ? (
+              // ── CMS context nav ────────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {/* Back link when collapsed */}
+                {isCollapsed && (
+                  <li>
                     <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 ${
-                        isCollapsed ? 'justify-center px-3' : 'px-4'
-                      } py-3 rounded-md text-sm font-medium transition-colors relative group ${
-                        isActive && !hasActiveChild
-                          ? 'bg-primary text-primary-foreground'
-                          : hasActiveChild
-                          ? 'text-foreground bg-accent/50'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      }`}
-                      title={isCollapsed ? item.label : ''}
+                      href="/portal/cms"
+                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
+                      title="Back to Websites"
                     >
-                      <span className="material-icons text-xl">{item.icon}</span>
-                      {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                      {isCollapsed && (
-                        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                          {item.label}
-                        </div>
-                      )}
+                      <span className="material-icons text-xl">arrow_back</span>
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                        All Websites
+                      </div>
                     </Link>
-
-                    {/* Sub-items — only shown when sidebar is expanded */}
-                    {!isCollapsed && item.children?.map((child) => {
-                      const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={`flex items-center gap-2 ml-4 pl-4 pr-3 py-2 mt-0.5 rounded-md text-sm transition-colors relative border-l-2 ${
-                            childActive
-                              ? 'border-primary text-primary font-medium bg-primary/5'
-                              : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/40'
-                          }`}
-                        >
-                          <span className="material-icons text-base">{child.icon}</span>
-                          <span>{child.label}</span>
-                        </Link>
-                      );
-                    })}
                   </li>
-                );
-              })}
-            </ul>
+                )}
+                {cmsNavItems(activeSiteId).map(item => {
+                  const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'))
+                    || (item.alsoActiveOn !== undefined && pathname.startsWith(item.alsoActiveOn));
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center gap-3 ${
+                          isCollapsed ? 'justify-center px-3' : 'px-4'
+                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-xl">{item.icon}</span>
+                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              // ── Main portal nav ────────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  const hasActiveChild = item.children?.some(
+                    (c) => pathname === c.href || pathname.startsWith(c.href + '/')
+                  );
+                  const isMenuOpen = item.menuOnly
+                    ? (openMenus[item.href] ?? hasActiveChild ?? false)
+                    : undefined;
+
+                  const sharedClass = `flex items-center gap-3 ${
+                    isCollapsed ? 'justify-center px-3' : 'px-4'
+                  } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                    !item.menuOnly && isActive && !hasActiveChild
+                      ? 'bg-primary text-primary-foreground'
+                      : hasActiveChild
+                      ? 'text-foreground bg-accent/50'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  }`;
+
+                  return (
+                    <li key={item.href}>
+                      {item.menuOnly ? (
+                        <button
+                          onClick={() => setOpenMenus(prev => ({ ...prev, [item.href]: !isMenuOpen }))}
+                          className={sharedClass}
+                          title={isCollapsed ? item.label : ''}
+                        >
+                          <span className="material-icons text-xl">{item.icon}</span>
+                          {!isCollapsed && (
+                            <>
+                              <span className="flex-1 text-left">{item.label}</span>
+                              <span className="material-icons text-base opacity-50">
+                                {isMenuOpen ? 'expand_less' : 'expand_more'}
+                              </span>
+                            </>
+                          )}
+                          {isCollapsed && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                              {item.label}
+                            </div>
+                          )}
+                        </button>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className={sharedClass}
+                          title={isCollapsed ? item.label : ''}
+                          onClick={() => setIsMobileOpen(false)}
+                        >
+                          <span className="material-icons text-xl">{item.icon}</span>
+                          {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                          {isCollapsed && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                              {item.label}
+                            </div>
+                          )}
+                        </Link>
+                      )}
+
+                      {/* Sub-items */}
+                      {!isCollapsed && item.children && (item.menuOnly ? isMenuOpen : hasActiveChild) && item.children.map((child) => {
+                        const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={() => setIsMobileOpen(false)}
+                            className={`flex items-center gap-2 ml-4 pl-4 pr-3 py-2 mt-0.5 rounded-md text-sm transition-colors relative border-l-2 ${
+                              childActive
+                                ? 'border-primary text-primary font-medium bg-primary/5'
+                                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/40'
+                            }`}
+                          >
+                            <span className="material-icons text-base">{child.icon}</span>
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </nav>
 
           {/* Footer */}

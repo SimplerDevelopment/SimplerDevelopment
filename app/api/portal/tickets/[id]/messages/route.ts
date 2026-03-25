@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, supportTickets, ticketMessages } from '@/lib/db/schema';
+import { supportTickets, ticketMessages } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const isStaff = role === 'admin' || role === 'employee';
 
   if (!isStaff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     const [ticket] = await db.select().from(supportTickets)
       .where(and(eq(supportTickets.id, ticketId), eq(supportTickets.clientId, client.id))).limit(1);

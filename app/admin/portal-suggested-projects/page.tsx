@@ -335,7 +335,7 @@ export default function AdminSuggestedProjectsPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Suggested Projects</h1>
+          <h1 className="text-2xl font-bold text-foreground">Project Market</h1>
           <p className="text-muted-foreground mt-1">
             Create project suggestions shown to clients in their portal. Add a survey to gather project details.
           </p>

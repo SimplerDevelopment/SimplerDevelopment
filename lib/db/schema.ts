@@ -1,27 +1,32 @@
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
   title: varchar('title', { length: 255 }).notNull(),
-  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  slug: varchar('slug', { length: 255 }).notNull(),
   postType: varchar('post_type', { length: 50 }).default('blog').notNull(),
   excerpt: text('excerpt'),
   content: text('content').notNull(),
   coverImage: varchar('cover_image', { length: 500 }),
   published: boolean('published').default(false).notNull(),
   publishedAt: timestamp('published_at'),
+  // null = agency website; non-null = client website
+  websiteId: integer('website_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull().unique(),
-  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
   description: text('description'),
   color: varchar('color', { length: 7 }),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex('categories_slug_website_idx').on(t.slug, t.websiteId),
+]);
 
 export const postCategories = pgTable('post_categories', {
   id: serial('id').primaryKey(),
@@ -31,10 +36,13 @@ export const postCategories = pgTable('post_categories', {
 
 export const tags = pgTable('tags', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 50 }).notNull().unique(),
-  slug: varchar('slug', { length: 50 }).notNull().unique(),
+  name: varchar('name', { length: 50 }).notNull(),
+  slug: varchar('slug', { length: 50 }).notNull(),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  uniqueIndex('tags_slug_website_idx').on(t.slug, t.websiteId),
+]);
 
 export const postTags = pgTable('post_tags', {
   id: serial('id').primaryKey(),
@@ -129,6 +137,7 @@ export const media = pgTable('media', {
   alt: text('alt'),
   caption: text('caption'),
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -147,6 +156,16 @@ export const clients = pgTable('clients', {
   notes: text('notes'), // internal staff notes
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Team members with access to a client account (many users → one client)
+export const clientMembers = pgTable('client_members', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: varchar('role', { length: 20 }).default('member').notNull(), // owner, member
+  invitedBy: integer('invited_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const projects = pgTable('projects', {
@@ -447,6 +466,47 @@ export const emailCampaigns = pgTable('email_campaigns', {
   totalClicked: integer('total_clicked').default(0).notNull(),
   totalBounced: integer('total_bounced').default(0).notNull(),
   totalUnsubscribed: integer('total_unsubscribed').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── HOSTING & DNS ────────────────────────────────────────────────────────────
+
+export interface DnsInstruction {
+  type: 'A' | 'CNAME' | 'TXT' | 'MX';
+  host: string;   // e.g. "@" or "www"
+  value: string;  // the value to point to
+  ttl?: string;   // e.g. "Auto" or "3600"
+  notes?: string;
+}
+
+// Client-owned websites managed through the portal CMS
+export const clientWebsites = pgTable('client_websites', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  domain: varchar('domain', { length: 255 }),
+  description: text('description'),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const hostedSites = pgTable('hosted_sites', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(), // internal label e.g. "Acme E-commerce"
+  customDomain: varchar('custom_domain', { length: 255 }), // e.g. "shop.acmecorp.com"
+  railwayProjectId: varchar('railway_project_id', { length: 255 }),
+  railwayServiceId: varchar('railway_service_id', { length: 255 }),
+  railwayEnvironmentId: varchar('railway_environment_id', { length: 255 }),
+  railwayDomain: varchar('railway_domain', { length: 500 }), // e.g. "xxx.up.railway.app"
+  status: varchar('status', { length: 50 }).default('provisioning').notNull(), // provisioning, active, suspended, cancelled
+  plan: varchar('plan', { length: 50 }).default('starter').notNull(), // starter, pro, enterprise
+  renewalDate: timestamp('renewal_date'),
+  notes: text('notes'),
+  dnsInstructions: json('dns_instructions').$type<DnsInstruction[]>().default([]),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

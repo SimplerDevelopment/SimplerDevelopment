@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, emailCampaigns, emailSubscribers, emailCampaignSends } from '@/lib/db/schema';
+import { emailCampaigns, emailSubscribers, emailCampaignSends } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { resend, buildCampaignHtml, buildUnsubscribeUrl } from '@/lib/email';
+import { getPortalClient } from '@/lib/portal-client';
 
 async function requireClient() {
   const session = await auth();
   if (!session?.user?.id) return null;
-  const userId = parseInt(session.user.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
-  return client ?? null;
+  return getPortalClient(parseInt(session.user.id, 10));
 }
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, users } from '@/lib/db/schema';
+import { clients, users, clientMembers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 
@@ -57,6 +57,7 @@ export async function POST(req: Request) {
   const hashed = await hash(password, 12);
   const [user] = await db.insert(users).values({ name, email, password: hashed, role: 'client', active: true }).returning();
   const [client] = await db.insert(clients).values({ userId: user.id, company, phone, website, address, notes }).returning();
+  await db.insert(clientMembers).values({ clientId: client.id, userId: user.id, role: 'owner' });
 
   return NextResponse.json({ success: true, data: { user, client } });
 }

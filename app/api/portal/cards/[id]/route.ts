@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, users, clients, projects } from '@/lib/db/schema';
+import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, users, projects } from '@/lib/db/schema';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, asc, desc } from 'drizzle-orm';
 
 function getRole(session: Awaited<ReturnType<typeof auth>>): string {
@@ -16,7 +17,7 @@ async function authorizeCard(cardId: number, session: Awaited<ReturnType<typeof 
   if (role === 'admin' || role === 'employee') return card;
 
   const userId = parseInt(session!.user!.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+  const client = await getPortalClient(userId);
   if (!client) return null;
 
   const [proj] = await db.select().from(projects)
