@@ -525,6 +525,7 @@ export interface PitchDeckSlide {
   steps?: { title: string; description: string }[];
   members?: { name: string; role: string; image?: string }[];
   tiers?: { name: string; price: string; features: string[]; highlighted?: boolean }[];
+  columns?: number; // controls grid columns for items (2, 3, 4, etc.)
   image?: string;
   notes?: string;
 }

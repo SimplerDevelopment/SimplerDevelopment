@@ -25,10 +25,16 @@ Return a single slide object:
   "steps": [{"title": "string", "description": "string"}],
   "members": [{"name": "string", "role": "string"}],
   "tiers": [{"name": "string", "price": "string", "features": ["string"], "highlighted": false}],
+  "columns": 3,
   "notes": "optional speaker notes"
 }
 
-Only include fields relevant to the slide type. Keep the same slide ID. You may change the type if the user's instruction implies a different layout.`;
+## Layout control
+- "columns" controls the grid layout (2, 3, 4, etc.). For example, columns: 3 with 5 stats = 3 on top, 2 centered on bottom.
+- To change layout (e.g. "3 on top, 2 on bottom"), set columns to the top row count and adjust the number of items accordingly.
+- You can add, remove, or reorder items in bullets/stats/steps/members/tiers arrays.
+- You may change the slide type if the user's instruction implies a different layout style.
+- Keep the same slide ID always.`;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string; slideIndex: string }> }) {
   try {

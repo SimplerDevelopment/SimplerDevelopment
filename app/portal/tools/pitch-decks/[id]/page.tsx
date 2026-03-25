@@ -16,6 +16,7 @@ interface Slide {
   steps?: { title: string; description: string }[];
   members?: { name: string; role: string; image?: string }[];
   tiers?: { name: string; price: string; features: string[]; highlighted?: boolean }[];
+  columns?: number;
   notes?: string;
 }
 
@@ -770,19 +771,23 @@ function ScaledSlidePreview({ slide, theme, index, total }: { slide: Slide; them
                 {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
                 {slide.subheadline && <p className="text-lg opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>}
               </div>
-              {slide.bullets && slide.bullets.length > 0 && (
-                <div className={`grid gap-5 ${slide.bullets.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : slide.bullets.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
-                  {slide.bullets.map((bullet, i) => (
-                    <div key={i} className="p-6 rounded-2xl relative overflow-hidden" style={{ backgroundColor: tc + '06', border: `1px solid ${tc}10` }}>
-                      <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac + '40' }} />
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: ac + '15', color: ac }}>
-                        <span className="material-icons text-xl">{featureIcons[i % featureIcons.length]}</span>
+              {slide.bullets && slide.bullets.length > 0 && (() => {
+                const cols = slide.columns || (slide.bullets!.length <= 3 ? 3 : slide.bullets!.length <= 4 ? 2 : 3);
+                const w = `calc(${100 / cols}% - ${(cols - 1) * 20 / cols}px)`;
+                return (
+                  <div className="flex flex-wrap justify-center gap-5">
+                    {slide.bullets!.map((bullet, i) => (
+                      <div key={i} className="p-6 rounded-2xl relative overflow-hidden shrink-0" style={{ backgroundColor: tc + '06', border: `1px solid ${tc}10`, width: w, minWidth: '180px' }}>
+                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac + '40' }} />
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: ac + '15', color: ac }}>
+                          <span className="material-icons text-xl">{featureIcons[i % featureIcons.length]}</span>
+                        </div>
+                        <p className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</p>
                       </div>
-                      <p className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         ) : slide.type === 'metrics' && slide.stats && slide.stats.length > 0 ? (
@@ -793,14 +798,18 @@ function ScaledSlidePreview({ slide, theme, index, total }: { slide: Slide; them
                 {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
                 {slide.subheadline && <p className="text-lg opacity-50 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.subheadline}</p>}
               </div>
-              <div className={`grid gap-8 ${slide.stats.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                {slide.stats.map((stat, i) => (
-                  <div key={i} className="text-center p-8 rounded-2xl relative" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
-                    <div className="text-5xl md:text-6xl font-extrabold tracking-tight" style={{ color: ac, fontFamily: h }}>{stat.value}</div>
-                    <div className="mt-3 text-sm uppercase tracking-wider opacity-50 font-medium" style={{ fontFamily: b }}>{stat.label}</div>
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] rounded-full" style={{ backgroundColor: ac + '40' }} />
-                  </div>
-                ))}
+              <div className="flex flex-wrap justify-center gap-8">
+                {slide.stats.map((stat, i) => {
+                  const cols = slide.columns || (slide.stats!.length <= 3 ? 3 : 4);
+                  const w = `calc(${100 / cols}% - ${(cols - 1) * 32 / cols}px)`;
+                  return (
+                    <div key={i} className="text-center p-8 rounded-2xl relative shrink-0" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08`, width: w, minWidth: '200px' }}>
+                      <div className="text-5xl md:text-6xl font-extrabold tracking-tight" style={{ color: ac, fontFamily: h }}>{stat.value}</div>
+                      <div className="mt-3 text-sm uppercase tracking-wider opacity-50 font-medium" style={{ fontFamily: b }}>{stat.label}</div>
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] rounded-full" style={{ backgroundColor: ac + '40' }} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -13,6 +13,7 @@ interface Slide {
   steps?: { title: string; description: string }[];
   members?: { name: string; role: string; image?: string }[];
   tiers?: { name: string; price: string; features: string[]; highlighted?: boolean }[];
+  columns?: number;
 }
 
 interface Theme {
@@ -182,6 +183,25 @@ function SlideRenderer({ slide, theme, index, total }: { slide: Slide; theme: Th
   const tc = theme.textColor;
   const bg = theme.backgroundColor;
 
+  // Grid helper: uses slide.columns if set, otherwise auto-detects
+  function gridCols(itemCount: number, fallbackMap?: Record<number, string>): string {
+    if (slide.columns) {
+      const c = slide.columns;
+      return `grid-cols-${Math.min(c, 2)} md:grid-cols-${c}`;
+    }
+    if (fallbackMap && fallbackMap[itemCount]) return fallbackMap[itemCount];
+    if (itemCount <= 2) return 'grid-cols-1 md:grid-cols-2';
+    if (itemCount <= 3) return 'grid-cols-1 md:grid-cols-3';
+    if (itemCount <= 4) return 'grid-cols-2 md:grid-cols-4';
+    return 'grid-cols-2 md:grid-cols-3';
+  }
+
+  // For centering the last row when items don't fill the grid, wrap in flex
+  function needsFlexWrap(itemCount: number): boolean {
+    const cols = slide.columns || (itemCount <= 3 ? 3 : itemCount <= 4 ? 4 : 3);
+    return itemCount % cols !== 0;
+  }
+
   // ── Cover ────────────────────────────────────────────────────────────
   if (slide.type === 'cover') {
     return (
@@ -324,22 +344,25 @@ function SlideRenderer({ slide, theme, index, total }: { slide: Slide; theme: Th
               <p className="text-lg opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>
             )}
           </div>
-          {slide.bullets && slide.bullets.length > 0 && (
-            <div className={`grid gap-5 ${slide.bullets.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : slide.bullets.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
-              {slide.bullets.map((bullet, i) => (
-                <div key={i} className="group p-6 rounded-2xl relative overflow-hidden"
-                  style={{ backgroundColor: tc + '06', border: `1px solid ${tc}10` }}>
-                  {/* Hover accent bar */}
-                  <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac + '40' }} />
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                    style={{ backgroundColor: ac + '15', color: ac }}>
-                    <span className="material-icons text-xl">{featureIcons[i % featureIcons.length]}</span>
+          {slide.bullets && slide.bullets.length > 0 && (() => {
+            const cols = slide.columns || (slide.bullets!.length <= 3 ? 3 : slide.bullets!.length <= 4 ? 2 : 3);
+            const w = `calc(${100 / cols}% - ${(cols - 1) * 20 / cols}px)`;
+            return (
+              <div className="flex flex-wrap justify-center gap-5">
+                {slide.bullets!.map((bullet, i) => (
+                  <div key={i} className="group p-6 rounded-2xl relative overflow-hidden shrink-0"
+                    style={{ backgroundColor: tc + '06', border: `1px solid ${tc}10`, width: w, minWidth: '180px' }}>
+                    <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac + '40' }} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                      style={{ backgroundColor: ac + '15', color: ac }}>
+                      <span className="material-icons text-xl">{featureIcons[i % featureIcons.length]}</span>
+                    </div>
+                    <p className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</p>
                   </div>
-                  <p className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</p>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
           {slide.body && (
             <p className="text-center text-base opacity-40 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.body}</p>
           )}
@@ -365,21 +388,24 @@ function SlideRenderer({ slide, theme, index, total }: { slide: Slide; theme: Th
               <p className="text-lg opacity-50 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.subheadline}</p>
             )}
           </div>
-          <div className={`grid gap-8 ${slide.stats.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-            {slide.stats.map((stat, i) => (
-              <div key={i} className="text-center p-8 rounded-2xl relative"
-                style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
-                <div className="text-5xl md:text-6xl font-extrabold tracking-tight"
-                  style={{ color: ac, fontFamily: h }}>
-                  {stat.value}
+          <div className="flex flex-wrap justify-center gap-8">
+            {slide.stats.map((stat, i) => {
+              const cols = slide.columns || (slide.stats!.length <= 3 ? 3 : 4);
+              const w = `calc(${100 / cols}% - ${(cols - 1) * 32 / cols}px)`;
+              return (
+                <div key={i} className="text-center p-8 rounded-2xl relative shrink-0"
+                  style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08`, width: w, minWidth: '200px' }}>
+                  <div className="text-5xl md:text-6xl font-extrabold tracking-tight"
+                    style={{ color: ac, fontFamily: h }}>
+                    {stat.value}
+                  </div>
+                  <div className="mt-3 text-sm uppercase tracking-wider opacity-50 font-medium" style={{ fontFamily: b }}>
+                    {stat.label}
+                  </div>
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] rounded-full" style={{ backgroundColor: ac + '40' }} />
                 </div>
-                <div className="mt-3 text-sm uppercase tracking-wider opacity-50 font-medium" style={{ fontFamily: b }}>
-                  {stat.label}
-                </div>
-                {/* Bottom accent line */}
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] rounded-full" style={{ backgroundColor: ac + '40' }} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
