@@ -90,14 +90,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Portal: require auth
       if (isOnPortal && !isOnPortalLogin) {
         if (!isLoggedIn) {
-          return Response.redirect(new URL('/portal/login', nextUrl));
+          const loginUrl = new URL('/portal/login', nextUrl);
+          loginUrl.searchParams.set('callbackUrl', nextUrl.pathname + nextUrl.search);
+          return Response.redirect(loginUrl);
         }
         return true;
       }
 
       // Redirect already-logged-in users away from portal login
       if (isOnPortalLogin && isLoggedIn) {
-        return Response.redirect(new URL('/portal/dashboard', nextUrl));
+        const callbackUrl = nextUrl.searchParams.get('callbackUrl') || '/portal/dashboard';
+        return Response.redirect(new URL(callbackUrl, nextUrl));
       }
 
       return true;
