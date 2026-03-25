@@ -43,7 +43,9 @@ export async function GET() {
 
   const activeIds = new Set(myServices.filter(s => s.status === 'active').map(s => s.serviceId));
 
-  const data = allServices.map(svc => ({
+  const hiddenCategories = new Set(['hosting']);
+
+  const data = allServices.filter(svc => !hiddenCategories.has(svc.category)).map(svc => ({
     id: svc.id,
     name: svc.name,
     category: svc.category,
