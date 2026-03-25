@@ -5,6 +5,7 @@ import { pitchDecks, aiConversations, aiMessages } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -83,6 +84,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { prompt, websiteUrl } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
+
+    // Auto-save current state before AI generation
+    await saveVersionSnapshot(
+      deck.id,
+      (deck.slides || []) as PitchDeckSlide[],
+      deck.theme as PitchDeckTheme,
+      (deck.slides as PitchDeckSlide[])?.length > 0 ? 'ai_regenerate' : 'ai_generate',
+      userId,
+    );
 
     // Track in AI conversations
     const [conv] = await db.insert(aiConversations).values({

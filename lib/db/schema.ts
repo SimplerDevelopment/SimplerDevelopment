@@ -562,6 +562,17 @@ export const pitchDecks = pgTable('pitch_decks', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const pitchDeckVersions = pgTable('pitch_deck_versions', {
+  id: serial('id').primaryKey(),
+  deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
+  slides: json('slides').$type<PitchDeckSlide[]>().notNull(),
+  theme: json('theme').$type<PitchDeckTheme>().notNull(),
+  label: varchar('label', { length: 255 }), // null = auto-save, string = manual checkpoint
+  trigger: varchar('trigger', { length: 50 }).notNull(), // 'manual', 'ai_generate', 'ai_slide_edit', 'ai_regenerate'
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const emailCampaignSends = pgTable('email_campaign_sends', {
   id: serial('id').primaryKey(),
   campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),

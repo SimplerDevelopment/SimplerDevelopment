@@ -88,6 +88,11 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [publishing, setPublishing] = useState(false);
   const [previewScale, setPreviewScale] = useState(0.5);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [versions, setVersions] = useState<{ id: number; label: string | null; trigger: string; slideCount: number; createdAt: string }[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [savingVersion, setSavingVersion] = useState(false);
 
   const fetchDeck = useCallback(async () => {
     try {
@@ -274,6 +279,49 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     setSaving(false);
   }
 
+  async function loadVersions() {
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}/versions`);
+    const data = await res.json();
+    if (data.success) {
+      setVersions(data.data);
+      setHistoryLoaded(true);
+    }
+  }
+
+  async function saveCheckpoint() {
+    if (!deck) return;
+    setSavingVersion(true);
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: `Manual save — ${deck.slides.length} slides` }),
+    });
+    const data = await res.json();
+    setSavingVersion(false);
+    if (data.success) {
+      setVersions(prev => [data.data, ...prev]);
+    }
+  }
+
+  async function restoreVersion(versionId: number) {
+    if (!confirm('Restore this version? Your current slides will be saved as a checkpoint first.')) return;
+    setRestoring(true);
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}/versions/${versionId}/restore`, {
+      method: 'POST',
+    });
+    const data = await res.json();
+    setRestoring(false);
+    if (data.success) {
+      setDeck(data.data);
+      setActiveSlide(0);
+      setShowHistory(false);
+      // Reload versions to include the auto-save
+      loadVersions();
+    } else {
+      setError(data.message || 'Failed to restore');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -338,6 +386,13 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
           >
             <span className="material-icons text-base">auto_awesome</span>
             Regenerate
+          </button>
+          <button
+            onClick={() => { const next = !showHistory; setShowHistory(next); if (next) loadVersions(); }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <span className="material-icons text-base">history</span>
+            History
           </button>
           {deck.status === 'published' && (
             <Link
@@ -461,6 +516,75 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
             )}
           </button>
         </form>
+      )}
+
+      {/* History panel */}
+      {showHistory && (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Version History</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveCheckpoint}
+                disabled={savingVersion || deck.slides.length === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-1 text-xs bg-primary text-primary-foreground rounded-lg font-medium disabled:opacity-50"
+              >
+                {savingVersion ? (
+                  <span className="material-icons animate-spin text-xs">autorenew</span>
+                ) : (
+                  <span className="material-icons text-xs">save</span>
+                )}
+                Save Checkpoint
+              </button>
+              <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-foreground">
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
+          </div>
+          {versions.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No versions yet. Versions are auto-saved before each AI edit.
+            </p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto space-y-1.5">
+              {versions.map((v) => {
+                const triggerLabel: Record<string, string> = {
+                  manual: 'Checkpoint',
+                  ai_generate: 'Before AI generate',
+                  ai_regenerate: 'Before AI regenerate',
+                  ai_slide_edit: 'Before AI slide edit',
+                };
+                const triggerIcon: Record<string, string> = {
+                  manual: 'save',
+                  ai_generate: 'auto_awesome',
+                  ai_regenerate: 'auto_awesome',
+                  ai_slide_edit: 'edit',
+                };
+                return (
+                  <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent/50 transition-colors group">
+                    <span className="material-icons text-base text-muted-foreground">{triggerIcon[v.trigger] || 'history'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {v.label || triggerLabel[v.trigger] || v.trigger}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {v.slideCount} slides &middot; {new Date(v.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => restoreVersion(v.id)}
+                      disabled={restoring}
+                      className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-all disabled:opacity-50"
+                    >
+                      <span className="material-icons text-xs">restore</span>
+                      Restore
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Main editor area */}

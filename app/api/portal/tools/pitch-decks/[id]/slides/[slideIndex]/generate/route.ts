@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
-import type { PitchDeckSlide } from '@/lib/db/schema';
+import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -61,6 +62,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { prompt } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
+
+    // Auto-save current state before AI slide edit
+    await saveVersionSnapshot(
+      deck.id,
+      slides,
+      deck.theme as PitchDeckTheme,
+      'ai_slide_edit',
+      userId,
+    );
 
     const currentSlide = slides[idx];
 
