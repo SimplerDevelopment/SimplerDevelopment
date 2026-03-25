@@ -642,6 +642,14 @@ function SlidePreview({ slide, theme, index, total }: { slide: Slide; theme: The
       <div className="absolute top-4 left-6 text-xs opacity-50" style={{ fontFamily: theme.bodyFont }}>
         {String(index + 1).padStart(2, '0')}/{String(total).padStart(2, '0')}
       </div>
+      {/* SD branding */}
+      <div className="absolute top-3 right-5 flex items-center gap-1.5 opacity-40">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/iconLogo.png" alt="" className="h-4 w-4 brightness-0 invert" />
+        <span className="text-[8px] tracking-wide" style={{ color: theme.textColor }}>
+          <b>Simpler</b> Development
+        </span>
+      </div>
 
       {slide.type === 'cover' ? (
         <div className="space-y-4 max-w-2xl">

@@ -108,6 +108,15 @@ export default function PitchDeckPresentation({ slides, theme, title }: Props) {
           {String(current + 1).padStart(2, '0')}/{String(slides.length).padStart(2, '0')}
         </div>
 
+        {/* SimplerDevelopment branding */}
+        <div className="absolute top-5 right-8 z-20 flex items-center gap-2 opacity-40 hover:opacity-70 transition-opacity">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/iconLogo.png" alt="" className="h-7 w-7 brightness-0 invert" />
+          <span className="text-xs tracking-wide" style={{ color: theme.textColor, fontFamily: theme.bodyFont }}>
+            <b>Simpler</b> Development
+          </span>
+        </div>
+
         {/* Navigation hint */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-xs opacity-30" style={{ fontFamily: theme.bodyFont }}>
           Press arrow keys or spacebar &middot; Swipe or tap arrows on mobile

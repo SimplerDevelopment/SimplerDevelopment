@@ -548,12 +548,12 @@ export const pitchDecks = pgTable('pitch_decks', {
   status: varchar('status', { length: 50 }).default('draft').notNull(), // draft, published, archived
   slides: json('slides').$type<PitchDeckSlide[]>().default([]),
   theme: json('theme').$type<PitchDeckTheme>().default({
-    primaryColor: '#1a2744',
-    accentColor: '#c9a84c',
-    backgroundColor: '#0f1b2d',
-    textColor: '#ffffff',
-    headingFont: 'Cormorant Garamond',
-    bodyFont: 'Plus Jakarta Sans',
+    primaryColor: '#2563eb',
+    accentColor: '#60a5fa',
+    backgroundColor: '#0f172a',
+    textColor: '#f8fafc',
+    headingFont: 'Inter',
+    bodyFont: 'Inter',
   }),
   sourceUrl: varchar('source_url', { length: 500 }), // website used for branding
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
