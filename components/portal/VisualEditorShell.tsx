@@ -315,14 +315,14 @@ function BuiltInBlockProperties({
           <span className="text-sm font-medium text-gray-700">{field.label}</span>
           {field.type === 'textarea' ? (
             <textarea
-              value={((block as Record<string, unknown>)[field.name] as string) || ''}
+              value={((block as unknown as Record<string, unknown>)[field.name] as string) || ''}
               onChange={(e) => onUpdate({ [field.name]: e.target.value } as Partial<Block>)}
               rows={3}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           ) : field.type === 'select' ? (
             <select
-              value={String((block as Record<string, unknown>)[field.name] || '')}
+              value={String((block as unknown as Record<string, unknown>)[field.name] || '')}
               onChange={(e) => {
                 const val = field.name === 'level' ? Number(e.target.value) : e.target.value;
                 onUpdate({ [field.name]: val } as Partial<Block>);
@@ -336,7 +336,7 @@ function BuiltInBlockProperties({
           ) : (
             <input
               type="text"
-              value={((block as Record<string, unknown>)[field.name] as string) || ''}
+              value={((block as unknown as Record<string, unknown>)[field.name] as string) || ''}
               onChange={(e) => onUpdate({ [field.name]: e.target.value } as Partial<Block>)}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
