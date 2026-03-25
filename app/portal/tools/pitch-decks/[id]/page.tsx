@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { use } from 'react';
@@ -85,6 +85,8 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [showTheme, setShowTheme] = useState(false);
   const [error, setError] = useState('');
   const [publishing, setPublishing] = useState(false);
+  const [previewScale, setPreviewScale] = useState(0.5);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchDeck = useCallback(async () => {
     try {
@@ -104,6 +106,17 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   }, [id]);
 
   useEffect(() => { fetchDeck(); }, [fetchDeck]);
+
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(() => {
+      setPreviewScale(el.clientWidth / 1440);
+    });
+    obs.observe(el);
+    setPreviewScale(el.clientWidth / 1440);
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('genError') === '1') {
@@ -510,6 +523,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
             {/* Preview — renders the real presentation scaled to fit */}
             <div className="rounded-xl border border-border overflow-hidden aspect-[16/9] relative">
               <div
+                ref={previewContainerRef}
                 className="absolute inset-0 overflow-hidden"
                 style={{ backgroundColor: deck.theme.backgroundColor }}
               >
@@ -517,20 +531,8 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
                   style={{
                     width: '1440px',
                     height: '810px',
-                    transform: 'scale(var(--preview-scale))',
+                    transform: `scale(${previewScale})`,
                     transformOrigin: 'top left',
-                  }}
-                  ref={(el) => {
-                    if (!el) return;
-                    const parent = el.parentElement;
-                    if (!parent) return;
-                    const obs = new ResizeObserver(() => {
-                      const s = parent.clientWidth / 1440;
-                      el.style.setProperty('--preview-scale', String(s));
-                    });
-                    obs.observe(parent);
-                    const s = parent.clientWidth / 1440;
-                    el.style.setProperty('--preview-scale', String(s));
                   }}
                 >
                   <ScaledSlidePreview slide={currentSlide} theme={deck.theme} index={activeSlide} total={deck.slides.length} />
