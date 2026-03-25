@@ -12,6 +12,7 @@ import { ViewportSelector } from '@/components/blocks/ViewportSelector';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
+import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 
 interface Post {
   id?: number;
@@ -37,6 +38,7 @@ interface PortalPostFormProps {
   siteId: number;
   post?: Post;
   mode: 'create' | 'edit';
+  siteUrl?: string | null;
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -77,12 +79,14 @@ function generateSlug(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-export default function PortalPostForm({ siteId, post, mode }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [contentMenuOpen, setContentMenuOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<'visual' | 'classic'>('visual');
+  const [editorMode, setEditorMode] = useState<'visual' | 'classic' | 'iframe'>(
+    siteUrl && mode === 'edit' ? 'iframe' : 'visual',
+  );
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [formData, setFormData] = useState<Post>({
@@ -285,18 +289,34 @@ export default function PortalPostForm({ siteId, post, mode }: PortalPostFormPro
       )}
 
       {/* Content Editor */}
-      <div className="bg-card border border-border shadow rounded-lg">
-        <div className="p-6">
-          {editorMode === 'visual' ? (
-            <EditorWithPreview
-              onChange={(newBlocks) => setBlocks(newBlocks)}
-              blockTypes={blockTypes}
-            />
-          ) : (
-            <BlockEditor blocks={blocks} onChange={setBlocks} />
-          )}
+      {editorMode === 'iframe' && siteUrl && post?.slug ? (
+        <VisualEditorShell
+          blocks={blocks}
+          selectedBlockId={null}
+          iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
+          onBlocksChange={setBlocks}
+          onSelectBlock={() => {}}
+          onAddBlock={(type) => {
+            const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
+            setBlocks([...blocks, newBlock]);
+          }}
+          onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+          onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? { ...b, ...updates } : b))}
+        />
+      ) : (
+        <div className="bg-card border border-border shadow rounded-lg">
+          <div className="p-6">
+            {editorMode === 'visual' ? (
+              <EditorWithPreview
+                onChange={(newBlocks) => setBlocks(newBlocks)}
+                blockTypes={blockTypes}
+              />
+            ) : (
+              <BlockEditor blocks={blocks} onChange={setBlocks} />
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-4">

@@ -40,10 +40,20 @@ export default async function PortalEditPostPage({
     db.select({ tagId: postTags.tagId }).from(postTags).where(eq(postTags.postId, post.id)),
   ]);
 
+  // Build iframe URL for visual editor
+  const subdomain = site.subdomain;
+  const vercelDomain = site.vercelDomain;
+  const siteUrl = vercelDomain
+    ? `https://${vercelDomain}`
+    : subdomain
+      ? `https://${subdomain}.simplerdevelopment.com`
+      : null;
+
   return (
     <PortalPostForm
       siteId={site.id}
       mode="edit"
+      siteUrl={siteUrl}
       post={{
         id: post.id,
         title: post.title,
