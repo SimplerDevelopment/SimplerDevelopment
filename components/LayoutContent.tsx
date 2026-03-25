@@ -9,8 +9,9 @@ export function LayoutContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isPetersOutdoor = pathname.startsWith('/p/');
   const isAdminOrPortal = pathname.startsWith('/admin') || pathname.startsWith('/portal');
+  const isPitchDeck = pathname.startsWith('/pitch-deck');
 
-  if (isPetersOutdoor || isAdminOrPortal) {
+  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck) {
     return <>{children}</>;
   }
 
