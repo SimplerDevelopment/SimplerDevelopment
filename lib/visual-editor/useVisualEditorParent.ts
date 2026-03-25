@@ -36,7 +36,28 @@ export function useVisualEditorParent({
   const [iframeReady, setIframeReady] = useState(false);
   const [customComponents, setCustomComponents] = useState<ComponentManifestEntry[]>([]);
 
-  // Listen for messages from iframe
+  // Store latest values in refs so the message handler always has current data
+  const blocksRef = useRef(blocks);
+  const selectedRef = useRef(selectedBlockId);
+  const settingsRef = useRef(pageSettings);
+  const onClickedRef = useRef(onBlockClicked);
+  const onHoveredRef = useRef(onBlockHovered);
+  blocksRef.current = blocks;
+  selectedRef.current = selectedBlockId;
+  settingsRef.current = pageSettings;
+  onClickedRef.current = onBlockClicked;
+  onHoveredRef.current = onBlockHovered;
+
+  // Send EDITOR_INIT to the iframe
+  const sendInit = useCallback(() => {
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.EDITOR_INIT, {
+      blocks: blocksRef.current,
+      selectedBlockId: selectedRef.current,
+      pageSettings: settingsRef.current,
+    } satisfies EditorInitPayload);
+  }, []);
+
+  // Listen for messages from iframe (stable listener — no deps that change)
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (!isValidOrigin(event.origin)) return;
@@ -50,22 +71,17 @@ export function useVisualEditorParent({
           if (payload.registeredComponents?.length) {
             setCustomComponents(payload.registeredComponents);
           }
-          // Send initial state
-          sendToIframe(iframeRef.current, PARENT_MESSAGES.EDITOR_INIT, {
-            blocks,
-            selectedBlockId,
-            pageSettings,
-          } satisfies EditorInitPayload);
+          sendInit();
           break;
         }
         case IFRAME_MESSAGES.BLOCK_CLICKED: {
           const payload = event.data.payload as BlockClickedPayload;
-          onBlockClicked(payload.blockId);
+          onClickedRef.current(payload.blockId);
           break;
         }
         case IFRAME_MESSAGES.BLOCK_HOVERED: {
           const payload = event.data.payload as BlockHoveredPayload;
-          onBlockHovered(payload.blockId);
+          onHoveredRef.current(payload.blockId);
           break;
         }
         case IFRAME_MESSAGES.COMPONENT_REGISTRY: {
@@ -78,7 +94,17 @@ export function useVisualEditorParent({
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [blocks, selectedBlockId, pageSettings, onBlockClicked, onBlockHovered]);
+  }, [sendInit]);
+
+  // When the iframe loads (or reloads), send EDITOR_INIT proactively
+  // This handles the race where IFRAME_READY fires before our listener is attached
+  const handleIframeLoad = useCallback(() => {
+    // Give the iframe's React a moment to hydrate and attach its listener
+    setTimeout(() => {
+      sendInit();
+      setIframeReady(true);
+    }, 500);
+  }, [sendInit]);
 
   // Send block updates when blocks change
   const sendBlocksUpdate = useCallback(
@@ -120,5 +146,6 @@ export function useVisualEditorParent({
     sendBlocksUpdate,
     sendSelectBlock,
     sendHoverBlock,
+    handleIframeLoad,
   };
 }

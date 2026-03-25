@@ -41,7 +41,7 @@ interface VisualEditorShellProps {
 
 export function VisualEditorShell({
   blocks,
-  selectedBlockId,
+  selectedBlockId: selectedBlockIdProp,
   iframeSrc,
   onBlocksChange,
   onSelectBlock,
@@ -50,11 +50,16 @@ export function VisualEditorShell({
   onUpdateBlock,
 }: VisualEditorShellProps) {
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
+  const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
 
   const handleBlockClicked = useCallback(
-    (blockId: string) => onSelectBlock(blockId),
+    (blockId: string) => {
+      setInternalSelectedBlockId(blockId);
+      onSelectBlock(blockId);
+    },
     [onSelectBlock],
   );
 
@@ -66,6 +71,7 @@ export function VisualEditorShell({
     customComponents,
     sendBlocksUpdate,
     sendSelectBlock,
+    handleIframeLoad,
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
@@ -237,6 +243,7 @@ export function VisualEditorShell({
             <iframe
               ref={iframeRef}
               src={iframeSrc}
+              onLoad={handleIframeLoad}
               className="w-full h-full border-0"
               title="Visual Editor"
             />
