@@ -47,12 +47,12 @@ export async function createProject(
 }
 
 /**
- * Add a custom domain to a Vercel project.
+ * Add a custom domain to a Vercel project. Returns the domain config including DNS target.
  */
 export async function addDomain(
   projectId: string,
   domain: string,
-): Promise<void> {
+): Promise<{ apexName: string; verified: boolean }> {
   const res = await fetch(`${VERCEL_API}/v10/projects/${projectId}/domains${teamParam()}`, {
     method: 'POST',
     headers: headers(),
@@ -60,9 +60,32 @@ export async function addDomain(
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Vercel addDomain failed (${res.status}): ${err}`);
+    const body = await res.text();
+    // Domain already added — not an error
+    if (res.status === 409) return { apexName: domain, verified: false };
+    throw new Error(`Vercel addDomain failed (${res.status}): ${body}`);
   }
+
+  const data = await res.json();
+  return { apexName: data.apexName || domain, verified: data.verified ?? false };
+}
+
+/**
+ * Get the recommended DNS config for a domain on a Vercel project.
+ */
+export async function getDomainConfig(
+  domain: string,
+): Promise<{ cnames: string[] }> {
+  const res = await fetch(`${VERCEL_API}/v6/domains/${domain}/config${teamParam()}`, {
+    headers: headers(),
+  });
+
+  if (!res.ok) return { cnames: ['cname.vercel-dns.com'] };
+
+  const data = await res.json();
+  // Vercel returns cnames array with the project-specific target
+  const cnames = data.cnames || [];
+  return { cnames: cnames.length > 0 ? cnames : ['cname.vercel-dns.com'] };
 }
 
 /**

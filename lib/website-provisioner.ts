@@ -2,8 +2,8 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
-import { createProject, addDomain, createDeployment } from '@/lib/vercel';
-import { createCnameRecord, listDnsRecords } from '@/lib/cloudflare-dns';
+import { createProject, addDomain, getDomainConfig, createDeployment } from '@/lib/vercel';
+import { createCnameRecord, updateCnameRecord, listDnsRecords } from '@/lib/cloudflare-dns';
 
 /**
  * Provision a website: create GitHub repo, Vercel project, and Cloudflare DNS.
@@ -60,14 +60,19 @@ export async function provisionWebsite(
         .where(eq(clientWebsites.id, siteId));
     }
 
-    // Step 4: Create Cloudflare CNAME (skip if already exists)
+    // Step 4: Add domain to Vercel project (do this before DNS so we can get the correct target)
+    await addDomain(vercelId!, fullDomain);
+
+    // Step 5: Get the project-specific DNS target from Vercel and create/update Cloudflare CNAME
+    const domainConfig = await getDomainConfig(fullDomain);
+    const dnsTarget = domainConfig.cnames[0] || 'cname.vercel-dns.com';
+
     const existingRecords = await listDnsRecords(subdomain);
     if (existingRecords.length === 0) {
-      await createCnameRecord(subdomain, 'cname.vercel-dns.com');
+      await createCnameRecord(subdomain, dnsTarget);
+    } else if (existingRecords[0].content !== dnsTarget) {
+      await updateCnameRecord(existingRecords[0].id, dnsTarget);
     }
-
-    // Step 5: Add domain to Vercel project
-    await addDomain(vercelId!, fullDomain);
 
     // Step 6: Trigger initial deployment
     try {

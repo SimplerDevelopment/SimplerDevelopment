@@ -44,6 +44,22 @@ export async function createCnameRecord(
 }
 
 /**
+ * Update an existing CNAME record's target.
+ */
+export async function updateCnameRecord(recordId: string, target: string): Promise<void> {
+  const res = await fetch(`${CF_API}/zones/${zoneId()}/dns_records/${recordId}`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify({ content: target }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Cloudflare updateCnameRecord failed (${res.status}): ${err}`);
+  }
+}
+
+/**
  * Delete a DNS record by ID.
  */
 export async function deleteDnsRecord(recordId: string): Promise<void> {
