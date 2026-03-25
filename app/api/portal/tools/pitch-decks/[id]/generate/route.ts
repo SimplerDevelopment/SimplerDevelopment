@@ -116,9 +116,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         totalInput += brandResponse.usage.input_tokens;
         totalOutput += brandResponse.usage.output_tokens;
 
-        const brandText = brandResponse.content
+        let brandText = brandResponse.content
           .filter((b): b is Anthropic.TextBlock => b.type === 'text')
           .map(b => b.text).join('');
+        brandText = brandText.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
         const brandData = JSON.parse(brandText);
         theme = {
@@ -152,15 +153,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     totalInput += response.usage.input_tokens;
     totalOutput += response.usage.output_tokens;
 
-    const text = response.content
+    let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
+
+    // Strip markdown code fences if present
+    text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
     let slides: PitchDeckSlide[];
     try {
       const parsed = JSON.parse(text);
       slides = parsed.slides || parsed;
     } catch {
+      console.error('[pitch-deck generate] Failed to parse AI response:', text.slice(0, 500));
       return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
     }
 
@@ -190,7 +195,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
-    console.error('[POST /api/portal/tools/pitch-decks/[id]/generate]', err);
-    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[POST /api/portal/tools/pitch-decks/[id]/generate]', errMsg, err);
+    return NextResponse.json({ success: false, message: `Generation failed: ${errMsg}` }, { status: 500 });
   }
 }

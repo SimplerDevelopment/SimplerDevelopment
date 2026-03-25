@@ -68,14 +68,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }],
     });
 
-    const text = response.content
+    let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
+    text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
     let updatedSlide: PitchDeckSlide;
     try {
       updatedSlide = JSON.parse(text);
     } catch {
+      console.error('[pitch-deck slide edit] Failed to parse AI response:', text.slice(0, 500));
       return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
     }
 

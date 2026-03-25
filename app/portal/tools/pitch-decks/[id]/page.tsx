@@ -87,9 +87,19 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [publishing, setPublishing] = useState(false);
 
   const fetchDeck = useCallback(async () => {
-    const res = await fetch(`/api/portal/tools/pitch-decks/${id}`);
-    const data = await res.json();
-    if (data.success) setDeck(data.data);
+    try {
+      const res = await fetch(`/api/portal/tools/pitch-decks/${id}`);
+      if (!res.ok) {
+        setError(`Failed to load deck (${res.status})`);
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.success) setDeck(data.data);
+      else setError(data.message || 'Failed to load deck');
+    } catch (err) {
+      setError('Failed to connect to server. Please refresh the page.');
+    }
     setLoading(false);
   }, [id]);
 
