@@ -84,6 +84,37 @@ export async function removeDomain(
 }
 
 /**
+ * Trigger a deployment for a Vercel project from its linked Git repo.
+ */
+export async function createDeployment(
+  projectId: string,
+  repoFullName: string,
+  ref = 'main',
+): Promise<{ id: string }> {
+  const res = await fetch(`${VERCEL_API}/v13/deployments${teamParam()}`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      name: projectId,
+      project: projectId,
+      gitSource: {
+        type: 'github',
+        repo: repoFullName,
+        ref,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Vercel createDeployment failed (${res.status}): ${err}`);
+  }
+
+  const data = await res.json();
+  return { id: data.id };
+}
+
+/**
  * Get recent deployments for a Vercel project.
  */
 export async function getDeployments(

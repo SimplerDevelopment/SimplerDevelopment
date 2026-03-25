@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
-import { createProject, addDomain } from '@/lib/vercel';
+import { createProject, addDomain, createDeployment } from '@/lib/vercel';
 import { createCnameRecord, listDnsRecords } from '@/lib/cloudflare-dns';
 
 /**
@@ -69,7 +69,14 @@ export async function provisionWebsite(
     // Step 5: Add domain to Vercel project
     await addDomain(vercelId!, fullDomain);
 
-    // Step 6: Mark as active
+    // Step 6: Trigger initial deployment
+    try {
+      await createDeployment(vercelId!, repoFullName!, 'main');
+    } catch {
+      // Non-fatal — Vercel may auto-deploy from the GitHub push
+    }
+
+    // Step 7: Mark as active
     await db.update(clientWebsites)
       .set({
         vercelDomain: fullDomain,
