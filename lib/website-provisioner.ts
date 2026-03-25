@@ -1,13 +1,13 @@
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { createRepoFromTemplate } from '@/lib/github';
+import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
 import { createProject, addDomain } from '@/lib/vercel';
-import { createCnameRecord } from '@/lib/cloudflare-dns';
+import { createCnameRecord, listDnsRecords } from '@/lib/cloudflare-dns';
 
 /**
  * Provision a website: create GitHub repo, Vercel project, and Cloudflare DNS.
- * Runs asynchronously — updates DB status at each step.
+ * Idempotent — checks what already exists and resumes from where it left off.
  */
 export async function provisionWebsite(
   siteId: number,
@@ -22,33 +22,52 @@ export async function provisionWebsite(
       .set({ deploymentStatus: 'provisioning', provisionError: null, updatedAt: new Date() })
       .where(eq(clientWebsites.id, siteId));
 
-    // Step 2: Create GitHub repo from template
-    const repo = await createRepoFromTemplate(subdomain, description);
+    // Read current state to resume from where we left off
+    const [current] = await db.select().from(clientWebsites).where(eq(clientWebsites.id, siteId)).limit(1);
 
-    await db.update(clientWebsites)
-      .set({
-        githubRepoName: repo.fullName,
-        githubRepoUrl: repo.htmlUrl,
-        updatedAt: new Date(),
-      })
-      .where(eq(clientWebsites.id, siteId));
+    // Step 2: Create GitHub repo (skip if already exists)
+    let repoFullName = current.githubRepoName;
+    let repoUrl = current.githubRepoUrl;
 
-    // Step 3: Create Vercel project linked to the repo
-    const vercel = await createProject(subdomain, repo.fullName);
+    if (!repoFullName) {
+      const available = await isRepoNameAvailable(subdomain);
+      if (available) {
+        const repo = await createRepoFromTemplate(subdomain, description);
+        repoFullName = repo.fullName;
+        repoUrl = repo.htmlUrl;
+      } else {
+        // Repo already exists from a previous attempt — reuse it
+        repoFullName = `SimplerDevelopment/${subdomain}`;
+        repoUrl = `https://github.com/SimplerDevelopment/${subdomain}`;
+      }
 
-    await db.update(clientWebsites)
-      .set({
-        vercelProjectId: vercel.id,
-        vercelProjectUrl: vercel.url,
-        updatedAt: new Date(),
-      })
-      .where(eq(clientWebsites.id, siteId));
+      await db.update(clientWebsites)
+        .set({ githubRepoName: repoFullName, githubRepoUrl: repoUrl, updatedAt: new Date() })
+        .where(eq(clientWebsites.id, siteId));
+    }
 
-    // Step 4: Create Cloudflare CNAME record
-    await createCnameRecord(subdomain, 'cname.vercel-dns.com');
+    // Step 3: Create Vercel project (skip if already exists)
+    let vercelId = current.vercelProjectId;
+    let vercelUrl = current.vercelProjectUrl;
+
+    if (!vercelId) {
+      const vercel = await createProject(subdomain, repoFullName!);
+      vercelId = vercel.id;
+      vercelUrl = vercel.url;
+
+      await db.update(clientWebsites)
+        .set({ vercelProjectId: vercelId, vercelProjectUrl: vercelUrl, updatedAt: new Date() })
+        .where(eq(clientWebsites.id, siteId));
+    }
+
+    // Step 4: Create Cloudflare CNAME (skip if already exists)
+    const existingRecords = await listDnsRecords(subdomain);
+    if (existingRecords.length === 0) {
+      await createCnameRecord(subdomain, 'cname.vercel-dns.com');
+    }
 
     // Step 5: Add domain to Vercel project
-    await addDomain(vercel.id, fullDomain);
+    await addDomain(vercelId!, fullDomain);
 
     // Step 6: Mark as active
     await db.update(clientWebsites)
