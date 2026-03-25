@@ -5,6 +5,7 @@ import { clientWebsites } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
+import { changeSubdomain } from '@/lib/website-provisioner';
 
 export async function PUT(
   req: Request,
@@ -43,10 +44,22 @@ export async function PUT(
     }
   }
 
+  // If subdomain is changing and site is provisioned, update infrastructure
+  const subdomainChanging = subdomain !== undefined && subdomain !== site.subdomain && site.deploymentStatus === 'active';
+
+  if (subdomainChanging) {
+    try {
+      await changeSubdomain(site.id, site.subdomain!, subdomain, site.vercelProjectId!);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update subdomain infrastructure';
+      return NextResponse.json({ success: false, message }, { status: 500 });
+    }
+  }
+
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (name !== undefined) updates.name = name.trim();
   if (description !== undefined) updates.description = description.trim() || null;
-  if (subdomain !== undefined) updates.subdomain = subdomain || null;
+  if (subdomain !== undefined && !subdomainChanging) updates.subdomain = subdomain || null;
 
   const [updated] = await db
     .update(clientWebsites)

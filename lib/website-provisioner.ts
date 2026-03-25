@@ -2,8 +2,8 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
-import { createProject, addDomain, getDomainConfig, createDeployment } from '@/lib/vercel';
-import { createCnameRecord, updateCnameRecord, listDnsRecords } from '@/lib/cloudflare-dns';
+import { createProject, addDomain, removeDomain, getDomainConfig, createDeployment } from '@/lib/vercel';
+import { createCnameRecord, updateCnameRecord, deleteDnsRecord, listDnsRecords } from '@/lib/cloudflare-dns';
 
 /**
  * Provision a website: create GitHub repo, Vercel project, and Cloudflare DNS.
@@ -103,4 +103,53 @@ export async function provisionWebsite(
       .where(eq(clientWebsites.id, siteId));
     throw err;
   }
+}
+
+/**
+ * Change a website's subdomain: update Vercel domain, Cloudflare DNS, and DB.
+ */
+export async function changeSubdomain(
+  siteId: number,
+  oldSubdomain: string,
+  newSubdomain: string,
+  vercelProjectId: string,
+): Promise<void> {
+  const oldDomain = `${oldSubdomain}.simplerdevelopment.com`;
+  const newDomain = `${newSubdomain}.simplerdevelopment.com`;
+
+  // 1. Add new domain to Vercel
+  await addDomain(vercelProjectId, newDomain);
+
+  // 2. Get the project-specific DNS target for the new domain
+  const domainConfig = await getDomainConfig(newDomain);
+  const dnsTarget = domainConfig.cnames[0] || 'cname.vercel-dns.com';
+
+  // 3. Create new Cloudflare CNAME
+  await createCnameRecord(newSubdomain, dnsTarget);
+
+  // 4. Remove old domain from Vercel (non-fatal if it fails)
+  try {
+    await removeDomain(vercelProjectId, oldDomain);
+  } catch {
+    // Old domain may not exist
+  }
+
+  // 5. Delete old Cloudflare CNAME (non-fatal)
+  try {
+    const oldRecords = await listDnsRecords(oldSubdomain);
+    for (const r of oldRecords) {
+      await deleteDnsRecord(r.id);
+    }
+  } catch {
+    // Old record may not exist
+  }
+
+  // 6. Update DB
+  await db.update(clientWebsites)
+    .set({
+      subdomain: newSubdomain,
+      vercelDomain: newDomain,
+      updatedAt: new Date(),
+    })
+    .where(eq(clientWebsites.id, siteId));
 }
