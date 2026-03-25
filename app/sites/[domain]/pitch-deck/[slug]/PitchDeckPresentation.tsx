@@ -30,9 +30,10 @@ interface Props {
   slides: Slide[];
   theme: Theme;
   title: string;
+  isDraft?: boolean;
 }
 
-export default function PitchDeckPresentation({ slides, theme, title }: Props) {
+export default function PitchDeckPresentation({ slides, theme, title, isDraft }: Props) {
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isAnimating, setIsAnimating] = useState(false);
@@ -102,6 +103,13 @@ export default function PitchDeckPresentation({ slides, theme, title }: Props) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Draft banner */}
+        {isDraft && (
+          <div className="absolute top-0 left-0 right-0 z-30 bg-yellow-500/90 text-black text-center text-xs font-medium py-1 tracking-wide">
+            DRAFT PREVIEW — This deck is not published
+          </div>
+        )}
+
         {/* Slide counter */}
         <div className="absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: theme.bodyFont }}>
           {String(current + 1).padStart(2, '0')}/{String(slides.length).padStart(2, '0')}

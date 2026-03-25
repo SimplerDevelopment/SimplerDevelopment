@@ -93,6 +93,8 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [savingVersion, setSavingVersion] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
 
   const fetchDeck = useCallback(async () => {
     try {
@@ -279,6 +281,21 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     setSaving(false);
   }
 
+  async function saveTitle() {
+    if (!deck || !titleDraft.trim()) return;
+    setEditingTitle(false);
+    if (titleDraft.trim() === deck.title) return;
+    const newTitle = titleDraft.trim();
+    setDeck({ ...deck, title: newTitle });
+    setSaving(true);
+    await fetch(`/api/portal/tools/pitch-decks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle }),
+    });
+    setSaving(false);
+  }
+
   async function loadVersions() {
     const res = await fetch(`/api/portal/tools/pitch-decks/${id}/versions`);
     const data = await res.json();
@@ -356,13 +373,38 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
             <span className="material-icons">arrow_back</span>
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-foreground">{deck.title}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {editingTitle ? (
+              <input
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+                className="text-xl font-bold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
+              />
+            ) : (
+              <h1
+                className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                onClick={() => { setEditingTitle(true); setTitleDraft(deck.title); }}
+                title="Click to edit title"
+              >
+                {deck.title}
+              </h1>
+            )}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
               <span>{deck.slides.length} slides</span>
               <span>·</span>
-              <span className={deck.status === 'published' ? 'text-green-600 dark:text-green-400' : ''}>
-                {deck.status}
-              </span>
+              {deck.status === 'published' ? (
+                <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <span className="material-icons text-xs">public</span>
+                  Published
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <span className="material-icons text-xs">edit_note</span>
+                  Draft
+                </span>
+              )}
               {saving && (
                 <>
                   <span>·</span>
@@ -394,20 +436,22 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
             <span className="material-icons text-base">history</span>
             History
           </button>
-          {deck.status === 'published' && (
-            <Link
-              href={`/pitch-deck/${deck.slug}`}
-              target="_blank"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <span className="material-icons text-base">open_in_new</span>
-              View
-            </Link>
-          )}
+          <Link
+            href={`/pitch-deck/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
+            target="_blank"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <span className="material-icons text-base">{deck.status === 'published' ? 'open_in_new' : 'visibility'}</span>
+            {deck.status === 'published' ? 'View Live' : 'Preview'}
+          </Link>
           <button
             onClick={togglePublish}
             disabled={publishing || deck.slides.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors disabled:opacity-50 ${
+              deck.status === 'published'
+                ? 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
           >
             <span className="material-icons text-base">
               {deck.status === 'published' ? 'unpublished' : 'publish'}
