@@ -507,12 +507,35 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
 
           {/* Slide preview + editor */}
           <div className="col-span-9 space-y-4">
-            {/* Preview */}
-            <div
-              className="rounded-xl border border-border overflow-hidden aspect-[16/9] relative"
-              style={{ backgroundColor: deck.theme.backgroundColor }}
-            >
-              <SlidePreview slide={currentSlide} theme={deck.theme} index={activeSlide} total={deck.slides.length} />
+            {/* Preview — renders the real presentation scaled to fit */}
+            <div className="rounded-xl border border-border overflow-hidden aspect-[16/9] relative">
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{ backgroundColor: deck.theme.backgroundColor }}
+              >
+                <div
+                  style={{
+                    width: '1440px',
+                    height: '810px',
+                    transform: 'scale(var(--preview-scale))',
+                    transformOrigin: 'top left',
+                  }}
+                  ref={(el) => {
+                    if (!el) return;
+                    const parent = el.parentElement;
+                    if (!parent) return;
+                    const obs = new ResizeObserver(() => {
+                      const s = parent.clientWidth / 1440;
+                      el.style.setProperty('--preview-scale', String(s));
+                    });
+                    obs.observe(parent);
+                    const s = parent.clientWidth / 1440;
+                    el.style.setProperty('--preview-scale', String(s));
+                  }}
+                >
+                  <ScaledSlidePreview slide={currentSlide} theme={deck.theme} index={activeSlide} total={deck.slides.length} />
+                </div>
+              </div>
             </div>
 
             {/* Slide controls */}
@@ -634,246 +657,297 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   );
 }
 
-function SlidePreview({ slide, theme, index, total }: { slide: Slide; theme: Theme; index: number; total: number }) {
+/* ScaledSlidePreview renders the exact same markup as the public presentation
+   at 1440x810, which the parent scales down via CSS transform to fit the preview box. */
+function ScaledSlidePreview({ slide, theme, index, total }: { slide: Slide; theme: Theme; index: number; total: number }) {
   const ac = theme.accentColor;
   const tc = theme.textColor;
+  const bg = theme.backgroundColor;
   const h = theme.headingFont;
   const b = theme.bodyFont;
+  const featureIcons = ['rocket_launch', 'auto_awesome', 'speed', 'psychology', 'hub', 'security', 'trending_up', 'bolt'];
+  const teamGradients = [
+    `linear-gradient(135deg, ${ac}40, ${ac}10)`,
+    `linear-gradient(135deg, #8b5cf640, #8b5cf610)`,
+    `linear-gradient(135deg, #10b98140, #10b98110)`,
+    `linear-gradient(135deg, #f5972040, #f5972010)`,
+    `linear-gradient(135deg, #ef444440, #ef444410)`,
+    `linear-gradient(135deg, #ec489940, #ec489910)`,
+  ];
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ color: tc }}>
+    <div className="w-[1440px] h-[810px] relative overflow-hidden" style={{ color: tc, fontFamily: b, backgroundColor: bg }}>
       {/* Slide number */}
-      <div className="absolute top-3 left-4 text-[9px] opacity-40 tracking-widest font-light z-10" style={{ fontFamily: b }}>
+      <div className="absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: b }}>
         {String(index + 1).padStart(2, '0')}/{String(total).padStart(2, '0')}
       </div>
       {/* SD branding */}
-      <div className="absolute top-2.5 right-4 flex items-center gap-1 opacity-30 z-10">
+      <div className="absolute top-5 right-8 z-20 flex items-center gap-2 opacity-30">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/iconLogo.png" alt="" className="h-3 w-3 brightness-0 invert" />
-        <span className="text-[7px] tracking-wide" style={{ color: tc }}>
-          <b>Simpler</b> Development
+        <img src="/iconLogo.png" alt="" className="h-6 w-6 brightness-0 invert" />
+        <span className="text-xs tracking-wide font-light" style={{ color: tc, fontFamily: b }}>
+          <b className="font-semibold">Simpler</b> Development
         </span>
       </div>
       {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] z-10" style={{ backgroundColor: tc + '10' }}>
+      <div className="absolute bottom-0 left-0 right-0 h-[2px] z-20" style={{ backgroundColor: tc + '10' }}>
         <div className="h-full" style={{ width: `${((index + 1) / total) * 100}%`, backgroundColor: ac }} />
       </div>
 
-      {slide.type === 'cover' ? (
-        <div className="absolute inset-0 flex items-center px-8 py-6">
-          <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full opacity-[0.07] pointer-events-none"
-            style={{ background: `radial-gradient(circle, ${ac}, transparent 70%)` }} />
-          <div className="relative z-10 space-y-2">
-            <div className="w-8 h-[2px] rounded-full mb-3" style={{ backgroundColor: ac }} />
-            <h1 className="text-2xl font-extrabold leading-tight tracking-tight" style={{ fontFamily: h }}>
-              {slide.headline || 'Untitled'}
-            </h1>
-            {slide.subheadline && (
-              <p className="text-[10px] opacity-50 max-w-[75%] leading-relaxed font-light" style={{ fontFamily: b }}>
-                {slide.subheadline}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : slide.type === 'problem' ? (
-        <div className="absolute inset-0 flex items-center px-6 py-5">
-          <div className="w-full grid grid-cols-5 gap-3 items-center">
-            <div className="col-span-3 space-y-2">
-              <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-medium"
-                style={{ backgroundColor: '#ef444420', color: '#f87171' }}>
-                <span className="material-icons" style={{ fontSize: '8px' }}>warning</span> Challenge
+      {/* Slide content — exact copy of public SlideRenderer */}
+      <div className="w-[1440px] h-[810px] flex items-center justify-center">
+        {slide.type === 'cover' ? (
+          <div className="w-full min-h-full flex items-center relative overflow-hidden">
+            <div className="absolute -right-40 -top-40 w-[700px] h-[700px] rounded-full opacity-[0.07] pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}, transparent 70%)` }} />
+            <div className="absolute -left-20 -bottom-20 w-[400px] h-[400px] rounded-full opacity-[0.04] pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}, transparent 70%)` }} />
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `linear-gradient(${tc}15 1px, transparent 1px), linear-gradient(90deg, ${tc}15 1px, transparent 1px)`, backgroundSize: '60px 60px' }} />
+            <div className="relative z-10 w-full max-w-5xl mx-auto px-12 md:px-20 py-20">
+              <div className="w-16 h-1 rounded-full mb-8" style={{ backgroundColor: ac }} />
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight" style={{ fontFamily: h, color: tc }}>{slide.headline || 'Untitled'}</h1>
+              {slide.subheadline && <p className="text-xl md:text-2xl mt-8 max-w-2xl leading-relaxed font-light opacity-60" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              {slide.body && <p className="text-base mt-6 max-w-xl leading-relaxed opacity-40" style={{ fontFamily: b }}>{slide.body}</p>}
+              <div className="absolute bottom-16 right-12 md:right-20 flex items-center gap-3 opacity-30">
+                <div className="h-px w-12" style={{ backgroundColor: ac }} />
+                <span className="text-xs uppercase tracking-[0.25em] font-medium" style={{ fontFamily: b, color: ac }}>{String(index + 1).padStart(2, '0')}</span>
               </div>
-              <h2 className="text-base font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>
-              {slide.body && <p className="text-[8px] opacity-50 leading-relaxed" style={{ fontFamily: b }}>{slide.body}</p>}
             </div>
-            {slide.bullets && slide.bullets.length > 0 && (
-              <div className="col-span-2 space-y-1">
-                {slide.bullets.slice(0, 4).map((bullet, i) => (
-                  <div key={i} className="p-1.5 rounded text-[7px] opacity-70 leading-tight"
-                    style={{ backgroundColor: tc + '08', borderLeft: `2px solid ${ac}` }}>
-                    {bullet}
+          </div>
+        ) : slide.type === 'problem' ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-[0.06] pointer-events-none" style={{ background: `radial-gradient(circle, #ef4444, transparent 70%)` }} />
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 grid grid-cols-1 md:grid-cols-5 gap-12 items-center">
+              <div className="md:col-span-3 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider" style={{ backgroundColor: '#ef444420', color: '#f87171' }}>
+                  <span className="material-icons text-sm">warning</span>The Challenge
+                </div>
+                <h2 className="text-4xl md:text-5xl font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>
+                {slide.body && <p className="text-lg leading-relaxed opacity-60 max-w-lg" style={{ fontFamily: b }}>{slide.body}</p>}
+              </div>
+              {slide.bullets && slide.bullets.length > 0 && (
+                <div className="md:col-span-2 space-y-3">
+                  {slide.bullets.map((bullet, i) => (
+                    <div key={i} className="p-4 rounded-xl flex items-start gap-3" style={{ backgroundColor: tc + '08', borderLeft: `3px solid ${ac}` }}>
+                      <span className="text-lg font-bold opacity-30 shrink-0" style={{ fontFamily: h, color: ac }}>{String(i + 1).padStart(2, '0')}</span>
+                      <span className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : slide.type === 'solution' ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="absolute left-0 top-0 w-[600px] h-[600px] rounded-full opacity-[0.06] pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}, transparent 70%)` }} />
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider" style={{ backgroundColor: ac + '20', color: ac }}>
+                  <span className="material-icons text-sm">lightbulb</span>The Solution
+                </div>
+                <h2 className="text-4xl md:text-5xl font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>
+                {slide.subheadline && <p className="text-lg leading-relaxed opacity-60" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+                {slide.body && <p className="text-base leading-relaxed opacity-50" style={{ fontFamily: b }}>{slide.body}</p>}
+              </div>
+              {slide.bullets && slide.bullets.length > 0 && (
+                <div className="space-y-4">
+                  {slide.bullets.map((bullet, i) => (
+                    <div key={i} className="flex items-start gap-4 p-5 rounded-2xl" style={{ backgroundColor: tc + '06' }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold" style={{ backgroundColor: ac + '20', color: ac }}>
+                        <span className="material-icons text-lg">check</span>
+                      </div>
+                      <span className="text-base leading-relaxed opacity-80 pt-2" style={{ fontFamily: b }}>{bullet}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : slide.type === 'features' ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 space-y-12">
+              <div className="text-center space-y-4 max-w-3xl mx-auto">
+                {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                {slide.subheadline && <p className="text-lg opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              </div>
+              {slide.bullets && slide.bullets.length > 0 && (
+                <div className={`grid gap-5 ${slide.bullets.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : slide.bullets.length <= 4 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
+                  {slide.bullets.map((bullet, i) => (
+                    <div key={i} className="p-6 rounded-2xl relative overflow-hidden" style={{ backgroundColor: tc + '06', border: `1px solid ${tc}10` }}>
+                      <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac + '40' }} />
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: ac + '15', color: ac }}>
+                        <span className="material-icons text-xl">{featureIcons[i % featureIcons.length]}</span>
+                      </div>
+                      <p className="text-sm leading-relaxed opacity-80" style={{ fontFamily: b }}>{bullet}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : slide.type === 'metrics' && slide.stats && slide.stats.length > 0 ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-[0.05] pointer-events-none" style={{ background: `radial-gradient(ellipse, ${ac}, transparent 70%)` }} />
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 space-y-16">
+              <div className="text-center space-y-4">
+                {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                {slide.subheadline && <p className="text-lg opacity-50 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              </div>
+              <div className={`grid gap-8 ${slide.stats.length <= 3 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+                {slide.stats.map((stat, i) => (
+                  <div key={i} className="text-center p-8 rounded-2xl relative" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
+                    <div className="text-5xl md:text-6xl font-extrabold tracking-tight" style={{ color: ac, fontFamily: h }}>{stat.value}</div>
+                    <div className="mt-3 text-sm uppercase tracking-wider opacity-50 font-medium" style={{ fontFamily: b }}>{stat.label}</div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-[2px] rounded-full" style={{ backgroundColor: ac + '40' }} />
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-      ) : slide.type === 'solution' ? (
-        <div className="absolute inset-0 flex items-center px-6 py-5">
-          <div className="w-full grid grid-cols-2 gap-4 items-center">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-medium"
-                style={{ backgroundColor: ac + '20', color: ac }}>
-                <span className="material-icons" style={{ fontSize: '8px' }}>lightbulb</span> Solution
-              </div>
-              <h2 className="text-base font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>
-              {slide.subheadline && <p className="text-[8px] opacity-50 leading-relaxed" style={{ fontFamily: b }}>{slide.subheadline}</p>}
             </div>
-            {slide.bullets && slide.bullets.length > 0 && (
-              <div className="space-y-1">
-                {slide.bullets.slice(0, 4).map((bullet, i) => (
-                  <div key={i} className="flex items-start gap-1.5 p-1.5 rounded text-[7px]"
-                    style={{ backgroundColor: tc + '06' }}>
-                    <span className="material-icons shrink-0" style={{ fontSize: '9px', color: ac }}>check</span>
-                    <span className="opacity-70 leading-tight">{bullet}</span>
+          </div>
+        ) : slide.type === 'process' && slide.steps && slide.steps.length > 0 ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 space-y-12">
+              <div className="space-y-4">
+                {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                {slide.subheadline && <p className="text-lg opacity-50 max-w-xl" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              </div>
+              <div className="relative">
+                <div className="hidden md:block absolute top-12 left-0 right-0 h-px" style={{ backgroundColor: tc + '10' }} />
+                <div className={`grid gap-6 ${slide.steps.length <= 3 ? 'md:grid-cols-3' : slide.steps.length <= 4 ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+                  {slide.steps.map((step, i) => (
+                    <div key={i} className="relative">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mb-5 relative z-10" style={{ backgroundColor: ac, color: bg, fontFamily: h }}>{i + 1}</div>
+                      <div className="p-5 rounded-2xl" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
+                        <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: h }}>{step.title}</h3>
+                        <p className="text-sm opacity-60 leading-relaxed" style={{ fontFamily: b }}>{step.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : slide.type === 'team' && slide.members && slide.members.length > 0 ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 space-y-12">
+              <div className="text-center space-y-4">
+                {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                {slide.subheadline && <p className="text-lg opacity-50 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              </div>
+              <div className={`grid gap-6 justify-center ${slide.members.length <= 3 ? 'md:grid-cols-3 max-w-4xl mx-auto' : 'grid-cols-2 md:grid-cols-4'}`}>
+                {slide.members.map((member, i) => (
+                  <div key={i} className="text-center p-6 rounded-2xl" style={{ backgroundColor: tc + '05' }}>
+                    <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-2xl font-bold" style={{ background: teamGradients[i % teamGradients.length], fontFamily: h }}>
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div className="font-semibold text-base" style={{ fontFamily: h }}>{member.name}</div>
+                    <div className="text-sm opacity-50 mt-1" style={{ fontFamily: b, color: ac }}>{member.role}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-      ) : slide.type === 'features' ? (
-        <div className="absolute inset-0 flex flex-col justify-center px-5 py-4">
-          {slide.headline && (
-            <h2 className="text-sm font-bold mb-3 text-center" style={{ fontFamily: h }}>{slide.headline}</h2>
-          )}
-          {slide.bullets && slide.bullets.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {slide.bullets.slice(0, 6).map((bullet, i) => (
-                <div key={i} className="p-2 rounded-lg relative overflow-hidden" style={{ backgroundColor: tc + '06', border: `1px solid ${tc}08` }}>
-                  <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: ac + '40' }} />
-                  <p className="text-[7px] leading-tight opacity-70" style={{ fontFamily: b }}>{bullet}</p>
-                </div>
-              ))}
             </div>
-          )}
-        </div>
-      ) : slide.type === 'metrics' && slide.stats && slide.stats.length > 0 ? (
-        <div className="absolute inset-0 flex flex-col justify-center px-5 py-4">
-          {slide.headline && (
-            <h2 className="text-sm font-bold mb-4 text-center" style={{ fontFamily: h }}>{slide.headline}</h2>
-          )}
-          <div className="grid grid-cols-4 gap-3">
-            {slide.stats.slice(0, 4).map((stat, i) => (
-              <div key={i} className="text-center p-2.5 rounded-xl relative" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
-                <div className="text-xl font-extrabold" style={{ color: ac, fontFamily: h }}>{stat.value}</div>
-                <div className="text-[6px] uppercase tracking-wider opacity-40 mt-1 font-medium" style={{ fontFamily: b }}>{stat.label}</div>
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-[1px]" style={{ backgroundColor: ac + '40' }} />
-              </div>
-            ))}
           </div>
-        </div>
-      ) : slide.type === 'process' && slide.steps && slide.steps.length > 0 ? (
-        <div className="absolute inset-0 flex flex-col justify-center px-5 py-4">
-          {slide.headline && (
-            <h2 className="text-sm font-bold mb-3" style={{ fontFamily: h }}>{slide.headline}</h2>
-          )}
-          <div className="grid grid-cols-3 gap-3">
-            {slide.steps.slice(0, 4).map((step, i) => (
-              <div key={i}>
-                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold mb-1.5"
-                  style={{ backgroundColor: ac, color: theme.backgroundColor }}>
-                  {i + 1}
-                </div>
-                <div className="p-2 rounded-lg" style={{ backgroundColor: tc + '05', border: `1px solid ${tc}08` }}>
-                  <div className="text-[9px] font-semibold mb-0.5" style={{ fontFamily: h }}>{step.title}</div>
-                  <div className="text-[7px] opacity-50 leading-tight" style={{ fontFamily: b }}>{step.description}</div>
-                </div>
+        ) : slide.type === 'pricing' && slide.tiers && slide.tiers.length > 0 ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20 space-y-12">
+              <div className="text-center space-y-4">
+                {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                {slide.subheadline && <p className="text-lg opacity-50 max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.subheadline}</p>}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : slide.type === 'team' && slide.members && slide.members.length > 0 ? (
-        <div className="absolute inset-0 flex flex-col justify-center px-5 py-4">
-          {slide.headline && (
-            <h2 className="text-sm font-bold mb-3 text-center" style={{ fontFamily: h }}>{slide.headline}</h2>
-          )}
-          <div className="flex justify-center gap-4">
-            {slide.members.slice(0, 4).map((member, i) => (
-              <div key={i} className="text-center p-2 rounded-lg" style={{ backgroundColor: tc + '05' }}>
-                <div className="w-10 h-10 rounded-lg mx-auto mb-1.5 flex items-center justify-center text-sm font-bold"
-                  style={{ backgroundColor: ac + '20', color: ac }}>
-                  {member.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div className="text-[8px] font-semibold" style={{ fontFamily: h }}>{member.name}</div>
-                <div className="text-[7px] opacity-40" style={{ fontFamily: b, color: ac }}>{member.role}</div>
+              <div className={`grid gap-6 ${slide.tiers.length <= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
+                {slide.tiers.map((tier, i) => {
+                  const highlighted = tier.highlighted || (slide.tiers!.length === 3 && i === 1);
+                  return (
+                    <div key={i} className="p-6 rounded-2xl text-left relative overflow-hidden flex flex-col" style={{ backgroundColor: highlighted ? tc + '10' : tc + '05', border: `1px solid ${highlighted ? ac : tc + '10'}` }}>
+                      {highlighted && <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: ac }} />}
+                      {highlighted && <span className="inline-block self-start px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ backgroundColor: ac + '20', color: ac }}>Popular</span>}
+                      <div className="font-semibold text-lg mb-1" style={{ fontFamily: h }}>{tier.name}</div>
+                      <div className="text-3xl font-extrabold mb-5" style={{ color: ac, fontFamily: h }}>{tier.price}</div>
+                      <ul className="space-y-2.5 flex-1">
+                        {tier.features.map((f, j) => (
+                          <li key={j} className="flex items-start gap-2.5 text-sm" style={{ fontFamily: b }}>
+                            <span className="material-icons text-sm mt-0.5 shrink-0" style={{ color: ac }}>check_circle</span>
+                            <span className="opacity-70">{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      ) : slide.type === 'pricing' && slide.tiers && slide.tiers.length > 0 ? (
-        <div className="absolute inset-0 flex flex-col justify-center px-4 py-4">
-          {slide.headline && (
-            <h2 className="text-sm font-bold mb-3 text-center" style={{ fontFamily: h }}>{slide.headline}</h2>
-          )}
-          <div className="grid grid-cols-3 gap-2">
-            {slide.tiers.slice(0, 3).map((tier, i) => {
-              const hl = tier.highlighted || (slide.tiers!.length === 3 && i === 1);
-              return (
-                <div key={i} className="p-2.5 rounded-lg text-left relative overflow-hidden flex flex-col"
-                  style={{ backgroundColor: hl ? tc + '10' : tc + '05', border: `1px solid ${hl ? ac : tc + '10'}` }}>
-                  {hl && <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: ac }} />}
-                  <div className="text-[9px] font-semibold" style={{ fontFamily: h }}>{tier.name}</div>
-                  <div className="text-base font-extrabold mt-0.5" style={{ color: ac, fontFamily: h }}>{tier.price}</div>
-                  <ul className="mt-2 space-y-0.5 flex-1">
-                    {tier.features.slice(0, 4).map((f, j) => (
-                      <li key={j} className="text-[6px] opacity-60 leading-tight flex items-start gap-1" style={{ fontFamily: b }}>
-                        <span style={{ color: ac, fontSize: '6px' }}>&#10003;</span>{f}
-                      </li>
+        ) : slide.type === 'testimonial' ? (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.04] pointer-events-none" style={{ background: `radial-gradient(circle, ${ac}, transparent 70%)` }} />
+            <div className="relative z-10 w-full max-w-4xl mx-auto px-12 md:px-20 py-20 text-center space-y-8">
+              <div className="text-[120px] leading-none opacity-10 -mb-16" style={{ color: ac, fontFamily: 'Georgia, serif' }}>&ldquo;</div>
+              {slide.body && <blockquote className="text-2xl md:text-4xl font-light leading-relaxed" style={{ fontFamily: h }}>{slide.body}</blockquote>}
+              {slide.headline && (
+                <div className="pt-4">
+                  <div className="w-12 h-px mx-auto mb-4" style={{ backgroundColor: ac }} />
+                  <div className="font-semibold text-lg" style={{ color: ac, fontFamily: h }}>{slide.headline}</div>
+                  {slide.subheadline && <div className="text-sm opacity-40 mt-1" style={{ fontFamily: b }}>{slide.subheadline}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : slide.type === 'cta' ? (
+          <div className="w-full min-h-full flex items-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ background: `radial-gradient(ellipse at center, ${ac}, transparent 60%)` }} />
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `linear-gradient(${tc}15 1px, transparent 1px), linear-gradient(90deg, ${tc}15 1px, transparent 1px)`, backgroundSize: '60px 60px' }} />
+            <div className="relative z-10 w-full max-w-4xl mx-auto px-12 md:px-20 py-20 text-center space-y-8">
+              {slide.headline && <h2 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight" style={{ fontFamily: h }}>{slide.headline}</h2>}
+              {slide.subheadline && <p className="text-xl md:text-2xl opacity-60 max-w-2xl mx-auto font-light leading-relaxed" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+              {slide.body && <p className="text-base opacity-40 max-w-lg mx-auto" style={{ fontFamily: b }}>{slide.body}</p>}
+              {slide.bullets && slide.bullets.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-3 pt-6">
+                  {slide.bullets.map((bull, i) => (
+                    <span key={i} className="px-6 py-3 rounded-full text-sm font-medium" style={{ backgroundColor: ac + '15', color: ac, border: `1px solid ${ac}30`, fontFamily: b }}>{bull}</span>
+                  ))}
+                </div>
+              )}
+              <div className="w-20 h-1 rounded-full mx-auto mt-4" style={{ backgroundColor: ac }} />
+            </div>
+          </div>
+        ) : (
+          <div className="w-full min-h-full flex items-center relative">
+            <div className="relative z-10 w-full max-w-6xl mx-auto px-12 md:px-20 py-20">
+              {slide.bullets && slide.bullets.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                  <div className="space-y-6">
+                    {slide.headline && <h2 className="text-4xl md:text-5xl font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                    {slide.subheadline && <p className="text-lg opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+                    {slide.body && <p className="text-base opacity-50 leading-relaxed" style={{ fontFamily: b }}>{slide.body}</p>}
+                  </div>
+                  <div className="space-y-3">
+                    {slide.bullets.map((bullet, i) => (
+                      <div key={i} className="flex items-start gap-4 p-4 rounded-xl" style={{ backgroundColor: tc + '05' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold" style={{ backgroundColor: ac + '20', color: ac, fontFamily: h }}>{i + 1}</div>
+                        <span className="text-sm leading-relaxed opacity-80 pt-1" style={{ fontFamily: b }}>{bullet}</span>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : slide.type === 'testimonial' ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 py-6 text-center">
-          <div className="text-4xl leading-none opacity-10 -mb-4" style={{ color: ac, fontFamily: 'Georgia, serif' }}>&ldquo;</div>
-          {slide.body && (
-            <blockquote className="text-xs font-light leading-relaxed max-w-[85%]" style={{ fontFamily: h }}>
-              {slide.body}
-            </blockquote>
-          )}
-          {slide.headline && (
-            <div className="mt-3">
-              <div className="w-6 h-px mx-auto mb-1.5" style={{ backgroundColor: ac }} />
-              <div className="text-[8px] font-semibold" style={{ color: ac, fontFamily: h }}>{slide.headline}</div>
-            </div>
-          )}
-        </div>
-      ) : slide.type === 'cta' ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-8 py-6 text-center">
-          <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{ background: `radial-gradient(ellipse at center, ${ac}, transparent 60%)` }} />
-          <div className="relative z-10 space-y-2">
-            {slide.headline && (
-              <h2 className="text-xl font-extrabold leading-tight tracking-tight" style={{ fontFamily: h }}>{slide.headline}</h2>
-            )}
-            {slide.subheadline && (
-              <p className="text-[9px] opacity-50 max-w-[75%] mx-auto font-light" style={{ fontFamily: b }}>{slide.subheadline}</p>
-            )}
-            <div className="w-8 h-[2px] rounded-full mx-auto mt-2" style={{ backgroundColor: ac }} />
-          </div>
-        </div>
-      ) : (
-        // Default: two-column if bullets, centered if not
-        <div className="absolute inset-0 flex items-center px-6 py-5">
-          {slide.bullets && slide.bullets.length > 0 ? (
-            <div className="w-full grid grid-cols-2 gap-4 items-center">
-              <div className="space-y-1.5">
-                {slide.headline && <h2 className="text-base font-bold leading-tight" style={{ fontFamily: h }}>{slide.headline}</h2>}
-                {slide.subheadline && <p className="text-[8px] opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>}
-                {slide.body && <p className="text-[7px] opacity-40 leading-relaxed" style={{ fontFamily: b }}>{slide.body}</p>}
-              </div>
-              <div className="space-y-1">
-                {slide.bullets.slice(0, 5).map((bullet, i) => (
-                  <div key={i} className="flex items-start gap-1.5 p-1.5 rounded text-[7px]" style={{ backgroundColor: tc + '05' }}>
-                    <span className="text-[8px] font-bold shrink-0" style={{ color: ac }}>{i + 1}</span>
-                    <span className="opacity-70 leading-tight">{bullet}</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center max-w-3xl mx-auto space-y-6">
+                  {slide.headline && <h2 className="text-4xl md:text-5xl font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
+                  {slide.subheadline && <p className="text-xl opacity-60" style={{ fontFamily: b }}>{slide.subheadline}</p>}
+                  {slide.body && <p className="text-base opacity-50 leading-relaxed max-w-2xl mx-auto" style={{ fontFamily: b }}>{slide.body}</p>}
+                </div>
+              )}
+              {slide.stats && slide.stats.length > 0 && (
+                <div className="flex justify-center gap-10 mt-12 pt-8" style={{ borderTop: `1px solid ${tc}10` }}>
+                  {slide.stats.map((stat, i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-4xl font-extrabold" style={{ color: ac, fontFamily: h }}>{stat.value}</div>
+                      <div className="text-xs uppercase tracking-wider opacity-40 mt-2 font-medium" style={{ fontFamily: b }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="w-full text-center space-y-2">
-              {slide.headline && <h2 className="text-base font-bold" style={{ fontFamily: h }}>{slide.headline}</h2>}
-              {slide.subheadline && <p className="text-[9px] opacity-50" style={{ fontFamily: b }}>{slide.subheadline}</p>}
-              {slide.body && <p className="text-[8px] opacity-40 leading-relaxed max-w-[80%] mx-auto" style={{ fontFamily: b }}>{slide.body}</p>}
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
