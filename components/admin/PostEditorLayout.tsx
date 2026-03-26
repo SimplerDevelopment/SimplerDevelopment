@@ -6,7 +6,7 @@ interface PostEditorLayoutProps {
   children: React.ReactNode;
   postTitle: string;
   onOpenSettings: () => void;
-  editorControls: React.ReactNode;
+  editorControls?: React.ReactNode;
   published: boolean;
   onPublish: () => void;
   onStatusChange: (status: 'draft' | 'published') => void;
@@ -17,7 +17,7 @@ export function PostEditorLayout({ children, postTitle, onOpenSettings, editorCo
     <div className="min-h-screen flex flex-col">
       {/* Custom Navigation for Post Editor */}
       <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4">
+        <div className={editorControls ? 'container mx-auto px-4' : 'px-4'}>
           {/* First Row: Back button and Title */}
           <div className="flex h-12 items-center gap-3 border-b border-border/50">
             <Link
