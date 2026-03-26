@@ -589,10 +589,7 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
         </>
       )}
       {block.type === 'columns' && (
-        <>
-          <SelectField label="Gap" value={(b.gap as string) || 'md'} options={['sm','md','lg']} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
-          <p className="text-xs text-gray-500">Columns: {block.columns.length}. Edit nested blocks via the layers panel.</p>
-        </>
+        <ColumnsEditor block={block} onUpdate={onUpdate} />
       )}
       {block.type === 'section' && (
         <>
@@ -640,6 +637,92 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Columns Editor ──────────────────────────────────────────────────────────
+
+function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }; onUpdate: (updates: Partial<Block>) => void }) {
+  const cols = block.columns;
+  const totalWidth = cols.reduce((sum, c) => sum + c.width, 0);
+
+  const updateColumnWidth = (index: number, width: number) => {
+    const updated = cols.map((col, i) => i === index ? { ...col, width } : col);
+    onUpdate({ columns: updated } as Partial<Block>);
+  };
+
+  const addColumn = () => {
+    const newCol = { id: `col-${Date.now()}`, width: Math.round(100 / (cols.length + 1)), blocks: [] };
+    // Redistribute widths evenly
+    const evenWidth = Math.round(100 / (cols.length + 1));
+    const updated = cols.map(col => ({ ...col, width: evenWidth }));
+    updated.push(newCol);
+    onUpdate({ columns: updated } as Partial<Block>);
+  };
+
+  const removeColumn = (index: number) => {
+    if (cols.length <= 1) return;
+    const removed = cols.filter((_, i) => i !== index);
+    const evenWidth = Math.round(100 / removed.length);
+    const updated = removed.map(col => ({ ...col, width: evenWidth }));
+    onUpdate({ columns: updated } as Partial<Block>);
+  };
+
+  return (
+    <div className="space-y-4">
+      <SelectField label="Gap" value={block.gap || 'md'} options={['sm', 'md', 'lg']} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-gray-600">Columns ({cols.length})</span>
+          <button type="button" onClick={addColumn} className="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Add Column</button>
+        </div>
+
+        {/* Visual width bar */}
+        <div className="flex gap-0.5 mb-3 h-8 rounded overflow-hidden border border-gray-200">
+          {cols.map((col, i) => (
+            <div
+              key={col.id}
+              className="bg-blue-100 text-blue-700 text-[10px] font-medium flex items-center justify-center relative group"
+              style={{ width: `${(col.width / totalWidth) * 100}%` }}
+            >
+              {Math.round(col.width)}%
+              {cols.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeColumn(i)}
+                  className="absolute top-0 right-0 text-[8px] text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 p-0.5"
+                  title="Remove column"
+                >x</button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Per-column width sliders */}
+        <div className="space-y-2">
+          {cols.map((col, i) => (
+            <div key={col.id} className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500 w-8 shrink-0">Col {i + 1}</span>
+              <input
+                type="range"
+                min={10}
+                max={90}
+                value={col.width}
+                onChange={(e) => updateColumnWidth(i, Number(e.target.value))}
+                className="flex-1 h-1.5 accent-blue-600"
+              />
+              <span className="text-[10px] text-gray-500 w-8 text-right">{Math.round(col.width)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <CheckboxField label="Stack on mobile" checked={block.stackOnMobile !== false} onChange={(v) => onUpdate({ stackOnMobile: v } as Partial<Block>)} />
+      <CheckboxField label="Reverse when stacked" checked={block.reverseOnStack === true} onChange={(v) => onUpdate({ reverseOnStack: v } as Partial<Block>)} />
+
+      <p className="text-xs text-gray-400">{cols.reduce((sum, c) => sum + c.blocks.length, 0)} nested blocks total</p>
     </div>
   );
 }
