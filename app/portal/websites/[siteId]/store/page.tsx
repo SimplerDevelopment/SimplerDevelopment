@@ -85,7 +85,7 @@ export default function StoreDashboardPage() {
     setEnabling(true);
     try {
       const res = await fetch(`${base}/settings`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: true }),
       });
