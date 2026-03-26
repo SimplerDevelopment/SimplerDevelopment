@@ -189,6 +189,42 @@ export function insertBlockInContainer(
 }
 
 /**
+ * Insert a block after a target block, searching recursively.
+ */
+export function insertBlockAfter(
+  blocks: Block[],
+  targetId: string,
+  blockToInsert: Block,
+): Block[] {
+  const result: Block[] = [];
+  for (const block of blocks) {
+    if (block.id === targetId) {
+      result.push(block);
+      result.push(blockToInsert);
+    } else {
+      const updated = { ...block };
+      if (block.type === 'columns') {
+        (updated as typeof block).columns = block.columns.map(col => ({
+          ...col,
+          blocks: insertBlockAfter(col.blocks, targetId, blockToInsert),
+        }));
+      }
+      if (block.type === 'tabs') {
+        (updated as typeof block).tabs = block.tabs.map(tab => ({
+          ...tab,
+          blocks: insertBlockAfter(tab.blocks, targetId, blockToInsert),
+        }));
+      }
+      if (block.type === 'section') {
+        (updated as typeof block).blocks = insertBlockAfter(block.blocks, targetId, blockToInsert);
+      }
+      result.push(updated);
+    }
+  }
+  return result;
+}
+
+/**
  * Update a block by ID, searching recursively through nested structures
  */
 export function updateBlockById(

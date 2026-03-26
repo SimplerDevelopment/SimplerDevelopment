@@ -24,7 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
-import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, getAllBlocks } from '@/lib/utils/blockHelpers';
+import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, insertBlockAfter, getAllBlocks } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, BlockStyle } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
@@ -113,16 +113,22 @@ export function VisualEditorShell({
     onBlockHovered: handleBlockHovered,
     onBlocksReordered: onBlocksChange,
     onAddBlockAfter: (blockId: string) => {
-      // Open the block picker — for now, add a text block after the target
-      const idx = blocks.findIndex(b => b.id === blockId);
       const newBlock = {
         id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: 'text' as const,
-        order: idx + 1,
+        order: 0,
         content: 'New block — click to edit',
-      };
-      const updated = [...blocks];
-      updated.splice(idx + 1, 0, newBlock as Block);
+      } as Block;
+      // Insert after the target block (works for nested blocks too)
+      const topIdx = blocks.findIndex(b => b.id === blockId);
+      let updated: Block[];
+      if (topIdx !== -1) {
+        updated = [...blocks];
+        updated.splice(topIdx + 1, 0, newBlock);
+      } else {
+        // Nested — use recursive insert
+        updated = insertBlockAfter(blocks, blockId, newBlock);
+      }
       onBlocksChange(updated);
       selectBlock(newBlock.id);
     },
