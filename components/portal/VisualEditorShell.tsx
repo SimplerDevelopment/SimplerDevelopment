@@ -168,7 +168,12 @@ export function VisualEditorShell({
   // DnD for layers (supports nesting)
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 12 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor),
   );
 
