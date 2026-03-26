@@ -12,18 +12,27 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isEditorRoute = /\/portal\/websites\/\d+\/posts\//.test(pathname);
+  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     if (isEditorRoute) {
       setIsCollapsed(true);
     } else {
+      setPreviewMode(false);
       const saved = localStorage.getItem('portalSidebarCollapsed');
       if (saved !== null) setIsCollapsed(saved === 'true');
     }
 
     const handler = (e: CustomEvent<{ collapsed: boolean }>) => setIsCollapsed(e.detail.collapsed);
     window.addEventListener('portalSidebarToggle', handler as EventListener);
-    return () => window.removeEventListener('portalSidebarToggle', handler as EventListener);
+
+    const previewHandler = (e: CustomEvent<{ active: boolean }>) => setPreviewMode(e.detail.active);
+    window.addEventListener('portalPreviewMode', previewHandler as EventListener);
+
+    return () => {
+      window.removeEventListener('portalSidebarToggle', handler as EventListener);
+      window.removeEventListener('portalPreviewMode', previewHandler as EventListener);
+    };
   }, [isEditorRoute]);
 
   if (isLoginPage) {
@@ -42,11 +51,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   return (
     <SessionProvider>
       <div className="min-h-screen bg-background">
-        <PortalSidebar />
-        <div className={`transition-all duration-300 ${isCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
-          <main className={`min-h-screen ${isEditorPage ? '' : 'p-6'}`}>{children}</main>
+        {!previewMode && <PortalSidebar />}
+        <div className={`transition-all duration-300 ${previewMode ? '' : isCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
+          <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-6'}`}>{children}</main>
         </div>
-        <AIChatWidget />
+        {!previewMode && <AIChatWidget />}
       </div>
     </SessionProvider>
   );

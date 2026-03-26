@@ -145,6 +145,15 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
+
+  // Notify layout to hide/show sidebar when preview mode changes
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('portalPreviewMode', { detail: { active: previewMode } }));
+    return () => {
+      // Ensure sidebar returns when unmounting while in preview
+      window.dispatchEvent(new CustomEvent('portalPreviewMode', { detail: { active: false } }));
+    };
+  }, [previewMode]);
   const [formData, setFormData] = useState<Post>({
     title: post?.title || '',
     slug: post?.slug || '',
