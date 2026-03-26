@@ -1,12 +1,33 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
-import type { Block, BlockType } from '@/types/blocks';
+import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
+import { findBlockById, updateBlockById } from '@/lib/utils/blockHelpers';
+import type { Block, BlockType, BlockStyle } from '@/types/blocks';
+import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
 
-// Built-in block types for the picker
+// ─── Block type definitions for picker ───────────────────────────────────────
+
 const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
   { type: 'heading', label: 'Heading', icon: 'title', category: 'Basic', description: 'Add a title or heading' },
   { type: 'text', label: 'Paragraph', icon: 'notes', category: 'Basic', description: 'Start with plain text' },
@@ -21,12 +42,21 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Horizontal line' },
   { type: 'columns', label: 'Columns', icon: 'view_column', category: 'Layout', description: 'Multi-column layout' },
   { type: 'section', label: 'Section', icon: 'crop_free', category: 'Layout', description: 'Container wrapper' },
+  { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed sections' },
+  { type: 'accordion', label: 'Accordion', icon: 'expand_more', category: 'Layout', description: 'Collapsible sections' },
   { type: 'hero', label: 'Hero', icon: 'view_carousel', category: 'Components', description: 'Hero section with CTA' },
   { type: 'cta', label: 'Call to Action', icon: 'campaign', category: 'Components', description: 'CTA section' },
   { type: 'card-grid', label: 'Card Grid', icon: 'grid_view', category: 'Components', description: 'Grid of cards' },
   { type: 'stats', label: 'Statistics', icon: 'bar_chart', category: 'Components', description: 'Stats display' },
   { type: 'testimonial', label: 'Testimonial', icon: 'rate_review', category: 'Components', description: 'Customer quote' },
+  { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
+  { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Services grid' },
 ];
+
+const BLOCK_ICON_MAP: Record<string, string> = {};
+for (const bt of BUILT_IN_BLOCK_TYPES) BLOCK_ICON_MAP[bt.type] = bt.icon;
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 interface VisualEditorShellProps {
   blocks: Block[];
@@ -39,6 +69,8 @@ interface VisualEditorShellProps {
   onDeleteBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, updates: Partial<Block>) => void;
 }
+
+// ─── Main Shell ──────────────────────────────────────────────────────────────
 
 export function VisualEditorShell({
   blocks,
@@ -55,14 +87,12 @@ export function VisualEditorShell({
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
 
-  const handleBlockClicked = useCallback(
-    (blockId: string) => {
-      setInternalSelectedBlockId(blockId);
-      onSelectBlock(blockId);
-    },
-    [onSelectBlock],
-  );
+  const selectBlock = useCallback((blockId: string) => {
+    setInternalSelectedBlockId(blockId);
+    onSelectBlock(blockId);
+  }, [onSelectBlock]);
 
   const handleBlockHovered = useCallback(() => {}, []);
 
@@ -76,54 +106,55 @@ export function VisualEditorShell({
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
-    onBlockClicked: handleBlockClicked,
+    onBlockClicked: selectBlock,
     onBlockHovered: handleBlockHovered,
   });
 
-  // Sync blocks to iframe when they change
-  useEffect(() => {
-    sendBlocksUpdate(blocks);
-  }, [blocks, sendBlocksUpdate]);
+  useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
+  useEffect(() => { sendSelectBlock(selectedBlockId); }, [selectedBlockId, sendSelectBlock]);
 
-  // Sync selection to iframe
-  useEffect(() => {
-    sendSelectBlock(selectedBlockId);
-  }, [selectedBlockId, sendSelectBlock]);
-
-  // All available block types (built-in + custom)
   const allBlockTypes = useMemo(() => {
     const custom = customComponents.map((c) => ({
-      type: c.type as BlockType,
-      label: c.label,
-      icon: c.icon,
-      category: c.category,
-      description: c.description,
+      type: c.type as BlockType, label: c.label, icon: c.icon, category: c.category, description: c.description,
     }));
     return [...BUILT_IN_BLOCK_TYPES, ...custom];
   }, [customComponents]);
 
-  // Categories for the picker
-  const categories = useMemo(() => {
-    const cats = new Set(allBlockTypes.map((b) => b.category));
-    return Array.from(cats);
-  }, [allBlockTypes]);
+  const categories = useMemo(() => Array.from(new Set(allBlockTypes.map((b) => b.category))), [allBlockTypes]);
 
-  // Selected block data
-  const selectedBlock = selectedBlockId ? blocks.find((b) => b.id === selectedBlockId) : null;
+  // Find selected block (including nested)
+  const selectedBlock = selectedBlockId ? findBlockById(blocks, selectedBlockId) : null;
+  const selectedCustomManifest = selectedBlock ? customComponents.find((c) => c.type === selectedBlock.type) : null;
 
-  // Find custom component manifest for selected block (if custom)
-  const selectedCustomManifest = selectedBlock
-    ? customComponents.find((c) => c.type === selectedBlock.type)
-    : null;
-
-  // Viewport widths
   const viewportWidth = { desktop: '100%', tablet: '768px', mobile: '375px' }[viewport];
+  const currentViewport: Breakpoint = viewport === 'mobile' ? 'mobile' : viewport === 'tablet' ? 'tablet' : 'desktop';
+
+  // Handle block updates (including nested)
+  const handleUpdateBlock = useCallback((blockId: string, updates: Partial<Block>) => {
+    const updated = updateBlockById(blocks, blockId, updates);
+    onBlocksChange(updated);
+  }, [blocks, onBlocksChange]);
+
+  // DnD for layers
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateTransformers: [sortableKeyboardCoordinates] }),
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = blocks.findIndex((b) => b.id === active.id);
+    const newIndex = blocks.findIndex((b) => b.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onBlocksChange(arrayMove(blocks, oldIndex, newIndex));
+  }, [blocks, onBlocksChange]);
 
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
-      {/* Left Panel — Block Picker */}
-      <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto">
-        <div className="p-3">
+      {/* ── Left Panel ── */}
+      <div className="w-60 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
+        <div className="p-3 shrink-0">
           <button
             type="button"
             onClick={() => setPickerOpen(!pickerOpen)}
@@ -135,133 +166,111 @@ export function VisualEditorShell({
         </div>
 
         {pickerOpen && (
-          <div className="px-3 pb-3">
-            {/* Category tabs */}
-            <div className="flex flex-wrap gap-1 mb-3">
+          <div className="px-3 pb-3 shrink-0">
+            <div className="flex flex-wrap gap-1 mb-2">
               {categories.map((cat) => (
-                <button
-                  type="button"
-                  key={cat}
-                  onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
-                  className={`px-2 py-1 text-xs rounded ${
-                    pickerCategory === cat
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {cat}
-                </button>
+                <button type="button" key={cat} onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
+                  className={`px-2 py-0.5 text-xs rounded ${pickerCategory === cat ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >{cat}</button>
               ))}
             </div>
-
-            {/* Block type grid */}
-            <div className="grid grid-cols-2 gap-1.5">
-              {allBlockTypes
-                .filter((b) => !pickerCategory || b.category === pickerCategory)
-                .map((blockType) => (
-                  <button
-                    type="button"
-                    key={blockType.type}
-                    onClick={() => {
-                      onAddBlock(blockType.type);
-                      setPickerOpen(false);
-                    }}
-                    className="flex flex-col items-center gap-1 rounded-md border border-gray-200 bg-white p-2 text-center hover:border-blue-300 hover:bg-blue-50"
-                  >
-                    <span className="material-icons text-lg text-gray-600">{blockType.icon}</span>
-                    <span className="text-xs text-gray-700">{blockType.label}</span>
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-1">
+              {allBlockTypes.filter((b) => !pickerCategory || b.category === pickerCategory).map((bt) => (
+                <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setPickerOpen(false); }}
+                  className="flex flex-col items-center gap-0.5 rounded border border-gray-200 bg-white p-1.5 text-center hover:border-blue-300 hover:bg-blue-50"
+                >
+                  <span className="material-icons text-base text-gray-600">{bt.icon}</span>
+                  <span className="text-[10px] text-gray-700 leading-tight">{bt.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Layers panel — block list */}
-        <div className="border-t border-gray-200 p-3">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Layers</h3>
-          <div className="space-y-0.5">
-            {blocks.map((block) => (
-              <button
-                type="button"
-                key={block.id}
-                onClick={() => { setInternalSelectedBlockId(block.id); onSelectBlock(block.id); }}
-                className={`w-full flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
-                  selectedBlockId === block.id
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="text-xs text-gray-400 font-mono">{block.type}</span>
-                <span className="truncate">
-                  {'content' in block && typeof block.content === 'string'
-                    ? block.content.substring(0, 30)
-                    : 'title' in block && typeof block.title === 'string'
-                      ? block.title.substring(0, 30)
-                      : block.type}
-                </span>
-              </button>
-            ))}
+        {/* Layers — DnD sortable tree */}
+        <div className="flex-1 overflow-y-auto border-t border-gray-200">
+          <div className="px-3 py-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Layers</h3>
           </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+              <div className="px-1 pb-2">
+                {blocks.map((block) => (
+                  <LayerItem
+                    key={block.id}
+                    block={block}
+                    depth={0}
+                    selectedBlockId={selectedBlockId}
+                    onSelect={selectBlock}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 
-      {/* Center — iframe */}
+      {/* ── Center — iframe ── */}
       <div className="flex-1 flex flex-col bg-gray-100">
-        {/* iframe container */}
         <div className="flex-1 flex items-start justify-center overflow-auto p-4">
-          <div
-            className="bg-white shadow-lg rounded-lg overflow-hidden transition-all"
-            style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}
-          >
-            <iframe
-              ref={iframeRef}
-              src={iframeSrc}
-              onLoad={handleIframeLoad}
-              className="w-full h-full border-0"
-              title="Visual Editor"
-            />
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden transition-all" style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
+            <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
           </div>
         </div>
       </div>
 
-      {/* Right Panel — Property Editor */}
-      <div className="w-72 flex-shrink-0 border-l border-gray-200 bg-white overflow-y-auto">
+      {/* ── Right Panel — Property Editor ── */}
+      <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
         {selectedBlock ? (
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">
-                {selectedBlock.type.charAt(0).toUpperCase() + selectedBlock.type.slice(1)} Settings
-              </h3>
-              <button
-                type="button"
-                onClick={() => onDeleteBlock(selectedBlock.id)}
-                className="text-xs text-red-500 hover:text-red-700"
-              >
-                <span className="material-icons text-base">delete</span>
-              </button>
+          <>
+            {/* Block header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-base text-gray-400">{BLOCK_ICON_MAP[selectedBlock.type] || 'widgets'}</span>
+                <span className="text-sm font-semibold text-gray-900 capitalize">{selectedBlock.type.replace('-', ' ')}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => onDeleteBlock(selectedBlock.id)} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
+                  <span className="material-icons text-base">delete</span>
+                </button>
+              </div>
             </div>
 
-            {selectedCustomManifest ? (
-              // Custom component — use DynamicPropertyPanel
-              <DynamicPropertyPanel
-                inputs={selectedCustomManifest.inputs}
-                values={selectedBlock as unknown as Record<string, unknown>}
-                onChange={(name, value) =>
-                  onUpdateBlock(selectedBlock.id, { [name]: value } as Partial<Block>)
-                }
-              />
-            ) : (
-              // Built-in block — render common properties
-              <BuiltInBlockProperties
-                block={selectedBlock}
-                onUpdate={(updates) => onUpdateBlock(selectedBlock.id, updates)}
-              />
-            )}
-          </div>
+            {/* Content / Style tabs */}
+            <div className="flex border-b border-gray-100 shrink-0">
+              <button type="button" onClick={() => setRightPanelTab('content')}
+                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >Content</button>
+              <button type="button" onClick={() => setRightPanelTab('style')}
+                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'style' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >Style</button>
+            </div>
+
+            {/* Tab content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {rightPanelTab === 'content' ? (
+                selectedCustomManifest ? (
+                  <DynamicPropertyPanel
+                    inputs={selectedCustomManifest.inputs}
+                    values={selectedBlock as unknown as Record<string, unknown>}
+                    onChange={(name, value) => handleUpdateBlock(selectedBlock.id, { [name]: value } as Partial<Block>)}
+                  />
+                ) : (
+                  <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} />
+                )
+              ) : (
+                <StyleSettings
+                  block={selectedBlock}
+                  onChange={(updates) => handleUpdateBlock(selectedBlock.id, updates)}
+                  currentViewport={currentViewport}
+                />
+              )}
+            </div>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
             <span className="material-icons text-3xl mb-2">touch_app</span>
-            <p className="text-sm">Click a block in the preview to edit its properties</p>
+            <p className="text-sm">Click a block to edit</p>
           </div>
         )}
       </div>
@@ -269,61 +278,277 @@ export function VisualEditorShell({
   );
 }
 
-function BuiltInBlockProperties({
+// ─── Sortable Layer Item (recursive for nested blocks) ───────────────────────
+
+function LayerItem({
   block,
-  onUpdate,
+  depth,
+  selectedBlockId,
+  onSelect,
 }: {
   block: Block;
-  onUpdate: (updates: Partial<Block>) => void;
+  depth: number;
+  selectedBlockId: string | null;
+  onSelect: (id: string) => void;
 }) {
-  // Common editable fields based on block type
-  const fields: Array<{ name: string; label: string; type: 'text' | 'textarea' | 'select'; options?: string[] }> = [];
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const isSelected = selectedBlockId === block.id;
+  const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
+  const [expanded, setExpanded] = useState(true);
 
-  if ('content' in block) fields.push({ name: 'content', label: 'Content', type: block.type === 'text' ? 'textarea' : 'text' });
-  if ('title' in block) fields.push({ name: 'title', label: 'Title', type: 'text' });
-  if ('subtitle' in block) fields.push({ name: 'subtitle', label: 'Subtitle', type: 'text' });
-  if ('description' in block) fields.push({ name: 'description', label: 'Description', type: 'textarea' });
-  if ('url' in block) fields.push({ name: 'url', label: 'URL', type: 'text' });
-  if ('alt' in block) fields.push({ name: 'alt', label: 'Alt Text', type: 'text' });
-  if ('text' in block && block.type === 'button') fields.push({ name: 'text', label: 'Button Text', type: 'text' });
-  if ('level' in block) fields.push({ name: 'level', label: 'Level', type: 'select', options: ['1', '2', '3', '4', '5', '6'] });
-  if ('alignment' in block) fields.push({ name: 'alignment', label: 'Alignment', type: 'select', options: ['left', 'center', 'right'] });
+  // Get nested children
+  const children: { label: string; blocks: Block[] }[] = [];
+  if (block.type === 'columns') {
+    block.columns.forEach((col, i) => children.push({ label: `Col ${i + 1}`, blocks: col.blocks }));
+  }
+  if (block.type === 'tabs') {
+    block.tabs.forEach((tab) => children.push({ label: tab.label, blocks: tab.blocks }));
+  }
+  if (block.type === 'section') {
+    children.push({ label: 'Content', blocks: block.blocks });
+  }
+  if (block.type === 'accordion') {
+    block.items.forEach((item) => children.push({ label: item.title, blocks: [] }));
+  }
+
+  const hasChildren = children.some(c => c.blocks.length > 0);
+  const previewText = 'content' in block && typeof block.content === 'string'
+    ? block.content.replace(/<[^>]+>/g, '').substring(0, 20)
+    : 'title' in block && typeof block.title === 'string'
+      ? block.title.substring(0, 20)
+      : '';
 
   return (
-    <div className="space-y-4">
-      {fields.map((field) => (
-        <label key={field.name} className="block">
-          <span className="text-sm font-medium text-gray-700">{field.label}</span>
-          {field.type === 'textarea' ? (
-            <textarea
-              value={((block as unknown as Record<string, unknown>)[field.name] as string) || ''}
-              onChange={(e) => onUpdate({ [field.name]: e.target.value } as Partial<Block>)}
-              rows={3}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          ) : field.type === 'select' ? (
-            <select
-              value={String((block as unknown as Record<string, unknown>)[field.name] || '')}
-              onChange={(e) => {
-                const val = field.name === 'level' ? Number(e.target.value) : e.target.value;
-                onUpdate({ [field.name]: val } as Partial<Block>);
-              }}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              {field.options?.map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
+    <div ref={setNodeRef} style={style}>
+      <div
+        className={`flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
+          isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+        }`}
+        style={{ paddingLeft: `${depth * 12 + 4}px` }}
+        onClick={() => onSelect(block.id)}
+      >
+        {/* Drag handle */}
+        <span {...attributes} {...listeners} className="material-icons text-xs text-gray-300 cursor-grab shrink-0">drag_indicator</span>
+
+        {/* Expand toggle for containers */}
+        {hasChildren ? (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="material-icons text-xs text-gray-400 shrink-0"
+          >{expanded ? 'expand_more' : 'chevron_right'}</button>
+        ) : (
+          <span className="w-3 shrink-0" />
+        )}
+
+        <span className="material-icons text-xs shrink-0">{icon}</span>
+        <span className="truncate flex-1">{previewText || block.type}</span>
+      </div>
+
+      {/* Nested children */}
+      {expanded && children.map((child, ci) => (
+        <div key={ci}>
+          {child.blocks.length > 0 && (
+            <>
+              <div className="text-[9px] text-gray-400 uppercase tracking-wider" style={{ paddingLeft: `${(depth + 1) * 12 + 20}px` }}>
+                {child.label}
+              </div>
+              {child.blocks.map((nested) => (
+                <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} />
               ))}
-            </select>
-          ) : (
-            <input
-              type="text"
-              value={((block as unknown as Record<string, unknown>)[field.name] as string) || ''}
-              onChange={(e) => onUpdate({ [field.name]: e.target.value } as Partial<Block>)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            </>
           )}
-        </label>
+        </div>
       ))}
     </div>
+  );
+}
+
+// ─── Block Content Editor ────────────────────────────────────────────────────
+
+function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (updates: Partial<Block>) => void }) {
+  const b = block as unknown as Record<string, unknown>;
+
+  return (
+    <div className="space-y-3">
+      {/* Content fields by block type */}
+      {block.type === 'heading' && (
+        <>
+          <Field label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <SelectField label="Level" value={String(b.level || 2)} options={['1','2','3','4','5','6']} onChange={(v) => onUpdate({ level: Number(v) } as Partial<Block>)} />
+          <SelectField label="Alignment" value={(b.alignment as string) || 'left'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'text' && (
+        <>
+          <TextareaField label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <SelectField label="Size" value={(b.size as string) || 'base'} options={['sm','base','lg','xl']} onChange={(v) => onUpdate({ size: v } as Partial<Block>)} />
+          <SelectField label="Alignment" value={(b.alignment as string) || 'left'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'image' && (
+        <>
+          <Field label="Image URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
+          <Field label="Alt Text" value={b.alt as string} onChange={(v) => onUpdate({ alt: v } as Partial<Block>)} />
+          <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
+          <SelectField label="Width" value={(b.width as string) || 'full'} options={['small','medium','large','full']} onChange={(v) => onUpdate({ width: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'button' && (
+        <>
+          <Field label="Text" value={b.text as string} onChange={(v) => onUpdate({ text: v } as Partial<Block>)} />
+          <Field label="URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
+          <SelectField label="Variant" value={(b.variant as string) || 'primary'} options={['primary','secondary','outline']} onChange={(v) => onUpdate({ variant: v } as Partial<Block>)} />
+          <SelectField label="Size" value={(b.size as string) || 'md'} options={['sm','md','lg']} onChange={(v) => onUpdate({ size: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'quote' && (
+        <>
+          <TextareaField label="Quote" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
+          <Field label="Citation" value={b.citation as string} onChange={(v) => onUpdate({ citation: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'code' && (
+        <>
+          <TextareaField label="Code" value={b.code as string} onChange={(v) => onUpdate({ code: v } as Partial<Block>)} rows={6} />
+          <Field label="Language" value={b.language as string} onChange={(v) => onUpdate({ language: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'spacer' && (
+        <SelectField label="Height" value={(b.height as string) || 'md'} options={['sm','md','lg','xl']} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+      )}
+      {block.type === 'divider' && (
+        <SelectField label="Line Style" value={(b.lineStyle as string) || 'solid'} options={['solid','dashed','dotted']} onChange={(v) => onUpdate({ lineStyle: v } as Partial<Block>)} />
+      )}
+      {(block.type === 'youtube' || block.type === 'video') && (
+        <>
+          <Field label="URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
+          <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'hero' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} />
+          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="CTA Text" value={b.ctaText as string} onChange={(v) => onUpdate({ ctaText: v } as Partial<Block>)} />
+          <Field label="CTA Link" value={b.ctaLink as string} onChange={(v) => onUpdate({ ctaLink: v } as Partial<Block>)} />
+          <Field label="Background Image" value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'cta' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.primaryButtonText as string} onChange={(v) => onUpdate({ primaryButtonText: v } as Partial<Block>)} />
+          <Field label="Button URL" value={b.primaryButtonUrl as string} onChange={(v) => onUpdate({ primaryButtonUrl: v } as Partial<Block>)} />
+          <SelectField label="Background" value={(b.backgroundStyle as string) || 'none'} options={['none','solid','gradient']} onChange={(v) => onUpdate({ backgroundStyle: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'testimonial' && (
+        <>
+          <TextareaField label="Quote" value={b.quote as string} onChange={(v) => onUpdate({ quote: v } as Partial<Block>)} />
+          <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
+          <Field label="Role" value={b.role as string} onChange={(v) => onUpdate({ role: v } as Partial<Block>)} />
+          <Field label="Company" value={b.company as string} onChange={(v) => onUpdate({ company: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'columns' && (
+        <>
+          <SelectField label="Gap" value={(b.gap as string) || 'md'} options={['sm','md','lg']} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
+          <p className="text-xs text-gray-500">Columns: {block.columns.length}. Edit nested blocks via the layers panel.</p>
+        </>
+      )}
+      {block.type === 'section' && (
+        <>
+          <Field label="Background Color" value={b.backgroundColor as string} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
+          <Field label="Max Width" value={b.maxWidth as string} onChange={(v) => onUpdate({ maxWidth: v } as Partial<Block>)} />
+          <p className="text-xs text-gray-500">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
+        </>
+      )}
+      {block.type === 'stats' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'card-grid' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'gallery' && (
+        <>
+          <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','masonry']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <CheckboxField label="Enable Lightbox" checked={b.lightbox as boolean} onChange={(v) => onUpdate({ lightbox: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'accordion' && (
+        <p className="text-xs text-gray-500">Items: {block.items.length}. Use the style tab for visual customization.</p>
+      )}
+      {block.type === 'featured-content' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Image URL" value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} />
+          <SelectField label="Image Position" value={(b.imagePosition as string) || 'right'} options={['left','right']} onChange={(v) => onUpdate({ imagePosition: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
+          <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'services-grid' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Reusable field components ───────────────────────────────────────────────
+
+function Field({ label, value, onChange }: { label: string; value: string | undefined; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </label>
+  );
+}
+
+function TextareaField({ label, value, onChange, rows = 3 }: { label: string; value: string | undefined; onChange: (v: string) => void; rows?: number }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} rows={rows}
+        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+    </label>
+  );
+}
+
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function CheckboxField({ label, checked, onChange }: { label: string; checked: boolean | undefined; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2">
+      <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600" />
+      <span className="text-xs text-gray-700">{label}</span>
+    </label>
   );
 }
