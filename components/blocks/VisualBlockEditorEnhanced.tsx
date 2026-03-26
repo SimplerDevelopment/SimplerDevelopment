@@ -402,27 +402,33 @@ export function EditorInner({
   // Keyboard shortcuts
   useKeyboardShortcuts(
     [
+      // Undo / Redo
       {
         keys: 'mod+z',
         description: 'Undo',
-        handler: () => {
-          if (state.canUndo) undo();
-          return false;
-        },
+        handler: () => { if (state.canUndo) undo(); return false; },
       },
       {
         keys: 'mod+shift+z',
         description: 'Redo',
-        handler: () => {
-          if (state.canRedo) redo();
-          return false;
-        },
+        handler: () => { if (state.canRedo) redo(); return false; },
       },
+      // Block operations
       {
         keys: 'mod+d',
         description: 'Duplicate block',
+        handler: () => { if (selectedBlockId) duplicateBlock(selectedBlockId); return false; },
+      },
+      {
+        keys: 'mod+backspace',
+        description: 'Delete block',
         handler: () => {
-          if (selectedBlockId) duplicateBlock(selectedBlockId);
+          if (selectedBlockId) {
+            const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+            const nextId = idx < state.blocks.length - 1 ? state.blocks[idx + 1]?.id : state.blocks[idx - 1]?.id;
+            deleteBlock(selectedBlockId);
+            setSelectedBlockId(nextId || null);
+          }
           return false;
         },
       },
@@ -437,6 +443,7 @@ export function EditorInner({
           return false;
         },
       },
+      // Reorder
       {
         keys: 'mod+shift+up',
         description: 'Move block up',
@@ -459,8 +466,37 @@ export function EditorInner({
           return false;
         },
       },
+      // Navigation
+      {
+        keys: 'up',
+        description: 'Select previous block',
+        handler: () => {
+          if (!selectedBlockId) return false;
+          const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+          if (idx > 0) setSelectedBlockId(state.blocks[idx - 1].id);
+          return false;
+        },
+        preventDefault: false,
+      },
+      {
+        keys: 'down',
+        description: 'Select next block',
+        handler: () => {
+          if (!selectedBlockId) return false;
+          const idx = state.blocks.findIndex(b => b.id === selectedBlockId);
+          if (idx >= 0 && idx < state.blocks.length - 1) setSelectedBlockId(state.blocks[idx + 1].id);
+          return false;
+        },
+        preventDefault: false,
+      },
+      {
+        keys: 'escape',
+        description: 'Deselect block',
+        handler: () => { setSelectedBlockId(null); return false; },
+        preventDefault: false,
+      },
     ],
-    [undo, redo, state.canUndo, state.canRedo, selectedBlockId, duplicateBlock, reorderBlocks, state.blocks]
+    [undo, redo, state.canUndo, state.canRedo, selectedBlockId, duplicateBlock, deleteBlock, reorderBlocks, state.blocks]
   );
 
   // Sync blocks to parent
