@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds } = body;
+  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl } = body;
 
   if (!title || !slug || !content) {
     return NextResponse.json({ success: false, message: 'title, slug, and content are required' }, { status: 400 });
@@ -57,6 +57,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
     coverImage: coverImage || null,
     published: published ?? false,
     publishedAt: published ? new Date() : null,
+    seoTitle: seoTitle || null,
+    seoDescription: seoDescription || null,
+    ogImage: ogImage || null,
+    noIndex: noIndex ?? false,
+    canonicalUrl: canonicalUrl || null,
     websiteId: site.id,
   }).returning();
 

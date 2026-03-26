@@ -10,6 +10,12 @@ export const posts = pgTable('posts', {
   coverImage: varchar('cover_image', { length: 500 }),
   published: boolean('published').default(false).notNull(),
   publishedAt: timestamp('published_at'),
+  // SEO fields
+  seoTitle: varchar('seo_title', { length: 255 }),
+  seoDescription: text('seo_description'),
+  ogImage: varchar('og_image', { length: 500 }),
+  noIndex: boolean('no_index').default(false).notNull(),
+  canonicalUrl: varchar('canonical_url', { length: 500 }),
   // null = agency website; non-null = client website
   websiteId: integer('website_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -697,4 +703,22 @@ export const paymentMethods = pgTable('payment_methods', {
   expYear: integer('exp_year').notNull(),
   isDefault: boolean('is_default').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── GOOGLE WEBSITE INTEGRATIONS ─────────────────────────────────────────────
+
+// Per-website Google OAuth tokens for Search Console + Analytics
+export const googleWebsiteTokens = pgTable('google_website_tokens', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  // Search Console
+  gscSiteUrl: varchar('gsc_site_url', { length: 500 }), // e.g. "https://example.com/"
+  // Analytics
+  gaPropertyId: varchar('ga_property_id', { length: 100 }), // e.g. "properties/123456"
+  gaMeasurementId: varchar('ga_measurement_id', { length: 50 }), // e.g. "G-XXXXXXXXXX"
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

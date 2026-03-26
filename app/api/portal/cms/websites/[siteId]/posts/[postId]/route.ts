@@ -51,7 +51,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds } = body;
+  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl } = body;
 
   // If slug changed, check uniqueness within this website
   if (slug) {
@@ -80,6 +80,11 @@ export async function PUT(
         published,
         publishedAt: published ? new Date() : null,
       }),
+      ...(seoTitle !== undefined && { seoTitle: seoTitle || null }),
+      ...(seoDescription !== undefined && { seoDescription: seoDescription || null }),
+      ...(ogImage !== undefined && { ogImage: ogImage || null }),
+      ...(noIndex !== undefined && { noIndex }),
+      ...(canonicalUrl !== undefined && { canonicalUrl: canonicalUrl || null }),
       updatedAt: new Date(),
     })
     .where(and(eq(posts.id, pid), eq(posts.websiteId, site.id)))

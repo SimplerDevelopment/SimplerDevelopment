@@ -64,6 +64,11 @@ export default async function PortalEditPostPage({
         coverImage: post.coverImage || '',
         published: post.published,
         publishedAt: post.publishedAt?.toISOString() || null,
+        seoTitle: post.seoTitle || '',
+        seoDescription: post.seoDescription || '',
+        ogImage: post.ogImage || '',
+        noIndex: post.noIndex,
+        canonicalUrl: post.canonicalUrl || '',
         categoryIds: cats.map(c => c.categoryId),
         tagIds: tgs.map(t => t.tagId),
       }}
