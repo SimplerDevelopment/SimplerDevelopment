@@ -404,185 +404,15 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
 
               {/* Settings slide-over panel */}
               {settingsOpen && (
-                <>
-                  <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setSettingsOpen(false)} />
-                  <div className="fixed top-0 right-0 z-50 h-full w-96 bg-card border-l border-border shadow-xl overflow-y-auto">
-                    <div className="p-5 space-y-5">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-foreground">Page Details</h3>
-                        <button type="button" onClick={() => setSettingsOpen(false)} className="text-muted-foreground hover:text-foreground">
-                          <span className="material-icons">close</span>
-                        </button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
-                          <input
-                            value={formData.title}
-                            onChange={handleTitleChange}
-                            placeholder="Page title"
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Slug</label>
-                          <input
-                            value={formData.slug}
-                            onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                            placeholder="page-slug"
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground font-mono outline-none focus:border-primary"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
-                          <select
-                            value={formData.postType}
-                            onChange={e => setFormData(prev => ({ ...prev, postType: e.target.value }))}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                          >
-                            <option value="page">Page</option>
-                            <option value="blog">Blog Post</option>
-                            <option value="landing">Landing Page</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Excerpt / Meta Description</label>
-                          <textarea
-                            value={formData.excerpt}
-                            onChange={e => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                            rows={3}
-                            placeholder="Short description for SEO and previews..."
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
-                          />
-                        </div>
-                        <MediaPicker
-                          value={formData.coverImage}
-                          onChange={(url) => setFormData(prev => ({ ...prev, coverImage: url }))}
-                          label="Cover Image"
-                          apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
-                        />
-
-                        {/* SEO */}
-                        <div className="border-t border-border pt-4 mt-2">
-                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
-                            <span className="material-icons text-base">search</span>
-                            SEO
-                          </h4>
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">SEO Title</label>
-                              <input
-                                value={formData.seoTitle}
-                                onChange={e => setFormData(prev => ({ ...prev, seoTitle: e.target.value }))}
-                                placeholder={formData.title || 'Page title (defaults to post title)'}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                              />
-                              <p className="text-xs text-muted-foreground mt-1">{(formData.seoTitle || formData.title || '').length}/60 characters</p>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Meta Description</label>
-                              <textarea
-                                value={formData.seoDescription}
-                                onChange={e => setFormData(prev => ({ ...prev, seoDescription: e.target.value }))}
-                                rows={3}
-                                placeholder={formData.excerpt || 'Description for search engines...'}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
-                              />
-                              <p className="text-xs text-muted-foreground mt-1">{(formData.seoDescription || '').length}/160 characters</p>
-                            </div>
-                            <MediaPicker
-                              value={formData.ogImage}
-                              onChange={(url) => setFormData(prev => ({ ...prev, ogImage: url }))}
-                              label="Social Share Image (OG Image)"
-                              apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
-                            />
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Canonical URL</label>
-                              <input
-                                value={formData.canonicalUrl}
-                                onChange={e => setFormData(prev => ({ ...prev, canonicalUrl: e.target.value }))}
-                                placeholder="https://..."
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                              />
-                            </div>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={formData.noIndex || false}
-                                onChange={e => setFormData(prev => ({ ...prev, noIndex: e.target.checked }))}
-                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                              />
-                              <span className="text-sm text-foreground">Hide from search engines (noindex)</span>
-                            </label>
-                          </div>
-                        </div>
-
-                        {/* Categories */}
-                        {availableCategories.length > 0 && (
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Categories</label>
-                            <div className="flex flex-wrap gap-2">
-                              {availableCategories.map(cat => {
-                                const selected = formData.categoryIds?.includes(cat.id);
-                                return (
-                                  <button
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => setFormData(prev => ({
-                                      ...prev,
-                                      categoryIds: selected
-                                        ? (prev.categoryIds || []).filter(id => id !== cat.id)
-                                        : [...(prev.categoryIds || []), cat.id],
-                                    }))}
-                                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                                      selected
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                                    }`}
-                                  >
-                                    {cat.name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Tags */}
-                        {availableTags.length > 0 && (
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Tags</label>
-                            <div className="flex flex-wrap gap-2">
-                              {availableTags.map(tag => {
-                                const selected = formData.tagIds?.includes(tag.id);
-                                return (
-                                  <button
-                                    key={tag.id}
-                                    type="button"
-                                    onClick={() => setFormData(prev => ({
-                                      ...prev,
-                                      tagIds: selected
-                                        ? (prev.tagIds || []).filter(id => id !== tag.id)
-                                        : [...(prev.tagIds || []), tag.id],
-                                    }))}
-                                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                                      selected
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                                    }`}
-                                  >
-                                    {tag.name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
+                <SettingsSlideOver
+                  formData={formData}
+                  setFormData={setFormData}
+                  handleTitleChange={handleTitleChange}
+                  siteId={siteId}
+                  availableCategories={availableCategories}
+                  availableTags={availableTags}
+                  onClose={() => setSettingsOpen(false)}
+                />
               )}
             </div>
           ) : (
@@ -591,5 +421,241 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
         </PostEditorLayout>
       </BlockEditorProvider>
     </DesignTokensProvider>
+  );
+}
+
+// ─── Settings Slide-Over with Tabs ───────────────────────────────────────────
+
+type SettingsTab = 'general' | 'seo' | 'taxonomy';
+
+const SETTINGS_TABS: { id: SettingsTab; label: string; icon: string }[] = [
+  { id: 'general', label: 'General', icon: 'tune' },
+  { id: 'seo', label: 'SEO', icon: 'search' },
+  { id: 'taxonomy', label: 'Taxonomy', icon: 'label' },
+];
+
+function SettingsSlideOver({
+  formData,
+  setFormData,
+  handleTitleChange,
+  siteId,
+  availableCategories,
+  availableTags,
+  onClose,
+}: {
+  formData: Post;
+  setFormData: React.Dispatch<React.SetStateAction<Post>>;
+  handleTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  siteId: number;
+  availableCategories: TaxonomyItem[];
+  availableTags: TaxonomyItem[];
+  onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div className="fixed top-0 right-0 z-50 h-full w-96 bg-card border-l border-border shadow-xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <h3 className="text-base font-semibold text-foreground">Page Details</h3>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <span className="material-icons text-xl">close</span>
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-border shrink-0">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="material-icons text-base">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {activeTab === 'general' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
+                <input
+                  value={formData.title}
+                  onChange={handleTitleChange}
+                  placeholder="Page title"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Slug</label>
+                <input
+                  value={formData.slug}
+                  onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                  placeholder="page-slug"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground font-mono outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
+                <select
+                  value={formData.postType}
+                  onChange={e => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                >
+                  <option value="page">Page</option>
+                  <option value="blog">Blog Post</option>
+                  <option value="landing">Landing Page</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Excerpt</label>
+                <textarea
+                  value={formData.excerpt}
+                  onChange={e => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
+                  rows={3}
+                  placeholder="Short description..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
+                />
+              </div>
+              <MediaPicker
+                value={formData.coverImage}
+                onChange={(url) => setFormData(prev => ({ ...prev, coverImage: url }))}
+                label="Cover Image"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+            </div>
+          )}
+
+          {activeTab === 'seo' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">SEO Title</label>
+                <input
+                  value={formData.seoTitle}
+                  onChange={e => setFormData(prev => ({ ...prev, seoTitle: e.target.value }))}
+                  placeholder={formData.title || 'Defaults to post title'}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{(formData.seoTitle || formData.title || '').length}/60 characters</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Meta Description</label>
+                <textarea
+                  value={formData.seoDescription}
+                  onChange={e => setFormData(prev => ({ ...prev, seoDescription: e.target.value }))}
+                  rows={3}
+                  placeholder={formData.excerpt || 'Description for search engines...'}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{(formData.seoDescription || '').length}/160 characters</p>
+              </div>
+              <MediaPicker
+                value={formData.ogImage}
+                onChange={(url) => setFormData(prev => ({ ...prev, ogImage: url }))}
+                label="Social Share Image (OG Image)"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Canonical URL</label>
+                <input
+                  value={formData.canonicalUrl}
+                  onChange={e => setFormData(prev => ({ ...prev, canonicalUrl: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.noIndex || false}
+                  onChange={e => setFormData(prev => ({ ...prev, noIndex: e.target.checked }))}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground">Hide from search engines (noindex)</span>
+              </label>
+            </div>
+          )}
+
+          {activeTab === 'taxonomy' && (
+            <div className="space-y-5">
+              {availableCategories.length > 0 ? (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Categories</label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableCategories.map(cat => {
+                      const selected = formData.categoryIds?.includes(cat.id);
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            categoryIds: selected
+                              ? (prev.categoryIds || []).filter(id => id !== cat.id)
+                              : [...(prev.categoryIds || []), cat.id],
+                          }))}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            selected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                          }`}
+                        >
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No categories created yet.</p>
+              )}
+
+              {availableTags.length > 0 ? (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Tags</label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.map(tag => {
+                      const selected = formData.tagIds?.includes(tag.id);
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            tagIds: selected
+                              ? (prev.tagIds || []).filter(id => id !== tag.id)
+                              : [...(prev.tagIds || []), tag.id],
+                          }))}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            selected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                          }`}
+                        >
+                          {tag.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No tags created yet.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
