@@ -12,6 +12,7 @@ interface PostEditorLayoutProps {
   onPublish: () => void;
   onStatusChange: (status: 'draft' | 'published') => void;
   backHref?: string;
+  liveUrl?: string | null;
 }
 
 export function PostEditorLayout({
@@ -23,6 +24,7 @@ export function PostEditorLayout({
   published,
   onPublish,
   onStatusChange,
+  liveUrl,
   backHref,
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
@@ -69,6 +71,19 @@ export function PostEditorLayout({
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
               </select>
+
+              {liveUrl && (
+                <a
+                  href={liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border hover:bg-accent transition-colors shrink-0"
+                  title="View Live"
+                >
+                  <span className="material-icons text-base">open_in_new</span>
+                  View Live
+                </a>
+              )}
 
               <button
                 type="button"
