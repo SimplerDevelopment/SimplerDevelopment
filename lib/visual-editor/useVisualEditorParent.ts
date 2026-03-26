@@ -43,6 +43,7 @@ export function useVisualEditorParent({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
   const [customComponents, setCustomComponents] = useState<ComponentManifestEntry[]>([]);
+  const [undoRedoState, setUndoRedoState] = useState({ canUndo: false, canRedo: false });
 
   // Store latest values in refs so the message handler always has current data
   const blocksRef = useRef(blocks);
@@ -125,6 +126,11 @@ export function useVisualEditorParent({
           onStyleUpdatedRef.current?.(payload.blockId, payload.style);
           break;
         }
+        case IFRAME_MESSAGES.UNDO_REDO_STATE: {
+          const payload = event.data.payload as { canUndo: boolean; canRedo: boolean };
+          setUndoRedoState(payload);
+          break;
+        }
       }
     }
 
@@ -175,6 +181,16 @@ export function useVisualEditorParent({
     [iframeReady],
   );
 
+  const sendUndo = useCallback(() => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.UNDO, {});
+  }, [iframeReady]);
+
+  const sendRedo = useCallback(() => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.REDO, {});
+  }, [iframeReady]);
+
   return {
     iframeRef,
     iframeReady,
@@ -183,5 +199,8 @@ export function useVisualEditorParent({
     sendSelectBlock,
     sendHoverBlock,
     handleIframeLoad,
+    sendUndo,
+    sendRedo,
+    undoRedoState,
   };
 }

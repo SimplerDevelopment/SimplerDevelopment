@@ -143,6 +143,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
+  const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [formData, setFormData] = useState<Post>({
     title: post?.title || '',
     slug: post?.slug || '',
@@ -432,6 +433,28 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           published={formData.published}
           onPublish={handleSubmit}
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
+          extraNavControls={editorMode === 'iframe' && undoRedo ? (
+            <div className="flex items-center gap-0.5 ml-1">
+              <button
+                type="button"
+                onClick={undoRedo.sendUndo}
+                disabled={!undoRedo.canUndo}
+                className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${undoRedo.canUndo ? 'hover:bg-accent text-foreground' : 'text-muted-foreground/30 cursor-default'}`}
+                title="Undo (Cmd+Z)"
+              >
+                <span className="material-icons text-lg">undo</span>
+              </button>
+              <button
+                type="button"
+                onClick={undoRedo.sendRedo}
+                disabled={!undoRedo.canRedo}
+                className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors ${undoRedo.canRedo ? 'hover:bg-accent text-foreground' : 'text-muted-foreground/30 cursor-default'}`}
+                title="Redo (Cmd+Shift+Z)"
+              >
+                <span className="material-icons text-lg">redo</span>
+              </button>
+            </div>
+          ) : undefined}
         >
           {editorMode === 'iframe' && siteUrl && post?.slug ? (
             <div className="relative flex-1">
@@ -447,6 +470,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                   setBlocks([...blocks, newBlock]);
                 }}
                 onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+                onUndoRedoChange={setUndoRedo}
                 onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
               />
 

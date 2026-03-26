@@ -62,6 +62,13 @@ for (const bt of BUILT_IN_BLOCK_TYPES) BLOCK_ICON_MAP[bt.type] = bt.icon;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
+interface UndoRedoControls {
+  sendUndo: () => void;
+  sendRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 interface VisualEditorShellProps {
   blocks: Block[];
   selectedBlockId: string | null;
@@ -72,6 +79,7 @@ interface VisualEditorShellProps {
   onAddBlock: (type: string, afterBlockId?: string) => void;
   onDeleteBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, updates: Partial<Block>) => void;
+  onUndoRedoChange?: (controls: UndoRedoControls) => void;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -86,6 +94,7 @@ export function VisualEditorShell({
   onAddBlock,
   onDeleteBlock,
   onUpdateBlock,
+  onUndoRedoChange,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
@@ -107,6 +116,9 @@ export function VisualEditorShell({
     sendBlocksUpdate,
     sendSelectBlock,
     handleIframeLoad,
+    sendUndo,
+    sendRedo,
+    undoRedoState,
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
@@ -146,6 +158,11 @@ export function VisualEditorShell({
 
   useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
   useEffect(() => { sendSelectBlock(selectedBlockId); }, [selectedBlockId, sendSelectBlock]);
+
+  // Notify parent of undo/redo availability
+  useEffect(() => {
+    onUndoRedoChange?.({ sendUndo, sendRedo, canUndo: undoRedoState.canUndo, canRedo: undoRedoState.canRedo });
+  }, [undoRedoState, sendUndo, sendRedo, onUndoRedoChange]);
 
   const allBlockTypes = useMemo(() => {
     const custom = customComponents.map((c) => ({

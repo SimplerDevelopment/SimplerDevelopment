@@ -8,6 +8,7 @@ interface PostEditorLayoutProps {
   onOpenSettings: () => void;
   editorControls?: React.ReactNode;
   centerControls?: React.ReactNode;
+  extraNavControls?: React.ReactNode;
   published: boolean;
   onPublish: () => void;
   onStatusChange: (status: 'draft' | 'published') => void;
@@ -21,6 +22,7 @@ export function PostEditorLayout({
   onOpenSettings,
   editorControls,
   centerControls,
+  extraNavControls,
   published,
   onPublish,
   onStatusChange,
@@ -56,6 +58,8 @@ export function PostEditorLayout({
               >
                 <span className="material-icons text-lg">edit_note</span>
               </button>
+
+              {extraNavControls}
 
               {/* Center — viewport or other controls */}
               <div className="flex-1 flex justify-center">
