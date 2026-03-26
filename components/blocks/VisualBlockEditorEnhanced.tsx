@@ -39,7 +39,6 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface VisualBlockEditorEnhancedProps {
   blocks: Block[];
@@ -103,6 +102,7 @@ function SortableBlock({
   isDraggingAny,
   nestTargetId,
   blockTypes,
+  showDropIndicator,
 }: {
   block: Block;
   isSelected: boolean;
@@ -122,23 +122,29 @@ function SortableBlock({
   isDraggingAny: boolean;
   nestTargetId: string | null;
   blockTypes: Array<{ type: BlockType; label: string }>;
+  showDropIndicator: boolean;
 }) {
   const {
     attributes,
     listeners,
     setNodeRef,
-    transform,
-    transition,
     isDragging,
   } = useSortable({ id: block.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.3 : 1,
+    transition: 'opacity 200ms',
   };
 
   return (
+    <>
+    {showDropIndicator && (
+      <div className="relative h-1 -my-0.5 z-20">
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -ml-1" />
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -mr-1" />
+      </div>
+    )}
     <div
       ref={setNodeRef}
       style={style}
@@ -316,6 +322,7 @@ function SortableBlock({
         </button>
       </div>
     </div>
+    </>
   );
 }
 
@@ -458,17 +465,22 @@ export function EditorInner({
 
   const [nestTargetId, setNestTargetId] = useState<string | null>(null);
 
+  const [overId, setOverId] = useState<string | null>(null);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     setNestTargetId(null);
+    setOverId(null);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
     if (over && typeof over.id === 'string' && over.id.startsWith('drop-zone-')) {
       setNestTargetId(over.id);
+      setOverId(null);
     } else {
       setNestTargetId(null);
+      setOverId(over ? (over.id as string) : null);
     }
   };
 
@@ -553,6 +565,7 @@ export function EditorInner({
 
     setActiveId(null);
     setNestTargetId(null);
+    setOverId(null);
   };
 
   const moveBlock = (id: string, direction: 'up' | 'down') => {
@@ -754,6 +767,7 @@ export function EditorInner({
                       isDraggingAny={!!activeId}
                       nestTargetId={nestTargetId}
                       blockTypes={blockTypes}
+                      showDropIndicator={!!activeId && overId === block.id && activeId !== block.id}
                     />
                   ))}
                 </div>

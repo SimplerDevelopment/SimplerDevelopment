@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
-  closestCenter,
   pointerWithin,
   MouseSensor,
   TouchSensor,
@@ -11,7 +10,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragOverlay,
+  DragOverEvent,
   DragStartEvent,
   useDroppable,
 } from '@dnd-kit/core';
@@ -21,7 +20,6 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
@@ -183,12 +181,20 @@ export function VisualEditorShell({
     useSensor(KeyboardSensor),
   );
 
+  const [layerOverId, setLayerOverId] = useState<string | null>(null);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setDraggedBlockId(event.active.id as string);
+    setLayerOverId(null);
+  }, []);
+
+  const handleLayerDragOver = useCallback((event: DragOverEvent) => {
+    setLayerOverId(event.over ? (event.over.id as string) : null);
   }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     setDraggedBlockId(null);
+    setLayerOverId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -319,7 +325,7 @@ export function VisualEditorShell({
           <div className="px-3 py-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Layers</h3>
           </div>
-          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
             <SortableContext items={allBlockIds} strategy={verticalListSortingStrategy}>
               <div className="px-1 pb-2">
                 {blocks.map((block) => (
@@ -330,6 +336,7 @@ export function VisualEditorShell({
                     selectedBlockId={selectedBlockId}
                     onSelect={selectBlock}
                     onDelete={onDeleteBlock}
+                    showDropIndicator={!!draggedBlockId && layerOverId === block.id && draggedBlockId !== block.id}
                   />
                 ))}
               </div>
@@ -414,17 +421,19 @@ function LayerItem({
   selectedBlockId,
   onSelect,
   onDelete,
+  showDropIndicator = false,
 }: {
   block: Block;
   depth: number;
   selectedBlockId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  showDropIndicator?: boolean;
 }) {
   // Only top-level items are sortable — nested items are plain clickable rows
   const sortable = depth === 0 ? useSortable({ id: block.id }) : null;
   const style = sortable
-    ? { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition || 'transform 200ms ease', opacity: sortable.isDragging ? 0.5 : 1 }
+    ? { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' }
     : {};
   const isSelected = selectedBlockId === block.id;
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
@@ -455,6 +464,11 @@ function LayerItem({
 
   return (
     <div ref={sortable?.setNodeRef} style={style}>
+      {showDropIndicator && (
+        <div className="relative h-0.5 mx-1">
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500 rounded-full" />
+        </div>
+      )}
       <div
         className={`group/layer flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
           isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
