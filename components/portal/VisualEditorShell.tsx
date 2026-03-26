@@ -139,6 +139,9 @@ export function VisualEditorShell({
       if (height) style.height = height;
       handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
     },
+    onBlockStyleUpdated: (blockId: string, style: Record<string, string>) => {
+      handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
+    },
   });
 
   useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);

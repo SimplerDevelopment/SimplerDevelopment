@@ -26,6 +26,7 @@ interface UseVisualEditorParentOptions {
   onBlocksReordered?: (blocks: Block[]) => void;
   onAddBlockAfter?: (blockId: string) => void;
   onBlockResized?: (blockId: string, width: string | undefined, height: string | undefined) => void;
+  onBlockStyleUpdated?: (blockId: string, style: Record<string, string>) => void;
 }
 
 export function useVisualEditorParent({
@@ -37,6 +38,7 @@ export function useVisualEditorParent({
   onBlocksReordered,
   onAddBlockAfter,
   onBlockResized,
+  onBlockStyleUpdated,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -51,6 +53,7 @@ export function useVisualEditorParent({
   const onReorderedRef = useRef(onBlocksReordered);
   const onAddAfterRef = useRef(onAddBlockAfter);
   const onResizedRef = useRef(onBlockResized);
+  const onStyleUpdatedRef = useRef(onBlockStyleUpdated);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -59,6 +62,7 @@ export function useVisualEditorParent({
   onReorderedRef.current = onBlocksReordered;
   onAddAfterRef.current = onAddBlockAfter;
   onResizedRef.current = onBlockResized;
+  onStyleUpdatedRef.current = onBlockStyleUpdated;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -114,6 +118,11 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.BLOCK_RESIZED: {
           const payload = event.data.payload as { blockId: string; width?: string; height?: string };
           onResizedRef.current?.(payload.blockId, payload.width, payload.height);
+          break;
+        }
+        case IFRAME_MESSAGES.BLOCK_STYLE_UPDATED: {
+          const payload = event.data.payload as { blockId: string; style: Record<string, string> };
+          onStyleUpdatedRef.current?.(payload.blockId, payload.style);
           break;
         }
       }
