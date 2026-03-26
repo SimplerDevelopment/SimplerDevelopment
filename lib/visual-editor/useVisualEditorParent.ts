@@ -34,6 +34,7 @@ export function useVisualEditorParent({
   onBlockClicked,
   onBlockHovered,
   onBlocksReordered,
+  onAddBlockAfter,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
