@@ -132,6 +132,12 @@ export function VisualEditorShell({
       onBlocksChange(updated);
       selectBlock(newBlock.id);
     },
+    onBlockResized: (blockId: string, width: string | undefined, height: string | undefined) => {
+      const style: Record<string, string> = {};
+      if (width) style.width = width;
+      if (height) style.height = height;
+      handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
+    },
   });
 
   useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
