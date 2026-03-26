@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Block } from '@/types/blocks';
 import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
 import { TokenColorPicker } from './TokenColorPicker';
+import MediaPicker from '@/components/admin/MediaPicker';
 
 interface StyleSettingsProps {
   block: Block;
@@ -853,12 +854,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
 
       {/* Background Image */}
       <div>
-        <label className="block text-sm font-semibold text-foreground mb-3">Background Image</label>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-muted-foreground mb-1">Image URL</label>
-            <input type="text" value={style.backgroundImage || ''} onChange={(e) => updateStyle('backgroundImage', e.target.value)} placeholder="https://..." className="w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono" />
-          </div>
+          <MediaPicker
+            value={style.backgroundImage || ''}
+            onChange={(url) => updateStyle('backgroundImage', url)}
+            label="Background Image"
+          />
           {style.backgroundImage && (
             <div className="grid grid-cols-2 gap-2">
               <div>
