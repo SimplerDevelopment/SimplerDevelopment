@@ -410,7 +410,9 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                   handleTitleChange={handleTitleChange}
                   siteId={siteId}
                   availableCategories={availableCategories}
+                  setAvailableCategories={setAvailableCategories}
                   availableTags={availableTags}
+                  setAvailableTags={setAvailableTags}
                   onClose={() => setSettingsOpen(false)}
                 />
               )}
@@ -457,7 +459,9 @@ function SettingsSlideOver({
   handleTitleChange,
   siteId,
   availableCategories,
+  setAvailableCategories,
   availableTags,
+  setAvailableTags,
   onClose,
 }: {
   formData: Post;
@@ -465,7 +469,9 @@ function SettingsSlideOver({
   handleTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   siteId: number;
   availableCategories: TaxonomyItem[];
+  setAvailableCategories: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
   availableTags: TaxonomyItem[];
+  setAvailableTags: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
   onClose: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -651,71 +657,15 @@ function SettingsSlideOver({
           )}
 
           {activeTab === 'taxonomy' && (
-            <div className="space-y-5">
-              {availableCategories.length > 0 ? (
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">Categories</label>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCategories.map(cat => {
-                      const selected = formData.categoryIds?.includes(cat.id);
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setFormData(prev => ({
-                            ...prev,
-                            categoryIds: selected
-                              ? (prev.categoryIds || []).filter(id => id !== cat.id)
-                              : [...(prev.categoryIds || []), cat.id],
-                          }))}
-                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                            selected
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                          }`}
-                        >
-                          {cat.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No categories created yet.</p>
-              )}
-
-              {availableTags.length > 0 ? (
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">Tags</label>
-                  <div className="flex flex-wrap gap-2">
-                    {availableTags.map(tag => {
-                      const selected = formData.tagIds?.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          type="button"
-                          onClick={() => setFormData(prev => ({
-                            ...prev,
-                            tagIds: selected
-                              ? (prev.tagIds || []).filter(id => id !== tag.id)
-                              : [...(prev.tagIds || []), tag.id],
-                          }))}
-                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                            selected
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                          }`}
-                        >
-                          {tag.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No tags created yet.</p>
-              )}
-            </div>
+            <TaxonomyTabContent
+              siteId={siteId}
+              formData={formData}
+              setFormData={setFormData}
+              availableCategories={availableCategories}
+              setAvailableCategories={setAvailableCategories}
+              availableTags={availableTags}
+              setAvailableTags={setAvailableTags}
+            />
           )}
 
           {activeTab === 'custom-fields' && (
@@ -804,5 +754,164 @@ function SettingsSlideOver({
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Taxonomy Tab with Inline Creation ───────────────────────────────────────
+
+function TaxonomyTabContent({
+  siteId,
+  formData,
+  setFormData,
+  availableCategories,
+  setAvailableCategories,
+  availableTags,
+  setAvailableTags,
+}: {
+  siteId: number;
+  formData: Post;
+  setFormData: React.Dispatch<React.SetStateAction<Post>>;
+  availableCategories: TaxonomyItem[];
+  setAvailableCategories: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
+  availableTags: TaxonomyItem[];
+  setAvailableTags: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
+}) {
+  const [newCatName, setNewCatName] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+  const [creatingCat, setCreatingCat] = useState(false);
+  const [creatingTag, setCreatingTag] = useState(false);
+
+  const createCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    setCreatingCat(true);
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const res = await fetch(`/api/portal/cms/websites/${siteId}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slug }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setAvailableCategories(prev => [...prev, data.data]);
+      setFormData(prev => ({ ...prev, categoryIds: [...(prev.categoryIds || []), data.data.id] }));
+      setNewCatName('');
+    }
+    setCreatingCat(false);
+  };
+
+  const createTag = async () => {
+    const name = newTagName.trim();
+    if (!name) return;
+    setCreatingTag(true);
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const res = await fetch(`/api/portal/cms/websites/${siteId}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, slug }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setAvailableTags(prev => [...prev, data.data]);
+      setFormData(prev => ({ ...prev, tagIds: [...(prev.tagIds || []), data.data.id] }));
+      setNewTagName('');
+    }
+    setCreatingTag(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Categories */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-2">Categories</label>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {availableCategories.map(cat => {
+            const selected = formData.categoryIds?.includes(cat.id);
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  categoryIds: selected
+                    ? (prev.categoryIds || []).filter(id => id !== cat.id)
+                    : [...(prev.categoryIds || []), cat.id],
+                }))}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  selected
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                }`}
+              >
+                {cat.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newCatName}
+            onChange={e => setNewCatName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), createCategory())}
+            placeholder="New category name..."
+            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={createCategory}
+            disabled={!newCatName.trim() || creatingCat}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shrink-0"
+          >
+            {creatingCat ? '...' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-2">Tags</label>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {availableTags.map(tag => {
+            const selected = formData.tagIds?.includes(tag.id);
+            return (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  tagIds: selected
+                    ? (prev.tagIds || []).filter(id => id !== tag.id)
+                    : [...(prev.tagIds || []), tag.id],
+                }))}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  selected
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                }`}
+              >
+                {tag.name}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newTagName}
+            onChange={e => setNewTagName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), createTag())}
+            placeholder="New tag name..."
+            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={createTag}
+            disabled={!newTagName.trim() || creatingTag}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shrink-0"
+          >
+            {creatingTag ? '...' : 'Add'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
