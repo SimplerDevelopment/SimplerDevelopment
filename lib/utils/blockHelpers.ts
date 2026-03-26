@@ -62,6 +62,133 @@ export function getAllBlocks(blocks: Block[]): Block[] {
 }
 
 /**
+ * Find which container a block lives in.
+ * Returns { containerId, slotIndex, blockIndex } or null if top-level.
+ */
+export function findBlockPath(
+  blocks: Block[],
+  blockId: string,
+): { containerId: string; slotIndex: number; blockIndex: number } | null {
+  for (const block of blocks) {
+    if (block.type === 'columns') {
+      for (let si = 0; si < block.columns.length; si++) {
+        const bi = block.columns[si].blocks.findIndex((b) => b.id === blockId);
+        if (bi !== -1) return { containerId: block.id, slotIndex: si, blockIndex: bi };
+        const nested = findBlockPath(block.columns[si].blocks, blockId);
+        if (nested) return nested;
+      }
+    }
+    if (block.type === 'tabs') {
+      for (let si = 0; si < block.tabs.length; si++) {
+        const bi = block.tabs[si].blocks.findIndex((b) => b.id === blockId);
+        if (bi !== -1) return { containerId: block.id, slotIndex: si, blockIndex: bi };
+        const nested = findBlockPath(block.tabs[si].blocks, blockId);
+        if (nested) return nested;
+      }
+    }
+    if (block.type === 'section') {
+      const bi = block.blocks.findIndex((b) => b.id === blockId);
+      if (bi !== -1) return { containerId: block.id, slotIndex: 0, blockIndex: bi };
+      const nested = findBlockPath(block.blocks, blockId);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+/**
+ * Remove a block by ID from anywhere in the tree. Returns the new blocks array.
+ */
+export function removeBlockById(blocks: Block[], blockId: string): Block[] {
+  return blocks
+    .filter((b) => b.id !== blockId)
+    .map((block) => {
+      if (block.type === 'columns') {
+        return {
+          ...block,
+          columns: block.columns.map((col) => ({
+            ...col,
+            blocks: removeBlockById(col.blocks, blockId),
+          })),
+        };
+      }
+      if (block.type === 'tabs') {
+        return {
+          ...block,
+          tabs: block.tabs.map((tab) => ({
+            ...tab,
+            blocks: removeBlockById(tab.blocks, blockId),
+          })),
+        };
+      }
+      if (block.type === 'section') {
+        return {
+          ...block,
+          blocks: removeBlockById(block.blocks, blockId),
+        };
+      }
+      return block;
+    });
+}
+
+/**
+ * Insert a block into a container slot at a given index.
+ * containerId is the id of the columns/tabs/section block.
+ * slotIndex is which column/tab (0 for sections).
+ * atIndex is the position within that slot's blocks array.
+ */
+export function insertBlockInContainer(
+  blocks: Block[],
+  containerId: string,
+  slotIndex: number,
+  atIndex: number,
+  blockToInsert: Block,
+): Block[] {
+  return blocks.map((block) => {
+    if (block.id === containerId) {
+      if (block.type === 'columns') {
+        return {
+          ...block,
+          columns: block.columns.map((col, i) => {
+            if (i !== slotIndex) return col;
+            const newBlocks = [...col.blocks];
+            newBlocks.splice(atIndex, 0, blockToInsert);
+            return { ...col, blocks: newBlocks };
+          }),
+        };
+      }
+      if (block.type === 'tabs') {
+        return {
+          ...block,
+          tabs: block.tabs.map((tab, i) => {
+            if (i !== slotIndex) return tab;
+            const newBlocks = [...tab.blocks];
+            newBlocks.splice(atIndex, 0, blockToInsert);
+            return { ...tab, blocks: newBlocks };
+          }),
+        };
+      }
+      if (block.type === 'section') {
+        const newBlocks = [...block.blocks];
+        newBlocks.splice(atIndex, 0, blockToInsert);
+        return { ...block, blocks: newBlocks };
+      }
+    }
+    // Recurse into containers
+    if (block.type === 'columns') {
+      return { ...block, columns: block.columns.map((col) => ({ ...col, blocks: insertBlockInContainer(col.blocks, containerId, slotIndex, atIndex, blockToInsert) })) };
+    }
+    if (block.type === 'tabs') {
+      return { ...block, tabs: block.tabs.map((tab) => ({ ...tab, blocks: insertBlockInContainer(tab.blocks, containerId, slotIndex, atIndex, blockToInsert) })) };
+    }
+    if (block.type === 'section') {
+      return { ...block, blocks: insertBlockInContainer(block.blocks, containerId, slotIndex, atIndex, blockToInsert) };
+    }
+    return block;
+  });
+}
+
+/**
  * Update a block by ID, searching recursively through nested structures
  */
 export function updateBlockById(

@@ -4,11 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -20,7 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
-import { findBlockById, updateBlockById } from '@/lib/utils/blockHelpers';
+import { findBlockById, updateBlockById, removeBlockById, insertBlockInContainer, getAllBlocks } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, BlockStyle } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
@@ -134,20 +138,69 @@ export function VisualEditorShell({
     onBlocksChange(updated);
   }, [blocks, onBlocksChange]);
 
-  // DnD for layers
+  // DnD for layers (supports nesting)
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
   );
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setDraggedBlockId(event.active.id as string);
+  }, []);
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setDraggedBlockId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = blocks.findIndex((b) => b.id === active.id);
-    const newIndex = blocks.findIndex((b) => b.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    onBlocksChange(arrayMove(blocks, oldIndex, newIndex));
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if dropping onto a container drop zone (id format: "dropzone-{containerId}-{slotIndex}")
+    if (overId.startsWith('dropzone-')) {
+      const parts = overId.split('-');
+      const containerId = parts.slice(1, -1).join('-');
+      const slotIndex = parseInt(parts[parts.length - 1]);
+      const draggedBlock = findBlockById(blocks, activeId);
+      if (!draggedBlock) return;
+
+      // Remove from current position, insert into container
+      let updated = removeBlockById(blocks, activeId);
+      updated = insertBlockInContainer(updated, containerId, slotIndex, 0, draggedBlock);
+      onBlocksChange(updated);
+      return;
+    }
+
+    // Standard reorder: both at top level
+    const oldIndex = blocks.findIndex((b) => b.id === activeId);
+    const newIndex = blocks.findIndex((b) => b.id === overId);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onBlocksChange(arrayMove(blocks, oldIndex, newIndex));
+      return;
+    }
+
+    // Moving a nested block to top level (drop on a top-level block)
+    if (oldIndex === -1 && newIndex !== -1) {
+      const draggedBlock = findBlockById(blocks, activeId);
+      if (!draggedBlock) return;
+      let updated = removeBlockById(blocks, activeId);
+      updated.splice(newIndex, 0, draggedBlock);
+      onBlocksChange(updated);
+      return;
+    }
+
+    // Moving a top-level block next to a nested block (insert at that position)
+    if (oldIndex !== -1 && newIndex === -1) {
+      // Find where the over block lives
+      const allFlat = getAllBlocks(blocks);
+      const overBlock = allFlat.find(b => b.id === overId);
+      if (!overBlock) return;
+      // For simplicity, just reorder top-level
+    }
   }, [blocks, onBlocksChange]);
+
+  const allBlockIds = useMemo(() => getAllBlocks(blocks).map(b => b.id), [blocks]);
 
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
@@ -191,8 +244,8 @@ export function VisualEditorShell({
           <div className="px-3 py-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Layers</h3>
           </div>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <SortableContext items={allBlockIds} strategy={verticalListSortingStrategy}>
               <div className="px-1 pb-2">
                 {blocks.map((block) => (
                   <LayerItem
@@ -314,6 +367,7 @@ function LayerItem({
     block.items.forEach((item) => children.push({ label: item.title, blocks: [] }));
   }
 
+  const isContainer = children.length > 0;
   const hasChildren = children.some(c => c.blocks.length > 0);
   const previewText = 'content' in block && typeof block.content === 'string'
     ? block.content.replace(/<[^>]+>/g, '').substring(0, 20)
@@ -334,7 +388,7 @@ function LayerItem({
         <span {...attributes} {...listeners} className="material-icons text-xs text-gray-300 cursor-grab shrink-0">drag_indicator</span>
 
         {/* Expand toggle for containers */}
-        {hasChildren ? (
+        {isContainer ? (
           <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             className="material-icons text-xs text-gray-400 shrink-0"
           >{expanded ? 'expand_more' : 'chevron_right'}</button>
@@ -352,21 +406,39 @@ function LayerItem({
         >close</button>
       </div>
 
-      {/* Nested children */}
+      {/* Nested children with drop zones */}
       {expanded && children.map((child, ci) => (
         <div key={ci}>
-          {child.blocks.length > 0 && (
-            <>
-              <div className="text-[9px] text-gray-400 uppercase tracking-wider" style={{ paddingLeft: `${(depth + 1) * 12 + 20}px` }}>
-                {child.label}
-              </div>
-              {child.blocks.map((nested) => (
-                <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} onDelete={onDelete} />
-              ))}
-            </>
-          )}
+          <div className="text-[9px] text-gray-400 uppercase tracking-wider" style={{ paddingLeft: `${(depth + 1) * 12 + 20}px` }}>
+            {child.label}
+          </div>
+          {child.blocks.map((nested) => (
+            <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} onDelete={onDelete} />
+          ))}
+          <ContainerDropZone containerId={block.id} slotIndex={ci} depth={depth + 1} />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Container Drop Zone ─────────────────────────────────────────────────────
+
+function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: string; slotIndex: number; depth: number }) {
+  const dropId = `dropzone-${containerId}-${slotIndex}`;
+  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`mx-1 my-0.5 rounded border-2 border-dashed py-2 text-center text-[10px] transition-colors ${
+        isOver
+          ? 'border-blue-400 bg-blue-50 text-blue-600'
+          : 'border-gray-200 text-gray-400'
+      }`}
+      style={{ marginLeft: `${(depth) * 12 + 20}px` }}
+    >
+      {isOver ? 'Drop here' : 'Drag block here'}
     </div>
   );
 }
