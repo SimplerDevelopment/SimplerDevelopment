@@ -23,6 +23,7 @@ interface UseVisualEditorParentOptions {
   pageSettings?: PageSettings;
   onBlockClicked: (blockId: string) => void;
   onBlockHovered: (blockId: string | null) => void;
+  onBlocksReordered?: (blocks: Block[]) => void;
 }
 
 export function useVisualEditorParent({
@@ -31,6 +32,7 @@ export function useVisualEditorParent({
   pageSettings,
   onBlockClicked,
   onBlockHovered,
+  onBlocksReordered,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -42,11 +44,13 @@ export function useVisualEditorParent({
   const settingsRef = useRef(pageSettings);
   const onClickedRef = useRef(onBlockClicked);
   const onHoveredRef = useRef(onBlockHovered);
+  const onReorderedRef = useRef(onBlocksReordered);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
   onClickedRef.current = onBlockClicked;
   onHoveredRef.current = onBlockHovered;
+  onReorderedRef.current = onBlocksReordered;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -87,6 +91,11 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.COMPONENT_REGISTRY: {
           const payload = event.data.payload as ComponentRegistryPayload;
           setCustomComponents(payload.components);
+          break;
+        }
+        case IFRAME_MESSAGES.BLOCKS_REORDERED: {
+          const payload = event.data.payload as { blocks: Block[] };
+          onReorderedRef.current?.(payload.blocks);
           break;
         }
       }

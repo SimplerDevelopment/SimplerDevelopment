@@ -111,6 +111,7 @@ export function VisualEditorShell({
     selectedBlockId,
     onBlockClicked: selectBlock,
     onBlockHovered: handleBlockHovered,
+    onBlocksReordered: onBlocksChange,
   });
 
   useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
