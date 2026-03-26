@@ -24,7 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
-import { findBlockById, updateBlockById, removeBlockById, insertBlockInContainer, getAllBlocks } from '@/lib/utils/blockHelpers';
+import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, getAllBlocks } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, BlockStyle } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
@@ -158,20 +158,39 @@ export function VisualEditorShell({
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropping onto a container drop zone (id format: "dropzone-{containerId}-{slotIndex}")
-    if (overId.startsWith('dropzone-')) {
-      const parts = overId.split('-');
-      const containerId = parts.slice(1, -1).join('-');
-      const slotIndex = parseInt(parts[parts.length - 1]);
+    // Check if dropping onto a container drop zone (id format: "dropzone:{containerId}:{slotIndex}")
+    if (overId.startsWith('dropzone:')) {
+      const firstColon = overId.indexOf(':');
+      const lastColon = overId.lastIndexOf(':');
+      const containerId = overId.substring(firstColon + 1, lastColon);
+      const slotIndex = parseInt(overId.substring(lastColon + 1));
       const draggedBlock = findBlockById(blocks, activeId);
-      if (!draggedBlock) return;
+      if (!draggedBlock || isNaN(slotIndex)) return;
 
-      // Remove from current position, insert into container
+      // Don't drop a container into itself
+      if (containerId === activeId) return;
+
+      // Remove from current position, insert at end of container slot
       let updated = removeBlockById(blocks, activeId);
-      updated = insertBlockInContainer(updated, containerId, slotIndex, 0, draggedBlock);
+      // Find the container to get current child count for append position
+      const container = findBlockById(updated, containerId);
+      let appendAt = 0;
+      if (container) {
+        if (container.type === 'columns' && container.columns[slotIndex]) {
+          appendAt = container.columns[slotIndex].blocks.length;
+        } else if (container.type === 'tabs' && container.tabs[slotIndex]) {
+          appendAt = container.tabs[slotIndex].blocks.length;
+        } else if (container.type === 'section') {
+          appendAt = container.blocks.length;
+        }
+      }
+      updated = insertBlockInContainer(updated, containerId, slotIndex, appendAt, draggedBlock);
       onBlocksChange(updated);
       return;
     }
+
+    const draggedBlock = findBlockById(blocks, activeId);
+    if (!draggedBlock) return;
 
     // Standard reorder: both at top level
     const oldIndex = blocks.findIndex((b) => b.id === activeId);
@@ -183,25 +202,43 @@ export function VisualEditorShell({
 
     // Moving a nested block to top level (drop on a top-level block)
     if (oldIndex === -1 && newIndex !== -1) {
-      const draggedBlock = findBlockById(blocks, activeId);
-      if (!draggedBlock) return;
       let updated = removeBlockById(blocks, activeId);
       updated.splice(newIndex, 0, draggedBlock);
       onBlocksChange(updated);
       return;
     }
 
-    // Moving a top-level block next to a nested block (insert at that position)
+    // Moving a top-level block to where a nested block is (swap positions)
     if (oldIndex !== -1 && newIndex === -1) {
-      // Find where the over block lives
-      const allFlat = getAllBlocks(blocks);
-      const overBlock = allFlat.find(b => b.id === overId);
-      if (!overBlock) return;
-      // For simplicity, just reorder top-level
+      const overPath = findBlockPath(blocks, overId);
+      if (!overPath) return;
+      let updated = removeBlockById(blocks, activeId);
+      updated = insertBlockInContainer(updated, overPath.containerId, overPath.slotIndex, overPath.blockIndex, draggedBlock);
+      onBlocksChange(updated);
+      return;
+    }
+
+    // Both nested — move active to over's position
+    if (oldIndex === -1 && newIndex === -1) {
+      const overPath = findBlockPath(blocks, overId);
+      if (!overPath) return;
+      let updated = removeBlockById(blocks, activeId);
+      updated = insertBlockInContainer(updated, overPath.containerId, overPath.slotIndex, overPath.blockIndex, draggedBlock);
+      onBlocksChange(updated);
     }
   }, [blocks, onBlocksChange]);
 
-  const allBlockIds = useMemo(() => getAllBlocks(blocks).map(b => b.id), [blocks]);
+  // Collect all block IDs + drop zone IDs for DnD context
+  const allBlockIds = useMemo(() => {
+    const ids = getAllBlocks(blocks).map(b => b.id);
+    // Add drop zone IDs for containers
+    for (const block of blocks) {
+      if (block.type === 'columns') block.columns.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
+      if (block.type === 'tabs') block.tabs.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
+      if (block.type === 'section') ids.push(`dropzone:${block.id}:0`);
+    }
+    return ids;
+  }, [blocks]);
 
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
@@ -426,7 +463,7 @@ function LayerItem({
 // ─── Container Drop Zone ─────────────────────────────────────────────────────
 
 function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: string; slotIndex: number; depth: number }) {
-  const dropId = `dropzone-${containerId}-${slotIndex}`;
+  const dropId = `dropzone:${containerId}:${slotIndex}`;
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
 
   return (
