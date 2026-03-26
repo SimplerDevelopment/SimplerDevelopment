@@ -112,6 +112,20 @@ export function VisualEditorShell({
     onBlockClicked: selectBlock,
     onBlockHovered: handleBlockHovered,
     onBlocksReordered: onBlocksChange,
+    onAddBlockAfter: (blockId: string) => {
+      // Open the block picker — for now, add a text block after the target
+      const idx = blocks.findIndex(b => b.id === blockId);
+      const newBlock = {
+        id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'text' as const,
+        order: idx + 1,
+        content: 'New block — click to edit',
+      };
+      const updated = [...blocks];
+      updated.splice(idx + 1, 0, newBlock as Block);
+      onBlocksChange(updated);
+      selectBlock(newBlock.id);
+    },
   });
 
   useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
@@ -142,7 +156,7 @@ export function VisualEditorShell({
   // DnD for layers (supports nesting)
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 12 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -384,8 +398,11 @@ function LayerItem({
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  // Only top-level items are sortable — nested items are plain clickable rows
+  const sortable = depth === 0 ? useSortable({ id: block.id }) : null;
+  const style = sortable
+    ? { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition || 'transform 200ms ease', opacity: sortable.isDragging ? 0.5 : 1 }
+    : {};
   const isSelected = selectedBlockId === block.id;
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
   const [expanded, setExpanded] = useState(true);
@@ -414,7 +431,7 @@ function LayerItem({
       : '';
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={sortable?.setNodeRef} style={style}>
       <div
         className={`group/layer flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
           isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
@@ -422,8 +439,8 @@ function LayerItem({
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={() => onSelect(block.id)}
       >
-        {/* Drag handle */}
-        <span {...attributes} {...listeners} className="material-icons text-xs text-gray-300 cursor-grab shrink-0">drag_indicator</span>
+        {/* Drag handle — only for sortable (top-level) items */}
+        <span {...(sortable?.attributes || {})} {...(sortable?.listeners || {})} className={`material-icons text-xs shrink-0 ${sortable ? 'text-gray-300 cursor-grab' : 'text-gray-200'}`}>drag_indicator</span>
 
         {/* Expand toggle for containers */}
         {isContainer ? (
@@ -469,14 +486,14 @@ function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: str
   return (
     <div
       ref={setNodeRef}
-      className={`mx-1 my-0.5 rounded border-2 border-dashed py-2 text-center text-[10px] transition-colors ${
+      className={`mx-1 my-1 rounded-md text-center text-[10px] transition-all ${
         isOver
-          ? 'border-blue-400 bg-blue-50 text-blue-600'
-          : 'border-gray-200 text-gray-400'
+          ? 'border-2 border-blue-400 bg-blue-50 text-blue-600 py-3 font-medium'
+          : 'border border-dashed border-gray-300 text-gray-400 py-1.5'
       }`}
       style={{ marginLeft: `${(depth) * 12 + 20}px` }}
     >
-      {isOver ? 'Drop here' : 'Drag block here'}
+      {isOver ? '+ Drop block here' : '+ Add to slot'}
     </div>
   );
 }

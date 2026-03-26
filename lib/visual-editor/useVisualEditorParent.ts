@@ -24,6 +24,7 @@ interface UseVisualEditorParentOptions {
   onBlockClicked: (blockId: string) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered?: (blocks: Block[]) => void;
+  onAddBlockAfter?: (blockId: string) => void;
 }
 
 export function useVisualEditorParent({
@@ -45,12 +46,14 @@ export function useVisualEditorParent({
   const onClickedRef = useRef(onBlockClicked);
   const onHoveredRef = useRef(onBlockHovered);
   const onReorderedRef = useRef(onBlocksReordered);
+  const onAddAfterRef = useRef(onAddBlockAfter);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
   onClickedRef.current = onBlockClicked;
   onHoveredRef.current = onBlockHovered;
   onReorderedRef.current = onBlocksReordered;
+  onAddAfterRef.current = onAddBlockAfter;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -96,6 +99,11 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.BLOCKS_REORDERED: {
           const payload = event.data.payload as { blocks: Block[] };
           onReorderedRef.current?.(payload.blocks);
+          break;
+        }
+        case IFRAME_MESSAGES.ADD_BLOCK_AFTER: {
+          const payload = event.data.payload as { blockId: string };
+          onAddAfterRef.current?.(payload.blockId);
           break;
         }
       }
