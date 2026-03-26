@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -123,7 +123,15 @@ function computeValue(lineItems: LineItem[], fees: Fee[]): number {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function ProposalsAndDecksPage() {
+export default function ProposalsAndDecksPageWrapper() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading...</div>}>
+      <ProposalsAndDecksPage />
+    </Suspense>
+  );
+}
+
+function ProposalsAndDecksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'decks' ? 'decks' : 'proposals';
