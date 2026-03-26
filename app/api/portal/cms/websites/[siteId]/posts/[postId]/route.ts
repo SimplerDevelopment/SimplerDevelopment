@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
 
 export async function GET(
   _req: Request,
@@ -110,6 +111,16 @@ export async function PUT(
         tagIds.map((tId: number) => ({ postId: pid, tagId: tId }))
       );
     }
+  }
+
+  // Trigger on-demand revalidation on the client site (non-blocking)
+  const siteUrl = clientSiteUrl(site.subdomain, site.domain);
+  if (siteUrl) {
+    const postSlug = post.slug;
+    revalidateClientSite(siteUrl, [
+      `/blog/${postSlug}`,
+      `/p/${postSlug}`,
+    ]).catch(() => {}); // fire-and-forget
   }
 
   return NextResponse.json({ success: true, data: post });
