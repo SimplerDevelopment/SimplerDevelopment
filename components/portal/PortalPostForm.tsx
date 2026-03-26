@@ -13,6 +13,7 @@ import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import MediaPicker from '@/components/admin/MediaPicker';
 
 interface Post {
   id?: number;
@@ -445,15 +446,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
                           />
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Cover Image URL</label>
-                          <input
-                            value={formData.coverImage}
-                            onChange={e => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
-                            placeholder="https://..."
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                          />
-                        </div>
+                        <MediaPicker
+                          value={formData.coverImage}
+                          onChange={(url) => setFormData(prev => ({ ...prev, coverImage: url }))}
+                          label="Cover Image"
+                          apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+                        />
 
                         {/* Categories */}
                         {availableCategories.length > 0 && (

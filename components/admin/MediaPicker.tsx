@@ -17,6 +17,7 @@ interface MediaPickerProps {
   mimeTypeFilter?: string;
   label?: string;
   required?: boolean;
+  apiEndpoint?: string;
 }
 
 export default function MediaPicker({
@@ -25,6 +26,7 @@ export default function MediaPicker({
   mimeTypeFilter = 'image',
   label = 'Select Media',
   required = false,
+  apiEndpoint = '/api/media',
 }: MediaPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
@@ -46,7 +48,7 @@ export default function MediaPicker({
     });
     if (search) params.append('search', search);
 
-    const response = await fetch(`/api/media?${params}`);
+    const response = await fetch(`${apiEndpoint}?${params}`);
     const data = await response.json();
 
     if (data.success) {
