@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { clientWebsites } from '@/lib/db/schema';
+import { clientWebsites, websiteDomains } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
@@ -34,6 +34,12 @@ export default async function WebsiteSettingsPage({
     .limit(1);
 
   if (!site) notFound();
+
+  const domains = await db
+    .select()
+    .from(websiteDomains)
+    .where(eq(websiteDomains.websiteId, site.id))
+    .orderBy(websiteDomains.createdAt);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -78,8 +84,8 @@ export default async function WebsiteSettingsPage({
         </>
       )}
 
-      {/* Custom Domain */}
-      <CustomDomainForm siteId={site.id} currentDomain={site.domain} />
+      {/* Custom Domains */}
+      <CustomDomainForm siteId={site.id} initialDomains={domains} />
 
       {/* Danger Zone */}
       <DeleteWebsiteButton siteId={site.id} siteName={site.name} />

@@ -560,6 +560,33 @@ export const clientWebsites = pgTable('client_websites', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Multiple custom domains per website with DNS provider integration
+export const websiteDomains = pgTable('website_domains', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  domain: varchar('domain', { length: 255 }).notNull(),
+  isPrimary: boolean('is_primary').default(false).notNull(),
+  status: varchar('status', { length: 50 }).default('pending').notNull(), // pending, verified, failed
+  // DNS provider for 1-click configuration
+  dnsProvider: varchar('dns_provider', { length: 50 }), // godaddy, cloudflare, manual
+  dnsConfigured: boolean('dns_configured').default(false).notNull(),
+  dnsConfiguredAt: timestamp('dns_configured_at'),
+  verifiedAt: timestamp('verified_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Encrypted DNS provider API keys per client (not per domain)
+export const clientDnsProviders = pgTable('client_dns_providers', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 50 }).notNull(), // godaddy, cloudflare
+  apiKey: text('api_key').notNull(), // encrypted
+  apiSecret: text('api_secret'), // encrypted, GoDaddy needs key+secret
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // HTTP request logs sent from client websites via middleware
 export const httpRequestLogs = pgTable('http_request_logs', {
   id: serial('id').primaryKey(),

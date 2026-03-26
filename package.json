@@ -16,7 +16,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed-admin.ts"
+    "db:seed": "tsx scripts/seed-admin.ts",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -59,7 +61,9 @@
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
     "unified": "^11.0.5",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "expo": "~54.0.33",
+    "react-native": "0.81.5"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.1",

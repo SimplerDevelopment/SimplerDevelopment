@@ -77,8 +77,7 @@ const crmNavItemsList = [
   { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
   { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
   { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
-  { href: '/portal/crm/proposals', label: 'Proposals', icon: 'description' },
-  { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
+  { href: '/portal/crm/proposals', label: 'Proposals & Decks', icon: 'description' },
   { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
 ];
 
