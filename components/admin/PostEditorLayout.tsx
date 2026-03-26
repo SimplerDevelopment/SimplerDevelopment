@@ -14,6 +14,8 @@ interface PostEditorLayoutProps {
   onStatusChange: (status: 'draft' | 'published') => void;
   backHref?: string;
   liveUrl?: string | null;
+  previewMode?: boolean;
+  onPreviewToggle?: () => void;
 }
 
 export function PostEditorLayout({
@@ -28,6 +30,8 @@ export function PostEditorLayout({
   onStatusChange,
   liveUrl,
   backHref,
+  previewMode,
+  onPreviewToggle,
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
 
@@ -75,6 +79,22 @@ export function PostEditorLayout({
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
               </select>
+
+              {onPreviewToggle && (
+                <button
+                  type="button"
+                  onClick={onPreviewToggle}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors shrink-0 ${
+                    previewMode
+                      ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      : 'border-border hover:bg-accent'
+                  }`}
+                  title={previewMode ? 'Exit Preview' : 'Live Preview'}
+                >
+                  <span className="material-icons text-base">{previewMode ? 'edit' : 'visibility'}</span>
+                  {previewMode ? 'Edit' : 'Preview'}
+                </button>
+              )}
 
               {liveUrl && (
                 <a

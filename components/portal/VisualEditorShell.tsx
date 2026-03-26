@@ -74,6 +74,7 @@ interface VisualEditorShellProps {
   selectedBlockId: string | null;
   iframeSrc: string;
   viewport?: 'desktop' | 'tablet' | 'mobile';
+  previewMode?: boolean;
   onBlocksChange: (blocks: Block[]) => void;
   onSelectBlock: (blockId: string | null) => void;
   onAddBlock: (type: string, afterBlockId?: string) => void;
@@ -89,6 +90,7 @@ export function VisualEditorShell({
   selectedBlockId: selectedBlockIdProp,
   iframeSrc,
   viewport = 'desktop',
+  previewMode = false,
   onBlocksChange,
   onSelectBlock,
   onAddBlock,
@@ -320,6 +322,7 @@ export function VisualEditorShell({
   return (
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* ── Left Panel ── */}
+      {!previewMode && (
       <div className="w-60 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
         <div className="p-3 shrink-0">
           <button
@@ -378,17 +381,19 @@ export function VisualEditorShell({
           </DndContext>
         </div>
       </div>
+      )}
 
       {/* ── Center — iframe ── */}
       <div className="flex-1 flex flex-col bg-gray-100">
-        <div className="flex-1 flex items-start justify-center overflow-auto p-4">
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden transition-all" style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
+        <div className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
+          <div className={`bg-white overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: previewMode ? '100%' : viewportWidth, maxWidth: '100%', height: '100%' }}>
             <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
           </div>
         </div>
       </div>
 
       {/* ── Right Panel — Property Editor ── */}
+      {!previewMode && (
       <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
         {selectedBlock ? (
           <>
@@ -443,6 +448,7 @@ export function VisualEditorShell({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
