@@ -6,6 +6,26 @@ import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings 
 import { TokenColorPicker } from './TokenColorPicker';
 import MediaPicker from '@/components/admin/MediaPicker';
 
+// Collapsible section — defined outside component to keep stable reference across renders
+function StyleSection({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-border">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+      >
+        {title}
+        <span className="material-icons text-base text-muted-foreground">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+      {open && <div className="px-4 pb-4 space-y-3">{children}</div>}
+    </div>
+  );
+}
+
 interface StyleSettingsProps {
   block: Block;
   onChange: (updates: Partial<Block>) => void;
@@ -244,26 +264,6 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   const nonTextBlocks: string[] = ['spacer', 'divider', 'image', 'video', 'youtube'];
   const hasTextContent = !nonTextBlocks.includes(block.type);
 
-  // Collapsible section component
-  const Section = ({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) => {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-      <div className="border-b border-border">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
-        >
-          {title}
-          <span className="material-icons text-base text-muted-foreground">
-            {open ? 'expand_less' : 'expand_more'}
-          </span>
-        </button>
-        {open && <div className="px-4 pb-4 space-y-3">{children}</div>}
-      </div>
-    );
-  };
-
   const selectClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
   const inputClass = 'w-full text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono';
   const toggleBtn = (active: boolean) =>
@@ -276,7 +276,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   return (
     <div className="-mx-4">
       {/* ── Layout ──────────────────────────────────────────────── */}
-      <Section title="Layout" defaultOpen>
+      <StyleSection title="Layout" defaultOpen>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Display</label>
           <select value={style.display || ''} onChange={(e) => updateStyle('display', e.target.value)} className={selectClass}>
@@ -411,10 +411,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             <div><label className="block text-xs text-muted-foreground mb-1">Z-Index</label><input type="text" value={style.zIndex || ''} onChange={(e) => updateStyle('zIndex', e.target.value)} placeholder="auto" className={inputClass} /></div>
           </>
         )}
-      </Section>
+      </StyleSection>
 
       {/* ── Margin & Padding ────────────────────────────────────── */}
-      <Section title="Margin & Padding">
+      <StyleSection title="Margin & Padding">
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
           <span className="material-icons text-sm">{BREAKPOINTS[currentViewport].icon}</span>
           <span>Editing for {BREAKPOINTS[currentViewport].label}</span>
@@ -467,19 +467,19 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             sizes={pxSizes} outerLabel="margin" color="blue"
           />
         </div>
-      </Section>
+      </StyleSection>
 
       {/* ── Visibility ──────────────────────────────────────────── */}
-      <Section title="Visibility">
+      <StyleSection title="Visibility">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={responsive.visibility?.[currentViewport] !== false} onChange={(e) => updateResponsiveSetting('visibility', currentViewport, e.target.checked)} className="rounded border-border" />
           <span className="font-medium">Visible on {BREAKPOINTS[currentViewport].label}</span>
         </label>
         <p className="text-xs text-muted-foreground">Hide this block on {BREAKPOINTS[currentViewport].label.toLowerCase()} devices</p>
-      </Section>
+      </StyleSection>
 
       {/* ── Background ──────────────────────────────────────────── */}
-      <Section title="Background">
+      <StyleSection title="Background">
         <TokenColorPicker label="Background Color" value={style.backgroundColor || ''} onChange={(v) => updateStyle('backgroundColor', v)} placeholder="#ffffff" />
         <MediaPicker value={style.backgroundImage || ''} onChange={(url) => updateStyle('backgroundImage', url)} label="Background Image" />
         {style.backgroundImage && (
@@ -499,10 +499,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             </div>
           </div>
         )}
-      </Section>
+      </StyleSection>
 
       {/* ── Typography ──────────────────────────────────────────── */}
-      <Section title="Typography">
+      <StyleSection title="Typography">
         <TokenColorPicker label="Text Color" value={style.color || ''} onChange={(v) => updateStyle('color', v)} placeholder="#000000" />
 
         {hasTextContent && (
@@ -591,10 +591,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             </div>
           </>
         )}
-      </Section>
+      </StyleSection>
 
       {/* ── Border ──────────────────────────────────────────────── */}
-      <Section title="Border">
+      <StyleSection title="Border">
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Width</label>
           <select value={style.borderWidth || ''} onChange={(e) => updateStyle('borderWidth', e.target.value)} className={selectClass}>
@@ -620,10 +620,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             <option value="1rem">2XL (16px)</option><option value="1.5rem">3XL (24px)</option><option value="9999px">Full (Pill)</option>
           </select>
         </div>
-      </Section>
+      </StyleSection>
 
       {/* ── Shadows & Effects ───────────────────────────────────── */}
-      <Section title="Shadows & Effects">
+      <StyleSection title="Shadows & Effects">
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Box Shadow</label>
           <select value={style.boxShadow || ''} onChange={(e) => updateStyle('boxShadow', e.target.value)} className={selectClass}>
@@ -651,10 +651,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             <option value="all 0.3s ease-in-out">Smooth</option><option value="transform 0.3s ease, opacity 0.3s ease">Transform + Opacity</option>
           </select>
         </div>
-      </Section>
+      </StyleSection>
 
       {/* ── CSS Properties ──────────────────────────────────────── */}
-      <Section title="CSS Properties">
+      <StyleSection title="CSS Properties">
         <textarea
           value={style.customCSS || ''}
           onChange={(e) => updateStyle('customCSS', e.target.value)}
@@ -665,7 +665,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         <p className="text-[10px] text-muted-foreground">
           Raw CSS rules. Example: <code>filter: blur(2px); mix-blend-mode: multiply</code>
         </p>
-      </Section>
+      </StyleSection>
     </div>
   );
 }
