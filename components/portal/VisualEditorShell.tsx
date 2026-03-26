@@ -386,7 +386,7 @@ export function VisualEditorShell({
       {/* ── Center — iframe ── */}
       <div className="flex-1 flex flex-col bg-gray-100">
         <div className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
-          <div className={`bg-white overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: previewMode ? '100%' : viewportWidth, maxWidth: '100%', height: '100%' }}>
+          <div className={`bg-white overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
             <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
           </div>
         </div>

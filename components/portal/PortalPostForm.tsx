@@ -487,7 +487,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                 blocks={blocks}
                 selectedBlockId={null}
                 iframeSrc={previewMode ? `${siteUrl}/blog/${post.slug}` : `${siteUrl}/blog/${post.slug}?_edit=true`}
-                viewport={previewMode ? 'desktop' : iframeViewport}
+                viewport={iframeViewport}
                 previewMode={previewMode}
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
