@@ -27,6 +27,8 @@ interface UseVisualEditorParentOptions {
   onAddBlockAfter?: (blockId: string) => void;
   onBlockResized?: (blockId: string, width: string | undefined, height: string | undefined) => void;
   onBlockStyleUpdated?: (blockId: string, style: Record<string, string>) => void;
+  onColumnResized?: (blockId: string, columnWidths: number[]) => void;
+  onGapChanged?: (blockId: string, gap: 'sm' | 'md' | 'lg') => void;
 }
 
 export function useVisualEditorParent({
@@ -39,6 +41,8 @@ export function useVisualEditorParent({
   onAddBlockAfter,
   onBlockResized,
   onBlockStyleUpdated,
+  onColumnResized,
+  onGapChanged,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -55,6 +59,8 @@ export function useVisualEditorParent({
   const onAddAfterRef = useRef(onAddBlockAfter);
   const onResizedRef = useRef(onBlockResized);
   const onStyleUpdatedRef = useRef(onBlockStyleUpdated);
+  const onColumnResizedRef = useRef(onColumnResized);
+  const onGapChangedRef = useRef(onGapChanged);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -64,6 +70,8 @@ export function useVisualEditorParent({
   onAddAfterRef.current = onAddBlockAfter;
   onResizedRef.current = onBlockResized;
   onStyleUpdatedRef.current = onBlockStyleUpdated;
+  onColumnResizedRef.current = onColumnResized;
+  onGapChangedRef.current = onGapChanged;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -124,6 +132,16 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.BLOCK_STYLE_UPDATED: {
           const payload = event.data.payload as { blockId: string; style: Record<string, string> };
           onStyleUpdatedRef.current?.(payload.blockId, payload.style);
+          break;
+        }
+        case IFRAME_MESSAGES.COLUMN_RESIZED: {
+          const payload = event.data.payload as { blockId: string; columnWidths: number[] };
+          onColumnResizedRef.current?.(payload.blockId, payload.columnWidths);
+          break;
+        }
+        case IFRAME_MESSAGES.GAP_CHANGED: {
+          const payload = event.data.payload as { blockId: string; gap: 'sm' | 'md' | 'lg' };
+          onGapChangedRef.current?.(payload.blockId, payload.gap);
           break;
         }
         case IFRAME_MESSAGES.UNDO_REDO_STATE: {

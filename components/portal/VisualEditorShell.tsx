@@ -26,7 +26,7 @@ import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
 import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, insertBlockAfter, getAllBlocks } from '@/lib/utils/blockHelpers';
-import type { Block, BlockType, BlockStyle } from '@/types/blocks';
+import type { Block, BlockType, BlockStyle, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
 
@@ -153,6 +153,18 @@ export function VisualEditorShell({
     },
     onBlockStyleUpdated: (blockId: string, style: Record<string, string>) => {
       handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
+    },
+    onColumnResized: (blockId: string, columnWidths: number[]) => {
+      const block = findBlockById(blocks, blockId) as ColumnsBlock | undefined;
+      if (!block || block.type !== 'columns') return;
+      const updatedColumns = block.columns.map((col, i) => ({
+        ...col,
+        width: columnWidths[i] ?? col.width,
+      }));
+      handleUpdateBlock(blockId, { columns: updatedColumns } as Partial<Block>);
+    },
+    onGapChanged: (blockId: string, gap: 'sm' | 'md' | 'lg') => {
+      handleUpdateBlock(blockId, { gap } as Partial<Block>);
     },
   });
 
