@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BlockEditor } from '@/components/blocks/BlockEditor';
 import { EditorWithPreview } from '@/components/blocks/EditorWithPreview';
 import { BlockType } from '@/types/blocks';
@@ -757,7 +757,7 @@ function SettingsSlideOver({
   );
 }
 
-// ─── Taxonomy Tab with Inline Creation ───────────────────────────────────────
+// ─── Taxonomy Tab with Search & Select ────────────────────────────────────────
 
 function TaxonomyTabContent({
   siteId,
@@ -776,141 +776,180 @@ function TaxonomyTabContent({
   availableTags: TaxonomyItem[];
   setAvailableTags: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
 }) {
-  const [newCatName, setNewCatName] = useState('');
-  const [newTagName, setNewTagName] = useState('');
-  const [creatingCat, setCreatingCat] = useState(false);
-  const [creatingTag, setCreatingTag] = useState(false);
+  return (
+    <div className="space-y-6">
+      <TaxonomySearchSelect
+        label="Categories"
+        items={availableCategories}
+        selectedIds={formData.categoryIds || []}
+        onToggle={(id) => setFormData(prev => ({
+          ...prev,
+          categoryIds: (prev.categoryIds || []).includes(id)
+            ? (prev.categoryIds || []).filter(i => i !== id)
+            : [...(prev.categoryIds || []), id],
+        }))}
+        onCreate={async (name) => {
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const res = await fetch(`/api/portal/cms/websites/${siteId}/categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, slug }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setAvailableCategories(prev => [...prev, data.data]);
+            setFormData(prev => ({ ...prev, categoryIds: [...(prev.categoryIds || []), data.data.id] }));
+          }
+        }}
+      />
+      <TaxonomySearchSelect
+        label="Tags"
+        items={availableTags}
+        selectedIds={formData.tagIds || []}
+        onToggle={(id) => setFormData(prev => ({
+          ...prev,
+          tagIds: (prev.tagIds || []).includes(id)
+            ? (prev.tagIds || []).filter(i => i !== id)
+            : [...(prev.tagIds || []), id],
+        }))}
+        onCreate={async (name) => {
+          const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const res = await fetch(`/api/portal/cms/websites/${siteId}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, slug }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setAvailableTags(prev => [...prev, data.data]);
+            setFormData(prev => ({ ...prev, tagIds: [...(prev.tagIds || []), data.data.id] }));
+          }
+        }}
+      />
+    </div>
+  );
+}
 
-  const createCategory = async () => {
-    const name = newCatName.trim();
-    if (!name) return;
-    setCreatingCat(true);
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const res = await fetch(`/api/portal/cms/websites/${siteId}/categories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, slug }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setAvailableCategories(prev => [...prev, data.data]);
-      setFormData(prev => ({ ...prev, categoryIds: [...(prev.categoryIds || []), data.data.id] }));
-      setNewCatName('');
-    }
-    setCreatingCat(false);
-  };
+// ─── Taxonomy Search & Select Combobox ───────────────────────────────────────
 
-  const createTag = async () => {
-    const name = newTagName.trim();
-    if (!name) return;
-    setCreatingTag(true);
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const res = await fetch(`/api/portal/cms/websites/${siteId}/tags`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, slug }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setAvailableTags(prev => [...prev, data.data]);
-      setFormData(prev => ({ ...prev, tagIds: [...(prev.tagIds || []), data.data.id] }));
-      setNewTagName('');
-    }
-    setCreatingTag(false);
+function TaxonomySearchSelect({
+  label,
+  items,
+  selectedIds,
+  onToggle,
+  onCreate,
+}: {
+  label: string;
+  items: TaxonomyItem[];
+  selectedIds: number[];
+  onToggle: (id: number) => void;
+  onCreate: (name: string) => Promise<void>;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedItems = items.filter(i => selectedIds.includes(i.id));
+  const lowerQuery = query.toLowerCase().trim();
+  const filtered = lowerQuery
+    ? items.filter(i => i.name.toLowerCase().includes(lowerQuery))
+    : items;
+  const exactMatch = items.some(i => i.name.toLowerCase() === lowerQuery);
+  const showCreateOption = lowerQuery && !exactMatch;
+
+  const handleCreate = async () => {
+    if (!lowerQuery || creating) return;
+    setCreating(true);
+    await onCreate(query.trim());
+    setQuery('');
+    setCreating(false);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Categories */}
-      <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-2">Categories</label>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {availableCategories.map(cat => {
-            const selected = formData.categoryIds?.includes(cat.id);
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setFormData(prev => ({
-                  ...prev,
-                  categoryIds: selected
-                    ? (prev.categoryIds || []).filter(id => id !== cat.id)
-                    : [...(prev.categoryIds || []), cat.id],
-                }))}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  selected
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                }`}
-              >
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={newCatName}
-            onChange={e => setNewCatName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), createCategory())}
-            placeholder="New category name..."
-            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-          />
-          <button
-            type="button"
-            onClick={createCategory}
-            disabled={!newCatName.trim() || creatingCat}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shrink-0"
-          >
-            {creatingCat ? '...' : 'Add'}
-          </button>
-        </div>
-      </div>
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-2">{label}</label>
 
-      {/* Tags */}
-      <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-2">Tags</label>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {availableTags.map(tag => {
-            const selected = formData.tagIds?.includes(tag.id);
-            return (
+      {/* Selected chips */}
+      {selectedItems.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selectedItems.map(item => (
+            <span
+              key={item.id}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground"
+            >
+              {item.name}
               <button
-                key={tag.id}
                 type="button"
-                onClick={() => setFormData(prev => ({
-                  ...prev,
-                  tagIds: selected
-                    ? (prev.tagIds || []).filter(id => id !== tag.id)
-                    : [...(prev.tagIds || []), tag.id],
-                }))}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  selected
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                }`}
+                onClick={() => onToggle(item.id)}
+                className="hover:bg-primary-foreground/20 rounded-full p-0.5"
               >
-                {tag.name}
+                <span className="material-icons text-xs">close</span>
               </button>
-            );
-          })}
+            </span>
+          ))}
         </div>
-        <div className="flex gap-2">
+      )}
+
+      {/* Search input */}
+      <div className="relative">
+        <div className="relative">
+          <span className="material-icons text-base text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2">search</span>
           <input
-            value={newTagName}
-            onChange={e => setNewTagName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), createTag())}
-            placeholder="New tag name..."
-            className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+            ref={inputRef}
+            value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (showCreateOption) handleCreate();
+                else if (filtered.length === 1) { onToggle(filtered[0].id); setQuery(''); }
+              }
+              if (e.key === 'Escape') { setOpen(false); inputRef.current?.blur(); }
+            }}
+            placeholder={`Search or add ${label.toLowerCase()}...`}
+            className="w-full pl-8 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
           />
-          <button
-            type="button"
-            onClick={createTag}
-            disabled={!newTagName.trim() || creatingTag}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shrink-0"
-          >
-            {creatingTag ? '...' : 'Add'}
-          </button>
         </div>
+
+        {/* Dropdown */}
+        {open && (filtered.length > 0 || showCreateOption) && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {filtered.map(item => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => { onToggle(item.id); setQuery(''); setOpen(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-accent transition-colors ${
+                      isSelected ? 'text-primary font-medium' : 'text-foreground'
+                    }`}
+                  >
+                    <span className="material-icons text-base">
+                      {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                    </span>
+                    {item.name}
+                  </button>
+                );
+              })}
+              {showCreateOption && (
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={creating}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-primary hover:bg-accent transition-colors border-t border-border"
+                >
+                  <span className="material-icons text-base">add_circle_outline</span>
+                  {creating ? 'Creating...' : `Add "${query.trim()}"`}
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
