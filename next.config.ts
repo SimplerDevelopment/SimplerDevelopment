@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Builder.io CDN images
+  // Limit static generation workers to avoid exhausting Postgres connections
+  experimental: {
+    workerThreads: false,
+    cpus: 4,
+  },
   images: {
     remotePatterns: [
       {
