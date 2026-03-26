@@ -7,6 +7,7 @@ import Link from 'next/link';
 interface CustomField {
   id: number;
   postTypeId: number;
+  parentId: number | null;
   name: string;
   slug: string;
   fieldType: string;
@@ -34,6 +35,8 @@ const fieldTypes = [
   { value: 'email', label: 'Email' },
   { value: 'image', label: 'Image URL' },
   { value: 'user_select', label: 'User Select' },
+  { value: 'repeater', label: 'Repeater' },
+  { value: 'group', label: 'Field Group' },
 ];
 
 export default function CustomFieldsPage() {
@@ -58,6 +61,7 @@ export default function CustomFieldsPage() {
     defaultValue: '',
     helpText: '',
     order: 0,
+    parentId: null as number | null,
   });
 
   useEffect(() => {
@@ -103,6 +107,7 @@ export default function CustomFieldsPage() {
 
     const submitData = {
       postTypeId,
+      parentId: formData.parentId || null,
       name: formData.name,
       slug: formData.slug,
       fieldType: formData.fieldType,
@@ -161,6 +166,7 @@ export default function CustomFieldsPage() {
       defaultValue: field.defaultValue || '',
       helpText: field.helpText || '',
       order: field.order,
+      parentId: field.parentId,
     });
     setShowForm(true);
   };
@@ -187,6 +193,7 @@ export default function CustomFieldsPage() {
       defaultValue: '',
       helpText: '',
       order: customFields.length,
+      parentId: null,
     });
   };
 
@@ -237,6 +244,7 @@ export default function CustomFieldsPage() {
                   defaultValue: '',
                   helpText: '',
                   order: customFields.length,
+                  parentId: null,
                 });
               }
             }}
@@ -404,48 +412,135 @@ export default function CustomFieldsPage() {
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
-              {customFields.map((field) => (
-                <tr key={field.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                    {field.order}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-foreground">{field.name}</div>
-                    {field.helpText && (
-                      <div className="text-sm text-muted-foreground">{field.helpText}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
-                    {field.slug}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary/10 text-primary">
-                      {field.fieldType}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                    {field.required ? (
-                      <span className="material-icons text-green-600 text-sm">check_circle</span>
-                    ) : (
-                      <span className="material-icons text-muted-foreground text-sm">cancel</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
-                    <button
-                      onClick={() => handleEdit(field)}
-                      className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(field.id)}
-                      className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {customFields.filter(f => !f.parentId).flatMap((field) => {
+                const isContainer = field.fieldType === 'repeater' || field.fieldType === 'group';
+                const children = isContainer ? customFields.filter(f => f.parentId === field.id) : [];
+                return [
+                  <tr key={field.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                      {field.order}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {isContainer && (
+                          <span className="material-icons text-sm text-muted-foreground">
+                            {field.fieldType === 'repeater' ? 'repeat' : 'folder'}
+                          </span>
+                        )}
+                        <div>
+                          <div className="text-sm font-medium text-foreground">{field.name}</div>
+                          {field.helpText && (
+                            <div className="text-sm text-muted-foreground">{field.helpText}</div>
+                          )}
+                          {isContainer && (
+                            <div className="text-xs text-muted-foreground">{children.length} sub-field{children.length !== 1 ? 's' : ''}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-muted-foreground">
+                      {field.slug}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary/10 text-primary">
+                        {field.fieldType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                      {field.required ? (
+                        <span className="material-icons text-green-600 text-sm">check_circle</span>
+                      ) : (
+                        <span className="material-icons text-muted-foreground text-sm">cancel</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                      {isContainer && (
+                        <button
+                          onClick={() => {
+                            setShowForm(true);
+                            setEditingField(null);
+                            setError('');
+                            setFormData({
+                              name: '',
+                              slug: '',
+                              fieldType: 'text',
+                              options: [],
+                              optionsText: '',
+                              required: false,
+                              defaultValue: '',
+                              helpText: '',
+                              order: children.length,
+                              parentId: field.id,
+                            });
+                          }}
+                          className="text-primary hover:text-primary/80"
+                        >
+                          + Sub-field
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleEdit(field)}
+                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(field.id)}
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>,
+                  ...children.map((child) => (
+                    <tr key={child.id} className="bg-muted/30">
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-muted-foreground pl-12">
+                        {child.order}
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap pl-12">
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-icons text-xs text-muted-foreground">subdirectory_arrow_right</span>
+                          <div>
+                            <div className="text-sm font-medium text-foreground">{child.name}</div>
+                            {child.helpText && (
+                              <div className="text-sm text-muted-foreground">{child.helpText}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm font-mono text-muted-foreground">
+                        {child.slug}
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap">
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary/10 text-primary">
+                          {child.fieldType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-sm text-foreground">
+                        {child.required ? (
+                          <span className="material-icons text-green-600 text-sm">check_circle</span>
+                        ) : (
+                          <span className="material-icons text-muted-foreground text-sm">cancel</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 whitespace-nowrap text-right text-sm space-x-2">
+                        <button
+                          onClick={() => handleEdit(child)}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(child.id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  )),
+                ];
+              })}
               {customFields.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">

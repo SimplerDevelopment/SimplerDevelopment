@@ -6,9 +6,10 @@ import { z } from 'zod';
 
 const updateCustomFieldSchema = z.object({
   postTypeId: z.number().int().positive().optional(),
+  parentId: z.number().int().positive().optional().nullable(),
   name: z.string().min(1, 'Name is required').optional(),
   slug: z.string().min(1, 'Slug is required').optional(),
-  fieldType: z.enum(['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select']).optional(),
+  fieldType: z.enum(['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group']).optional(),
   options: z.array(z.string()).optional().nullable(),
   required: z.boolean().optional(),
   defaultValue: z.string().optional().nullable(),

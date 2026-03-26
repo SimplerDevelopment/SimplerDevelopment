@@ -4,11 +4,14 @@ import { customFields } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+const FIELD_TYPE_ENUM = ['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select', 'repeater', 'group'] as const;
+
 const createCustomFieldSchema = z.object({
   postTypeId: z.number().int().positive(),
+  parentId: z.number().int().positive().optional().nullable(),
   name: z.string().min(1, 'Name is required'),
   slug: z.string().min(1, 'Slug is required'),
-  fieldType: z.enum(['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select']),
+  fieldType: z.enum(FIELD_TYPE_ENUM),
   options: z.array(z.string()).optional().nullable(),
   required: z.boolean().default(false),
   defaultValue: z.string().optional().nullable(),
@@ -18,9 +21,10 @@ const createCustomFieldSchema = z.object({
 
 const updateCustomFieldSchema = z.object({
   postTypeId: z.number().int().positive().optional(),
+  parentId: z.number().int().positive().optional().nullable(),
   name: z.string().min(1, 'Name is required').optional(),
   slug: z.string().min(1, 'Slug is required').optional(),
-  fieldType: z.enum(['text', 'textarea', 'number', 'date', 'select', 'checkbox', 'url', 'email', 'image', 'user_select']).optional(),
+  fieldType: z.enum(FIELD_TYPE_ENUM).optional(),
   options: z.array(z.string()).optional().nullable(),
   required: z.boolean().optional(),
   defaultValue: z.string().optional().nullable(),

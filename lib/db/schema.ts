@@ -118,9 +118,10 @@ export const postTaxonomyTerms = pgTable('post_taxonomy_terms', {
 export const customFields = pgTable('custom_fields', {
   id: serial('id').primaryKey(),
   postTypeId: integer('post_type_id').notNull().references(() => postTypes.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id'), // Self-ref FK for sub-fields of repeaters/groups (added by migration, FK set up there)
   name: varchar('name', { length: 100 }).notNull(),
   slug: varchar('slug', { length: 100 }).notNull(),
-  fieldType: varchar('field_type', { length: 50 }).notNull(), // text, textarea, number, date, select, checkbox, url, email, etc.
+  fieldType: varchar('field_type', { length: 50 }).notNull(), // text, textarea, number, date, select, checkbox, url, email, image, user_select, repeater, group
   options: json('options'), // For select/radio - stores array of options
   required: boolean('required').default(false).notNull(),
   defaultValue: text('default_value'),

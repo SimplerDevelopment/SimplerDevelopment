@@ -1371,6 +1371,8 @@ function SettingsSlideOver({
   const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>({});
   const [customFieldsLoaded, setCustomFieldsLoaded] = useState(false);
   const [showManageFieldsModal, setShowManageFieldsModal] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load custom fields when tab is activated
   useEffect(() => {
@@ -1405,14 +1407,24 @@ function SettingsSlideOver({
 
   const updateCustomFieldValue = (fieldId: number, value: string) => {
     setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
-    // Save immediately
-    if (formData.id) {
-      fetch(`/api/posts/${formData.id}/custom-fields`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customFieldId: fieldId, value }),
-      }).catch(() => {});
-    }
+    if (!formData.id) return;
+
+    setSaveStatus('saving');
+    if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current);
+
+    fetch(`/api/posts/${formData.id}/custom-fields`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customFieldId: fieldId, value }),
+    })
+      .then((res) => {
+        setSaveStatus(res.ok ? 'saved' : 'error');
+        saveStatusTimer.current = setTimeout(() => setSaveStatus('idle'), 2000);
+      })
+      .catch(() => {
+        setSaveStatus('error');
+        saveStatusTimer.current = setTimeout(() => setSaveStatus('idle'), 3000);
+      });
   };
 
   return (
@@ -1421,7 +1433,27 @@ function SettingsSlideOver({
       <div className="fixed top-0 right-0 z-50 h-full w-96 bg-card border-l border-border shadow-xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-          <h3 className="text-base font-semibold text-foreground">Page Details</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-foreground">Page Details</h3>
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
+                <span className="material-icons text-sm animate-spin">progress_activity</span>
+                Saving
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1 text-xs text-green-600">
+                <span className="material-icons text-sm">check_circle</span>
+                Saved
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <span className="flex items-center gap-1 text-xs text-destructive">
+                <span className="material-icons text-sm">error</span>
+                Save failed
+              </span>
+            )}
+          </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-xl">close</span>
           </button>
