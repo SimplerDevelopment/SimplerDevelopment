@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { clientWebsites, websiteDomains } from '@/lib/db/schema';
+import { clientWebsites, websiteDomains, websiteEnvironments } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
@@ -13,6 +13,8 @@ import WebsiteSettingsForm from '@/components/portal/WebsiteSettingsForm';
 import DeleteWebsiteButton from '@/components/portal/DeleteWebsiteButton';
 import GoogleConnectionCard from '@/components/portal/GoogleConnectionCard';
 import HttpLogViewer from '@/components/portal/HttpLogViewer';
+import InfrastructureTabs from '@/components/portal/InfrastructureTabs';
+import EnvironmentPanel from '@/components/portal/EnvironmentPanel';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -35,11 +37,14 @@ export default async function WebsiteSettingsPage({
 
   if (!site) notFound();
 
-  const domains = await db
-    .select()
-    .from(websiteDomains)
-    .where(eq(websiteDomains.websiteId, site.id))
-    .orderBy(websiteDomains.createdAt);
+  const [domains, environments] = await Promise.all([
+    db.select().from(websiteDomains)
+      .where(eq(websiteDomains.websiteId, site.id))
+      .orderBy(websiteDomains.createdAt),
+    db.select().from(websiteEnvironments)
+      .where(eq(websiteEnvironments.websiteId, site.id))
+      .orderBy(websiteEnvironments.name),
+  ]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -68,13 +73,24 @@ export default async function WebsiteSettingsPage({
         subdomain={site.subdomain || undefined}
       />
 
-      {/* Provisioning & Deployment */}
-      <ProvisioningStatus siteId={site.id} />
+      {/* Custom Domains */}
+      <CustomDomainForm siteId={site.id} initialDomains={domains} />
 
+      {/* Environments (env vars, backups, copy) */}
+      {environments.length > 0 && (
+        <EnvironmentPanel siteId={site.id} environments={environments} />
+      )}
+
+      {/* Infrastructure / Deployments / Logs */}
+      <InfrastructureTabs
+        infrastructure={<ProvisioningStatus siteId={site.id} />}
+        deployments={<DeploymentList siteId={site.id} />}
+        logs={<HttpLogViewer siteId={site.id} />}
+      />
+
+      {/* Integrations */}
       {site.deploymentStatus === 'active' && (
         <>
-          <DeploymentList siteId={site.id} />
-          <HttpLogViewer siteId={site.id} />
           <GitHubConnectButton siteId={site.id} />
           <GoogleConnectionCard
             siteId={site.id}
@@ -83,9 +99,6 @@ export default async function WebsiteSettingsPage({
           />
         </>
       )}
-
-      {/* Custom Domains */}
-      <CustomDomainForm siteId={site.id} initialDomains={domains} />
 
       {/* Danger Zone */}
       <DeleteWebsiteButton siteId={site.id} siteName={site.name} />

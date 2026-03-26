@@ -97,7 +97,6 @@ export async function POST(
         domain: cleanDomain,
         isPrimary,
         status: 'pending',
-        dnsProvider: 'manual',
       })
       .returning();
 

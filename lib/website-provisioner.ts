@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { db } from '@/lib/db';
-import { clientWebsites } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { clientWebsites, websiteEnvironments } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
 import { createRepoFromTemplate, isRepoNameAvailable } from '@/lib/github';
 import { createProject, addDomain, removeDomain, getDomainConfig, createDeployment, setEnvVars } from '@/lib/vercel';
 import { createCnameRecord, updateCnameRecord, deleteDnsRecord, listDnsRecords } from '@/lib/cloudflare-dns';
@@ -100,7 +100,18 @@ export async function provisionWebsite(
       // Non-fatal — Vercel may auto-deploy from the GitHub push
     }
 
-    // Step 7: Mark as active
+    // Step 7: Create production + staging environments (idempotent)
+    const existingEnvs = await db.select().from(websiteEnvironments)
+      .where(eq(websiteEnvironments.websiteId, siteId));
+
+    if (existingEnvs.length === 0) {
+      await db.insert(websiteEnvironments).values([
+        { websiteId: siteId, name: 'production', vercelTarget: 'production' },
+        { websiteId: siteId, name: 'staging', vercelTarget: 'preview', previewUrl: `https://${subdomain}-git-staging-simplerdevelopment.vercel.app` },
+      ]);
+    }
+
+    // Step 8: Mark as active
     await db.update(clientWebsites)
       .set({
         vercelDomain: fullDomain,
