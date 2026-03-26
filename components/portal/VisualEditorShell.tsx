@@ -467,8 +467,8 @@ function LayerItem({
   return (
     <div ref={sortable?.setNodeRef} style={style}>
       {showDropIndicator && (
-        <div className="relative h-0.5 mx-1">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-blue-500 rounded-full" />
+        <div className="relative z-20 mx-1" style={{ height: 0 }}>
+          <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-blue-500 rounded-full" />
         </div>
       )}
       <div

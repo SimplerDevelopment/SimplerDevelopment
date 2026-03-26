@@ -144,10 +144,10 @@ function SortableBlock({
   return (
     <>
     {showDropIndicator && (
-      <div className="relative h-1 -my-0.5 z-20">
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -ml-1" />
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -mr-1" />
+      <div className="relative z-20" style={{ height: 0 }}>
+        <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
+        <div className="absolute left-0 top-0 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -ml-1" style={{ marginTop: '-4px' }} />
+        <div className="absolute right-0 top-0 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-primary -mr-1" style={{ marginTop: '-4px' }} />
       </div>
     )}
     <div
