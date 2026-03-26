@@ -375,20 +375,153 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
         >
           {editorMode === 'iframe' && siteUrl && post?.slug ? (
-            <VisualEditorShell
-              blocks={blocks}
-              selectedBlockId={null}
-              iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
-              viewport={iframeViewport}
-              onBlocksChange={setBlocks}
-              onSelectBlock={() => {}}
-              onAddBlock={(type) => {
-                const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
-                setBlocks([...blocks, newBlock]);
-              }}
-              onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
-              onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
-            />
+            <div className="relative flex-1">
+              <VisualEditorShell
+                blocks={blocks}
+                selectedBlockId={null}
+                iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
+                viewport={iframeViewport}
+                onBlocksChange={setBlocks}
+                onSelectBlock={() => {}}
+                onAddBlock={(type) => {
+                  const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
+                  setBlocks([...blocks, newBlock]);
+                }}
+                onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+                onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
+              />
+
+              {/* Settings slide-over panel */}
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setSettingsOpen(false)} />
+                  <div className="fixed top-0 right-0 z-50 h-full w-96 bg-card border-l border-border shadow-xl overflow-y-auto">
+                    <div className="p-5 space-y-5">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-foreground">Page Details</h3>
+                        <button type="button" onClick={() => setSettingsOpen(false)} className="text-muted-foreground hover:text-foreground">
+                          <span className="material-icons">close</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
+                          <input
+                            value={formData.title}
+                            onChange={handleTitleChange}
+                            placeholder="Page title"
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Slug</label>
+                          <input
+                            value={formData.slug}
+                            onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                            placeholder="page-slug"
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground font-mono outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
+                          <select
+                            value={formData.postType}
+                            onChange={e => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                          >
+                            <option value="page">Page</option>
+                            <option value="blog">Blog Post</option>
+                            <option value="landing">Landing Page</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Excerpt / Meta Description</label>
+                          <textarea
+                            value={formData.excerpt}
+                            onChange={e => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
+                            rows={3}
+                            placeholder="Short description for SEO and previews..."
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Cover Image URL</label>
+                          <input
+                            value={formData.coverImage}
+                            onChange={e => setFormData(prev => ({ ...prev, coverImage: e.target.value }))}
+                            placeholder="https://..."
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        {/* Categories */}
+                        {availableCategories.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Categories</label>
+                            <div className="flex flex-wrap gap-2">
+                              {availableCategories.map(cat => {
+                                const selected = formData.categoryIds?.includes(cat.id);
+                                return (
+                                  <button
+                                    key={cat.id}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({
+                                      ...prev,
+                                      categoryIds: selected
+                                        ? (prev.categoryIds || []).filter(id => id !== cat.id)
+                                        : [...(prev.categoryIds || []), cat.id],
+                                    }))}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                      selected
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                                    }`}
+                                  >
+                                    {cat.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tags */}
+                        {availableTags.length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Tags</label>
+                            <div className="flex flex-wrap gap-2">
+                              {availableTags.map(tag => {
+                                const selected = formData.tagIds?.includes(tag.id);
+                                return (
+                                  <button
+                                    key={tag.id}
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({
+                                      ...prev,
+                                      tagIds: selected
+                                        ? (prev.tagIds || []).filter(id => id !== tag.id)
+                                        : [...(prev.tagIds || []), tag.id],
+                                    }))}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                      selected
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-muted-foreground border-border hover:border-primary/40'
+                                    }`}
+                                  >
+                                    {tag.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             layoutContent
           )}
