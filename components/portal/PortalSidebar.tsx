@@ -65,6 +65,7 @@ const cmsNavItems = (siteId: string) => [
   { href: `/portal/websites/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: false, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
 ];
 

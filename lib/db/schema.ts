@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
 
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
@@ -517,8 +517,24 @@ export const clientWebsites = pgTable('client_websites', {
   deploymentStatus: varchar('deployment_status', { length: 50 }).default('pending'), // pending, provisioning, active, failed
   lastDeployedAt: timestamp('last_deployed_at'),
   provisionError: text('provision_error'),
+  logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// HTTP request logs sent from client websites via middleware
+export const httpRequestLogs = pgTable('http_request_logs', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  method: varchar('method', { length: 10 }).notNull(),
+  path: varchar('path', { length: 2000 }).notNull(),
+  statusCode: integer('status_code').notNull(),
+  duration: integer('duration').notNull(), // ms
+  userAgent: varchar('user_agent', { length: 500 }),
+  referer: varchar('referer', { length: 500 }),
+  ip: varchar('ip', { length: 45 }),
+  country: varchar('country', { length: 2 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const hostedSites = pgTable('hosted_sites', {
@@ -722,3 +738,256 @@ export const googleWebsiteTokens = pgTable('google_website_tokens', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── ECOMMERCE ───────────────────────────────────────────────────────────────
+
+// Per-website store settings
+export const storeSettings = pgTable('store_settings', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
+  enabled: boolean('enabled').default(false).notNull(),
+  storeName: varchar('store_name', { length: 255 }),
+  currency: varchar('currency', { length: 3 }).default('USD').notNull(),
+  taxRate: numeric('tax_rate', { precision: 5, scale: 4 }).default('0'), // e.g. 0.0825 = 8.25%
+  taxInclusive: boolean('tax_inclusive').default(false).notNull(),
+  // Stripe Connect for payouts to the website owner
+  stripeAccountId: varchar('stripe_account_id', { length: 255 }),
+  stripeOnboardingComplete: boolean('stripe_onboarding_complete').default(false).notNull(),
+  payoutSchedule: varchar('payout_schedule', { length: 20 }).default('weekly'), // daily, weekly, monthly
+  platformFeePercent: numeric('platform_fee_percent', { precision: 5, scale: 2 }).default('5.00'), // agency platform fee %
+  // General settings
+  requiresShipping: boolean('requires_shipping').default(true).notNull(),
+  lowStockThreshold: integer('low_stock_threshold').default(5).notNull(),
+  orderPrefix: varchar('order_prefix', { length: 10 }).default('ORD'),
+  enableReviews: boolean('enable_reviews').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Product categories (separate from CMS post categories)
+export const productCategories = pgTable('product_categories', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  description: text('description'),
+  image: varchar('image', { length: 500 }),
+  parentId: integer('parent_id'), // self-referencing for sub-categories
+  order: integer('order').default(0).notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('product_categories_slug_website_idx').on(t.slug, t.websiteId),
+]);
+
+// Main products table
+export const products = pgTable('products', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  categoryId: integer('category_id').references(() => productCategories.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  description: text('description'),
+  shortDescription: varchar('short_description', { length: 500 }),
+  price: integer('price').notNull(), // in cents
+  compareAtPrice: integer('compare_at_price'),
+  costPrice: integer('cost_price'),
+  sku: varchar('sku', { length: 100 }),
+  barcode: varchar('barcode', { length: 100 }),
+  trackInventory: boolean('track_inventory').default(true).notNull(),
+  quantity: integer('quantity').default(0).notNull(),
+  weight: numeric('weight', { precision: 10, scale: 2 }),
+  weightUnit: varchar('weight_unit', { length: 5 }).default('g'),
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
+  featured: boolean('featured').default(false).notNull(),
+  seoTitle: varchar('seo_title', { length: 255 }),
+  seoDescription: text('seo_description'),
+  tags: json('tags').$type<string[]>().default([]),
+  metadata: json('metadata').$type<Record<string, string>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('products_slug_website_idx').on(t.slug, t.websiteId),
+]);
+
+export const productImages = pgTable('product_images', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  alt: varchar('alt', { length: 255 }),
+  order: integer('order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const productOptions = pgTable('product_options', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  order: integer('order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const productOptionValues = pgTable('product_option_values', {
+  id: serial('id').primaryKey(),
+  optionId: integer('option_id').notNull().references(() => productOptions.id, { onDelete: 'cascade' }),
+  value: varchar('value', { length: 100 }).notNull(),
+  label: varchar('label', { length: 100 }),
+  order: integer('order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const productVariants = pgTable('product_variants', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  sku: varchar('sku', { length: 100 }),
+  barcode: varchar('barcode', { length: 100 }),
+  price: integer('price').notNull(),
+  compareAtPrice: integer('compare_at_price'),
+  costPrice: integer('cost_price'),
+  quantity: integer('quantity').default(0).notNull(),
+  weight: numeric('weight', { precision: 10, scale: 2 }),
+  image: varchar('image', { length: 500 }),
+  optionValues: json('option_values').$type<{ optionId: number; valueId: number }[]>().default([]),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const bulkPricingRules = pgTable('bulk_pricing_rules', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'cascade' }),
+  minQuantity: integer('min_quantity').notNull(),
+  maxQuantity: integer('max_quantity'),
+  priceType: varchar('price_type', { length: 20 }).default('fixed').notNull(), // fixed, percent_off
+  amount: integer('amount').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const shippingZones = pgTable('shipping_zones', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  countries: json('countries').$type<string[]>().default([]),
+  states: json('states').$type<string[]>().default([]),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const shippingRates = pgTable('shipping_rates', {
+  id: serial('id').primaryKey(),
+  zoneId: integer('zone_id').notNull().references(() => shippingZones.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  rateType: varchar('rate_type', { length: 20 }).default('flat').notNull(), // flat, weight_based, price_based, free
+  price: integer('price').default(0).notNull(),
+  weightTiers: json('weight_tiers').$type<{ minWeight: number; maxWeight: number; price: number }[]>(),
+  freeAbove: integer('free_above'),
+  minDeliveryDays: integer('min_delivery_days'),
+  maxDeliveryDays: integer('max_delivery_days'),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const carts = pgTable('carts', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  sessionId: varchar('session_id', { length: 255 }),
+  customerEmail: varchar('customer_email', { length: 255 }),
+  status: varchar('status', { length: 20 }).default('active').notNull(),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const cartItems = pgTable('cart_items', {
+  id: serial('id').primaryKey(),
+  cartId: integer('cart_id').notNull().references(() => carts.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  quantity: integer('quantity').default(1).notNull(),
+  unitPrice: integer('unit_price').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const orders = pgTable('orders', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  orderNumber: varchar('order_number', { length: 50 }).notNull(),
+  customerEmail: varchar('customer_email', { length: 255 }).notNull(),
+  customerName: varchar('customer_name', { length: 255 }).notNull(),
+  customerPhone: varchar('customer_phone', { length: 50 }),
+  shippingAddress: json('shipping_address').$type<{
+    line1: string; line2?: string; city: string; state: string; postalCode: string; country: string;
+  }>(),
+  billingAddress: json('billing_address').$type<{
+    line1: string; line2?: string; city: string; state: string; postalCode: string; country: string;
+  }>(),
+  subtotal: integer('subtotal').notNull(),
+  shippingTotal: integer('shipping_total').default(0).notNull(),
+  taxTotal: integer('tax_total').default(0).notNull(),
+  discountTotal: integer('discount_total').default(0).notNull(),
+  total: integer('total').notNull(),
+  stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+  stripeChargeId: varchar('stripe_charge_id', { length: 255 }),
+  paymentStatus: varchar('payment_status', { length: 20 }).default('pending').notNull(),
+  paidAt: timestamp('paid_at'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  shippingMethod: varchar('shipping_method', { length: 255 }),
+  trackingNumber: varchar('tracking_number', { length: 255 }),
+  trackingUrl: varchar('tracking_url', { length: 500 }),
+  shippedAt: timestamp('shipped_at'),
+  deliveredAt: timestamp('delivered_at'),
+  customerNote: text('customer_note'),
+  internalNote: text('internal_note'),
+  platformFee: integer('platform_fee'),
+  transferId: varchar('transfer_id', { length: 255 }),
+  discountCode: varchar('discount_code', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const orderItems = pgTable('order_items', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
+  variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  productName: varchar('product_name', { length: 255 }).notNull(),
+  variantName: varchar('variant_name', { length: 255 }),
+  sku: varchar('sku', { length: 100 }),
+  unitPrice: integer('unit_price').notNull(),
+  quantity: integer('quantity').notNull(),
+  total: integer('total').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const orderStatusHistory = pgTable('order_status_history', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).notNull(),
+  note: text('note'),
+  changedBy: integer('changed_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const discountCodes = pgTable('discount_codes', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  code: varchar('code', { length: 50 }).notNull(),
+  description: varchar('description', { length: 255 }),
+  discountType: varchar('discount_type', { length: 20 }).notNull(), // percent, fixed_amount, free_shipping
+  amount: integer('amount').notNull(),
+  minOrderAmount: integer('min_order_amount'),
+  maxUses: integer('max_uses'),
+  usedCount: integer('used_count').default(0).notNull(),
+  startsAt: timestamp('starts_at'),
+  expiresAt: timestamp('expires_at'),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('discount_codes_code_website_idx').on(t.code, t.websiteId),
+]);

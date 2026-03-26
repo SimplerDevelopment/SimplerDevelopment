@@ -35,3 +35,27 @@ export function priorityColor(priority: string): string {
   };
   return map[priority] ?? 'bg-muted text-muted-foreground';
 }
+
+export function orderStatusColor(status: string): string {
+  const map: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    confirmed: 'bg-blue-100 text-blue-700',
+    processing: 'bg-indigo-100 text-indigo-700',
+    shipped: 'bg-purple-100 text-purple-700',
+    delivered: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700',
+    refunded: 'bg-orange-100 text-orange-700',
+  };
+  return map[status] ?? 'bg-muted text-muted-foreground';
+}
+
+export function paymentStatusColor(status: string): string {
+  const map: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    paid: 'bg-green-100 text-green-700',
+    failed: 'bg-red-100 text-red-700',
+    refunded: 'bg-orange-100 text-orange-700',
+    partially_refunded: 'bg-amber-100 text-amber-700',
+  };
+  return map[status] ?? 'bg-muted text-muted-foreground';
+}

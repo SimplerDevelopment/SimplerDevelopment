@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import Link from 'next/link';
 
@@ -20,13 +21,49 @@ interface Conversation {
 }
 
 const TOOL_LABELS: Record<string, string> = {
+  // Read tools
+  get_dashboard_summary: 'Checked dashboard',
   get_my_projects: 'Looked up projects',
   get_project_board: 'Looked up board',
+  get_project_cards: 'Looked up cards',
   get_sprint_progress: 'Checked sprint progress',
-  get_my_invoices: 'Looked up invoices',
-  get_my_tickets: 'Looked up tickets',
   get_project_files: 'Looked up files',
-  create_support_ticket: 'Created support ticket',
+  get_my_invoices: 'Looked up invoices',
+  get_invoice_details: 'Looked up invoice details',
+  get_payment_methods: 'Checked payment methods',
+  get_my_tickets: 'Looked up tickets',
+  get_ticket_details: 'Looked up ticket details',
+  get_services_catalog: 'Browsed services',
+  get_my_services: 'Checked subscriptions',
+  get_my_websites: 'Looked up websites',
+  get_website_pages: 'Looked up pages',
+  get_website_categories: 'Looked up categories',
+  get_website_tags: 'Looked up tags',
+  get_website_media: 'Looked up media',
+  get_my_hosted_sites: 'Checked hosting',
+  get_my_email_campaigns: 'Looked up campaigns',
+  get_my_email_lists: 'Looked up email lists',
+  get_my_pitch_decks: 'Looked up pitch decks',
+  get_my_booking_pages: 'Looked up booking pages',
+  get_bookings_for_page: 'Looked up bookings',
+  get_suggested_projects: 'Browsed suggested projects',
+  get_my_team: 'Looked up team',
+  get_my_profile: 'Looked up profile',
+  // Write tools
+  create_support_ticket: 'Created ticket',
+  reply_to_ticket: 'Replied to ticket',
+  add_card_comment: 'Added comment',
+  create_website_page: 'Created page',
+  publish_page: 'Updated page',
+  create_website_category: 'Created category',
+  create_website_tag: 'Created tag',
+  request_service: 'Requested service',
+  request_suggested_project: 'Requested project',
+  update_profile: 'Updated profile',
+  invite_team_member: 'Invited member',
+  // Navigation
+  navigate_to: 'Opening page',
+  pay_invoice: 'Opening invoice',
 };
 
 function ToolChips({ toolCalls }: { toolCalls: { name: string }[] }) {
@@ -103,6 +140,7 @@ function MessageBubble({ msg }: { msg: Message }) {
 }
 
 export default function AIChatWidget() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'chat' | 'history'>('chat');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -203,6 +241,28 @@ export default function AIChatWidget() {
             toolCalls: data.data.toolCalls?.length > 0 ? data.data.toolCalls : null,
           },
         ]);
+
+        // Handle navigation tool calls
+        const navCall = data.data.toolCalls?.find(
+          (tc: { name: string; input: Record<string, unknown> }) =>
+            tc.name === 'navigate_to' || tc.name === 'pay_invoice'
+        );
+        if (navCall?.input?.path) {
+          setTimeout(() => {
+            router.push(navCall.input.path as string);
+            // If there's a section to focus, dispatch a custom event
+            if (navCall.input.section) {
+              setTimeout(() => {
+                const el = document.querySelector(`[data-focus-id="${navCall.input.section}"]`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all');
+                  setTimeout(() => el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'transition-all'), 3000);
+                }
+              }, 500);
+            }
+          }, 300);
+        }
       } else {
         setMessages(prev => [
           ...prev,
@@ -305,13 +365,14 @@ export default function AIChatWidget() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">How can I help you?</p>
-                      <p className="text-xs text-muted-foreground mt-1">Ask about your projects, invoices, or support tickets.</p>
+                      <p className="text-xs text-muted-foreground mt-1">I can help with anything in your portal.</p>
                     </div>
                     <div className="flex flex-col gap-1.5 w-full mt-2">
                       {[
-                        'What\'s the status of my project?',
+                        'Give me an overview of my account',
                         'Do I have any outstanding invoices?',
-                        'What\'s being worked on this sprint?',
+                        'Take me to my website editor',
+                        'What can you help me with?',
                       ].map(suggestion => (
                         <button
                           key={suggestion}

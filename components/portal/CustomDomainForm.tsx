@@ -6,12 +6,23 @@ interface DnsInstruction {
   type: string;
   host: string;
   value: string;
-  notes: string;
+  notes?: string;
+  expected?: string;
+}
+
+interface VerifyResult {
+  domain: string;
+  verified: boolean;
+  misconfigured: boolean;
+  dnsRecords: DnsInstruction[];
+  status: string;
 }
 
 export default function CustomDomainForm({ siteId, currentDomain }: { siteId: number; currentDomain?: string | null }) {
   const [domain, setDomain] = useState(currentDomain || '');
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
   const [dnsInstructions, setDnsInstructions] = useState<DnsInstruction[] | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -22,6 +33,7 @@ export default function CustomDomainForm({ siteId, currentDomain }: { siteId: nu
     setError('');
     setSuccess('');
     setDnsInstructions(null);
+    setVerifyResult(null);
 
     try {
       const res = await fetch(`/api/portal/websites/${siteId}/domain`, {
@@ -38,6 +50,28 @@ export default function CustomDomainForm({ siteId, currentDomain }: { siteId: nu
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setError('');
+    setSuccess('');
+    setVerifyResult(null);
+
+    try {
+      const res = await fetch(`/api/portal/websites/${siteId}/domain/verify`, {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (json.success) {
+        setVerifyResult(json.data);
+        setSuccess(json.message);
+      } else {
+        setError(json.message || 'Verification failed.');
+      }
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -69,8 +103,59 @@ export default function CustomDomainForm({ siteId, currentDomain }: { siteId: nu
         </button>
       </div>
 
+      {currentDomain && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleVerify}
+            disabled={verifying}
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {verifying ? (
+              <span className="material-icons text-base animate-spin">refresh</span>
+            ) : (
+              <span className="material-icons text-base">verified</span>
+            )}
+            {verifying ? 'Checking...' : 'Verify DNS'}
+          </button>
+          {verifyResult && (
+            <span className={`flex items-center gap-1 text-sm ${verifyResult.verified && !verifyResult.misconfigured ? 'text-green-600' : 'text-amber-600'}`}>
+              <span className="material-icons text-base">
+                {verifyResult.verified && !verifyResult.misconfigured ? 'check_circle' : 'warning'}
+              </span>
+              {verifyResult.verified && !verifyResult.misconfigured ? 'Verified' : 'Not verified'}
+            </span>
+          )}
+        </div>
+      )}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-600">{success}</p>}
+
+      {verifyResult && verifyResult.dnsRecords.length > 0 && !verifyResult.verified && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current DNS Records Detected</p>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Host</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {verifyResult.dnsRecords.map((record, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2 font-mono text-xs">{record.type}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{record.host}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{record.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {dnsInstructions && (
         <div className="space-y-2">

@@ -11,6 +11,8 @@ import GitHubConnectButton from '@/components/portal/GitHubConnectButton';
 import CustomDomainForm from '@/components/portal/CustomDomainForm';
 import WebsiteSettingsForm from '@/components/portal/WebsiteSettingsForm';
 import DeleteWebsiteButton from '@/components/portal/DeleteWebsiteButton';
+import GoogleConnectionCard from '@/components/portal/GoogleConnectionCard';
+import HttpLogViewer from '@/components/portal/HttpLogViewer';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -66,7 +68,13 @@ export default async function WebsiteSettingsPage({
       {site.deploymentStatus === 'active' && (
         <>
           <DeploymentList siteId={site.id} />
+          <HttpLogViewer siteId={site.id} />
           <GitHubConnectButton siteId={site.id} />
+          <GoogleConnectionCard
+            siteId={site.id}
+            websiteDomain={site.domain || (site.subdomain ? `${site.subdomain}.simplerdevelopment.com` : null)}
+            websiteName={site.name}
+          />
         </>
       )}
 

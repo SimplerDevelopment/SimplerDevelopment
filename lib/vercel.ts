@@ -167,6 +167,104 @@ export async function setEnvVars(
 }
 
 /**
+ * Get build logs for a specific deployment.
+ */
+export async function getDeploymentEvents(
+  deploymentId: string,
+): Promise<Array<{
+  type: string;
+  text: string;
+  created: number;
+}>> {
+  const params = new URLSearchParams({
+    ...(process.env.VERCEL_TEAM_ID && { teamId: process.env.VERCEL_TEAM_ID }),
+  });
+
+  const res = await fetch(`${VERCEL_API}/v3/deployments/${deploymentId}/events?${params}`, {
+    headers: headers(),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Vercel getDeploymentEvents failed (${res.status}): ${err}`);
+  }
+
+  const events = await res.json();
+  return (events || []).map((e: Record<string, unknown>) => ({
+    type: e.type || 'stdout',
+    text: typeof e.text === 'string' ? e.text : (e.payload as Record<string, string>)?.text || '',
+    created: (e.created as number) || Date.now(),
+  }));
+}
+
+/**
+ * Check if a domain's DNS is correctly configured for Vercel.
+ * Uses Vercel's domain config + project domain verification endpoints.
+ */
+export async function verifyDomain(
+  projectId: string,
+  domain: string,
+): Promise<{
+  verified: boolean;
+  misconfigured: boolean;
+  dnsRecords: Array<{ type: string; host: string; value: string; expected?: string }>;
+  error?: string;
+}> {
+  // 1. Check domain config (DNS resolution)
+  const configRes = await fetch(`${VERCEL_API}/v6/domains/${domain}/config${teamParam()}`, {
+    headers: headers(),
+  });
+
+  let misconfigured = true;
+  const dnsRecords: Array<{ type: string; host: string; value: string; expected?: string }> = [];
+
+  if (configRes.ok) {
+    const config = await configRes.json();
+    misconfigured = config.misconfigured ?? true;
+
+    // Collect what Vercel sees
+    if (config.cnames?.length) {
+      for (const c of config.cnames) {
+        dnsRecords.push({ type: 'CNAME', host: domain, value: c });
+      }
+    }
+    if (config.aValues?.length) {
+      for (const a of config.aValues) {
+        dnsRecords.push({ type: 'A', host: domain, value: a });
+      }
+    }
+  }
+
+  // 2. Trigger Vercel domain verification on the project
+  const verifyRes = await fetch(
+    `${VERCEL_API}/v10/projects/${projectId}/domains/${domain}/verify${teamParam()}`,
+    { method: 'POST', headers: headers() },
+  );
+
+  let verified = false;
+  if (verifyRes.ok) {
+    const data = await verifyRes.json();
+    verified = data.verified ?? false;
+
+    // If Vercel provides a verification TXT record needed
+    if (data.verification?.length) {
+      for (const v of data.verification) {
+        dnsRecords.push({
+          type: v.type,
+          host: v.domain,
+          value: v.value,
+          expected: v.value,
+        });
+      }
+    }
+  } else if (verifyRes.status === 404) {
+    return { verified: false, misconfigured: true, dnsRecords, error: 'Domain not found on this project' };
+  }
+
+  return { verified, misconfigured, dnsRecords };
+}
+
+/**
  * Get recent deployments for a Vercel project.
  */
 export async function getDeployments(

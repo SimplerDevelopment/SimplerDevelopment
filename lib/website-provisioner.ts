@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -60,10 +61,22 @@ export async function provisionWebsite(
         .where(eq(clientWebsites.id, siteId));
     }
 
-    // Step 3b: Set CMS environment variables so the starter can fetch content
+    // Step 3b: Generate log API key if missing
+    let logApiKey = current.logApiKey;
+    if (!logApiKey) {
+      logApiKey = randomBytes(32).toString('hex');
+      await db.update(clientWebsites)
+        .set({ logApiKey, updatedAt: new Date() })
+        .where(eq(clientWebsites.id, siteId));
+    }
+
+    // Step 3c: Set CMS environment variables so the starter can fetch content
+    const cmsApiUrl = process.env.CMS_API_URL || 'https://simplerdevelopment.com';
     await setEnvVars(vercelId!, [
-      { key: 'CMS_API_URL', value: process.env.CMS_API_URL || 'https://simplerdevelopment.com' },
+      { key: 'CMS_API_URL', value: cmsApiUrl },
       { key: 'SITE_ID', value: String(siteId) },
+      { key: 'LOG_ENDPOINT', value: `${cmsApiUrl}/api/logs/ingest` },
+      { key: 'LOG_API_KEY', value: logApiKey },
     ]);
 
     // Step 4: Add domain to Vercel project (do this before DNS so we can get the correct target)

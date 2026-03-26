@@ -8,6 +8,6 @@ if (!process.env.DATABASE_URL) {
 
 const connectionString = process.env.DATABASE_URL;
 
-// For query purposes
-const queryClient = postgres(connectionString);
+// For query purposes — limit connections to avoid exhausting Postgres during build
+const queryClient = postgres(connectionString, { max: 5 });
 export const db = drizzle(queryClient, { schema });

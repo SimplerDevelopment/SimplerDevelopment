@@ -87,6 +87,7 @@ export default function AdminSidebar() {
       ],
     },
     { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
+    { href: '/admin/portal-ecommerce', label: 'eCommerce', icon: 'shopping_cart' },
   ];
 
   const isPostsActive = pathname.startsWith('/admin/posts') ||
