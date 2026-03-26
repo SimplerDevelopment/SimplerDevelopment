@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 
 // No-op sorting strategy: items stay in place during drag, only reorder on drop
-const noMovementStrategy = () => () => null;
+const noMovementStrategy = () => null;
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';

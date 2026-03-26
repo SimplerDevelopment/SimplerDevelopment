@@ -40,7 +40,7 @@ import {
 } from '@dnd-kit/sortable';
 
 // No-op sorting strategy: items stay in place during drag, only reorder on drop
-const noMovementStrategy = () => () => null;
+const noMovementStrategy = () => null;
 
 interface VisualBlockEditorEnhancedProps {
   blocks: Block[];
