@@ -87,6 +87,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [editorMode, setEditorMode] = useState<'visual' | 'classic' | 'iframe'>(
     siteUrl && mode === 'edit' ? 'iframe' : 'visual',
   );
+  const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [formData, setFormData] = useState<Post>({
@@ -335,6 +336,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
         <PostEditorLayout
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
+          backHref={`/portal/websites/${siteId}`}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls
@@ -347,6 +349,27 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
               />
             )
           }
+          centerControls={
+            editorMode === 'iframe' ? (
+              <div className="flex items-center gap-1">
+                {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
+                  <button
+                    key={vp}
+                    type="button"
+                    onClick={() => setIframeViewport(vp)}
+                    className={`rounded p-1.5 ${
+                      iframeViewport === vp ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'
+                    }`}
+                    title={vp.charAt(0).toUpperCase() + vp.slice(1)}
+                  >
+                    <span className="material-icons text-lg">
+                      {vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : undefined
+          }
           published={formData.published}
           onPublish={handleSubmit}
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
@@ -356,6 +379,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
               blocks={blocks}
               selectedBlockId={null}
               iframeSrc={`${siteUrl}/blog/${post.slug}?_edit=true`}
+              viewport={iframeViewport}
               onBlocksChange={setBlocks}
               onSelectBlock={() => {}}
               onAddBlock={(type) => {

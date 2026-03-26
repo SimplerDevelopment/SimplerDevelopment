@@ -32,6 +32,7 @@ interface VisualEditorShellProps {
   blocks: Block[];
   selectedBlockId: string | null;
   iframeSrc: string;
+  viewport?: 'desktop' | 'tablet' | 'mobile';
   onBlocksChange: (blocks: Block[]) => void;
   onSelectBlock: (blockId: string | null) => void;
   onAddBlock: (type: string, afterBlockId?: string) => void;
@@ -43,13 +44,13 @@ export function VisualEditorShell({
   blocks,
   selectedBlockId: selectedBlockIdProp,
   iframeSrc,
+  viewport = 'desktop',
   onBlocksChange,
   onSelectBlock,
   onAddBlock,
   onDeleteBlock,
   onUpdateBlock,
 }: VisualEditorShellProps) {
-  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -119,7 +120,7 @@ export function VisualEditorShell({
   const viewportWidth = { desktop: '100%', tablet: '768px', mobile: '375px' }[viewport];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* Left Panel — Block Picker */}
       <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto">
         <div className="p-3">
@@ -206,39 +207,6 @@ export function VisualEditorShell({
 
       {/* Center — iframe */}
       <div className="flex-1 flex flex-col bg-gray-100">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
-          <div className="flex items-center gap-2">
-            {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
-              <button
-                type="button"
-                key={vp}
-                onClick={() => setViewport(vp)}
-                className={`rounded p-1.5 ${
-                  viewport === vp ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                <span className="material-icons text-lg">
-                  {vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone'}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            {iframeReady ? (
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                Connected
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                Connecting...
-              </span>
-            )}
-          </div>
-        </div>
-
         {/* iframe container */}
         <div className="flex-1 flex items-start justify-center overflow-auto p-4">
           <div
