@@ -65,8 +65,20 @@ const cmsNavItems = (siteId: string) => [
   { href: `/portal/websites/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/navigation`, label: 'Navigation', icon: 'menu', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: true, alsoActiveOn: undefined },
   { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
+];
+
+// Store nav items — shown when inside /portal/websites/[siteId]/store
+const storeNavItems = (siteId: string) => [
+  { href: `/portal/websites/${siteId}/store`, label: 'Overview', icon: 'dashboard', exact: true, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/products`, label: 'Products', icon: 'inventory_2', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/orders`, label: 'Orders', icon: 'receipt_long', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/categories`, label: 'Categories', icon: 'category', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/discounts`, label: 'Discounts', icon: 'sell', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping', exact: false, alsoActiveOn: undefined },
+  { href: `/portal/websites/${siteId}/store/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
 ];
 
 interface NavService {
@@ -92,6 +104,9 @@ export default function PortalSidebar() {
   // Detect CMS context: /portal/websites/[numeric-siteId]/...
   const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
   const activeSiteId = cmsMatch ? cmsMatch[1] : null;
+
+  // Detect store context: /portal/websites/[siteId]/store/...
+  const isStoreContext = activeSiteId && pathname.startsWith(`/portal/websites/${activeSiteId}/store`);
 
   // Auto-collapse on CMS content editor pages to maximize editing space
   const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
@@ -186,7 +201,22 @@ export default function PortalSidebar() {
           {/* Logo / Header */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-16 border-b border-border px-4`}>
             {!isCollapsed && (
-              activeSiteId ? (
+              isStoreContext && activeSiteId ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    href={`/portal/websites/${activeSiteId}`}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    title="Back to Website"
+                    onClick={() => setIsMobileOpen(false)}
+                  >
+                    <span className="material-icons text-xl">arrow_back</span>
+                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Store</p>
+                    <p className="text-sm font-bold text-foreground truncate">{cmsTitle || 'Loading…'}</p>
+                  </div>
+                </div>
+              ) : activeSiteId ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <Link
                     href="/portal/websites"
@@ -221,7 +251,52 @@ export default function PortalSidebar() {
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto py-4">
-            {activeSiteId ? (
+            {isStoreContext && activeSiteId ? (
+              // ── Store context nav ───────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {isCollapsed && (
+                  <li>
+                    <Link
+                      href={`/portal/websites/${activeSiteId}`}
+                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
+                      title="Back to Website"
+                    >
+                      <span className="material-icons text-xl">arrow_back</span>
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                        Back to Website
+                      </div>
+                    </Link>
+                  </li>
+                )}
+                {storeNavItems(activeSiteId).map(item => {
+                  const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'));
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center gap-3 ${
+                          isCollapsed ? 'justify-center px-3' : 'px-4'
+                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-xl">{item.icon}</span>
+                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : activeSiteId ? (
               // ── CMS context nav ────────────────────────────────────
               <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
                 {/* Back link when collapsed */}
