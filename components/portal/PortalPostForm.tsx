@@ -85,6 +85,53 @@ function generateSlug(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function createDefaultBlock(type: string, order: number): Block {
+  const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const base = { id, order };
+
+  switch (type) {
+    case 'heading': return { ...base, type: 'heading', content: 'New Heading', level: 2 } as Block;
+    case 'text': return { ...base, type: 'text', content: 'New paragraph text.' } as Block;
+    case 'image': return { ...base, type: 'image', url: '', alt: '' } as Block;
+    case 'button': return { ...base, type: 'button', text: 'Click Me', url: '#', variant: 'primary', size: 'md' } as Block;
+    case 'spacer': return { ...base, type: 'spacer', height: 'md' } as Block;
+    case 'divider': return { ...base, type: 'divider' } as Block;
+    case 'quote': return { ...base, type: 'quote', content: '', author: '' } as Block;
+    case 'code': return { ...base, type: 'code', code: '', language: 'javascript' } as Block;
+    case 'video': return { ...base, type: 'video', url: '' } as Block;
+    case 'youtube': return { ...base, type: 'youtube', url: '' } as Block;
+    case 'columns': return { ...base, type: 'columns', columns: [
+      { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
+      { id: `col-${Date.now()}-2`, width: 50, blocks: [] },
+    ], gap: 'md' } as Block;
+    case 'tabs': return { ...base, type: 'tabs', tabs: [
+      { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
+      { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] },
+    ] } as Block;
+    case 'section': return { ...base, type: 'section', blocks: [] } as Block;
+    case 'accordion': return { ...base, type: 'accordion', items: [
+      { id: `acc-${Date.now()}-1`, title: 'Item 1', content: 'Content for item 1' },
+      { id: `acc-${Date.now()}-2`, title: 'Item 2', content: 'Content for item 2' },
+    ] } as Block;
+    case 'hero': return { ...base, type: 'hero', title: 'Hero Title', subtitle: '', ctaText: 'Learn More', ctaLink: '#' } as Block;
+    case 'cta': return { ...base, type: 'cta', title: 'Call to Action', primaryButtonText: 'Get Started', primaryButtonUrl: '#' } as Block;
+    case 'testimonial': return { ...base, type: 'testimonial', quote: '', author: '' } as Block;
+    case 'stats': return { ...base, type: 'stats', stats: [
+      { id: `stat-${Date.now()}-1`, value: '100+', label: 'Clients' },
+      { id: `stat-${Date.now()}-2`, value: '50', label: 'Projects' },
+    ], columns: 3 } as Block;
+    case 'card-grid': return { ...base, type: 'card-grid', cards: [
+      { id: `card-${Date.now()}-1`, title: 'Card 1', description: 'Description' },
+      { id: `card-${Date.now()}-2`, title: 'Card 2', description: 'Description' },
+    ], columns: 3 } as Block;
+    case 'gallery': return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3 } as Block;
+    case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
+    case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;
+    case 'blog-posts': return { ...base, type: 'blog-posts', limit: 3, columns: 3 } as Block;
+    default: return { ...base, type: type as 'text', content: '' } as Block;
+  }
+}
+
 export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -396,7 +443,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
                 onAddBlock={(type) => {
-                  const newBlock = { id: `block-${Date.now()}`, type, order: blocks.length, content: '' } as Block;
+                  const newBlock = createDefaultBlock(type, blocks.length);
                   setBlocks([...blocks, newBlock]);
                 }}
                 onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
