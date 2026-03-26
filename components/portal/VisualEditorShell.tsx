@@ -201,6 +201,7 @@ export function VisualEditorShell({
                     depth={0}
                     selectedBlockId={selectedBlockId}
                     onSelect={selectBlock}
+                    onDelete={onDeleteBlock}
                   />
                 ))}
               </div>
@@ -284,11 +285,13 @@ function LayerItem({
   depth,
   selectedBlockId,
   onSelect,
+  onDelete,
 }: {
   block: Block;
   depth: number;
   selectedBlockId: string | null;
   onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -321,7 +324,7 @@ function LayerItem({
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className={`flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
+        className={`group/layer flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
           isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
         }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -341,6 +344,12 @@ function LayerItem({
 
         <span className="material-icons text-xs shrink-0">{icon}</span>
         <span className="truncate flex-1">{previewText || block.type}</span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
+          className="material-icons text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
+          title="Delete"
+        >close</button>
       </div>
 
       {/* Nested children */}
@@ -352,7 +361,7 @@ function LayerItem({
                 {child.label}
               </div>
               {child.blocks.map((nested) => (
-                <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} />
+                <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} onDelete={onDelete} />
               ))}
             </>
           )}
