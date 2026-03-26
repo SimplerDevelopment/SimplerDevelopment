@@ -63,6 +63,7 @@ const cmsNavItems = (siteId: string): CmsNavItem[] => [
     alsoActiveOn: `/portal/websites/${siteId}/posts`,
     children: [
       { href: `/portal/websites/${siteId}/taxonomy`, label: 'Taxonomy', icon: 'account_tree' },
+      { href: `/portal/websites/${siteId}/content-types`, label: 'Content Types', icon: 'description' },
     ],
   },
   { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media' },

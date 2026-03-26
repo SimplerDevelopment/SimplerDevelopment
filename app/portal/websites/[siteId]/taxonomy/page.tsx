@@ -27,30 +27,17 @@ interface Term {
   sortOrder: number;
 }
 
-interface ContentType {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  icon: string;
-  active: boolean;
-  websiteId: number | null;
-}
-
 function generateSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 const ICONS = ['label', 'folder', 'category', 'tag', 'bookmark', 'star', 'flag', 'location_on', 'person', 'work', 'school', 'local_offer'];
-const CONTENT_ICONS = ['article', 'rss_feed', 'web', 'description', 'event', 'photo_library', 'video_library', 'library_books', 'feed', 'campaign'];
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function TaxonomyPage() {
   const { siteId } = useParams<{ siteId: string }>();
   const base = `/api/portal/cms/websites/${siteId}`;
-
-  const [activeTab, setActiveTab] = useState<'taxonomies' | 'content-types'>('taxonomies');
 
   // Taxonomy state
   const [taxonomies, setTaxonomies] = useState<Taxonomy[]>([]);
@@ -59,19 +46,12 @@ export default function TaxonomyPage() {
   const [loading, setLoading] = useState(true);
   const [termsLoading, setTermsLoading] = useState(false);
 
-  // Content types state
-  const [contentTypes, setContentTypes] = useState<ContentType[]>([]);
-  const [typesLoading, setTypesLoading] = useState(true);
-
   // Forms
   const [showTaxForm, setShowTaxForm] = useState(false);
   const [showTermForm, setShowTermForm] = useState(false);
-  const [showTypeForm, setShowTypeForm] = useState(false);
   const [editingTerm, setEditingTerm] = useState<Term | null>(null);
-  const [editingType, setEditingType] = useState<ContentType | null>(null);
   const [taxForm, setTaxForm] = useState({ name: '', slug: '', description: '', icon: 'label', hierarchical: false });
   const [termForm, setTermForm] = useState({ name: '', slug: '', description: '', color: '', parentId: '' });
-  const [typeForm, setTypeForm] = useState({ name: '', slug: '', description: '', icon: 'article' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -91,15 +71,7 @@ export default function TaxonomyPage() {
     setTermsLoading(false);
   }, [base]);
 
-  // Load content types
-  const loadContentTypes = useCallback(async () => {
-    setTypesLoading(true);
-    const res = await fetch(`${base}/content-types`).then(r => r.json());
-    if (res.success) setContentTypes(res.data);
-    setTypesLoading(false);
-  }, [base]);
-
-  useEffect(() => { loadTaxonomies(); loadContentTypes(); }, [loadTaxonomies, loadContentTypes]);
+  useEffect(() => { loadTaxonomies(); }, [loadTaxonomies]);
 
   useEffect(() => {
     if (selectedTaxonomy) loadTerms(selectedTaxonomy.id);
@@ -199,55 +171,6 @@ export default function TaxonomyPage() {
     loadTerms(selectedTaxonomy.id);
   };
 
-  // ── Content Type CRUD ──────────────────────────────────────────────────────
-
-  const openCreateType = () => {
-    setEditingType(null);
-    setTypeForm({ name: '', slug: '', description: '', icon: 'article' });
-    setShowTypeForm(true);
-    setError('');
-  };
-
-  const openEditType = (type: ContentType) => {
-    if (!type.websiteId) return; // Can't edit global types
-    setEditingType(type);
-    setTypeForm({ name: type.name, slug: type.slug, description: type.description || '', icon: type.icon });
-    setShowTypeForm(true);
-    setError('');
-  };
-
-  const handleSubmitType = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
-    try {
-      const url = editingType
-        ? `${base}/content-types/${editingType.id}`
-        : `${base}/content-types`;
-      const method = editingType ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(typeForm),
-      }).then(r => r.json());
-      if (res.success) {
-        setShowTypeForm(false);
-        setEditingType(null);
-        loadContentTypes();
-      } else {
-        setError(res.message);
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteType = async (typeId: number) => {
-    if (!confirm('Delete this content type?')) return;
-    await fetch(`${base}/content-types/${typeId}`, { method: 'DELETE' });
-    loadContentTypes();
-  };
-
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const topLevelTerms = terms.filter(t => !t.parentId);
@@ -263,39 +186,13 @@ export default function TaxonomyPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header with tabs */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Taxonomy & Content Types</h1>
+        <h1 className="text-2xl font-bold text-foreground">Taxonomy</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage how your content is organized and classified.</p>
       </div>
 
-      <div className="flex gap-2 border-b border-border">
-        <button
-          onClick={() => setActiveTab('taxonomies')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'taxonomies'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <span className="material-icons text-base mr-1.5 align-middle">account_tree</span>
-          Taxonomies
-        </button>
-        <button
-          onClick={() => setActiveTab('content-types')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'content-types'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <span className="material-icons text-base mr-1.5 align-middle">description</span>
-          Content Types
-        </button>
-      </div>
-
-      {/* ═══ TAXONOMIES TAB ═══ */}
-      {activeTab === 'taxonomies' && (
+      {/* ═══ TAXONOMIES ═══ */}
+      {(
         <div className="flex gap-6">
           {/* Left: taxonomy list */}
           <div className="w-64 flex-shrink-0 space-y-2">
@@ -563,146 +460,6 @@ export default function TaxonomyPage() {
         </div>
       )}
 
-      {/* ═══ CONTENT TYPES TAB ═══ */}
-      {activeTab === 'content-types' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Content types define the structure of your content. Built-in types (Blog, Page) are always available.
-            </p>
-            <button
-              onClick={showTypeForm && !editingType ? () => setShowTypeForm(false) : openCreateType}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              <span className="material-icons text-base">{showTypeForm && !editingType ? 'close' : 'add'}</span>
-              {showTypeForm && !editingType ? 'Cancel' : 'Add Content Type'}
-            </button>
-          </div>
-
-          {/* Content type form */}
-          {showTypeForm && (
-            <form onSubmit={handleSubmitType} className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <h3 className="font-medium text-foreground text-sm">{editingType ? 'Edit' : 'New'} Content Type</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Name</label>
-                  <input
-                    value={typeForm.name}
-                    onChange={e => setTypeForm(prev => ({
-                      ...prev,
-                      name: e.target.value,
-                      slug: !editingType ? generateSlug(e.target.value) : prev.slug,
-                    }))}
-                    required
-                    placeholder="e.g. Case Study"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Slug</label>
-                  <input
-                    value={typeForm.slug}
-                    onChange={e => setTypeForm(prev => ({ ...prev, slug: e.target.value }))}
-                    required
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Description</label>
-                <input
-                  value={typeForm.description}
-                  onChange={e => setTypeForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Optional description"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Icon</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {CONTENT_ICONS.map(icon => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setTypeForm(prev => ({ ...prev, icon }))}
-                      className={`p-2 rounded-lg border transition-colors ${
-                        typeForm.icon === icon ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-primary/30'
-                      }`}
-                    >
-                      <span className="material-icons text-lg">{icon}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {error && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <span className="material-icons text-base">error</span>{error}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowTypeForm(false); setEditingType(null); }}
-                  className="px-4 py-2 text-sm font-medium bg-card border border-border rounded-lg hover:bg-accent transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {saving && <span className="material-icons text-base animate-spin">refresh</span>}
-                  {editingType ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Content types grid */}
-          {typesLoading ? (
-            <div className="flex justify-center py-8">
-              <span className="material-icons animate-spin text-primary">refresh</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {contentTypes.map(type => (
-                <div
-                  key={type.id}
-                  className="bg-card border border-border rounded-xl p-4 group hover:border-primary/30 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <span className="material-icons text-primary">{type.icon}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-foreground">{type.name}</h3>
-                        <p className="text-xs text-muted-foreground font-mono">/{type.slug}</p>
-                      </div>
-                    </div>
-                    {type.websiteId ? (
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditType(type)} className="p-1 rounded hover:bg-accent" title="Edit">
-                          <span className="material-icons text-sm text-muted-foreground">edit</span>
-                        </button>
-                        <button onClick={() => handleDeleteType(type.id)} className="p-1 rounded hover:bg-destructive/10" title="Delete">
-                          <span className="material-icons text-sm text-destructive">delete</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">built-in</span>
-                    )}
-                  </div>
-                  {type.description && (
-                    <p className="text-xs text-muted-foreground mt-2">{type.description}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
