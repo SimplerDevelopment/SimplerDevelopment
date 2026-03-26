@@ -29,6 +29,14 @@ export function findBlockById(blocks: Block[], blockId: string): Block | null {
         }
       }
     }
+
+    // If this is a section block, search within its children
+    if (block.type === 'section') {
+      const found = findBlockById(block.blocks, blockId);
+      if (found) {
+        return found;
+      }
+    }
   }
 
   return null;
@@ -55,6 +63,11 @@ export function getAllBlocks(blocks: Block[]): Block[] {
       for (const tab of block.tabs) {
         result.push(...getAllBlocks(tab.blocks));
       }
+    }
+
+    // If this is a section block, include all nested blocks
+    if (block.type === 'section') {
+      result.push(...getAllBlocks(block.blocks));
     }
   }
 
@@ -257,6 +270,14 @@ export function updateBlockById(
           ...tab,
           blocks: updateBlockById(tab.blocks, blockId, updates),
         })),
+      };
+    }
+
+    // If this is a section block, recursively update within its children
+    if (block.type === 'section') {
+      return {
+        ...block,
+        blocks: updateBlockById(block.blocks, blockId, updates),
       };
     }
 
