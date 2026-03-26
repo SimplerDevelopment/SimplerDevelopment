@@ -30,20 +30,21 @@ export async function DELETE(req: Request) {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
-  const { id } = await req.json();
+  let id: string | undefined;
+  try { ({ id } = await req.json()); } catch { /* empty body */ }
   if (!id) return NextResponse.json({ success: false, message: 'Payment method ID required' }, { status: 400 });
 
   const [method] = await db
     .select()
     .from(paymentMethods)
-    .where(and(eq(paymentMethods.id, id), eq(paymentMethods.clientId, client.id)))
+    .where(and(eq(paymentMethods.id, parseInt(id, 10)), eq(paymentMethods.clientId, client.id)))
     .limit(1);
   if (!method) return NextResponse.json({ success: false, message: 'Payment method not found' }, { status: 404 });
 
   // TODO: Also detach from Stripe when SDK is integrated
   // await stripe.paymentMethods.detach(method.stripePaymentMethodId);
 
-  await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+  await db.delete(paymentMethods).where(eq(paymentMethods.id, parseInt(id, 10)));
 
   return NextResponse.json({ success: true, message: 'Payment method removed' });
 }

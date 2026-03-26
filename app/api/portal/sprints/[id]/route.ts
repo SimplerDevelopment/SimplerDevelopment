@@ -43,7 +43,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     if (!staff) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
     const { id } = await params;
-    await db.delete(sprints).where(eq(sprints.id, parseInt(id, 10)));
+    const deleted = await db.delete(sprints).where(eq(sprints.id, parseInt(id, 10))).returning();
+    if (!deleted.length) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
     return NextResponse.json({ success: true });
   } catch (err) {

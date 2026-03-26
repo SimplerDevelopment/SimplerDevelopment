@@ -1,0 +1,177 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
+import { db } from '@/lib/db';
+import {
+  crmContacts,
+  crmCompanies,
+  crmContactTags,
+  crmTags,
+  crmActivities,
+} from '@/lib/db/schema';
+import { and, eq, desc, inArray } from 'drizzle-orm';
+
+async function getAuthedClient() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
+  const userId = parseInt(session.user.id, 10);
+  const client = await getPortalClient(userId);
+  if (!client) return { error: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
+  return { client, userId };
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const result = await getAuthedClient();
+  if ('error' in result) return result.error;
+  const { client } = result;
+
+  const contactId = parseInt(id, 10);
+  if (isNaN(contactId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  const [contact] = await db
+    .select({
+      id: crmContacts.id,
+      clientId: crmContacts.clientId,
+      companyId: crmContacts.companyId,
+      firstName: crmContacts.firstName,
+      lastName: crmContacts.lastName,
+      email: crmContacts.email,
+      phone: crmContacts.phone,
+      title: crmContacts.title,
+      source: crmContacts.source,
+      status: crmContacts.status,
+      avatarUrl: crmContacts.avatarUrl,
+      address: crmContacts.address,
+      notes: crmContacts.notes,
+      lastContactedAt: crmContacts.lastContactedAt,
+      createdAt: crmContacts.createdAt,
+      updatedAt: crmContacts.updatedAt,
+      companyName: crmCompanies.name,
+      companyDomain: crmCompanies.domain,
+    })
+    .from(crmContacts)
+    .leftJoin(crmCompanies, eq(crmContacts.companyId, crmCompanies.id))
+    .where(and(eq(crmContacts.id, contactId), eq(crmContacts.clientId, client.id)));
+
+  if (!contact)
+    return NextResponse.json({ success: false, message: 'Contact not found' }, { status: 404 });
+
+  // Fetch tags
+  const tags = await db
+    .select({
+      id: crmTags.id,
+      name: crmTags.name,
+      color: crmTags.color,
+    })
+    .from(crmContactTags)
+    .innerJoin(crmTags, eq(crmContactTags.tagId, crmTags.id))
+    .where(eq(crmContactTags.contactId, contactId));
+
+  // Fetch recent activities
+  const recentActivities = await db
+    .select()
+    .from(crmActivities)
+    .where(
+      and(
+        eq(crmActivities.clientId, client.id),
+        eq(crmActivities.contactId, contactId)
+      )
+    )
+    .orderBy(desc(crmActivities.createdAt))
+    .limit(10);
+
+  return NextResponse.json({
+    success: true,
+    data: { ...contact, tags, recentActivities },
+  });
+}
+
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const result = await getAuthedClient();
+  if ('error' in result) return result.error;
+  const { client } = result;
+
+  const contactId = parseInt(id, 10);
+  if (isNaN(contactId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  // Verify ownership
+  const [existing] = await db
+    .select({ id: crmContacts.id })
+    .from(crmContacts)
+    .where(and(eq(crmContacts.id, contactId), eq(crmContacts.clientId, client.id)));
+
+  if (!existing)
+    return NextResponse.json({ success: false, message: 'Contact not found' }, { status: 404 });
+
+  const body = await req.json();
+
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  if (body.firstName !== undefined) updateData.firstName = body.firstName.trim();
+  if (body.lastName !== undefined) updateData.lastName = body.lastName?.trim() || null;
+  if (body.email !== undefined) updateData.email = body.email?.trim() || null;
+  if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
+  if (body.title !== undefined) updateData.title = body.title?.trim() || null;
+  if (body.source !== undefined) updateData.source = body.source?.trim() || null;
+  if (body.status !== undefined) updateData.status = body.status;
+  if (body.companyId !== undefined) updateData.companyId = body.companyId || null;
+  if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;
+  if (body.address !== undefined) updateData.address = body.address?.trim() || null;
+  if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
+  if (body.lastContactedAt !== undefined)
+    updateData.lastContactedAt = body.lastContactedAt ? new Date(body.lastContactedAt) : null;
+
+  const [updated] = await db
+    .update(crmContacts)
+    .set(updateData)
+    .where(eq(crmContacts.id, contactId))
+    .returning();
+
+  // Update tags if provided
+  if (body.tagIds !== undefined && Array.isArray(body.tagIds)) {
+    await db.delete(crmContactTags).where(eq(crmContactTags.contactId, contactId));
+    if (body.tagIds.length > 0) {
+      await db.insert(crmContactTags).values(
+        body.tagIds.map((tagId: number) => ({
+          contactId,
+          tagId,
+        }))
+      );
+    }
+  }
+
+  return NextResponse.json({ success: true, data: updated });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const result = await getAuthedClient();
+  if ('error' in result) return result.error;
+  const { client } = result;
+
+  const contactId = parseInt(id, 10);
+  if (isNaN(contactId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  const [deleted] = await db
+    .delete(crmContacts)
+    .where(and(eq(crmContacts.id, contactId), eq(crmContacts.clientId, client.id)))
+    .returning();
+
+  if (!deleted)
+    return NextResponse.json({ success: false, message: 'Contact not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: deleted });
+}

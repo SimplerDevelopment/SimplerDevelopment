@@ -13,7 +13,9 @@ test.describe('Portal Projects @projects @critical', () => {
     const res = await clientApi.get('/api/portal/projects');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
-    expect(Array.isArray(res.data.data)).toBe(true);
+    expect(res.data.data).toHaveProperty('agency');
+    expect(res.data.data).toHaveProperty('private');
+    expect(Array.isArray(res.data.data.agency)).toBe(true);
   });
 
   test('GET /projects rejects unauthenticated', async ({ unauthApi }) => {

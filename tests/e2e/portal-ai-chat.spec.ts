@@ -1,8 +1,8 @@
 /**
  * Portal AI Chat API E2E Tests
  *
- * Tests for /api/portal/ai/conversations
- * Note: POST /ai/conversations (chat) requires a real AI API key, so we test
+ * Tests for /api/portal/ai/conversations and /api/portal/ai/chat
+ * Note: POST /ai/chat requires a real AI API key, so we test
  * the conversation listing and detail endpoints, and validate chat rejects bad input.
  */
 import { test, expect } from './setup/fixtures';
@@ -25,30 +25,30 @@ test.describe('Portal AI Conversations @ai @critical', () => {
     expect(res.status).toBe(404);
   });
 
-  test('POST /ai/conversations rejects empty message', async ({ clientApi }) => {
-    const res = await clientApi.post('/api/portal/ai/conversations', {
+  test('POST /ai/chat rejects empty message', async ({ clientApi }) => {
+    const res = await clientApi.post('/api/portal/ai/chat', {
       message: '',
     });
     expect(res.status).toBe(400);
     expect(res.data.success).toBe(false);
   });
 
-  test('POST /ai/conversations rejects staff users', async ({ adminApi }) => {
-    const res = await adminApi.post('/api/portal/ai/conversations', {
+  test('POST /ai/chat rejects staff users', async ({ adminApi }) => {
+    const res = await adminApi.post('/api/portal/ai/chat', {
       message: 'Hello from admin',
     });
     expect(res.status).toBe(403);
   });
 
-  test('POST /ai/conversations rejects unauthenticated', async ({ unauthApi }) => {
-    const res = await unauthApi.post('/api/portal/ai/conversations', {
+  test('POST /ai/chat rejects unauthenticated', async ({ unauthApi }) => {
+    const res = await unauthApi.post('/api/portal/ai/chat', {
       message: 'Hello',
     });
     expect(res.status).toBe(401);
   });
 
-  test('POST /ai/conversations rejects invalid conversationId', async ({ clientApi }) => {
-    const res = await clientApi.post('/api/portal/ai/conversations', {
+  test('POST /ai/chat rejects invalid conversationId', async ({ clientApi }) => {
+    const res = await clientApi.post('/api/portal/ai/chat', {
       message: 'Hello',
       conversationId: 999999,
     });

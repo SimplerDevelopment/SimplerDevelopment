@@ -1,0 +1,1 @@
+ALTER TABLE "site_navigation" ADD COLUMN "is_button" boolean DEFAULT false NOT NULL;

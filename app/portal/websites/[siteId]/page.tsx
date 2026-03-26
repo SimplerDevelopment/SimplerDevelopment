@@ -10,6 +10,7 @@ const postTypeIcon: Record<string, string> = {
   page: 'article',
   blog: 'rss_feed',
   landing: 'web',
+  default: 'description',
 };
 
 export default async function PortalCmsSitePage({
@@ -120,7 +121,7 @@ export default async function PortalCmsSitePage({
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
-            <h2 className="font-semibold text-sm text-foreground">Pages &amp; Posts</h2>
+            <h2 className="font-semibold text-sm text-foreground">Content</h2>
           </div>
           <ul className="divide-y divide-border">
             {sitePosts.map(post => (

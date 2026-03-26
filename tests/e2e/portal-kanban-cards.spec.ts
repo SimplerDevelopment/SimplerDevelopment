@@ -260,8 +260,12 @@ test.describe('Portal Kanban Cards — Time Logs @kanban @cards @time-logs', () 
 
 async function getFirstColumnId(api: import('./setup/api-client').ApiClient): Promise<number | null> {
   const projects = await api.get('/api/portal/projects');
-  if (!projects.data?.data?.length) return null;
-  const projectId = projects.data.data[0].id;
+  const allProjects = [
+    ...(projects.data?.data?.agency || []),
+    ...(projects.data?.data?.private || []),
+  ];
+  if (!allProjects.length) return null;
+  const projectId = allProjects[0].id;
 
   const columns = await api.get(`/api/portal/projects/${projectId}/columns`);
   if (!columns.data?.data?.length) return null;

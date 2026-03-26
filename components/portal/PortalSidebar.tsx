@@ -37,37 +37,49 @@ interface NavItem {
 
 const staticNavItems: NavItem[] = [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  {
-    href: '/portal/projects',
-    label: 'Projects',
-    icon: 'view_kanban',
-    children: [
-      { href: '/portal/suggested-projects', label: 'Suggested Projects', icon: 'rocket_launch' },
-    ],
-  },
-  {
-    href: '/portal/services',
-    label: 'Services',
-    icon: 'storefront',
-    menuOnly: true,
-    dynamic: true,
-    children: [],
-  },
-  { href: '/portal/billing', label: 'Billing', icon: 'payments' },
-  { href: '/portal/tickets', label: 'Support', icon: 'support_agent' },
-  { href: '/portal/team', label: 'Team', icon: 'group' },
+  { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
+  { href: '/portal/crm', label: 'CRM', icon: 'contacts' },
+  // Dynamic services are injected here as top-level items (see navItems below)
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
+// CMS nav item with optional children
+interface CmsNavItem {
+  href: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+  alsoActiveOn?: string;
+  children?: { href: string; label: string; icon: string }[];
+}
+
 // CMS nav items — shown when inside /portal/websites/[siteId]
-const cmsNavItems = (siteId: string) => [
-  { href: `/portal/websites/${siteId}`, label: 'Pages & Posts', icon: 'article', exact: true, alsoActiveOn: `/portal/websites/${siteId}/posts` },
-  { href: `/portal/websites/${siteId}/categories`, label: 'Categories', icon: 'folder', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/tags`, label: 'Tags', icon: 'label', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/navigation`, label: 'Navigation', icon: 'menu', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: true, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
+const cmsNavItems = (siteId: string): CmsNavItem[] => [
+  {
+    href: `/portal/websites/${siteId}`,
+    label: 'Content',
+    icon: 'article',
+    exact: true,
+    alsoActiveOn: `/portal/websites/${siteId}/posts`,
+    children: [
+      { href: `/portal/websites/${siteId}/taxonomy`, label: 'Taxonomy', icon: 'account_tree' },
+    ],
+  },
+  { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media' },
+  { href: `/portal/websites/${siteId}/navigation`, label: 'Navigation', icon: 'menu' },
+  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: true },
+  { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings' },
+];
+
+// CRM nav items — shown when inside /portal/crm
+const crmNavItemsList = [
+  { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
+  { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
+  { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
+  { href: '/portal/crm/proposals', label: 'Proposals', icon: 'description' },
+  { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
+  { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
 ];
 
 // Store nav items — shown when inside /portal/websites/[siteId]/store
@@ -108,6 +120,9 @@ export default function PortalSidebar() {
   // Detect store context: /portal/websites/[siteId]/store/...
   const isStoreContext = activeSiteId && pathname.startsWith(`/portal/websites/${activeSiteId}/store`);
 
+  // Detect CRM context: /portal/crm/... or /portal/tools/pitch-decks/...
+  const isCrmContext = pathname.startsWith('/portal/crm') || pathname.startsWith('/portal/tools/pitch-decks');
+
   // Auto-collapse on CMS content editor pages to maximize editing space
   const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
 
@@ -144,22 +159,25 @@ export default function PortalSidebar() {
       .catch(() => {});
   }, [activeSiteId]);
 
-  // Build nav items with dynamic services
-  const navItems: NavItem[] = staticNavItems.map(item => {
-    if (!item.dynamic) return item;
-    const serviceChildren: NavChild[] = navServices.map(svc => ({
-      href: svc.href,
-      label: svc.name,
-      icon: svc.icon,
-    }));
-    return {
-      ...item,
-      children: [
-        ...serviceChildren,
-        ...(item.children ?? []),
-      ],
-    };
-  });
+  // Build nav items: inject dynamic services as top-level items before Settings
+  const navItems: NavItem[] = (() => {
+    const serviceItems: NavItem[] = navServices
+      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks')
+      .map(svc => ({
+        href: svc.href,
+        label: svc.name,
+        icon: svc.icon,
+      }));
+    // Insert services before the last item (Settings)
+    const items = [...staticNavItems];
+    const settingsIdx = items.findIndex(i => i.href === '/portal/settings');
+    if (settingsIdx >= 0) {
+      items.splice(settingsIdx, 0, ...serviceItems);
+    } else {
+      items.push(...serviceItems);
+    }
+    return items;
+  })();
 
   const cycleTheme = () => {
     const next = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
@@ -201,7 +219,22 @@ export default function PortalSidebar() {
           {/* Logo / Header */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-16 border-b border-border px-4`}>
             {!isCollapsed && (
-              isStoreContext && activeSiteId ? (
+              isCrmContext ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    href="/portal/dashboard"
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    title="Back to Portal"
+                    onClick={() => setIsMobileOpen(false)}
+                  >
+                    <span className="material-icons text-xl">arrow_back</span>
+                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">CRM</p>
+                    <p className="text-sm font-bold text-foreground">Customer Management</p>
+                  </div>
+                </div>
+              ) : isStoreContext && activeSiteId ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <Link
                     href={`/portal/websites/${activeSiteId}`}
@@ -317,6 +350,83 @@ export default function PortalSidebar() {
                 {cmsNavItems(activeSiteId).map(item => {
                   const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'))
                     || (item.alsoActiveOn !== undefined && pathname.startsWith(item.alsoActiveOn));
+                  const hasChildren = item.children && item.children.length > 0;
+                  const hasActiveChild = hasChildren && item.children!.some(
+                    c => pathname === c.href || pathname.startsWith(c.href + '/')
+                  );
+                  const showChildren = isActive || hasActiveChild;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center gap-3 ${
+                          isCollapsed ? 'justify-center px-3' : 'px-4'
+                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                          isActive || hasActiveChild
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-xl">{item.icon}</span>
+                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                        {!isCollapsed && hasChildren && (
+                          <span className="material-icons text-base opacity-60">{showChildren ? 'expand_less' : 'expand_more'}</span>
+                        )}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                      {/* Children */}
+                      {hasChildren && showChildren && !isCollapsed && (
+                        <ul className="mt-0.5 space-y-0.5">
+                          {item.children!.map(child => {
+                            const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={child.href}
+                                  onClick={() => setIsMobileOpen(false)}
+                                  className={`flex items-center gap-3 pl-11 pr-4 py-2 rounded-md text-sm transition-colors ${
+                                    childActive
+                                      ? 'text-primary font-medium bg-primary/10'
+                                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                                  }`}
+                                >
+                                  <span className="material-icons text-lg">{child.icon}</span>
+                                  <span>{child.label}</span>
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : isCrmContext ? (
+              // ── CRM context nav ─────────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {isCollapsed && (
+                  <li>
+                    <Link
+                      href="/portal/dashboard"
+                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
+                      title="Back to Portal"
+                    >
+                      <span className="material-icons text-xl">arrow_back</span>
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                        Back to Portal
+                      </div>
+                    </Link>
+                  </li>
+                )}
+                {crmNavItemsList.map(item => {
+                  const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
                   return (
                     <li key={item.href}>
                       <Link

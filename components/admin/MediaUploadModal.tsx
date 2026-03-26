@@ -5,11 +5,13 @@ import { useState, useRef } from 'react';
 interface MediaUploadModalProps {
   onClose: () => void;
   onComplete: () => void;
+  apiEndpoint?: string;
 }
 
 export default function MediaUploadModal({
   onClose,
   onComplete,
+  apiEndpoint = '/api/media/upload',
 }: MediaUploadModalProps) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -62,7 +64,7 @@ export default function MediaUploadModal({
     if (caption) formData.append('caption', caption);
 
     try {
-      const response = await fetch('/api/media/upload', {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         body: formData,
       });

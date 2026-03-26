@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import MediaUploadModal from '@/components/admin/MediaUploadModal';
 
 interface ProductImage {
   id?: number;
@@ -124,7 +125,12 @@ export default function ProductEditPage() {
   const [showSeo, setShowSeo] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [showBulkPricing, setShowBulkPricing] = useState(false);
-  const [newImageUrl, setNewImageUrl] = useState('');
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
+  const [mediaItems, setMediaItems] = useState<{ id: number; filename: string; url: string; mimeType: string; alt?: string | null }[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaSearch, setMediaSearch] = useState('');
+  const mediaEndpoint = `/api/portal/cms/websites/${siteId}/media`;
 
   useEffect(() => {
     fetch(`${base}/categories`)
@@ -193,14 +199,27 @@ export default function ProductEditPage() {
     setSuccess('');
   };
 
-  const addImage = () => {
-    if (!newImageUrl.trim()) return;
-    const newImg: ProductImage = {
-      url: newImageUrl.trim(),
-      position: form.images.length,
-    };
+  const fetchMedia = async (searchTerm?: string) => {
+    setMediaLoading(true);
+    const params = new URLSearchParams({ limit: '50', mimeType: 'image' });
+    if (searchTerm) params.append('search', searchTerm);
+    try {
+      const res = await fetch(`${mediaEndpoint}?${params}`);
+      const data = await res.json();
+      if (data.success) setMediaItems(data.data || []);
+    } catch { /* ignore */ }
+    setMediaLoading(false);
+  };
+
+  useEffect(() => {
+    if (showMediaPicker) fetchMedia(mediaSearch);
+  }, [showMediaPicker, mediaSearch]);
+
+  const addImageFromMedia = (url: string) => {
+    const alreadyAdded = form.images.some(img => img.url === url);
+    if (alreadyAdded) return;
+    const newImg: ProductImage = { url, position: form.images.length };
     updateField('images', [...form.images, newImg]);
-    setNewImageUrl('');
   };
 
   const removeImage = (index: number) => {
@@ -576,16 +595,40 @@ export default function ProductEditPage() {
 
       {/* Images */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <span className="material-icons text-lg text-muted-foreground">photo_library</span>
-          Images
-        </h2>
-        {form.images.length > 0 && (
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-lg text-muted-foreground">photo_library</span>
+            Images
+          </h2>
+          <button
+            type="button"
+            onClick={() => setShowMediaPicker(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">add_photo_alternate</span>
+            Add from Media
+          </button>
+        </div>
+        {form.images.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {form.images.map((img, i) => (
               <div key={i} className="relative group rounded-lg border border-border overflow-hidden aspect-square">
                 <img src={img.url} alt={img.altText || ''} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [...form.images];
+                        [updated[i - 1], updated[i]] = [updated[i], updated[i - 1]];
+                        updateField('images', updated.map((img, idx) => ({ ...img, position: idx })));
+                      }}
+                      className="p-1.5 bg-white/90 rounded-full text-foreground hover:bg-white transition-colors"
+                      title="Move left"
+                    >
+                      <span className="material-icons text-lg">chevron_left</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeImage(i)}
@@ -593,37 +636,147 @@ export default function ProductEditPage() {
                   >
                     <span className="material-icons text-lg">close</span>
                   </button>
+                  {i < form.images.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [...form.images];
+                        [updated[i], updated[i + 1]] = [updated[i + 1], updated[i]];
+                        updateField('images', updated.map((img, idx) => ({ ...img, position: idx })));
+                      }}
+                      className="p-1.5 bg-white/90 rounded-full text-foreground hover:bg-white transition-colors"
+                      title="Move right"
+                    >
+                      <span className="material-icons text-lg">chevron_right</span>
+                    </button>
+                  )}
                 </div>
                 <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                  #{i + 1}
+                  {i === 0 ? 'Main' : `#${i + 1}`}
                 </span>
               </div>
             ))}
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          <input
-            value={newImageUrl}
-            onChange={(e) => setNewImageUrl(e.target.value)}
-            placeholder="Image URL..."
-            className={`flex-1 ${inputClass}`}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addImage();
-              }
-            }}
-          />
+        ) : (
           <button
             type="button"
-            onClick={addImage}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            onClick={() => setShowMediaPicker(true)}
+            className="w-full rounded-lg border-2 border-dashed border-border px-6 py-10 text-center hover:border-primary/50 transition-colors"
           >
-            <span className="material-icons text-base">add_photo_alternate</span>
-            Add
+            <span className="material-icons text-3xl text-muted-foreground/40 block mb-1">add_photo_alternate</span>
+            <span className="text-sm text-muted-foreground">Click to add images from the media library</span>
           </button>
-        </div>
+        )}
       </div>
+
+      {/* Media Picker Modal */}
+      {showMediaPicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-xl shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Select Images</h2>
+              <button onClick={() => setShowMediaPicker(false)} className="p-1 hover:bg-muted rounded-lg transition-colors">
+                <span className="material-icons text-muted-foreground">close</span>
+              </button>
+            </div>
+            <div className="p-4 border-b border-border flex items-center gap-2">
+              <div className="flex-1 relative">
+                <span className="material-icons text-muted-foreground text-lg absolute left-3 top-1/2 -translate-y-1/2">search</span>
+                <input
+                  type="text"
+                  placeholder="Search media..."
+                  value={mediaSearch}
+                  onChange={(e) => setMediaSearch(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMediaUpload(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <span className="material-icons text-base">upload</span>
+                Upload New
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {mediaLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
+                </div>
+              ) : mediaItems.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <span className="material-icons text-4xl text-muted-foreground/40 block mb-2">photo_library</span>
+                  No images found. Upload some to get started.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {mediaItems.map((item) => {
+                    const isSelected = form.images.some(img => img.url === item.url);
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            updateField('images', form.images.filter(img => img.url !== item.url).map((img, idx) => ({ ...img, position: idx })));
+                          } else {
+                            addImageFromMedia(item.url);
+                          }
+                        }}
+                        className={`relative rounded-lg border overflow-hidden text-left transition-all ${
+                          isSelected
+                            ? 'border-primary ring-2 ring-primary/30'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        {item.mimeType.startsWith('image/') ? (
+                          <img src={item.url} alt={item.alt || item.filename} className="w-full aspect-square object-cover" />
+                        ) : (
+                          <div className="w-full aspect-square flex items-center justify-center bg-muted">
+                            <span className="material-icons text-4xl text-muted-foreground">description</span>
+                          </div>
+                        )}
+                        <div className="p-2">
+                          <p className="text-xs text-muted-foreground truncate">{item.filename}</p>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                            <span className="material-icons text-sm">check</span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {form.images.length} image{form.images.length !== 1 ? 's' : ''} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMediaPicker(false)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMediaUpload && (
+        <MediaUploadModal
+          onClose={() => setShowMediaUpload(false)}
+          onComplete={() => {
+            setShowMediaUpload(false);
+            fetchMedia(mediaSearch);
+          }}
+          apiEndpoint={`${mediaEndpoint}/upload`}
+        />
+      )}
 
       {/* Category & Tags */}
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">

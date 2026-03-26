@@ -69,13 +69,50 @@ export const users = pgTable('users', {
 
 export const postTypes = pgTable('post_types', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull().unique(),
-  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
   description: text('description'),
   icon: varchar('icon', { length: 50 }).default('article'),
   active: boolean('active').default(true).notNull(),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Custom taxonomies — extensible alternative to just categories/tags
+export const taxonomies = pgTable('taxonomies', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(), // e.g. "Category", "Tag", "Genre"
+  slug: varchar('slug', { length: 100 }).notNull(), // e.g. "category", "tag", "genre"
+  description: text('description'),
+  icon: varchar('icon', { length: 50 }).default('label'),
+  hierarchical: boolean('hierarchical').default(false).notNull(), // categories-style (parent/child) vs tags-style (flat)
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global
+  builtIn: boolean('built_in').default(false).notNull(), // true for "category" and "tag"
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('taxonomies_slug_website_idx').on(t.slug, t.websiteId),
+]);
+
+export const taxonomyTerms = pgTable('taxonomy_terms', {
+  id: serial('id').primaryKey(),
+  taxonomyId: integer('taxonomy_id').notNull().references(() => taxonomies.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  description: text('description'),
+  color: varchar('color', { length: 7 }),
+  parentId: integer('parent_id'), // for hierarchical taxonomies
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('taxonomy_terms_slug_taxonomy_idx').on(t.slug, t.taxonomyId),
+]);
+
+export const postTaxonomyTerms = pgTable('post_taxonomy_terms', {
+  id: serial('id').primaryKey(),
+  postId: integer('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  termId: integer('term_id').notNull().references(() => taxonomyTerms.id, { onDelete: 'cascade' }),
 });
 
 export const customFields = pgTable('custom_fields', {
@@ -192,6 +229,7 @@ export const projects = pgTable('projects', {
   description: text('description'),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
+  isPrivate: boolean('is_private').default(false).notNull(), // false = agency project, true = client-managed
   startDate: timestamp('start_date'),
   dueDate: timestamp('due_date'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -991,3 +1029,219 @@ export const discountCodes = pgTable('discount_codes', {
 }, (t) => [
   uniqueIndex('discount_codes_code_website_idx').on(t.code, t.websiteId),
 ]);
+
+// ─── NAVIGATION & BRANDING ──────────────────────────────────────────────────
+
+export const siteNavigation = pgTable('site_navigation', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  label: varchar('label', { length: 255 }).notNull(),
+  href: varchar('href', { length: 500 }).notNull(),
+  parentId: integer('parent_id'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  openInNewTab: boolean('open_in_new_tab').default(false).notNull(),
+  isButton: boolean('is_button').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const siteBranding = pgTable('site_branding', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  logoAlt: varchar('logo_alt', { length: 255 }),
+  primaryColor: varchar('primary_color', { length: 20 }).default('#2563eb'),
+  secondaryColor: varchar('secondary_color', { length: 20 }).default('#1e40af'),
+  accentColor: varchar('accent_color', { length: 20 }).default('#f59e0b'),
+  backgroundColor: varchar('background_color', { length: 20 }).default('#ffffff'),
+  textColor: varchar('text_color', { length: 20 }).default('#111827'),
+  navTemplate: varchar('nav_template', { length: 50 }).default('classic'), // classic, centered, minimal, modern, transparent, mega
+  navPosition: varchar('nav_position', { length: 20 }).default('top'), // top, left
+  navBackground: varchar('nav_background', { length: 20 }).default('#ffffff'),
+  navTextColor: varchar('nav_text_color', { length: 20 }).default('#111827'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+
+export const crmCompanies = pgTable('crm_companies', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  domain: varchar('domain', { length: 255 }),
+  industry: varchar('industry', { length: 100 }),
+  size: varchar('size', { length: 50 }), // 1-10, 11-50, 51-200, 201-500, 500+
+  phone: varchar('phone', { length: 50 }),
+  address: text('address'),
+  website: varchar('website', { length: 500 }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmContacts = pgTable('crm_contacts', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  lastName: varchar('last_name', { length: 100 }),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  title: varchar('title', { length: 150 }), // job title
+  source: varchar('source', { length: 100 }), // web, referral, cold-call, event, etc.
+  status: varchar('status', { length: 50 }).default('active').notNull(), // active, inactive, lead, customer
+  avatarUrl: varchar('avatar_url', { length: 500 }),
+  address: text('address'),
+  notes: text('notes'),
+  lastContactedAt: timestamp('last_contacted_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmPipelines = pgTable('crm_pipelines', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmPipelineStages = pgTable('crm_pipeline_stages', {
+  id: serial('id').primaryKey(),
+  pipelineId: integer('pipeline_id').notNull().references(() => crmPipelines.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  color: varchar('color', { length: 20 }).default('#6366f1'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  probability: integer('probability').default(0), // win probability percentage 0-100
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmDeals = pgTable('crm_deals', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  pipelineId: integer('pipeline_id').notNull().references(() => crmPipelines.id, { onDelete: 'cascade' }),
+  stageId: integer('stage_id').notNull().references(() => crmPipelineStages.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  value: integer('value'), // in cents
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  status: varchar('status', { length: 50 }).default('open').notNull(), // open, won, lost
+  priority: varchar('priority', { length: 20 }).default('medium'), // low, medium, high
+  expectedCloseDate: timestamp('expected_close_date'),
+  closedAt: timestamp('closed_at'),
+  notes: text('notes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmActivities = pgTable('crm_activities', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'cascade' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'cascade' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 50 }).notNull(), // call, email, meeting, note, task
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  dueDate: timestamp('due_date'),
+  completedAt: timestamp('completed_at'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmTags = pgTable('crm_tags', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  color: varchar('color', { length: 20 }).default('#6366f1'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmContactTags = pgTable('crm_contact_tags', {
+  id: serial('id').primaryKey(),
+  contactId: integer('contact_id').notNull().references(() => crmContacts.id, { onDelete: 'cascade' }),
+  tagId: integer('tag_id').notNull().references(() => crmTags.id, { onDelete: 'cascade' }),
+});
+
+// ─── CRM PROPOSALS ───────────────────────────────────────────────────────────
+
+export interface ProposalSection {
+  id: string;
+  type: 'text' | 'heading' | 'image' | 'divider' | 'pricing' | 'terms' | 'signature';
+  title?: string;
+  content?: string; // HTML or markdown
+  imageUrl?: string;
+}
+
+export interface ProposalLineItem {
+  id: string;
+  description: string;
+  details?: string;
+  quantity: number;
+  unitPrice: number; // cents
+  optional?: boolean;
+  accepted?: boolean; // for optional items — client can toggle
+}
+
+export interface ProposalFee {
+  label: string; // e.g. "Discount", "Tax"
+  type: 'flat' | 'percent';
+  amount: number; // cents for flat, basis points for percent (e.g. 1000 = 10%)
+}
+
+export const crmProposals = pgTable('crm_proposals', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  summary: text('summary'), // brief intro shown at top
+  status: varchar('status', { length: 50 }).default('draft').notNull(), // draft, sent, viewed, accepted, declined, expired
+  sections: json('sections').$type<ProposalSection[]>().default([]),
+  lineItems: json('line_items').$type<ProposalLineItem[]>().default([]),
+  fees: json('fees').$type<ProposalFee[]>().default([]),
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  validUntil: timestamp('valid_until'),
+  // Client-facing access
+  clientToken: varchar('client_token', { length: 64 }).notNull().unique(), // secret URL token
+  // Signature
+  signatureName: varchar('signature_name', { length: 255 }),
+  signatureData: text('signature_data'), // base64 PNG or SVG path
+  signedAt: timestamp('signed_at'),
+  signedIp: varchar('signed_ip', { length: 45 }),
+  // Tracking
+  sentAt: timestamp('sent_at'),
+  firstViewedAt: timestamp('first_viewed_at'),
+  lastViewedAt: timestamp('last_viewed_at'),
+  viewCount: integer('view_count').default(0).notNull(),
+  acceptedAt: timestamp('accepted_at'),
+  declinedAt: timestamp('declined_at'),
+  declineReason: text('decline_reason'),
+  // Branding
+  accentColor: varchar('accent_color', { length: 20 }).default('#2563eb'),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  coverImageUrl: varchar('cover_image_url', { length: 500 }),
+  footerText: text('footer_text'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmProposalTemplates = pgTable('crm_proposal_templates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  sections: json('sections').$type<ProposalSection[]>().default([]),
+  lineItems: json('line_items').$type<ProposalLineItem[]>().default([]),
+  fees: json('fees').$type<ProposalFee[]>().default([]),
+  accentColor: varchar('accent_color', { length: 20 }).default('#2563eb'),
+  footerText: text('footer_text'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
