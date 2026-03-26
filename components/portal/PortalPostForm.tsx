@@ -426,13 +426,30 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
 
 // ─── Settings Slide-Over with Tabs ───────────────────────────────────────────
 
-type SettingsTab = 'general' | 'seo' | 'taxonomy';
+type SettingsTab = 'general' | 'seo' | 'taxonomy' | 'custom-fields';
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'general', label: 'General', icon: 'tune' },
   { id: 'seo', label: 'SEO', icon: 'search' },
   { id: 'taxonomy', label: 'Taxonomy', icon: 'label' },
+  { id: 'custom-fields', label: 'Custom Fields', icon: 'input' },
 ];
+
+interface CustomFieldDef {
+  id: number;
+  name: string;
+  slug: string;
+  fieldType: string;
+  options: string[] | null;
+  required: boolean;
+  defaultValue: string | null;
+  helpText: string | null;
+}
+
+interface CustomFieldValue {
+  customFieldId: number;
+  value: string | null;
+}
 
 function SettingsSlideOver({
   formData,
@@ -452,6 +469,52 @@ function SettingsSlideOver({
   onClose: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>({});
+  const [customFieldsLoaded, setCustomFieldsLoaded] = useState(false);
+
+  // Load custom fields when tab is activated
+  useEffect(() => {
+    if (activeTab !== 'custom-fields' || customFieldsLoaded) return;
+
+    // Fetch field definitions (all fields — could filter by postType if post_types are set up)
+    fetch('/api/custom-fields')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) setCustomFieldDefs(res.data);
+      })
+      .catch(() => {});
+
+    // Fetch existing values for this post
+    if (formData.id) {
+      fetch(`/api/posts/${formData.id}/custom-fields`)
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            const vals: Record<number, string> = {};
+            for (const v of res.data) {
+              vals[v.customFieldId] = v.value || '';
+            }
+            setCustomFieldValues(vals);
+          }
+        })
+        .catch(() => {});
+    }
+
+    setCustomFieldsLoaded(true);
+  }, [activeTab, customFieldsLoaded, formData.id]);
+
+  const updateCustomFieldValue = (fieldId: number, value: string) => {
+    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+    // Save immediately
+    if (formData.id) {
+      fetch(`/api/posts/${formData.id}/custom-fields`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customFieldId: fieldId, value }),
+      }).catch(() => {});
+    }
+  };
 
   return (
     <>
@@ -465,14 +528,14 @@ function SettingsSlideOver({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-border shrink-0">
+        {/* Tabs — horizontal scroll */}
+        <div className="flex overflow-x-auto border-b border-border shrink-0 scrollbar-none">
           {SETTINGS_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors shrink-0 ${
                 activeTab === tab.id
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -651,6 +714,90 @@ function SettingsSlideOver({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No tags created yet.</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'custom-fields' && (
+            <div className="space-y-4">
+              {customFieldDefs.length === 0 ? (
+                <div className="text-center py-8">
+                  <span className="material-icons text-3xl text-muted-foreground mb-2 block">input</span>
+                  <p className="text-sm text-muted-foreground">No custom fields defined yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Custom fields can be created in the admin post type settings.</p>
+                </div>
+              ) : (
+                customFieldDefs.map((field) => (
+                  <div key={field.id}>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">
+                      {field.name}
+                      {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                    </label>
+                    {field.fieldType === 'textarea' ? (
+                      <textarea
+                        value={customFieldValues[field.id] || ''}
+                        onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                        rows={3}
+                        placeholder={field.defaultValue || ''}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary resize-none"
+                      />
+                    ) : field.fieldType === 'select' ? (
+                      <select
+                        value={customFieldValues[field.id] || ''}
+                        onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                      >
+                        <option value="">Select...</option>
+                        {(field.options || []).map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : field.fieldType === 'checkbox' ? (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={customFieldValues[field.id] === 'true'}
+                          onChange={e => updateCustomFieldValue(field.id, String(e.target.checked))}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-foreground">{field.helpText || field.name}</span>
+                      </label>
+                    ) : field.fieldType === 'number' ? (
+                      <input
+                        type="number"
+                        value={customFieldValues[field.id] || ''}
+                        onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                        placeholder={field.defaultValue || ''}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                      />
+                    ) : field.fieldType === 'date' ? (
+                      <input
+                        type="date"
+                        value={customFieldValues[field.id] || ''}
+                        onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                      />
+                    ) : field.fieldType === 'image' ? (
+                      <MediaPicker
+                        value={customFieldValues[field.id] || ''}
+                        onChange={(url) => updateCustomFieldValue(field.id, url)}
+                        label=""
+                        apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+                      />
+                    ) : (
+                      <input
+                        type={field.fieldType === 'url' ? 'url' : field.fieldType === 'email' ? 'email' : 'text'}
+                        value={customFieldValues[field.id] || ''}
+                        onChange={e => updateCustomFieldValue(field.id, e.target.value)}
+                        placeholder={field.defaultValue || ''}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
+                      />
+                    )}
+                    {field.helpText && field.fieldType !== 'checkbox' && (
+                      <p className="text-xs text-muted-foreground mt-1">{field.helpText}</p>
+                    )}
+                  </div>
+                ))
               )}
             </div>
           )}
