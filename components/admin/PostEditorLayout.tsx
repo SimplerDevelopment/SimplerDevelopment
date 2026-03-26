@@ -16,6 +16,7 @@ interface PostEditorLayoutProps {
   liveUrl?: string | null;
   previewMode?: boolean;
   onPreviewToggle?: () => void;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
 export function PostEditorLayout({
@@ -32,6 +33,7 @@ export function PostEditorLayout({
   backHref,
   previewMode,
   onPreviewToggle,
+  saveStatus = 'idle',
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
 
@@ -112,11 +114,28 @@ export function PostEditorLayout({
               <button
                 type="button"
                 onClick={onPublish}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+                disabled={saveStatus === 'saving'}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 disabled:opacity-50"
               >
-                <span className="material-icons text-base">check</span>
-                {published ? 'Update' : 'Publish'}
+                {saveStatus === 'saving' ? (
+                  <span className="material-icons text-base animate-spin">progress_activity</span>
+                ) : (
+                  <span className="material-icons text-base">check</span>
+                )}
+                {saveStatus === 'saving' ? 'Saving...' : published ? 'Update' : 'Publish'}
               </button>
+              {saveStatus === 'saved' && (
+                <span className="flex items-center gap-1 text-xs text-green-600 shrink-0">
+                  <span className="material-icons text-sm">check_circle</span>
+                  Saved
+                </span>
+              )}
+              {saveStatus === 'error' && (
+                <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                  <span className="material-icons text-sm">error</span>
+                  Failed
+                </span>
+              )}
             </div>
           ) : (
             /* ── Standard two-row nav (inline editor mode) ────────── */
@@ -159,13 +178,31 @@ export function PostEditorLayout({
                   <button
                     type="button"
                     onClick={onPublish}
-                    className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    disabled={saveStatus === 'saving'}
+                    className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {published ? 'Update' : 'Publish'}
+                    {saveStatus === 'saving' ? (
+                      <span className="material-icons text-base animate-spin">progress_activity</span>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {saveStatus === 'saving' ? 'Saving...' : published ? 'Update' : 'Publish'}
                   </button>
+                  {saveStatus === 'saved' && (
+                    <span className="flex items-center gap-1 text-xs text-green-600">
+                      <span className="material-icons text-sm">check_circle</span>
+                      Saved
+                    </span>
+                  )}
+                  {saveStatus === 'error' && (
+                    <span className="flex items-center gap-1 text-xs text-destructive">
+                      <span className="material-icons text-sm">error</span>
+                      Failed
+                    </span>
+                  )}
+
                 </div>
                 {editorControls}
               </div>

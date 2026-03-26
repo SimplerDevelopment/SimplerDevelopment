@@ -145,6 +145,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
+  const [postSaveStatus, setPostSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Notify layout to hide/show sidebar when preview mode changes
   useEffect(() => {
@@ -199,6 +201,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setLoading(true);
+    setPostSaveStatus('saving');
+    if (postSaveTimer.current) clearTimeout(postSaveTimer.current);
 
     try {
       const contentData: BlockEditorData = { blocks, version: '1.0' };
@@ -217,18 +221,21 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
 
       const data = await response.json();
       if (data.success) {
+        setPostSaveStatus('saved');
+        postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 3000);
         if (editorMode === 'iframe') {
-          // Stay on the editor — just refresh iframe to pick up saved content
           router.refresh();
         } else {
           router.push(`/portal/websites/${siteId}`);
           router.refresh();
         }
       } else {
-        alert(data.message || 'Failed to save');
+        setPostSaveStatus('error');
+        postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
       }
     } catch {
-      alert('An error occurred while saving');
+      setPostSaveStatus('error');
+      postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
     } finally {
       setLoading(false);
     }
@@ -450,6 +457,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
           previewMode={previewMode}
           onPreviewToggle={editorMode === 'iframe' ? () => setPreviewMode(prev => !prev) : undefined}
+          saveStatus={postSaveStatus}
           extraNavControls={editorMode === 'iframe' && undoRedo ? (
             <div className="flex items-center gap-0.5 ml-1">
               <button
