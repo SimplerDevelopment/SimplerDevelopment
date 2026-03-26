@@ -309,9 +309,10 @@ export function VisualEditorShell({
 
   // Collect all block IDs + drop zone IDs for DnD context
   const allBlockIds = useMemo(() => {
-    const ids = getAllBlocks(blocks).map(b => b.id);
-    // Add drop zone IDs for containers
-    for (const block of blocks) {
+    const all = getAllBlocks(blocks);
+    const ids = all.map(b => b.id);
+    // Add drop zone IDs for all containers (including nested ones)
+    for (const block of all) {
       if (block.type === 'columns') block.columns.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
       if (block.type === 'tabs') block.tabs.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
       if (block.type === 'section') ids.push(`dropzone:${block.id}:0`);
@@ -470,11 +471,8 @@ function LayerItem({
   onDelete: (id: string) => void;
   showDropIndicator?: boolean;
 }) {
-  // Only top-level items are sortable — nested items are plain clickable rows
-  const sortable = depth === 0 ? useSortable({ id: block.id, transition: null }) : null;
-  const style = sortable
-    ? { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties
-    : {} as React.CSSProperties;
+  const sortable = useSortable({ id: block.id, transition: null });
+  const style = { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties;
   const isSelected = selectedBlockId === block.id;
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
   const [expanded, setExpanded] = useState(true);
@@ -503,7 +501,7 @@ function LayerItem({
       : '';
 
   return (
-    <div ref={sortable?.setNodeRef} style={style}>
+    <div ref={sortable.setNodeRef} style={style}>
       {showDropIndicator && (
         <div className="relative z-20 mx-1" style={{ height: 0 }}>
           <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-blue-500 rounded-full" />
@@ -516,8 +514,8 @@ function LayerItem({
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={() => onSelect(block.id)}
       >
-        {/* Drag handle — only for sortable (top-level) items */}
-        <span {...(sortable?.attributes || {})} {...(sortable?.listeners || {})} className={`material-icons text-xs shrink-0 ${sortable ? 'text-gray-300 cursor-grab' : 'text-gray-200'}`}>drag_indicator</span>
+        {/* Drag handle */}
+        <span {...sortable.attributes} {...sortable.listeners} className="material-icons text-xs shrink-0 text-gray-300 cursor-grab">drag_indicator</span>
 
         {/* Expand toggle for containers */}
         {isContainer ? (
