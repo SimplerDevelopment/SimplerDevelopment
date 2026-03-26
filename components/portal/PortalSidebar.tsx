@@ -92,12 +92,19 @@ export default function PortalSidebar() {
   const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
   const activeSiteId = cmsMatch ? cmsMatch[1] : null;
 
+  // Auto-collapse on CMS content editor pages to maximize editing space
+  const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
+
   useEffect(() => {
-    const saved = localStorage.getItem('portalSidebarCollapsed');
-    if (saved !== null) setIsCollapsed(saved === 'true');
+    if (isEditorPage) {
+      setIsCollapsed(true);
+    } else {
+      const saved = localStorage.getItem('portalSidebarCollapsed');
+      if (saved !== null) setIsCollapsed(saved === 'true');
+    }
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
-  }, []);
+  }, [isEditorPage]);
 
   // Fetch services for nav — re-fetch on route change (e.g. after login redirect)
   useEffect(() => {
