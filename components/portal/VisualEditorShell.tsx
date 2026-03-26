@@ -13,7 +13,6 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
@@ -138,7 +137,7 @@ export function VisualEditorShell({
   // DnD for layers
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateTransformers: [sortableKeyboardCoordinates] }),
+    useSensor(KeyboardSensor),
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
