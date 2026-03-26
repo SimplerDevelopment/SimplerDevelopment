@@ -17,9 +17,11 @@ import {
 import {
   arrayMove,
   SortableContext,
-  verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
+
+// No-op sorting strategy: items stay in place during drag, only reorder on drop
+const noMovementStrategy = () => () => null;
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
@@ -326,7 +328,7 @@ export function VisualEditorShell({
             <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Layers</h3>
           </div>
           <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
-            <SortableContext items={allBlockIds} strategy={verticalListSortingStrategy}>
+            <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
               <div className="px-1 pb-2">
                 {blocks.map((block) => (
                   <LayerItem
@@ -431,10 +433,10 @@ function LayerItem({
   showDropIndicator?: boolean;
 }) {
   // Only top-level items are sortable — nested items are plain clickable rows
-  const sortable = depth === 0 ? useSortable({ id: block.id }) : null;
+  const sortable = depth === 0 ? useSortable({ id: block.id, transition: null }) : null;
   const style = sortable
-    ? { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' }
-    : {};
+    ? { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties
+    : {} as React.CSSProperties;
   const isSelected = selectedBlockId === block.id;
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
   const [expanded, setExpanded] = useState(true);

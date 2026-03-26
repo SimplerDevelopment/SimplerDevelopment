@@ -36,9 +36,11 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
+
+// No-op sorting strategy: items stay in place during drag, only reorder on drop
+const noMovementStrategy = () => () => null;
 
 interface VisualBlockEditorEnhancedProps {
   blocks: Block[];
@@ -129,9 +131,12 @@ function SortableBlock({
     listeners,
     setNodeRef,
     isDragging,
-  } = useSortable({ id: block.id });
+  } = useSortable({
+    id: block.id,
+    transition: null,
+  });
 
-  const style = {
+  const style: React.CSSProperties = {
     opacity: isDragging ? 0.3 : 1,
     transition: 'opacity 200ms',
   };
@@ -722,7 +727,7 @@ export function EditorInner({
             </div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={nestingCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-              <SortableContext items={state.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={state.blocks.map((b) => b.id)} strategy={noMovementStrategy}>
                 <div
                   className={`space-y-2 ${pageSettings.fontFamily || ''} ${pageSettings.cssClass || ''}`}
                   style={{
