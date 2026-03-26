@@ -5,7 +5,8 @@ import {
   DndContext,
   closestCenter,
   pointerWithin,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -168,10 +169,15 @@ export function VisualEditorShell({
   // DnD for layers (supports nesting)
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor),
