@@ -23,6 +23,14 @@ import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { GalleryBlockRender } from './GalleryBlockRender';
+import { PalizziNavBlockRender } from './PalizziNavBlockRender';
+import { PalizziHeroBlockRender } from './PalizziHeroBlockRender';
+import { PalizziWelcomeBlockRender } from './PalizziWelcomeBlockRender';
+import { PalizziHistoryBlockRender } from './PalizziHistoryBlockRender';
+import { PalizziMenuBlockRender } from './PalizziMenuBlockRender';
+import { PalizziRulesBlockRender } from './PalizziRulesBlockRender';
+import { PalizziMembershipBlockRender } from './PalizziMembershipBlockRender';
+import { PalizziFooterBlockRender } from './PalizziFooterBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
 
@@ -101,6 +109,14 @@ function renderNestedBlock(block: Block) {
     case 'card-grid': return <CardGridBlockRender block={block} />;
     case 'section': return <SectionBlockRender block={block} />;
     case 'gallery': return <GalleryBlockRender block={block} />;
+    case 'palizzi-nav': return <PalizziNavBlockRender block={block} />;
+    case 'palizzi-hero': return <PalizziHeroBlockRender block={block} />;
+    case 'palizzi-welcome': return <PalizziWelcomeBlockRender block={block} />;
+    case 'palizzi-history': return <PalizziHistoryBlockRender block={block} />;
+    case 'palizzi-menu': return <PalizziMenuBlockRender block={block} />;
+    case 'palizzi-rules': return <PalizziRulesBlockRender block={block} />;
+    case 'palizzi-membership': return <PalizziMembershipBlockRender block={block} />;
+    case 'palizzi-footer': return <PalizziFooterBlockRender block={block} />;
     default: return null;
   }
 }

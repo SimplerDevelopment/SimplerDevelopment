@@ -60,6 +60,16 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'blog-posts': Newspaper,
   'featured-content': Layers,
   gallery: GalleryHorizontalEnd,
+
+  // Palizzi custom blocks
+  'palizzi-nav': Layers,
+  'palizzi-hero': Target,
+  'palizzi-welcome': FileText,
+  'palizzi-history': FileText,
+  'palizzi-menu': LayoutGrid,
+  'palizzi-rules': FileText,
+  'palizzi-membership': FileText,
+  'palizzi-footer': Layers,
 };
 
 /**

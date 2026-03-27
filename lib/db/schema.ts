@@ -567,6 +567,7 @@ export const clientWebsites = pgTable('client_websites', {
   lastDeployedAt: timestamp('last_deployed_at'),
   provisionError: text('provision_error'),
   logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
+  customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

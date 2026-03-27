@@ -297,6 +297,97 @@ export interface GalleryBlock extends BaseBlock {
   gap?: 'sm' | 'md' | 'lg';
 }
 
+// ============================================================================
+// Palizzi Social Club — Custom Block Types
+// ============================================================================
+
+export interface PalizziNavBlock extends BaseBlock {
+  type: 'palizzi-nav';
+  logoUrl: string;
+  brandName: string;
+  links: Array<{ label: string; href: string }>;
+}
+
+export interface PalizziHeroBlock extends BaseBlock {
+  type: 'palizzi-hero';
+  address: string;
+  crestUrl: string;
+  neonUrl: string;
+  tagline: string;
+  established: string;
+  scrollTarget: string;
+}
+
+export interface PalizziWelcomeBlock extends BaseBlock {
+  type: 'palizzi-welcome';
+  overline: string;
+  title: string;
+  titleAccent: string;
+  paragraphs: string[];
+  bookImage: string;
+  bookTitle: string;
+  bookSubtitle: string;
+  bookAuthors: string;
+  bookLabel: string;
+}
+
+export interface PalizziHistoryBlock extends BaseBlock {
+  type: 'palizzi-history';
+  overline: string;
+  title: string;
+  titleAccent: string;
+  backgroundImage: string;
+  marqueeImage: string;
+  paragraphs: string[];
+}
+
+export interface PalizziMenuBlock extends BaseBlock {
+  type: 'palizzi-menu';
+  overline: string;
+  title: string;
+  subtitle: string;
+  foodSections: Array<{
+    title: string;
+    items: Array<{ name: string; desc: string }>;
+  }>;
+  cocktails: Array<{ name: string; desc: string }>;
+}
+
+export interface PalizziRulesBlock extends BaseBlock {
+  type: 'palizzi-rules';
+  overline: string;
+  title: string;
+  titleAccent: string;
+  hoursTitle: string;
+  hoursSubtitle: string;
+  badges: string[];
+  rules: string[];
+  disclaimer: string;
+}
+
+export interface PalizziMembershipBlock extends BaseBlock {
+  type: 'palizzi-membership';
+  overline: string;
+  title: string;
+  titleAccent: string;
+  paragraphs: string[];
+  highlight: string;
+  closingNote: string;
+  signature: string;
+  footnote: string;
+}
+
+export interface PalizziFooterBlock extends BaseBlock {
+  type: 'palizzi-footer';
+  marqueeImage: string;
+  columns: Array<{
+    label: string;
+    content?: string;
+    links?: Array<{ label: string; href: string }>;
+  }>;
+  bottomText: string;
+}
+
 // Union type of all blocks
 export interface SectionBlock extends BaseBlock {
   type: 'section';
@@ -339,7 +430,15 @@ export type Block =
   | TabsBlock
   | CardGridBlock
   | SectionBlock
-  | GalleryBlock;
+  | GalleryBlock
+  | PalizziNavBlock
+  | PalizziHeroBlock
+  | PalizziWelcomeBlock
+  | PalizziHistoryBlock
+  | PalizziMenuBlock
+  | PalizziRulesBlock
+  | PalizziMembershipBlock
+  | PalizziFooterBlock;
 
 export type BlockType = Block['type'];
 

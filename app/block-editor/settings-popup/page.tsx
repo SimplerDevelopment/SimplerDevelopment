@@ -33,6 +33,14 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'card-grid': 'Card Grid',
   gallery: 'Gallery',
   section: 'Section',
+  'palizzi-nav': 'Palizzi Nav',
+  'palizzi-hero': 'Palizzi Hero',
+  'palizzi-welcome': 'Palizzi Welcome',
+  'palizzi-history': 'Palizzi History',
+  'palizzi-menu': 'Palizzi Menu',
+  'palizzi-rules': 'Palizzi Rules',
+  'palizzi-membership': 'Palizzi Membership',
+  'palizzi-footer': 'Palizzi Footer',
 };
 
 function SettingsPopupContent() {
