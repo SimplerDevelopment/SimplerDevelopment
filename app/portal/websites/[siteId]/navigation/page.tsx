@@ -75,6 +75,17 @@ export default function NavigationEditorPage() {
   const [activeTab, setActiveTab] = useState<'items' | 'branding'>('items');
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeReady, setIframeReady] = useState(false);
+  const [sitePreviewUrl, setSitePreviewUrl] = useState<string | null>(null);
+  const [useLocalhost, setUseLocalhost] = useState(false);
+  const [localPort, setLocalPort] = useState('3003');
+
+  // Hydrate localhost preference
+  useEffect(() => {
+    setUseLocalhost(localStorage.getItem('editor-use-localhost') === 'true');
+    setLocalPort(localStorage.getItem('editor-local-port') || '3003');
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -91,11 +102,41 @@ export default function NavigationEditorPage() {
     Promise.all([
       fetch(`${base}/navigation`).then(r => r.json()),
       fetch(`${base}/branding`).then(r => r.json()),
-    ]).then(([navRes, brandRes]) => {
+      fetch(`/api/portal/websites/${siteId}/status`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([navRes, brandRes, statusRes]) => {
       if (navRes.success) setItems(navRes.data);
       if (brandRes.success) setBranding({ ...DEFAULT_BRANDING, ...brandRes.data });
+      if (statusRes?.success) {
+        const s = statusRes.data;
+        const url = s.vercelDomain ? `https://${s.vercelDomain}` : s.subdomain ? `https://${s.subdomain}.simplerdevelopment.com` : null;
+        setSitePreviewUrl(url);
+      }
     }).finally(() => setLoading(false));
-  }, [base]);
+  }, [base, siteId]);
+
+  // Listen for iframe ready signal
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.source === 'sd-editor-iframe' && event.data?.type === 'NAV_PREVIEW_READY') {
+        setIframeReady(true);
+      }
+    }
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Send nav data to iframe on changes
+  useEffect(() => {
+    if (!iframeReady || !iframeRef.current?.contentWindow) return;
+    iframeRef.current.contentWindow.postMessage({
+      source: 'sd-editor-parent',
+      type: 'NAV_UPDATE',
+      payload: { items, branding },
+      timestamp: Date.now(),
+    }, '*');
+  }, [items, branding, iframeReady]);
+
+  const previewUrl = useLocalhost ? `http://localhost:${localPort}/nav-preview` : sitePreviewUrl ? `${sitePreviewUrl}/nav-preview` : null;
 
   // Save all
   const save = useCallback(async () => {
@@ -368,13 +409,72 @@ export default function NavigationEditorPage() {
           )}
         </div>
 
-        {/* Right Panel: Live Preview */}
-        <div className="flex-1 bg-muted/30 overflow-y-auto">
-          <div className="p-6">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-3">Live Preview</div>
-            <div className="rounded-xl overflow-hidden shadow-lg border border-border">
-              <NavPreview items={topItems} childrenOf={childrenOf} branding={branding} />
+        {/* Right Panel: Live iframe Preview */}
+        <div className="flex-1 bg-muted/30 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
+            <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Live Preview</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !useLocalhost;
+                  setUseLocalhost(next);
+                  localStorage.setItem('editor-use-localhost', String(next));
+                  setIframeReady(false);
+                }}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                  useLocalhost ? 'bg-orange-500/15 text-orange-600' : 'text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                <span className="material-icons text-sm">{useLocalhost ? 'lan' : 'cloud'}</span>
+                {useLocalhost ? 'Local' : 'Prod'}
+              </button>
+              {useLocalhost && (
+                <input
+                  type="text"
+                  value={localPort}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '');
+                    setLocalPort(v);
+                    localStorage.setItem('editor-local-port', v);
+                    setIframeReady(false);
+                  }}
+                  className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground font-mono text-center"
+                />
+              )}
             </div>
+          </div>
+          <div className="flex-1 relative">
+            {previewUrl ? (
+              <iframe
+                ref={iframeRef}
+                src={previewUrl}
+                className="absolute inset-0 w-full h-full border-0"
+                title="Navigation Preview"
+                onLoad={() => {
+                  // Send initial data when iframe loads
+                  setTimeout(() => {
+                    if (iframeRef.current?.contentWindow) {
+                      iframeRef.current.contentWindow.postMessage({
+                        source: 'sd-editor-parent',
+                        type: 'NAV_INIT',
+                        payload: { items, branding },
+                        timestamp: Date.now(),
+                      }, '*');
+                    }
+                  }, 500);
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-muted-foreground">
+                  <span className="material-icons text-3xl mb-2 block">preview</span>
+                  <p className="text-sm">
+                    {useLocalhost ? `Start the site on localhost:${localPort}` : 'Site not yet deployed'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
