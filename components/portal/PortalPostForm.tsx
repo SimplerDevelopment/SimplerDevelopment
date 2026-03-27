@@ -486,7 +486,10 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
               <VisualEditorShell
                 blocks={blocks}
                 selectedBlockId={null}
-                iframeSrc={previewMode ? `${siteUrl}/blog/${post.slug}` : `${siteUrl}/blog/${post.slug}?_edit=true`}
+                iframeSrc={(() => {
+                  const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
+                  return previewMode ? `${siteUrl}${basePath}` : `${siteUrl}${basePath}?_edit=true`;
+                })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}
                 onBlocksChange={setBlocks}
