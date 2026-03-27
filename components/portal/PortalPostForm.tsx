@@ -147,6 +147,9 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [previewMode, setPreviewMode] = useState(false);
   const [postSaveStatus, setPostSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [useLocalhost, setUseLocalhost] = useState(false);
+  const [localPort, setLocalPort] = useState('3000');
+  const effectiveSiteUrl = useLocalhost ? `http://localhost:${localPort}` : siteUrl;
 
   // Notify layout to hide/show sidebar when preview mode changes
   useEffect(() => {
@@ -418,7 +421,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           backHref={`/portal/websites/${siteId}`}
-          liveUrl={siteUrl && post?.slug ? `${siteUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
+          liveUrl={effectiveSiteUrl && post?.slug ? `${effectiveSiteUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls
@@ -433,22 +436,47 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           }
           centerControls={
             editorMode === 'iframe' ? (
-              <div className="flex items-center gap-1">
-                {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
+                    <button
+                      key={vp}
+                      type="button"
+                      onClick={() => setIframeViewport(vp)}
+                      className={`rounded p-1.5 ${
+                        iframeViewport === vp ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'
+                      }`}
+                      title={vp.charAt(0).toUpperCase() + vp.slice(1)}
+                    >
+                      <span className="material-icons text-lg">
+                        {vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="h-5 w-px bg-border" />
+                <div className="flex items-center gap-1.5">
                   <button
-                    key={vp}
                     type="button"
-                    onClick={() => setIframeViewport(vp)}
-                    className={`rounded p-1.5 ${
-                      iframeViewport === vp ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-accent'
+                    onClick={() => setUseLocalhost(!useLocalhost)}
+                    className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                      useLocalhost ? 'bg-orange-500/15 text-orange-600' : 'text-muted-foreground hover:bg-accent'
                     }`}
-                    title={vp.charAt(0).toUpperCase() + vp.slice(1)}
+                    title={useLocalhost ? `Using localhost:${localPort}` : 'Switch to localhost'}
                   >
-                    <span className="material-icons text-lg">
-                      {vp === 'desktop' ? 'computer' : vp === 'tablet' ? 'tablet' : 'phone_iphone'}
-                    </span>
+                    <span className="material-icons text-sm">{useLocalhost ? 'lan' : 'cloud'}</span>
+                    {useLocalhost ? 'Local' : 'Prod'}
                   </button>
-                ))}
+                  {useLocalhost && (
+                    <input
+                      type="text"
+                      value={localPort}
+                      onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ''))}
+                      className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground font-mono text-center"
+                      title="Local port number"
+                    />
+                  )}
+                </div>
               </div>
             ) : undefined
           }
@@ -481,14 +509,14 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
             </div>
           ) : undefined}
         >
-          {editorMode === 'iframe' && siteUrl && post?.slug ? (
+          {editorMode === 'iframe' && effectiveSiteUrl && post?.slug ? (
             <div className="relative flex-1">
               <VisualEditorShell
                 blocks={blocks}
                 selectedBlockId={null}
                 iframeSrc={(() => {
                   const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
-                  return previewMode ? `${siteUrl}${basePath}` : `${siteUrl}${basePath}?_edit=true`;
+                  return previewMode ? `${effectiveSiteUrl}${basePath}` : `${effectiveSiteUrl}${basePath}?_edit=true`;
                 })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}
