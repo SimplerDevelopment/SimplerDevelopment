@@ -81,6 +81,7 @@ interface VisualEditorShellProps {
   onDeleteBlock: (blockId: string) => void;
   onUpdateBlock: (blockId: string, updates: Partial<Block>) => void;
   onUndoRedoChange?: (controls: UndoRedoControls) => void;
+  siteId?: number;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ export function VisualEditorShell({
   onDeleteBlock,
   onUpdateBlock,
   onUndoRedoChange,
+  siteId,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
@@ -605,6 +607,7 @@ export function VisualEditorShell({
                     inputs={selectedCustomManifest.inputs}
                     values={selectedBlock as unknown as Record<string, unknown>}
                     onChange={(name, value) => handleUpdateBlock(selectedBlock.id, { [name]: value } as Partial<Block>)}
+                    siteId={siteId}
                   />
                 ) : (
                   <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} />

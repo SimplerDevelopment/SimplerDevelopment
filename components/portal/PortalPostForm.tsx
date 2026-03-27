@@ -617,6 +617,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
                 onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
                 onUndoRedoChange={setUndoRedo}
                 onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
+                siteId={siteId}
               />
 
               {/* Settings slide-over panel */}

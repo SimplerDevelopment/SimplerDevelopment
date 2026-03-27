@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import type { PropSchema } from '@/types/visual-editor';
+import MediaPicker from '@/components/admin/MediaPicker';
 
 interface DynamicPropertyPanelProps {
   inputs: PropSchema[];
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
+  siteId?: number;
 }
 
-export function DynamicPropertyPanel({ inputs, values, onChange }: DynamicPropertyPanelProps) {
+export function DynamicPropertyPanel({ inputs, values, onChange, siteId }: DynamicPropertyPanelProps) {
   return (
     <div className="space-y-4">
       {inputs.map((input) => (
@@ -18,6 +20,7 @@ export function DynamicPropertyPanel({ inputs, values, onChange }: DynamicProper
           schema={input}
           value={values[input.name] ?? input.defaultValue}
           onChange={(val) => onChange(input.name, val)}
+          siteId={siteId}
         />
       ))}
     </div>
@@ -28,10 +31,12 @@ function PropertyField({
   schema,
   value,
   onChange,
+  siteId,
 }: {
   schema: PropSchema;
   value: unknown;
   onChange: (value: unknown) => void;
+  siteId?: number;
 }) {
   switch (schema.type) {
     case 'string':
@@ -131,20 +136,22 @@ function PropertyField({
 
     case 'image':
       return (
-        <label className="block">
+        <div className="block">
           <span className="text-sm font-medium text-foreground">{schema.label}</span>
-          <input
-            type="url"
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-            placeholder="Image URL"
-          />
-        </label>
+          <div className="mt-1">
+            <MediaPicker
+              value={(value as string) || ''}
+              onChange={(url) => onChange(url)}
+              label={schema.label}
+              mimeTypeFilter="image"
+              apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+            />
+          </div>
+        </div>
       );
 
     case 'list':
-      return <ListField schema={schema} value={value as unknown[] || []} onChange={onChange} />;
+      return <ListField schema={schema} value={value as unknown[] || []} onChange={onChange} siteId={siteId} />;
 
     default:
       return null;
@@ -155,10 +162,12 @@ function ListField({
   schema,
   value,
   onChange,
+  siteId,
 }: {
   schema: PropSchema;
   value: unknown[];
   onChange: (value: unknown) => void;
+  siteId?: number;
 }) {
   const [items, setItems] = useState<unknown[]>(Array.isArray(value) ? value : []);
 
@@ -206,6 +215,7 @@ function ListField({
                   schema={subSchema}
                   value={(item as Record<string, unknown>)?.[subSchema.name]}
                   onChange={(val) => updateItem(i, subSchema.name, val)}
+                  siteId={siteId}
                 />
               </div>
             ))}
