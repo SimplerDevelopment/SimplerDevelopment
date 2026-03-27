@@ -98,7 +98,7 @@ function SpacingInput({
   const [customMode, setCustomMode] = useState(() => isCustomValue(value, sizes));
   const [customNum, setCustomNum] = useState(() => {
     if (!value) return '';
-    const match = value.match(/^([\d.]+)/);
+    const match = value.match(/^(-?[\d.]+)/);
     return match ? match[1] : '';
   });
   const [customUnit, setCustomUnit] = useState<'px' | '%'>(() => {
@@ -110,7 +110,7 @@ function SpacingInput({
   useEffect(() => {
     if (isCustomValue(value, sizes)) {
       setCustomMode(true);
-      const match = value.match(/^([\d.]+)/);
+      const match = value.match(/^(-?[\d.]+)/);
       if (match) setCustomNum(match[1]);
       if (value?.includes('%')) setCustomUnit('%');
       else setCustomUnit('px');
@@ -131,7 +131,6 @@ function SpacingInput({
           }}
           className="w-10 text-[10px] text-center rounded-l border border-border bg-background py-1 text-foreground"
           title={`${label}-${position}`}
-          min="0"
           step="1"
           placeholder="0"
         />
