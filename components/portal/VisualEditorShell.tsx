@@ -431,7 +431,23 @@ export function VisualEditorShell({
                   .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()))
                   .map((bt) => (
                   <button type="button" key={bt.type}
-                    onClick={() => { onAddBlock(bt.type); setLeftTab('layers'); setPickerSearch(''); }}
+                    onClick={() => {
+                      // For custom components, create block with defaultProps from manifest
+                      const manifest = customComponents.find(c => c.type === bt.type);
+                      if (manifest?.defaultProps) {
+                        const newBlock = {
+                          id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                          type: bt.type,
+                          order: blocks.length,
+                          ...manifest.defaultProps,
+                        } as Block;
+                        iframeOriginatedRef.current = true;
+                        onBlocksChange([...blocks, newBlock]);
+                      } else {
+                        onAddBlock(bt.type);
+                      }
+                      setLeftTab('layers'); setPickerSearch('');
+                    }}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', bt.type);
@@ -605,7 +621,7 @@ export function VisualEditorShell({
                 selectedCustomManifest ? (
                   <DynamicPropertyPanel
                     inputs={selectedCustomManifest.inputs}
-                    values={selectedBlock as unknown as Record<string, unknown>}
+                    values={{ ...selectedCustomManifest.defaultProps, ...(selectedBlock as unknown as Record<string, unknown>) }}
                     onChange={(name, value) => handleUpdateBlock(selectedBlock.id, { [name]: value } as Partial<Block>)}
                     siteId={siteId}
                   />
