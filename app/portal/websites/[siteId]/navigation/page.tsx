@@ -81,6 +81,8 @@ export default function NavigationEditorPage() {
   const [useLocalhost, setUseLocalhost] = useState(false);
   const [localPort, setLocalPort] = useState('3003');
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [zoom, setZoom] = useState(100);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Hydrate localhost preference
   useEffect(() => {
@@ -411,7 +413,7 @@ export default function NavigationEditorPage() {
         </div>
 
         {/* Right Panel: Live iframe Preview */}
-        <div className="flex-1 bg-muted/30 flex flex-col">
+        <div className="flex-1 bg-muted/30 flex flex-col relative">
           <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
             <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Live Preview</span>
             <div className="flex items-center gap-3">
@@ -425,7 +427,19 @@ export default function NavigationEditorPage() {
                   <button
                     key={vp.id}
                     type="button"
-                    onClick={() => setViewport(vp.id)}
+                    onClick={() => {
+                      setViewport(vp.id);
+                      // Auto-fit zoom when switching viewports
+                      if (previewContainerRef.current) {
+                        const containerWidth = previewContainerRef.current.clientWidth - 32; // minus padding
+                        const vpWidth = vp.id === 'desktop' ? 1440 : vp.id === 'tablet' ? 768 : 375;
+                        if (vpWidth > containerWidth) {
+                          setZoom(Math.floor((containerWidth / vpWidth) * 100));
+                        } else {
+                          setZoom(100);
+                        }
+                      }
+                    }}
                     className={`rounded p-1.5 transition-colors ${
                       viewport === vp.id ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}
@@ -469,22 +483,29 @@ export default function NavigationEditorPage() {
               )}
             </div>
           </div>
-          <div className="flex-1 flex items-start justify-center overflow-auto p-4">
+          <div
+            ref={previewContainerRef}
+            className="flex-1 flex items-start justify-center overflow-auto p-4"
+            onWheel={(e) => {
+              if (!e.ctrlKey && !e.metaKey) return;
+              e.preventDefault();
+              setZoom(z => Math.min(200, Math.max(30, z + (e.deltaY > 0 ? -5 : 5))));
+            }}
+          >
             {previewUrl ? (
               <div
                 className="bg-card shadow-lg rounded-lg overflow-hidden transition-all duration-300 origin-top"
                 style={{
-                  width: viewport === 'desktop' ? '100%' : viewport === 'tablet' ? '768px' : '375px',
-                  maxWidth: '100%',
-                  height: viewport === 'desktop' ? '100%' : undefined,
-                  minHeight: viewport !== 'desktop' ? '600px' : undefined,
+                  width: viewport === 'desktop' ? '1440px' : viewport === 'tablet' ? '768px' : '375px',
+                  height: `${10000 / zoom}%`,
+                  transform: `scale(${zoom / 100})`,
+                  transformOrigin: 'top center',
                 }}
               >
                 <iframe
                   ref={iframeRef}
                   src={previewUrl}
                   className="w-full h-full border-0"
-                  style={{ minHeight: '600px' }}
                   title="Navigation Preview"
                   onLoad={() => {
                     setTimeout(() => {
@@ -510,6 +531,19 @@ export default function NavigationEditorPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Zoom controls */}
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg z-10">
+            <button type="button" onClick={() => setZoom(z => Math.max(30, z - 10))} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoom <= 30}>
+              <span className="material-icons text-sm">remove</span>
+            </button>
+            <button type="button" onClick={() => setZoom(100)} className="px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground min-w-[3rem] text-center">
+              {zoom}%
+            </button>
+            <button type="button" onClick={() => setZoom(z => Math.min(200, z + 10))} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoom >= 200}>
+              <span className="material-icons text-sm">add</span>
+            </button>
           </div>
         </div>
       </div>
