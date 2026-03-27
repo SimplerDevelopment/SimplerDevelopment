@@ -102,6 +102,7 @@ export function VisualEditorShell({
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
 
   const selectBlock = useCallback((blockId: string) => {
@@ -337,23 +338,54 @@ export function VisualEditorShell({
         </div>
 
         {pickerOpen && (
-          <div className="px-3 pb-3 shrink-0">
-            <div className="flex flex-wrap gap-1 mb-2">
-              {categories.map((cat) => (
-                <button type="button" key={cat} onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
-                  className={`px-2 py-0.5 text-xs rounded ${pickerCategory === cat ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
-                >{cat}</button>
-              ))}
+          <div className="flex flex-col min-h-0 max-h-[60%] shrink-0">
+            <div className="px-3 pb-2 shrink-0">
+              {/* Search */}
+              <div className="flex items-center gap-1.5 rounded border border-border bg-background px-2 py-1.5 mb-2">
+                <span className="material-icons text-sm text-muted-foreground">search</span>
+                <input
+                  type="text"
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  placeholder="Search blocks..."
+                  className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {pickerSearch && (
+                  <button type="button" onClick={() => setPickerSearch('')} className="text-muted-foreground hover:text-foreground">
+                    <span className="material-icons text-sm">close</span>
+                  </button>
+                )}
+              </div>
+              {/* Category filters */}
+              <div className="flex flex-wrap gap-1">
+                {categories.map((cat) => (
+                  <button type="button" key={cat} onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
+                    className={`px-2 py-0.5 text-xs rounded ${pickerCategory === cat ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
+                  >{cat}</button>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-1">
-              {allBlockTypes.filter((b) => !pickerCategory || b.category === pickerCategory).map((bt) => (
-                <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setPickerOpen(false); }}
-                  className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5"
-                >
-                  <span className="material-icons text-base text-muted-foreground">{bt.icon}</span>
-                  <span className="text-[10px] text-foreground leading-tight">{bt.label}</span>
-                </button>
-              ))}
+            {/* Scrollable block grid */}
+            <div className="flex-1 overflow-y-auto px-3 pb-3">
+              <div className="grid grid-cols-2 gap-1">
+                {allBlockTypes
+                  .filter((b) => !pickerCategory || b.category === pickerCategory)
+                  .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()))
+                  .map((bt) => (
+                  <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setPickerOpen(false); setPickerSearch(''); }}
+                    className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5"
+                  >
+                    <span className="material-icons text-base text-muted-foreground">{bt.icon}</span>
+                    <span className="text-[10px] text-foreground leading-tight">{bt.label}</span>
+                  </button>
+                ))}
+              </div>
+              {allBlockTypes
+                .filter((b) => !pickerCategory || b.category === pickerCategory)
+                .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()))
+                .length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No blocks found</p>
+              )}
             </div>
           </div>
         )}
