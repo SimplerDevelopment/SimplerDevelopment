@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -37,6 +38,7 @@ export default function ContentList({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [search, setSearch] = useState('');
 
   const setType = (type: string | null) => {
     if (type) {
@@ -46,8 +48,32 @@ export default function ContentList({
     }
   };
 
+  const filteredPosts = search
+    ? posts.filter(p =>
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.slug.toLowerCase().includes(search.toLowerCase())
+      )
+    : posts;
+
   return (
     <div className="space-y-4">
+      {/* Search */}
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+        <span className="material-icons text-base text-muted-foreground">search</span>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search pages..."
+          className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch('')} className="text-muted-foreground hover:text-foreground">
+            <span className="material-icons text-sm">close</span>
+          </button>
+        )}
+      </div>
+
       {/* Content type tabs */}
       {contentTypes.length > 0 && (
         <div className="flex gap-1 border-b border-border overflow-x-auto">
@@ -80,25 +106,29 @@ export default function ContentList({
       )}
 
       {/* Post list */}
-      {posts.length === 0 ? (
+      {filteredPosts.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
-          <span className="material-icons text-4xl text-muted-foreground mb-2">article</span>
+          <span className="material-icons text-4xl text-muted-foreground mb-2">{search ? 'search_off' : 'article'}</span>
           <h2 className="font-semibold text-foreground mb-1">
-            {activeType ? `No ${activeType} content yet` : 'No pages yet'}
+            {search ? 'No results found' : activeType ? `No ${activeType} content yet` : 'No pages yet'}
           </h2>
-          <p className="text-sm text-muted-foreground mb-4">Create your first page to start building your website content.</p>
-          <Link
-            href={`/portal/websites/${siteId}/posts/new`}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <span className="material-icons text-base">add</span>
-            Create Page
-          </Link>
+          <p className="text-sm text-muted-foreground mb-4">
+            {search ? `No pages matching "${search}"` : 'Create your first page to start building your website content.'}
+          </p>
+          {!search && (
+            <Link
+              href={`/portal/websites/${siteId}/posts/new`}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <span className="material-icons text-base">add</span>
+              Create Page
+            </Link>
+          )}
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <ul className="divide-y divide-border">
-            {posts.map(post => (
+            {filteredPosts.map(post => (
               <li key={post.id}>
                 <Link
                   href={`/portal/websites/${siteId}/posts/${post.id}/edit`}
