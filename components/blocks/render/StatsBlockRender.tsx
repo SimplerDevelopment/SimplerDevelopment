@@ -39,7 +39,7 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
         )}
 
         <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-          {block.stats.map((stat) => (
+          {(block.stats || []).map((stat) => (
             <div key={stat.id} className="text-center">
               <div className="text-4xl md:text-5xl font-bold text-primary mb-2">
                 {stat.value}
