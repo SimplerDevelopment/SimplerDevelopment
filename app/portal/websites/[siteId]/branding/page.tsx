@@ -100,6 +100,7 @@ export default function BrandingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography'>('logos');
 
   useEffect(() => {
     fetch(`/api/portal/websites/${siteId}/branding`)
@@ -161,7 +162,6 @@ export default function BrandingPage() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography'>('logos');
   const inputClass = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none';
   const labelClass = 'block text-xs font-medium text-muted-foreground mb-1.5';
 
