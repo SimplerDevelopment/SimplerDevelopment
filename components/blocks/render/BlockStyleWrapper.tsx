@@ -113,12 +113,25 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     });
   }
 
-  // fontFamily stores Tailwind class names (e.g., "font-sans"), apply as className
-  const fontFamilyClass = style.fontFamily || '';
+  // fontFamily: if it's a Tailwind class (starts with "font-"), apply as className.
+  // Otherwise it's a Google Font family name — apply as inline style and load the font.
+  const isTailwindFont = style.fontFamily?.startsWith('font-');
+  const fontFamilyClass = isTailwindFont ? style.fontFamily : '';
+  if (style.fontFamily && !isTailwindFont) {
+    customStyles.fontFamily = `"${style.fontFamily}", sans-serif`;
+  }
 
   return (
-    <div className={fontFamilyClass} style={customStyles}>
-      {children}
-    </div>
+    <>
+      {style.fontFamily && !isTailwindFont && (
+        <link
+          rel="stylesheet"
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(style.fontFamily)}&display=swap`}
+        />
+      )}
+      <div className={fontFamilyClass || undefined} style={customStyles}>
+        {children}
+      </div>
+    </>
   );
 }

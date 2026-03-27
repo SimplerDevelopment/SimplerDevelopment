@@ -36,7 +36,7 @@ export function GoogleFontPicker({ value, onChange }: GoogleFontPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const LIMIT = 30;
 
   const fetchFonts = useCallback(async (searchQuery: string, newOffset: number, append: boolean) => {

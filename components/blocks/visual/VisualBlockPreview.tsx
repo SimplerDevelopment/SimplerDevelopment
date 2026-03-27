@@ -106,8 +106,12 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
     }
   }
 
-  // Get font family class
-  const fontFamilyClass = block.style?.fontFamily || '';
+  // Font family: Tailwind class (font-sans) → className, Google Font name → inline style
+  const isTailwindFont = block.style?.fontFamily?.startsWith('font-');
+  const fontFamilyClass = isTailwindFont ? block.style?.fontFamily || '' : '';
+  if (block.style?.fontFamily && !isTailwindFont) {
+    customStyles.fontFamily = `"${block.style.fontFamily}", sans-serif`;
+  }
 
   const renderBlockContent = () => {
     switch (block.type) {
