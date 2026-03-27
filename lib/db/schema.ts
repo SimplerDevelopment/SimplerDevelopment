@@ -1128,6 +1128,8 @@ export const siteBranding = pgTable('site_branding', {
   // Fonts
   headingFont: varchar('heading_font', { length: 255 }),
   bodyFont: varchar('body_font', { length: 255 }),
+  // Per-element typography: { h1: { font, size, weight, lineHeight }, h2: ..., p: ..., etc. }
+  typography: json('typography').$type<Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>>(),
   // Logo variants
   logoSquareUrl: varchar('logo_square_url', { length: 500 }),
   logoRectUrl: varchar('logo_rect_url', { length: 500 }),

@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+
+interface ElementTypography {
+  font?: string;
+  size?: string;
+  weight?: string;
+  lineHeight?: string;
+}
 
 interface Branding {
   logoUrl: string;
@@ -19,11 +27,51 @@ interface Branding {
   textColor: string;
   headingFont: string;
   bodyFont: string;
+  typography: Record<string, ElementTypography>;
   navTemplate: string;
   navPosition: string;
   navBackground: string;
   navTextColor: string;
 }
+
+const DEFAULT_TYPOGRAPHY: Record<string, ElementTypography> = {
+  h1: { size: '2.5rem', weight: '700', lineHeight: '1.2' },
+  h2: { size: '2rem', weight: '600', lineHeight: '1.25' },
+  h3: { size: '1.5rem', weight: '600', lineHeight: '1.3' },
+  h4: { size: '1.25rem', weight: '600', lineHeight: '1.35' },
+  h5: { size: '1.125rem', weight: '600', lineHeight: '1.4' },
+  h6: { size: '1rem', weight: '600', lineHeight: '1.4' },
+  p: { size: '1rem', weight: '400', lineHeight: '1.6' },
+  blockquote: { size: '1.125rem', weight: '400', lineHeight: '1.6' },
+  button: { size: '0.875rem', weight: '500', lineHeight: '1.25' },
+  nav: { size: '0.875rem', weight: '500', lineHeight: '1.5' },
+  small: { size: '0.75rem', weight: '400', lineHeight: '1.5' },
+  caption: { size: '0.875rem', weight: '400', lineHeight: '1.4' },
+};
+
+const ELEMENT_LABELS: Record<string, { label: string; desc: string; category: 'heading' | 'body' | 'ui' }> = {
+  h1: { label: 'H1', desc: 'Main page title', category: 'heading' },
+  h2: { label: 'H2', desc: 'Section heading', category: 'heading' },
+  h3: { label: 'H3', desc: 'Sub-section heading', category: 'heading' },
+  h4: { label: 'H4', desc: 'Card / block title', category: 'heading' },
+  h5: { label: 'H5', desc: 'Small heading', category: 'heading' },
+  h6: { label: 'H6', desc: 'Label heading', category: 'heading' },
+  p: { label: 'Paragraph', desc: 'Body text', category: 'body' },
+  blockquote: { label: 'Blockquote', desc: 'Quoted text', category: 'body' },
+  small: { label: 'Small', desc: 'Fine print, captions', category: 'body' },
+  caption: { label: 'Caption', desc: 'Image / table captions', category: 'body' },
+  button: { label: 'Button', desc: 'Buttons and CTAs', category: 'ui' },
+  nav: { label: 'Nav Link', desc: 'Navigation items', category: 'ui' },
+};
+
+const WEIGHT_OPTIONS = [
+  { value: '300', label: 'Light' },
+  { value: '400', label: 'Regular' },
+  { value: '500', label: 'Medium' },
+  { value: '600', label: 'Semibold' },
+  { value: '700', label: 'Bold' },
+  { value: '800', label: 'Extra Bold' },
+];
 
 const DEFAULTS: Branding = {
   logoUrl: '',
@@ -39,29 +87,12 @@ const DEFAULTS: Branding = {
   textColor: '#111827',
   headingFont: '',
   bodyFont: '',
+  typography: {},
   navTemplate: 'classic',
   navPosition: 'top',
   navBackground: '#ffffff',
   navTextColor: '#111827',
 };
-
-const FONT_OPTIONS = [
-  { value: '', label: 'System Default' },
-  { value: 'Inter', label: 'Inter' },
-  { value: 'Playfair Display', label: 'Playfair Display' },
-  { value: 'Roboto', label: 'Roboto' },
-  { value: 'Open Sans', label: 'Open Sans' },
-  { value: 'Montserrat', label: 'Montserrat' },
-  { value: 'Lato', label: 'Lato' },
-  { value: 'Poppins', label: 'Poppins' },
-  { value: 'Raleway', label: 'Raleway' },
-  { value: 'Merriweather', label: 'Merriweather' },
-  { value: 'Georgia', label: 'Georgia' },
-  { value: 'Oswald', label: 'Oswald' },
-  { value: 'DM Sans', label: 'DM Sans' },
-  { value: 'Source Serif 4', label: 'Source Serif 4' },
-  { value: 'Space Grotesk', label: 'Space Grotesk' },
-];
 
 export default function BrandingPage() {
   const { siteId } = useParams<{ siteId: string }>();
@@ -97,6 +128,30 @@ export default function BrandingPage() {
       setSaving(false);
     }
   }, [siteId, branding]);
+
+  const getTypo = (el: string): ElementTypography => ({
+    ...DEFAULT_TYPOGRAPHY[el],
+    ...(branding.typography?.[el] || {}),
+  });
+
+  const updateTypo = (el: string, updates: Partial<ElementTypography>) => {
+    const current = getTypo(el);
+    update({
+      typography: {
+        ...(branding.typography || {}),
+        [el]: { ...current, ...updates },
+      },
+    });
+  };
+
+  // Resolve font for an element: element-specific -> headingFont/bodyFont -> system
+  const resolveFont = (el: string): string => {
+    const t = getTypo(el);
+    if (t.font) return t.font;
+    const info = ELEMENT_LABELS[el];
+    if (info?.category === 'heading') return branding.headingFont || '';
+    return branding.bodyFont || '';
+  };
 
   if (loading) {
     return (
@@ -305,64 +360,120 @@ export default function BrandingPage() {
           <span className="material-icons text-base">text_fields</span>
           Typography
         </h2>
-        <p className="text-sm text-muted-foreground mb-5">Choose fonts for headings and body text. These are loaded from Google Fonts.</p>
+        <p className="text-sm text-muted-foreground mb-5">Set default fonts for headings and body, then fine-tune each element.</p>
 
-        <div className="grid grid-cols-2 gap-6">
+        {/* Global font defaults */}
+        <div className="grid grid-cols-2 gap-6 mb-8">
           <div>
-            <label className={labelClass}>Heading Font</label>
-            <select
+            <label className={labelClass}>Default Heading Font</label>
+            <p className="text-[11px] text-muted-foreground mb-2">Applied to H1-H6 unless overridden below.</p>
+            <GoogleFontPicker
               value={branding.headingFont}
-              onChange={(e) => update({ headingFont: e.target.value })}
-              className={inputClass}
-            >
-              {FONT_OPTIONS.map(f => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-            {branding.headingFont && (
-              <>
-                <link
-                  rel="stylesheet"
-                  href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(branding.headingFont)}:wght@400;500;600;700&display=swap`}
-                />
-                <div className="mt-3 p-3 rounded-lg bg-muted/30 border border-border">
-                  <p className="text-2xl font-bold" style={{ fontFamily: `"${branding.headingFont}", sans-serif` }}>
-                    The quick brown fox
-                  </p>
-                  <p className="text-lg font-medium mt-1" style={{ fontFamily: `"${branding.headingFont}", sans-serif` }}>
-                    jumps over the lazy dog
-                  </p>
-                </div>
-              </>
-            )}
+              onChange={(font) => update({ headingFont: font })}
+            />
           </div>
-
           <div>
-            <label className={labelClass}>Body Font</label>
-            <select
+            <label className={labelClass}>Default Body Font</label>
+            <p className="text-[11px] text-muted-foreground mb-2">Applied to paragraphs, blockquotes, captions.</p>
+            <GoogleFontPicker
               value={branding.bodyFont}
-              onChange={(e) => update({ bodyFont: e.target.value })}
-              className={inputClass}
-            >
-              {FONT_OPTIONS.map(f => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
-            {branding.bodyFont && (
-              <>
-                <link
-                  rel="stylesheet"
-                  href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(branding.bodyFont)}:wght@300;400;500;600&display=swap`}
-                />
-                <div className="mt-3 p-3 rounded-lg bg-muted/30 border border-border">
-                  <p className="text-sm leading-relaxed" style={{ fontFamily: `"${branding.bodyFont}", sans-serif` }}>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
-                  </p>
-                </div>
-              </>
-            )}
+              onChange={(font) => update({ bodyFont: font })}
+            />
           </div>
         </div>
+
+        {/* Per-element typography */}
+        {(['heading', 'body', 'ui'] as const).map(category => (
+          <div key={category} className="mb-6">
+            <h3 className="text-sm font-semibold text-foreground mb-3 capitalize flex items-center gap-2">
+              <span className="material-icons text-sm">
+                {category === 'heading' ? 'title' : category === 'body' ? 'notes' : 'smart_button'}
+              </span>
+              {category === 'heading' ? 'Headings' : category === 'body' ? 'Body Text' : 'UI Elements'}
+            </h3>
+            <div className="space-y-3">
+              {Object.entries(ELEMENT_LABELS)
+                .filter(([, info]) => info.category === category)
+                .map(([el, info]) => {
+                  const t = getTypo(el);
+                  const font = resolveFont(el);
+                  return (
+                    <div key={el} className="rounded-lg border border-border p-4">
+                      <div className="flex items-start gap-4">
+                        {/* Preview */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{info.label}</span>
+                            <span className="text-[11px] text-muted-foreground">{info.desc}</span>
+                          </div>
+                          {font && (
+                            <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}:wght@300;400;500;600;700;800&display=swap`} />
+                          )}
+                          <p
+                            className="truncate"
+                            style={{
+                              fontFamily: font ? `"${font}", sans-serif` : undefined,
+                              fontSize: t.size,
+                              fontWeight: t.weight,
+                              lineHeight: t.lineHeight,
+                            }}
+                          >
+                            The quick brown fox jumps over the lazy dog
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Controls */}
+                      <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border/50">
+                        <div>
+                          <label className="block text-[11px] text-muted-foreground mb-1">Font Family</label>
+                          <GoogleFontPicker
+                            value={t.font || ''}
+                            onChange={(font) => updateTypo(el, { font: font || undefined })}
+                          />
+                          {!t.font && font && (
+                            <span className="text-[10px] text-muted-foreground mt-0.5 block">Inherited: {font}</span>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-muted-foreground mb-1">Size</label>
+                          <input
+                            type="text"
+                            value={t.size || ''}
+                            onChange={(e) => updateTypo(el, { size: e.target.value })}
+                            className={`${inputClass} text-xs`}
+                            placeholder="1rem"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-muted-foreground mb-1">Weight</label>
+                          <select
+                            value={t.weight || '400'}
+                            onChange={(e) => updateTypo(el, { weight: e.target.value })}
+                            className={`${inputClass} text-xs`}
+                          >
+                            {WEIGHT_OPTIONS.map(w => (
+                              <option key={w.value} value={w.value}>{w.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-muted-foreground mb-1">Line Height</label>
+                          <input
+                            type="text"
+                            value={t.lineHeight || ''}
+                            onChange={(e) => updateTypo(el, { lineHeight: e.target.value })}
+                            className={`${inputClass} text-xs`}
+                            placeholder="1.5"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -84,6 +84,7 @@ export async function PUT(
     textColor: body.textColor ?? DEFAULTS.textColor,
     headingFont: body.headingFont ?? DEFAULTS.headingFont,
     bodyFont: body.bodyFont ?? DEFAULTS.bodyFont,
+    typography: body.typography ?? null,
     navTemplate: body.navTemplate ?? DEFAULTS.navTemplate,
     navPosition: body.navPosition ?? DEFAULTS.navPosition,
     navBackground: body.navBackground ?? DEFAULTS.navBackground,
