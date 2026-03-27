@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Block } from '@/types/blocks';
 import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
 import { TokenColorPicker } from './TokenColorPicker';
+import { GoogleFontPicker } from './GoogleFontPicker';
 import MediaPicker from '@/components/admin/MediaPicker';
 
 // Collapsible section — defined outside component to keep stable reference across renders
@@ -632,11 +633,10 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
 
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Font Family</label>
-          <select value={style.fontFamily || ''} onChange={(e) => updateStyle('fontFamily', e.target.value)} className={selectClass}>
-            <option value="">Default</option><option value="font-sans">Sans Serif</option><option value="font-serif">Serif</option>
-            <option value="font-mono">Monospace</option><option value="font-geist-sans">Geist Sans</option>
-            <option value="font-orbitron">Orbitron</option><option value="font-rajdhani">Rajdhani</option>
-          </select>
+          <GoogleFontPicker
+            value={style.fontFamily || ''}
+            onChange={(v) => updateStyle('fontFamily', v)}
+          />
         </div>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Font Weight</label>
