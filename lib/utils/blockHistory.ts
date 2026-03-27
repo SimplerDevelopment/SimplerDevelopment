@@ -1,4 +1,4 @@
-import { Block, HistoryEntry, HistoryAction } from '@/types/blocks';
+import { Block, HistoryEntry, HistoryAction, PageSettings } from '@/types/blocks';
 import { produce } from 'immer';
 
 /**
@@ -30,10 +30,12 @@ export class BlockHistory {
   push(
     blocks: Block[],
     action: HistoryAction,
-    affectedBlockIds?: string[]
+    affectedBlockIds?: string[],
+    pageSettings?: PageSettings
   ): void {
     const entry: HistoryEntry = {
       blocks: produce(blocks, (draft) => draft), // Deep clone using immer
+      pageSettings: pageSettings ? { ...pageSettings } : undefined,
       timestamp: Date.now(),
       action,
       affectedBlockIds,
@@ -54,7 +56,7 @@ export class BlockHistory {
    * Undo the last action
    * Returns the previous block state, or undefined if nothing to undo
    */
-  undo(): { blocks: Block[]; action: HistoryAction } | undefined {
+  undo(): { blocks: Block[]; pageSettings?: PageSettings; action: HistoryAction } | undefined {
     const entry = this.past.pop();
     if (!entry) {
       return undefined;
@@ -69,12 +71,14 @@ export class BlockHistory {
       // No previous state, return empty blocks
       return {
         blocks: [],
+        pageSettings: undefined,
         action: { type: 'modify', description: 'Initial state' },
       };
     }
 
     return {
       blocks: previousEntry.blocks,
+      pageSettings: previousEntry.pageSettings,
       action: entry.action,
     };
   }
@@ -83,7 +87,7 @@ export class BlockHistory {
    * Redo the last undone action
    * Returns the next block state, or undefined if nothing to redo
    */
-  redo(): { blocks: Block[]; action: HistoryAction } | undefined {
+  redo(): { blocks: Block[]; pageSettings?: PageSettings; action: HistoryAction } | undefined {
     const entry = this.future.pop();
     if (!entry) {
       return undefined;
@@ -94,6 +98,7 @@ export class BlockHistory {
 
     return {
       blocks: entry.blocks,
+      pageSettings: entry.pageSettings,
       action: entry.action,
     };
   }

@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Block, HistoryAction } from '@/types/blocks';
+import { Block, HistoryAction, PageSettings } from '@/types/blocks';
 import { BlockHistory } from '@/lib/utils/blockHistory';
 
 interface UseBlockHistoryReturn {
   // Current state
   blocks: Block[];
+  pageSettings: PageSettings;
   canUndo: boolean;
   canRedo: boolean;
 
   // Actions
   setBlocks: (blocks: Block[], action: HistoryAction) => void;
+  setPageSettings: (pageSettings: PageSettings, action: HistoryAction) => void;
   undo: () => void;
   redo: () => void;
   clearHistory: () => void;
@@ -42,10 +44,12 @@ interface UseBlockHistoryReturn {
  */
 export function useBlockHistory(
   initialBlocks: Block[] = [],
-  maxHistorySize: number = 50
+  maxHistorySize: number = 50,
+  initialPageSettings: PageSettings = {}
 ): UseBlockHistoryReturn {
   // Only use initialBlocks on first render - use lazy initialization
   const [blocks, setBlocksState] = useState<Block[]>(() => initialBlocks);
+  const [pageSettings, setPageSettingsState] = useState<PageSettings>(() => initialPageSettings);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [lastAction, setLastAction] = useState<string | null>(null);
@@ -58,12 +62,16 @@ export function useBlockHistory(
   const initializedRef = useRef(false);
   const prevInitialBlocksRef = useRef(initialBlocks);
 
+  // Keep a ref to current pageSettings for use in setBlocks callback
+  const pageSettingsRef = useRef(pageSettings);
+  pageSettingsRef.current = pageSettings;
+
   // Initialize history with the starting state on first render
   if (!initializedRef.current && initialBlocks.length > 0) {
     historyRef.current.push(initialBlocks, {
       type: 'modify',
       description: 'Initial state',
-    });
+    }, undefined, initialPageSettings);
     initializedRef.current = true;
   }
 
@@ -90,10 +98,31 @@ export function useBlockHistory(
       const history = historyRef.current;
 
       // Push current state to history BEFORE updating
-      history.push(blocks, action);
+      history.push(blocks, action, undefined, pageSettingsRef.current);
 
       // Update state
       setBlocksState(newBlocks);
+
+      // Update can undo/redo flags
+      setCanUndo(history.canUndo());
+      setCanRedo(history.canRedo());
+
+      // Update action metadata
+      setLastAction(history.getLastAction());
+      setNextAction(history.getNextAction());
+    },
+    [blocks]
+  );
+
+  const setPageSettings = useCallback(
+    (newPageSettings: PageSettings, action: HistoryAction) => {
+      const history = historyRef.current;
+
+      // Push current state to history BEFORE updating
+      history.push(blocks, action, undefined, pageSettingsRef.current);
+
+      // Update state
+      setPageSettingsState(newPageSettings);
 
       // Update can undo/redo flags
       setCanUndo(history.canUndo());
@@ -115,6 +144,9 @@ export function useBlockHistory(
 
     if (result) {
       setBlocksState(result.blocks);
+      if (result.pageSettings !== undefined) {
+        setPageSettingsState(result.pageSettings);
+      }
       setCanUndo(history.canUndo());
       setCanRedo(history.canRedo());
       setLastAction(history.getLastAction());
@@ -131,6 +163,9 @@ export function useBlockHistory(
 
     if (result) {
       setBlocksState(result.blocks);
+      if (result.pageSettings !== undefined) {
+        setPageSettingsState(result.pageSettings);
+      }
       setCanUndo(history.canUndo());
       setCanRedo(history.canRedo());
       setLastAction(history.getLastAction());
@@ -152,9 +187,11 @@ export function useBlockHistory(
 
   return {
     blocks,
+    pageSettings,
     canUndo,
     canRedo,
     setBlocks,
+    setPageSettings,
     undo,
     redo,
     clearHistory,

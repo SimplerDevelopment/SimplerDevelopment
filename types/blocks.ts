@@ -373,6 +373,7 @@ export interface HistoryAction {
 
 export interface HistoryEntry {
   blocks: Block[]; // Complete block state at this point
+  pageSettings?: PageSettings; // Page settings at this point
   timestamp: number; // Unix timestamp (ms)
   action: HistoryAction; // Type of action that created this entry
   affectedBlockIds?: string[]; // IDs of blocks changed (for optimization)

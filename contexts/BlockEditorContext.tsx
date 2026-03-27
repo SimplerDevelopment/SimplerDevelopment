@@ -117,12 +117,14 @@ export function BlockEditorProvider({
   // History management
   const {
     blocks,
+    pageSettings: historyPageSettings,
     setBlocks: setBlocksWithHistory,
-    undo,
-    redo,
+    setPageSettings: setPageSettingsWithHistory,
+    undo: undoRaw,
+    redo: redoRaw,
     canUndo,
     canRedo,
-  } = useBlockHistory(initialBlocks);
+  } = useBlockHistory(initialBlocks, 50, initialPageSettings);
 
   console.log('[BlockEditorProvider] Current blocks from useBlockHistory:', blocks.length);
 
@@ -162,17 +164,43 @@ export function BlockEditorProvider({
   // Viewport state
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>(initialViewport);
 
-  // Page settings
-  const [pageSettings, setPageSettings] = useState<PageSettings>(initialPageSettings);
+  // Page settings - driven by history hook
+  const pageSettings = historyPageSettings;
 
   const updatePageSettings = useCallback((updates: Partial<PageSettings>) => {
-    setPageSettings((prev) => {
-      const next = { ...prev, ...updates };
-      onPageSettingsChange?.(next);
-      setHasUnsavedChanges(true);
-      return next;
+    const next = { ...pageSettings, ...updates };
+    setPageSettingsWithHistory(next, {
+      type: 'modify',
+      description: 'Updated page settings',
     });
-  }, [onPageSettingsChange]);
+    setHasUnsavedChanges(true);
+    onPageSettingsChange?.(next);
+  }, [pageSettings, setPageSettingsWithHistory, onPageSettingsChange]);
+
+  // Wrap undo/redo to notify change callbacks
+  const undo = useCallback(() => {
+    undoRaw();
+  }, [undoRaw]);
+
+  const redo = useCallback(() => {
+    redoRaw();
+  }, [redoRaw]);
+
+  // Notify change callbacks when blocks/pageSettings change from undo/redo
+  const prevBlocksRef = useRef(blocks);
+  const prevPageSettingsRef = useRef(pageSettings);
+  useEffect(() => {
+    if (prevBlocksRef.current !== blocks) {
+      onBlocksChange?.(blocks);
+      prevBlocksRef.current = blocks;
+    }
+  }, [blocks, onBlocksChange]);
+  useEffect(() => {
+    if (prevPageSettingsRef.current !== pageSettings) {
+      onPageSettingsChange?.(pageSettings);
+      prevPageSettingsRef.current = pageSettings;
+    }
+  }, [pageSettings, onPageSettingsChange]);
 
   // Calculate content stats
   const stats: ContentStats = useMemo(() => {
@@ -201,9 +229,8 @@ export function BlockEditorProvider({
         description: `Modified ${updatedBlock?.type || 'unknown'} block`,
       });
       setHasUnsavedChanges(true);
-      onBlocksChange?.(newBlocks);
     },
-    [blocks, setBlocksWithHistory, onBlocksChange]
+    [blocks, setBlocksWithHistory]
   );
 
   // Define dockSettings early so it can be used in handleBroadcastMessage
@@ -255,17 +282,13 @@ export function BlockEditorProvider({
         order: index + 1,
       }));
 
-      console.log('[BlockEditorContext] addBlock - calling setBlocksWithHistory with', updatedBlocks.length, 'blocks');
       setBlocksWithHistory(updatedBlocks, {
         type: 'add',
         description: `Added ${block.type} block`,
       });
       setHasUnsavedChanges(true);
-      console.log('[BlockEditorContext] addBlock - calling onBlocksChange with', updatedBlocks.length, 'blocks');
-      console.log('[BlockEditorContext] onBlocksChange exists?', !!onBlocksChange);
-      onBlocksChange?.(updatedBlocks);
     },
-    [blocks, setBlocksWithHistory, onBlocksChange]
+    [blocks, setBlocksWithHistory]
   );
 
   const deleteBlock = useCallback(
@@ -283,9 +306,8 @@ export function BlockEditorProvider({
         description: `Deleted ${blockToDelete?.type} block`,
       });
       setHasUnsavedChanges(true);
-      onBlocksChange?.(newBlocks);
     },
-    [blocks, setBlocksWithHistory, onBlocksChange]
+    [blocks, setBlocksWithHistory]
   );
 
   const reorderBlocks = useCallback(
@@ -305,9 +327,8 @@ export function BlockEditorProvider({
         description: 'Reordered blocks',
       });
       setHasUnsavedChanges(true);
-      onBlocksChange?.(updatedBlocks);
     },
-    [blocks, setBlocksWithHistory, onBlocksChange]
+    [blocks, setBlocksWithHistory]
   );
 
   const duplicateBlock = useCallback(
@@ -335,9 +356,8 @@ export function BlockEditorProvider({
         description: `Duplicated ${blockToDuplicate.type} block`,
       });
       setHasUnsavedChanges(true);
-      onBlocksChange?.(updatedBlocks);
     },
-    [blocks, setBlocksWithHistory, onBlocksChange]
+    [blocks, setBlocksWithHistory]
   );
 
   const setBlocks = useCallback(
@@ -347,9 +367,8 @@ export function BlockEditorProvider({
         description: 'Updated blocks',
       });
       setHasUnsavedChanges(true);
-      onBlocksChange?.(newBlocks);
     },
-    [setBlocksWithHistory, onBlocksChange]
+    [setBlocksWithHistory]
   );
 
   // UI actions
