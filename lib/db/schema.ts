@@ -1125,6 +1125,14 @@ export const siteBranding = pgTable('site_branding', {
   navPosition: varchar('nav_position', { length: 20 }).default('top'), // top, left
   navBackground: varchar('nav_background', { length: 20 }).default('#ffffff'),
   navTextColor: varchar('nav_text_color', { length: 20 }).default('#111827'),
+  // Fonts
+  headingFont: varchar('heading_font', { length: 255 }),
+  bodyFont: varchar('body_font', { length: 255 }),
+  // Logo variants
+  logoSquareUrl: varchar('logo_square_url', { length: 500 }),
+  logoRectUrl: varchar('logo_rect_url', { length: 500 }),
+  logoText: varchar('logo_text', { length: 255 }),
+  logoIconUrl: varchar('logo_icon_url', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
