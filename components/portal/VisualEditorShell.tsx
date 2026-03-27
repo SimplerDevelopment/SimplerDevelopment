@@ -101,6 +101,7 @@ export function VisualEditorShell({
   siteId,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [leftTab, setLeftTab] = useState<'layers' | 'add'>('layers');
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
@@ -132,10 +133,38 @@ export function VisualEditorShell({
   // Track when a blocks change originated from the iframe to avoid echoing it back
   const iframeOriginatedRef = useRef(false);
 
-  const selectBlock = useCallback((blockId: string) => {
-    setInternalSelectedBlockId(blockId);
+  const selectBlock = useCallback((blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => {
+    const multi = modifiers?.metaKey || modifiers?.ctrlKey;
+    const shift = modifiers?.shiftKey;
+
+    if (multi) {
+      setSelectedBlockIds(prev => {
+        const newIds = prev.includes(blockId) ? prev.filter(id => id !== blockId) : [...prev, blockId];
+        setInternalSelectedBlockId(newIds.length > 0 ? newIds[newIds.length - 1] : null);
+        return newIds;
+      });
+    } else if (shift) {
+      setSelectedBlockIds(prev => {
+        if (prev.length === 0) return [blockId];
+        const topIds = blocks.map(b => b.id);
+        const lastId = prev[prev.length - 1];
+        const fromIdx = topIds.indexOf(lastId);
+        const toIdx = topIds.indexOf(blockId);
+        if (fromIdx !== -1 && toIdx !== -1) {
+          const start = Math.min(fromIdx, toIdx);
+          const end = Math.max(fromIdx, toIdx);
+          const newIds = [...new Set([...prev, ...topIds.slice(start, end + 1)])];
+          setInternalSelectedBlockId(blockId);
+          return newIds;
+        }
+        return [blockId];
+      });
+    } else {
+      setInternalSelectedBlockId(blockId);
+      setSelectedBlockIds(blockId ? [blockId] : []);
+    }
     onSelectBlock(blockId);
-  }, [onSelectBlock]);
+  }, [onSelectBlock, blocks]);
 
   const handleBlockHovered = useCallback(() => {}, []);
 
@@ -225,6 +254,75 @@ export function VisualEditorShell({
   useEffect(() => {
     onUndoRedoChange?.({ sendUndo, sendRedo, canUndo: undoRedoState.canUndo, canRedo: undoRedoState.canRedo });
   }, [undoRedoState, sendUndo, sendRedo, onUndoRedoChange]);
+
+  // Bulk actions for multi-select
+  const isMultiSelect = selectedBlockIds.length > 1;
+
+  const bulkDelete = useCallback(() => {
+    let updated = [...blocks];
+    for (const id of selectedBlockIds) {
+      updated = updated.filter(b => b.id !== id);
+      // Also remove from nested containers
+      updated = updated.map(b => {
+        if (b.type === 'columns') return { ...b, columns: (b as ColumnsBlock).columns.map(c => ({ ...c, blocks: c.blocks.filter(nb => !selectedBlockIds.includes(nb.id)) })) };
+        if (b.type === 'section' && 'blocks' in b) return { ...b, blocks: (b as Block & { blocks: Block[] }).blocks.filter(nb => !selectedBlockIds.includes(nb.id)) };
+        return b;
+      }) as Block[];
+    }
+    iframeOriginatedRef.current = true;
+    onBlocksChange(updated);
+    setSelectedBlockIds([]);
+    setInternalSelectedBlockId(null);
+  }, [blocks, selectedBlockIds, onBlocksChange]);
+
+  const bulkDuplicate = useCallback(() => {
+    let updated = [...blocks];
+    const newIds: string[] = [];
+    for (const id of selectedBlockIds) {
+      const block = findBlockById(blocks, id);
+      if (block) {
+        const dupId = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const dup = { ...JSON.parse(JSON.stringify(block)), id: dupId } as Block;
+        const idx = updated.findIndex(b => b.id === id);
+        if (idx !== -1) {
+          updated.splice(idx + 1, 0, dup);
+          newIds.push(dupId);
+        }
+      }
+    }
+    iframeOriginatedRef.current = true;
+    onBlocksChange(updated);
+    setSelectedBlockIds(newIds);
+  }, [blocks, selectedBlockIds, onBlocksChange]);
+
+  const bulkGroup = useCallback(() => {
+    const selectedBlocks = selectedBlockIds.map(id => findBlockById(blocks, id)).filter(Boolean) as Block[];
+    if (selectedBlocks.length < 2) return;
+    let updated = blocks.filter(b => !selectedBlockIds.includes(b.id));
+    const section: Block = {
+      id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'section',
+      order: 0,
+      blocks: selectedBlocks,
+    } as Block;
+    const firstIdx = blocks.findIndex(b => selectedBlockIds.includes(b.id));
+    updated.splice(Math.min(firstIdx, updated.length), 0, section);
+    iframeOriginatedRef.current = true;
+    onBlocksChange(updated);
+    setSelectedBlockIds([section.id]);
+    setInternalSelectedBlockId(section.id);
+  }, [blocks, selectedBlockIds, onBlocksChange]);
+
+  const bulkUpdateStyle = useCallback((style: Partial<BlockStyle>) => {
+    const updated = blocks.map(b => {
+      if (selectedBlockIds.includes(b.id)) {
+        return { ...b, style: { ...(b.style || {}), ...style } } as Block;
+      }
+      return b;
+    });
+    iframeOriginatedRef.current = true;
+    onBlocksChange(updated);
+  }, [blocks, selectedBlockIds, onBlocksChange]);
 
   const allBlockTypes = useMemo(() => {
     const custom = customComponents.map((c) => ({
@@ -590,7 +688,111 @@ export function VisualEditorShell({
       {/* ── Right Panel — Property Editor ── */}
       {!previewMode && (
       <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
-        {selectedBlock ? (
+        {isMultiSelect ? (
+          /* ── Multi-select bulk actions ── */
+          <div className="flex flex-col h-full">
+            <div className="px-4 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-base text-primary">select_all</span>
+                <span className="text-sm font-semibold text-foreground">{selectedBlockIds.length} blocks selected</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Shift+click to extend, {'\u2318'}+click to toggle
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bulk Actions</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={bulkDuplicate}
+                  className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-3 hover:bg-accent hover:border-primary/30 transition-colors"
+                >
+                  <span className="material-icons text-lg text-muted-foreground">content_copy</span>
+                  <span className="text-xs text-foreground">Duplicate</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={bulkGroup}
+                  className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-3 hover:bg-accent hover:border-primary/30 transition-colors"
+                >
+                  <span className="material-icons text-lg text-muted-foreground">crop_free</span>
+                  <span className="text-xs text-foreground">Group</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={bulkDelete}
+                  className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-3 hover:bg-destructive/10 hover:border-destructive/30 transition-colors col-span-2"
+                >
+                  <span className="material-icons text-lg text-destructive">delete</span>
+                  <span className="text-xs text-destructive">Delete All</span>
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Bulk Style</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Background Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        onChange={(e) => bulkUpdateStyle({ backgroundColor: e.target.value })}
+                        className="h-8 w-8 cursor-pointer rounded border border-border"
+                      />
+                      <input
+                        type="text"
+                        placeholder="e.g. #f3f4f6"
+                        onChange={(e) => { if (e.target.value) bulkUpdateStyle({ backgroundColor: e.target.value }); }}
+                        className="flex-1 px-2 py-1 rounded border border-border bg-background text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Text Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        onChange={(e) => bulkUpdateStyle({ color: e.target.value })}
+                        className="h-8 w-8 cursor-pointer rounded border border-border"
+                      />
+                      <input
+                        type="text"
+                        placeholder="e.g. #111827"
+                        onChange={(e) => { if (e.target.value) bulkUpdateStyle({ color: e.target.value }); }}
+                        className="flex-1 px-2 py-1 rounded border border-border bg-background text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Padding</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 16px or 1rem"
+                      onChange={(e) => { if (e.target.value) bulkUpdateStyle({ padding: e.target.value }); }}
+                      className="w-full px-2 py-1 rounded border border-border bg-background text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Gap</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 8px or 1rem"
+                      onChange={(e) => { if (e.target.value) bulkUpdateStyle({ gap: e.target.value }); }}
+                      className="w-full px-2 py-1 rounded border border-border bg-background text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <p className="text-[11px] text-muted-foreground">
+                  Shortcuts: {'\u2318'}+D duplicate, {'\u2318'}+G group, {'\u2318'}+{'\u232b'} delete
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : selectedBlock ? (
           <>
             {/* Block header */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">

@@ -21,7 +21,7 @@ interface UseVisualEditorParentOptions {
   blocks: Block[];
   selectedBlockId: string | null;
   pageSettings?: PageSettings;
-  onBlockClicked: (blockId: string) => void;
+  onBlockClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered?: (blocks: Block[]) => void;
   onAddBlockAfter?: (blockId: string) => void;
@@ -100,8 +100,8 @@ export function useVisualEditorParent({
           break;
         }
         case IFRAME_MESSAGES.BLOCK_CLICKED: {
-          const payload = event.data.payload as BlockClickedPayload;
-          onClickedRef.current(payload.blockId);
+          const payload = event.data.payload as BlockClickedPayload & { modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } };
+          onClickedRef.current(payload.blockId, payload.modifiers);
           break;
         }
         case IFRAME_MESSAGES.BLOCK_HOVERED: {
