@@ -74,6 +74,7 @@ export default function NavigationEditorPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'items' | 'branding'>('items');
   const [templateDropdownOpen, setTemplateDropdownOpen] = useState(false);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -320,9 +321,10 @@ export default function NavigationEditorPage() {
       </div>
 
       {/* Main: Editor + Preview */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Editor */}
-        <div className="w-[420px] flex-shrink-0 border-r border-border bg-background overflow-y-auto">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Left Panel: Editor (collapsible) */}
+        <div className={`flex-shrink-0 border-r border-border bg-background overflow-y-auto transition-all duration-300 ${leftPanelOpen ? 'w-[420px]' : 'w-0 border-r-0'}`}>
+          <div className={`w-[420px] ${leftPanelOpen ? '' : 'hidden'}`}>
           {/* Tabs */}
           <div className="flex border-b border-border">
             <button
@@ -419,7 +421,21 @@ export default function NavigationEditorPage() {
               siteId={siteId}
             />
           )}
+          </div>
         </div>
+
+        {/* Left panel toggle */}
+        <button
+          type="button"
+          onClick={() => setLeftPanelOpen(prev => !prev)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-12 flex items-center justify-center bg-background border border-border border-l-0 rounded-r-lg shadow-sm hover:bg-muted transition-colors"
+          style={{ left: leftPanelOpen ? '420px' : '0px', transition: 'left 0.3s' }}
+          title={leftPanelOpen ? 'Collapse panel' : 'Expand panel'}
+        >
+          <span className="material-icons text-sm text-muted-foreground">
+            {leftPanelOpen ? 'chevron_left' : 'chevron_right'}
+          </span>
+        </button>
 
         {/* Right Panel: Live iframe Preview */}
         <div className="flex-1 bg-muted/30 flex flex-col relative overflow-hidden">
