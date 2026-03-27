@@ -603,20 +603,66 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
         >
           {editorMode === 'iframe' && effectiveSiteUrl && !post?.slug ? (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md">
-                <span className="material-icons text-5xl text-muted-foreground/30 mb-4 block">edit_note</span>
-                <h3 className="text-lg font-semibold text-foreground mb-2">Save to start editing</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Enter a title above and save the page to open the visual editor.
-                </p>
-                <button
-                  onClick={() => handleSubmit()}
-                  disabled={loading || !formData.title.trim()}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  <span className="material-icons text-lg">save</span>
-                  {loading ? 'Creating...' : 'Create & Open Editor'}
-                </button>
+              <div className="w-full max-w-lg">
+                <div className="text-center mb-8">
+                  <span className="material-icons text-5xl text-muted-foreground/30 mb-3 block">edit_note</span>
+                  <h3 className="text-lg font-semibold text-foreground">Create New Page</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Fill in the details below to create the page and open the visual editor.</p>
+                </div>
+
+                <div className="space-y-4 bg-card border border-border rounded-xl p-6">
+                  {/* Title */}
+                  <label className="block">
+                    <span className="text-sm font-medium text-foreground">Title <span className="text-destructive">*</span></span>
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={handleTitleChange}
+                      placeholder="e.g. About Us, Contact, Services"
+                      className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                      autoFocus
+                    />
+                  </label>
+
+                  {/* Slug */}
+                  <label className="block">
+                    <span className="text-sm font-medium text-foreground">URL Slug</span>
+                    <div className="mt-1.5 flex items-center gap-0 rounded-lg border border-border overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                      <span className="px-3 py-2.5 bg-muted text-xs text-muted-foreground border-r border-border shrink-0">/</span>
+                      <input
+                        type="text"
+                        value={formData.slug}
+                        onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-') }))}
+                        placeholder="auto-generated-from-title"
+                        className="block w-full bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">Auto-generated from title. Edit to customize.</p>
+                  </label>
+
+                  {/* Post Type */}
+                  <label className="block">
+                    <span className="text-sm font-medium text-foreground">Type</span>
+                    <select
+                      value={formData.postType}
+                      onChange={(e) => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                      className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                    >
+                      <option value="page">Page</option>
+                      <option value="blog">Blog Post</option>
+                    </select>
+                  </label>
+
+                  {/* Create button */}
+                  <button
+                    onClick={() => handleSubmit()}
+                    disabled={loading || !formData.title.trim()}
+                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-icons text-lg">save</span>
+                    {loading ? 'Creating...' : 'Create & Open Editor'}
+                  </button>
+                </div>
               </div>
             </div>
           ) : editorMode === 'iframe' && effectiveSiteUrl && post?.slug ? (
