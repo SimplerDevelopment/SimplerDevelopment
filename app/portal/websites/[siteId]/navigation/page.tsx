@@ -84,10 +84,19 @@ export default function NavigationEditorPage() {
   const [zoom, setZoom] = useState(100);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Hydrate localhost preference
+  // Hydrate localhost preference and auto-fit zoom
   useEffect(() => {
     setUseLocalhost(localStorage.getItem('editor-use-localhost') === 'true');
     setLocalPort(localStorage.getItem('editor-local-port') || '3003');
+    // Auto-fit desktop viewport on mount
+    requestAnimationFrame(() => {
+      if (previewContainerRef.current) {
+        const containerWidth = previewContainerRef.current.clientWidth - 32;
+        if (1440 > containerWidth) {
+          setZoom(Math.floor((containerWidth / 1440) * 100));
+        }
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -413,8 +422,8 @@ export default function NavigationEditorPage() {
         </div>
 
         {/* Right Panel: Live iframe Preview */}
-        <div className="flex-1 bg-muted/30 flex flex-col relative">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
+        <div className="flex-1 bg-muted/30 flex flex-col relative overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50 shrink-0">
             <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Live Preview</span>
             <div className="flex items-center gap-3">
               {/* Viewport presets */}
