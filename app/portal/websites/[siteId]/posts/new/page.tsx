@@ -27,5 +27,21 @@ export default async function PortalNewPostPage({
 
   if (!site) notFound();
 
-  return <PortalPostForm siteId={site.id} mode="create" />;
+  // Build iframe URL for visual editor (same as edit page)
+  const subdomain = site.subdomain;
+  const vercelDomain = site.vercelDomain;
+  const siteUrl = vercelDomain
+    ? `https://${vercelDomain}`
+    : subdomain
+      ? `https://${subdomain}.simplerdevelopment.com`
+      : null;
+
+  return (
+    <PortalPostForm
+      siteId={site.id}
+      mode="create"
+      siteUrl={siteUrl}
+      siteDomain={site.domain || subdomain || undefined}
+    />
+  );
 }
