@@ -140,7 +140,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [contentMenuOpen, setContentMenuOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'visual' | 'classic' | 'iframe'>(
-    siteUrl && mode === 'edit' ? 'iframe' : 'visual',
+    siteUrl ? 'iframe' : 'visual',
   );
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
@@ -311,7 +311,13 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
         const data = await response.json();
         if (data.success) {
           setPostSaveStatus('saved');
-          router.push(`/portal/websites/${siteId}`);
+          // Redirect to edit mode so the iframe editor loads with the new post
+          const newPostId = data.data?.id;
+          if (newPostId) {
+            router.push(`/portal/websites/${siteId}/posts/${newPostId}/edit`);
+          } else {
+            router.push(`/portal/websites/${siteId}`);
+          }
           router.refresh();
         } else {
           setPostSaveStatus('error');
@@ -595,7 +601,25 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
             </div>
           ) : undefined}
         >
-          {editorMode === 'iframe' && effectiveSiteUrl && post?.slug ? (
+          {editorMode === 'iframe' && effectiveSiteUrl && !post?.slug ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <span className="material-icons text-5xl text-muted-foreground/30 mb-4 block">edit_note</span>
+                <h3 className="text-lg font-semibold text-foreground mb-2">Save to start editing</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Enter a title above and save the page to open the visual editor.
+                </p>
+                <button
+                  onClick={() => handleSubmit()}
+                  disabled={loading || !formData.title.trim()}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  <span className="material-icons text-lg">save</span>
+                  {loading ? 'Creating...' : 'Create & Open Editor'}
+                </button>
+              </div>
+            </div>
+          ) : editorMode === 'iframe' && effectiveSiteUrl && post?.slug ? (
             <div className="relative flex-1">
               <VisualEditorShell
                 blocks={blocks}
