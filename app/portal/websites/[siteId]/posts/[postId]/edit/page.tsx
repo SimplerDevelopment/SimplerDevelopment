@@ -54,6 +54,7 @@ export default async function PortalEditPostPage({
       siteId={site.id}
       mode="edit"
       siteUrl={siteUrl}
+      siteDomain={site.domain || subdomain || undefined}
       post={{
         id: post.id,
         title: post.title,

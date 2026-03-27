@@ -15,6 +15,7 @@ import GoogleConnectionCard from '@/components/portal/GoogleConnectionCard';
 import HttpLogViewer from '@/components/portal/HttpLogViewer';
 import InfrastructureTabs from '@/components/portal/InfrastructureTabs';
 import EnvironmentPanel from '@/components/portal/EnvironmentPanel';
+import CopyableSiteId from '@/components/portal/CopyableSiteId';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -64,6 +65,9 @@ export default async function WebsiteSettingsPage({
           Manage deployment, domain, repository access, and general settings for {site.name}.
         </p>
       </div>
+
+      {/* Site ID */}
+      <CopyableSiteId siteId={site.id} />
 
       {/* General Settings */}
       <WebsiteSettingsForm

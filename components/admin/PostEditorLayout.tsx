@@ -16,6 +16,8 @@ interface PostEditorLayoutProps {
   liveUrl?: string | null;
   previewMode?: boolean;
   onPreviewToggle?: () => void;
+  onHistoryToggle?: () => void;
+  historyOpen?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
@@ -33,6 +35,8 @@ export function PostEditorLayout({
   backHref,
   previewMode,
   onPreviewToggle,
+  onHistoryToggle,
+  historyOpen,
   saveStatus = 'idle',
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
@@ -95,6 +99,22 @@ export function PostEditorLayout({
                 >
                   <span className="material-icons text-base">{previewMode ? 'edit' : 'visibility'}</span>
                   {previewMode ? 'Edit' : 'Preview'}
+                </button>
+              )}
+
+              {onHistoryToggle && (
+                <button
+                  type="button"
+                  onClick={onHistoryToggle}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors shrink-0 ${
+                    historyOpen
+                      ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                      : 'border-border hover:bg-accent'
+                  }`}
+                  title="Revision History"
+                >
+                  <span className="material-icons text-base">history</span>
+                  History
                 </button>
               )}
 

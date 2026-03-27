@@ -33,7 +33,7 @@ export async function createRepoFromTemplate(
     owner: 'simplerdevelopment',
     name: newRepoName,
     description,
-    private: false,
+    private: true,
     include_all_branches: false,
   });
 

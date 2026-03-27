@@ -155,6 +155,20 @@
       "when": 1774534786837,
       "tag": "0021_light_morph",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1774534900000,
+      "tag": "0022_custom_field_groups_repeaters",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1774617600000,
+      "tag": "0023_post_revisions",
+      "breakpoints": true
     }
   ]
 }

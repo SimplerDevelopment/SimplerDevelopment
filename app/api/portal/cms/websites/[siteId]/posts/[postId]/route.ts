@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { posts, postCategories, postTags } from '@/lib/db/schema';
+import { posts, postCategories, postTags, postRevisions } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
@@ -52,7 +52,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl } = body;
+  const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, revisionTrigger } = body;
 
   // If slug changed, check uniqueness within this website
   if (slug) {
@@ -92,6 +92,18 @@ export async function PUT(
     .returning();
 
   if (!post) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  // Create revision snapshot
+  const trigger = published && revisionTrigger !== 'autosave' ? 'publish' : (revisionTrigger || 'manual');
+  if (content !== undefined) {
+    await db.insert(postRevisions).values({
+      postId: pid,
+      content: post.content,
+      title: post.title,
+      trigger,
+      createdBy: parseInt(session.user.id, 10),
+    });
+  }
 
   // Sync categories if provided
   if (categoryIds !== undefined) {

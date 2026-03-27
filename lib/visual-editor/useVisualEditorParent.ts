@@ -149,6 +149,11 @@ export function useVisualEditorParent({
           setUndoRedoState(payload);
           break;
         }
+        case IFRAME_MESSAGES.EXTERNAL_DROP_COMPLETED: {
+          const payload = event.data.payload as { blocks: Block[] };
+          onReorderedRef.current?.(payload.blocks);
+          break;
+        }
       }
     }
 
@@ -209,6 +214,27 @@ export function useVisualEditorParent({
     sendToIframe(iframeRef.current, PARENT_MESSAGES.REDO, {});
   }, [iframeReady]);
 
+  // External drag-and-drop from block picker into iframe
+  const sendExternalDragStart = useCallback((blockType: string) => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.EXTERNAL_DRAG_START, { blockType });
+  }, [iframeReady]);
+
+  const sendExternalDragMove = useCallback((x: number, y: number) => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.EXTERNAL_DRAG_MOVE, { x, y });
+  }, [iframeReady]);
+
+  const sendExternalDragEnd = useCallback((x: number, y: number) => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.EXTERNAL_DRAG_END, { x, y });
+  }, [iframeReady]);
+
+  const sendExternalDragCancel = useCallback(() => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.EXTERNAL_DRAG_CANCEL, {});
+  }, [iframeReady]);
+
   return {
     iframeRef,
     iframeReady,
@@ -220,5 +246,9 @@ export function useVisualEditorParent({
     sendUndo,
     sendRedo,
     undoRedoState,
+    sendExternalDragStart,
+    sendExternalDragMove,
+    sendExternalDragEnd,
+    sendExternalDragCancel,
   };
 }

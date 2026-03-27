@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   pointerWithin,
@@ -104,6 +104,31 @@ export function VisualEditorShell({
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const zoomIn = useCallback(() => setZoomLevel(z => Math.min(z + 10, 200)), []);
+  const zoomOut = useCallback(() => setZoomLevel(z => Math.max(z - 10, 30)), []);
+  const zoomReset = useCallback(() => setZoomLevel(100), []);
+
+  // Ctrl/Cmd + scroll to zoom on the canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoomLevel(z => {
+        const delta = e.deltaY > 0 ? -5 : 5;
+        return Math.min(200, Math.max(30, z + delta));
+      });
+    };
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', handleWheel);
+  }, []);
+
+  // Track when a blocks change originated from the iframe to avoid echoing it back
+  const iframeOriginatedRef = useRef(false);
 
   const selectBlock = useCallback((blockId: string) => {
     setInternalSelectedBlockId(blockId);
@@ -111,6 +136,8 @@ export function VisualEditorShell({
   }, [onSelectBlock]);
 
   const handleBlockHovered = useCallback(() => {}, []);
+
+  const [externalDragType, setExternalDragType] = useState<string | null>(null);
 
   const {
     iframeRef,
@@ -122,12 +149,19 @@ export function VisualEditorShell({
     sendUndo,
     sendRedo,
     undoRedoState,
+    sendExternalDragStart,
+    sendExternalDragMove,
+    sendExternalDragEnd,
+    sendExternalDragCancel,
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
     onBlockClicked: selectBlock,
     onBlockHovered: handleBlockHovered,
-    onBlocksReordered: onBlocksChange,
+    onBlocksReordered: (newBlocks: Block[]) => {
+      iframeOriginatedRef.current = true;
+      onBlocksChange(newBlocks);
+    },
     onAddBlockAfter: (blockId: string) => {
       const newBlock = {
         id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -145,6 +179,7 @@ export function VisualEditorShell({
         // Nested — use recursive insert
         updated = insertBlockAfter(blocks, blockId, newBlock);
       }
+      iframeOriginatedRef.current = true;
       onBlocksChange(updated);
       selectBlock(newBlock.id);
     },
@@ -152,9 +187,11 @@ export function VisualEditorShell({
       const style: Record<string, string> = {};
       if (width) style.width = width;
       if (height) style.height = height;
+      iframeOriginatedRef.current = true;
       handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
     },
     onBlockStyleUpdated: (blockId: string, style: Record<string, string>) => {
+      iframeOriginatedRef.current = true;
       handleUpdateBlock(blockId, { style: { ...(findBlockById(blocks, blockId)?.style || {}), ...style } } as Partial<Block>);
     },
     onColumnResized: (blockId: string, columnWidths: number[]) => {
@@ -164,14 +201,22 @@ export function VisualEditorShell({
         ...col,
         width: columnWidths[i] ?? col.width,
       }));
+      iframeOriginatedRef.current = true;
       handleUpdateBlock(blockId, { columns: updatedColumns } as Partial<Block>);
     },
     onGapChanged: (blockId: string, gap: 'sm' | 'md' | 'lg') => {
+      iframeOriginatedRef.current = true;
       handleUpdateBlock(blockId, { gap } as Partial<Block>);
     },
   });
 
-  useEffect(() => { sendBlocksUpdate(blocks); }, [blocks, sendBlocksUpdate]);
+  useEffect(() => {
+    if (iframeOriginatedRef.current) {
+      iframeOriginatedRef.current = false;
+      return;
+    }
+    sendBlocksUpdate(blocks);
+  }, [blocks, sendBlocksUpdate]);
   useEffect(() => { sendSelectBlock(selectedBlockId); }, [selectedBlockId, sendSelectBlock]);
 
   // Notify parent of undo/redo availability
@@ -383,8 +428,20 @@ export function VisualEditorShell({
                   .filter((b) => !pickerCategory || b.category === pickerCategory)
                   .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()))
                   .map((bt) => (
-                  <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setLeftTab('layers'); setPickerSearch(''); }}
-                    className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5"
+                  <button type="button" key={bt.type}
+                    onClick={() => { onAddBlock(bt.type); setLeftTab('layers'); setPickerSearch(''); }}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', bt.type);
+                      e.dataTransfer.effectAllowed = 'copy';
+                      setExternalDragType(bt.type);
+                      sendExternalDragStart(bt.type);
+                    }}
+                    onDragEnd={() => {
+                      setExternalDragType(null);
+                      sendExternalDragCancel();
+                    }}
+                    className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5 cursor-grab active:cursor-grabbing"
                   >
                     <span className="material-icons text-base text-muted-foreground">{bt.icon}</span>
                     <span className="text-[10px] text-foreground leading-tight">{bt.label}</span>
@@ -436,12 +493,80 @@ export function VisualEditorShell({
       )}
 
       {/* ── Center — iframe ── */}
-      <div className="flex-1 flex flex-col bg-muted">
-        <div className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
-          <div className={`bg-card overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
+      <div className="flex-1 flex flex-col bg-muted relative">
+        <div ref={canvasRef} className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
+          <div
+            className={`bg-card overflow-hidden transition-all origin-top relative ${previewMode ? '' : 'shadow-lg rounded-lg'}`}
+            style={{
+              width: viewportWidth,
+              maxWidth: '100%',
+              height: previewMode ? '100%' : `${10000 / zoomLevel}%`,
+              transform: previewMode ? undefined : `scale(${zoomLevel / 100})`,
+            }}
+          >
             <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
+            {/* Empty state overlay when all blocks have been deleted */}
+            {blocks.length === 0 && !previewMode && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-card z-10">
+                <span className="material-icons text-4xl text-muted-foreground/40 mb-3">layers_clear</span>
+                <p className="text-sm font-medium text-muted-foreground mb-1">No blocks on this page</p>
+                <p className="text-xs text-muted-foreground/70">Add blocks from the panel on the left</p>
+              </div>
+            )}
+            {/* Overlay to capture drag events over iframe */}
+            {externalDragType && (
+              <div
+                className="absolute inset-0 z-10"
+                style={{ cursor: 'copy' }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                  const iframe = iframeRef.current;
+                  if (!iframe) return;
+                  const rect = iframe.getBoundingClientRect();
+                  const scale = zoomLevel / 100;
+                  const x = (e.clientX - rect.left) / scale;
+                  const y = (e.clientY - rect.top) / scale;
+                  sendExternalDragMove(x, y);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const iframe = iframeRef.current;
+                  if (!iframe) return;
+                  const rect = iframe.getBoundingClientRect();
+                  const scale = zoomLevel / 100;
+                  const x = (e.clientX - rect.left) / scale;
+                  const y = (e.clientY - rect.top) / scale;
+                  sendExternalDragEnd(x, y);
+                  setExternalDragType(null);
+                  setLeftTab('layers');
+                  setPickerSearch('');
+                }}
+                onDragLeave={(e) => {
+                  // Only cancel if leaving the overlay entirely
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    sendExternalDragCancel();
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
+
+        {/* Zoom controls */}
+        {!previewMode && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg">
+            <button type="button" onClick={zoomOut} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoomLevel <= 30} title="Zoom out">
+              <span className="material-icons text-sm">remove</span>
+            </button>
+            <button type="button" onClick={zoomReset} className="px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-foreground min-w-[3rem] text-center" title="Reset zoom">
+              {zoomLevel}%
+            </button>
+            <button type="button" onClick={zoomIn} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoomLevel >= 200} title="Zoom in">
+              <span className="material-icons text-sm">add</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Right Panel — Property Editor ── */}
@@ -797,8 +922,6 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
 
   return (
     <div className="space-y-4">
-      <SelectField label="Gap" value={block.gap || 'md'} options={['sm', 'md', 'lg']} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
-
       <div>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground">Columns ({cols.length})</span>

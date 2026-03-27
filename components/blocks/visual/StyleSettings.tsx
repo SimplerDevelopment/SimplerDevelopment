@@ -279,8 +279,8 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       <StyleSection title="Layout" defaultOpen>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Display</label>
-          <select value={style.display || ''} onChange={(e) => updateStyle('display', e.target.value)} className={selectClass}>
-            <option value="">Default (block)</option>
+          <select value={style.display || 'flex'} onChange={(e) => updateStyle('display', e.target.value)} className={selectClass}>
+            <option value="">Block</option>
             <option value="flex">Flex</option>
             <option value="inline-flex">Inline Flex</option>
             <option value="grid">Grid</option>
@@ -289,7 +289,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           </select>
         </div>
 
-        {(style.display === 'flex' || style.display === 'inline-flex') && (
+        {(!style.display || style.display === 'flex' || style.display === 'inline-flex') && (
           <>
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5">Direction</label>

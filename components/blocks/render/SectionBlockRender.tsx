@@ -44,8 +44,18 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
     padding: `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`,
   };
 
+  // Apply section's layout styles (flex, gap, etc.) to the inner container
+  const s = block.style;
   const innerStyle: React.CSSProperties = {
     ...(block.maxWidth ? { maxWidth: block.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
+    ...(s?.display ? { display: s.display } : {}),
+    ...(s?.flexDirection ? { flexDirection: s.flexDirection } : {}),
+    ...(s?.justifyContent ? { justifyContent: s.justifyContent } : {}),
+    ...(s?.alignItems ? { alignItems: s.alignItems } : {}),
+    ...(s?.flexWrap ? { flexWrap: s.flexWrap } : {}),
+    ...(s?.gap ? { gap: s.gap } : {}),
+    ...(s?.gridTemplateColumns ? { display: 'grid', gridTemplateColumns: s.gridTemplateColumns } : {}),
+    ...(s?.gridGap ? { gap: s.gridGap } : {}),
   };
 
   return (

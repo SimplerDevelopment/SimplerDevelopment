@@ -8,6 +8,7 @@ import { BlockType } from '@/types/blocks';
 import { Block, BlockEditorData } from '@/types/blocks';
 import { Breakpoint } from '@/types/responsive';
 import { PostEditorLayout } from '@/components/admin/PostEditorLayout';
+import RevisionHistory from '@/components/portal/RevisionHistory';
 import { ViewportSelector } from '@/components/blocks/ViewportSelector';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
@@ -45,6 +46,7 @@ interface PortalPostFormProps {
   post?: Post;
   mode: 'create' | 'edit';
   siteUrl?: string | null;
+  siteDomain?: string;
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -132,7 +134,7 @@ function createDefaultBlock(type: string, order: number): Block {
   }
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -145,11 +147,34 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
   const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [postSaveStatus, setPostSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [iframeSaveVersion, setIframeSaveVersion] = useState(0);
   const [useLocalhost, setUseLocalhost] = useState(false);
-  const [localPort, setLocalPort] = useState('3000');
-  const effectiveSiteUrl = useLocalhost ? `http://localhost:${localPort}` : siteUrl;
+  const [localPort, setLocalPort] = useState('3003');
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    setUseLocalhost(localStorage.getItem('editor-use-localhost') === 'true');
+    setLocalPort(localStorage.getItem('editor-local-port') || '3003');
+    setHydrated(true);
+  }, []);
+
+  // On localhost, the starter site serves pages at the root (no /sites/[domain] prefix)
+  const localhostBase = `http://localhost:${localPort}`;
+  const effectiveSiteUrl = useLocalhost ? localhostBase : siteUrl;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem('editor-use-localhost', String(useLocalhost));
+  }, [useLocalhost, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem('editor-local-port', localPort);
+  }, [localPort, hydrated]);
 
   // Notify layout to hide/show sidebar when preview mode changes
   useEffect(() => {
@@ -201,37 +226,43 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
     }));
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setLoading(true);
+  // Autosave: debounce block/form changes (only in edit mode with iframe editor)
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blocksRef = useRef(blocks);
+  const formDataRef = useRef(formData);
+  const isSavingRef = useRef(false);
+  blocksRef.current = blocks;
+  formDataRef.current = formData;
+
+  const savePost = useCallback(async (trigger: 'autosave' | 'manual' | 'publish' = 'manual') => {
+    if (mode !== 'edit' || !post?.id || isSavingRef.current) return;
+    isSavingRef.current = true;
+    if (trigger !== 'autosave') {
+      setLoading(true);
+    }
     setPostSaveStatus('saving');
     if (postSaveTimer.current) clearTimeout(postSaveTimer.current);
 
     try {
-      const contentData: BlockEditorData = { blocks, version: '1.0' };
+      const contentData: BlockEditorData = { blocks: blocksRef.current, version: '1.0' };
       const contentToSave = JSON.stringify(contentData);
 
-      const url = mode === 'create'
-        ? `/api/portal/cms/websites/${siteId}/posts`
-        : `/api/portal/cms/websites/${siteId}/posts/${post?.id}`;
-      const method = mode === 'create' ? 'POST' : 'PUT';
-
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`/api/portal/cms/websites/${siteId}/posts/${post.id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, content: contentToSave }),
+        body: JSON.stringify({ ...formDataRef.current, content: contentToSave, revisionTrigger: trigger }),
       });
 
       const data = await response.json();
       if (data.success) {
         setPostSaveStatus('saved');
         postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 3000);
-        if (editorMode === 'iframe') {
-          router.refresh();
-        } else {
+        if (trigger !== 'autosave' && editorMode !== 'iframe') {
           router.push(`/portal/websites/${siteId}`);
-          router.refresh();
         }
+        // Reload iframe to reflect saved content
+        setIframeSaveVersion(v => v + 1);
+        router.refresh();
       } else {
         setPostSaveStatus('error');
         postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
@@ -240,7 +271,60 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
       setPostSaveStatus('error');
       postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
     } finally {
+      isSavingRef.current = false;
       setLoading(false);
+    }
+  }, [mode, post?.id, siteId, editorMode, router]);
+
+  // Debounced autosave on block changes (2s after last change)
+  const initialBlocksRef = useRef(JSON.stringify(blocks));
+  useEffect(() => {
+    if (mode !== 'edit' || editorMode !== 'iframe') return;
+    const currentContent = JSON.stringify(blocks);
+    if (currentContent === initialBlocksRef.current) return;
+    initialBlocksRef.current = currentContent;
+
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      savePost('autosave');
+    }, 2000);
+
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+  }, [blocks, mode, editorMode, savePost]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+
+    if (mode === 'create') {
+      setLoading(true);
+      setPostSaveStatus('saving');
+      if (postSaveTimer.current) clearTimeout(postSaveTimer.current);
+      try {
+        const contentData: BlockEditorData = { blocks, version: '1.0' };
+        const contentToSave = JSON.stringify(contentData);
+        const response = await fetch(`/api/portal/cms/websites/${siteId}/posts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, content: contentToSave }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          setPostSaveStatus('saved');
+          router.push(`/portal/websites/${siteId}`);
+          router.refresh();
+        } else {
+          setPostSaveStatus('error');
+          postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
+        }
+      } catch {
+        setPostSaveStatus('error');
+        postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      await savePost(formData.published ? 'publish' : 'manual');
     }
   };
 
@@ -485,6 +569,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           onStatusChange={(status) => setFormData(prev => ({ ...prev, published: status === 'published' }))}
           previewMode={previewMode}
           onPreviewToggle={editorMode === 'iframe' ? () => setPreviewMode(prev => !prev) : undefined}
+          onHistoryToggle={editorMode === 'iframe' && mode === 'edit' ? () => setHistoryOpen(prev => !prev) : undefined}
+          historyOpen={historyOpen}
           saveStatus={postSaveStatus}
           extraNavControls={editorMode === 'iframe' && undoRedo ? (
             <div className="flex items-center gap-0.5 ml-1">
@@ -516,7 +602,9 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                 selectedBlockId={null}
                 iframeSrc={(() => {
                   const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
-                  return previewMode ? `${effectiveSiteUrl}${basePath}` : `${effectiveSiteUrl}${basePath}?_edit=true`;
+                  const sep = previewMode ? '?' : '&';
+                  const cacheBust = iframeSaveVersion > 0 ? `${sep}_v=${iframeSaveVersion}` : '';
+                  return previewMode ? `${effectiveSiteUrl}${basePath}${cacheBust}` : `${effectiveSiteUrl}${basePath}?_edit=true${cacheBust}`;
                 })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}
@@ -543,6 +631,20 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
                   availableTags={availableTags}
                   setAvailableTags={setAvailableTags}
                   onClose={() => setSettingsOpen(false)}
+                />
+              )}
+
+              {/* Revision History panel */}
+              {post && (
+                <RevisionHistory
+                  siteId={siteId}
+                  postId={post.id!}
+                  open={historyOpen}
+                  onClose={() => setHistoryOpen(false)}
+                  onRevert={() => {
+                    // Reload the page to get the reverted content
+                    window.location.reload();
+                  }}
                 />
               )}
             </div>

@@ -69,8 +69,17 @@ export function SectionBlockPreview({ block, isSelected, onChange, selectedBlock
     padding: `${block.paddingTop || '1.5rem'} ${block.paddingRight || '1.5rem'} ${block.paddingBottom || '1.5rem'} ${block.paddingLeft || '1.5rem'}`,
   };
 
+  const s = block.style;
   const innerStyle: React.CSSProperties = {
     ...(block.maxWidth ? { maxWidth: block.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
+  };
+  const contentStyle: React.CSSProperties = {
+    ...(s?.display ? { display: s.display } : {}),
+    ...(s?.flexDirection ? { flexDirection: s.flexDirection } : {}),
+    ...(s?.justifyContent ? { justifyContent: s.justifyContent } : {}),
+    ...(s?.alignItems ? { alignItems: s.alignItems } : {}),
+    ...(s?.flexWrap ? { flexWrap: s.flexWrap } : {}),
+    ...(s?.gap ? { gap: s.gap } : {}),
   };
 
   return (
@@ -83,7 +92,7 @@ export function SectionBlockPreview({ block, isSelected, onChange, selectedBlock
       <div style={innerStyle}>
         {/* Section content */}
         {block.blocks.length > 0 ? (
-          <div className={isSelected ? 'space-y-2' : 'space-y-0'}>
+          <div className={isSelected && !s?.display ? 'space-y-2' : 'space-y-0'} style={contentStyle}>
             {block.blocks.map((sectionBlock, blockIndex) => {
               const isNestedSelected = selectedBlockId === sectionBlock.id;
 

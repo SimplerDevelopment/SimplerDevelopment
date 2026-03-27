@@ -22,6 +22,16 @@ export const posts = pgTable('posts', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const postRevisions = pgTable('post_revisions', {
+  id: serial('id').primaryKey(),
+  postId: integer('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  trigger: varchar('trigger', { length: 20 }).notNull(), // 'autosave' | 'manual' | 'publish'
+  createdBy: integer('created_by'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
