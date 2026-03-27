@@ -119,20 +119,32 @@ export default function NavigationEditorPage() {
     }
   }, [base, items, branding]);
 
+  const isMega = branding.navTemplate === 'mega';
+
   // Nav item CRUD
-  const addItem = (parentId: number | null = null) => {
+  const addItem = (parentId: number | null = null, defaults?: Partial<NavItem>) => {
     const newItem: NavItem = {
       id: nextTempId--,
-      label: 'New Link',
-      href: '/',
+      label: defaults?.label || 'New Link',
+      href: defaults?.href || '/',
       parentId,
       sortOrder: items.length,
       openInNewTab: false,
       isButton: false,
+      ...defaults,
     };
     setItems(prev => [...prev, newItem]);
     setEditingId(newItem.id);
     setDirty(true);
+  };
+
+  const addColumn = (parentId: number) => {
+    const columnCount = items.filter(i => i.parentId === parentId).length;
+    addItem(parentId, { label: `Column ${columnCount + 1}`, href: '#' });
+  };
+
+  const addMegaItem = (columnId: number) => {
+    addItem(columnId, { label: 'New Item', href: '/' });
   };
 
   const updateItem = (id: number, updates: Partial<NavItem>) => {
@@ -141,7 +153,14 @@ export default function NavigationEditorPage() {
   };
 
   const removeItem = (id: number) => {
-    setItems(prev => prev.filter(item => item.id !== id && item.parentId !== id));
+    // Recursively remove children and grandchildren
+    const idsToRemove = new Set<number>();
+    const collect = (parentId: number) => {
+      idsToRemove.add(parentId);
+      items.filter(i => i.parentId === parentId).forEach(i => collect(i.id));
+    };
+    collect(id);
+    setItems(prev => prev.filter(item => !idsToRemove.has(item.id)));
     setDirty(true);
   };
 
@@ -281,6 +300,7 @@ export default function NavigationEditorPage() {
             <div className="p-4 space-y-2">
               {topItems.map((item) => (
                 <div key={item.id}>
+                  {/* Level 0: Nav Link */}
                   <NavItemRow
                     item={item}
                     editing={editingId === item.id}
@@ -289,25 +309,44 @@ export default function NavigationEditorPage() {
                     onRemove={() => removeItem(item.id)}
                     onMoveUp={() => moveItem(item.id, -1)}
                     onMoveDown={() => moveItem(item.id, 1)}
-                    onAddChild={() => addItem(item.id)}
+                    onAddChild={() => isMega ? addColumn(item.id) : addItem(item.id)}
                     depth={0}
-                    isMegaMenu={branding.navTemplate === 'mega'}
+                    isMegaMenu={isMega}
                     siteId={siteId}
                   />
                   {childrenOf(item.id).map((child) => (
-                    <NavItemRow
-                      key={child.id}
-                      item={child}
-                      editing={editingId === child.id}
-                      onEdit={() => setEditingId(editingId === child.id ? null : child.id)}
-                      onUpdate={(updates) => updateItem(child.id, updates)}
-                      onRemove={() => removeItem(child.id)}
-                      onMoveUp={() => moveItem(child.id, -1)}
-                      onMoveDown={() => moveItem(child.id, 1)}
-                      depth={1}
-                      isMegaMenu={branding.navTemplate === 'mega'}
-                      siteId={siteId}
-                    />
+                    <div key={child.id}>
+                      {/* Level 1: Column (mega) or Dropdown Item (regular) */}
+                      <NavItemRow
+                        item={child}
+                        editing={editingId === child.id}
+                        onEdit={() => setEditingId(editingId === child.id ? null : child.id)}
+                        onUpdate={(updates) => updateItem(child.id, updates)}
+                        onRemove={() => removeItem(child.id)}
+                        onMoveUp={() => moveItem(child.id, -1)}
+                        onMoveDown={() => moveItem(child.id, 1)}
+                        onAddChild={isMega ? () => addMegaItem(child.id) : undefined}
+                        depth={1}
+                        isMegaMenu={isMega}
+                        siteId={siteId}
+                      />
+                      {/* Level 2: Mega Menu Items (only in mega mode) */}
+                      {isMega && childrenOf(child.id).map((megaItem) => (
+                        <NavItemRow
+                          key={megaItem.id}
+                          item={megaItem}
+                          editing={editingId === megaItem.id}
+                          onEdit={() => setEditingId(editingId === megaItem.id ? null : megaItem.id)}
+                          onUpdate={(updates) => updateItem(megaItem.id, updates)}
+                          onRemove={() => removeItem(megaItem.id)}
+                          onMoveUp={() => moveItem(megaItem.id, -1)}
+                          onMoveDown={() => moveItem(megaItem.id, 1)}
+                          depth={2}
+                          isMegaMenu={isMega}
+                          siteId={siteId}
+                        />
+                      ))}
+                    </div>
                   ))}
                 </div>
               ))}
@@ -370,16 +409,24 @@ function NavItemRow({
   isMegaMenu?: boolean;
   siteId?: string;
 }) {
+  // Determine the role of this item in mega menu mode
+  const megaRole = isMegaMenu ? (depth === 0 ? 'nav-link' : depth === 1 ? 'column' : 'mega-item') : null;
+  const roleIcon = megaRole === 'column' ? 'view_column' : megaRole === 'mega-item' ? 'link' : undefined;
+  const roleLabel = megaRole === 'column' ? 'Column' : megaRole === 'mega-item' ? 'Item' : undefined;
+
   return (
-    <div className={`${depth > 0 ? 'ml-6' : ''}`}>
+    <div className={`${depth === 1 ? 'ml-6' : depth === 2 ? 'ml-12' : ''}`}>
       <div
         className={`rounded-lg border transition-colors ${
-          editing ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/30'
+          editing ? 'border-primary bg-primary/5' : megaRole === 'column' ? 'border-border bg-muted/30 hover:border-primary/30' : 'border-border bg-card hover:border-primary/30'
         }`}
       >
         {/* Collapsed row */}
         <div className="flex items-center gap-2 px-3 py-2.5">
           <span className="material-icons text-base text-muted-foreground cursor-grab">drag_indicator</span>
+          {roleIcon && (
+            <span className="material-icons text-sm text-muted-foreground">{roleIcon}</span>
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="text-sm font-medium text-foreground truncate">{item.label}</span>
@@ -388,13 +435,15 @@ function NavItemRow({
                   Button
                 </span>
               )}
-              {isMegaMenu && item.columnGroup && (
+              {roleLabel && (
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground leading-none">
-                  Col {item.columnGroup}
+                  {roleLabel}
                 </span>
               )}
             </div>
-            <span className="text-xs text-muted-foreground truncate block">{item.href}</span>
+            {megaRole !== 'column' && (
+              <span className="text-xs text-muted-foreground truncate block">{item.href}</span>
+            )}
           </div>
           <div className="flex items-center gap-0.5">
             <button onClick={onMoveUp} className="p-1 hover:bg-muted rounded" title="Move up">
@@ -415,107 +464,137 @@ function NavItemRow({
         {/* Expanded edit form */}
         {editing && (
           <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Label</label>
-              <input
-                type="text"
-                value={item.label}
-                onChange={(e) => onUpdate({ label: e.target.value })}
-                className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">URL</label>
-              <input
-                type="text"
-                value={item.href}
-                onChange={(e) => onUpdate({ href: e.target.value })}
-                className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground font-mono"
-                placeholder="/about"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={item.openInNewTab}
-                  onChange={(e) => onUpdate({ openInNewTab: e.target.checked })}
-                  className="rounded border-border"
-                />
-                Open in new tab
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={item.isButton}
-                  onChange={(e) => onUpdate({ isButton: e.target.checked })}
-                  className="rounded border-border accent-primary"
-                />
-                Display as button
-              </label>
-            </div>
-            {/* Mega menu fields (only when mega template is active) */}
-            {isMegaMenu && depth > 0 && (
+            {/* Column edit: just a label */}
+            {megaRole === 'column' ? (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>
-                  <textarea
-                    value={item.description || ''}
-                    onChange={(e) => onUpdate({ description: e.target.value })}
-                    rows={2}
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Column Heading</label>
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => onUpdate({ label: e.target.value })}
                     className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
-                    placeholder="Short description shown under the link"
+                    placeholder="e.g. Products, Resources"
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Icon</label>
-                    <input
-                      type="text"
-                      value={item.icon || ''}
-                      onChange={(e) => onUpdate({ icon: e.target.value })}
-                      className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
-                      placeholder="material icon name"
-                    />
-                    {item.icon && (
-                      <span className="material-icons text-base text-muted-foreground mt-1 block">{item.icon}</span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Column Group</label>
-                    <select
-                      value={item.columnGroup ?? 1}
-                      onChange={(e) => onUpdate({ columnGroup: parseInt(e.target.value) })}
-                      className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
-                    >
-                      <option value={1}>Column 1</option>
-                      <option value={2}>Column 2</option>
-                      <option value={3}>Column 3</option>
-                      <option value={4}>Column 4</option>
-                    </select>
-                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Featured Image</label>
                   <MediaPicker
                     value={item.featuredImage || ''}
                     onChange={(url) => onUpdate({ featuredImage: url })}
-                    label="Featured Image"
+                    label="Column Image"
                     mimeTypeFilter="image"
                     apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
                   />
                 </div>
+                {onAddChild && (
+                  <button
+                    onClick={onAddChild}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-icons text-sm">add</span>
+                    Add menu item
+                  </button>
+                )}
               </>
-            )}
+            ) : (
+              <>
+                {/* Nav link / mega item edit: full fields */}
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Label</label>
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={(e) => onUpdate({ label: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">URL</label>
+                  <input
+                    type="text"
+                    value={item.href}
+                    onChange={(e) => onUpdate({ href: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground font-mono"
+                    placeholder="/about"
+                  />
+                </div>
 
-            {depth === 0 && onAddChild && (
-              <button
-                onClick={onAddChild}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <span className="material-icons text-sm">add</span>
-                Add dropdown item
-              </button>
+                {/* Mega item extra fields */}
+                {megaRole === 'mega-item' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>
+                      <textarea
+                        value={item.description || ''}
+                        onChange={(e) => onUpdate({ description: e.target.value })}
+                        rows={2}
+                        className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                        placeholder="Short description shown under the link"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Icon</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={item.icon || ''}
+                          onChange={(e) => onUpdate({ icon: e.target.value })}
+                          className="flex-1 px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                          placeholder="e.g. rocket_launch"
+                        />
+                        {item.icon && (
+                          <span className="material-icons text-xl text-muted-foreground">{item.icon}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Featured Image</label>
+                      <MediaPicker
+                        value={item.featuredImage || ''}
+                        onChange={(url) => onUpdate({ featuredImage: url })}
+                        label="Featured Image"
+                        mimeTypeFilter="image"
+                        apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Standard nav options (not for mega items) */}
+                {megaRole !== 'mega-item' && (
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={item.openInNewTab}
+                        onChange={(e) => onUpdate({ openInNewTab: e.target.checked })}
+                        className="rounded border-border"
+                      />
+                      Open in new tab
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={item.isButton}
+                        onChange={(e) => onUpdate({ isButton: e.target.checked })}
+                        className="rounded border-border accent-primary"
+                      />
+                      Display as button
+                    </label>
+                  </div>
+                )}
+
+                {depth === 0 && onAddChild && (
+                  <button
+                    onClick={onAddChild}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-icons text-sm">add</span>
+                    {isMegaMenu ? 'Add column' : 'Add dropdown item'}
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}

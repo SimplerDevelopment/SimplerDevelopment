@@ -59,46 +59,35 @@ export async function PUT(
   await db.delete(siteNavigation).where(eq(siteNavigation.websiteId, site.id));
 
   if (items.length > 0) {
-    const parentMap = new Map<number, number>(); // old temp id -> new real id
+    const parentMap = new Map<number, number>(); // old id -> new real id
 
-    // Insert top-level items first
-    const topLevel = items.filter(i => !i.parentId);
-    const children = items.filter(i => i.parentId);
+    // Insert level by level: top-level → children → grandchildren
+    const insertLevel = async (parentId: number | null) => {
+      const levelItems = items.filter(i =>
+        parentId === null ? !i.parentId : i.parentId === parentId
+      );
+      for (const item of levelItems) {
+        const resolvedParentId = item.parentId ? (parentMap.get(item.parentId) ?? item.parentId) : null;
+        const [inserted] = await db.insert(siteNavigation).values({
+          websiteId: site.id,
+          label: item.label,
+          href: item.href,
+          parentId: resolvedParentId,
+          sortOrder: item.sortOrder,
+          openInNewTab: item.openInNewTab ?? false,
+          isButton: item.isButton ?? false,
+          description: item.description || null,
+          icon: item.icon || null,
+          featuredImage: item.featuredImage || null,
+          columnGroup: item.columnGroup ?? null,
+        }).returning();
+        if (item.id) parentMap.set(item.id, inserted.id);
+        // Recursively insert children of this item
+        await insertLevel(item.id!);
+      }
+    };
 
-    for (const item of topLevel) {
-      const [inserted] = await db.insert(siteNavigation).values({
-        websiteId: site.id,
-        label: item.label,
-        href: item.href,
-        parentId: null,
-        sortOrder: item.sortOrder,
-        openInNewTab: item.openInNewTab ?? false,
-        isButton: item.isButton ?? false,
-        description: item.description || null,
-        icon: item.icon || null,
-        featuredImage: item.featuredImage || null,
-        columnGroup: item.columnGroup ?? null,
-      }).returning();
-      if (item.id) parentMap.set(item.id, inserted.id);
-    }
-
-    // Insert children with resolved parent IDs
-    for (const item of children) {
-      const resolvedParentId = item.parentId ? (parentMap.get(item.parentId) ?? item.parentId) : null;
-      await db.insert(siteNavigation).values({
-        websiteId: site.id,
-        label: item.label,
-        href: item.href,
-        parentId: resolvedParentId,
-        sortOrder: item.sortOrder,
-        openInNewTab: item.openInNewTab ?? false,
-        isButton: item.isButton ?? false,
-        description: item.description || null,
-        icon: item.icon || null,
-        featuredImage: item.featuredImage || null,
-        columnGroup: item.columnGroup ?? null,
-      });
-    }
+    await insertLevel(null);
   }
 
   const updated = await db
