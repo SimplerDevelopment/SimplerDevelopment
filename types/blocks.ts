@@ -49,6 +49,9 @@ export interface BlockStyle {
   backgroundSize?: string;
   backgroundPosition?: string;
   backgroundRepeat?: string;
+  backgroundAttachment?: string;
+  backgroundBlendMode?: string;
+  backgroundGradient?: string;
   // Transitions
   transition?: string;
   // Grid layout

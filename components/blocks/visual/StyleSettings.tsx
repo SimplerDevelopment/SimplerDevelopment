@@ -480,22 +480,123 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       {/* ── Background ──────────────────────────────────────────── */}
       <StyleSection title="Background">
         <TokenColorPicker label="Background Color" value={style.backgroundColor || ''} onChange={(v) => updateStyle('backgroundColor', v)} placeholder="#ffffff" />
+
+        {/* Gradient */}
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1.5">Gradient</label>
+          <input
+            type="text"
+            value={style.backgroundGradient || ''}
+            onChange={(e) => updateStyle('backgroundGradient', e.target.value)}
+            placeholder="linear-gradient(135deg, #667eea, #764ba2)"
+            className={inputClass}
+          />
+          {!style.backgroundGradient && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {[
+                { label: 'Sunset', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+                { label: 'Ocean', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+                { label: 'Forest', value: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
+                { label: 'Dark', value: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%)' },
+                { label: 'Warm', value: 'linear-gradient(135deg, #f8b500 0%, #fceabb 100%)' },
+              ].map((g) => (
+                <button
+                  key={g.label}
+                  type="button"
+                  onClick={() => updateStyle('backgroundGradient', g.value)}
+                  className="h-6 w-10 rounded border border-border text-[8px] text-white font-medium"
+                  style={{ background: g.value }}
+                  title={g.label}
+                />
+              ))}
+            </div>
+          )}
+          {style.backgroundGradient && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="h-6 flex-1 rounded border border-border" style={{ background: style.backgroundGradient }} />
+              <button type="button" onClick={() => updateStyle('backgroundGradient', '')} className="text-muted-foreground hover:text-destructive">
+                <span className="material-icons text-sm">close</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Image */}
         <MediaPicker value={style.backgroundImage || ''} onChange={(url) => updateStyle('backgroundImage', url)} label="Background Image" />
         {style.backgroundImage && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1">Size</label>
-              <select value={style.backgroundSize || ''} onChange={(e) => updateStyle('backgroundSize', e.target.value)} className={selectClass}>
-                <option value="">Auto</option><option value="cover">Cover</option><option value="contain">Contain</option>
-              </select>
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Size</label>
+                <select value={style.backgroundSize || ''} onChange={(e) => updateStyle('backgroundSize', e.target.value)} className={selectClass}>
+                  <option value="">Auto</option>
+                  <option value="cover">Cover</option>
+                  <option value="contain">Contain</option>
+                  <option value="100% 100%">Stretch</option>
+                  <option value="50%">50%</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Position</label>
+                <select value={style.backgroundPosition || ''} onChange={(e) => updateStyle('backgroundPosition', e.target.value)} className={selectClass}>
+                  <option value="">Center</option>
+                  <option value="top">Top</option>
+                  <option value="top left">Top Left</option>
+                  <option value="top right">Top Right</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="bottom left">Bottom Left</option>
+                  <option value="bottom right">Bottom Right</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1">Position</label>
-              <select value={style.backgroundPosition || ''} onChange={(e) => updateStyle('backgroundPosition', e.target.value)} className={selectClass}>
-                <option value="">Center</option><option value="top">Top</option><option value="bottom">Bottom</option>
-                <option value="left">Left</option><option value="right">Right</option>
-              </select>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Repeat</label>
+                <select value={style.backgroundRepeat || ''} onChange={(e) => updateStyle('backgroundRepeat', e.target.value)} className={selectClass}>
+                  <option value="">Default</option>
+                  <option value="no-repeat">No Repeat</option>
+                  <option value="repeat">Repeat</option>
+                  <option value="repeat-x">Repeat X</option>
+                  <option value="repeat-y">Repeat Y</option>
+                  <option value="space">Space</option>
+                  <option value="round">Round</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Attachment</label>
+                <select value={style.backgroundAttachment || ''} onChange={(e) => updateStyle('backgroundAttachment', e.target.value)} className={selectClass}>
+                  <option value="">Scroll</option>
+                  <option value="fixed">Fixed (parallax)</option>
+                  <option value="local">Local</option>
+                </select>
+              </div>
             </div>
+          </>
+        )}
+
+        {/* Blend Mode */}
+        {(style.backgroundImage || style.backgroundGradient) && (
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Blend Mode</label>
+            <select value={style.backgroundBlendMode || ''} onChange={(e) => updateStyle('backgroundBlendMode', e.target.value)} className={selectClass}>
+              <option value="">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="darken">Darken</option>
+              <option value="lighten">Lighten</option>
+              <option value="color-dodge">Color Dodge</option>
+              <option value="color-burn">Color Burn</option>
+              <option value="hard-light">Hard Light</option>
+              <option value="soft-light">Soft Light</option>
+              <option value="difference">Difference</option>
+              <option value="exclusion">Exclusion</option>
+              <option value="hue">Hue</option>
+              <option value="saturation">Saturation</option>
+              <option value="luminosity">Luminosity</option>
+            </select>
           </div>
         )}
       </StyleSection>
