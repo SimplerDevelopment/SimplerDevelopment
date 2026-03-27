@@ -1,17 +1,72 @@
 import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
 function uid() {
   return crypto.randomUUID();
 }
 
-const IMG = {
-  crest: '/uploads/palizzi/nav-header.png',
-  neon: '/uploads/palizzi/neon-red.png',
-  header: '/uploads/palizzi/palizziclub-header.jpg',
-  marquee: '/uploads/palizzi/palizziclub-marquee.png',
-  book: '/uploads/palizzi/dinner-at-the-club.jpg',
+// Image paths — resolved at seed time, uploaded to S3
+const PALIZZI_IMAGES_DIR = resolve(__dirname, '../public/uploads/palizzi');
+
+// Placeholder — populated by uploadImages() before block data is built
+const IMG: Record<string, string> = {
+  crest: '',
+  neon: '',
+  header: '',
+  marquee: '',
+  book: '',
 };
+
+const IMAGE_FILES: Record<string, { file: string; alt: string; mime: string }> = {
+  crest: { file: 'nav-header.png', alt: 'Palizzi Social Club crest', mime: 'image/png' },
+  neon: { file: 'neon-red.png', alt: 'Filippo Palizzi Club neon sign', mime: 'image/png' },
+  header: { file: 'palizziclub-header.jpg', alt: 'Palizzi Social Club vintage photo', mime: 'image/jpeg' },
+  marquee: { file: 'palizziclub-marquee.png', alt: 'Palizzi marquee decoration', mime: 'image/png' },
+  book: { file: 'dinner-at-the-club.jpg', alt: 'Dinner at the Club book cover', mime: 'image/jpeg' },
+};
+
+async function uploadImages(websiteId: number, uploadedBy: number) {
+  const { uploadToS3 } = await import('../lib/s3/upload');
+  const { db } = await import('../lib/db');
+  const { media } = await import('../lib/db/schema');
+  const { eq, and } = await import('drizzle-orm');
+
+  for (const [key, info] of Object.entries(IMAGE_FILES)) {
+    // Check if already uploaded (by filename + websiteId)
+    const [existing] = await db
+      .select()
+      .from(media)
+      .where(and(eq(media.filename, info.file), eq(media.websiteId, websiteId)))
+      .limit(1);
+
+    if (existing) {
+      IMG[key] = existing.url;
+      console.log(`  Image ${info.file}: already uploaded (${existing.url})`);
+      continue;
+    }
+
+    const filePath = resolve(PALIZZI_IMAGES_DIR, info.file);
+    const buffer = readFileSync(filePath);
+    const result = await uploadToS3(buffer, info.file, info.mime);
+
+    await db.insert(media).values({
+      filename: info.file,
+      storedFilename: result.storedFilename,
+      mimeType: result.mimeType,
+      fileSize: result.fileSize,
+      url: result.url,
+      alt: info.alt,
+      uploadedBy,
+      websiteId,
+    });
+
+    IMG[key] = result.url;
+    console.log(`  Image ${info.file}: uploaded -> ${result.url}`);
+  }
+}
 
 const pageSettings = {
   backgroundColor: '#0d0d0d',
@@ -24,7 +79,7 @@ const pageSettings = {
   paddingRight: '0',
 };
 
-const homeBlocks = [
+function buildHomeBlocks() { return [
   // ── Navigation ──
   {
     id: uid(),
@@ -223,7 +278,7 @@ const homeBlocks = [
     ],
     bottomText: 'Palizzi Social Club \u00b7 Est. 1918',
   },
-];
+]; }
 
 // ============================================================================
 // SEED FUNCTION
@@ -328,7 +383,12 @@ async function seedPalizzi() {
       console.log(`Created website (id=${websiteId})`);
     }
 
-    // 4. Create or update home page
+    // 4. Upload images to S3 media manager
+    console.log('\nUploading images to CMS media manager...');
+    await uploadImages(websiteId, userId);
+
+    // 5. Create or update home page (images now have proxy URLs)
+    const homeBlocks = buildHomeBlocks();
     const content = JSON.stringify({
       blocks: homeBlocks,
       pageSettings,

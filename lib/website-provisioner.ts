@@ -82,9 +82,20 @@ export async function provisionWebsite(
     // Step 4: Add domain to Vercel project (do this before DNS so we can get the correct target)
     await addDomain(vercelId!, fullDomain);
 
-    // Step 5: Get the project-specific DNS target from Vercel and create/update Cloudflare CNAME
-    const domainConfig = await getDomainConfig(fullDomain);
-    const dnsTarget = domainConfig.cnames[0] || 'cname.vercel-dns.com';
+    // Step 5: Get the project-specific DNS target from Vercel.
+    // Vercel may take a moment to assign the project-specific CNAME after addDomain,
+    // so retry a few times before falling back to the generic target.
+    let dnsTarget = 'cname.vercel-dns.com';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const domainConfig = await getDomainConfig(fullDomain);
+      const target = domainConfig.cnames[0];
+      if (target && target !== 'cname.vercel-dns.com') {
+        dnsTarget = target;
+        break;
+      }
+      // Wait 2s before retrying
+      if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+    }
 
     const existingRecords = await listDnsRecords(subdomain);
     if (existingRecords.length === 0) {
