@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { bookingPages, bookings } from '@/lib/db/schema';
+import { bookingPages, bookings, clients, users } from '@/lib/db/schema';
 import { eq, and, ne, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
+import { sendGuestConfirmation, sendHostNotification } from '@/lib/email/booking-emails';
+import { createCalendarEvent } from '@/lib/google-calendar';
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -72,8 +74,48 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     cancelToken,
   }).returning();
 
-  // TODO: If page.googleCalendarSync is enabled and the client has Google tokens,
-  // create a Google Calendar event using a helper function
+  const bookingTimezone = timezone || page.timezone;
+  const emailData = {
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    pageTitle: page.title,
+    startTime: slotStart,
+    endTime: slotEnd,
+    timezone: bookingTimezone,
+    cancelToken,
+    bookingSlug: page.slug,
+    duration: page.duration,
+  };
+
+  // Fire-and-forget: send confirmation email to guest
+  sendGuestConfirmation(emailData).catch(() => {});
+
+  // Fire-and-forget: send notification to host
+  (async () => {
+    const [client] = await db.select({ userId: clients.userId }).from(clients)
+      .where(eq(clients.id, page.clientId)).limit(1);
+    if (client) {
+      const [host] = await db.select({ email: users.email }).from(users)
+        .where(eq(users.id, client.userId)).limit(1);
+      if (host) {
+        sendHostNotification(host.email, emailData).catch(() => {});
+      }
+    }
+  })();
+
+  // Fire-and-forget: create Google Calendar event if sync is enabled
+  if (page.googleCalendarSync) {
+    createCalendarEvent({
+      clientId: page.clientId,
+      bookingId: booking.id,
+      title: page.title,
+      startTime: slotStart,
+      endTime: slotEnd,
+      timezone: bookingTimezone,
+      guestEmail: booking.guestEmail,
+      guestName: booking.guestName,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({
     success: true,
