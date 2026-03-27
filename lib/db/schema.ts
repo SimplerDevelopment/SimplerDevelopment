@@ -1135,6 +1135,13 @@ export const siteBranding = pgTable('site_branding', {
   logoRectUrl: varchar('logo_rect_url', { length: 500 }),
   logoText: varchar('logo_text', { length: 255 }),
   logoIconUrl: varchar('logo_icon_url', { length: 500 }),
+  // Dark mode overrides (colors + logos)
+  darkMode: json('dark_mode').$type<{
+    primaryColor?: string; secondaryColor?: string; accentColor?: string;
+    backgroundColor?: string; textColor?: string;
+    navBackground?: string; navTextColor?: string;
+    logoUrl?: string; logoSquareUrl?: string; logoRectUrl?: string; logoIconUrl?: string;
+  }>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

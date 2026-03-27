@@ -13,6 +13,20 @@ interface ElementTypography {
   lineHeight?: string;
 }
 
+interface DarkModeOverrides {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  navBackground?: string;
+  navTextColor?: string;
+  logoUrl?: string;
+  logoSquareUrl?: string;
+  logoRectUrl?: string;
+  logoIconUrl?: string;
+}
+
 interface Branding {
   logoUrl: string;
   logoAlt: string;
@@ -28,6 +42,7 @@ interface Branding {
   headingFont: string;
   bodyFont: string;
   typography: Record<string, ElementTypography>;
+  darkMode: DarkModeOverrides;
   navTemplate: string;
   navPosition: string;
   navBackground: string;
@@ -88,6 +103,7 @@ const DEFAULTS: Branding = {
   headingFont: '',
   bodyFont: '',
   typography: {},
+  darkMode: {},
   navTemplate: 'classic',
   navPosition: 'top',
   navBackground: '#ffffff',
@@ -114,6 +130,10 @@ export default function BrandingPage() {
   const update = (updates: Partial<Branding>) => {
     setBranding(prev => ({ ...prev, ...updates }));
     setDirty(true);
+  };
+
+  const updateDark = (updates: Partial<DarkModeOverrides>) => {
+    update({ darkMode: { ...(branding.darkMode || {}), ...updates } });
   };
 
   const save = useCallback(async () => {
@@ -286,6 +306,57 @@ export default function BrandingPage() {
           </div>
         </div>
 
+        {/* Dark mode logos */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">dark_mode</span>
+            Dark Mode Logo Overrides
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">Upload alternate logos for dark backgrounds. Falls back to light versions if not set.</p>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>Dark Square Logo</label>
+              <MediaPicker
+                value={branding.darkMode?.logoSquareUrl || ''}
+                onChange={(url) => updateDark({ logoSquareUrl: url })}
+                label="Dark Square Logo"
+                mimeTypeFilter="image"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Dark Rectangle Logo</label>
+              <MediaPicker
+                value={branding.darkMode?.logoRectUrl || ''}
+                onChange={(url) => updateDark({ logoRectUrl: url })}
+                label="Dark Rectangle Logo"
+                mimeTypeFilter="image"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Dark Logo Icon</label>
+              <MediaPicker
+                value={branding.darkMode?.logoIconUrl || ''}
+                onChange={(url) => updateDark({ logoIconUrl: url })}
+                label="Dark Logo Icon"
+                mimeTypeFilter="image"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Dark Primary Logo (legacy)</label>
+              <MediaPicker
+                value={branding.darkMode?.logoUrl || ''}
+                onChange={(url) => updateDark({ logoUrl: url })}
+                label="Dark Primary Logo"
+                mimeTypeFilter="image"
+                apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Legacy logo field */}
         <div className="mt-6 pt-6 border-t border-border">
           <div className="grid grid-cols-2 gap-6">
@@ -353,28 +424,88 @@ export default function BrandingPage() {
           ))}
         </div>
 
-        {/* Color preview */}
+        {/* Dark mode colors */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">dark_mode</span>
+            Dark Mode Color Overrides
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">Colors used when the site is in dark mode. Falls back to light values if not set.</p>
+          <div className="grid grid-cols-3 gap-4">
+            {([
+              { key: 'primaryColor' as const, label: 'Primary' },
+              { key: 'secondaryColor' as const, label: 'Secondary' },
+              { key: 'accentColor' as const, label: 'Accent' },
+              { key: 'backgroundColor' as const, label: 'Background' },
+              { key: 'textColor' as const, label: 'Text' },
+              { key: 'navBackground' as const, label: 'Nav Background' },
+            ]).map(({ key, label }) => (
+              <div key={key}>
+                <label className={labelClass}>{label}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.darkMode?.[key] || branding[key]}
+                    onChange={(e) => updateDark({ [key]: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.darkMode?.[key] || ''}
+                    onChange={(e) => updateDark({ [key]: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder={branding[key]}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Color previews: Light + Dark side by side */}
         <div className="mt-6 pt-6 border-t border-border">
           <label className={labelClass}>Preview</label>
-          <div className="rounded-lg overflow-hidden border border-border">
-            <div className="h-10 flex items-center px-4 gap-4" style={{ backgroundColor: branding.navBackground, color: branding.navTextColor }}>
-              <span className="text-sm font-semibold">{branding.logoText || 'Brand'}</span>
-              <div className="flex-1" />
-              <span className="text-xs">Link</span>
-              <span className="text-xs">Link</span>
-              <span className="text-xs px-2 py-0.5 rounded text-white" style={{ backgroundColor: branding.primaryColor }}>Button</span>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Light mode preview */}
+            <div>
+              <span className="text-[11px] text-muted-foreground mb-1 block">Light Mode</span>
+              <div className="rounded-lg overflow-hidden border border-border">
+                <div className="h-10 flex items-center px-4 gap-4" style={{ backgroundColor: branding.navBackground, color: branding.navTextColor }}>
+                  <span className="text-sm font-semibold">{branding.logoText || 'Brand'}</span>
+                  <div className="flex-1" />
+                  <span className="text-xs">Link</span>
+                  <span className="text-xs px-2 py-0.5 rounded text-white" style={{ backgroundColor: branding.primaryColor }}>Button</span>
+                </div>
+                <div className="p-4" style={{ backgroundColor: branding.backgroundColor, color: branding.textColor }}>
+                  <h3 className="text-base font-bold mb-1">Heading</h3>
+                  <p className="text-xs mb-2">Body text preview with brand colors.</p>
+                  <div className="flex gap-1.5">
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.primaryColor }}>Primary</span>
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.secondaryColor }}>Secondary</span>
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.accentColor }}>Accent</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="p-6" style={{ backgroundColor: branding.backgroundColor, color: branding.textColor }}>
-              <h3 className="text-lg font-bold mb-2" style={{ fontFamily: branding.headingFont ? `"${branding.headingFont}", sans-serif` : undefined }}>
-                Heading Text Preview
-              </h3>
-              <p className="text-sm mb-3" style={{ fontFamily: branding.bodyFont ? `"${branding.bodyFont}", sans-serif` : undefined }}>
-                Body text preview showing your selected fonts and colors. This is how your content will look with these brand settings applied.
-              </p>
-              <div className="flex gap-2">
-                <span className="px-3 py-1 rounded text-sm text-white" style={{ backgroundColor: branding.primaryColor }}>Primary</span>
-                <span className="px-3 py-1 rounded text-sm text-white" style={{ backgroundColor: branding.secondaryColor }}>Secondary</span>
-                <span className="px-3 py-1 rounded text-sm text-white" style={{ backgroundColor: branding.accentColor }}>Accent</span>
+            {/* Dark mode preview */}
+            <div>
+              <span className="text-[11px] text-muted-foreground mb-1 block">Dark Mode</span>
+              <div className="rounded-lg overflow-hidden border border-border">
+                <div className="h-10 flex items-center px-4 gap-4" style={{ backgroundColor: branding.darkMode?.navBackground || branding.navBackground, color: branding.darkMode?.textColor || branding.navTextColor }}>
+                  <span className="text-sm font-semibold">{branding.logoText || 'Brand'}</span>
+                  <div className="flex-1" />
+                  <span className="text-xs">Link</span>
+                  <span className="text-xs px-2 py-0.5 rounded text-white" style={{ backgroundColor: branding.darkMode?.primaryColor || branding.primaryColor }}>Button</span>
+                </div>
+                <div className="p-4" style={{ backgroundColor: branding.darkMode?.backgroundColor || '#111827', color: branding.darkMode?.textColor || '#f3f4f6' }}>
+                  <h3 className="text-base font-bold mb-1">Heading</h3>
+                  <p className="text-xs mb-2">Body text preview with dark mode colors.</p>
+                  <div className="flex gap-1.5">
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.darkMode?.primaryColor || branding.primaryColor }}>Primary</span>
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.darkMode?.secondaryColor || branding.secondaryColor }}>Secondary</span>
+                    <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: branding.darkMode?.accentColor || branding.accentColor }}>Accent</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
