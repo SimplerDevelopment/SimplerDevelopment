@@ -80,6 +80,7 @@ export default function NavigationEditorPage() {
   const [sitePreviewUrl, setSitePreviewUrl] = useState<string | null>(null);
   const [useLocalhost, setUseLocalhost] = useState(false);
   const [localPort, setLocalPort] = useState('3003');
+  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   // Hydrate localhost preference
   useEffect(() => {
@@ -413,7 +414,31 @@ export default function NavigationEditorPage() {
         <div className="flex-1 bg-muted/30 flex flex-col">
           <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background/50">
             <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Live Preview</span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-3">
+              {/* Viewport presets */}
+              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-0.5">
+                {([
+                  { id: 'desktop' as const, icon: 'computer', w: '1440px' },
+                  { id: 'tablet' as const, icon: 'tablet', w: '768px' },
+                  { id: 'mobile' as const, icon: 'phone_iphone', w: '375px' },
+                ] as const).map(vp => (
+                  <button
+                    key={vp.id}
+                    type="button"
+                    onClick={() => setViewport(vp.id)}
+                    className={`rounded p-1.5 transition-colors ${
+                      viewport === vp.id ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    title={`${vp.id.charAt(0).toUpperCase() + vp.id.slice(1)} (${vp.w})`}
+                  >
+                    <span className="material-icons text-sm">{vp.icon}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="h-4 w-px bg-border" />
+
+              {/* Localhost toggle */}
               <button
                 type="button"
                 onClick={() => {
@@ -444,29 +469,39 @@ export default function NavigationEditorPage() {
               )}
             </div>
           </div>
-          <div className="flex-1 relative">
+          <div className="flex-1 flex items-start justify-center overflow-auto p-4">
             {previewUrl ? (
-              <iframe
-                ref={iframeRef}
-                src={previewUrl}
-                className="absolute inset-0 w-full h-full border-0"
-                title="Navigation Preview"
-                onLoad={() => {
-                  // Send initial data when iframe loads
-                  setTimeout(() => {
-                    if (iframeRef.current?.contentWindow) {
-                      iframeRef.current.contentWindow.postMessage({
-                        source: 'sd-editor-parent',
-                        type: 'NAV_INIT',
-                        payload: { items, branding },
-                        timestamp: Date.now(),
-                      }, '*');
-                    }
-                  }, 500);
+              <div
+                className="bg-card shadow-lg rounded-lg overflow-hidden transition-all duration-300 origin-top"
+                style={{
+                  width: viewport === 'desktop' ? '100%' : viewport === 'tablet' ? '768px' : '375px',
+                  maxWidth: '100%',
+                  height: viewport === 'desktop' ? '100%' : undefined,
+                  minHeight: viewport !== 'desktop' ? '600px' : undefined,
                 }}
-              />
+              >
+                <iframe
+                  ref={iframeRef}
+                  src={previewUrl}
+                  className="w-full h-full border-0"
+                  style={{ minHeight: '600px' }}
+                  title="Navigation Preview"
+                  onLoad={() => {
+                    setTimeout(() => {
+                      if (iframeRef.current?.contentWindow) {
+                        iframeRef.current.contentWindow.postMessage({
+                          source: 'sd-editor-parent',
+                          type: 'NAV_INIT',
+                          payload: { items, branding },
+                          timestamp: Date.now(),
+                        }, '*');
+                      }
+                    }, 500);
+                  }}
+                />
+              </div>
             ) : (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center h-full w-full">
                 <div className="text-center text-muted-foreground">
                   <span className="material-icons text-3xl mb-2 block">preview</span>
                   <p className="text-sm">
