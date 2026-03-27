@@ -161,9 +161,15 @@ export default function BrandingPage() {
     );
   }
 
+  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography'>('logos');
   const inputClass = 'w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none';
   const labelClass = 'block text-xs font-medium text-muted-foreground mb-1.5';
-  const sectionClass = 'bg-card border border-border rounded-xl p-6';
+
+  const tabs = [
+    { id: 'logos' as const, label: 'Logos', icon: 'image' },
+    { id: 'colors' as const, label: 'Colors', icon: 'palette' },
+    { id: 'typography' as const, label: 'Typography', icon: 'text_fields' },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto py-6 px-6 space-y-6">
@@ -192,8 +198,27 @@ export default function BrandingPage() {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="material-icons text-base">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* ── Logos ────────────────────────────────── */}
-      <div className={sectionClass}>
+      {activeTab === 'logos' && (
+      <div>
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <span className="material-icons text-base">image</span>
           Logos
@@ -287,9 +312,11 @@ export default function BrandingPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Colors ───────────────────────────────── */}
-      <div className={sectionClass}>
+      {activeTab === 'colors' && (
+      <div>
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <span className="material-icons text-base">palette</span>
           Colors
@@ -353,9 +380,11 @@ export default function BrandingPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Typography ───────────────────────────── */}
-      <div className={sectionClass}>
+      {activeTab === 'typography' && (
+      <div>
         <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <span className="material-icons text-base">text_fields</span>
           Typography
@@ -475,6 +504,7 @@ export default function BrandingPage() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
