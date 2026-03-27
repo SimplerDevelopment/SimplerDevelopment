@@ -100,7 +100,7 @@ export function VisualEditorShell({
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [leftTab, setLeftTab] = useState<'layers' | 'add'>('layers');
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
@@ -326,21 +326,34 @@ export function VisualEditorShell({
       {/* ── Left Panel ── */}
       {!previewMode && (
       <div className="w-60 flex-shrink-0 border-r border-border bg-muted flex flex-col overflow-hidden">
-        <div className="p-3 shrink-0">
+        {/* Tab bar */}
+        <div className="flex border-b border-border shrink-0">
           <button
             type="button"
-            onClick={() => setPickerOpen(!pickerOpen)}
-            className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={() => setLeftTab('layers')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
+              leftTab === 'layers' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
           >
-            <span className="material-icons text-base">add</span>
+            <span className="material-icons text-sm">layers</span>
+            Layers
+          </button>
+          <button
+            type="button"
+            onClick={() => setLeftTab('add')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
+              leftTab === 'add' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="material-icons text-sm">add_circle_outline</span>
             Add Block
           </button>
         </div>
 
-        {pickerOpen && (
-          <div className="flex flex-col min-h-0 max-h-[60%] shrink-0">
-            <div className="px-3 pb-2 shrink-0">
-              {/* Search */}
+        {/* Add Block tab */}
+        {leftTab === 'add' && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-3 pt-3 pb-2 shrink-0">
               <div className="flex items-center gap-1.5 rounded border border-border bg-background px-2 py-1.5 mb-2">
                 <span className="material-icons text-sm text-muted-foreground">search</span>
                 <input
@@ -356,7 +369,6 @@ export function VisualEditorShell({
                   </button>
                 )}
               </div>
-              {/* Category filters */}
               <div className="flex flex-wrap gap-1">
                 {categories.map((cat) => (
                   <button type="button" key={cat} onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
@@ -365,14 +377,13 @@ export function VisualEditorShell({
                 ))}
               </div>
             </div>
-            {/* Scrollable block grid */}
             <div className="flex-1 overflow-y-auto px-3 pb-3">
               <div className="grid grid-cols-2 gap-1">
                 {allBlockTypes
                   .filter((b) => !pickerCategory || b.category === pickerCategory)
                   .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()))
                   .map((bt) => (
-                  <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setPickerOpen(false); setPickerSearch(''); }}
+                  <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setLeftTab('layers'); setPickerSearch(''); }}
                     className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5"
                   >
                     <span className="material-icons text-base text-muted-foreground">{bt.icon}</span>
@@ -390,29 +401,37 @@ export function VisualEditorShell({
           </div>
         )}
 
-        {/* Layers — DnD sortable tree */}
-        <div className="flex-1 overflow-y-auto border-t border-border">
-          <div className="px-3 py-2">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Layers</h3>
-          </div>
-          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
-            <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
-              <div className="px-1 pb-2">
-                {blocks.map((block) => (
-                  <LayerItem
-                    key={block.id}
-                    block={block}
-                    depth={0}
-                    selectedBlockId={selectedBlockId}
-                    onSelect={selectBlock}
-                    onDelete={onDeleteBlock}
-                    showDropIndicator={!!draggedBlockId && layerOverId === block.id && draggedBlockId !== block.id}
-                  />
-                ))}
+        {/* Layers tab */}
+        {leftTab === 'layers' && (
+          <div className="flex-1 overflow-y-auto">
+            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
+              <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
+                <div className="px-1 py-2">
+                  {blocks.map((block) => (
+                    <LayerItem
+                      key={block.id}
+                      block={block}
+                      depth={0}
+                      selectedBlockId={selectedBlockId}
+                      onSelect={selectBlock}
+                      onDelete={onDeleteBlock}
+                      showDropIndicator={!!draggedBlockId && layerOverId === block.id && draggedBlockId !== block.id}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            {blocks.length === 0 && (
+              <div className="px-3 py-8 text-center">
+                <span className="material-icons text-2xl text-muted-foreground/50 mb-2 block">layers_clear</span>
+                <p className="text-xs text-muted-foreground">No blocks yet</p>
+                <button type="button" onClick={() => setLeftTab('add')} className="text-xs text-primary hover:text-primary/80 mt-1">
+                  Add your first block
+                </button>
               </div>
-            </SortableContext>
-          </DndContext>
-        </div>
+            )}
+          </div>
+        )}
       </div>
       )}
 
