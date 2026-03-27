@@ -11,7 +11,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const isLoginPage = pathname === '/portal/login';
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const isEditorRoute = /\/portal\/websites\/\d+\/posts\//.test(pathname);
+  const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
@@ -45,8 +45,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // Remove padding on CMS editor pages so the visual editor shell goes edge-to-edge
-  const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
+  // Remove padding on full-screen editor pages
+  const isEditorPage = /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname);
 
   return (
     <SessionProvider>
