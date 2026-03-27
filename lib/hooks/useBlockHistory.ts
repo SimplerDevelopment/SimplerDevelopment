@@ -12,7 +12,7 @@ interface UseBlockHistoryReturn {
   canRedo: boolean;
 
   // Actions
-  setBlocks: (blocks: Block[], action: HistoryAction) => void;
+  setBlocks: (blocks: Block[], action: HistoryAction, options?: { batch?: boolean }) => void;
   setPageSettings: (pageSettings: PageSettings, action: HistoryAction) => void;
   undo: () => void;
   redo: () => void;
@@ -93,12 +93,27 @@ export function useBlockHistory(
    * @param newBlocks - New block state
    * @param action - Description of the action
    */
+  // Drag/batch session tracking — only one history entry per rapid sequence
+  const batchActiveRef = useRef(false);
+  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const setBlocks = useCallback(
-    (newBlocks: Block[], action: HistoryAction) => {
+    (newBlocks: Block[], action: HistoryAction, options?: { batch?: boolean }) => {
       const history = historyRef.current;
 
-      // Push current state to history BEFORE updating
-      history.push(blocks, action, undefined, pageSettingsRef.current);
+      if (options?.batch) {
+        // Only push history on the first call of a batch sequence
+        if (!batchActiveRef.current) {
+          batchActiveRef.current = true;
+          history.push(blocks, action, undefined, pageSettingsRef.current);
+        }
+        // Reset batch after a quiet period
+        if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = setTimeout(() => { batchActiveRef.current = false; }, 300);
+      } else {
+        // Push current state to history BEFORE updating
+        history.push(blocks, action, undefined, pageSettingsRef.current);
+      }
 
       // Update state
       setBlocksState(newBlocks);

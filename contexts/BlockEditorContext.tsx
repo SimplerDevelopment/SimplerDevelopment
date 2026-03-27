@@ -33,7 +33,7 @@ interface BlockEditorContextValue {
   state: EditorState;
 
   // Block operations
-  updateBlock: (id: string, updates: Partial<Block>) => void;
+  updateBlock: (id: string, updates: Partial<Block>, options?: { batch?: boolean }) => void;
   addBlock: (block: Block, position?: number) => void;
   deleteBlock: (id: string) => void;
   reorderBlocks: (fromIndex: number, toIndex: number) => void;
@@ -221,13 +221,13 @@ export function BlockEditorProvider({
 
   // Block operations
   const updateBlock = useCallback(
-    (id: string, updates: Partial<Block>) => {
+    (id: string, updates: Partial<Block>, options?: { batch?: boolean }) => {
       const newBlocks = updateBlockById(blocks, id, updates);
       const updatedBlock = findBlockById(newBlocks, id);
       setBlocksWithHistory(newBlocks, {
         type: 'modify',
         description: `Modified ${updatedBlock?.type || 'unknown'} block`,
-      });
+      }, options);
       setHasUnsavedChanges(true);
     },
     [blocks, setBlocksWithHistory]

@@ -860,7 +860,7 @@ export function EditorInner({
                       </button>
                     </div>
                   </div>
-                  <BlockSettings block={selectedBlock} onChange={(updates) => updateBlock(selectedBlock.id, updates)} currentViewport={currentViewport} />
+                  <BlockSettings block={selectedBlock} onChange={(updates, options) => updateBlock(selectedBlock.id, updates, options)} currentViewport={currentViewport} />
                 </>
               ) : (
                 <PageSettingsPanel settings={pageSettings} onChange={updatePageSettings} />

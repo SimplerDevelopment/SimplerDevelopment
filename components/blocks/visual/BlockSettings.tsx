@@ -9,7 +9,7 @@ import { StyleSettings } from './StyleSettings';
 
 interface BlockSettingsProps {
   block: Block;
-  onChange: (updates: Partial<Block>) => void;
+  onChange: (updates: Partial<Block>, options?: { batch?: boolean }) => void;
   currentViewport: Breakpoint;
 }
 
@@ -57,7 +57,7 @@ export function BlockSettings({ block, onChange, currentViewport }: BlockSetting
         {activeTab === 'general' ? (
           <GeneralSettings block={block} onChange={onChange} currentViewport={currentViewport} />
         ) : (
-          <StyleSettings block={block} onChange={onChange} currentViewport={currentViewport} />
+          <StyleSettings block={block} onChange={(updates) => onChange(updates, { batch: true })} currentViewport={currentViewport} />
         )}
       </div>
     </div>
