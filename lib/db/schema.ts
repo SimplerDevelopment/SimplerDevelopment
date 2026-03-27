@@ -1102,6 +1102,11 @@ export const siteNavigation = pgTable('site_navigation', {
   sortOrder: integer('sort_order').default(0).notNull(),
   openInNewTab: boolean('open_in_new_tab').default(false).notNull(),
   isButton: boolean('is_button').default(false).notNull(),
+  // Mega menu fields
+  description: text('description'),
+  icon: varchar('icon', { length: 100 }),
+  featuredImage: varchar('featured_image', { length: 500 }),
+  columnGroup: integer('column_group'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

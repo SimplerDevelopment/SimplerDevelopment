@@ -14,6 +14,11 @@ interface NavItem {
   sortOrder: number;
   openInNewTab: boolean;
   isButton: boolean;
+  // Mega menu fields
+  description?: string;
+  icon?: string;
+  featuredImage?: string;
+  columnGroup?: number;
 }
 
 interface Branding {
@@ -286,6 +291,8 @@ export default function NavigationEditorPage() {
                     onMoveDown={() => moveItem(item.id, 1)}
                     onAddChild={() => addItem(item.id)}
                     depth={0}
+                    isMegaMenu={branding.navTemplate === 'mega'}
+                    siteId={siteId}
                   />
                   {childrenOf(item.id).map((child) => (
                     <NavItemRow
@@ -298,6 +305,8 @@ export default function NavigationEditorPage() {
                       onMoveUp={() => moveItem(child.id, -1)}
                       onMoveDown={() => moveItem(child.id, 1)}
                       depth={1}
+                      isMegaMenu={branding.navTemplate === 'mega'}
+                      siteId={siteId}
                     />
                   ))}
                 </div>
@@ -346,6 +355,8 @@ function NavItemRow({
   onMoveDown,
   onAddChild,
   depth = 0,
+  isMegaMenu = false,
+  siteId,
 }: {
   item: NavItem;
   editing: boolean;
@@ -356,6 +367,8 @@ function NavItemRow({
   onMoveDown: () => void;
   onAddChild?: () => void;
   depth?: number;
+  isMegaMenu?: boolean;
+  siteId?: string;
 }) {
   return (
     <div className={`${depth > 0 ? 'ml-6' : ''}`}>
@@ -373,6 +386,11 @@ function NavItemRow({
               {item.isButton && (
                 <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary leading-none">
                   Button
+                </span>
+              )}
+              {isMegaMenu && item.columnGroup && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground leading-none">
+                  Col {item.columnGroup}
                 </span>
               )}
             </div>
@@ -436,6 +454,60 @@ function NavItemRow({
                 Display as button
               </label>
             </div>
+            {/* Mega menu fields (only when mega template is active) */}
+            {isMegaMenu && depth > 0 && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Description</label>
+                  <textarea
+                    value={item.description || ''}
+                    onChange={(e) => onUpdate({ description: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                    placeholder="Short description shown under the link"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Icon</label>
+                    <input
+                      type="text"
+                      value={item.icon || ''}
+                      onChange={(e) => onUpdate({ icon: e.target.value })}
+                      className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                      placeholder="material icon name"
+                    />
+                    {item.icon && (
+                      <span className="material-icons text-base text-muted-foreground mt-1 block">{item.icon}</span>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Column Group</label>
+                    <select
+                      value={item.columnGroup ?? 1}
+                      onChange={(e) => onUpdate({ columnGroup: parseInt(e.target.value) })}
+                      className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-sm text-foreground"
+                    >
+                      <option value={1}>Column 1</option>
+                      <option value={2}>Column 2</option>
+                      <option value={3}>Column 3</option>
+                      <option value={4}>Column 4</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Featured Image</label>
+                  <MediaPicker
+                    value={item.featuredImage || ''}
+                    onChange={(url) => onUpdate({ featuredImage: url })}
+                    label="Featured Image"
+                    mimeTypeFilter="image"
+                    apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+                  />
+                </div>
+              </>
+            )}
+
             {depth === 0 && onAddChild && (
               <button
                 onClick={onAddChild}

@@ -48,7 +48,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const { items } = await req.json() as {
-    items: { id?: number; label: string; href: string; parentId?: number | null; sortOrder: number; openInNewTab?: boolean; isButton?: boolean }[];
+    items: { id?: number; label: string; href: string; parentId?: number | null; sortOrder: number; openInNewTab?: boolean; isButton?: boolean; description?: string; icon?: string; featuredImage?: string; columnGroup?: number }[];
   };
 
   if (!Array.isArray(items)) {
@@ -74,6 +74,10 @@ export async function PUT(
         sortOrder: item.sortOrder,
         openInNewTab: item.openInNewTab ?? false,
         isButton: item.isButton ?? false,
+        description: item.description || null,
+        icon: item.icon || null,
+        featuredImage: item.featuredImage || null,
+        columnGroup: item.columnGroup ?? null,
       }).returning();
       if (item.id) parentMap.set(item.id, inserted.id);
     }
@@ -89,6 +93,10 @@ export async function PUT(
         sortOrder: item.sortOrder,
         openInNewTab: item.openInNewTab ?? false,
         isButton: item.isButton ?? false,
+        description: item.description || null,
+        icon: item.icon || null,
+        featuredImage: item.featuredImage || null,
+        columnGroup: item.columnGroup ?? null,
       });
     }
   }
