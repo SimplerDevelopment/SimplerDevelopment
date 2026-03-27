@@ -38,12 +38,12 @@ function PropertyField({
     case 'url':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <input
             type={schema.type === 'url' ? 'url' : 'text'}
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
             placeholder={schema.label}
           />
         </label>
@@ -52,12 +52,12 @@ function PropertyField({
     case 'richtext':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <textarea
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
             rows={4}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </label>
       );
@@ -65,12 +65,12 @@ function PropertyField({
     case 'number':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <input
             type="number"
             value={(value as number) ?? ''}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </label>
       );
@@ -82,20 +82,20 @@ function PropertyField({
             type="checkbox"
             checked={!!value}
             onChange={(e) => onChange(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
           />
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
         </label>
       );
 
     case 'enum':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <select
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
           >
             <option value="">Select...</option>
             {schema.enumOptions?.map((opt) => (
@@ -110,19 +110,19 @@ function PropertyField({
     case 'color':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <div className="mt-1 flex items-center gap-2">
             <input
               type="color"
               value={(value as string) || '#000000'}
               onChange={(e) => onChange(e.target.value)}
-              className="h-8 w-8 cursor-pointer rounded border border-gray-300"
+              className="h-8 w-8 cursor-pointer rounded border border-border"
             />
             <input
               type="text"
               value={(value as string) || ''}
               onChange={(e) => onChange(e.target.value)}
-              className="block flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+              className="block flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
               placeholder="#000000"
             />
           </div>
@@ -132,12 +132,12 @@ function PropertyField({
     case 'image':
       return (
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+          <span className="text-sm font-medium text-foreground">{schema.label}</span>
           <input
             type="url"
             value={(value as string) || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
             placeholder="Image URL"
           />
         </label>
@@ -187,15 +187,15 @@ function ListField({
 
   return (
     <div className="block">
-      <span className="text-sm font-medium text-gray-700">{schema.label}</span>
+      <span className="text-sm font-medium text-foreground">{schema.label}</span>
       <div className="mt-1 space-y-2">
         {items.map((item, i) => (
-          <div key={i} className="rounded border border-gray-200 p-3">
+          <div key={i} className="rounded border border-border p-3">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs text-gray-500">Item {i + 1}</span>
+              <span className="text-xs text-muted-foreground">Item {i + 1}</span>
               <button
                 onClick={() => removeItem(i)}
-                className="text-xs text-red-500 hover:text-red-700"
+                className="text-xs text-destructive hover:text-destructive"
               >
                 Remove
               </button>
@@ -213,7 +213,7 @@ function ListField({
         ))}
         <button
           onClick={addItem}
-          className="w-full rounded border border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700"
+          className="w-full rounded border border-dashed border-border py-2 text-sm text-muted-foreground hover:border-foreground/30 hover:text-foreground"
         >
           + Add Item
         </button>

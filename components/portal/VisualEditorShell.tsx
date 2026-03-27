@@ -324,12 +324,12 @@ export function VisualEditorShell({
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* ── Left Panel ── */}
       {!previewMode && (
-      <div className="w-60 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
+      <div className="w-60 flex-shrink-0 border-r border-border bg-muted flex flex-col overflow-hidden">
         <div className="p-3 shrink-0">
           <button
             type="button"
             onClick={() => setPickerOpen(!pickerOpen)}
-            className="w-full flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="w-full flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             <span className="material-icons text-base">add</span>
             Add Block
@@ -341,17 +341,17 @@ export function VisualEditorShell({
             <div className="flex flex-wrap gap-1 mb-2">
               {categories.map((cat) => (
                 <button type="button" key={cat} onClick={() => setPickerCategory(pickerCategory === cat ? null : cat)}
-                  className={`px-2 py-0.5 text-xs rounded ${pickerCategory === cat ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`px-2 py-0.5 text-xs rounded ${pickerCategory === cat ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
                 >{cat}</button>
               ))}
             </div>
             <div className="grid grid-cols-2 gap-1">
               {allBlockTypes.filter((b) => !pickerCategory || b.category === pickerCategory).map((bt) => (
                 <button type="button" key={bt.type} onClick={() => { onAddBlock(bt.type); setPickerOpen(false); }}
-                  className="flex flex-col items-center gap-0.5 rounded border border-gray-200 bg-white p-1.5 text-center hover:border-blue-300 hover:bg-blue-50"
+                  className="flex flex-col items-center gap-0.5 rounded border border-border bg-card p-1.5 text-center hover:border-primary/30 hover:bg-primary/5"
                 >
-                  <span className="material-icons text-base text-gray-600">{bt.icon}</span>
-                  <span className="text-[10px] text-gray-700 leading-tight">{bt.label}</span>
+                  <span className="material-icons text-base text-muted-foreground">{bt.icon}</span>
+                  <span className="text-[10px] text-foreground leading-tight">{bt.label}</span>
                 </button>
               ))}
             </div>
@@ -359,9 +359,9 @@ export function VisualEditorShell({
         )}
 
         {/* Layers — DnD sortable tree */}
-        <div className="flex-1 overflow-y-auto border-t border-gray-200">
+        <div className="flex-1 overflow-y-auto border-t border-border">
           <div className="px-3 py-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-1">Layers</h3>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Layers</h3>
           </div>
           <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
             <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
@@ -385,9 +385,9 @@ export function VisualEditorShell({
       )}
 
       {/* ── Center — iframe ── */}
-      <div className="flex-1 flex flex-col bg-gray-100">
+      <div className="flex-1 flex flex-col bg-muted">
         <div className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
-          <div className={`bg-white overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
+          <div className={`bg-card overflow-hidden transition-all ${previewMode ? '' : 'shadow-lg rounded-lg'}`} style={{ width: viewportWidth, maxWidth: '100%', height: '100%' }}>
             <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
           </div>
         </div>
@@ -395,29 +395,29 @@ export function VisualEditorShell({
 
       {/* ── Right Panel — Property Editor ── */}
       {!previewMode && (
-      <div className="w-80 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-hidden">
+      <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
         {selectedBlock ? (
           <>
             {/* Block header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
-                <span className="material-icons text-base text-gray-400">{BLOCK_ICON_MAP[selectedBlock.type] || 'widgets'}</span>
-                <span className="text-sm font-semibold text-gray-900 capitalize">{selectedBlock.type.replace('-', ' ')}</span>
+                <span className="material-icons text-base text-muted-foreground">{BLOCK_ICON_MAP[selectedBlock.type] || 'widgets'}</span>
+                <span className="text-sm font-semibold text-foreground capitalize">{selectedBlock.type.replace('-', ' ')}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => onDeleteBlock(selectedBlock.id)} className="p-1 text-gray-400 hover:text-red-500" title="Delete">
+                <button type="button" onClick={() => onDeleteBlock(selectedBlock.id)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete">
                   <span className="material-icons text-base">delete</span>
                 </button>
               </div>
             </div>
 
             {/* Content / Style tabs */}
-            <div className="flex border-b border-gray-100 shrink-0">
+            <div className="flex border-b border-border shrink-0">
               <button type="button" onClick={() => setRightPanelTab('content')}
-                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'content' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
               >Content</button>
               <button type="button" onClick={() => setRightPanelTab('style')}
-                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'style' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 py-2 text-xs font-medium ${rightPanelTab === 'style' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
               >Style</button>
             </div>
 
@@ -443,7 +443,7 @@ export function VisualEditorShell({
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
             <span className="material-icons text-3xl mb-2">touch_app</span>
             <p className="text-sm">Click a block to edit</p>
           </div>
@@ -504,23 +504,23 @@ function LayerItem({
     <div ref={sortable.setNodeRef} style={style}>
       {showDropIndicator && (
         <div className="relative z-20 mx-1" style={{ height: 0 }}>
-          <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-blue-500 rounded-full" />
+          <div className="absolute inset-x-0 top-0 -translate-y-1/2 h-0.5 bg-primary rounded-full" />
         </div>
       )}
       <div
         className={`group/layer flex items-center gap-1 rounded px-1 py-1 text-left text-xs cursor-pointer ${
-          isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+          isSelected ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
         }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={() => onSelect(block.id)}
       >
         {/* Drag handle */}
-        <span {...sortable.attributes} {...sortable.listeners} className="material-icons text-xs shrink-0 text-gray-300 cursor-grab">drag_indicator</span>
+        <span {...sortable.attributes} {...sortable.listeners} className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
 
         {/* Expand toggle for containers */}
         {isContainer ? (
           <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="material-icons text-xs text-gray-400 shrink-0"
+            className="material-icons text-xs text-muted-foreground shrink-0"
           >{expanded ? 'expand_more' : 'chevron_right'}</button>
         ) : (
           <span className="w-3 shrink-0" />
@@ -531,7 +531,7 @@ function LayerItem({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
-          className="material-icons text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
+          className="material-icons text-xs text-muted-foreground/50 hover:text-destructive opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
           title="Delete"
         >close</button>
       </div>
@@ -539,7 +539,7 @@ function LayerItem({
       {/* Nested children with drop zones */}
       {expanded && children.map((child, ci) => (
         <div key={ci}>
-          <div className="text-[9px] text-gray-400 uppercase tracking-wider" style={{ paddingLeft: `${(depth + 1) * 12 + 20}px` }}>
+          <div className="text-[9px] text-muted-foreground uppercase tracking-wider" style={{ paddingLeft: `${(depth + 1) * 12 + 20}px` }}>
             {child.label}
           </div>
           {child.blocks.map((nested) => (
@@ -563,8 +563,8 @@ function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: str
       ref={setNodeRef}
       className={`mx-1 my-1 rounded-md text-center text-[10px] transition-all ${
         isOver
-          ? 'border-2 border-blue-400 bg-blue-50 text-blue-600 py-3 font-medium'
-          : 'border border-dashed border-gray-300 text-gray-400 py-1.5'
+          ? 'border-2 border-primary bg-primary/10 text-primary py-3 font-medium'
+          : 'border border-dashed border-border text-muted-foreground py-1.5'
       }`}
       style={{ marginLeft: `${(depth) * 12 + 20}px` }}
     >
@@ -670,7 +670,7 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
         <>
           <Field label="Background Color" value={b.backgroundColor as string} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
           <Field label="Max Width" value={b.maxWidth as string} onChange={(v) => onUpdate({ maxWidth: v } as Partial<Block>)} />
-          <p className="text-xs text-gray-500">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
+          <p className="text-xs text-muted-foreground">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
         </>
       )}
       {block.type === 'stats' && (
@@ -693,7 +693,7 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
         </>
       )}
       {block.type === 'accordion' && (
-        <p className="text-xs text-gray-500">Items: {block.items.length}. Use the style tab for visual customization.</p>
+        <p className="text-xs text-muted-foreground">Items: {block.items.length}. Use the style tab for visual customization.</p>
       )}
       {block.type === 'featured-content' && (
         <>
@@ -750,16 +750,16 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-gray-600">Columns ({cols.length})</span>
-          <button type="button" onClick={addColumn} className="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Add Column</button>
+          <span className="text-xs font-medium text-muted-foreground">Columns ({cols.length})</span>
+          <button type="button" onClick={addColumn} className="text-xs text-primary hover:text-primary/80 font-medium">+ Add Column</button>
         </div>
 
         {/* Visual width bar */}
-        <div className="flex gap-0.5 mb-3 h-8 rounded overflow-hidden border border-gray-200">
+        <div className="flex gap-0.5 mb-3 h-8 rounded overflow-hidden border border-border">
           {cols.map((col, i) => (
             <div
               key={col.id}
-              className="bg-blue-100 text-blue-700 text-[10px] font-medium flex items-center justify-center relative group"
+              className="bg-primary/10 text-primary text-[10px] font-medium flex items-center justify-center relative group"
               style={{ width: `${(col.width / totalWidth) * 100}%` }}
             >
               {Math.round(col.width)}%
@@ -767,7 +767,7 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
                 <button
                   type="button"
                   onClick={() => removeColumn(i)}
-                  className="absolute top-0 right-0 text-[8px] text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 p-0.5"
+                  className="absolute top-0 right-0 text-[8px] text-destructive/70 hover:text-destructive opacity-0 group-hover:opacity-100 p-0.5"
                   title="Remove column"
                 >x</button>
               )}
@@ -779,16 +779,16 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
         <div className="space-y-2">
           {cols.map((col, i) => (
             <div key={col.id} className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-500 w-8 shrink-0">Col {i + 1}</span>
+              <span className="text-[10px] text-muted-foreground w-8 shrink-0">Col {i + 1}</span>
               <input
                 type="range"
                 min={10}
                 max={90}
                 value={col.width}
                 onChange={(e) => updateColumnWidth(i, Number(e.target.value))}
-                className="flex-1 h-1.5 accent-blue-600"
+                className="flex-1 h-1.5 accent-primary"
               />
-              <span className="text-[10px] text-gray-500 w-8 text-right">{Math.round(col.width)}%</span>
+              <span className="text-[10px] text-muted-foreground w-8 text-right">{Math.round(col.width)}%</span>
             </div>
           ))}
         </div>
@@ -797,7 +797,7 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
       <CheckboxField label="Stack on mobile" checked={block.stackOnMobile !== false} onChange={(v) => onUpdate({ stackOnMobile: v } as Partial<Block>)} />
       <CheckboxField label="Reverse when stacked" checked={block.reverseOnStack === true} onChange={(v) => onUpdate({ reverseOnStack: v } as Partial<Block>)} />
 
-      <p className="text-xs text-gray-400">{cols.reduce((sum, c) => sum + c.blocks.length, 0)} nested blocks total</p>
+      <p className="text-xs text-muted-foreground">{cols.reduce((sum, c) => sum + c.blocks.length, 0)} nested blocks total</p>
     </div>
   );
 }
@@ -807,9 +807,9 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
 function Field({ label, value, onChange }: { label: string; value: string | undefined; onChange: (v: string) => void }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
     </label>
   );
 }
@@ -817,9 +817,9 @@ function Field({ label, value, onChange }: { label: string; value: string | unde
 function TextareaField({ label, value, onChange, rows = 3 }: { label: string; value: string | undefined; onChange: (v: string) => void; rows?: number }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} rows={rows}
-        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+        className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
     </label>
   );
 }
@@ -827,9 +827,9 @@ function TextareaField({ label, value, onChange, rows = 3 }: { label: string; va
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-gray-600">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+        className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
         {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
       </select>
     </label>
@@ -840,8 +840,8 @@ function CheckboxField({ label, checked, onChange }: { label: string; checked: b
   return (
     <label className="flex items-center gap-2">
       <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-gray-300 text-blue-600" />
-      <span className="text-xs text-gray-700">{label}</span>
+        className="h-4 w-4 rounded border-border text-primary" />
+      <span className="text-xs text-foreground">{label}</span>
     </label>
   );
 }
