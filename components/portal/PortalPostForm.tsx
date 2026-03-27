@@ -418,7 +418,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl }: PortalPo
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           backHref={`/portal/websites/${siteId}`}
-          liveUrl={siteUrl && post?.slug ? `${siteUrl}/blog/${post.slug}` : null}
+          liveUrl={siteUrl && post?.slug ? `${siteUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls
