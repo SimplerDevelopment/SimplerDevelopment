@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { invoices, clients, clientServices } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { addPurchasedCredits, grantMonthlyCredits } from '@/lib/ai-credits';
 
 export const runtime = 'nodejs';
 
@@ -24,10 +25,21 @@ export async function POST(req: Request) {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as {
-        metadata?: { invoiceId?: string; serviceId?: string; clientId?: string };
+        metadata?: { invoiceId?: string; serviceId?: string; clientId?: string; type?: string; tokens?: string; packageName?: string; packageId?: string };
         id: string;
         customer?: string | null;
       };
+
+      // --- Credit package purchase ---
+      if (session.metadata?.type === 'credit_purchase') {
+        const creditClientId = parseInt(session.metadata.clientId || '0', 10);
+        const tokens = parseInt(session.metadata.tokens || '0', 10);
+        const packageName = session.metadata.packageName || 'Credit Package';
+        if (creditClientId && tokens > 0) {
+          await addPurchasedCredits(creditClientId, tokens, session.id, packageName);
+        }
+        return NextResponse.json({ received: true });
+      }
 
       // --- Invoice payment ---
       const invoiceId = session.metadata?.invoiceId ? parseInt(session.metadata.invoiceId, 10) : null;
@@ -69,6 +81,9 @@ export async function POST(req: Request) {
             startDate: new Date(),
           });
         }
+
+        // Grant monthly AI credits for newly activated service
+        await grantMonthlyCredits(clientId);
       }
     }
 

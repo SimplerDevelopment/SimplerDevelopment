@@ -6,6 +6,7 @@ import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
+import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -84,6 +85,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { prompt, websiteUrl } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
+
+    // Check AI credits
+    const canProceed = await hasCredits(client.id, 5000);
+    if (!canProceed) {
+      const bal = await getBalance(client.id);
+      return NextResponse.json({
+        success: false,
+        message: 'Insufficient AI credits for deck generation.',
+        creditsRemaining: bal.balance,
+      }, { status: 402 });
+    }
 
     // Auto-save current state before AI generation
     await saveVersionSnapshot(
@@ -202,6 +214,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       inputTokens: totalInput,
       outputTokens: totalOutput,
     });
+
+    // Deduct AI credits
+    const totalTokens = totalInput + totalOutput;
+    await deductCredits(client.id, totalTokens, 'pitch-decks', String(deckId), `Pitch deck: ${deck.title}`);
 
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {

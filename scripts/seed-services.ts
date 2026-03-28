@@ -17,9 +17,10 @@ async function seedServices() {
         slug: 'websites',
         description: 'A fully managed content management system for your website. Create and edit pages, blog posts, and landing pages using a powerful drag-and-drop block editor — no coding required.',
         category: 'cms',
-        price: 4900,
+        price: 3900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 50000,
         features: [
           'Drag-and-drop block editor',
           'Unlimited pages & blog posts',
@@ -27,6 +28,7 @@ async function seedServices() {
           'SEO settings per page',
           'Custom post types',
           'Multi-user access',
+          '50K AI tokens/mo',
         ],
         surveyFields: [
           {
@@ -59,9 +61,10 @@ async function seedServices() {
         slug: 'email-marketing',
         description: 'Send beautiful email campaigns to your audience. Manage subscriber lists, design emails with a rich editor, and track opens, clicks, and unsubscribes — all from your client portal.',
         category: 'email',
-        price: 2900,
+        price: 1900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 25000,
         features: [
           'Unlimited subscriber lists',
           'Visual email campaign builder',
@@ -69,6 +72,7 @@ async function seedServices() {
           'Unsubscribe management',
           'Custom sending domain',
           'Campaign scheduling',
+          '25K AI tokens/mo',
         ],
         surveyFields: [
           {
@@ -102,9 +106,10 @@ async function seedServices() {
         slug: 'booking-system',
         description: 'Let customers book appointments, classes, or services directly from your website. Manage availability, send automated reminders, and integrate with your calendar.',
         category: 'booking',
-        price: 3900,
+        price: 2900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 25000,
         features: [
           'Online appointment booking',
           'Calendar sync (Google/Outlook)',
@@ -112,6 +117,7 @@ async function seedServices() {
           'Custom availability windows',
           'Service & staff management',
           'Embeddable booking widget',
+          '25K AI tokens/mo',
         ],
         surveyFields: [
           {
@@ -152,9 +158,10 @@ async function seedServices() {
         slug: 'project-mgmt-system',
         description: 'A branded project management workspace for your team and clients. Kanban boards, task tracking, file sharing, time logging, and client-facing portals — all under your brand.',
         category: 'project-mgmt',
-        price: 4900,
+        price: 3900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 50000,
         features: [
           'Kanban boards & task tracking',
           'Sprint planning',
@@ -162,6 +169,7 @@ async function seedServices() {
           'File & document sharing',
           'Time logging',
           'Team & client messaging',
+          '50K AI tokens/mo',
         ],
         surveyFields: [
           {
@@ -194,9 +202,10 @@ async function seedServices() {
         slug: 'chat-bot',
         description: 'An AI-powered chat assistant trained on your business content. Answer customer questions 24/7, capture leads, and hand off to human support when needed — embedded directly on your website.',
         category: 'ai',
-        price: 5900,
+        price: 4900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 500000,
         features: [
           'AI trained on your content',
           'Lead capture & qualification',
@@ -204,6 +213,7 @@ async function seedServices() {
           'Website embed widget',
           'Conversation history & analytics',
           'Custom persona & branding',
+          '500K AI tokens/mo',
         ],
         surveyFields: [
           {
@@ -244,9 +254,10 @@ async function seedServices() {
         slug: 'pitch-decks',
         description: 'Create AI-powered pitch decks branded to your company. Enter a prompt, provide your website URL, and get a polished, on-brand deck generated in seconds.',
         category: 'pitch-decks',
-        price: 1900,
+        price: 1500,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 200000,
         features: [
           'AI-generated slide decks',
           'Auto-brand from your website',
@@ -254,6 +265,7 @@ async function seedServices() {
           'Version history & restore',
           'Export to PDF',
           'Unlimited decks',
+          '200K AI tokens/mo',
         ],
         surveyFields: [],
       },
@@ -262,9 +274,10 @@ async function seedServices() {
         slug: 'hosting-dns',
         description: 'Managed hosting and DNS for your websites. We handle server configuration, SSL certificates, CDN, backups, and DNS management so you can focus on your business.',
         category: 'hosting',
-        price: 2900,
+        price: 1900,
         billingCycle: 'monthly',
         active: true,
+        includedAiCredits: 0,
         features: [
           'Managed server hosting',
           'Free SSL certificates',
@@ -292,16 +305,45 @@ async function seedServices() {
           },
         ],
       },
+      {
+        name: 'All-In-One',
+        slug: 'all-in-one',
+        description: 'Get every SimplerDevelopment tool in one package at 29% off. Includes websites, email marketing, booking, project management, AI chat bot, pitch decks, and hosting — all with pooled AI credits and generous usage limits.',
+        category: 'bundle',
+        price: 14900,
+        billingCycle: 'monthly',
+        active: true,
+        includedAiCredits: 900000,
+        usageLimits: {
+          emailSends: 25000,
+          hostingStorageGb: 20,
+          hostingBandwidthGb: 500,
+        },
+        features: [
+          'All 7 services included',
+          'Websites & CMS',
+          'Email Marketing (25K sends/mo)',
+          'Booking System',
+          'Project Management',
+          'AI Chat Bot',
+          'Pitch Deck Generator',
+          'Managed Hosting (20GB storage)',
+          '900K AI tokens/mo (pooled)',
+          '29% savings vs individual',
+        ],
+        surveyFields: [],
+      },
     ]);
 
-    console.log('✅ Services seeded:');
-    console.log('   • Websites — $49/mo');
-    console.log('   • Email Marketing — $29/mo');
-    console.log('   • Booking System — $39/mo');
-    console.log('   • Project Management System — $49/mo');
-    console.log('   • Chat Bot — $59/mo');
-    console.log('   • Pitch Decks — $19/mo');
-    console.log('   • Hosting & DNS — $29/mo');
+    console.log('Services seeded:');
+    console.log('   Websites           $39/mo  (50K AI tokens)');
+    console.log('   Email Marketing    $19/mo  (25K AI tokens)');
+    console.log('   Booking System     $29/mo  (25K AI tokens)');
+    console.log('   Project Management $39/mo  (50K AI tokens)');
+    console.log('   Chat Bot           $49/mo  (500K AI tokens)');
+    console.log('   Pitch Decks        $15/mo  (200K AI tokens)');
+    console.log('   Hosting & DNS      $19/mo  (no AI tokens)');
+    console.log('   All-In-One         $149/mo (900K AI tokens, all services)');
 
   } catch (error) {
     console.error('❌ Error seeding services:', error);

@@ -1,7 +1,5 @@
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { clients } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { getPortalClient as resolveClient } from '@/lib/portal-client';
 
 export { formatCents, invoiceStatusColor, ticketStatusColor, priorityColor } from '@/lib/portal-utils';
 
@@ -16,8 +14,7 @@ export async function getPortalClient() {
   if (!session?.user?.id) return null;
 
   const userId = parseInt(session.user.id, 10);
-  const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
-  return client ?? null;
+  return resolveClient(userId);
 }
 
 /** Returns true if the current session user is staff (admin or employee). */

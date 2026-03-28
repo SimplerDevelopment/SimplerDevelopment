@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { bookingPages } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function resolveBookingPage(pageId: number, userId: number) {
   const client = await getPortalClient(userId);
@@ -18,6 +19,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const { id } = await params;
   const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));
   if (!page) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -28,6 +33,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { id } = await params;
   const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));
@@ -61,6 +70,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'booking' });
+  if (isAuthError(authResult)) return authResult.response;
 
   const { id } = await params;
   const page = await resolveBookingPage(parseInt(id), parseInt(session.user.id, 10));

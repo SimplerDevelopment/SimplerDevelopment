@@ -6,6 +6,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { sendInviteEmail } from '@/lib/email/invite-email';
 
 const VALID_ROLES = ['admin', 'member', 'viewer'] as const;
 
@@ -97,18 +98,28 @@ export async function POST(req: Request) {
   }
 
   const [existing] = await db.select().from(users).where(eq(users.email, email.trim())).limit(1);
-  const tempPassword = randomBytes(6).toString('hex');
+
+  const inviteToken = randomBytes(32).toString('hex');
+  const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   let invitedUser = existing;
+  let isNewUser = false;
   if (!invitedUser) {
-    const hashed = await hash(tempPassword, 12);
+    // Create user with a placeholder password — they'll set their real password via the invite link
+    const placeholder = await hash(randomBytes(32).toString('hex'), 12);
     [invitedUser] = await db.insert(users).values({
       name: name.trim(),
       email: email.trim(),
-      password: hashed,
+      password: placeholder,
       role: 'client',
       active: true,
+      inviteToken,
+      inviteExpiresAt,
     }).returning();
+    isNewUser = true;
+  } else {
+    // Existing user — set invite token so they can also use the link (optional convenience)
+    await db.update(users).set({ inviteToken, inviteExpiresAt }).where(eq(users.id, invitedUser.id));
   }
 
   const [alreadyMember] = await db
@@ -127,14 +138,30 @@ export async function POST(req: Request) {
     invitedBy: userId,
   }).returning();
 
+  // Send invite email
+  const inviterName = session.user.name || 'A team member';
+  try {
+    await sendInviteEmail({
+      recipientEmail: invitedUser.email,
+      recipientName: invitedUser.name,
+      companyName: client.company,
+      inviterName,
+      role: assignRole,
+      inviteToken,
+    });
+  } catch (emailError) {
+    console.error('Failed to send invite email:', emailError);
+    // Don't fail the invite if email fails — user was still added
+  }
+
   return NextResponse.json({
     success: true,
     data: {
       ...member,
       name: invitedUser.name,
       email: invitedUser.email,
-      isNewUser: !existing,
-      tempPassword: !existing ? tempPassword : null,
+      isNewUser,
+      inviteSent: true,
     },
   }, { status: 201 });
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { signOut, useSession } from 'next-auth/react';
+import CompanySwitcher from './CompanySwitcher';
 
 type Theme = 'light' | 'dark' | 'system';
 const themeOrder: Theme[] = ['system', 'light', 'dark'];
@@ -217,71 +218,65 @@ export default function PortalSidebar() {
         } bg-card border-r border-border`}
       >
         <div className="h-full flex flex-col">
-          {/* Logo / Header */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-16 border-b border-border px-4`}>
+          {/* Company Switcher — always visible, top-left like Slack */}
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
+            <CompanySwitcher collapsed={isCollapsed} />
             {!isCollapsed && (
-              isCrmContext ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Link
-                    href="/portal/dashboard"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                    title="Back to Portal"
-                    onClick={() => setIsMobileOpen(false)}
-                  >
-                    <span className="material-icons text-xl">arrow_back</span>
-                  </Link>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">CRM</p>
-                    <p className="text-sm font-bold text-foreground">Customer Management</p>
-                  </div>
-                </div>
-              ) : isStoreContext && activeSiteId ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Link
-                    href={`/portal/websites/${activeSiteId}`}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                    title="Back to Website"
-                    onClick={() => setIsMobileOpen(false)}
-                  >
-                    <span className="material-icons text-xl">arrow_back</span>
-                  </Link>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Store</p>
-                    <p className="text-sm font-bold text-foreground truncate">{cmsTitle || 'Loading…'}</p>
-                  </div>
-                </div>
-              ) : activeSiteId ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Link
-                    href="/portal/websites"
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                    title="Back to Websites"
-                    onClick={() => setIsMobileOpen(false)}
-                  >
-                    <span className="material-icons text-xl">arrow_back</span>
-                  </Link>
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Simpler CMS</p>
-                    <p className="text-sm font-bold text-foreground truncate">{cmsTitle || 'Loading…'}</p>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Client Portal</p>
-                  <p className="text-sm font-bold text-foreground">Simpler Development</p>
-                </div>
-              )
+              <button
+                onClick={toggleCollapsed}
+                className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                title="Collapse"
+              >
+                <span className="material-icons text-lg">chevron_left</span>
+              </button>
             )}
-            <button
-              onClick={toggleCollapsed}
-              className="hidden lg:flex p-2 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors shrink-0"
-              title={isCollapsed ? 'Expand' : 'Collapse'}
-            >
-              <span className="material-icons text-xl">
-                {isCollapsed ? 'chevron_right' : 'chevron_left'}
-              </span>
-            </button>
+            {isCollapsed && (
+              <button
+                onClick={toggleCollapsed}
+                className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 absolute right-1"
+                title="Expand"
+              >
+                <span className="material-icons text-lg">chevron_right</span>
+              </button>
+            )}
           </div>
+
+          {/* Context bar — shows sub-context (CRM, CMS, Store) with back button */}
+          {!isCollapsed && (isCrmContext || activeSiteId) && (
+            <div className="flex items-center gap-2 min-w-0 px-3 py-2 border-b border-border bg-muted/30">
+              <Link
+                href={isStoreContext && activeSiteId ? `/portal/websites/${activeSiteId}` : activeSiteId ? '/portal/websites' : '/portal/dashboard'}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                title="Back"
+                onClick={() => setIsMobileOpen(false)}
+              >
+                <span className="material-icons text-lg">arrow_back</span>
+              </Link>
+              <div className="min-w-0">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
+                  {isStoreContext ? 'Store' : isCrmContext ? 'CRM' : 'Simpler CMS'}
+                </p>
+                <p className="text-xs font-semibold text-foreground truncate leading-tight">
+                  {isCrmContext ? 'Customer Management' : cmsTitle || 'Loading...'}
+                </p>
+              </div>
+            </div>
+          )}
+          {isCollapsed && (isCrmContext || activeSiteId) && (
+            <div className="flex justify-center py-2 border-b border-border bg-muted/30">
+              <Link
+                href={isStoreContext && activeSiteId ? `/portal/websites/${activeSiteId}` : activeSiteId ? '/portal/websites' : '/portal/dashboard'}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative group"
+                title={isStoreContext ? 'Back to Website' : isCrmContext ? 'Back to Portal' : 'Back to Websites'}
+                onClick={() => setIsMobileOpen(false)}
+              >
+                <span className="material-icons text-lg">arrow_back</span>
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                  {isStoreContext ? 'Back to Website' : isCrmContext ? 'Back to Portal' : 'All Websites'}
+                </div>
+              </Link>
+            </div>
+          )}
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto py-4">

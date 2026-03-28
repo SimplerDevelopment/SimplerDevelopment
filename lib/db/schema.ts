@@ -73,6 +73,8 @@ export const users = pgTable('users', {
   password: varchar('password', { length: 255 }).notNull(),
   role: varchar('role', { length: 50 }).default('editor').notNull(),
   active: boolean('active').default(true).notNull(),
+  inviteToken: varchar('invite_token', { length: 255 }),
+  inviteExpiresAt: timestamp('invite_expires_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -342,6 +344,8 @@ export const services = pgTable('services', {
   active: boolean('active').default(true).notNull(),
   features: json('features').$type<string[]>().default([]),
   surveyFields: json('survey_fields').$type<SurveyField[]>().default([]),
+  includedAiCredits: integer('included_ai_credits').default(0).notNull(), // tokens included per billing cycle
+  usageLimits: json('usage_limits').$type<Record<string, number>>().default({}), // per-period usage limits
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -353,8 +357,55 @@ export const clientServices = pgTable('client_services', {
   status: varchar('status', { length: 50 }).default('active').notNull(), // pending, active, suspended, cancelled
   startDate: timestamp('start_date').defaultNow(),
   renewalDate: timestamp('renewal_date'),
+  creditsGrantedAt: timestamp('credits_granted_at'), // when last monthly AI credit grant was applied
   notes: text('notes'),
   metadata: json('metadata'), // domain name, server details, etc.
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ── AI Credit System ──────────────────────────────────────────────────────────
+
+export const aiCreditLedger = pgTable('ai_credit_ledger', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 20 }).notNull(), // grant, usage, purchase, refund, expiry
+  amount: integer('amount').notNull(), // positive for grants/purchases, negative for usage
+  balanceAfter: integer('balance_after').notNull(),
+  description: text('description'),
+  serviceCategory: varchar('service_category', { length: 50 }), // which service triggered this
+  referenceId: varchar('reference_id', { length: 255 }), // conversation ID, deck ID, stripe payment ID
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const aiCreditBalances = pgTable('ai_credit_balances', {
+  clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
+  balance: integer('balance').default(0).notNull(),
+  monthlyGrant: integer('monthly_grant').default(0).notNull(), // total monthly tokens from all subscriptions
+  payAsYouGo: boolean('pay_as_you_go').default(false).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const aiCreditPackages = pgTable('ai_credit_packages', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  tokens: integer('tokens').notNull(),
+  price: integer('price').notNull(), // cents
+  stripePriceId: varchar('stripe_price_id', { length: 255 }),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ── Usage Metering ────────────────────────────────────────────────────────────
+
+export const usageMeters = pgTable('usage_meters', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  category: varchar('category', { length: 50 }).notNull(), // email_sends, hosting_storage, hosting_bandwidth
+  period: varchar('period', { length: 7 }).notNull(), // YYYY-MM
+  usage: integer('usage').default(0).notNull(),
+  included: integer('included').default(0).notNull(), // free tier limit for this period
+  overageRate: integer('overage_rate').default(0).notNull(), // cents per unit above included
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

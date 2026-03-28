@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { emailLists, emailSubscribers } from '@/lib/db/schema';
 import { eq, count, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function requireClient() {
   const session = await auth();
@@ -12,6 +13,10 @@ async function requireClient() {
 }
 
 export async function GET() {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -33,6 +38,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 

@@ -3,9 +3,11 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { aiConversations, aiMessages } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
+import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
@@ -54,6 +56,10 @@ export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
+    // Service access check
+    const authResult = await authorizePortal({ action: 'write', requireService: 'ai' });
+    if (isAuthError(authResult)) return authResult.response;
+
     const userId = parseInt(session.user.id, 10);
     const role = (session.user as { role?: string })?.role;
     const isStaff = role === 'admin' || role === 'employee';
@@ -66,6 +72,17 @@ export async function POST(req: Request) {
 
     const { message, conversationId } = await req.json();
     if (!message?.trim()) return NextResponse.json({ success: false, message: 'message is required' }, { status: 400 });
+
+    // Check AI credit balance before processing
+    const canProceed = await hasCredits(client.id);
+    if (!canProceed) {
+      const bal = await getBalance(client.id);
+      return NextResponse.json({
+        success: false,
+        message: 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go in your dashboard.',
+        creditsRemaining: bal.balance,
+      }, { status: 402 });
+    }
 
     // Get or create conversation
     let convId = conversationId as number | undefined;
@@ -183,12 +200,18 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     }).where(eq(aiConversations.id, convId));
 
+    // Deduct AI credits
+    const totalTokens = totalInputTokens + totalOutputTokens;
+    const creditResult = await deductCredits(client.id, totalTokens, 'ai', String(convId), `Chat conversation #${convId}`);
+
     return NextResponse.json({
       success: true,
       data: {
         conversationId: convId,
         reply: finalText,
         toolCalls: allToolCalls.map(tc => ({ name: tc.name, input: tc.input })),
+        tokensUsed: totalTokens,
+        creditsRemaining: creditResult.newBalance,
       },
     });
   } catch (err) {
