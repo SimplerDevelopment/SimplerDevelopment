@@ -29,8 +29,10 @@ export async function POST(req: Request) {
   // Get or create Stripe customer
   let customerId = client.stripeCustomerId;
   if (!customerId) {
-    const email = session.user.email || undefined;
-    const customer = await stripe.customers.create({ email, name: client.company });
+    const customer = await stripe.customers.create({
+      ...(session.user.email ? { email: session.user.email } : {}),
+      name: client.company,
+    });
     customerId = customer.id;
     await db.update(clients).set({ stripeCustomerId: customerId }).where(eq(clients.id, client.id));
   }
