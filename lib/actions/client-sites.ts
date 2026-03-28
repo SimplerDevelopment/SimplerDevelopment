@@ -5,13 +5,27 @@ import { clientWebsites, posts, categories, postCategories, pitchDecks, clients 
 import { eq, and, or } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
+  // Try exact domain match first
   const [site] = await db
     .select()
     .from(clientWebsites)
     .where(and(eq(clientWebsites.domain, domain), eq(clientWebsites.active, true)))
     .limit(1);
 
-  return site ?? null;
+  if (site) return site;
+
+  // Try subdomain match (e.g. sd-testing.simplerdevelopment.com → subdomain "sd-testing")
+  const subdomainMatch = domain.match(/^([^.]+)\.simplerdevelopment\.com$/);
+  if (subdomainMatch) {
+    const [subSite] = await db
+      .select()
+      .from(clientWebsites)
+      .where(and(eq(clientWebsites.subdomain, subdomainMatch[1]), eq(clientWebsites.active, true)))
+      .limit(1);
+    return subSite ?? null;
+  }
+
+  return null;
 }
 
 export async function getClientPage(websiteId: number, slug: string) {
