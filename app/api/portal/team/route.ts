@@ -144,7 +144,7 @@ export async function POST(req: Request) {
     await sendInviteEmail({
       recipientEmail: invitedUser.email,
       recipientName: invitedUser.name,
-      companyName: client.company,
+      companyName: client.company || 'Your Team',
       inviterName,
       role: assignRole,
       inviteToken,

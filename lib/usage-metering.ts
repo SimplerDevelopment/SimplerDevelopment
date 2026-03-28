@@ -42,40 +42,13 @@ export async function trackUsage(clientId: number, category: string, amount: num
   const hasBundle = await checkBundleSubscription(clientId);
   const included = hasBundle ? (BUNDLE_LIMITS[category] ?? defaults.included) : defaults.included;
 
-  // Upsert: increment if exists, create if not
-  await db.insert(usageMeters).values({
-    clientId,
-    category,
-    period,
-    usage: amount,
-    included,
-    overageRate: defaults.overageRate,
-  }).onConflictDoUpdate({
-    target: [usageMeters.clientId, usageMeters.category, usageMeters.period],
-    set: {
-      usage: sql`${usageMeters.usage} + ${amount}`,
-      updatedAt: new Date(),
-    },
-    // This won't work with the target syntax above since we have no unique constraint defined in Drizzle.
-    // Fall back to raw SQL approach.
-  }).catch(async () => {
-    // Fallback: try update first, insert if no rows affected
-    const result = await db.update(usageMeters).set({
-      usage: sql`${usageMeters.usage} + ${amount}`,
-      updatedAt: new Date(),
-    }).where(and(
-      eq(usageMeters.clientId, clientId),
-      eq(usageMeters.category, category),
-      eq(usageMeters.period, period),
-    ));
-
-    // If no rows updated, insert
-    if (!result.rowCount || result.rowCount === 0) {
-      await db.insert(usageMeters).values({
-        clientId, category, period, usage: amount, included, overageRate: defaults.overageRate,
-      });
-    }
-  });
+  // Upsert via raw SQL for atomicity (Drizzle doesn't support composite unique target easily)
+  await db.execute(sql`
+    INSERT INTO usage_meters (client_id, category, period, usage, included, overage_rate)
+    VALUES (${clientId}, ${category}, ${period}, ${amount}, ${included}, ${defaults.overageRate})
+    ON CONFLICT (client_id, category, period)
+    DO UPDATE SET usage = usage_meters.usage + ${amount}, updated_at = NOW()
+  `);
 }
 
 /**
