@@ -7,8 +7,6 @@ import { clients } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion });
-
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,6 +14,10 @@ export async function POST(req: Request) {
   const userId = parseInt(session.user.id, 10);
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ error: 'No client' }, { status: 404 });
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
+  const stripe = new Stripe(stripeKey);
 
   const { packageId } = await req.json();
   if (!packageId) return NextResponse.json({ error: 'packageId required' }, { status: 400 });
@@ -27,7 +29,8 @@ export async function POST(req: Request) {
   // Get or create Stripe customer
   let customerId = client.stripeCustomerId;
   if (!customerId) {
-    const customer = await stripe.customers.create({ email: session.user.email || undefined, name: client.company });
+    const email = session.user.email || undefined;
+    const customer = await stripe.customers.create({ email, name: client.company });
     customerId = customer.id;
     await db.update(clients).set({ stripeCustomerId: customerId }).where(eq(clients.id, client.id));
   }
