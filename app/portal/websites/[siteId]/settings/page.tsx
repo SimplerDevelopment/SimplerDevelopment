@@ -16,6 +16,7 @@ import HttpLogViewer from '@/components/portal/HttpLogViewer';
 import InfrastructureTabs from '@/components/portal/InfrastructureTabs';
 import EnvironmentPanel from '@/components/portal/EnvironmentPanel';
 import CopyableSiteId from '@/components/portal/CopyableSiteId';
+import DeveloperSetup from '@/components/portal/DeveloperSetup';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -83,6 +84,11 @@ export default async function WebsiteSettingsPage({
       {/* Environments (env vars, backups, copy) */}
       {environments.length > 0 && (
         <EnvironmentPanel siteId={site.id} environments={environments} />
+      )}
+
+      {/* Developer Setup — npm package installation instructions */}
+      {site.deploymentStatus === 'active' && (
+        <DeveloperSetup siteId={site.id} />
       )}
 
       {/* Infrastructure / Deployments / Logs */}
