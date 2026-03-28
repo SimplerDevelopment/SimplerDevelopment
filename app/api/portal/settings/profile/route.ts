@@ -25,6 +25,7 @@ export async function GET() {
       phone: client.phone ?? '',
       website: client.website ?? '',
       address: client.address ?? '',
+      emailPrefix: client.emailPrefix ?? '',
     },
   });
 }
@@ -38,7 +39,7 @@ export async function PATCH(req: Request) {
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, email, company, phone, website, address } = body;
+  const { name, email, company, phone, website, address, emailPrefix } = body;
 
   if (!name?.trim()) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
   if (!email?.trim()) return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
@@ -57,6 +58,7 @@ export async function PATCH(req: Request) {
       phone: phone?.trim() || null,
       website: website?.trim() || null,
       address: address?.trim() || null,
+      ...(emailPrefix !== undefined ? { emailPrefix: emailPrefix?.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || null } : {}),
       updatedAt: new Date(),
     }).where(eq(clients.id, client.id)),
   ]);

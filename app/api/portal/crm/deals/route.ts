@@ -9,6 +9,7 @@ import {
   crmPipelineStages,
 } from '@/lib/db/schema';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
+import { emitEvent } from '@/lib/automation';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -119,6 +120,8 @@ export async function POST(req: Request) {
       sortOrder: body.sortOrder ?? 0,
     })
     .returning();
+
+  emitEvent('crm.deal.created', client.id, userId, { id: deal.id, title: deal.title, value: deal.value, status: deal.status, stageId: deal.stageId, contactId: deal.contactId });
 
   return NextResponse.json({ success: true, data: deal }, { status: 201 });
 }

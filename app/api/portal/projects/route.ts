@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { emitEvent } from '@/lib/automation';
 
 export async function GET() {
   const session = await auth();
@@ -45,6 +46,8 @@ export async function POST(req: Request) {
     isPrivate: true,
     createdBy: parseInt(session.user.id, 10),
   }).returning();
+
+  emitEvent('project.created', client.id, userId, { id: project.id, name: project.name, status: project.status });
 
   return NextResponse.json({ success: true, data: project }, { status: 201 });
 }

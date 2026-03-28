@@ -1,6 +1,66 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
+import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
+
+const CRM_AUTOMATION_PRESETS: AutomationPreset[] = [
+  {
+    key: 'deal_won_notification',
+    name: 'Deal Won Notification',
+    description: 'Create a task to kick off onboarding when a deal is marked as won',
+    icon: 'celebration',
+    trigger: { event: 'crm.deal.won' },
+    actions: [{ tool: 'create_support_ticket', params: { subject: 'Deal won: {{event.title}} - Start onboarding', body: 'Deal "{{event.title}}" has been won! Begin onboarding process for the client.' } }],
+  },
+  {
+    key: 'deal_lost_review',
+    name: 'Deal Lost Review',
+    description: 'Create a review task when a deal is lost to analyze what went wrong',
+    icon: 'rate_review',
+    trigger: { event: 'crm.deal.lost' },
+    actions: [{ tool: 'create_support_ticket', params: { subject: 'Deal lost review: {{event.title}}', body: 'Deal "{{event.title}}" was lost. Schedule a review to understand what happened and improve the process.' } }],
+  },
+  {
+    key: 'new_contact_task',
+    name: 'New Contact Follow-up',
+    description: 'Create a follow-up task when a new contact is added to the CRM',
+    icon: 'person_add',
+    trigger: { event: 'crm.contact.created' },
+    actions: [{ tool: 'create_support_ticket', params: { subject: 'Follow up with new contact: {{event.name}}', body: 'New contact added: {{event.name}} ({{event.email}}). Reach out within 24 hours.' } }],
+    settings: [
+      {
+        key: 'followUpDelay',
+        label: 'Follow up within',
+        type: 'select',
+        options: [
+          { value: '0', label: 'Immediately' },
+          { value: '3600', label: '1 hour' },
+          { value: '86400', label: '1 day' },
+          { value: '172800', label: '2 days' },
+        ],
+        defaultValue: '0',
+        mapsTo: { actionIndex: 0, paramKey: 'delay' },
+      },
+    ],
+  },
+  {
+    key: 'deal_stage_change',
+    name: 'Deal Stage Change Alert',
+    description: 'Get notified when a deal moves to a new pipeline stage',
+    icon: 'swap_horiz',
+    trigger: { event: 'crm.deal.updated' },
+    actions: [{ tool: 'create_support_ticket', params: { subject: 'Deal moved: {{event.title}}', body: 'Deal "{{event.title}}" has been updated. Review the new stage and plan next steps.' } }],
+  },
+  {
+    key: 'deal_created_project',
+    name: 'Auto-Create Project on Deal Won',
+    description: 'Automatically create a project when a deal is won to track delivery',
+    icon: 'view_kanban',
+    trigger: { event: 'crm.deal.won' },
+    actions: [{ tool: 'create_support_ticket', params: { subject: 'New project needed: {{event.title}}', body: 'Deal "{{event.title}}" was won. A project should be created to track delivery.' } }],
+  },
+];
 
 interface Pipeline {
   id: number;
@@ -459,6 +519,16 @@ export default function CrmSettingsPage() {
             Add Tag
           </button>
         </form>
+      </div>
+
+      {/* ─── Automations ───────────────────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <ProductAutomationSettings
+          productScope="crm"
+          presets={CRM_AUTOMATION_PRESETS}
+          title="CRM Automations"
+          description="Automate follow-ups, notifications, and workflows for your deals and contacts"
+        />
       </div>
     </div>
   );

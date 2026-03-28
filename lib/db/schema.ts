@@ -209,6 +209,7 @@ export const clients = pgTable('clients', {
   website: varchar('website', { length: 255 }),
   address: text('address'),
   stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+  emailPrefix: varchar('email_prefix', { length: 50 }), // prefix@simplerdevelopment.com for AI email gateway
   notes: text('notes'), // internal staff notes
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -585,6 +586,50 @@ export const emailCampaigns = pgTable('email_campaigns', {
   totalBounced: integer('total_bounced').default(0).notNull(),
   totalUnsubscribed: integer('total_unsubscribed').default(0).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const emailTemplates = pgTable('email_templates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  category: varchar('category', { length: 50 }).default('custom').notNull(), // welcome, newsletter, promotion, transactional, custom
+  subject: varchar('subject', { length: 255 }),
+  htmlContent: text('html_content').notNull(),
+  thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
+  isGlobal: boolean('is_global').default(false).notNull(), // admin-created templates available to all
+  usageCount: integer('usage_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const emailSubscriberTags = pgTable('email_subscriber_tags', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  color: varchar('color', { length: 20 }).default('#6366f1'),
+  subscriberCount: integer('subscriber_count').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const emailSubscriberTagAssignments = pgTable('email_subscriber_tag_assignments', {
+  id: serial('id').primaryKey(),
+  subscriberId: integer('subscriber_id').notNull().references(() => emailSubscribers.id, { onDelete: 'cascade' }),
+  tagId: integer('tag_id').notNull().references(() => emailSubscriberTags.id, { onDelete: 'cascade' }),
+});
+
+export const emailSegments = pgTable('email_segments', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  rules: json('rules').$type<{ field: string; operator: string; value: string }[]>().default([]),
+  matchType: varchar('match_type', { length: 10 }).default('all').notNull(), // 'all' or 'any'
+  subscriberCount: integer('subscriber_count').default(0).notNull(),
+  lastCalculatedAt: timestamp('last_calculated_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1378,4 +1423,129 @@ export const crmProposalTemplates = pgTable('crm_proposal_templates', {
   footerText: text('footer_text'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── AUTOMATION ENGINE ────────────────────────────────────────────────────────
+
+export interface AutomationTrigger {
+  event: string; // e.g. 'booking.created', 'crm.deal.updated', 'form.submitted'
+  filters?: Record<string, unknown>; // optional field-level filters, e.g. { status: 'confirmed' }
+}
+
+export interface AutomationCondition {
+  field: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'gt' | 'lt' | 'exists' | 'not_exists';
+  value?: unknown;
+}
+
+export interface AutomationAction {
+  tool: string; // maps to executePortalTool name, e.g. 'create_support_ticket'
+  params: Record<string, unknown>; // static params + {{event.field}} template vars
+  delay?: number; // delay in seconds before executing (0 = immediate)
+}
+
+export const automationRules = pgTable('automation_rules', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'), // NLP original text or user description
+  trigger: json('trigger').$type<AutomationTrigger>().notNull(),
+  conditions: json('conditions').$type<AutomationCondition[]>().default([]),
+  actions: json('actions').$type<AutomationAction[]>().notNull(),
+  enabled: boolean('enabled').default(true).notNull(),
+  source: varchar('source', { length: 20 }).default('nlp').notNull(), // 'nlp' | 'settings' | 'manual'
+  productScope: varchar('product_scope', { length: 50 }), // null = cross-product, or 'booking', 'email', 'crm', etc.
+  executionCount: integer('execution_count').default(0).notNull(),
+  lastExecutedAt: timestamp('last_executed_at'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── SURVEYS ────────────────────────────────────────────────────────────────
+
+export interface SurveyFieldDef {
+  id: string;
+  type: 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
+    | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider'
+    | 'page_break';
+  label: string;
+  placeholder: string;
+  helpText: string;
+  required: boolean;
+  options: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  showIf?: { fieldId: string; values: string[] };
+  conditionalOptions?: { fieldId: string; map: Record<string, string[]>; default?: string[] };
+  // Logic branching: if answer matches a value, jump to page N (0-indexed)
+  goToPage?: Record<string, number>; // { "option_value": pageIndex }
+  order: number;
+  page?: number; // which page this field belongs to (0-indexed, default 0)
+}
+
+export interface SurveyPageDef {
+  title?: string;
+  description?: string;
+}
+
+export const surveys = pgTable('surveys', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  description: text('description'),
+  fields: json('fields').$type<SurveyFieldDef[]>().default([]),
+  pages: json('pages').$type<SurveyPageDef[]>().default([{ title: 'Page 1' }]),
+  // Appearance
+  thankYouTitle: varchar('thank_you_title', { length: 255 }).default('Thank you!'),
+  thankYouMessage: text('thank_you_message').default('Your response has been recorded.'),
+  redirectUrl: varchar('redirect_url', { length: 500 }),
+  color: varchar('color', { length: 7 }).default('#2563eb'),
+  // Settings
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, closed
+  allowMultiple: boolean('allow_multiple').default(true).notNull(), // allow same email to submit multiple times
+  requireEmail: boolean('require_email').default(false).notNull(),
+  notifyOnResponse: boolean('notify_on_response').default(true).notNull(),
+  notifyDigest: varchar('notify_digest', { length: 10 }).default('off').notNull(), // 'off', 'daily', 'weekly'
+  closesAt: timestamp('closes_at'),
+  maxResponses: integer('max_responses'),
+  // Integration context — which system linked to this survey
+  linkedType: varchar('linked_type', { length: 30 }), // 'email_campaign', 'crm_deal', 'crm_proposal', 'booking_page', 'website', 'pitch_deck'
+  linkedId: integer('linked_id'),
+  // Meta
+  responseCount: integer('response_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const surveyResponses = pgTable('survey_responses', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  answers: json('answers').$type<Record<string, unknown>>().notNull(),
+  respondentEmail: varchar('respondent_email', { length: 255 }),
+  respondentName: varchar('respondent_name', { length: 255 }),
+  // Source tracking
+  source: varchar('source', { length: 30 }).default('link').notNull(), // 'link', 'email', 'embed', 'crm', 'booking'
+  sourceId: varchar('source_id', { length: 255 }), // campaign ID, booking ID, etc.
+  // Context
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const automationLogs = pgTable('automation_logs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  ruleId: integer('rule_id').notNull().references(() => automationRules.id, { onDelete: 'cascade' }),
+  triggerEvent: varchar('trigger_event', { length: 100 }).notNull(),
+  triggerPayload: json('trigger_payload').$type<Record<string, unknown>>(),
+  actionsExecuted: json('actions_executed').$type<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }[]>().default([]),
+  status: varchar('status', { length: 20 }).default('success').notNull(), // 'success' | 'partial' | 'failed'
+  duration: integer('duration'), // ms
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

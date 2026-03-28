@@ -40,7 +40,10 @@ const staticNavItems: NavItem[] = [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
   { href: '/portal/crm', label: 'CRM', icon: 'contacts' },
+  { href: '/portal/email', label: 'Email', icon: 'email' },
+  { href: '/portal/surveys', label: 'Surveys', icon: 'poll' },
   // Dynamic services are injected here as top-level items (see navItems below)
+  { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -84,6 +87,24 @@ const crmNavItemsList = [
   { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
 ];
 
+// Email nav items — shown when inside /portal/email
+const emailNavItemsList = [
+  { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
+  { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
+  { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt' },
+  { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
+  { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics' },
+  { href: '/portal/email/automations', label: 'Automations', icon: 'bolt' },
+  { href: '/portal/email/settings', label: 'Settings', icon: 'settings' },
+];
+
+// Surveys nav items — shown when inside /portal/surveys
+const surveysNavItemsList = [
+  { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
+  { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle' },
+];
+
 // Store nav items — shown when inside /portal/websites/[siteId]/store
 const storeNavItems = (siteId: string) => [
   { href: `/portal/websites/${siteId}/store`, label: 'Overview', icon: 'dashboard', exact: true, alsoActiveOn: undefined },
@@ -113,6 +134,8 @@ export default function PortalSidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [cmsTitle, setCmsTitle] = useState('');
   const [navServices, setNavServices] = useState<NavService[]>([]);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const prevSiteIdRef = useRef<string | null>(null);
 
   // Detect CMS context: /portal/websites/[numeric-siteId]/...
@@ -122,8 +145,17 @@ export default function PortalSidebar() {
   // Detect store context: /portal/websites/[siteId]/store/...
   const isStoreContext = activeSiteId && pathname.startsWith(`/portal/websites/${activeSiteId}/store`);
 
-  // Detect CRM context: /portal/crm/... or /portal/tools/pitch-decks/...
+  // Detect product contexts
   const isCrmContext = pathname.startsWith('/portal/crm') || pathname.startsWith('/portal/tools/pitch-decks');
+  const isEmailContext = pathname.startsWith('/portal/email');
+  const isProjectsContext = pathname.startsWith('/portal/projects');
+  const isSurveysContext = pathname.startsWith('/portal/surveys');
+  const isBookingContext = pathname.startsWith('/portal/tools/booking');
+  const isAutomationsContext = pathname === '/portal/automations' || pathname.startsWith('/portal/automations/');
+  const isWebsitesListContext = pathname === '/portal/websites' || pathname === '/portal/websites/new';
+  const isHostingContext = false; // hosting handled within website/email services
+  const isSettingsContext = pathname.startsWith('/portal/settings');
+  const isDashboard = pathname === '/portal/dashboard';
 
   // Auto-collapse on CMS content editor pages to maximize editing space
   const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
@@ -138,6 +170,21 @@ export default function PortalSidebar() {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
   }, [isEditorPage]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) setContextMenuOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenuOpen(false); };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
+  }, [contextMenuOpen]);
+
+  // Close context menu on route change
+  useEffect(() => { setContextMenuOpen(false); }, [pathname]);
 
   // Fetch services for nav — re-fetch on route change (e.g. after login redirect)
   useEffect(() => {
@@ -164,7 +211,7 @@ export default function PortalSidebar() {
   // Build nav items: inject dynamic services as top-level items before Settings
   const navItems: NavItem[] = (() => {
     const serviceItems: NavItem[] = navServices
-      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks')
+      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks' && svc.name !== 'Email Marketing')
       .map(svc => ({
         href: svc.href,
         label: svc.name,
@@ -241,62 +288,117 @@ export default function PortalSidebar() {
             )}
           </div>
 
-          {/* Context bar — shows sub-context (CRM, CMS, Store) with back button */}
-          {!isCollapsed && (isCrmContext || activeSiteId) && (
-            <div className="flex items-center gap-2 min-w-0 px-3 py-2 border-b border-border bg-muted/30">
-              <Link
-                href={isStoreContext && activeSiteId ? `/portal/websites/${activeSiteId}` : activeSiteId ? '/portal/websites' : '/portal/dashboard'}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                title="Back"
-                onClick={() => setIsMobileOpen(false)}
-              >
-                <span className="material-icons text-lg">arrow_back</span>
-              </Link>
-              <div className="min-w-0">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
-                  {isStoreContext ? 'Store' : isCrmContext ? 'CRM' : 'Simpler CMS'}
-                </p>
-                <p className="text-xs font-semibold text-foreground truncate leading-tight">
-                  {isCrmContext ? 'Customer Management' : cmsTitle || 'Loading...'}
-                </p>
-              </div>
-            </div>
-          )}
-          {isCollapsed && (isCrmContext || activeSiteId) && (
-            <div className="flex justify-center py-2 border-b border-border bg-muted/30">
-              <Link
-                href={isStoreContext && activeSiteId ? `/portal/websites/${activeSiteId}` : activeSiteId ? '/portal/websites' : '/portal/dashboard'}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative group"
-                title={isStoreContext ? 'Back to Website' : isCrmContext ? 'Back to Portal' : 'Back to Websites'}
-                onClick={() => setIsMobileOpen(false)}
-              >
-                <span className="material-icons text-lg">arrow_back</span>
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                  {isStoreContext ? 'Back to Website' : isCrmContext ? 'Back to Portal' : 'All Websites'}
+          {/* Context switcher — dropdown to navigate between services */}
+          {(() => {
+            // Show context switcher on any product page (not dashboard)
+            if (isDashboard) return null;
+
+            // Determine current context
+            const ctx = isStoreContext ? { label: 'Store', name: 'Store', icon: 'shopping_cart', key: 'store' }
+              : activeSiteId ? { label: 'Simpler CMS', name: cmsTitle || 'Loading...', icon: 'language', key: 'websites' }
+              : isCrmContext ? { label: 'CRM', name: 'Customer Management', icon: 'contacts', key: 'crm' }
+              : isEmailContext ? { label: 'Email', name: 'Email Marketing', icon: 'email', key: 'email' }
+              : isSurveysContext ? { label: 'Surveys', name: 'Surveys', icon: 'poll', key: 'surveys' }
+              : isProjectsContext ? { label: 'Projects', name: 'Project Management', icon: 'view_kanban', key: 'projects' }
+              : isBookingContext ? { label: 'Booking', name: 'Booking System', icon: 'calendar_month', key: 'booking' }
+              : isAutomationsContext ? { label: 'Automations', name: 'Automations', icon: 'bolt', key: 'automations' }
+              : isWebsitesListContext ? { label: 'Websites', name: 'Websites', icon: 'language', key: 'websites' }
+              : isSettingsContext ? { label: 'Settings', name: 'Settings', icon: 'settings', key: 'settings' }
+              : null;
+
+            if (!ctx) return null;
+
+            const currentLabel = ctx.label;
+            const currentName = ctx.name;
+            const currentIcon = ctx.icon;
+
+            const allOptions = [
+              { label: 'Dashboard', icon: 'dashboard', href: '/portal/dashboard', key: 'dashboard' },
+              { label: 'Projects', icon: 'view_kanban', href: '/portal/projects', key: 'projects' },
+              { label: 'CRM', icon: 'contacts', href: '/portal/crm', key: 'crm' },
+              { label: 'Email Marketing', icon: 'email', href: '/portal/email', key: 'email' },
+              { label: 'Surveys', icon: 'poll', href: '/portal/surveys', key: 'surveys' },
+              { label: 'Websites', icon: 'language', href: '/portal/websites', key: 'websites' },
+              { label: 'Booking', icon: 'calendar_month', href: '/portal/tools/booking', key: 'booking' },
+              { label: 'Automations', icon: 'bolt', href: '/portal/automations', key: 'automations' },
+              { label: 'Settings', icon: 'settings', href: '/portal/settings', key: 'settings' },
+            ];
+
+            const contextOptions = allOptions.filter(opt => opt.key !== ctx.key);
+
+            if (isCollapsed) {
+              return (
+                <div className="flex justify-center py-2 border-b border-border bg-muted/30 relative" ref={contextMenuRef}>
+                  <button
+                    onClick={() => setContextMenuOpen(!contextMenuOpen)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative group"
+                    title={currentName}
+                  >
+                    <span className="material-icons text-lg">{currentIcon}</span>
+                    {!contextMenuOpen && (
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                        {currentName}
+                      </div>
+                    )}
+                  </button>
+                  {contextMenuOpen && (
+                    <div className="absolute top-0 left-full ml-2 w-52 bg-card border border-border rounded-lg shadow-xl z-[60] overflow-hidden py-1">
+                      {contextOptions.map(opt => (
+                        <Link
+                          key={opt.href}
+                          href={opt.href}
+                          onClick={() => { setContextMenuOpen(false); setIsMobileOpen(false); }}
+                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        >
+                          <span className="material-icons text-lg">{opt.icon}</span>
+                          {opt.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </Link>
-            </div>
-          )}
+              );
+            }
+
+            return (
+              <div className="relative border-b border-border bg-muted/30" ref={contextMenuRef}>
+                <button
+                  onClick={() => setContextMenuOpen(!contextMenuOpen)}
+                  className="flex items-center gap-2 min-w-0 w-full px-3 py-2 text-left hover:bg-accent/50 transition-colors"
+                >
+                  <span className="material-icons text-lg text-primary">{currentIcon}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">{currentLabel}</p>
+                    <p className="text-xs font-semibold text-foreground truncate leading-tight">{currentName}</p>
+                  </div>
+                  <span className="material-icons text-muted-foreground text-sm shrink-0">
+                    {contextMenuOpen ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+                {contextMenuOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-0 bg-card border border-border rounded-b-lg shadow-xl z-[60] overflow-hidden py-1">
+                    {contextOptions.map(opt => (
+                      <Link
+                        key={opt.href}
+                        href={opt.href}
+                        onClick={() => { setContextMenuOpen(false); setIsMobileOpen(false); }}
+                        className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        <span className="material-icons text-lg">{opt.icon}</span>
+                        {opt.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto py-4">
             {isStoreContext && activeSiteId ? (
               // ── Store context nav ───────────────────────────────────
               <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {isCollapsed && (
-                  <li>
-                    <Link
-                      href={`/portal/websites/${activeSiteId}`}
-                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
-                      title="Back to Website"
-                    >
-                      <span className="material-icons text-xl">arrow_back</span>
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        Back to Website
-                      </div>
-                    </Link>
-                  </li>
-                )}
                 {storeNavItems(activeSiteId).map(item => {
                   const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'));
                   return (
@@ -328,21 +430,6 @@ export default function PortalSidebar() {
             ) : activeSiteId ? (
               // ── CMS context nav ────────────────────────────────────
               <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {/* Back link when collapsed */}
-                {isCollapsed && (
-                  <li>
-                    <Link
-                      href="/portal/websites"
-                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
-                      title="Back to Websites"
-                    >
-                      <span className="material-icons text-xl">arrow_back</span>
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        All Websites
-                      </div>
-                    </Link>
-                  </li>
-                )}
                 {cmsNavItems(activeSiteId).map(item => {
                   const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'))
                     || (item.alsoActiveOn !== undefined && pathname.startsWith(item.alsoActiveOn));
@@ -407,21 +494,69 @@ export default function PortalSidebar() {
             ) : isCrmContext ? (
               // ── CRM context nav ─────────────────────────────────────
               <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {isCollapsed && (
-                  <li>
-                    <Link
-                      href="/portal/dashboard"
-                      className="flex items-center justify-center px-3 py-3 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group"
-                      title="Back to Portal"
-                    >
-                      <span className="material-icons text-xl">arrow_back</span>
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        Back to Portal
-                      </div>
-                    </Link>
-                  </li>
-                )}
                 {crmNavItemsList.map(item => {
+                  const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center gap-3 ${
+                          isCollapsed ? 'justify-center px-3' : 'px-4'
+                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-xl">{item.icon}</span>
+                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : isSurveysContext ? (
+              // ── Surveys context nav ─────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {surveysNavItemsList.map(item => {
+                  const isActive = (item as { exact?: boolean }).exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center gap-3 ${
+                          isCollapsed ? 'justify-center px-3' : 'px-4'
+                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-xl">{item.icon}</span>
+                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : isEmailContext ? (
+              // ── Email context nav ──────────────────────────────────
+              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+                {emailNavItemsList.map(item => {
                   const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
                   return (
                     <li key={item.href}>

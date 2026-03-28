@@ -9,6 +9,7 @@ import {
   crmTags,
 } from '@/lib/db/schema';
 import { and, eq, desc, sql, inArray } from 'drizzle-orm';
+import { emitEvent } from '@/lib/automation';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -193,6 +194,8 @@ export async function POST(req: Request) {
       }))
     );
   }
+
+  emitEvent('crm.contact.created', client.id, userId, { id: contact.id, name: `${contact.firstName} ${contact.lastName || ''}`.trim(), email: contact.email, phone: contact.phone, source: contact.source });
 
   return NextResponse.json({ success: true, data: contact }, { status: 201 });
 }

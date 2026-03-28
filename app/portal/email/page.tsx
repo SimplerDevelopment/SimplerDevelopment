@@ -94,22 +94,40 @@ export default function PortalEmailPage() {
       </div>
 
       {/* Quick nav */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link href="/portal/email/lists" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link href="/portal/email/campaigns/new" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
-            <span className="material-icons text-2xl text-primary">list_alt</span>
+            <span className="material-icons text-2xl text-primary">add_circle</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Subscriber Lists</p>
-              <p className="text-sm text-muted-foreground">{loading ? '…' : `${lists.length} list${lists.length !== 1 ? 's' : ''}, ${totalSubscribers} subscribers`}</p>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">New Campaign</p>
+              <p className="text-sm text-muted-foreground">Create and send</p>
             </div>
           </div>
         </Link>
-        <Link href="/portal/email/campaigns" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+        <Link href="/portal/email/templates" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
           <div className="flex items-center gap-3">
-            <span className="material-icons text-2xl text-primary">campaign</span>
+            <span className="material-icons text-2xl text-primary">dynamic_feed</span>
             <div>
-              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">All Campaigns</p>
-              <p className="text-sm text-muted-foreground">{loading ? '…' : `${campaigns.length} total, ${sentCampaigns.length} sent`}</p>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Templates</p>
+              <p className="text-sm text-muted-foreground">Reusable email designs</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/portal/email/segments" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-2xl text-primary">filter_alt</span>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Segments</p>
+              <p className="text-sm text-muted-foreground">Target specific audiences</p>
+            </div>
+          </div>
+        </Link>
+        <Link href="/portal/email/analytics" className="bg-card border border-border rounded-lg p-5 hover:border-primary transition-colors group">
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-2xl text-primary">analytics</span>
+            <div>
+              <p className="font-semibold text-foreground group-hover:text-primary transition-colors">Analytics</p>
+              <p className="text-sm text-muted-foreground">Performance insights</p>
             </div>
           </div>
         </Link>

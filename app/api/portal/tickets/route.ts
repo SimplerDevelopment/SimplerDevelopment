@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { supportTickets, ticketMessages } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, count } from 'drizzle-orm';
+import { emitEvent } from '@/lib/automation';
 
 export async function GET() {
   const session = await auth();
@@ -51,6 +52,8 @@ export async function POST(req: Request) {
     body: body.body,
     isInternal: false,
   });
+
+  emitEvent('ticket.created', client.id, userId, { id: ticket.id, number: ticket.number, subject: ticket.subject, category: ticket.category, priority: ticket.priority, status: 'open' });
 
   return NextResponse.json({ success: true, data: ticket });
 }

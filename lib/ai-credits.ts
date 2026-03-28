@@ -202,7 +202,7 @@ export async function getMonthlyUsage(clientId: number): Promise<number> {
     .where(and(
       eq(aiCreditLedger.clientId, clientId),
       eq(aiCreditLedger.type, 'usage'),
-      sql`${aiCreditLedger.createdAt} >= ${startOfMonth}`,
+      sql`${aiCreditLedger.createdAt} >= ${startOfMonth.toISOString()}`,
     ));
 
   return Number(row?.total ?? 0);

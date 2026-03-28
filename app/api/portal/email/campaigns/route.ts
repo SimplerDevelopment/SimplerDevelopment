@@ -5,6 +5,7 @@ import { emailCampaigns, emailLists } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { emitEvent } from '@/lib/automation';
 
 async function requireClient() {
   const session = await auth();
@@ -84,6 +85,8 @@ export async function POST(req: Request) {
       htmlContent: htmlContent.trim(),
     })
     .returning();
+
+  emitEvent('email.campaign.sent', client.id, 0, { campaignId: campaign.id, name: campaign.name, subject: campaign.subject, listId: campaign.listId });
 
   return NextResponse.json({ success: true, data: campaign }, { status: 201 });
 }

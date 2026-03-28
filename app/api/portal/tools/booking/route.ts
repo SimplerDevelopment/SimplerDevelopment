@@ -5,6 +5,7 @@ import { bookingPages } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { emitEvent } from '@/lib/automation';
 
 export async function GET() {
   const session = await auth();
@@ -55,6 +56,8 @@ export async function POST(req: Request) {
     timezone: timezone || 'America/New_York',
     createdBy: userId,
   }).returning();
+
+  emitEvent('booking.created', client.id, userId, { id: page.id, title: page.title, slug: page.slug, duration: page.duration });
 
   return NextResponse.json({ success: true, data: page });
 }

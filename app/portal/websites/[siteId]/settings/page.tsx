@@ -8,6 +8,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import ProvisioningStatus from '@/components/portal/ProvisioningStatus';
 import DeploymentList from '@/components/portal/DeploymentList';
 import GitHubConnectButton from '@/components/portal/GitHubConnectButton';
+import WebsiteAutomationSettings from '@/components/portal/WebsiteAutomationSettings';
 import CustomDomainForm from '@/components/portal/CustomDomainForm';
 import WebsiteSettingsForm from '@/components/portal/WebsiteSettingsForm';
 import DeleteWebsiteButton from '@/components/portal/DeleteWebsiteButton';
@@ -108,6 +109,13 @@ export default async function WebsiteSettingsPage({
             websiteName={site.name}
           />
         </>
+      )}
+
+      {/* Automations */}
+      {site.deploymentStatus === 'active' && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <WebsiteAutomationSettings />
+        </div>
       )}
 
       {/* Danger Zone */}

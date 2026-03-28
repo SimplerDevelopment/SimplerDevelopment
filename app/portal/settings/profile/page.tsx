@@ -9,10 +9,11 @@ interface ProfileData {
   phone: string;
   website: string;
   address: string;
+  emailPrefix: string;
 }
 
 export default function ProfileSettingsPage() {
-  const [form, setForm] = useState<ProfileData>({ name: '', email: '', company: '', phone: '', website: '', address: '' });
+  const [form, setForm] = useState<ProfileData>({ name: '', email: '', company: '', phone: '', website: '', address: '', emailPrefix: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -137,6 +138,49 @@ export default function ProfileSettingsPage() {
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
             />
           </div>
+        </div>
+
+        {/* AI Email Gateway */}
+        <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <span className="material-icons text-lg text-primary">smart_toy</span>
+            <h2 className="text-base font-semibold text-foreground">AI Email Assistant</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Set up an email address for your company. Send emails to it and the AI assistant will process your requests — the same way it works in the portal chat.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Email Prefix</label>
+            <div className="flex items-center gap-0">
+              <input
+                name="emailPrefix"
+                value={form.emailPrefix}
+                onChange={handleChange}
+                placeholder="your-company"
+                className="w-48 px-3 py-2 rounded-l-lg border border-r-0 border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <span className="px-3 py-2 bg-muted border border-border rounded-r-lg text-sm text-muted-foreground">
+                @simplerdevelopment.com
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Lowercase letters, numbers, and hyphens only. Only team members registered to this company can use this address.
+            </p>
+          </div>
+
+          {form.emailPrefix && (
+            <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-2">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <span className="material-icons text-base text-green-500">check_circle</span>
+                Your AI email address
+              </p>
+              <p className="text-sm font-mono text-primary">{form.emailPrefix.toLowerCase().replace(/[^a-z0-9-]/g, '')}@simplerdevelopment.com</p>
+              <p className="text-xs text-muted-foreground">
+                Send any request to this address from your registered email. The AI will respond with results, just like the chat widget.
+              </p>
+            </div>
+          )}
         </div>
 
         {message && (

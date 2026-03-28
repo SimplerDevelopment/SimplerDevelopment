@@ -92,6 +92,13 @@ export default function PortalProjectsPage() {
         </div>
         <div className="flex gap-2">
           <Link
+            href="/portal/projects/automations"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <span className="material-icons text-base">bolt</span>
+            Automations
+          </Link>
+          <Link
             href="/portal/suggested-projects"
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
           >

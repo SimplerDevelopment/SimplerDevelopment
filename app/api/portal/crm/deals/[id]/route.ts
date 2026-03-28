@@ -9,6 +9,7 @@ import {
   crmPipelineStages,
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { emitEvent } from '@/lib/automation';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -120,6 +121,16 @@ export async function PUT(
     .set(updateData)
     .where(eq(crmDeals.id, dealId))
     .returning();
+
+  // Emit specific event for won/lost, generic for other updates
+  const eventPayload = { id: updated.id, title: updated.title, value: updated.value, status: updated.status, stageId: updated.stageId, contactId: updated.contactId };
+  if (body.status === 'won') {
+    emitEvent('crm.deal.won', client.id, result.userId, eventPayload);
+  } else if (body.status === 'lost') {
+    emitEvent('crm.deal.lost', client.id, result.userId, eventPayload);
+  } else {
+    emitEvent('crm.deal.updated', client.id, result.userId, eventPayload);
+  }
 
   return NextResponse.json({ success: true, data: updated });
 }
