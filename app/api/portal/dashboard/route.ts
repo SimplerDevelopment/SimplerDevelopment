@@ -52,7 +52,7 @@ export async function GET() {
           .where(sql`${posts.websiteId} IN (${sql.join(siteIds.map(id => sql`${id}`), sql`, `)})`);
         totalPages = pageStats[0]?.count ?? 0;
         const pubStats = await db.select({ count: count() }).from(posts)
-          .where(sql`${posts.websiteId} IN (${sql.join(siteIds.map(id => sql`${id}`), sql`, `)}) AND ${posts.status} = 'published'`);
+          .where(sql`${posts.websiteId} IN (${sql.join(siteIds.map(id => sql`${id}`), sql`, `)}) AND ${posts.published} = true`);
         publishedPages = pubStats[0]?.count ?? 0;
       }
       return { sites: sites[0]?.count ?? 0, totalPages, publishedPages };
