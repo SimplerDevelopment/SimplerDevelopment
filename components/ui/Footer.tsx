@@ -45,33 +45,33 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Services */}
+          {/* Platform */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Services</h4>
+            <h4 className="text-sm font-semibold mb-4">Platform</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link href="/solutions/design" className="text-muted-foreground hover:text-primary transition-colors">
-                  Design
+                <Link href="/solutions/websites" className="text-muted-foreground hover:text-primary transition-colors">
+                  Website Builder
                 </Link>
               </li>
               <li>
-                <Link href="/solutions/development" className="text-muted-foreground hover:text-primary transition-colors">
-                  Development
+                <Link href="/solutions/email-marketing" className="text-muted-foreground hover:text-primary transition-colors">
+                  Email Marketing
                 </Link>
               </li>
               <li>
-                <Link href="/solutions/ai-automation" className="text-muted-foreground hover:text-primary transition-colors">
-                  AI & Automation
+                <Link href="/solutions/crm" className="text-muted-foreground hover:text-primary transition-colors">
+                  CRM
                 </Link>
               </li>
               <li>
-                <Link href="/solutions/growth-marketing" className="text-muted-foreground hover:text-primary transition-colors">
-                  Growth & Marketing
+                <Link href="/solutions/booking" className="text-muted-foreground hover:text-primary transition-colors">
+                  Online Booking
                 </Link>
               </li>
               <li>
-                <Link href="/solutions/partnership" className="text-muted-foreground hover:text-primary transition-colors">
-                  Partnership
+                <Link href="/solutions" className="text-muted-foreground hover:text-primary transition-colors">
+                  All Features
                 </Link>
               </li>
             </ul>

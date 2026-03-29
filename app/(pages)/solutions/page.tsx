@@ -6,8 +6,8 @@ import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 
 export const metadata = generateSEO({
-  title: 'Solutions',
-  description: 'Explore our design, development, automation, growth, and partnership solutions',
+  title: 'Platform Features',
+  description: 'Website builder, email marketing, CRM, booking, project management, AI chatbot, and more — all in one platform',
   path: '/solutions',
 });
 
@@ -22,17 +22,17 @@ export default function SolutionsPage() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl">
             <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// SOLUTIONS</p>
+              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// PLATFORM</p>
             </FadeIn>
             <FadeIn delay={0.1}>
               <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
-                Solutions That{' '}
-                <span className="text-primary">Drive Results</span>
+                Every Tool Your Business{' '}
+                <span className="text-primary">Actually Needs</span>
               </h1>
             </FadeIn>
             <FadeIn delay={0.2}>
               <p className="text-xl text-muted-foreground max-w-xl">
-                From first pixel to ongoing partnership, we cover every stage of your digital journey.
+                Eight integrated tools that replace a dozen subscriptions. Website, email, CRM, booking, projects, AI, and more — all working together from one dashboard.
               </p>
               <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
             </FadeIn>
@@ -115,7 +115,7 @@ export default function SolutionsPage() {
                             <span className="material-icons text-lg ml-1">arrow_forward</span>
                           </Button>
                           <Button href="/contact" variant="ghost" size="md">
-                            Get a Quote
+                            Get Started
                           </Button>
                         </div>
                       </div>
@@ -128,34 +128,32 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      {/* How We Work */}
+      {/* All-in-One Value Prop */}
       <section className="py-24 section-dark relative overflow-hidden">
         <div className="absolute inset-0 bg-dot-grid opacity-5" />
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <div className="text-center mb-16">
-                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">// PROCESS</p>
+                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">// ALL-IN-ONE</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-                  How We Work
+                  Why One Platform Beats Five
                 </h2>
                 <p className="text-lg opacity-70 max-w-2xl mx-auto">
-                  Every engagement follows a clear, collaborative process
+                  Everything connected, everything managed, everything working together
                 </p>
               </div>
             </FadeIn>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/10 rounded-2xl overflow-hidden">
               {[
-                { step: '01', title: 'Discover', description: 'Understand your goals, audience, and constraints', icon: 'search' },
-                { step: '02', title: 'Plan', description: 'Define scope, architecture, and a clear roadmap', icon: 'map' },
-                { step: '03', title: 'Build', description: 'Iterative development with regular feedback loops', icon: 'construction' },
-                { step: '04', title: 'Launch', description: 'Smooth deployment with ongoing partnership', icon: 'rocket_launch' },
+                { title: 'One Dashboard', description: 'Manage your website, email, CRM, booking, and projects from a single login', icon: 'dashboard' },
+                { title: 'Connected Data', description: 'New leads flow into your CRM, trigger emails, and book calls — automatically', icon: 'sync_alt' },
+                { title: 'Agency Support', description: 'Not just software. Designers and developers ready to help whenever you need', icon: 'support_agent' },
               ].map((item, i) => (
-                <SlideIn key={item.step} direction="up" delay={i * 0.1}>
+                <SlideIn key={item.title} direction="up" delay={i * 0.1}>
                   <div className="p-8 bg-foreground text-background h-full">
                     <span className="material-icons text-3xl mb-4 block" style={{ color: '#60a5fa' }}>{item.icon}</span>
-                    <div className="font-mono text-xs font-bold mb-2" style={{ color: '#60a5fa' }}>{item.step}</div>
                     <h3 className="font-heading text-xl font-bold mb-2">{item.title}</h3>
                     <p className="text-sm opacity-60">{item.description}</p>
                   </div>
@@ -174,10 +172,10 @@ export default function SolutionsPage() {
           <FadeIn>
             <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">// NEXT STEP</p>
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
-              Ready to Get Started?
+              Ready to Simplify Everything?
             </h2>
             <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-              Tell us about your project and we&apos;ll get back to you within 24 hours with a plan.
+              Book a free consultation and we'll walk you through the platform. See exactly how it works for your business.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button href="/contact" size="lg">

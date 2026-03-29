@@ -5,7 +5,7 @@ import { HomeClient } from './HomeClient';
 
 export const metadata = generateSEO({
   title: 'Home',
-  description: 'Design, Dev, and Automation Agency - Creating impressive, interactive web experiences with Three.js and modern web technologies',
+  description: 'All-in-one business platform — website builder, email marketing, CRM, booking, project management, AI chatbot, and managed hosting in one dashboard',
   path: '/',
 });
 

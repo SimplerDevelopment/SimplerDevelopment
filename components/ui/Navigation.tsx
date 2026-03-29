@@ -73,7 +73,7 @@ export function Navigation() {
                 </Link>
               )}
               <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
-                <img src="/iconLogo.png" alt="" className="h-14 w-14 -mr-2 dark:brightness-0 dark:invert transition-[filter] duration-300" />
+                <img src="/iconLogo.png" alt="" className="nav-logo-icon" />
                 <span><b>Simpler</b> Development</span>
               </Link>
             </div>

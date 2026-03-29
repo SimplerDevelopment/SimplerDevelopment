@@ -6,54 +6,54 @@ import { Card } from '@/components/ui/Card';
 
 export const metadata = generateSEO({
   title: 'About Us',
-  description: 'Learn about SimplerDevelopment - a team dedicated to creating impressive, interactive web experiences through innovative design, development, and automation.',
+  description: 'Simpler Development is a platform and agency that gives businesses the tools to manage their website, email, CRM, booking, and more — all from one place.',
   path: '/about',
 });
 
 const values = [
   {
     id: '1',
-    title: 'Innovation',
-    description: 'We push boundaries with cutting-edge technologies like Three.js, React, and modern automation tools.',
-    icon: 'lightbulb',
+    title: 'Simplicity',
+    description: 'Complex problems deserve elegant solutions. We replace a stack of disconnected tools with one platform that just works.',
+    icon: 'auto_awesome',
   },
   {
     id: '2',
-    title: 'Quality',
-    description: 'Every project is crafted with meticulous attention to detail, ensuring exceptional results.',
-    icon: 'workspace_premium',
+    title: 'Ownership',
+    description: 'Your data, your brand, your platform. We build tools you control — not walled gardens that hold your business hostage.',
+    icon: 'lock_open',
   },
   {
     id: '3',
-    title: 'Collaboration',
-    description: 'We work closely with our clients, making their vision our mission.',
-    icon: 'group',
+    title: 'Partnership',
+    description: 'We are not a faceless SaaS. Every client gets a real team of designers and developers who know their business.',
+    icon: 'handshake',
   },
   {
     id: '4',
-    title: 'Simplicity',
-    description: 'Complex problems deserve elegant solutions. We make the complicated simple.',
-    icon: 'auto_awesome',
+    title: 'Craft',
+    description: 'Every feature is built with care. We ship quality over quantity and polish over hype.',
+    icon: 'workspace_premium',
   },
 ];
 
 const stats = [
-  { label: 'Projects Delivered', value: '50+' },
-  { label: 'Happy Clients', value: '40+' },
-  { label: 'Years Experience', value: '10+' },
-  { label: 'Technologies Mastered', value: '25+' },
+  { label: 'Integrated Tools', value: '8+' },
+  { label: 'Clients Served', value: '40+' },
+  { label: 'Years Building Software', value: '16+' },
+  { label: 'Uptime Guarantee', value: '99.9%' },
 ];
 
 export default function AboutPage() {
   return (
     <>
       <Hero
-        subtitle="About SimplerDevelopment"
-        title="Building Digital Experiences That Matter"
-        description="We're a team of passionate developers, designers, and automation specialists dedicated to transforming ideas into exceptional digital solutions."
-        ctaText="Work With Us"
+        subtitle="About Simpler Development"
+        title="The Platform and the Team Behind It"
+        description="We built the all-in-one platform we wished existed — then paired it with a full-service agency so you never have to figure it out alone."
+        ctaText="Book a Consultation"
         ctaLink="/contact"
-        secondaryCtaText="View Our Work"
+        secondaryCtaText="See the Platform"
         secondaryCtaLink="/solutions"
       />
 
@@ -62,11 +62,12 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <FadeIn>
-              <h2 className="font-display text-3xl md:text-5xl font-bold mb-6">Our Mission</h2>
+              <h2 className="font-display text-3xl md:text-5xl font-bold mb-6">Why We Built This</h2>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                At SimplerDevelopment, we believe that exceptional digital experiences shouldn&apos;t be complicated.
-                Our mission is to harness the power of modern web technologies, interactive design, and intelligent
-                automation to create solutions that not only meet but exceed expectations.
+                We spent years watching small businesses juggle Squarespace for their site, Mailchimp for email,
+                Calendly for booking, HubSpot for CRM, and Asana for projects — none of them talking to each other,
+                all of them charging separately. So we built one platform that does it all, backed by a team that
+                actually helps you use it.
               </p>
             </FadeIn>
           </div>
@@ -78,9 +79,9 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <FadeIn>
-              <h2 className="font-display text-3xl md:text-5xl font-bold mb-4">Our Values</h2>
+              <h2 className="font-display text-3xl md:text-5xl font-bold mb-4">What We Stand For</h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                The principles that guide everything we do
+                The principles behind every feature we build and every client we serve
               </p>
             </FadeIn>
           </div>
@@ -119,7 +120,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* What We Do Section */}
+      {/* What Sets Us Apart */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
@@ -132,13 +133,13 @@ export default function AboutPage() {
             <div className="space-y-12">
               <SlideIn direction="left">
                 <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
-                  <span className="material-icons text-5xl text-primary">palette</span>
+                  <span className="material-icons text-5xl text-primary">hub</span>
                   <div>
-                    <h3 className="font-heading text-2xl font-bold mb-3">Interactive Design</h3>
+                    <h3 className="font-heading text-2xl font-bold mb-3">Platform + Agency</h3>
                     <p className="text-muted-foreground">
-                      We don&apos;t just build websites; we create immersive experiences. Using technologies
-                      like Three.js and advanced animations, we bring your brand to life in ways that
-                      captivate and engage your audience.
+                      Most SaaS tools give you software and leave you to figure it out. Most agencies build
+                      something custom and hand you the keys. We do both — a powerful platform managed
+                      and optimized by a team that knows your business.
                     </p>
                   </div>
                 </div>
@@ -146,13 +147,13 @@ export default function AboutPage() {
 
               <SlideIn direction="right">
                 <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
-                  <span className="material-icons text-5xl text-primary">bolt</span>
+                  <span className="material-icons text-5xl text-primary">sync_alt</span>
                   <div>
-                    <h3 className="font-heading text-2xl font-bold mb-3">Modern Development</h3>
+                    <h3 className="font-heading text-2xl font-bold mb-3">Everything Connected</h3>
                     <p className="text-muted-foreground">
-                      Built on cutting-edge frameworks like Next.js and React, our solutions are fast,
-                      scalable, and optimized for performance. We write clean, maintainable code that
-                      stands the test of time.
+                      Your website, email campaigns, CRM, booking pages, and projects all share data.
+                      A new lead from your site automatically enters your CRM, gets a welcome email,
+                      and can book a call — no Zapier required.
                     </p>
                   </div>
                 </div>
@@ -160,13 +161,13 @@ export default function AboutPage() {
 
               <SlideIn direction="left">
                 <div className="flex flex-col md:flex-row gap-6 items-start p-6 rounded-xl bg-muted/30 border border-border">
-                  <span className="material-icons text-5xl text-primary">smart_toy</span>
+                  <span className="material-icons text-5xl text-primary">rocket_launch</span>
                   <div>
-                    <h3 className="font-heading text-2xl font-bold mb-3">Intelligent Automation</h3>
+                    <h3 className="font-heading text-2xl font-bold mb-3">Ship Fast, Grow Steady</h3>
                     <p className="text-muted-foreground">
-                      We specialize in automation solutions using tools like n8n to streamline your
-                      workflows, reduce manual tasks, and boost productivity. Let technology work
-                      for you, not the other way around.
+                      Most clients go live within a week. Start with a website and booking, then add
+                      email marketing, CRM, and AI as you grow. The platform scales with your ambitions,
+                      and our team is here at every step.
                     </p>
                   </div>
                 </div>
@@ -181,17 +182,17 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 text-center">
           <FadeIn>
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-6">
-              Ready to Work Together?
+              Ready to See It in Action?
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Let&apos;s discuss how we can help bring your vision to life with innovative design,
-              development, and automation solutions.
+              Book a free consultation and we'll walk you through the platform,
+              answer your questions, and show you what's possible for your business.
             </p>
             <a
               href="/contact"
               className="inline-flex items-center justify-center rounded-lg bg-primary px-8 py-4 text-lg font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Get in Touch
+              Book a Free Consultation
             </a>
           </FadeIn>
         </div>

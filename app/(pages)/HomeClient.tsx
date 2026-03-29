@@ -8,14 +8,6 @@ import { use3DScene } from '@/hooks/use3DScene';
 import { HeroVisual } from '@/components/sections/HeroVisual';
 import { getAllBlogPosts, getAllCategories } from '@/lib/data/blog';
 import Link from 'next/link';
-import {
-  SiNextdotjs, SiReact, SiVuedotjs, SiWordpress, SiShopify,
-  SiBigcommerce, SiSanity, SiFigma, SiAmazon, SiRailway,
-  SiN8N, SiVercel, SiApple, SiAndroid, SiTypescript,
-  SiNodedotjs, SiStripe, SiPostgresql, SiGoogle, SiGmail,
-  SiLinkedin, SiHubspot, SiApollographql,
-} from 'react-icons/si';
-import { HiCube } from 'react-icons/hi';
 
 const HeroParticleNetwork = dynamic(() => import('@/components/three/HeroParticleNetwork').then(mod => ({ default: mod.HeroParticleNetwork })), {
   ssr: false,
@@ -27,28 +19,21 @@ const FeaturesBackground = dynamic(() => import('@/components/three/FeaturesBack
   loading: () => null
 });
 
-const platforms = [
-  { name: 'Next.js', icon: SiNextdotjs }, { name: 'React', icon: SiReact },
-  { name: 'Vue.js', icon: SiVuedotjs }, { name: 'Builder.io', icon: HiCube },
-  { name: 'WordPress', icon: SiWordpress }, { name: 'Shopify', icon: SiShopify },
-  { name: 'BigCommerce', icon: SiBigcommerce }, { name: 'Sanity.io', icon: SiSanity },
-  { name: 'Figma', icon: SiFigma }, { name: 'AWS', icon: SiAmazon },
-  { name: 'Railway', icon: SiRailway }, { name: 'n8n', icon: SiN8N },
-  { name: 'Vercel', icon: SiVercel }, { name: 'iOS', icon: SiApple },
-  { name: 'Android', icon: SiAndroid }, { name: 'TypeScript', icon: SiTypescript },
-  { name: 'Node.js', icon: SiNodedotjs }, { name: 'Stripe', icon: SiStripe },
-  { name: 'PostgreSQL', icon: SiPostgresql }, { name: 'Google', icon: SiGoogle },
-  { name: 'Gmail', icon: SiGmail }, { name: 'LinkedIn', icon: SiLinkedin },
-  { name: 'HubSpot', icon: SiHubspot }, { name: 'Bullhorn', icon: HiCube },
-  { name: 'Apollo.io', icon: SiApollographql },
+const portalFeatures = [
+  { title: 'Website Builder', description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce', icon: 'language', href: '/solutions/websites', color: '#3b82f6' },
+  { title: 'Email Marketing', description: 'Campaigns, subscriber lists, automations, and engagement tracking', icon: 'email', href: '/solutions/email-marketing', color: '#8b5cf6' },
+  { title: 'Online Booking', description: 'Scheduling pages with calendar sync and automatic reminders', icon: 'calendar_month', href: '/solutions/booking', color: '#10b981' },
+  { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', icon: 'slideshow', href: '/solutions/pitch-decks', color: '#f59e0b' },
+  { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', icon: 'view_kanban', href: '/solutions/project-management', color: '#4f46e5' },
+  { title: 'CRM', description: 'Contacts, deals, proposals, and your full sales pipeline', icon: 'groups', href: '/solutions/crm', color: '#0ea5e9' },
+  { title: 'AI Chatbot', description: 'Trained on your content for 24/7 support and lead capture', icon: 'smart_toy', href: '/solutions/ai-chatbot', color: '#a855f7' },
+  { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime included', icon: 'cloud', href: '/solutions/hosting', color: '#64748b' },
 ];
 
-const services = [
-  { title: 'Design', description: 'User-centered UI/UX that converts visitors into customers', icon: 'palette', href: '/solutions/design', color: '#10b981' },
-  { title: 'Development', description: 'Custom web & mobile apps built to scale with your business', icon: 'code', href: '/solutions/development', color: '#3b82f6' },
-  { title: 'Growth', description: 'SEO, content strategy & analytics that drive measurable results', icon: 'trending_up', href: '/solutions/growth-marketing', color: '#f59e0b' },
-  { title: 'AI & Automation', description: 'Intelligent workflows that save hundreds of hours', icon: 'smart_toy', href: '/solutions/ai-automation', color: '#8b5cf6' },
-  { title: 'Partnership', description: 'Ongoing strategic support as your dedicated tech partner', icon: 'handshake', href: '/solutions/partnership', color: '#f97316' },
+const valuePillars = [
+  { title: 'One Dashboard', description: 'Website, email, CRM, booking, projects — everything in one login. No more juggling a dozen SaaS subscriptions.', icon: 'dashboard' },
+  { title: 'Built to Work Together', description: 'Every tool shares data. A new website lead flows into your CRM, triggers an email sequence, and books a call — automatically.', icon: 'sync_alt' },
+  { title: 'Agency-Backed Platform', description: 'Not just software. We design, build, and optimize alongside you. Get expert help whenever you need it.', icon: 'support_agent' },
 ];
 
 export function HomeClient() {
@@ -78,30 +63,29 @@ export function HomeClient() {
                 <div>
                   <FadeIn delay={0.1}>
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-                      <span className="material-icons text-primary text-sm">terminal</span>
-                      <span className="text-primary font-semibold text-sm">Web & Mobile Development Agency</span>
+                      <span className="material-icons text-primary text-sm">hub</span>
+                      <span className="text-primary font-semibold text-sm">All-in-One Business Platform</span>
                     </div>
                   </FadeIn>
                   <FadeIn delay={0.2}>
                     <h1 className="font-display text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-7xl font-bold mb-6 leading-[1.1]">
-                      We Build Software That{' '}
-                      <span className="text-primary">Grows Your Business</span>
+                      Everything Your Business Needs.{' '}
+                      <span className="text-primary">One Platform.</span>
                     </h1>
                   </FadeIn>
                   <FadeIn delay={0.3}>
                     <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                      From custom web apps to native mobile experiences, we partner with businesses
-                      to design, build, and scale the technology they need to thrive.
+                      Website, email marketing, CRM, booking, project management, AI chatbot, and more — all connected, all in one place. Built and backed by a full-service agency.
                     </p>
                   </FadeIn>
                   <FadeIn delay={0.4}>
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                       <Button href="/contact" size="lg" className="w-full sm:w-auto justify-center">
-                        Book a Free Consultation
+                        Start Free Consultation
                         <span className="material-icons text-lg ml-1">arrow_forward</span>
                       </Button>
                       <Button href="/solutions" variant="outline" size="lg" className="w-full sm:w-auto justify-center bg-background/80">
-                        Solutions
+                        See All Features
                       </Button>
                     </div>
                   </FadeIn>
@@ -117,39 +101,40 @@ export function HomeClient() {
         </div>
       </section>
 
-      {/* ─── SERVICES ─── */}
-      <section className="relative py-20 bg-dot-grid">
-        <div className="container mx-auto px-4">
+      {/* ─── PORTAL FEATURES GRID ─── */}
+      <section className="relative py-20 bg-dot-grid overflow-hidden">
+        <FeaturesBackground />
+        <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-6xl mx-auto">
             <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">// WHAT WE DO</p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold mb-12 text-center">
-                Five disciplines, one team.
+              <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">// THE PLATFORM</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-center">
+                Eight powerful tools. One login.
               </h2>
+              <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-12">
+                Stop paying for a dozen subscriptions that don't talk to each other. Everything you need is here.
+              </p>
             </FadeIn>
 
-            <div className="flex flex-wrap justify-center gap-5">
-              {services.map((service, index) => (
-                <SlideIn key={service.title} direction="up" delay={index * 0.06} className="w-full md:w-[calc(50%-10px)] lg:w-[calc(33.333%-14px)]">
-                  <Link href={service.href} className="group block h-full">
-                    <div
-                      className="relative h-full p-6 rounded-xl bg-background border border-border hover:shadow-lg transition-all duration-300 overflow-hidden"
-                    >
-                      {/* Colored top stripe */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {portalFeatures.map((feature, index) => (
+                <SlideIn key={feature.title} direction="up" delay={index * 0.04} className="h-full">
+                  <Link href={feature.href} className="group block h-full">
+                    <div className="relative h-full p-6 rounded-xl bg-background border border-border hover:shadow-lg transition-all duration-300 overflow-hidden">
                       <div
                         className="absolute top-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5"
-                        style={{ backgroundColor: service.color }}
+                        style={{ backgroundColor: feature.color }}
                       />
-                      <div className="flex flex-col items-center text-center gap-3 mt-2">
+                      <div className="flex flex-col gap-3 mt-2">
                         <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: `${service.color}15` }}
+                          className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${feature.color}15` }}
                         >
-                          <span className="material-icons text-2xl" style={{ color: service.color }}>{service.icon}</span>
+                          <span className="material-icons text-2xl" style={{ color: feature.color }}>{feature.icon}</span>
                         </div>
                         <div>
-                          <h3 className="font-heading font-bold text-lg mb-1 group-hover:text-primary transition-colors">{service.title}</h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">{service.description}</p>
+                          <h3 className="font-heading font-bold text-base mb-1 group-hover:text-primary transition-colors">{feature.title}</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
                         </div>
                       </div>
                     </div>
@@ -161,50 +146,45 @@ export function HomeClient() {
         </div>
       </section>
 
-      {/* ─── INTRO / MANIFESTO ─── */}
+      {/* ─── VALUE PROPOSITION ─── */}
       <section className="relative py-28 overflow-hidden">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-16 items-start">
-              {/* Left — large number + label */}
               <FadeIn>
                 <div className="lg:sticky lg:top-32">
-                  <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// OUR PHILOSOPHY</p>
+                  <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// WHY ONE PLATFORM</p>
                   <h2 className="font-display text-4xl md:text-5xl font-bold leading-tight">
-                    Your business is{' '}
-                    <span className="text-primary">one of a kind.</span>
+                    Stop duct-taping{' '}
+                    <span className="text-primary">your tech stack.</span>
                   </h2>
                   <div className="mt-6 w-16 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
                 </div>
               </FadeIn>
 
-              {/* Right — stacked content cards */}
               <div className="space-y-8">
-                <SlideIn direction="right" delay={0.1}>
-                  <div className="accent-stripe pl-8">
-                    <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
-                      Your business is a living, breathing organism — constantly evolving, adapting,
-                      and growing in ways that are entirely your own.
-                    </p>
-                  </div>
-                </SlideIn>
+                {valuePillars.map((pillar, i) => (
+                  <SlideIn key={pillar.title} direction="right" delay={(i + 1) * 0.1}>
+                    <div className="accent-stripe pl-8">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                          <span className="material-icons text-primary text-xl">{pillar.icon}</span>
+                        </div>
+                        <div>
+                          <h3 className="font-heading font-bold text-xl mb-2">{pillar.title}</h3>
+                          <p className="text-lg text-muted-foreground leading-relaxed">{pillar.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </SlideIn>
+                ))}
 
-                <SlideIn direction="right" delay={0.2}>
-                  <div className="accent-stripe pl-8">
-                    <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
-                      When the right tools, processes, and people come together, your business doesn&apos;t
-                      just survive — it <span className="text-foreground font-semibold">thrives</span>.
-                    </p>
-                  </div>
-                </SlideIn>
-
-                <SlideIn direction="right" delay={0.3}>
+                <SlideIn direction="right" delay={0.4}>
                   <div className="p-8 rounded-2xl bg-foreground text-background">
                     <p className="text-lg md:text-xl leading-relaxed">
-                      <span className="font-semibold" style={{ color: '#60a5fa' }}>Simpler Development</span> exists
-                      to help you cultivate that environment. We bring clarity to complexity, build
-                      systems that scale with your ambitions, and empower your team with technology
-                      that works as hard as you do.
+                      <span className="font-semibold" style={{ color: '#60a5fa' }}>Simpler Development</span> is
+                      the platform and the team behind it. We don't just hand you software — we
+                      design your site, set up your workflows, and grow with you as a strategic partner.
                     </p>
                     <div className="mt-6">
                       <Button href="/about" size="md" variant="outline" className="border-background/30 text-background hover:bg-background/10 hover:text-background">
@@ -220,48 +200,39 @@ export function HomeClient() {
         </div>
       </section>
 
-      {/* ─── TECHNOLOGIES ─── */}
-      <section className="relative pt-16 pb-60 overflow-hidden bg-muted/40">
-        <FeaturesBackground />
-
+      {/* ─── HOW IT WORKS ─── */}
+      <section className="section-dark py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-dot-grid opacity-5" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             <FadeIn>
               <div className="text-center mb-16">
-                <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider">// OUR STACK</p>
-                <h2 className="font-display text-4xl md:text-5xl font-bold mb-6">
-                  Technologies We Work With
+                <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">// HOW IT WORKS</p>
+                <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+                  From sign-up to launch in days, not months
                 </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  We pick the right tool for your project — not the trendiest one.
+                <p className="text-lg opacity-70 max-w-2xl mx-auto">
+                  We handle the heavy lifting so you can focus on your business
                 </p>
               </div>
             </FadeIn>
 
-            <div className="relative overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-muted/40 to-transparent z-10 pointer-events-none" />
-              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-muted/40 to-transparent z-10 pointer-events-none" />
-
-              <div className="flex gap-10 py-0 animate-marquee">
-                {platforms.map((platform, i) => {
-                  const Icon = platform.icon;
-                  return (
-                    <div key={`p1-${i}`} className="flex flex-col items-center justify-center px-6 py-5 rounded-lg min-w-[140px]">
-                      <Icon className="text-5xl mb-2 opacity-60" />
-                      <span className="text-sm font-medium whitespace-nowrap text-muted-foreground">{platform.name}</span>
-                    </div>
-                  );
-                })}
-                {platforms.map((platform, i) => {
-                  const Icon = platform.icon;
-                  return (
-                    <div key={`p2-${i}`} className="flex flex-col items-center justify-center px-6 py-5 rounded-lg min-w-[140px]">
-                      <Icon className="text-5xl mb-2 opacity-60" />
-                      <span className="text-sm font-medium whitespace-nowrap text-muted-foreground">{platform.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden">
+              {[
+                { step: '01', title: 'Consult', description: 'Tell us about your business and what you need. We listen, ask questions, and map out the right tools.', icon: 'forum' },
+                { step: '02', title: 'Configure', description: 'We set up your portal — website, email, CRM, booking — customized to your brand and workflow.', icon: 'tune' },
+                { step: '03', title: 'Launch', description: 'Go live with a fully integrated platform. Your tools are connected, your data flows, and everything works.', icon: 'rocket_launch' },
+                { step: '04', title: 'Grow', description: 'Add features, run campaigns, track results. We are here as your ongoing partner to help you scale.', icon: 'trending_up' },
+              ].map((item, i) => (
+                <SlideIn key={item.step} direction="up" delay={i * 0.1}>
+                  <div className="p-8 bg-foreground text-background h-full">
+                    <span className="material-icons text-3xl mb-4 block" style={{ color: '#60a5fa' }}>{item.icon}</span>
+                    <div className="font-mono text-xs font-bold mb-2" style={{ color: '#60a5fa' }}>{item.step}</div>
+                    <h3 className="font-heading text-xl font-bold mb-2">{item.title}</h3>
+                    <p className="text-sm opacity-60">{item.description}</p>
+                  </div>
+                </SlideIn>
+              ))}
             </div>
           </div>
         </div>
@@ -294,7 +265,6 @@ export function HomeClient() {
                     <SlideIn key={post.id} direction="up" delay={index * 0.1}>
                       <Link href={`/blog/${post.slug}`} className="group block h-full">
                         <article className="h-full rounded-xl border border-border bg-background overflow-hidden transition-all hover:shadow-lg hover:border-primary/30">
-                          {/* Cover image with category overlay */}
                           <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                             {post.coverImage ? (
                               <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -349,23 +319,21 @@ export function HomeClient() {
       {/* ─── CTA ─── */}
       <section className="section-dark py-28 relative overflow-hidden">
         <div className="absolute inset-0 bg-dot-grid opacity-[0.04]" />
-        {/* Accent glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
 
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-16 items-center">
-              {/* Left — text */}
               <div>
                 <FadeIn>
-                  <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-40 dark:opacity-70">// LET&apos;S TALK</p>
+                  <p className="font-mono text-sm font-semibold mb-4 tracking-wider opacity-40 dark:opacity-70">// GET STARTED</p>
                   <h2 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-                    Have a project in mind?<br />
-                    <span style={{ color: '#60a5fa' }}>Let&apos;s make it real.</span>
+                    Ready to simplify<br />
+                    <span style={{ color: '#60a5fa' }}>your business?</span>
                   </h2>
                   <p className="text-lg md:text-xl mb-10 max-w-xl opacity-60 dark:opacity-85 leading-relaxed">
-                    Tell us what you&apos;re building. We&apos;ll respond within 24 hours
-                    with a plan and honest estimate — no strings attached.
+                    Book a free consultation and we'll show you how the platform
+                    works for your specific business. No commitment, no pressure.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <a
@@ -379,35 +347,34 @@ export function HomeClient() {
                       href="/solutions"
                       className="inline-flex items-center justify-center gap-2 rounded-lg px-8 py-4 text-lg font-medium bg-transparent text-white border-2 border-white hover:bg-white/10 dark:text-black dark:border-black dark:hover:bg-black/10 transition-colors"
                     >
-                      Explore Solutions
+                      Explore Features
                     </a>
                   </div>
                 </FadeIn>
               </div>
 
-              {/* Right — quick info cards */}
               <FadeIn delay={0.2}>
                 <div className="hidden lg:flex flex-col gap-4 w-[280px]">
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="material-icons text-2xl" style={{ color: '#60a5fa' }}>schedule</span>
-                      <span className="font-heading font-bold">Quick Turnaround</span>
+                      <span className="material-icons text-2xl" style={{ color: '#60a5fa' }}>flash_on</span>
+                      <span className="font-heading font-bold">Launch in Days</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">Most projects kick off within a week of our first conversation.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">Most clients go live within a week of their first call.</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="material-icons text-2xl" style={{ color: '#34d399' }}>handshake</span>
-                      <span className="font-heading font-bold">Transparent Process</span>
+                      <span className="material-icons text-2xl" style={{ color: '#34d399' }}>savings</span>
+                      <span className="font-heading font-bold">Replace 5+ Tools</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">Clear milestones, honest pricing, and no surprises along the way.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">One platform, one bill. No more Mailchimp + Calendly + Squarespace + HubSpot.</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 dark:border-black/15 dark:bg-black/5 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="material-icons text-2xl" style={{ color: '#fbbf24' }}>verified</span>
-                      <span className="font-heading font-bold">16+ Years of Experience</span>
+                      <span className="material-icons text-2xl" style={{ color: '#fbbf24' }}>support_agent</span>
+                      <span className="font-heading font-bold">Agency Support</span>
                     </div>
-                    <p className="text-sm opacity-50 dark:opacity-75">Deep expertise across web, mobile, and automation — built over a decade and a half.</p>
+                    <p className="text-sm opacity-50 dark:opacity-75">Not just software — a team of designers and developers in your corner.</p>
                   </div>
                 </div>
               </FadeIn>

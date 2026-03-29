@@ -20,6 +20,17 @@
   --destructive-foreground: #ffffff;
 }
 
+.nav-logo-icon {
+  height: 3.5rem;
+  width: 3.5rem;
+  margin-right: -0.5rem;
+  transition: filter 300ms;
+}
+
+.dark .nav-logo-icon {
+  filter: invert(1);
+}
+
 .dark {
   --background: #18181b;
   --foreground: #ededed;
