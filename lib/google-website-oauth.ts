@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/webmasters',
   'https://www.googleapis.com/auth/analytics.edit',
+  'https://www.googleapis.com/auth/analytics.readonly',
 ];
 
 export function createOAuth2Client(redirectUri: string) {

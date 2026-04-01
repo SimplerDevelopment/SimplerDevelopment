@@ -54,12 +54,12 @@ export default async function ClientSitePage({ params }: PageProps) {
 
     // Custom layout sites: render blocks full-width with no wrapper
     if (site.customLayout) {
-      return <BlockRenderer content={homePage.content} />;
+      return <BlockRenderer content={homePage.content} siteId={site.id} />;
     }
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BlockRenderer content={homePage.content} />
+        <BlockRenderer content={homePage.content} siteId={site.id} />
       </div>
     );
   }
@@ -117,7 +117,7 @@ export default async function ClientSitePage({ params }: PageProps) {
             </time>
           )}
         </header>
-        <BlockRenderer content={post.content} />
+        <BlockRenderer content={post.content} siteId={site.id} />
       </article>
     );
   }
@@ -134,7 +134,7 @@ export default async function ClientSitePage({ params }: PageProps) {
       {page.postType === 'page' && (
         <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
       )}
-      <BlockRenderer content={page.content} />
+      <BlockRenderer content={page.content} siteId={site.id} />
     </div>
   );
 }

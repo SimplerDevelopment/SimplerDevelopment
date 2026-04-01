@@ -313,6 +313,7 @@ export function HeroVisual() {
         transition={{ duration: 0.5, delay: 1.8 }}
         style={{ x: mouseShallow.x, y: mouseShallow.y }}
         className="absolute bottom-16 left-0 md:left-4 z-20 hidden md:block"
+        suppressHydrationWarning
       >
         <motion.div animate={float(2, 5.5, 5)}>
           <LoopingNotifications />

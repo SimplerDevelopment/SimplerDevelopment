@@ -8,7 +8,6 @@ import { getPortalClient } from '@/lib/portal-client';
 import ProvisioningStatus from '@/components/portal/ProvisioningStatus';
 import DeploymentList from '@/components/portal/DeploymentList';
 import GitHubConnectButton from '@/components/portal/GitHubConnectButton';
-import WebsiteAutomationSettings from '@/components/portal/WebsiteAutomationSettings';
 import CustomDomainForm from '@/components/portal/CustomDomainForm';
 import WebsiteSettingsForm from '@/components/portal/WebsiteSettingsForm';
 import DeleteWebsiteButton from '@/components/portal/DeleteWebsiteButton';
@@ -111,11 +110,21 @@ export default async function WebsiteSettingsPage({
         </>
       )}
 
-      {/* Automations */}
+      {/* Automations & Notifications link */}
       {site.deploymentStatus === 'active' && (
-        <div className="bg-card border border-border rounded-xl p-6">
-          <WebsiteAutomationSettings />
-        </div>
+        <Link
+          href={`/portal/websites/${site.id}/automations`}
+          className="flex items-center justify-between bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-muted-foreground text-lg group-hover:text-primary transition-colors">bolt</span>
+            <div>
+              <h3 className="font-semibold text-sm text-foreground">Automations & Notifications</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Configure automated workflows and event alerts</p>
+            </div>
+          </div>
+          <span className="material-icons text-muted-foreground text-base group-hover:text-foreground transition-colors">chevron_right</span>
+        </Link>
       )}
 
       {/* Danger Zone */}

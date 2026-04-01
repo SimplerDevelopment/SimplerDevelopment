@@ -32,13 +32,19 @@ import { PalizziMenuBlockRender } from './PalizziMenuBlockRender';
 import { PalizziRulesBlockRender } from './PalizziRulesBlockRender';
 import { PalizziMembershipBlockRender } from './PalizziMembershipBlockRender';
 import { PalizziFooterBlockRender } from './PalizziFooterBlockRender';
+import { ProductGridBlockRender } from './ProductGridBlockRender';
+import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
+import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
+import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
+import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface BlockRendererProps {
   content: string;
+  siteId?: number;
 }
 
-export function BlockRenderer({ content }: BlockRendererProps) {
+export function BlockRenderer({ content, siteId }: BlockRendererProps) {
   // Parse content as BlockEditorData
   let blocks: Block[] = [];
 
@@ -66,7 +72,7 @@ export function BlockRenderer({ content }: BlockRendererProps) {
       {blocks.map((block) => (
         <div key={block.id} className={hasCustomLayout ? '' : 'block-wrapper'}>
           <BlockStyleWrapper block={block}>
-            {renderBlock(block)}
+            {renderBlock(block, siteId)}
           </BlockStyleWrapper>
         </div>
       ))}
@@ -74,7 +80,7 @@ export function BlockRenderer({ content }: BlockRendererProps) {
   );
 }
 
-function renderBlock(block: Block) {
+function renderBlock(block: Block, siteId?: number) {
   switch (block.type) {
     case 'text':
       return <TextBlockRender block={block} />;
@@ -138,6 +144,16 @@ function renderBlock(block: Block) {
       return <PalizziMembershipBlockRender block={block} />;
     case 'palizzi-footer':
       return <PalizziFooterBlockRender block={block} />;
+    case 'product-grid':
+      return <ProductGridBlockRender block={block} siteId={siteId} />;
+    case 'featured-products':
+      return <FeaturedProductsBlockRender block={block} siteId={siteId} />;
+    case 'product-categories':
+      return <ProductCategoriesBlockRender block={block} siteId={siteId} />;
+    case 'shopping-cart':
+      return <ShoppingCartBlockRender block={block} siteId={siteId} />;
+    case 'store-banner':
+      return <StoreBannerBlockRender block={block} />;
     default:
       return null;
   }

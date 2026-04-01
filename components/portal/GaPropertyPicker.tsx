@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import GaAnalyticsDashboard from './GaAnalyticsDashboard';
 
 interface GaProperty {
   name: string;
@@ -31,6 +32,7 @@ export default function GaPropertyPicker({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showDashboard, setShowDashboard] = useState(true);
 
   useEffect(() => {
     if (currentPropertyId) {
@@ -99,31 +101,43 @@ export default function GaPropertyPicker({
     }
   };
 
+  // ─── Connected state: show dashboard ─────────────────────────────────────
   if (currentPropertyId) {
     return (
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="material-icons text-green-600 text-base">check_circle</span>
-          <div>
-            <span className="text-sm text-foreground">{currentPropertyId}</span>
-            {currentMeasurementId && (
-              <span className="ml-2 text-xs text-muted-foreground font-mono">
-                {currentMeasurementId}
-              </span>
-            )}
-          </div>
+      <div className="space-y-4">
+        {/* Toggle + disconnect controls */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShowDashboard(!showDashboard)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="material-icons text-xs">
+              {showDashboard ? 'expand_less' : 'expand_more'}
+            </span>
+            {showDashboard ? 'Collapse' : 'Show analytics'}
+          </button>
+          <button
+            onClick={handleDisconnect}
+            disabled={saving}
+            className="text-xs text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50"
+          >
+            Disconnect
+          </button>
         </div>
-        <button
-          onClick={handleDisconnect}
-          disabled={saving}
-          className="text-xs text-muted-foreground hover:text-red-600 transition-colors"
-        >
-          Disconnect
-        </button>
+
+        {/* Analytics dashboard */}
+        {showDashboard && (
+          <GaAnalyticsDashboard
+            siteId={siteId}
+            propertyId={currentPropertyId}
+            measurementId={currentMeasurementId}
+          />
+        )}
       </div>
     );
   }
 
+  // ─── Not connected: property picker ──────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">

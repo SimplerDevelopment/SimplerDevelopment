@@ -27,6 +27,11 @@ import { TabsBlockPreview } from './TabsBlockPreview';
 import { ColumnsBlockPreview } from './ColumnsBlockPreview';
 import { SectionBlockPreview } from './SectionBlockPreview';
 import { GalleryBlockPreview } from './GalleryBlockPreview';
+import { ProductGridBlockPreview } from './ProductGridBlockPreview';
+import { FeaturedProductsBlockPreview } from './FeaturedProductsBlockPreview';
+import { ProductCategoriesBlockPreview } from './ProductCategoriesBlockPreview';
+import { ShoppingCartBlockPreview } from './ShoppingCartBlockPreview';
+import { StoreBannerBlockPreview } from './StoreBannerBlockPreview';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -161,6 +166,16 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <SectionBlockPreview block={block} isSelected={isSelected} onChange={onChange} selectedBlockId={selectedBlockId} onSelectBlock={onSelectBlock} />;
     case 'gallery':
       return <GalleryBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'product-grid':
+      return <ProductGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'featured-products':
+      return <FeaturedProductsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'product-categories':
+      return <ProductCategoriesBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'shopping-cart':
+      return <ShoppingCartBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'store-banner':
+      return <StoreBannerBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

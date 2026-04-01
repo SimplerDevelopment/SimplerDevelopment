@@ -4,7 +4,8 @@ import { useState } from 'react';
 
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
-  | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider';
+  | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider'
+  | 'page_break';
 
 export interface SurveyField {
   id: string;
@@ -19,7 +20,9 @@ export interface SurveyField {
   step?: number;
   showIf?: { fieldId: string; values: string[] };
   conditionalOptions?: { fieldId: string; map: Record<string, string[]>; default?: string[] };
+  goToPage?: Record<string, number>;
   order: number;
+  page?: number;
 }
 
 interface Props {
@@ -42,6 +45,7 @@ const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
   { type: 'rating',   label: 'Star Rating (1–5)', icon: 'star' },
   { type: 'slider',   label: 'Range Slider',      icon: 'tune' },
   { type: 'heading',  label: 'Section Heading',   icon: 'title' },
+  { type: 'page_break', label: 'Page Break',      icon: 'insert_page_break' },
 ];
 
 const TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.type, t]));
@@ -49,7 +53,8 @@ const TYPE_MAP = Object.fromEntries(FIELD_TYPES.map(t => [t.type, t]));
 const hasOptions    = (t: FieldType) => t === 'select' || t === 'radio' || t === 'checkbox';
 const hasPlaceholder = (t: FieldType) =>
   ['text', 'textarea', 'number', 'email', 'phone', 'url', 'date'].includes(t);
-const hasRequired   = (t: FieldType) => t !== 'heading';
+const hasRequired   = (t: FieldType) => t !== 'heading' && t !== 'page_break';
+const hasBranching  = (t: FieldType) => t === 'select' || t === 'radio';
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
@@ -153,6 +158,36 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
           {fields.map((field, idx) => {
             const meta = TYPE_MAP[field.type];
             const isOpen = expandedId === field.id;
+
+            // Page break rendered as a visual divider
+            if (field.type === 'page_break') {
+              const pageNum = fields.slice(0, idx).filter(f => f.type === 'page_break').length + 2;
+              return (
+                <div key={field.id} className="flex items-center gap-3 py-2">
+                  <div className="flex-1 border-t-2 border-dashed border-primary/30" />
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+                    <span className="material-icons text-sm text-primary">insert_page_break</span>
+                    <span className="text-xs font-medium text-primary">Page {pageNum}</span>
+                  </div>
+                  <div className="flex-1 border-t-2 border-dashed border-primary/30" />
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" onClick={() => moveField(field.id, -1)} disabled={idx === 0}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30" title="Move up">
+                      <span className="material-icons text-sm">arrow_upward</span>
+                    </button>
+                    <button type="button" onClick={() => moveField(field.id, 1)} disabled={idx === fields.length - 1}
+                      className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-30" title="Move down">
+                      <span className="material-icons text-sm">arrow_downward</span>
+                    </button>
+                    <button type="button" onClick={() => deleteField(field.id)}
+                      className="p-1 rounded text-muted-foreground hover:text-destructive" title="Delete">
+                      <span className="material-icons text-sm">delete_outline</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={field.id} className="border border-border rounded-xl bg-card overflow-hidden">
                 {/* Collapsed header */}
@@ -310,6 +345,43 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                         <span className="text-xs text-foreground">Required field</span>
                       </div>
                     )}
+
+                    {/* Logic branching (select/radio only) */}
+                    {hasBranching(field.type) && field.options.length > 0 && (() => {
+                      const pageBreaks = fields.filter(f => f.type === 'page_break');
+                      if (pageBreaks.length === 0) return null;
+                      const pageCount = pageBreaks.length + 1;
+                      return (
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-medium text-foreground mb-1">
+                            Skip Logic <span className="text-muted-foreground">(jump to page based on answer)</span>
+                          </label>
+                          <div className="space-y-1.5">
+                            {field.options.filter(o => o.trim()).map(opt => (
+                              <div key={opt} className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground min-w-0 truncate flex-1">{opt}</span>
+                                <span className="text-muted-foreground shrink-0">→</span>
+                                <select
+                                  value={field.goToPage?.[opt] ?? ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    const next = { ...(field.goToPage || {}) };
+                                    if (val === '') delete next[opt]; else next[opt] = Number(val);
+                                    updateField(field.id, { goToPage: Object.keys(next).length ? next : undefined });
+                                  }}
+                                  className="px-2 py-1 rounded border border-border bg-background text-xs w-28"
+                                >
+                                  <option value="">Next page</option>
+                                  {Array.from({ length: pageCount }, (_, i) => (
+                                    <option key={i} value={i}>Page {i + 1}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Done */}
                     <div className="sm:col-span-2 flex justify-end">

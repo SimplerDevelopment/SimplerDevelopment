@@ -2,8 +2,10 @@
 
 import { Navigation } from '@/components/ui/Navigation';
 import { Footer } from '@/components/ui/Footer';
-import { ReactNode } from 'react';
+import { ReactNode, lazy, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
+
+const SelfDestruct = lazy(() => import('@/components/easter-eggs/SelfDestruct'));
 
 export function LayoutContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -21,6 +23,9 @@ export function LayoutContent({ children }: { children: ReactNode }) {
       <Navigation />
       <main className="flex-1">{children}</main>
       <Footer />
+      <Suspense fallback={null}>
+        <SelfDestruct />
+      </Suspense>
     </>
   );
 }

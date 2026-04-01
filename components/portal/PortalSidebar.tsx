@@ -74,6 +74,7 @@ const cmsNavItems = (siteId: string): CmsNavItem[] => [
   { href: `/portal/websites/${siteId}/navigation`, label: 'Navigation', icon: 'menu' },
   { href: `/portal/websites/${siteId}/branding`, label: 'Branding', icon: 'palette' },
   { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: true },
+  { href: `/portal/websites/${siteId}/automations`, label: 'Automations', icon: 'bolt' },
   { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings' },
 ];
 

@@ -22,6 +22,11 @@ import {
   Layers,
   SquareDashedBottom,
   GalleryHorizontalEnd,
+  ShoppingBag,
+  Star,
+  Tags,
+  ShoppingCart,
+  BadgePercent,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -61,6 +66,13 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'featured-content': Layers,
   gallery: GalleryHorizontalEnd,
 
+  // eCommerce blocks
+  'product-grid': ShoppingBag,
+  'featured-products': Star,
+  'product-categories': Tags,
+  'shopping-cart': ShoppingCart,
+  'store-banner': BadgePercent,
+
   // Palizzi custom blocks
   'palizzi-nav': Layers,
   'palizzi-hero': Target,
@@ -95,7 +107,7 @@ export interface BlockTypeMetadata {
   type: BlockType;
   label: string;
   icon: LucideIcon;
-  category: 'Basic' | 'Media' | 'Layout' | 'Components';
+  category: 'Basic' | 'Media' | 'Layout' | 'Components' | 'eCommerce';
 }
 
 /**
@@ -131,6 +143,13 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'blog-posts', label: 'Blog Posts', icon: Newspaper, category: 'Components' },
   { type: 'featured-content', label: 'Featured Content', icon: Layers, category: 'Components' },
   { type: 'gallery', label: 'Gallery', icon: GalleryHorizontalEnd, category: 'Media' },
+
+  // eCommerce
+  { type: 'product-grid', label: 'Product Grid', icon: ShoppingBag, category: 'eCommerce' },
+  { type: 'featured-products', label: 'Featured Products', icon: Star, category: 'eCommerce' },
+  { type: 'product-categories', label: 'Product Categories', icon: Tags, category: 'eCommerce' },
+  { type: 'shopping-cart', label: 'Shopping Cart', icon: ShoppingCart, category: 'eCommerce' },
+  { type: 'store-banner', label: 'Store Banner', icon: BadgePercent, category: 'eCommerce' },
 ];
 
 /**

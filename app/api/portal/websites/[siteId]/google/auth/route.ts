@@ -31,7 +31,8 @@ export async function GET(
 
   const headersList = await headers();
   const host = headersList.get('host') || 'localhost:3000';
-  const protocol = headersList.get('x-forwarded-proto') || 'https';
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const protocol = isLocalhost ? 'http' : (headersList.get('x-forwarded-proto') || 'https');
   const origin = `${protocol}://${host}`;
   const redirectUri = `${origin}/api/portal/google/callback`;
 

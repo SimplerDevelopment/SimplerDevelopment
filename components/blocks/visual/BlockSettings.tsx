@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
@@ -115,6 +115,16 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <SectionBlockSettings block={block as SectionBlock} onChange={onChange} />;
             case 'gallery':
               return <GalleryBlockSettings block={block as GalleryBlock} onChange={onChange} />;
+            case 'product-grid':
+              return <ProductGridBlockSettings block={block as ProductGridBlock} onChange={onChange} />;
+            case 'featured-products':
+              return <FeaturedProductsBlockSettings block={block as FeaturedProductsBlock} onChange={onChange} />;
+            case 'product-categories':
+              return <ProductCategoriesBlockSettings block={block as ProductCategoriesBlock} onChange={onChange} />;
+            case 'shopping-cart':
+              return <ShoppingCartBlockSettings block={block as ShoppingCartBlock} onChange={onChange} />;
+            case 'store-banner':
+              return <StoreBannerBlockSettings block={block as StoreBannerBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -1468,6 +1478,356 @@ function GalleryBlockSettings({ block, onChange }: { block: GalleryBlock; onChan
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// eCommerce Block Settings
+// ============================================================================
+
+function ProductGridBlockSettings({ block, onChange }: { block: ProductGridBlock; onChange: (updates: Partial<ProductGridBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Category Filter</label>
+        <input
+          type="text"
+          value={block.categorySlug || ''}
+          onChange={(e) => onChange({ categorySlug: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Leave empty for all products"
+        />
+        <p className="text-xs text-muted-foreground mt-1">Category slug to filter by</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Sort By</label>
+        <select
+          value={block.sort || 'newest'}
+          onChange={(e) => onChange({ sort: e.target.value as ProductGridBlock['sort'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="newest">Newest</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="featured">Featured</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Number of Products</label>
+        <input
+          type="number"
+          value={block.limit || 6}
+          onChange={(e) => onChange({ limit: parseInt(e.target.value) })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          min="1"
+          max="24"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 3}
+          onChange={(e) => onChange({ columns: parseInt(e.target.value) as ProductGridBlock['columns'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="2">2 Columns</option>
+          <option value="3">3 Columns</option>
+          <option value="4">4 Columns</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Button Text</label>
+        <input
+          type="text"
+          value={block.buttonText || ''}
+          onChange={(e) => onChange({ buttonText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. Add to Cart"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <input type="checkbox" id="pgShowPrice" checked={block.showPrice !== false} onChange={(e) => onChange({ showPrice: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pgShowPrice" className="ml-2 text-sm text-foreground">Show Price</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pgShowDesc" checked={block.showDescription === true} onChange={(e) => onChange({ showDescription: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pgShowDesc" className="ml-2 text-sm text-foreground">Show Description</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pgShowCat" checked={block.showCategory === true} onChange={(e) => onChange({ showCategory: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pgShowCat" className="ml-2 text-sm text-foreground">Show Category</label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturedProductsBlockSettings({ block, onChange }: { block: FeaturedProductsBlock; onChange: (updates: Partial<FeaturedProductsBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Number of Products</label>
+        <input
+          type="number"
+          value={block.limit || 4}
+          onChange={(e) => onChange({ limit: parseInt(e.target.value) })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          min="1"
+          max="12"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 4}
+          onChange={(e) => onChange({ columns: parseInt(e.target.value) as FeaturedProductsBlock['columns'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="2">2 Columns</option>
+          <option value="3">3 Columns</option>
+          <option value="4">4 Columns</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Badge Text</label>
+        <input
+          type="text"
+          value={block.badgeText || ''}
+          onChange={(e) => onChange({ badgeText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Featured"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Button Text</label>
+        <input
+          type="text"
+          value={block.buttonText || ''}
+          onChange={(e) => onChange({ buttonText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. Shop Now"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <input type="checkbox" id="fpShowPrice" checked={block.showPrice !== false} onChange={(e) => onChange({ showPrice: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="fpShowPrice" className="ml-2 text-sm text-foreground">Show Price</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="fpShowBadge" checked={block.showBadge !== false} onChange={(e) => onChange({ showBadge: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="fpShowBadge" className="ml-2 text-sm text-foreground">Show Badge</label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductCategoriesBlockSettings({ block, onChange }: { block: ProductCategoriesBlock; onChange: (updates: Partial<ProductCategoriesBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
+        <select
+          value={block.layout || 'grid'}
+          onChange={(e) => onChange({ layout: e.target.value as ProductCategoriesBlock['layout'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="grid">Grid</option>
+          <option value="list">List</option>
+        </select>
+      </div>
+
+      {block.layout !== 'list' && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+          <select
+            value={block.columns || 3}
+            onChange={(e) => onChange({ columns: parseInt(e.target.value) as ProductCategoriesBlock['columns'] })}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          >
+            <option value="2">2 Columns</option>
+            <option value="3">3 Columns</option>
+            <option value="4">4 Columns</option>
+          </select>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <input type="checkbox" id="pcShowCount" checked={block.showProductCount !== false} onChange={(e) => onChange({ showProductCount: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pcShowCount" className="ml-2 text-sm text-foreground">Show Product Count</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pcShowImage" checked={block.showImage !== false} onChange={(e) => onChange({ showImage: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pcShowImage" className="ml-2 text-sm text-foreground">Show Image</label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShoppingCartBlockSettings({ block, onChange }: { block: ShoppingCartBlock; onChange: (updates: Partial<ShoppingCartBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Cart Style</label>
+        <select
+          value={block.variant || 'full'}
+          onChange={(e) => onChange({ variant: e.target.value as ShoppingCartBlock['variant'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="full">Full Cart</option>
+          <option value="mini">Mini Cart</option>
+          <option value="icon-only">Icon Only</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Checkout Button Text</label>
+        <input
+          type="text"
+          value={block.checkoutButtonText || ''}
+          onChange={(e) => onChange({ checkoutButtonText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Proceed to Checkout"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Empty Cart Message</label>
+        <input
+          type="text"
+          value={block.emptyCartMessage || ''}
+          onChange={(e) => onChange({ emptyCartMessage: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Your cart is empty"
+        />
+      </div>
+
+      <div className="flex items-center">
+        <input type="checkbox" id="scShowSubtotal" checked={block.showSubtotal !== false} onChange={(e) => onChange({ showSubtotal: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="scShowSubtotal" className="ml-2 text-sm text-foreground">Show Subtotal</label>
+      </div>
+    </div>
+  );
+}
+
+function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock; onChange: (updates: Partial<StoreBannerBlock>) => void }) {
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Discount Code</label>
+        <input
+          type="text"
+          value={block.discountCode || ''}
+          onChange={(e) => onChange({ discountCode: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
+          placeholder="e.g. SAVE20"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Button Text</label>
+        <input
+          type="text"
+          value={block.buttonText || ''}
+          onChange={(e) => onChange({ buttonText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Shop Now"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Button URL</label>
+        <input
+          type="text"
+          value={block.buttonUrl || ''}
+          onChange={(e) => onChange({ buttonUrl: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="/shop"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Background Style</label>
+        <select
+          value={block.backgroundStyle || 'gradient'}
+          onChange={(e) => onChange({ backgroundStyle: e.target.value as StoreBannerBlock['backgroundStyle'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="gradient">Gradient</option>
+          <option value="solid">Solid</option>
+          <option value="image">Image</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Accent Color</label>
+        <div className="flex gap-2">
+          <input
+            type="color"
+            value={block.accentColor || '#6366f1'}
+            onChange={(e) => onChange({ accentColor: e.target.value })}
+            className="w-10 h-10 rounded border border-border cursor-pointer"
+          />
+          <input
+            type="text"
+            value={block.accentColor || ''}
+            onChange={(e) => onChange({ accentColor: e.target.value })}
+            className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+            placeholder="#6366f1"
+          />
+        </div>
+      </div>
+
+      {block.backgroundStyle === 'image' && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Background Image</label>
+          {block.backgroundImage ? (
+            <div className="space-y-2">
+              <img src={block.backgroundImage} alt="Banner background" className="w-full h-24 object-cover rounded border border-border" />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowMediaPicker(true)} className="flex-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90">Change</button>
+                <button type="button" onClick={() => onChange({ backgroundImage: '' })} className="px-3 py-2 text-sm bg-background border border-border text-foreground rounded hover:bg-accent">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setShowMediaPicker(true)} className="w-full px-3 py-2 text-sm bg-background border border-border text-foreground rounded hover:bg-accent">
+              Choose Image
+            </button>
+          )}
+          {showMediaPicker && (
+            <MediaPicker
+              onSelect={(url: string) => { onChange({ backgroundImage: url }); setShowMediaPicker(false); }}
+              onClose={() => setShowMediaPicker(false)}
+            />
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Countdown End Date</label>
+        <input
+          type="datetime-local"
+          value={block.countdownDate || ''}
+          onChange={(e) => onChange({ countdownDate: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        />
+        <p className="text-xs text-muted-foreground mt-1">Optional: Shows a live countdown timer</p>
       </div>
     </div>
   );

@@ -10,7 +10,8 @@ import { headers } from 'next/headers';
 export async function GET(req: Request) {
   const headersList = await headers();
   const host = headersList.get('host') || 'localhost:3000';
-  const protocol = headersList.get('x-forwarded-proto') || 'https';
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const protocol = isLocalhost ? 'http' : (headersList.get('x-forwarded-proto') || 'https');
   const origin = `${protocol}://${host}`;
 
   const session = await auth();
@@ -51,7 +52,18 @@ export async function GET(req: Request) {
   try {
     const { tokens } = await oauth2Client.getToken(code);
 
+    console.error('[Google OAuth Callback] tokens received:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiryDate: tokens.expiry_date,
+      scope: tokens.scope,
+    });
+
     if (!tokens.access_token || !tokens.refresh_token) {
+      console.error('[Google OAuth Callback] Missing tokens:', {
+        accessToken: !!tokens.access_token,
+        refreshToken: !!tokens.refresh_token,
+      });
       return NextResponse.redirect(`${origin}/portal/websites/${websiteId}/settings?google=error`);
     }
 
@@ -84,7 +96,8 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.redirect(`${origin}/portal/websites/${websiteId}/settings?google=connected`);
-  } catch {
+  } catch (err) {
+    console.error('[Google OAuth Callback] Error:', err);
     return NextResponse.redirect(`${origin}/portal/websites/${websiteId}/settings?google=error`);
   }
 }
