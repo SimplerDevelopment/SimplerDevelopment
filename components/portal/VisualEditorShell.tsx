@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
+  closestCenter,
   pointerWithin,
   MouseSensor,
   TouchSensor,
   KeyboardSensor,
+  PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -17,8 +19,10 @@ import {
 import {
   arrayMove,
   SortableContext,
+  verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // No-op sorting strategy: items stay in place during drag, only reorder on drop
 const noMovementStrategy = () => null;
@@ -26,6 +30,8 @@ import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
 import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, insertBlockAfter, getAllBlocks } from '@/lib/utils/blockHelpers';
+import { IconPicker } from './IconPicker';
+import MediaPicker from '@/components/admin/MediaPicker';
 import type { Block, BlockType, BlockStyle, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
@@ -107,6 +113,8 @@ export function VisualEditorShell({
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -114,21 +122,76 @@ export function VisualEditorShell({
   const zoomOut = useCallback(() => setZoomLevel(z => Math.max(z - 10, 30)), []);
   const zoomReset = useCallback(() => setZoomLevel(100), []);
 
-  // Ctrl/Cmd + scroll to zoom on the canvas
+  // Scroll/trackpad: Ctrl+scroll = zoom, plain scroll = pan
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      setZoomLevel(z => {
-        const delta = e.deltaY > 0 ? -5 : 5;
-        return Math.min(200, Math.max(30, z + delta));
-      });
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom
+        e.preventDefault();
+        setZoomLevel(z => {
+          const delta = e.deltaY > 0 ? -5 : 5;
+          return Math.min(200, Math.max(30, z + delta));
+        });
+      } else {
+        // Pan
+        e.preventDefault();
+        setPanOffset(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+      }
     };
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
   }, []);
+
+  // Pan offset for moving around the canvas
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
+  const spaceDownRef = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) {
+        spaceDownRef.current = true;
+        if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        spaceDownRef.current = false;
+        if (canvasRef.current && !isPanning) canvasRef.current.style.cursor = '';
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isPanning]);
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if (spaceDownRef.current || e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY, startPanX: panOffset.x, startPanY: panOffset.y };
+      if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing';
+    }
+  }, [panOffset]);
+
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStartRef.current.x;
+    const dy = e.clientY - panStartRef.current.y;
+    setPanOffset({ x: panStartRef.current.startPanX + dx, y: panStartRef.current.startPanY + dy });
+  }, [isPanning]);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    if (!isPanning) return;
+    setIsPanning(false);
+    if (canvasRef.current) canvasRef.current.style.cursor = spaceDownRef.current ? 'grab' : '';
+  }, [isPanning]);
 
   // Track when a blocks change originated from the iframe to avoid echoing it back
   const iframeOriginatedRef = useRef(false);
@@ -239,6 +302,28 @@ export function VisualEditorShell({
       iframeOriginatedRef.current = true;
       handleUpdateBlock(blockId, { gap } as Partial<Block>);
     },
+    onBlockContentUpdated: (blockId: string, field: string, value: string) => {
+      iframeOriginatedRef.current = true;
+      if (field === '__add_array_item') {
+        // Add a new item to an array field (cards, stats, images, services, items, tabs)
+        const block = findBlockById(blocks, blockId);
+        if (!block) return;
+        const arrayField = value as string;
+        const existing = (block as unknown as Record<string, unknown[]>)[arrayField] as unknown[] || [];
+        const uid = `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const defaults: Record<string, unknown> = {
+          cards: { id: uid, title: 'New card', description: '' },
+          stats: { id: uid, value: '0', label: 'New stat' },
+          images: { id: uid, url: '', alt: '' },
+          services: { id: uid, title: 'New service', description: '' },
+          items: { id: uid, title: 'New item', content: '' },
+          tabs: { id: uid, label: 'New Tab', blocks: [] },
+        };
+        handleUpdateBlock(blockId, { [arrayField]: [...existing, defaults[arrayField] || { id: uid }] } as Partial<Block>);
+      } else {
+        handleUpdateBlock(blockId, { [field]: value } as Partial<Block>);
+      }
+    },
   });
 
   useEffect(() => {
@@ -337,7 +422,8 @@ export function VisualEditorShell({
   const selectedBlock = selectedBlockId ? findBlockById(blocks, selectedBlockId) : null;
   const selectedCustomManifest = selectedBlock ? customComponents.find((c) => c.type === selectedBlock.type) : null;
 
-  const viewportWidth = { desktop: '100%', tablet: '768px', mobile: '375px' }[viewport];
+  const viewportWidth = { desktop: '1440px', tablet: '768px', mobile: '375px' }[viewport];
+  const viewportHeight = { desktop: '810px', tablet: '900px', mobile: '900px' }[viewport];
   const currentViewport: Breakpoint = viewport === 'mobile' ? 'mobile' : viewport === 'tablet' ? 'tablet' : 'desktop';
 
   // Handle block updates (including nested)
@@ -470,7 +556,17 @@ export function VisualEditorShell({
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* ── Left Panel ── */}
       {!previewMode && (
-      <div className="w-60 flex-shrink-0 border-r border-border bg-muted flex flex-col overflow-hidden">
+      <div className={`${leftCollapsed ? 'w-10' : 'w-60'} flex-shrink-0 border-r border-border bg-muted flex flex-col overflow-hidden transition-all duration-200`}>
+        {leftCollapsed ? (
+          <button
+            onClick={() => setLeftCollapsed(false)}
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors border-b border-border"
+            title="Expand panel"
+          >
+            <span className="material-icons text-base">chevron_right</span>
+          </button>
+        ) : (
+        <>
         {/* Tab bar */}
         <div className="flex border-b border-border shrink-0">
           <button
@@ -588,6 +684,7 @@ export function VisualEditorShell({
                       selectedBlockId={selectedBlockId}
                       onSelect={selectBlock}
                       onDelete={onDeleteBlock}
+                      onUpdate={handleUpdateBlock}
                       showDropIndicator={!!draggedBlockId && layerOverId === block.id && draggedBlockId !== block.id}
                     />
                   ))}
@@ -605,21 +702,52 @@ export function VisualEditorShell({
             )}
           </div>
         )}
+        {/* Collapse button at bottom */}
+        <button
+          onClick={() => setLeftCollapsed(true)}
+          className="shrink-0 p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors text-center"
+          title="Collapse panel"
+        >
+          <span className="material-icons text-base">chevron_left</span>
+        </button>
+        </>
+        )}
       </div>
       )}
 
       {/* ── Center — iframe ── */}
       <div className="flex-1 flex flex-col bg-muted relative">
-        <div ref={canvasRef} className={`flex-1 flex items-start justify-center overflow-auto ${previewMode ? 'p-0' : 'p-4'}`}>
+        <div
+          ref={canvasRef}
+          className="flex-1 overflow-hidden relative"
+          style={{ background: 'radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={handleCanvasMouseUp}
+          onMouseLeave={handleCanvasMouseUp}
+        >
           <div
-            className={`bg-card overflow-hidden transition-all origin-top relative ${previewMode ? '' : 'shadow-lg rounded-lg'}`}
             style={{
-              width: viewportWidth,
-              maxWidth: '100%',
-              height: previewMode ? '100%' : `${10000 / zoomLevel}%`,
-              transform: previewMode ? undefined : `scale(${zoomLevel / 100})`,
+              position: 'absolute',
+              left: `${panOffset.x}px`,
+              top: `${panOffset.y}px`,
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              padding: '24px',
+              width: '100%',
             }}
           >
+            <div
+              className="overflow-hidden relative shadow-xl rounded-lg border border-border/50"
+              style={{
+                width: viewportWidth,
+                height: viewportHeight,
+                flexShrink: 0,
+                transform: `scale(${zoomLevel / 100})`,
+                transformOrigin: 'top center',
+              }}
+            >
             <iframe ref={iframeRef} src={iframeSrc} onLoad={handleIframeLoad} className="w-full h-full border-0" title="Visual Editor" />
             {/* Empty state overlay when all blocks have been deleted */}
             {blocks.length === 0 && !previewMode && (
@@ -667,11 +795,11 @@ export function VisualEditorShell({
               />
             )}
           </div>
+          </div>
         </div>
 
-        {/* Zoom controls */}
-        {!previewMode && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg">
+        {/* Zoom controls — shown in both preview and edit modes */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg z-10">
             <button type="button" onClick={zoomOut} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoomLevel <= 30} title="Zoom out">
               <span className="material-icons text-sm">remove</span>
             </button>
@@ -682,12 +810,21 @@ export function VisualEditorShell({
               <span className="material-icons text-sm">add</span>
             </button>
           </div>
-        )}
       </div>
 
       {/* ── Right Panel — Property Editor ── */}
       {!previewMode && (
-      <div className="w-80 flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
+      <div className={`${rightCollapsed ? 'w-10' : 'w-80'} flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden transition-all duration-200`}>
+        {rightCollapsed ? (
+          <button
+            onClick={() => setRightCollapsed(false)}
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors border-b border-border"
+            title="Expand panel"
+          >
+            <span className="material-icons text-base">chevron_left</span>
+          </button>
+        ) : (
+        <>
         {isMultiSelect ? (
           /* ── Multi-select bulk actions ── */
           <div className="flex flex-col h-full">
@@ -831,7 +968,7 @@ export function VisualEditorShell({
                   <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} />
                 )
               ) : (
-                <StyleSettings
+                <ElementStyleEditor
                   block={selectedBlock}
                   onChange={(updates) => handleUpdateBlock(selectedBlock.id, updates)}
                   currentViewport={currentViewport}
@@ -844,6 +981,16 @@ export function VisualEditorShell({
             <span className="material-icons text-3xl mb-2">touch_app</span>
             <p className="text-sm">Click a block to edit</p>
           </div>
+        )}
+        {/* Collapse button at bottom */}
+        <button
+          onClick={() => setRightCollapsed(true)}
+          className="shrink-0 p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors text-center"
+          title="Collapse panel"
+        >
+          <span className="material-icons text-base">chevron_right</span>
+        </button>
+        </>
         )}
       </div>
       )}
@@ -859,6 +1006,7 @@ function LayerItem({
   selectedBlockId,
   onSelect,
   onDelete,
+  onUpdate,
   showDropIndicator = false,
 }: {
   block: Block;
@@ -866,6 +1014,7 @@ function LayerItem({
   selectedBlockId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<Block>) => void;
   showDropIndicator?: boolean;
 }) {
   const sortable = useSortable({ id: block.id, transition: null });
@@ -873,6 +1022,8 @@ function LayerItem({
   const isSelected = selectedBlockId === block.id;
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
   const [expanded, setExpanded] = useState(true);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   // Get nested children
   const children: { label: string; blocks: Block[] }[] = [];
@@ -924,7 +1075,32 @@ function LayerItem({
         )}
 
         <span className="material-icons text-xs shrink-0">{icon}</span>
-        <span className="truncate flex-1">{previewText || block.type}</span>
+        {renaming ? (
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={() => {
+              if (renameValue.trim()) onUpdate(block.id, { label: renameValue.trim() } as Partial<Block>);
+              setRenaming(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { if (renameValue.trim()) onUpdate(block.id, { label: renameValue.trim() } as Partial<Block>); setRenaming(false); }
+              if (e.key === 'Escape') setRenaming(false);
+              e.stopPropagation();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 min-w-0 bg-background border border-primary rounded px-1 py-0 text-xs text-foreground outline-none"
+          />
+        ) : (
+          <span
+            className="truncate flex-1"
+            onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(block.label || previewText || block.type); setRenaming(true); }}
+            title="Double-click to rename"
+          >
+            {block.label || previewText || block.type}
+          </span>
+        )}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
@@ -940,7 +1116,7 @@ function LayerItem({
             {child.label}
           </div>
           {child.blocks.map((nested) => (
-            <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} onDelete={onDelete} />
+            <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} onSelect={onSelect} onDelete={onDelete} onUpdate={onUpdate} />
           ))}
           <ContainerDropZone containerId={block.id} slotIndex={ci} depth={depth + 1} />
         </div>
@@ -970,14 +1146,152 @@ function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: str
   );
 }
 
+// ─── Element Style Editor (sub-tabs for multi-element blocks) ────────────────
+
+const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
+  hero: [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'description', label: 'Description' },
+    { key: 'cta', label: 'CTA Button' },
+  ],
+  cta: [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'primaryButton', label: 'Primary Button' },
+    { key: 'secondaryButton', label: '2nd Button' },
+  ],
+  'card-grid': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'card', label: 'Cards' },
+    { key: 'cardTitle', label: 'Card Title' },
+    { key: 'cardDescription', label: 'Card Text' },
+  ],
+  stats: [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'statValue', label: 'Values' },
+    { key: 'statLabel', label: 'Labels' },
+  ],
+  testimonial: [
+    { key: '_block', label: 'Block' },
+    { key: 'quote', label: 'Quote' },
+    { key: 'author', label: 'Author' },
+    { key: 'role', label: 'Role' },
+  ],
+  'services-grid': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'card', label: 'Cards' },
+  ],
+  'featured-content': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'button', label: 'Button' },
+    { key: 'image', label: 'Image' },
+  ],
+  accordion: [
+    { key: '_block', label: 'Block' },
+    { key: 'itemTitle', label: 'Item Titles' },
+    { key: 'itemContent', label: 'Item Content' },
+  ],
+  quote: [
+    { key: '_block', label: 'Block' },
+    { key: 'quoteText', label: 'Quote' },
+    { key: 'author', label: 'Author' },
+  ],
+};
+
+function ElementStyleEditor({
+  block,
+  onChange,
+  currentViewport,
+}: {
+  block: Block;
+  onChange: (updates: Partial<Block>) => void;
+  currentViewport: Breakpoint;
+}) {
+  const elements = BLOCK_ELEMENTS[block.type];
+  const [activeElement, setActiveElement] = useState('_block');
+
+  // Single-element blocks — just show StyleSettings directly
+  if (!elements) {
+    return (
+      <StyleSettings
+        block={block}
+        onChange={onChange}
+        currentViewport={currentViewport}
+      />
+    );
+  }
+
+  const isBlockLevel = activeElement === '_block';
+
+  // Create a virtual block for element-level styling
+  const elementStyle = !isBlockLevel ? (block.elementStyles?.[activeElement] || {}) : undefined;
+
+  return (
+    <div className="space-y-3">
+      {/* Element sub-tabs */}
+      <div className="flex flex-wrap gap-1">
+        {elements.map((el) => (
+          <button
+            key={el.key}
+            type="button"
+            onClick={() => setActiveElement(el.key)}
+            className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+              activeElement === el.key
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+            }`}
+          >
+            {el.label}
+          </button>
+        ))}
+      </div>
+
+      {isBlockLevel ? (
+        <StyleSettings
+          block={block}
+          onChange={onChange}
+          currentViewport={currentViewport}
+        />
+      ) : (
+        <StyleSettings
+          block={{ ...block, style: (elementStyle || {}) as BlockStyle } as Block}
+          onChange={(updates) => {
+            // StyleSettings calls onChange with { style: { ...props } }
+            // Map that to elementStyles[activeElement]
+            if (updates.style) {
+              const newElementStyles = { ...(block.elementStyles || {}) };
+              newElementStyles[activeElement] = {
+                ...(newElementStyles[activeElement] || {}),
+                ...updates.style,
+              };
+              onChange({ elementStyles: newElementStyles } as Partial<Block>);
+            }
+          }}
+          currentViewport={currentViewport}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Block Content Editor ────────────────────────────────────────────────────
 
 function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (updates: Partial<Block>) => void }) {
   const b = block as unknown as Record<string, unknown>;
+  const uid = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   return (
     <div className="space-y-3">
-      {/* Content fields by block type */}
       {block.type === 'heading' && (
         <>
           <Field label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
@@ -994,10 +1308,11 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
       )}
       {block.type === 'image' && (
         <>
-          <Field label="Image URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
           <Field label="Alt Text" value={b.alt as string} onChange={(v) => onUpdate({ alt: v } as Partial<Block>)} />
           <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
           <SelectField label="Width" value={(b.width as string) || 'full'} options={['small','medium','large','full']} onChange={(v) => onUpdate({ width: v } as Partial<Block>)} />
+          <SelectField label="Alignment" value={(b.alignment as string) || 'center'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
         </>
       )}
       {block.type === 'button' && (
@@ -1006,6 +1321,8 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <Field label="URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
           <SelectField label="Variant" value={(b.variant as string) || 'primary'} options={['primary','secondary','outline']} onChange={(v) => onUpdate({ variant: v } as Partial<Block>)} />
           <SelectField label="Size" value={(b.size as string) || 'md'} options={['sm','md','lg']} onChange={(v) => onUpdate({ size: v } as Partial<Block>)} />
+          <SelectField label="Alignment" value={(b.alignment as string) || 'left'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
+          <CheckboxField label="Open in new tab" checked={b.openInNewTab as boolean} onChange={(v) => onUpdate({ openInNewTab: v } as Partial<Block>)} />
         </>
       )}
       {block.type === 'quote' && (
@@ -1027,10 +1344,18 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
       {block.type === 'divider' && (
         <SelectField label="Line Style" value={(b.lineStyle as string) || 'solid'} options={['solid','dashed','dotted']} onChange={(v) => onUpdate({ lineStyle: v } as Partial<Block>)} />
       )}
-      {(block.type === 'youtube' || block.type === 'video') && (
+      {block.type === 'youtube' && (
         <>
           <Field label="URL" value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
           <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
+        </>
+      )}
+      {block.type === 'video' && (
+        <>
+          <div><span className="text-xs font-medium text-muted-foreground">Video</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="video" label="" /></div>
+          <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
+          <CheckboxField label="Autoplay" checked={b.autoplay as boolean} onChange={(v) => onUpdate({ autoplay: v } as Partial<Block>)} />
+          <CheckboxField label="Show Controls" checked={b.controls as boolean ?? true} onChange={(v) => onUpdate({ controls: v } as Partial<Block>)} />
         </>
       )}
       {block.type === 'hero' && (
@@ -1040,7 +1365,10 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="CTA Text" value={b.ctaText as string} onChange={(v) => onUpdate({ ctaText: v } as Partial<Block>)} />
           <Field label="CTA Link" value={b.ctaLink as string} onChange={(v) => onUpdate({ ctaLink: v } as Partial<Block>)} />
-          <Field label="Background Image" value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} />
+          <Field label="2nd CTA Text" value={b.secondaryCtaText as string} onChange={(v) => onUpdate({ secondaryCtaText: v } as Partial<Block>)} />
+          <Field label="2nd CTA Link" value={b.secondaryCtaLink as string} onChange={(v) => onUpdate({ secondaryCtaLink: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Background Video</span><MediaPicker value={b.backgroundVideo as string} onChange={(v) => onUpdate({ backgroundVideo: v } as Partial<Block>)} mimeTypeFilter="video" label="" /></div>
         </>
       )}
       {block.type === 'cta' && (
@@ -1049,6 +1377,8 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.primaryButtonText as string} onChange={(v) => onUpdate({ primaryButtonText: v } as Partial<Block>)} />
           <Field label="Button URL" value={b.primaryButtonUrl as string} onChange={(v) => onUpdate({ primaryButtonUrl: v } as Partial<Block>)} />
+          <Field label="2nd Button Text" value={b.secondaryButtonText as string} onChange={(v) => onUpdate({ secondaryButtonText: v } as Partial<Block>)} />
+          <Field label="2nd Button URL" value={b.secondaryButtonUrl as string} onChange={(v) => onUpdate({ secondaryButtonUrl: v } as Partial<Block>)} />
           <SelectField label="Background" value={(b.backgroundStyle as string) || 'none'} options={['none','solid','gradient']} onChange={(v) => onUpdate({ backgroundStyle: v } as Partial<Block>)} />
         </>
       )}
@@ -1058,6 +1388,7 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
           <Field label="Role" value={b.role as string} onChange={(v) => onUpdate({ role: v } as Partial<Block>)} />
           <Field label="Company" value={b.company as string} onChange={(v) => onUpdate({ company: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Avatar</span><MediaPicker value={b.avatar as string} onChange={(v) => onUpdate({ avatar: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
         </>
       )}
       {block.type === 'columns' && (
@@ -1066,48 +1397,337 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
       {block.type === 'section' && (
         <>
           <Field label="Background Color" value={b.backgroundColor as string} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
           <Field label="Max Width" value={b.maxWidth as string} onChange={(v) => onUpdate({ maxWidth: v } as Partial<Block>)} />
-          <p className="text-xs text-muted-foreground">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
+          <Field label="Text Color" value={b.color as string} onChange={(v) => onUpdate({ color: v } as Partial<Block>)} />
+          <Field label="Font Family" value={b.fontFamily as string} onChange={(v) => onUpdate({ fontFamily: v } as Partial<Block>)} />
+          <SelectField label="HTML Tag" value={(b.htmlTag as string) || 'section'} options={['section','div','article','aside','header','footer']} onChange={(v) => onUpdate({ htmlTag: v } as Partial<Block>)} />
+          <p className="text-xs text-muted-foreground mt-2">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
         </>
       )}
+
+      {/* ── Stats Block — with item editor ── */}
       {block.type === 'stats' && (
         <>
           <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <ListEditor
+            label="Stats"
+            items={(block.stats || []).map(s => ({ id: s.id, fields: { value: s.value, label: s.label } }))}
+            fieldDefs={[{ name: 'value', label: 'Value', placeholder: '100+' }, { name: 'label', label: 'Label', placeholder: 'Clients' }]}
+            onAdd={() => onUpdate({ stats: [...(block.stats || []), { id: uid(), value: '0', label: 'New stat' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ stats: block.stats.filter(s => s.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ stats: block.stats.map(s => s.id === id ? { ...s, [field]: value } : s) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ stats: ids.map(id => block.stats.find(s => s.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
         </>
       )}
+
+      {/* ── Card Grid Block — with card editor ── */}
       {block.type === 'card-grid' && (
         <>
           <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <NumberField label="Icon Size (px)" value={Number(b.iconSize) || 24} onChange={(v) => onUpdate({ iconSize: String(v) } as Partial<Block>)} min={12} max={128} />
+          <ListEditor
+            label="Cards"
+            items={(block.cards || []).map(c => ({ id: c.id, fields: { title: c.title, description: c.description, icon: c.icon || '', image: c.image || '', link: c.link || '' } }))}
+            fieldDefs={[
+              { name: 'title', label: 'Title', placeholder: 'Card title' },
+              { name: 'description', label: 'Description', placeholder: 'Card description', multiline: true },
+              { name: 'icon', label: 'Icon', type: 'icon' as const },
+              { name: 'image', label: 'Image', type: 'image' as const },
+              { name: 'link', label: 'Link', placeholder: 'https://...' },
+            ]}
+            onAdd={() => onUpdate({ cards: [...(block.cards || []), { id: uid(), title: 'New card', description: '' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ cards: block.cards.filter(c => c.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ cards: block.cards.map(c => c.id === id ? { ...c, [field]: value } : c) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ cards: ids.map(id => block.cards.find(c => c.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
         </>
       )}
+
+      {/* ── Gallery Block — with image editor ── */}
       {block.type === 'gallery' && (
         <>
           <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','masonry']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <CheckboxField label="Enable Lightbox" checked={b.lightbox as boolean} onChange={(v) => onUpdate({ lightbox: v } as Partial<Block>)} />
+          <ListEditor
+            label="Images"
+            items={(block.images || []).map(img => ({ id: img.id, fields: { url: img.url, alt: img.alt, caption: img.caption || '' } }))}
+            fieldDefs={[
+              { name: 'url', label: 'Image', type: 'image' as const },
+              { name: 'alt', label: 'Alt', placeholder: 'Image description' },
+              { name: 'caption', label: 'Caption', placeholder: 'Optional caption' },
+            ]}
+            onAdd={() => onUpdate({ images: [...(block.images || []), { id: uid(), url: '', alt: '' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ images: block.images.filter(i => i.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ images: block.images.map(i => i.id === id ? { ...i, [field]: value } : i) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ images: ids.map(id => block.images.find(i => i.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
         </>
       )}
-      {block.type === 'accordion' && (
-        <p className="text-xs text-muted-foreground">Items: {block.items.length}. Use the style tab for visual customization.</p>
-      )}
-      {block.type === 'featured-content' && (
-        <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
-          <Field label="Image URL" value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} />
-          <SelectField label="Image Position" value={(b.imagePosition as string) || 'right'} options={['left','right']} onChange={(v) => onUpdate({ imagePosition: v } as Partial<Block>)} />
-          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
-          <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
-        </>
-      )}
+
+      {/* ── Services Grid Block — with service editor ── */}
       {block.type === 'services-grid' && (
         <>
           <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
           <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <ListEditor
+            label="Services"
+            items={(block.services || []).map(s => ({ id: s.id, fields: { title: s.title, description: s.description, icon: s.icon || '', link: s.link || '' } }))}
+            fieldDefs={[
+              { name: 'title', label: 'Title', placeholder: 'Service name' },
+              { name: 'description', label: 'Description', placeholder: 'Service description', multiline: true },
+              { name: 'icon', label: 'Icon', type: 'icon' as const },
+              { name: 'link', label: 'Link', placeholder: 'https://...' },
+            ]}
+            onAdd={() => onUpdate({ services: [...(block.services || []), { id: uid(), title: 'New service', description: '' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ services: block.services.filter(s => s.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ services: block.services.map(s => s.id === id ? { ...s, [field]: value } : s) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ services: ids.map(id => block.services.find(s => s.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
         </>
+      )}
+
+      {/* ── Accordion Block — with item editor ── */}
+      {block.type === 'accordion' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <ListEditor
+            label="Items"
+            items={(block.items || []).map(item => ({ id: item.id, fields: { title: item.title, content: item.content } }))}
+            fieldDefs={[
+              { name: 'title', label: 'Title', placeholder: 'Section title' },
+              { name: 'content', label: 'Content', placeholder: 'Section content', multiline: true },
+            ]}
+            onAdd={() => onUpdate({ items: [...(block.items || []), { id: uid(), title: 'New section', content: '' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ items: block.items.filter(i => i.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ items: block.items.map(i => i.id === id ? { ...i, [field]: value } : i) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ items: ids.map(id => block.items.find(i => i.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+        </>
+      )}
+
+      {/* ── Tabs Block — with tab editor ── */}
+      {block.type === 'tabs' && (
+        <>
+          <ListEditor
+            label="Tabs"
+            items={(block.tabs || []).map(tab => ({ id: tab.id, fields: { label: tab.label } }))}
+            fieldDefs={[{ name: 'label', label: 'Tab Label', placeholder: 'Tab name' }]}
+            onAdd={() => onUpdate({ tabs: [...(block.tabs || []), { id: uid(), label: 'New Tab', blocks: [] }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ tabs: block.tabs.filter(t => t.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ tabs: block.tabs.map(t => t.id === id ? { ...t, [field]: value } : t) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ tabs: ids.map(id => block.tabs.find(t => t.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+          <p className="text-xs text-muted-foreground">Edit tab content via the layers panel.</p>
+        </>
+      )}
+
+      {/* ── Featured Content Block ── */}
+      {block.type === 'featured-content' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <SelectField label="Image Position" value={(b.imagePosition as string) || 'right'} options={['left','right']} onChange={(v) => onUpdate({ imagePosition: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
+          <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Blog Posts Block ── */}
+      {block.type === 'blog-posts' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Post Type" value={b.postType as string} onChange={(v) => onUpdate({ postType: v } as Partial<Block>)} />
+          <Field label="Category Slug" value={b.categorySlug as string} onChange={(v) => onUpdate({ categorySlug: v } as Partial<Block>)} />
+          <SelectField label="Limit" value={String(b.limit || 6)} options={['3','6','9','12']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <CheckboxField label="Show Excerpt" checked={b.showExcerpt as boolean ?? true} onChange={(v) => onUpdate({ showExcerpt: v } as Partial<Block>)} />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── List Editor (reusable for cards, stats, services, items, etc.) ──────────
+
+interface ListFieldDef {
+  name: string;
+  label: string;
+  placeholder?: string;
+  multiline?: boolean;
+  type?: 'text' | 'icon' | 'image' | 'video';
+}
+
+function ListEditor({
+  label,
+  items,
+  fieldDefs,
+  onAdd,
+  onRemove,
+  onItemChange,
+  onReorder,
+}: {
+  label: string;
+  items: { id: string; fields: Record<string, string> }[];
+  fieldDefs: ListFieldDef[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onItemChange: (id: string, field: string, value: string) => void;
+  onReorder: (ids: string[]) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const listSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = items.findIndex(i => i.id === active.id);
+    const newIdx = items.findIndex(i => i.id === over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(items, oldIdx, newIdx);
+    onReorder(reordered.map(i => i.id));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">{label} ({items.length})</span>
+        <button type="button" onClick={onAdd} className="text-xs text-primary hover:text-primary/80 font-medium">+ Add</button>
+      </div>
+      <DndContext sensors={listSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-1">
+            {items.map((item, i) => (
+              <SortableListItem
+                key={item.id}
+                item={item}
+                index={i}
+                label={label}
+                fieldDefs={fieldDefs}
+                expandedId={expandedId}
+                onToggleExpand={(id) => setExpandedId(expandedId === id ? null : id)}
+                onRemove={onRemove}
+                onItemChange={onItemChange}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+function SortableListItem({
+  item,
+  index,
+  label,
+  fieldDefs,
+  expandedId,
+  onToggleExpand,
+  onRemove,
+  onItemChange,
+}: {
+  item: { id: string; fields: Record<string, string> };
+  index: number;
+  label: string;
+  fieldDefs: ListFieldDef[];
+  expandedId: string | null;
+  onToggleExpand: (id: string) => void;
+  onRemove: (id: string) => void;
+  onItemChange: (id: string, field: string, value: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+  const isExpanded = expandedId === item.id;
+
+  return (
+    <div ref={setNodeRef} style={style} className="border border-border rounded-md overflow-hidden">
+      <div
+        className="flex items-center gap-1.5 px-1.5 py-1.5 bg-muted/50 cursor-pointer hover:bg-muted"
+        onClick={() => onToggleExpand(item.id)}
+      >
+        <span
+          {...attributes}
+          {...listeners}
+          className="material-icons text-xs text-muted-foreground/50 cursor-grab active:cursor-grabbing shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >drag_indicator</span>
+        <span className="material-icons text-xs text-muted-foreground shrink-0">{isExpanded ? 'expand_more' : 'chevron_right'}</span>
+        <span className="text-xs font-medium text-foreground flex-1 truncate">
+          {item.fields[fieldDefs[0].name] || `${label.slice(0, -1)} ${index + 1}`}
+        </span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+          className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+          title="Remove"
+        >
+          <span className="material-icons text-sm">close</span>
+        </button>
+      </div>
+      {isExpanded && (
+        <div className="px-2.5 py-2 space-y-2 border-t border-border">
+          {fieldDefs.map((fd) => (
+            fd.type === 'icon' ? (
+              <IconPicker
+                key={fd.name}
+                label={fd.label}
+                value={item.fields[fd.name]}
+                onChange={(v) => onItemChange(item.id, fd.name, v)}
+              />
+            ) : fd.type === 'image' ? (
+              <div key={fd.name}>
+                <span className="text-xs font-medium text-muted-foreground">{fd.label}</span>
+                <MediaPicker
+                  value={item.fields[fd.name]}
+                  onChange={(v) => onItemChange(item.id, fd.name, v)}
+                  mimeTypeFilter="image"
+                  label=""
+                />
+              </div>
+            ) : fd.type === 'video' ? (
+              <div key={fd.name}>
+                <span className="text-xs font-medium text-muted-foreground">{fd.label}</span>
+                <MediaPicker
+                  value={item.fields[fd.name]}
+                  onChange={(v) => onItemChange(item.id, fd.name, v)}
+                  mimeTypeFilter="video"
+                  label=""
+                />
+              </div>
+            ) : fd.multiline ? (
+              <TextareaField
+                key={fd.name}
+                label={fd.label}
+                value={item.fields[fd.name]}
+                onChange={(v) => onItemChange(item.id, fd.name, v)}
+                rows={2}
+              />
+            ) : (
+              <Field
+                key={fd.name}
+                label={fd.label}
+                value={item.fields[fd.name]}
+                onChange={(v) => onItemChange(item.id, fd.name, v)}
+              />
+            )
+          ))}
+        </div>
       )}
     </div>
   );
@@ -1237,6 +1857,16 @@ function CheckboxField({ label, checked, onChange }: { label: string; checked: b
       <input type="checkbox" checked={!!checked} onChange={(e) => onChange(e.target.checked)}
         className="h-4 w-4 rounded border-border text-primary" />
       <span className="text-xs text-foreground">{label}</span>
+    </label>
+  );
+}
+
+function NumberField({ label, value, onChange, min, max, step = 1 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} min={min} max={max} step={step}
+        className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
     </label>
   );
 }

@@ -3,6 +3,7 @@
 import { HeroBlock } from '@/types/blocks';
 import { Button } from '@/components/ui/Button';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface HeroBlockRenderProps {
   block: HeroBlock;
@@ -44,17 +45,17 @@ export function HeroBlockRender({ block }: HeroBlockRenderProps) {
       <div className="relative z-10 container mx-auto px-4 py-20">
         <div className="max-w-4xl mx-auto text-center">
           {block.subtitle && (
-            <p className={`font-semibold mb-4 uppercase tracking-wide ${hasBackground ? 'text-white/80' : 'text-primary'}`}>
+            <p data-editable-field="subtitle" className={`font-semibold mb-4 uppercase tracking-wide ${hasBackground ? 'text-white/80' : 'text-primary'}`} style={getElementCSS(block.elementStyles, 'subtitle')}>
               {block.subtitle}
             </p>
           )}
 
-          <h1 className={`font-display text-5xl md:text-7xl font-bold mb-6 tracking-wide ${hasBackground ? 'text-white' : ''}`}>
+          <h1 data-editable-field="title" className={`font-display text-5xl md:text-7xl font-bold mb-6 tracking-wide ${hasBackground ? 'text-white' : ''}`} style={getElementCSS(block.elementStyles, 'title')}>
             {block.title}
           </h1>
 
           {block.description && (
-            <p className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`}>
+            <p data-editable-field="description" className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`} style={getElementCSS(block.elementStyles, 'description')}>
               {block.description}
             </p>
           )}

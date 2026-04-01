@@ -769,6 +769,15 @@ export interface PitchDeckSlide {
   notes?: string;
 }
 
+// V2: Slides built with the CMS block editor
+export interface PitchDeckSlideV2 {
+  id: string;
+  label: string; // Display name in sidebar ("Cover", "Problem", etc.)
+  blocks: import('@/types/blocks').Block[];
+  pageSettings?: import('@/types/blocks').PageSettings;
+  notes?: string; // Speaker notes
+}
+
 export interface PitchDeckTheme {
   primaryColor: string;
   accentColor: string;
@@ -786,7 +795,8 @@ export const pitchDecks = pgTable('pitch_decks', {
   slug: varchar('slug', { length: 255 }).notNull(),
   description: text('description'),
   status: varchar('status', { length: 50 }).default('draft').notNull(), // draft, published, archived
-  slides: json('slides').$type<PitchDeckSlide[]>().default([]),
+  slides: json('slides').$type<PitchDeckSlide[] | PitchDeckSlideV2[]>().default([]),
+  formatVersion: integer('format_version').default(1).notNull(), // 1 = legacy, 2 = block editor
   theme: json('theme').$type<PitchDeckTheme>().default({
     primaryColor: '#2563eb',
     accentColor: '#60a5fa',
@@ -804,8 +814,9 @@ export const pitchDecks = pgTable('pitch_decks', {
 export const pitchDeckVersions = pgTable('pitch_deck_versions', {
   id: serial('id').primaryKey(),
   deckId: integer('deck_id').notNull().references(() => pitchDecks.id, { onDelete: 'cascade' }),
-  slides: json('slides').$type<PitchDeckSlide[]>().notNull(),
+  slides: json('slides').$type<PitchDeckSlide[] | PitchDeckSlideV2[]>().notNull(),
   theme: json('theme').$type<PitchDeckTheme>().notNull(),
+  formatVersion: integer('format_version').default(1).notNull(),
   label: varchar('label', { length: 255 }), // null = auto-save, string = manual checkpoint
   trigger: varchar('trigger', { length: 50 }).notNull(), // 'manual', 'ai_generate', 'ai_slide_edit', 'ai_regenerate'
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -1417,6 +1428,79 @@ export const crmProposalTemplates = pgTable('crm_proposal_templates', {
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   sections: json('sections').$type<ProposalSection[]>().default([]),
+  lineItems: json('line_items').$type<ProposalLineItem[]>().default([]),
+  fees: json('fees').$type<ProposalFee[]>().default([]),
+  accentColor: varchar('accent_color', { length: 20 }).default('#2563eb'),
+  footerText: text('footer_text'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── CONTRACTS & E-SIGNATURES ─────────────────────────────────────────────────
+
+export interface ContractClause {
+  id: string;
+  title: string;
+  content: string; // HTML or markdown
+  required: boolean; // must be explicitly accepted
+}
+
+export const crmContracts = pgTable('crm_contracts', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  proposalId: integer('proposal_id').references(() => crmProposals.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  summary: text('summary'),
+  status: varchar('status', { length: 30 }).default('draft').notNull(), // draft, sent, partially_signed, fully_executed, voided, expired
+  clauses: json('clauses').$type<ContractClause[]>().default([]),
+  lineItems: json('line_items').$type<ProposalLineItem[]>().default([]),
+  fees: json('fees').$type<ProposalFee[]>().default([]),
+  currency: varchar('currency', { length: 3 }).default('USD'),
+  validUntil: timestamp('valid_until'),
+  clientToken: varchar('client_token', { length: 64 }).notNull().unique(),
+  documentHash: varchar('document_hash', { length: 64 }), // SHA-256 of content at send time for tamper detection
+  // Branding
+  accentColor: varchar('accent_color', { length: 20 }).default('#2563eb'),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  footerText: text('footer_text'),
+  // Tracking
+  sentAt: timestamp('sent_at'),
+  fullyExecutedAt: timestamp('fully_executed_at'),
+  voidedAt: timestamp('voided_at'),
+  voidReason: text('void_reason'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmContractSigners = pgTable('crm_contract_signers', {
+  id: serial('id').primaryKey(),
+  contractId: integer('contract_id').notNull().references(() => crmContracts.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  role: varchar('role', { length: 100 }).default('signer').notNull(), // signer, witness, approver
+  order: integer('order').default(0).notNull(), // signing order (0 = any order)
+  token: varchar('token', { length: 64 }).notNull().unique(), // unique per-signer signing link
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, viewed, signed, declined
+  signatureName: varchar('signature_name', { length: 255 }),
+  signatureData: text('signature_data'), // base64 PNG
+  signedAt: timestamp('signed_at'),
+  signedIp: varchar('signed_ip', { length: 45 }),
+  viewedAt: timestamp('viewed_at'),
+  declinedAt: timestamp('declined_at'),
+  declineReason: text('decline_reason'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmContractTemplates = pgTable('crm_contract_templates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  clauses: json('clauses').$type<ContractClause[]>().default([]),
   lineItems: json('line_items').$type<ProposalLineItem[]>().default([]),
   fees: json('fees').$type<ProposalFee[]>().default([]),
   accentColor: varchar('accent_color', { length: 20 }).default('#2563eb'),

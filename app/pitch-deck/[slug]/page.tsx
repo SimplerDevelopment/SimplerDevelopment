@@ -1,11 +1,21 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
+import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
+
+/** Convert v1 slides on read if needed */
+function resolveSlides(raw: unknown, theme: PitchDeckTheme): PitchDeckSlideV2[] {
+  const arr = (raw || []) as PitchDeckSlide[] | PitchDeckSlideV2[];
+  if (!arr.length) return [];
+  if (isV2Slides(arr)) return arr;
+  return convertAllSlidesToV2(arr as PitchDeckSlide[]);
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -54,15 +64,15 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     const deck = await getDeck(slug, true);
     if (!deck || deck.clientId !== client.id) notFound();
 
-    const slides = (deck.slides || []) as Parameters<typeof PitchDeckPresentation>[0]['slides'];
-    const theme = (deck.theme || {}) as Parameters<typeof PitchDeckPresentation>[0]['theme'];
+    const theme = (deck.theme || {}) as PitchDeckTheme;
+    const slides = resolveSlides(deck.slides, theme);
     return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} />;
   }
 
   const deck = await getDeck(slug, false);
   if (!deck) notFound();
 
-  const slides = (deck.slides || []) as Parameters<typeof PitchDeckPresentation>[0]['slides'];
-  const theme = (deck.theme || {}) as Parameters<typeof PitchDeckPresentation>[0]['theme'];
+  const theme = (deck.theme || {}) as PitchDeckTheme;
+  const slides = resolveSlides(deck.slides, theme);
   return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} />;
 }

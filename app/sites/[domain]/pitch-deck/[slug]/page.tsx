@@ -1,10 +1,19 @@
 import { notFound } from 'next/navigation';
 import { getPitchDeckByDomainAndSlug } from '@/lib/actions/client-sites';
+import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
+import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from './PitchDeckPresentation';
 
 interface PageProps {
   params: Promise<{ domain: string; slug: string }>;
+}
+
+function resolveSlides(raw: unknown): PitchDeckSlideV2[] {
+  const arr = (raw || []) as PitchDeckSlide[] | PitchDeckSlideV2[];
+  if (!arr.length) return [];
+  if (isV2Slides(arr)) return arr;
+  return convertAllSlidesToV2(arr as PitchDeckSlide[]);
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -26,28 +35,8 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
     notFound();
   }
 
-  const slides = (deck.slides || []) as {
-    id: string;
-    type: string;
-    headline?: string;
-    subheadline?: string;
-    body?: string;
-    bullets?: string[];
-    stats?: { label: string; value: string }[];
-    steps?: { title: string; description: string }[];
-    members?: { name: string; role: string; image?: string }[];
-    tiers?: { name: string; price: string; features: string[]; highlighted?: boolean }[];
-  }[];
-
-  const theme = (deck.theme || {}) as {
-    primaryColor: string;
-    accentColor: string;
-    backgroundColor: string;
-    textColor: string;
-    headingFont: string;
-    bodyFont: string;
-    logo?: string;
-  };
+  const theme = (deck.theme || {}) as PitchDeckTheme;
+  const slides = resolveSlides(deck.slides);
 
   return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} />;
 }

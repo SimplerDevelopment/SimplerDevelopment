@@ -68,8 +68,11 @@ export interface BaseBlock {
   id: string;
   type: string;
   order: number;
+  label?: string;
   responsive?: ResponsiveSettings;
   style?: BlockStyle;
+  /** Per-element styles for blocks with multiple visual elements */
+  elementStyles?: Record<string, Partial<BlockStyle>>;
 }
 
 // Basic Blocks
@@ -281,6 +284,7 @@ export interface CardGridBlock extends BaseBlock {
     icon?: string;
   }>;
   columns?: 2 | 3 | 4;
+  iconSize?: string;
 }
 
 export interface GalleryBlock extends BaseBlock {

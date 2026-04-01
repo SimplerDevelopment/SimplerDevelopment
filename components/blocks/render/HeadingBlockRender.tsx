@@ -45,7 +45,7 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
 
   return (
     <div className={responsiveClasses}>
-      {React.createElement(tag, { className }, block.content)}
+      {React.createElement(tag, { className, 'data-editable-field': 'content' }, block.content)}
     </div>
   );
 }

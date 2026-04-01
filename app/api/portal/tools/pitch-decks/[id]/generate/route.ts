@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks, aiConversations, aiMessages } from '@/lib/db/schema';
-import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
@@ -11,7 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-const GENERATE_SYSTEM = `You are an expert pitch deck creator. You produce professional, compelling pitch decks.
+const GENERATE_SYSTEM = `You are an expert pitch deck creator. You produce professional, compelling pitch decks using a block-based content system.
 
 You MUST respond with valid JSON only — no markdown, no code fences, no explanation text.
 
@@ -20,27 +20,56 @@ The JSON must have this exact structure:
   "slides": [
     {
       "id": "unique-string",
-      "type": "cover|problem|solution|features|process|metrics|testimonial|team|pricing|cta|custom",
-      "headline": "string",
-      "subheadline": "optional string",
-      "body": "optional paragraph text",
-      "bullets": ["optional", "bullet", "points"],
-      "stats": [{"label": "string", "value": "string"}],
-      "steps": [{"title": "string", "description": "string"}],
-      "members": [{"name": "string", "role": "string"}],
-      "tiers": [{"name": "string", "price": "string", "features": ["string"], "highlighted": false}],
+      "label": "Cover|Problem|Solution|Features|Metrics|Team|Pricing|Call to Action|etc.",
+      "blocks": [ ...array of block objects... ],
       "notes": "optional speaker notes"
     }
   ]
 }
 
+Each block in the "blocks" array must have "id" (unique string), "type", and "order" (sequential integer starting at 1).
+
+Available block types:
+
+1. hero — Full-width banner for cover/title slides
+   { "id": "...", "type": "hero", "order": 1, "title": "string", "subtitle": "optional", "description": "optional", "ctaText": "optional button", "ctaLink": "optional url" }
+
+2. heading — Section titles
+   { "id": "...", "type": "heading", "order": 1, "content": "string", "level": 1|2|3, "alignment": "left|center|right" }
+
+3. text — Paragraph content
+   { "id": "...", "type": "text", "order": 2, "content": "string", "alignment": "left|center|right", "size": "sm|base|lg|xl" }
+
+4. stats — Numeric metrics display
+   { "id": "...", "type": "stats", "order": 2, "title": "optional", "stats": [{"id": "...", "value": "100+", "label": "Clients"}], "columns": 2|3|4 }
+
+5. card-grid — Grid of content cards (features, team, steps, bullets)
+   { "id": "...", "type": "card-grid", "order": 2, "title": "optional", "cards": [{"id": "...", "title": "string", "description": "string", "icon": "optional material icon name"}], "columns": 2|3|4 }
+
+6. testimonial — Quote/testimonial
+   { "id": "...", "type": "testimonial", "order": 2, "quote": "string", "author": "string", "role": "optional", "company": "optional" }
+
+7. cta — Call to action section
+   { "id": "...", "type": "cta", "order": 2, "title": "string", "description": "optional", "primaryButtonText": "string", "primaryButtonUrl": "#", "backgroundStyle": "gradient|solid|none" }
+
+8. image — Display an image
+   { "id": "...", "type": "image", "order": 2, "url": "https://...", "alt": "string" }
+
+9. spacer — Vertical spacing
+   { "id": "...", "type": "spacer", "order": 2, "height": "sm|md|lg" }
+
+10. divider — Horizontal line
+    { "id": "...", "type": "divider", "order": 2, "lineStyle": "solid|dashed" }
+
 Guidelines:
 - Generate 8-12 slides for a complete pitch deck
-- First slide must be type "cover", last slide should be type "cta"
+- First slide should use a "hero" block, last slide should use a "cta" block
 - Use compelling, concise language — this is a presentation, not an essay
-- Each slide should have a clear headline
-- Use the appropriate type for each slide's content
-- Only include fields relevant to the slide type (e.g. stats for metrics, bullets for features)
+- Each slide should have 1-4 blocks (keep it focused)
+- Use card-grid for features, team members, process steps, pricing tiers, and bullet lists
+- Use stats for numeric metrics
+- Use testimonial for quotes
+- Make all IDs unique across the entire deck (use descriptive IDs like "slide-1", "block-cover-hero", etc.)
 - Make the content specific to the company/topic, not generic`;
 
 const BRAND_SYSTEM = `You are a brand analyst. Given website HTML content, extract the brand identity.
@@ -100,9 +129,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Auto-save current state before AI generation
     await saveVersionSnapshot(
       deck.id,
-      (deck.slides || []) as PitchDeckSlide[],
+      (deck.slides || []) as PitchDeckSlideV2[],
       deck.theme as PitchDeckTheme,
-      (deck.slides as PitchDeckSlide[])?.length > 0 ? 'ai_regenerate' : 'ai_generate',
+      (deck.slides as PitchDeckSlideV2[])?.length > 0 ? 'ai_regenerate' : 'ai_generate',
       userId,
     );
 
@@ -182,7 +211,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Strip markdown code fences if present
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
-    let slides: PitchDeckSlide[];
+    let slides: PitchDeckSlideV2[];
     try {
       const parsed = JSON.parse(text);
       slides = parsed.slides || parsed;
@@ -191,10 +220,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
     }
 
-    // Save to deck
+    // Save to deck (v2 block format)
     const [updated] = await db.update(pitchDecks).set({
       slides,
       theme,
+      formatVersion: 2,
       sourceUrl: websiteUrl?.trim() || deck.sourceUrl,
       updatedAt: new Date(),
     }).where(eq(pitchDecks.id, deck.id)).returning();

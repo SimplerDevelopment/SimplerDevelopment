@@ -8,8 +8,12 @@ interface CardProps {
   description: string;
   image?: string;
   icon?: string;
+  iconSize?: string;
   link?: string;
   className?: string;
+  cardStyle?: React.CSSProperties;
+  titleStyle?: React.CSSProperties;
+  descriptionStyle?: React.CSSProperties;
 }
 
 export function Card({
@@ -17,13 +21,18 @@ export function Card({
   description,
   image,
   icon,
+  iconSize,
   link,
   className = '',
+  cardStyle,
+  titleStyle,
+  descriptionStyle,
 }: CardProps) {
   const content = (
     <motion.div
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       className={`group relative h-full rounded-xl border border-border bg-background/80 backdrop-blur-sm p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/40 ${className}`}
+      style={cardStyle}
     >
       {image && (
         <div className="mb-4 overflow-hidden rounded-lg">
@@ -36,14 +45,14 @@ export function Card({
       )}
 
       {icon && (
-        <span className="material-icons text-5xl text-primary mb-4 block">{icon}</span>
+        <span className="material-icons text-primary mb-4 block" style={{ fontSize: iconSize ? `${iconSize}px` : '3rem' }}>{icon}</span>
       )}
 
-      <h3 className="font-heading text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors">
+      <h3 className="font-heading text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors" style={titleStyle}>
         {title}
       </h3>
 
-      <p className="text-muted-foreground mb-4">{description}</p>
+      <p className="text-muted-foreground mb-4" style={descriptionStyle}>{description}</p>
 
       {link && (
         <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all">

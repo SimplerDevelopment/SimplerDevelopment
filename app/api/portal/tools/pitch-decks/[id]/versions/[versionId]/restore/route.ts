@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks, pitchDeckVersions } from '@/lib/db/schema';
-import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string; versionId: string }> }) {
   const session = await auth();
@@ -32,17 +33,29 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // Save current state as a version before restoring (so user can undo)
   await db.insert(pitchDeckVersions).values({
     deckId: deck.id,
-    slides: (deck.slides || []) as PitchDeckSlide[],
+    slides: deck.slides as PitchDeckSlideV2[],
     theme: (deck.theme || {}) as PitchDeckTheme,
+    formatVersion: deck.formatVersion,
     label: 'Before restore',
     trigger: 'manual',
     createdBy: userId,
   });
 
+  // Convert v1 version slides to v2 if needed
+  let restoredSlides = version.slides as PitchDeckSlide[] | PitchDeckSlideV2[];
+  let restoredFormatVersion = version.formatVersion;
+  if (restoredSlides.length && !isV2Slides(restoredSlides as unknown[])) {
+    restoredSlides = convertAllSlidesToV2(restoredSlides as PitchDeckSlide[]);
+    restoredFormatVersion = 2;
+  } else if (isV2Slides(restoredSlides as unknown[])) {
+    restoredFormatVersion = 2;
+  }
+
   // Restore the version
   const [updated] = await db.update(pitchDecks).set({
-    slides: version.slides as PitchDeckSlide[],
+    slides: restoredSlides,
     theme: version.theme as PitchDeckTheme,
+    formatVersion: restoredFormatVersion,
     updatedAt: new Date(),
   }).where(eq(pitchDecks.id, deck.id)).returning();
 

@@ -3,6 +3,7 @@
 import { CtaBlock } from '@/types/blocks';
 import { Button } from '@/components/ui/Button';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface CtaBlockRenderProps {
   block: CtaBlock;
@@ -33,12 +34,12 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
   return (
     <section className={`py-20 my-12 relative overflow-hidden ${backgroundClass} ${responsiveClasses}`}>
       <div className="container mx-auto px-4 text-center relative z-10">
-        <h2 className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide">
+        <h2 data-editable-field="title" className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide" style={getElementCSS(block.elementStyles, 'title')}>
           {block.title}
         </h2>
 
         {block.description && (
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto">
+          <p data-editable-field="description" className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>
             {block.description}
           </p>
         )}

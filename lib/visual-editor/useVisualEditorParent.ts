@@ -29,6 +29,7 @@ interface UseVisualEditorParentOptions {
   onBlockStyleUpdated?: (blockId: string, style: Record<string, string>) => void;
   onColumnResized?: (blockId: string, columnWidths: number[]) => void;
   onGapChanged?: (blockId: string, gap: 'sm' | 'md' | 'lg') => void;
+  onBlockContentUpdated?: (blockId: string, field: string, value: string) => void;
 }
 
 export function useVisualEditorParent({
@@ -43,6 +44,7 @@ export function useVisualEditorParent({
   onBlockStyleUpdated,
   onColumnResized,
   onGapChanged,
+  onBlockContentUpdated,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -61,6 +63,7 @@ export function useVisualEditorParent({
   const onStyleUpdatedRef = useRef(onBlockStyleUpdated);
   const onColumnResizedRef = useRef(onColumnResized);
   const onGapChangedRef = useRef(onGapChanged);
+  const onContentUpdatedRef = useRef(onBlockContentUpdated);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -72,6 +75,7 @@ export function useVisualEditorParent({
   onStyleUpdatedRef.current = onBlockStyleUpdated;
   onColumnResizedRef.current = onColumnResized;
   onGapChangedRef.current = onGapChanged;
+  onContentUpdatedRef.current = onBlockContentUpdated;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -152,6 +156,11 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.EXTERNAL_DROP_COMPLETED: {
           const payload = event.data.payload as { blocks: Block[] };
           onReorderedRef.current?.(payload.blocks);
+          break;
+        }
+        case IFRAME_MESSAGES.BLOCK_CONTENT_UPDATED: {
+          const payload = event.data.payload as { blockId: string; field: string; value: string };
+          onContentUpdatedRef.current?.(payload.blockId, payload.field, payload.value);
           break;
         }
       }

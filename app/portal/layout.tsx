@@ -11,7 +11,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const isLoginPage = pathname === '/portal/login';
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname);
+  const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
@@ -35,12 +35,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     };
   }, [isEditorRoute]);
 
-  if (isLoginPage) {
+  // Bare iframe pages — no sidebar, no chrome
+  const isIframePage = pathname.includes('/slide-preview');
+
+  if (isLoginPage || isIframePage) {
     return (
       <SessionProvider>
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          {children}
-        </div>
+        {isIframePage ? children : (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            {children}
+          </div>
+        )}
       </SessionProvider>
     );
   }

@@ -3,6 +3,7 @@
 import { FeaturedContentBlock } from '@/types/blocks';
 import Link from 'next/link';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface FeaturedContentBlockRenderProps {
   block: FeaturedContentBlock;
@@ -32,11 +33,11 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
         }`}>
           {/* Content */}
           <div className={block.imagePosition === 'right' ? 'lg:col-start-1' : 'lg:col-start-2'}>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')}>
               {block.title}
             </h2>
             {block.description && (
-              <p className="text-lg text-muted-foreground mb-6">
+              <p data-editable-field="description" className="text-lg text-muted-foreground mb-6" style={getElementCSS(block.elementStyles, 'description')}>
                 {block.description}
               </p>
             )}

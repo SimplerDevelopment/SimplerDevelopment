@@ -50,6 +50,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
           target={block.openInNewTab ? '_blank' : undefined}
           rel={block.openInNewTab ? 'noopener noreferrer' : undefined}
           className={`${variantClass} ${sizeClass} rounded-md font-medium inline-flex items-center transition-colors`}
+          data-editable-field="text"
         >
           {block.text}
         </Link>

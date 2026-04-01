@@ -43,11 +43,12 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
     <div className={responsiveClasses}>
       {hasHtml ? (
         <div
+          data-editable-field="content"
           className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}
           dangerouslySetInnerHTML={{ __html: block.content }}
         />
       ) : (
-        <p className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
+        <p data-editable-field="content" className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
           {block.content}
         </p>
       )}

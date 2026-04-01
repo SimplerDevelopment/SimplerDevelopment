@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
-import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
@@ -14,28 +14,34 @@ const SLIDE_EDIT_SYSTEM = `You are an expert pitch deck editor. You modify indiv
 
 You MUST respond with valid JSON only — no markdown, no code fences, no explanation.
 
-Return a single slide object:
+A slide has this structure:
 {
   "id": "keep-the-same-id",
-  "type": "cover|problem|solution|features|process|metrics|testimonial|team|pricing|cta|custom",
-  "headline": "string",
-  "subheadline": "optional string",
-  "body": "optional paragraph text",
-  "bullets": ["optional", "bullet", "points"],
-  "stats": [{"label": "string", "value": "string"}],
-  "steps": [{"title": "string", "description": "string"}],
-  "members": [{"name": "string", "role": "string"}],
-  "tiers": [{"name": "string", "price": "string", "features": ["string"], "highlighted": false}],
-  "columns": 3,
+  "label": "Slide Label",
+  "blocks": [ ...array of block objects... ],
   "notes": "optional speaker notes"
 }
 
-## Layout control
-- "columns" controls the grid layout (2, 3, 4, etc.). For example, columns: 3 with 5 stats = 3 on top, 2 centered on bottom.
-- To change layout (e.g. "3 on top, 2 on bottom"), set columns to the top row count and adjust the number of items accordingly.
-- You can add, remove, or reorder items in bullets/stats/steps/members/tiers arrays.
-- You may change the slide type if the user's instruction implies a different layout style.
-- Keep the same slide ID always.`;
+Each block must have "id" (unique string), "type", and "order" (sequential integer).
+
+Available block types:
+
+1. hero — { "type": "hero", "title": "string", "subtitle": "optional", "description": "optional", "ctaText": "optional", "ctaLink": "optional" }
+2. heading — { "type": "heading", "content": "string", "level": 1|2|3, "alignment": "left|center|right" }
+3. text — { "type": "text", "content": "string", "alignment": "left|center|right", "size": "sm|base|lg|xl" }
+4. stats — { "type": "stats", "title": "optional", "stats": [{"id": "...", "value": "100+", "label": "Clients"}], "columns": 2|3|4 }
+5. card-grid — { "type": "card-grid", "title": "optional", "cards": [{"id": "...", "title": "string", "description": "string", "icon": "optional"}], "columns": 2|3|4 }
+6. testimonial — { "type": "testimonial", "quote": "string", "author": "string", "role": "optional", "company": "optional" }
+7. cta — { "type": "cta", "title": "string", "description": "optional", "primaryButtonText": "string", "primaryButtonUrl": "#", "backgroundStyle": "gradient|solid|none" }
+8. image — { "type": "image", "url": "https://...", "alt": "string" }
+9. spacer — { "type": "spacer", "height": "sm|md|lg" }
+10. divider — { "type": "divider", "lineStyle": "solid|dashed" }
+
+Rules:
+- Keep the same slide ID always
+- You can add, remove, reorder, or change block types
+- Update the label if the slide's purpose changes
+- Keep blocks focused — 1-4 blocks per slide`;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string; slideIndex: string }> }) {
   try {
@@ -55,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .limit(1);
     if (!deck) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-    const slides = (deck.slides || []) as PitchDeckSlide[];
+    const slides = (deck.slides || []) as PitchDeckSlideV2[];
     if (idx < 0 || idx >= slides.length) {
       return NextResponse.json({ success: false, message: 'Invalid slide index' }, { status: 400 });
     }
@@ -89,7 +95,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .map(b => b.text).join('');
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
-    let updatedSlide: PitchDeckSlide;
+    let updatedSlide: PitchDeckSlideV2;
     try {
       updatedSlide = JSON.parse(text);
     } catch {
@@ -97,12 +103,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
     }
 
-    // Replace the slide at the index
+    // Replace the slide at the index, preserving the original ID
     const newSlides = [...slides];
     newSlides[idx] = { ...updatedSlide, id: currentSlide.id };
 
     const [updated] = await db.update(pitchDecks).set({
       slides: newSlides,
+      formatVersion: 2,
       updatedAt: new Date(),
     }).where(eq(pitchDecks.id, deck.id)).returning();
 

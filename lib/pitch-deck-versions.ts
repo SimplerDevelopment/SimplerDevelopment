@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { pitchDeckVersions } from '@/lib/db/schema';
-import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 
 /**
  * Save a version snapshot of the current deck state before an operation.
@@ -8,11 +8,12 @@ import type { PitchDeckSlide, PitchDeckTheme } from '@/lib/db/schema';
  */
 export async function saveVersionSnapshot(
   deckId: number,
-  slides: PitchDeckSlide[],
+  slides: PitchDeckSlide[] | PitchDeckSlideV2[],
   theme: PitchDeckTheme,
   trigger: 'ai_generate' | 'ai_slide_edit' | 'ai_regenerate' | 'manual',
   userId: number,
   label?: string,
+  formatVersion: number = 2,
 ) {
   if (!slides || slides.length === 0) return null;
 
@@ -20,6 +21,7 @@ export async function saveVersionSnapshot(
     deckId,
     slides,
     theme,
+    formatVersion,
     label: label || null,
     trigger,
     createdBy: userId,
