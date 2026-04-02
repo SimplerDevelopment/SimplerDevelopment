@@ -2,6 +2,7 @@
 
 import { ShoppingCartBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface CartItem {
   id: number;
@@ -21,6 +22,9 @@ interface ShoppingCartBlockRenderProps {
 }
 
 export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRenderProps) {
+  const branding = useBranding();
+  const bs = branding?.buttonStyle;
+  const btnRadius = bs?.borderRadius || branding?.borderRadius;
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -87,7 +91,8 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
         {itemCount > 0 ? (
           <a
             href="/checkout"
-            className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium text-center hover:bg-primary/90 transition-colors"
+            className={`block w-full px-4 py-2 bg-primary text-primary-foreground text-sm font-medium text-center hover:bg-primary/90 transition-colors ${!btnRadius ? 'rounded-md' : ''}`}
+            style={{ ...(bs?.primaryBg ? { backgroundColor: bs.primaryBg } : {}), ...(bs?.primaryText ? { color: bs.primaryText } : {}), ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
           >
             {block.checkoutButtonText || 'Checkout'}
           </a>
@@ -153,7 +158,8 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
               <div className="p-4 border-t border-border">
                 <a
                   href="/checkout"
-                  className="block w-full px-4 py-3 bg-primary text-primary-foreground rounded-md text-sm font-medium text-center hover:bg-primary/90 transition-colors"
+                  className={`block w-full px-4 py-3 bg-primary text-primary-foreground text-sm font-medium text-center hover:bg-primary/90 transition-colors ${!btnRadius ? 'rounded-md' : ''}`}
+                  style={{ ...(bs?.primaryBg ? { backgroundColor: bs.primaryBg } : {}), ...(bs?.primaryText ? { color: bs.primaryText } : {}), ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
                   {block.checkoutButtonText || 'Proceed to Checkout'}
                 </a>

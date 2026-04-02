@@ -4,6 +4,7 @@ import { CardGridBlock } from '@/types/blocks';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface CardGridBlockPreviewProps {
   block: CardGridBlock;
@@ -49,24 +50,24 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
     <div className="p-6">
       <div className="text-center mb-8">
         {(block.title || isSelected) && (
-          <input
-            type="text"
-            value={block.title || ''}
-            onChange={(e) => onChange({ title: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.title || ''}
+            onChange={(html) => onChange({ title: html })}
             className="text-3xl font-bold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Card Grid Title"
+            singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
-          <input
-            type="text"
-            value={block.description || ''}
-            onChange={(e) => onChange({ description: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.description || ''}
+            onChange={(html) => onChange({ description: html })}
             className="text-lg w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
@@ -142,24 +143,24 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
             )}
 
             <div className="p-4">
-              <input
-                type="text"
-                value={card.title}
-                onChange={(e) => updateCard(card.id, { title: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
+              <RichTextEditable
+                html={card.title}
+                onChange={(html) => updateCard(card.id, { title: html })}
                 className="text-xl font-semibold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
                 placeholder="Card Title"
+                singleLine={true}
+                toolbar={true}
                 style={getElementCSS(block.elementStyles, 'cardTitle')}
               />
 
-              <textarea
-                value={card.description}
-                onChange={(e) => updateCard(card.id, { description: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
+              <RichTextEditable
+                html={card.description}
+                onChange={(html) => updateCard(card.id, { description: html })}
                 className="text-muted-foreground w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
                 placeholder="Card description..."
+                singleLine={false}
+                toolbar={true}
                 style={getElementCSS(block.elementStyles, 'cardDescription')}
-                rows={3}
               />
 
               {(card.link || isSelected) && (

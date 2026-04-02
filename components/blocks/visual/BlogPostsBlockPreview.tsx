@@ -4,6 +4,7 @@ import { BlogPostsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getAllBlogPosts, getBlogPostsByCategory, type BlogPostWithRelations } from '@/lib/actions/blog';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface BlogPostsBlockPreviewProps {
   block: BlogPostsBlock;
@@ -54,24 +55,22 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
     <div className="py-16 my-8 px-6">
       <div className="text-center mb-12">
         {(block.title || isSelected) && (
-          <input
-            type="text"
-            value={block.title || ''}
-            onChange={(e) => onChange({ title: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.title || ''}
+            onChange={(html) => onChange({ title: html })}
             className="font-heading text-4xl md:text-5xl font-bold mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Blog Posts Title"
+            singleLine={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
-          <input
-            type="text"
-            value={block.description || ''}
-            onChange={(e) => onChange({ description: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.description || ''}
+            onChange={(html) => onChange({ description: html })}
             className="text-xl max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            singleLine={true}
             style={getElementCSS(block.elementStyles, 'description')}
           />
         )}

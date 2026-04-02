@@ -104,6 +104,9 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
   const [boardView, setBoardView] = useState(false);
   const [aiHistory, setAiHistory] = useState<Record<number, Array<{ role: 'user' | 'assistant'; content: string }>>>({});
+  const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
+  const [batchPrompt, setBatchPrompt] = useState('');
+  const [batchGenerating, setBatchGenerating] = useState(false);
 
   // Close board view on ESC
   useEffect(() => {
@@ -175,6 +178,40 @@ useEffect(() => {
     } else {
       setError(data.message || 'Failed to edit slide');
     }
+  }
+
+  async function handleBatchEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!batchPrompt.trim() || !deck || selectedSlides.size === 0) return;
+    setBatchGenerating(true);
+    setError('');
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}/slides/batch-edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: batchPrompt.trim(),
+        slideIndices: Array.from(selectedSlides).sort((a, b) => a - b),
+      }),
+    });
+    const data = await res.json();
+    setBatchGenerating(false);
+    if (data.success) {
+      setDeck(data.data);
+      setBatchPrompt('');
+      setSelectedSlides(new Set());
+      setHasUnsavedChanges(false);
+    } else {
+      setError(data.message || 'Batch edit failed');
+    }
+  }
+
+  function toggleSlideSelection(idx: number) {
+    setSelectedSlides(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
   }
 
   async function handleRegenerate(e: React.FormEvent) {
@@ -273,6 +310,26 @@ useEffect(() => {
     const newSlides = deck.slides.filter((_, i) => i !== idx);
     setDeck({ ...deck, slides: newSlides });
     if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
+    setHasUnsavedChanges(true);
+  }
+
+  function duplicateSlide(idx: number) {
+    if (!deck) return;
+    const source = deck.slides[idx];
+    const dup: PitchDeckSlideV2 = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: `slide-${Date.now()}`,
+      label: (source.label || getSlideTitle(source)) + ' (copy)',
+    };
+    // Regenerate block IDs to avoid collisions
+    dup.blocks = dup.blocks.map((b: PitchDeckSlideV2['blocks'][number], i: number) => ({
+      ...b,
+      id: `block-${Date.now()}-${i}`,
+    }));
+    const newSlides = [...deck.slides];
+    newSlides.splice(idx + 1, 0, dup);
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(idx + 1);
     setHasUnsavedChanges(true);
   }
 
@@ -481,6 +538,20 @@ useEffect(() => {
             <span className="material-icons text-base">{deck.status === 'published' ? 'open_in_new' : 'visibility'}</span>
             {deck.status === 'published' ? 'View Live' : 'Preview'}
           </Link>
+          <button
+            onClick={() => {
+              window.open(
+                `/portal/tools/pitch-decks/${id}/presenter`,
+                'presenter-view',
+                'width=1200,height=800,menubar=no,toolbar=no,location=no'
+              );
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Open presenter view"
+          >
+            <span className="material-icons text-base">co_present</span>
+            Present
+          </button>
           <button
             onClick={togglePublish}
             disabled={publishing || deck.slides.length === 0}
@@ -793,6 +864,7 @@ useEffect(() => {
                             slide={slide}
                             index={idx}
                             isActive={idx === activeSlide}
+                            isSelected={selectedSlides.has(idx)}
                             onClick={() => setActiveSlide(idx)}
                             onRename={(newLabel) => {
                               if (!deck) return;
@@ -801,6 +873,10 @@ useEffect(() => {
                               setDeck({ ...deck, slides: newSlides });
                               setHasUnsavedChanges(true);
                             }}
+                            onDuplicate={() => duplicateSlide(idx)}
+                            onRemove={() => removeSlide(idx)}
+                            onToggleSelect={() => toggleSlideSelection(idx)}
+                            canRemove={deck.slides.length > 1}
                           />
                         ))}
                       </SortableContext>
@@ -810,6 +886,58 @@ useEffect(() => {
               )}
             </div>
           </div>
+
+          {/* Batch edit bar — shown when slides are selected */}
+          {selectedSlides.size > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-lg px-6 py-3">
+              <form onSubmit={handleBatchEdit} className="max-w-4xl mx-auto flex items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="material-icons text-primary text-lg">checklist</span>
+                  <span className="text-sm font-medium text-foreground">{selectedSlides.size} slide{selectedSlides.size > 1 ? 's' : ''}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const all = new Set(deck.slides.map((_, i) => i));
+                      setSelectedSlides(selectedSlides.size === deck.slides.length ? new Set() : all);
+                    }}
+                    className="text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {selectedSlides.size === deck.slides.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  <span className="text-border">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSlides(new Set())}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="flex-1 relative">
+                  <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">auto_awesome</span>
+                  <input
+                    type="text"
+                    value={batchPrompt}
+                    onChange={(e) => setBatchPrompt(e.target.value)}
+                    placeholder="Apply to selected slides... e.g. 'Make the tone more formal' or 'Add a statistic to each'"
+                    className="w-full pl-10 pr-3 py-2.5 bg-background border border-border rounded-lg text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    disabled={batchGenerating}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={batchGenerating || !batchPrompt.trim()}
+                  className="px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 flex items-center gap-1.5"
+                >
+                  {batchGenerating ? (
+                    <><span className="material-icons animate-spin text-base">autorenew</span>Editing {selectedSlides.size}...</>
+                  ) : (
+                    <><span className="material-icons text-base">edit_note</span>Edit {selectedSlides.size} Slides</>
+                  )}
+                </button>
+              </form>
+            </div>
+          )}
 
           {/* Slide preview + editor */}
           <div className="flex-1 min-w-0 space-y-4">
@@ -894,6 +1022,27 @@ useEffect(() => {
                   )}
                 </button>
             </form>
+
+            {/* Speaker notes */}
+            <details className="group">
+              <summary className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none">
+                <span className="material-icons text-sm transition-transform group-open:rotate-90">chevron_right</span>
+                <span className="material-icons text-sm">speaker_notes</span>
+                Speaker Notes
+                {currentSlide.notes && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+              </summary>
+              <textarea
+                value={currentSlide.notes || ''}
+                onChange={(e) => {
+                  const newSlides = [...deck.slides];
+                  newSlides[activeSlide] = { ...newSlides[activeSlide], notes: e.target.value };
+                  setDeck({ ...deck, slides: newSlides });
+                  setHasUnsavedChanges(true);
+                }}
+                placeholder="Add speaker notes for this slide..."
+                className="mt-2 w-full h-24 px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground resize-y focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </details>
 
             {/* Visual editor shell — used in both preview and edit modes */}
             <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-180px)]" style={{ minHeight: '600px' }}>
@@ -988,12 +1137,17 @@ useEffect(() => {
 }
 
 /** Sortable slide item for dnd-kit reordering with double-click rename */
-function SortableSlideItem({ slide, index, isActive, onClick, onRename }: {
+function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect, canRemove }: {
   slide: PitchDeckSlideV2;
   index: number;
   isActive: boolean;
+  isSelected: boolean;
   onClick: () => void;
   onRename: (newLabel: string) => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  onToggleSelect: () => void;
+  canRemove: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const [renaming, setRenaming] = useState(false);
@@ -1017,7 +1171,7 @@ function SortableSlideItem({ slide, index, isActive, onClick, onRename }: {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 border-b border-border/50 last:border-0 transition-colors ${
+      className={`group flex items-center gap-2 border-b border-border/50 last:border-0 transition-colors ${
         isActive
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -1030,6 +1184,13 @@ function SortableSlideItem({ slide, index, isActive, onClick, onRename }: {
       >
         <span className="material-icons text-sm">drag_indicator</span>
       </span>
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={(e) => { e.stopPropagation(); onToggleSelect(); }}
+        className="shrink-0 rounded border-border accent-primary cursor-pointer"
+        title="Select for batch edit"
+      />
       <div
         onClick={onClick}
         className="flex-1 text-left py-2.5 pr-3 flex items-center gap-2 min-w-0 cursor-pointer"
@@ -1063,6 +1224,23 @@ function SortableSlideItem({ slide, index, isActive, onClick, onRename }: {
             {getSlideTitle(slide)}
           </span>
         )}
+      </div>
+      <div className="flex items-center shrink-0 pr-2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
+          className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+          title="Duplicate slide"
+        >
+          <span className="material-icons text-sm">content_copy</span>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          disabled={!canRemove}
+          className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Remove slide"
+        >
+          <span className="material-icons text-sm">delete_outline</span>
+        </button>
       </div>
     </div>
   );

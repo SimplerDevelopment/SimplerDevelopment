@@ -28,6 +28,20 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
 
   if (branding.headingFont) cssVars['--brand-heading-font'] = branding.headingFont;
   if (branding.bodyFont) cssVars['--brand-body-font'] = branding.bodyFont;
+  if (branding.borderRadius) cssVars['--brand-border-radius'] = branding.borderRadius;
+  if (branding.linkColor) cssVars['--brand-link-color'] = branding.linkColor;
+  if (branding.linkHoverColor) cssVars['--brand-link-hover-color'] = branding.linkHoverColor;
+
+  if (branding.buttonStyle) {
+    const bs = branding.buttonStyle;
+    if (bs.primaryBg) cssVars['--brand-btn-primary-bg'] = bs.primaryBg;
+    if (bs.primaryText) cssVars['--brand-btn-primary-text'] = bs.primaryText;
+    if (bs.primaryHoverBg) cssVars['--brand-btn-primary-hover-bg'] = bs.primaryHoverBg;
+    if (bs.secondaryBg) cssVars['--brand-btn-secondary-bg'] = bs.secondaryBg;
+    if (bs.secondaryText) cssVars['--brand-btn-secondary-text'] = bs.secondaryText;
+    if (bs.secondaryHoverBg) cssVars['--brand-btn-secondary-hover-bg'] = bs.secondaryHoverBg;
+    if (bs.borderRadius) cssVars['--brand-btn-border-radius'] = bs.borderRadius;
+  }
 
   return (
     <BrandingContext.Provider value={branding}>

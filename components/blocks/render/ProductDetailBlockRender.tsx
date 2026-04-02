@@ -4,6 +4,7 @@ import { ProductDetailBlock } from '@/types/blocks';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface ProductImage {
   id: number;
@@ -52,6 +53,9 @@ function getOrCreateSessionId(): string {
 }
 
 export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRenderProps) {
+  const branding = useBranding();
+  const bs = branding?.buttonStyle;
+  const btnRadius = bs?.borderRadius || branding?.borderRadius;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -203,7 +207,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
                   </div>
                 )}
                 {comparePrice && comparePrice > currentPrice && (
-                  <div className="absolute top-4 left-4 bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full" style={getElementCSS(block.elementStyles, 'badge')}>
+                  <div className="absolute top-4 left-4 text-white text-sm font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: branding?.accentColor || '#ef4444', ...getElementCSS(block.elementStyles, 'badge') }}>
                     {Math.round((1 - currentPrice / comparePrice) * 100)}% OFF
                   </div>
                 )}
@@ -339,8 +343,8 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
                 <button
                   onClick={addToCart}
                   disabled={!inStock || addingToCart || (product.variants.length > 0 && !matchedVariant)}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary text-primary-foreground text-lg font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={getElementCSS(block.elementStyles, 'addToCartButton')}
+                  className={`w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary text-primary-foreground text-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${!btnRadius ? 'rounded-xl' : ''}`}
+                  style={{ ...(bs?.primaryBg ? { backgroundColor: bs.primaryBg } : {}), ...(bs?.primaryText ? { color: bs.primaryText } : {}), ...(btnRadius ? { borderRadius: btnRadius } : {}), ...getElementCSS(block.elementStyles, 'addToCartButton') }}
                 >
                   {addingToCart ? (
                     <><span className="material-icons animate-spin text-xl">refresh</span>Adding...</>

@@ -3,12 +3,14 @@
 import { StoreBannerBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface StoreBannerBlockRenderProps {
   block: StoreBannerBlock;
 }
 
 export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
+  const branding = useBranding();
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
 
   useEffect(() => {
@@ -43,26 +45,26 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
     bgStyle.backgroundSize = 'cover';
     bgStyle.backgroundPosition = 'center';
   } else if (block.backgroundStyle === 'gradient' || !block.backgroundStyle) {
-    const accent = block.accentColor || 'hsl(var(--primary))';
+    const accent = block.accentColor || branding?.primaryColor || 'hsl(var(--primary))';
     bgStyle.background = `linear-gradient(135deg, ${accent}, ${accent}dd)`;
   } else if (block.backgroundStyle === 'solid') {
-    bgStyle.backgroundColor = block.accentColor || 'hsl(var(--primary))';
+    bgStyle.backgroundColor = block.accentColor || branding?.primaryColor || 'hsl(var(--primary))';
   }
 
   return (
     <section className="py-8 my-8">
       <div className="container mx-auto px-4">
         <div
-          className="relative rounded-2xl overflow-hidden text-white"
-          style={bgStyle}
+          className={`relative overflow-hidden text-white ${!branding?.borderRadius ? 'rounded-2xl' : ''}`}
+          style={{ ...bgStyle, ...(branding?.borderRadius ? { borderRadius: branding.borderRadius } : {}) }}
         >
           {block.backgroundStyle === 'image' && (
             <div className="absolute inset-0 bg-black/50" />
           )}
           <div className="relative z-10 px-8 py-12 md:py-16 text-center">
-            <h2 className="text-3xl md:text-5xl font-bold mb-3" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h2>
+            <h2 className="text-3xl md:text-5xl font-bold mb-3" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
             {block.subtitle && (
-              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'subtitle')}>{block.subtitle}</p>
+              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'subtitle')} dangerouslySetInnerHTML={{ __html: block.subtitle }} />
             )}
 
             {block.discountCode && (
@@ -93,8 +95,8 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
             {block.buttonText && block.buttonUrl && (
               <a
                 href={block.buttonUrl}
-                className="inline-flex items-center px-8 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-white/90 transition-colors"
-                style={getElementCSS(block.elementStyles, 'button')}
+                className={`inline-flex items-center px-8 py-3 bg-white text-gray-900 font-semibold hover:bg-white/90 transition-colors ${!branding?.borderRadius ? 'rounded-lg' : ''}`}
+                style={{ ...getElementCSS(block.elementStyles, 'button'), ...(branding?.borderRadius ? { borderRadius: branding.borderRadius } : {}) }}
               >
                 {block.buttonText}
               </a>

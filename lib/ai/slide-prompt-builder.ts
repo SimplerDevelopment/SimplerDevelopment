@@ -12,8 +12,10 @@ import type { ComponentManifestEntry } from '@/types/visual-editor';
 
 interface DeckContext {
   title: string;
-  allSlides: Array<{ index: number; label: string }>;
+  allSlides: Array<{ index: number; label: string; contentSummary?: string; notes?: string }>;
   currentSlideIndex: number;
+  description?: string | null;
+  brandInfo?: { headingFont?: string; bodyFont?: string; primaryColor?: string; accentColor?: string; logoText?: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,20 +100,38 @@ export function buildSlideEditPrompt(
     }
   }
 
-  // Build slide outline
+  // Build slide outline with content summaries
   const slideOutline = deckContext.allSlides
-    .map((s) => `  ${s.index + 1}. ${s.label}${s.index === deckContext.currentSlideIndex ? ' ← (CURRENT)' : ''}`)
+    .map((s) => {
+      let line = `  ${s.index + 1}. ${s.label}${s.index === deckContext.currentSlideIndex ? ' ← (CURRENT)' : ''}`;
+      if (s.contentSummary) line += `\n     Content: ${s.contentSummary}`;
+      if (s.notes) line += `\n     Notes: ${s.notes.slice(0, 150)}${s.notes.length > 150 ? '...' : ''}`;
+      return line;
+    })
     .join('\n');
+
+  // Brand context
+  let brandSection = '';
+  if (deckContext.brandInfo) {
+    const b = deckContext.brandInfo;
+    const parts: string[] = [];
+    if (b.logoText) parts.push(`Company: ${b.logoText}`);
+    if (b.primaryColor) parts.push(`Brand Primary: ${b.primaryColor}`);
+    if (b.accentColor) parts.push(`Brand Accent: ${b.accentColor}`);
+    if (parts.length) brandSection = `\n# Brand Identity\n${parts.join('\n')}\n`;
+  }
 
   return `You are an expert pitch deck editor with full control over slide content, structure, and styling.
 You modify individual slides based on natural language instructions. You can do EVERYTHING a human editor can do.
+Your edits should fit naturally within the deck's overall narrative flow.
 
 Respond with valid JSON only — no markdown fences, no explanation, no commentary.
 
 # Deck Context
-Title: "${deckContext.title}"
+Title: "${deckContext.title}"${deckContext.description ? `\nDescription: ${deckContext.description}` : ''}
 Slides:
 ${slideOutline}
+${brandSection}
 
 # Current Theme
 - Primary Color: ${theme.primaryColor}

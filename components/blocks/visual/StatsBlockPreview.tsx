@@ -2,6 +2,7 @@
 
 import { StatsBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface StatsBlockPreviewProps {
   block: StatsBlock;
@@ -46,13 +47,12 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
       <div className="container mx-auto">
         {(block.title || isSelected) && (
           <div className="text-center mb-12">
-            <input
-              type="text"
-              value={block.title || ''}
-              onChange={(e) => onChange({ title: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={block.title || ''}
+              onChange={(html) => onChange({ title: html })}
               className="text-3xl md:text-4xl font-bold w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
               placeholder="Stats Title (optional)"
+              singleLine={true}
             />
           </div>
         )}

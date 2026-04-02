@@ -28,6 +28,17 @@ interface DarkModeOverrides {
   logoIconUrl?: string;
 }
 
+interface ButtonStyle {
+  primaryBg?: string;
+  primaryText?: string;
+  primaryHoverBg?: string;
+  secondaryBg?: string;
+  secondaryText?: string;
+  secondaryHoverBg?: string;
+  borderRadius?: string;
+  variant?: 'filled' | 'outline';
+}
+
 interface Branding {
   logoUrl: string;
   logoAlt: string;
@@ -48,6 +59,12 @@ interface Branding {
   navPosition: string;
   navBackground: string;
   navTextColor: string;
+  borderRadius: string;
+  linkColor: string;
+  linkHoverColor: string;
+  buttonStyle: ButtonStyle;
+  faviconUrl: string;
+  ogImageUrl: string;
 }
 
 const DEFAULT_TYPOGRAPHY: Record<string, ElementTypography> = {
@@ -109,6 +126,12 @@ const DEFAULTS: Branding = {
   navPosition: 'top',
   navBackground: '#ffffff',
   navTextColor: '#111827',
+  borderRadius: '8px',
+  linkColor: '',
+  linkHoverColor: '',
+  buttonStyle: {},
+  faviconUrl: '',
+  ogImageUrl: '',
 };
 
 export default function BrandingPage() {
@@ -117,7 +140,59 @@ export default function BrandingPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography'>('logos');
+  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography' | 'style'>('logos');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiTone, setAiTone] = useState('');
+  const [showAiPanel, setShowAiPanel] = useState(false);
+
+  const generateBranding = async () => {
+    if (!aiPrompt.trim() || aiPrompt.trim().length < 10) {
+      setAiError('Please describe your brand in at least 10 characters.');
+      return;
+    }
+    setAiGenerating(true);
+    setAiError('');
+    setAiTone('');
+    try {
+      const res = await fetch(`/api/portal/cms/websites/${siteId}/branding/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: aiPrompt.trim() }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setAiError(data.message || 'Generation failed.');
+        return;
+      }
+      const g = data.data;
+      // Apply generated values (preserve logos and anything AI doesn't set)
+      const updates: Partial<Branding> = {};
+      if (g.primaryColor) updates.primaryColor = g.primaryColor;
+      if (g.secondaryColor) updates.secondaryColor = g.secondaryColor;
+      if (g.accentColor) updates.accentColor = g.accentColor;
+      if (g.backgroundColor) updates.backgroundColor = g.backgroundColor;
+      if (g.textColor) updates.textColor = g.textColor;
+      if (g.headingFont) updates.headingFont = g.headingFont;
+      if (g.bodyFont) updates.bodyFont = g.bodyFont;
+      if (g.navBackground) updates.navBackground = g.navBackground;
+      if (g.navTextColor) updates.navTextColor = g.navTextColor;
+      if (g.borderRadius) updates.borderRadius = g.borderRadius;
+      if (g.linkColor) updates.linkColor = g.linkColor;
+      if (g.linkHoverColor) updates.linkHoverColor = g.linkHoverColor;
+      if (g.buttonStyle) updates.buttonStyle = { ...(branding.buttonStyle || {}), ...g.buttonStyle };
+      if (g.darkMode) updates.darkMode = { ...(branding.darkMode || {}), ...g.darkMode };
+      if (g.typography) updates.typography = { ...(branding.typography || {}), ...g.typography };
+      setBranding(prev => ({ ...prev, ...updates }));
+      setDirty(true);
+      if (g.tone) setAiTone(g.tone);
+    } catch {
+      setAiError('Network error. Please try again.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/portal/websites/${siteId}/branding`)
@@ -135,6 +210,10 @@ export default function BrandingPage() {
 
   const updateDark = (updates: Partial<DarkModeOverrides>) => {
     update({ darkMode: { ...(branding.darkMode || {}), ...updates } });
+  };
+
+  const updateButtonStyle = (updates: Partial<ButtonStyle>) => {
+    update({ buttonStyle: { ...(branding.buttonStyle || {}), ...updates } });
   };
 
   const save = useCallback(async () => {
@@ -190,6 +269,7 @@ export default function BrandingPage() {
     { id: 'logos' as const, label: 'Logos', icon: 'image' },
     { id: 'colors' as const, label: 'Colors', icon: 'palette' },
     { id: 'typography' as const, label: 'Typography', icon: 'text_fields' },
+    { id: 'style' as const, label: 'Style', icon: 'tune' },
   ];
 
   return (
@@ -217,6 +297,75 @@ export default function BrandingPage() {
           <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
+      </div>
+
+      {/* AI Brand Generator */}
+      <div className="border border-border rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAiPanel(!showAiPanel)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-accent/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="material-icons text-primary">auto_awesome</span>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-foreground">AI Brand Generator</p>
+              <p className="text-xs text-muted-foreground">Describe your brand and let AI generate colors, fonts, and styles</p>
+            </div>
+          </div>
+          <span className="material-icons text-muted-foreground text-base">{showAiPanel ? 'expand_less' : 'expand_more'}</span>
+        </button>
+
+        {showAiPanel && (
+          <div className="px-5 pb-5 border-t border-border space-y-3">
+            <div className="pt-3">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Describe your brand</label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none"
+                placeholder="e.g. We're a modern fintech startup targeting millennials. Bold, energetic, and trustworthy. Our brand should feel premium but approachable, with a tech-forward aesthetic."
+              />
+            </div>
+
+            {aiError && (
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                <span className="material-icons text-base">error_outline</span>
+                {aiError}
+              </div>
+            )}
+
+            {aiTone && (
+              <div className="flex items-start gap-2 text-sm text-primary bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                <span className="material-icons text-base mt-0.5">auto_awesome</span>
+                <p>{aiTone}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground">AI will generate colors, fonts, typography, button styles, and dark mode. Logos are preserved.</p>
+              <button
+                type="button"
+                onClick={generateBranding}
+                disabled={aiGenerating || !aiPrompt.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {aiGenerating ? (
+                  <>
+                    <span className="material-icons text-base animate-spin">refresh</span>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-icons text-base">auto_awesome</span>
+                    Generate Brand Theme
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -403,6 +552,7 @@ export default function BrandingPage() {
             { key: 'backgroundColor', label: 'Background', desc: 'Page background' },
             { key: 'textColor', label: 'Text', desc: 'Body text color' },
             { key: 'navBackground', label: 'Nav Background', desc: 'Navigation bar' },
+            { key: 'navTextColor', label: 'Nav Text', desc: 'Navigation text' },
           ] as const).map(({ key, label, desc }) => (
             <div key={key}>
               <label className={labelClass}>{label}</label>
@@ -440,6 +590,7 @@ export default function BrandingPage() {
               { key: 'backgroundColor' as const, label: 'Background' },
               { key: 'textColor' as const, label: 'Text' },
               { key: 'navBackground' as const, label: 'Nav Background' },
+              { key: 'navTextColor' as const, label: 'Nav Text' },
             ]).map(({ key, label }) => (
               <div key={key}>
                 <label className={labelClass}>{label}</label>
@@ -646,6 +797,327 @@ export default function BrandingPage() {
             </div>
           </div>
         ))}
+      </div>
+      )}
+
+      {/* Style */}
+      {activeTab === 'style' && (
+      <div className="space-y-8">
+        {/* Border Radius */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">rounded_corner</span>
+            Border Radius
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">Global shape language applied to buttons, cards, and UI elements.</p>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { value: '0px', label: 'Sharp' },
+              { value: '4px', label: 'Subtle' },
+              { value: '8px', label: 'Rounded' },
+              { value: '9999px', label: 'Pill' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => update({ borderRadius: opt.value })}
+                className={`p-3 border text-sm font-medium transition-colors ${
+                  branding.borderRadius === opt.value
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border text-muted-foreground hover:border-foreground'
+                }`}
+                style={{ borderRadius: opt.value }}
+              >
+                <div
+                  className="w-full h-8 bg-primary/20 mb-2"
+                  style={{ borderRadius: opt.value }}
+                />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <label className={labelClass}>Custom Value</label>
+            <input
+              type="text"
+              value={branding.borderRadius}
+              onChange={(e) => update({ borderRadius: e.target.value })}
+              className={`${inputClass} max-w-[200px]`}
+              placeholder="8px"
+            />
+          </div>
+        </div>
+
+        {/* Link Colors */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">link</span>
+            Link Colors
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">Colors for inline text links. Separate from primary color for accessibility.</p>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>Link Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={branding.linkColor || branding.primaryColor}
+                  onChange={(e) => update({ linkColor: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={branding.linkColor}
+                  onChange={(e) => update({ linkColor: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={branding.primaryColor}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Link Hover Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={branding.linkHoverColor || branding.primaryColor}
+                  onChange={(e) => update({ linkHoverColor: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={branding.linkHoverColor}
+                  onChange={(e) => update({ linkHoverColor: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={branding.primaryColor}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border text-sm">
+            <span style={{ color: branding.linkColor || branding.primaryColor, textDecoration: 'underline', cursor: 'pointer' }}>
+              This is what a link looks like
+            </span>
+            {' '}within body text.
+          </div>
+        </div>
+
+        {/* Button Style */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">smart_button</span>
+            Button Style
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">Default styling for buttons and CTAs across blocks.</p>
+
+          <div className="mb-4">
+            <label className={labelClass}>Default Variant</label>
+            <div className="flex gap-2">
+              {(['filled', 'outline'] as const).map(v => (
+                <button
+                  key={v}
+                  onClick={() => updateButtonStyle({ variant: v })}
+                  className={`px-4 py-2 text-sm font-medium border transition-colors capitalize ${
+                    (branding.buttonStyle?.variant || 'filled') === v
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border text-muted-foreground hover:border-foreground'
+                  }`}
+                  style={{ borderRadius: branding.buttonStyle?.borderRadius || branding.borderRadius }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className={labelClass}>Button Border Radius</label>
+            <input
+              type="text"
+              value={branding.buttonStyle?.borderRadius || ''}
+              onChange={(e) => updateButtonStyle({ borderRadius: e.target.value })}
+              className={`${inputClass} max-w-[200px]`}
+              placeholder={branding.borderRadius || '8px'}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Leave empty to inherit global border radius.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Primary Button</h3>
+              <div>
+                <label className={labelClass}>Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.primaryBg || branding.primaryColor}
+                    onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.primaryBg || ''}
+                    onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder={branding.primaryColor}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.primaryText || '#ffffff'}
+                    onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.primaryText || ''}
+                    onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder="#ffffff"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Hover Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.primaryHoverBg || branding.primaryColor}
+                    onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.primaryHoverBg || ''}
+                    onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder={branding.primaryColor}
+                  />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button
+                  className="px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: branding.buttonStyle?.primaryBg || branding.primaryColor,
+                    color: branding.buttonStyle?.primaryText || '#ffffff',
+                    borderRadius: branding.buttonStyle?.borderRadius || branding.borderRadius,
+                  }}
+                >
+                  Primary Button
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Secondary Button</h3>
+              <div>
+                <label className={labelClass}>Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.secondaryBg || branding.secondaryColor}
+                    onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.secondaryBg || ''}
+                    onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder={branding.secondaryColor}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Text Color</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.secondaryText || '#ffffff'}
+                    onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.secondaryText || ''}
+                    onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder="#ffffff"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Hover Background</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={branding.buttonStyle?.secondaryHoverBg || branding.secondaryColor}
+                    onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
+                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={branding.buttonStyle?.secondaryHoverBg || ''}
+                    onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
+                    className={`${inputClass} font-mono`}
+                    placeholder={branding.secondaryColor}
+                  />
+                </div>
+              </div>
+              <div className="pt-2">
+                <button
+                  className="px-4 py-2 text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: branding.buttonStyle?.secondaryBg || branding.secondaryColor,
+                    color: branding.buttonStyle?.secondaryText || '#ffffff',
+                    borderRadius: branding.buttonStyle?.borderRadius || branding.borderRadius,
+                  }}
+                >
+                  Secondary Button
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Favicon */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">tab</span>
+            Favicon
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">The small icon shown in browser tabs. Recommended: 32x32 or 48x48 PNG.</p>
+          <div className="max-w-sm">
+            <MediaPicker
+              value={branding.faviconUrl}
+              onChange={(url) => update({ faviconUrl: url })}
+              label="Favicon"
+              mimeTypeFilter="image"
+              apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+            />
+          </div>
+        </div>
+
+        {/* OG / Social Image */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">share</span>
+            Social / OG Image
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">Default image shown when pages are shared on social media. Recommended: 1200x630.</p>
+          <div className="max-w-sm">
+            <MediaPicker
+              value={branding.ogImageUrl}
+              onChange={(url) => update({ ogImageUrl: url })}
+              label="OG Image"
+              mimeTypeFilter="image"
+              apiEndpoint={`/api/portal/cms/websites/${siteId}/media`}
+            />
+          </div>
+        </div>
       </div>
       )}
     </div>

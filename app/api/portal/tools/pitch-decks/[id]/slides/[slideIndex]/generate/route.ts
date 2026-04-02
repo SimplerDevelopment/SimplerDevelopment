@@ -1,14 +1,29 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { pitchDecks } from '@/lib/db/schema';
+import { pitchDecks, clientWebsites, siteBranding } from '@/lib/db/schema';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
+import { getBrandingByClientId } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
+
+/** Extract a short text summary from a slide's blocks for AI context. */
+function summarizeSlide(slide: PitchDeckSlideV2): string {
+  const texts: string[] = [];
+  for (const block of slide.blocks) {
+    const b = block as unknown as Record<string, unknown>;
+    if (b.title && typeof b.title === 'string') texts.push(b.title.replace(/<[^>]+>/g, ''));
+    if (b.content && typeof b.content === 'string') texts.push(b.content.replace(/<[^>]+>/g, ''));
+    if (b.description && typeof b.description === 'string') texts.push(b.description.replace(/<[^>]+>/g, ''));
+    if (texts.join(' ').length > 200) break;
+  }
+  const summary = texts.join(' | ').slice(0, 250);
+  return summary || '(empty)';
+}
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -50,13 +65,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const currentSlide = slides[idx];
     const theme = deck.theme as PitchDeckTheme;
 
+    // Load brand info for richer context
+    let brandInfo: { headingFont?: string; bodyFont?: string; primaryColor?: string; accentColor?: string; logoText?: string } | null = null;
+    try {
+      const branding = await getBrandingByClientId(client.id);
+      brandInfo = {
+        primaryColor: branding.primaryColor,
+        accentColor: branding.accentColor,
+        headingFont: branding.headingFont || undefined,
+        bodyFont: branding.bodyFont || undefined,
+        logoText: branding.logoText || undefined,
+      };
+    } catch { /* non-critical */ }
+
     // Build dynamic system prompt from block schemas + theme + deck context
     const systemPrompt = buildSlideEditPrompt(
       theme,
       {
         title: deck.title,
-        allSlides: slides.map((s, i) => ({ index: i, label: s.label || `Slide ${i + 1}` })),
+        description: deck.description,
+        allSlides: slides.map((s, i) => ({
+          index: i,
+          label: s.label || `Slide ${i + 1}`,
+          contentSummary: summarizeSlide(s),
+          notes: s.notes,
+        })),
         currentSlideIndex: idx,
+        brandInfo,
       },
     );
 
@@ -69,10 +104,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
+    // Build adjacent slide context for narrative flow
+    const adjacentContext: string[] = [];
+    if (idx > 0) {
+      adjacentContext.push(`Previous slide (${slides[idx - 1].label || 'Slide ' + idx}):\n${JSON.stringify(slides[idx - 1], null, 2)}`);
+    }
+    if (idx < slides.length - 1) {
+      adjacentContext.push(`Next slide (${slides[idx + 1].label || 'Slide ' + (idx + 2)}):\n${JSON.stringify(slides[idx + 1], null, 2)}`);
+    }
+    const adjacentSection = adjacentContext.length
+      ? `\n\nAdjacent slides for narrative context (do NOT modify these, only use for reference):\n${adjacentContext.join('\n\n')}`
+      : '';
+
     // Current turn — include preservation reminder alongside the slide data
     messages.push({
       role: 'user',
-      content: `Current slide:\n${JSON.stringify(currentSlide, null, 2)}\n\nInstruction: ${prompt.trim()}\n\nIMPORTANT: Only change what the instruction asks for. Preserve all existing styling (style, elementStyles), content (text, headings, images, URLs), and structure that is not explicitly referenced in the instruction above.`,
+      content: `Current slide:\n${JSON.stringify(currentSlide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve all existing styling (style, elementStyles), content (text, headings, images, URLs), and structure that is not explicitly referenced in the instruction above. Ensure the edited slide flows naturally with the surrounding slides.`,
     });
 
     const response = await anthropic.messages.create({

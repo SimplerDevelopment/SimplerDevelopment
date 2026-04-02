@@ -90,6 +90,12 @@ export async function PUT(
     navPosition: body.navPosition ?? DEFAULTS.navPosition,
     navBackground: body.navBackground ?? DEFAULTS.navBackground,
     navTextColor: body.navTextColor ?? DEFAULTS.navTextColor,
+    borderRadius: body.borderRadius ?? null,
+    linkColor: body.linkColor ?? null,
+    linkHoverColor: body.linkHoverColor ?? null,
+    buttonStyle: body.buttonStyle ?? null,
+    faviconUrl: body.faviconUrl ?? null,
+    ogImageUrl: body.ogImageUrl ?? null,
     updatedAt: new Date(),
   };
 

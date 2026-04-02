@@ -3,6 +3,7 @@
 import { AccordionBlock } from '@/types/blocks';
 import { useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface AccordionBlockPreviewProps {
   block: AccordionBlock;
@@ -83,16 +84,13 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
               }}
               className="w-full px-4 py-3 flex items-center justify-between hover:bg-accent transition-colors"
             >
-              <input
-                type="text"
-                value={item.title}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  updateItem(item.id, { title: e.target.value });
-                }}
-                onClick={(e) => e.stopPropagation()}
+              <RichTextEditable
+                html={item.title}
+                onChange={(html) => updateItem(item.id, { title: html })}
                 className="flex-1 text-left font-semibold bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
                 placeholder="Item title"
+                singleLine={true}
+                toolbar={true}
                 style={getElementCSS(block.elementStyles, 'itemTitle')}
               />
               <svg
@@ -109,13 +107,13 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
 
             {openItems.has(item.id) && (
               <div className="px-4 py-3 border-t border-border">
-                <textarea
-                  value={item.content}
-                  onChange={(e) => updateItem(item.id, { content: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
+                <RichTextEditable
+                  html={item.content}
+                  onChange={(html) => updateItem(item.id, { content: html })}
                   className="w-full text-muted-foreground bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
                   placeholder="Item content..."
-                  rows={3}
+                  singleLine={false}
+                  toolbar={true}
                   style={getElementCSS(block.elementStyles, 'itemContent')}
                 />
               </div>

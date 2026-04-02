@@ -3,6 +3,7 @@
 import { FeaturedProductsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface Product {
   id: number;
@@ -22,6 +23,9 @@ interface FeaturedProductsBlockRenderProps {
 }
 
 export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsBlockRenderProps) {
+  const branding = useBranding();
+  const bs = branding?.buttonStyle;
+  const btnRadius = bs?.borderRadius || branding?.borderRadius;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,10 +70,10 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
         {(block.title || block.description) && (
           <div className="text-center mb-12">
             {block.title && (
-              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h2>
+              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
             )}
             {block.description && (
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>{block.description}</p>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
             )}
           </div>
         )}
@@ -90,14 +94,20 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
           <div className={`grid grid-cols-1 ${columnClasses[block.columns || 4]} gap-8`}>
             {products.map((product) => (
               <a key={product.id} href={`/shop/${product.slug}`} className="group">
-                <div className="relative h-full rounded-lg border bg-card overflow-hidden transition-all hover:shadow-xl">
+                <div
+                  className={`relative h-full border bg-card overflow-hidden transition-all hover:shadow-xl ${!branding?.borderRadius ? 'rounded-lg' : ''}`}
+                  style={branding?.borderRadius ? { borderRadius: branding.borderRadius } : undefined}
+                >
                   {block.showBadge !== false && (
                     <div className="absolute top-3 left-3 z-10 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
                       {block.badgeText || 'Featured'}
                     </div>
                   )}
                   {product.compareAtPrice && product.compareAtPrice > product.price && (
-                    <div className="absolute top-3 right-3 z-10 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    <div
+                      className="absolute top-3 right-3 z-10 text-white text-xs font-bold px-3 py-1 rounded-full"
+                      style={{ backgroundColor: branding?.accentColor || '#ef4444' }}
+                    >
                       {Math.round((1 - product.price / product.compareAtPrice) * 100)}% OFF
                     </div>
                   )}
@@ -129,7 +139,10 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
                       </div>
                     )}
                     {block.buttonText && (
-                      <button className="mt-4 w-full px-4 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+                      <button
+                        className={`mt-4 w-full px-4 py-2.5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors ${!btnRadius ? 'rounded-md' : ''}`}
+                        style={{ ...(bs?.primaryBg ? { backgroundColor: bs.primaryBg } : {}), ...(bs?.primaryText ? { color: bs.primaryText } : {}), ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
+                      >
                         {block.buttonText}
                       </button>
                     )}

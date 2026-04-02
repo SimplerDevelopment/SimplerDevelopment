@@ -100,7 +100,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border -mb-2">
+      <div className="flex gap-1 border-b border-border">
         {([
           { key: 'board',   href: `/portal/projects/${projectId}`,                label: 'Board',   icon: 'view_kanban' },
           { key: 'sprints', href: `/portal/projects/${projectId}?tab=sprints`,    label: 'Sprints', icon: 'sprint' },

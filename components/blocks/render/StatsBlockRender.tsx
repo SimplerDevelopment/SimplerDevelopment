@@ -34,9 +34,7 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
     <div className={`py-16 my-8 ${responsiveClasses}`}>
       <div className="container mx-auto px-4">
         {block.title && (
-          <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold text-center mb-12" style={getElementCSS(block.elementStyles, 'title')}>
-            {block.title}
-          </h2>
+          <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold text-center mb-12" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
         )}
 
         <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>

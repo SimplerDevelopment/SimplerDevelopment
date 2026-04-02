@@ -2,6 +2,7 @@
 
 import { StoreBannerBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface StoreBannerBlockPreviewProps {
   block: StoreBannerBlock;
@@ -30,23 +31,21 @@ export function StoreBannerBlockPreview({ block, isSelected, onChange }: StoreBa
           <div className="absolute inset-0 bg-black/50" />
         )}
         <div className="relative z-10 px-8 py-12 md:py-16 text-center">
-          <input
-            type="text"
-            value={block.title || ''}
-            onChange={(e) => onChange({ title: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.title || ''}
+            onChange={(html) => onChange({ title: html })}
             className="text-3xl md:text-5xl font-bold mb-3 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-white/50 text-center text-white placeholder-white/50"
             placeholder="Sale Title"
+            singleLine={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
           {(block.subtitle || isSelected) && (
-            <input
-              type="text"
-              value={block.subtitle || ''}
-              onChange={(e) => onChange({ subtitle: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={block.subtitle || ''}
+              onChange={(html) => onChange({ subtitle: html })}
               className="text-lg md:text-xl mb-6 max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-white/30 text-center text-white/90 placeholder-white/40"
               placeholder="Add a subtitle"
+              singleLine={true}
               style={getElementCSS(block.elementStyles, 'subtitle')}
             />
           )}

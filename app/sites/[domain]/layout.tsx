@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getClientWebsiteByDomain, getClientSiteNav } from '@/lib/actions/client-sites';
+import { getBrandingByWebsiteId } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -13,13 +14,32 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   const site = await getClientWebsiteByDomain(domain);
   if (!site) return { title: 'Site Not Found' };
 
-  return {
+  const branding = await getBrandingByWebsiteId(site.id);
+
+  const metadata: Metadata = {
     title: {
       default: site.name,
       template: `%s | ${site.name}`,
     },
     description: site.description || undefined,
   };
+
+  if (branding.faviconUrl) {
+    metadata.icons = { icon: branding.faviconUrl };
+  }
+
+  if (branding.ogImageUrl) {
+    metadata.openGraph = {
+      images: [{ url: branding.ogImageUrl }],
+      siteName: site.name,
+    };
+    metadata.twitter = {
+      card: 'summary_large_image',
+      images: [branding.ogImageUrl],
+    };
+  }
+
+  return metadata;
 }
 
 export default async function ClientSiteLayout({ children, params }: LayoutProps) {
@@ -30,10 +50,21 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     notFound();
   }
 
+  const branding = await getBrandingByWebsiteId(site.id);
+
+  // Build link + button brand styles that require pseudo-selectors
+  const brandStyles = [
+    branding.linkColor && `a { color: ${branding.linkColor}; }`,
+    branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
+    branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
+    branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
+  ].filter(Boolean).join('\n');
+
   // Custom layout mode: blocks handle their own nav/footer/styling
   if (site.customLayout) {
     return (
       <>
+        {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
         {/* Load Google Fonts for custom-layout sites */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -51,6 +82,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   const pages = await getClientSiteNav(site.id);
 
   return (
+    <>
+    {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
     <div className="min-h-screen flex flex-col bg-white text-gray-900">
       <header className="border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -81,5 +114,6 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         </div>
       </footer>
     </div>
+    </>
   );
 }

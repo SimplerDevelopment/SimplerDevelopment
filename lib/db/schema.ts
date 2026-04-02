@@ -1244,6 +1244,17 @@ export const siteBranding = pgTable('site_branding', {
   logoRectUrl: varchar('logo_rect_url', { length: 500 }),
   logoText: varchar('logo_text', { length: 255 }),
   logoIconUrl: varchar('logo_icon_url', { length: 500 }),
+  // Style
+  borderRadius: varchar('border_radius', { length: 20 }).default('8px'),
+  linkColor: varchar('link_color', { length: 20 }),
+  linkHoverColor: varchar('link_hover_color', { length: 20 }),
+  buttonStyle: json('button_style').$type<{
+    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
+    secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
+    borderRadius?: string; variant?: 'filled' | 'outline';
+  }>(),
+  faviconUrl: varchar('favicon_url', { length: 500 }),
+  ogImageUrl: varchar('og_image_url', { length: 500 }),
   // Dark mode overrides (colors + logos)
   darkMode: json('dark_mode').$type<{
     primaryColor?: string; secondaryColor?: string; accentColor?: string;
@@ -1284,6 +1295,17 @@ export const brandingProfiles = pgTable('branding_profiles', {
   logoRectUrl: varchar('logo_rect_url', { length: 500 }),
   logoText: varchar('logo_text', { length: 255 }),
   logoIconUrl: varchar('logo_icon_url', { length: 500 }),
+  // Style
+  borderRadius: varchar('border_radius', { length: 20 }).default('8px'),
+  linkColor: varchar('link_color', { length: 20 }),
+  linkHoverColor: varchar('link_hover_color', { length: 20 }),
+  buttonStyle: json('button_style').$type<{
+    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
+    secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
+    borderRadius?: string; variant?: 'filled' | 'outline';
+  }>(),
+  faviconUrl: varchar('favicon_url', { length: 500 }),
+  ogImageUrl: varchar('og_image_url', { length: 500 }),
   // Dark mode overrides
   darkMode: json('dark_mode').$type<{
     primaryColor?: string; secondaryColor?: string; accentColor?: string;

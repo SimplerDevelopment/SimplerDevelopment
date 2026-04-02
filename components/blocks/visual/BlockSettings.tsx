@@ -6,6 +6,7 @@ import { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { StyleSettings } from './StyleSettings';
+import { RichTextEditable } from './RichTextEditable';
 
 interface BlockSettingsProps {
   block: Block;
@@ -979,9 +980,51 @@ function HeroBlockSettings({ block, onChange, currentViewport }: { block: HeroBl
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [showVideoPicker, setShowVideoPicker] = useState(false);
 
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+
   return (
     <div className="space-y-4">
+      {/* Content Fields */}
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title} onChange={(html) => onChange({ title: html })} singleLine placeholder="Hero Title" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Optional subtitle" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[60px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} placeholder="Optional description" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA Text</label>
+          <input type="text" value={block.ctaText || ''} onChange={(e) => onChange({ ctaText: e.target.value })} className={inputClass} placeholder="Button text" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA Link</label>
+          <input type="text" value={block.ctaLink || ''} onChange={(e) => onChange({ ctaLink: e.target.value })} className={inputClass} placeholder="https://..." />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Secondary CTA Text</label>
+          <input type="text" value={block.secondaryCtaText || ''} onChange={(e) => onChange({ secondaryCtaText: e.target.value })} className={inputClass} placeholder="Optional" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Secondary CTA Link</label>
+          <input type="text" value={block.secondaryCtaLink || ''} onChange={(e) => onChange({ secondaryCtaLink: e.target.value })} className={inputClass} placeholder="Optional" />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
         <label className="block text-sm font-medium text-foreground mb-2">Background Image (optional)</label>
         {block.backgroundImage ? (
           <div className="space-y-2">
@@ -1144,6 +1187,18 @@ function CtaBlockSettings({ block, onChange, currentViewport }: { block: CtaBloc
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title} onChange={(html) => onChange({ title: html })} singleLine placeholder="CTA Title" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[60px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} placeholder="Optional description" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
         <label className="block text-sm font-medium text-foreground mb-2">Background Style</label>
         <select
           value={block.backgroundStyle || 'gradient'}
@@ -1209,6 +1264,19 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Section description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4">
+      <div>
         <label className="block text-sm font-medium text-foreground mb-2">Number of Columns</label>
         <select
           value={block.columns || 3}
@@ -1220,6 +1288,7 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
           <option value="4">4 Columns</option>
         </select>
       </div>
+      </div>
     </div>
   );
 }
@@ -1227,6 +1296,13 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
 function StatsBlockSettings({ block, onChange, currentViewport }: { block: StatsBlock; onChange: (updates: Partial<StatsBlock>) => void; currentViewport: Breakpoint }) {
   return (
     <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4">
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Number of Columns</label>
         <select
@@ -1239,6 +1315,7 @@ function StatsBlockSettings({ block, onChange, currentViewport }: { block: Stats
           <option value="4">4 Columns</option>
         </select>
       </div>
+      </div>
     </div>
   );
 }
@@ -1246,6 +1323,19 @@ function StatsBlockSettings({ block, onChange, currentViewport }: { block: Stats
 function CardGridBlockSettings({ block, onChange, currentViewport }: { block: CardGridBlock; onChange: (updates: Partial<CardGridBlock>) => void; currentViewport: Breakpoint }) {
   return (
     <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Section description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4">
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Number of Columns</label>
         <select
@@ -1258,6 +1348,7 @@ function CardGridBlockSettings({ block, onChange, currentViewport }: { block: Ca
           <option value="4">4 Columns</option>
         </select>
       </div>
+      </div>
     </div>
   );
 }
@@ -1268,6 +1359,39 @@ function TestimonialBlockSettings({ block, onChange, currentViewport }: { block:
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Quote</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[60px]">
+          <RichTextEditable html={block.quote} onChange={(html) => onChange({ quote: html })} placeholder="Enter testimonial quote..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Author Name</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.author} onChange={(html) => onChange({ author: html })} singleLine placeholder="Author name..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Role</label>
+        <input
+          type="text"
+          value={block.role || ''}
+          onChange={(e) => onChange({ role: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Role..."
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Company</label>
+        <input
+          type="text"
+          value={block.company || ''}
+          onChange={(e) => onChange({ company: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Company..."
+        />
+      </div>
+
+      <div className="border-t border-border pt-4">
         <label className="block text-sm font-medium text-foreground mb-2">Avatar (optional)</label>
         {block.avatar ? (
           <div className="space-y-2">
@@ -1327,6 +1451,18 @@ function BlogPostsBlockSettings({ block, onChange, currentViewport }: { block: B
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Section description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4">
         <label className="block text-sm font-medium text-foreground mb-2">Post Type</label>
         <input
           type="text"
@@ -1384,6 +1520,38 @@ function FeaturedContentBlockSettings({ block, onChange, currentViewport }: { bl
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title} onChange={(html) => onChange({ title: html })} singleLine placeholder="Title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[60px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} placeholder="Description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Button Text</label>
+        <input
+          type="text"
+          value={block.buttonText || ''}
+          onChange={(e) => onChange({ buttonText: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Button text..."
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Button URL</label>
+        <input
+          type="text"
+          value={block.buttonUrl || ''}
+          onChange={(e) => onChange({ buttonUrl: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="/url..."
+        />
+      </div>
+      <div className="border-t border-border pt-4">
         <label className="block text-sm font-medium text-foreground mb-2">Featured Image</label>
         {block.imageUrl ? (
           <div className="space-y-2">
@@ -1479,16 +1647,14 @@ function AccordionBlockSettings({ block, onChange, currentViewport }: { block: A
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Section Title (optional)</label>
-        <input
-          type="text"
-          value={block.title || ''}
-          onChange={(e) => onChange({ title: e.target.value })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-          placeholder="Frequently Asked Questions"
-        />
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Frequently Asked Questions" className="text-sm text-foreground" />
+        </div>
       </div>
+      <div className="border-t border-border pt-4">
       <p className="text-xs text-muted-foreground">Use the controls in the editor to add, remove, or edit accordion items.</p>
+      </div>
     </div>
   );
 }
@@ -1890,15 +2056,28 @@ function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Discount Code</label>
-        <input
-          type="text"
-          value={block.discountCode || ''}
-          onChange={(e) => onChange({ discountCode: e.target.value })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
-          placeholder="e.g. SAVE20"
-        />
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title} onChange={(html) => onChange({ title: html })} singleLine placeholder="Banner title..." className="text-sm text-foreground" />
+        </div>
       </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Subtitle..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4 space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Discount Code</label>
+          <input
+            type="text"
+            value={block.discountCode || ''}
+            onChange={(e) => onChange({ discountCode: e.target.value })}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground font-mono"
+            placeholder="e.g. SAVE20"
+          />
+        </div>
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Button Text</label>
@@ -1996,6 +2175,7 @@ function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock
           className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
         />
         <p className="text-xs text-muted-foreground mt-1">Optional: Shows a live countdown timer</p>
+      </div>
       </div>
     </div>
   );

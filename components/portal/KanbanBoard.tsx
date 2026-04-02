@@ -8,10 +8,17 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
+  pointerWithin,
+  CollisionDetection,
 } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { priorityColor } from '@/lib/portal-utils';
@@ -60,11 +67,16 @@ function KanbanCard({
   card,
   onOpen,
   isDragging,
+  columns,
+  onMoveToColumn,
 }: {
   card: Card;
   onOpen: () => void;
   isDragging?: boolean;
+  columns?: { id: number; name: string; color: string | null }[];
+  onMoveToColumn?: (cardId: number, columnId: number) => void;
 }) {
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: `card-${card.id}`,
     data: { type: 'card', card },
@@ -79,6 +91,7 @@ function KanbanCard({
   const attachments = card.attachments ?? [];
   const imageThumbs = attachments.filter(a => a.mimeType.startsWith('image/')).slice(0, 2);
   const totalCount = attachments.length;
+  const otherColumns = (columns || []).filter(c => c.id !== card.columnId);
 
   return (
     <div
@@ -87,9 +100,42 @@ function KanbanCard({
       {...attributes}
       {...listeners}
       onClick={onOpen}
-      className="bg-card border border-border rounded-lg p-3 shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+      className="bg-card border border-border rounded-lg p-3 shadow-sm cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group/card relative"
     >
-      <p className="text-sm font-medium text-foreground">{card.title}</p>
+      {/* Move-to button */}
+      {otherColumns.length > 0 && onMoveToColumn && (
+        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
+            className="p-1 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="Move to column"
+          >
+            <span className="material-icons text-sm">swap_horiz</span>
+          </button>
+          {showMoveMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[140px] z-20">
+              <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Move to</p>
+              {otherColumns.map(col => (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveToColumn(card.id, col.id);
+                    setShowMoveMenu(false);
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-accent transition-colors flex items-center gap-2"
+                >
+                  {col.color && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />}
+                  {col.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <p className="text-sm font-medium text-foreground pr-6">{card.title}</p>
       {card.description && (
         <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{card.description}</p>
       )}
@@ -145,6 +191,8 @@ function KanbanColumn({
   onNewCardTitleChange,
   onSubmitAdd,
   onCardOpen,
+  allColumns,
+  onMoveToColumn,
 }: {
   column: Column;
   isStaff: boolean;
@@ -155,8 +203,11 @@ function KanbanColumn({
   onNewCardTitleChange: (v: string) => void;
   onSubmitAdd: (e: React.FormEvent) => void;
   onCardOpen: (cardId: number) => void;
+  allColumns: { id: number; name: string; color: string | null }[];
+  onMoveToColumn: (cardId: number, columnId: number) => void;
 }) {
   const cardIds = column.cards.map(c => `card-${c.id}`);
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `col-${column.id}` });
 
   return (
     <div className="flex-shrink-0 w-72 flex flex-col bg-muted/40 rounded-xl border border-border">
@@ -175,58 +226,61 @@ function KanbanColumn({
 
       {/* Cards */}
       <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-        <div className="p-2 space-y-2 flex-1 min-h-[80px]">
+        <div
+          ref={setDropRef}
+          className={`p-2 space-y-2 flex-1 min-h-[80px] transition-colors ${isOver ? 'bg-primary/5 ring-2 ring-primary/20 ring-inset rounded-b-xl' : ''}`}
+        >
           {column.cards.map(card => (
             <KanbanCard
               key={card.id}
               card={card}
               onOpen={() => onCardOpen(card.id)}
+              columns={allColumns}
+              onMoveToColumn={onMoveToColumn}
             />
           ))}
         </div>
       </SortableContext>
 
       {/* Add card */}
-      {isStaff && (
-        <div className="p-2 border-t border-border/50">
-          {addingToColumn === column.id ? (
-            <form onSubmit={onSubmitAdd} className="space-y-2">
-              <input
-                autoFocus
-                value={newCardTitle}
-                onChange={e => onNewCardTitleChange(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') onCancelAdd(); }}
-                placeholder="Card title…"
-                className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={!newCardTitle.trim()}
-                  className="px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50"
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={onCancelAdd}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <button
-              onClick={() => onStartAdd(column.id)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg px-2 py-1.5 transition-colors w-full"
-            >
-              <span className="material-icons text-sm">add</span>
-              Add card
-            </button>
-          )}
-        </div>
-      )}
+      <div className="p-2 border-t border-border/50">
+        {addingToColumn === column.id ? (
+          <form onSubmit={onSubmitAdd} className="space-y-2">
+            <input
+              autoFocus
+              value={newCardTitle}
+              onChange={e => onNewCardTitleChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') onCancelAdd(); }}
+              placeholder="Card title…"
+              className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={!newCardTitle.trim()}
+                className="px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={onCancelAdd}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={() => onStartAdd(column.id)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg px-2 py-1.5 transition-colors w-full"
+          >
+            <span className="material-icons text-sm">add</span>
+            Add card
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -238,8 +292,32 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<number | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
+  const [newColumnColor, setNewColumnColor] = useState('#6366f1');
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Custom collision detection: prefer cards (closestCorners) but fall back to columns (pointerWithin)
+  const collisionDetection: CollisionDetection = (args) => {
+    // First check for card-level collisions
+    const cornerCollisions = closestCorners(args);
+    const firstCardCollision = cornerCollisions.find(c => String(c.id).startsWith('card-'));
+    if (firstCardCollision) return [firstCardCollision];
+
+    // Fall back to column-level (droppable zones) — critical for empty columns
+    const pointerCollisions = pointerWithin(args);
+    const firstColCollision = pointerCollisions.find(c => String(c.id).startsWith('col-'));
+    if (firstColCollision) return [firstColCollision];
+
+    // Last resort: any collision
+    return cornerCollisions.length > 0 ? cornerCollisions : pointerCollisions;
+  };
 
   function onDragStart(event: DragStartEvent) {
     const data = event.active.data.current;
@@ -293,11 +371,40 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
 
   async function onDragEnd(event: DragEndEvent) {
     setActiveCard(null);
-    const { active } = event;
+    const { active, over } = event;
     const activeId = active.id as string;
     if (!activeId.startsWith('card-')) return;
 
     const cardId = parseInt(activeId.replace('card-', ''), 10);
+
+    // If dropped over a column directly (empty column), move card there
+    if (over && String(over.id).startsWith('col-')) {
+      const targetColId = parseInt(String(over.id).replace('col-', ''), 10);
+      setColumns(cols => {
+        const newCols = cols.map(col => ({ ...col, cards: [...col.cards] }));
+        const srcIdx = newCols.findIndex(col => col.cards.some(c => c.id === cardId));
+        if (srcIdx === -1) return cols;
+        const cardIdx = newCols[srcIdx].cards.findIndex(c => c.id === cardId);
+        const [movedCard] = newCols[srcIdx].cards.splice(cardIdx, 1);
+        const destIdx = newCols.findIndex(c => c.id === targetColId);
+        if (destIdx !== -1) {
+          movedCard.columnId = targetColId;
+          newCols[destIdx].cards.push(movedCard);
+        }
+        return newCols;
+      });
+      // Persist — use timeout so state has settled
+      setTimeout(async () => {
+        await fetch(`/api/portal/cards/${cardId}/move`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columnId: targetColId, order: 0 }),
+        });
+      }, 0);
+      return;
+    }
+
+    // Normal case: card was dropped on/between other cards — position already set by onDragOver
     const col = columns.find(c => c.cards.some(card => card.id === cardId));
     if (!col) return;
 
@@ -352,7 +459,47 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
     setSelectedCardId(null);
   }
 
-  const allColumnIds = columns.map(c => `col-${c.id}`);
+  async function handleAddColumn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newColumnName.trim()) return;
+
+    const res = await fetch(`/api/portal/projects/${projectId}/columns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newColumnName.trim(), color: newColumnColor }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setColumns(prev => [...prev, { ...data.data, cards: [] }]);
+      setNewColumnName('');
+      setNewColumnColor('#6366f1');
+      setAddingColumn(false);
+    }
+  }
+
+  // Move card to a specific column (used by the "Move to" dropdown on cards)
+  async function moveCardToColumn(cardId: number, targetColId: number) {
+    setColumns(cols => {
+      const newCols = cols.map(col => ({ ...col, cards: [...col.cards] }));
+      const srcIdx = newCols.findIndex(col => col.cards.some(c => c.id === cardId));
+      if (srcIdx === -1) return cols;
+      const cardIdx = newCols[srcIdx].cards.findIndex(c => c.id === cardId);
+      const [movedCard] = newCols[srcIdx].cards.splice(cardIdx, 1);
+      const destIdx = newCols.findIndex(c => c.id === targetColId);
+      if (destIdx !== -1) {
+        movedCard.columnId = targetColId;
+        newCols[destIdx].cards.push(movedCard);
+      }
+      return newCols;
+    });
+    await fetch(`/api/portal/cards/${cardId}/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ columnId: targetColId, order: 0 }),
+    });
+  }
+
+  const allColumnsMeta = columns.map(c => ({ id: c.id, name: c.name, color: c.color }));
 
   const filteredColumns = filterSprintId === null
     ? columns
@@ -395,12 +542,11 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
       )}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetection}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        <SortableContext items={allColumnIds} strategy={verticalListSortingStrategy}>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {filteredColumns.map(col => (
               <KanbanColumn
@@ -414,10 +560,60 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
                 onNewCardTitleChange={setNewCardTitle}
                 onSubmitAdd={handleAddCard}
                 onCardOpen={id => { if (!activeCard) setSelectedCardId(id); }}
+                allColumns={allColumnsMeta}
+                onMoveToColumn={moveCardToColumn}
               />
             ))}
+
+            {/* Add column */}
+            <div className="flex-shrink-0 w-72">
+              {addingColumn ? (
+                <form onSubmit={handleAddColumn} className="bg-muted/40 rounded-xl border border-border p-3 space-y-3">
+                  <input
+                    autoFocus
+                    value={newColumnName}
+                    onChange={e => setNewColumnName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') setAddingColumn(false); }}
+                    placeholder="Column name..."
+                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">Color</label>
+                    <input
+                      type="color"
+                      value={newColumnColor}
+                      onChange={e => setNewColumnColor(e.target.value)}
+                      className="w-6 h-6 rounded border border-border cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={!newColumnName.trim()}
+                      className="px-3 py-1 bg-primary text-primary-foreground rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddingColumn(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setAddingColumn(true)}
+                  className="flex items-center justify-center gap-1 w-full py-3 rounded-xl border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-muted/40 transition-colors"
+                >
+                  <span className="material-icons text-sm">add</span>
+                  Add column
+                </button>
+              )}
+            </div>
           </div>
-        </SortableContext>
 
         <DragOverlay>
           {activeCard ? (

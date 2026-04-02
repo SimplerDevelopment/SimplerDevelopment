@@ -37,14 +37,10 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
         {(block.title || block.description) && (
           <div className="text-center mb-12">
             {block.title && (
-              <h2 data-editable-field="title" className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')}>
-                {block.title}
-              </h2>
+              <h2 data-editable-field="title" className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
             )}
             {block.description && (
-              <p data-editable-field="description" className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>
-                {block.description}
-              </p>
+              <p data-editable-field="description" className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
             )}
           </div>
         )}

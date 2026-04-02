@@ -2,6 +2,7 @@
 
 import { HeroBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface HeroBlockPreviewProps {
   block: HeroBlock;
@@ -28,35 +29,32 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
       >
         <div className="max-w-4xl mx-auto">
           {(block.subtitle || isSelected) && (
-            <input
-              type="text"
-              value={block.subtitle || ''}
-              onChange={(e) => onChange({ subtitle: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={block.subtitle || ''}
+              onChange={(html) => onChange({ subtitle: html })}
               className="text-primary font-semibold mb-4 uppercase tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center"
               placeholder="Subtitle (optional)"
+              singleLine={true}
               style={getElementCSS(block.elementStyles, 'subtitle')}
             />
           )}
 
-          <input
-            type="text"
-            value={block.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.title}
+            onChange={(html) => onChange({ title: html })}
             className={`font-display text-5xl md:text-7xl font-bold mb-6 tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center ${hasBackground ? 'text-white' : 'text-foreground'}`}
             placeholder="Hero Title"
+            singleLine={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
 
           {(block.description || isSelected) && (
-            <textarea
-              value={block.description || ''}
-              onChange={(e) => onChange({ description: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={block.description || ''}
+              onChange={(html) => onChange({ description: html })}
               className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border border-primary/50 rounded text-center resize-none ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`}
               placeholder="Description (optional)"
-              rows={2}
+              singleLine={false}
               style={getElementCSS(block.elementStyles, 'description')}
             />
           )}

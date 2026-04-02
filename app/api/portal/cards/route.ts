@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { kanbanCards, kanbanColumns } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+import { getPortalClient } from '@/lib/portal-client';
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin' && role !== 'employee') {
-    return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-  }
 
   const { columnId, title, description, priority, dueDate } = await req.json();
   if (!columnId || !title?.trim()) {
@@ -20,6 +16,17 @@ export async function POST(req: Request) {
 
   const [col] = await db.select().from(kanbanColumns).where(eq(kanbanColumns.id, columnId)).limit(1);
   if (!col) return NextResponse.json({ success: false, message: 'Column not found' }, { status: 404 });
+
+  const role = (session.user as { role?: string })?.role;
+  const isStaff = role === 'admin' || role === 'employee';
+  const userId = parseInt(session.user.id, 10);
+
+  if (!isStaff) {
+    const client = await getPortalClient(userId);
+    if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    const [project] = await db.select().from(projects).where(and(eq(projects.id, col.projectId), eq(projects.clientId, client.id))).limit(1);
+    if (!project) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+  }
 
   const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards).where(eq(kanbanCards.columnId, columnId));
 

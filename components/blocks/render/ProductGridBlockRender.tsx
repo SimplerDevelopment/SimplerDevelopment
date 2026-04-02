@@ -67,10 +67,10 @@ export function ProductGridBlockRender({ block, siteId }: ProductGridBlockRender
         {(block.title || block.description) && (
           <div className="text-center mb-12">
             {block.title && (
-              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h2>
+              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
             )}
             {block.description && (
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>{block.description}</p>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
             )}
           </div>
         )}

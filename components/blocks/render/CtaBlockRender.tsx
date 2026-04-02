@@ -4,17 +4,29 @@ import { CtaBlock } from '@/types/blocks';
 import { Button } from '@/components/ui/Button';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface CtaBlockRenderProps {
   block: CtaBlock;
 }
 
 export function CtaBlockRender({ block }: CtaBlockRenderProps) {
-  const backgroundClass = {
-    gradient: 'bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20',
-    solid: 'bg-primary/10',
-    none: '',
-  }[block.backgroundStyle || 'gradient'];
+  const branding = useBranding();
+
+  // Use branding colors for gradient when available
+  const bgStyle = block.backgroundStyle || 'gradient';
+  const backgroundClass = bgStyle === 'solid' ? 'bg-primary/10'
+    : bgStyle === 'none' ? ''
+    : ''; // gradient handled via inline style when branding available
+
+  const gradientStyle: React.CSSProperties = {};
+  if (bgStyle === 'gradient') {
+    if (branding) {
+      gradientStyle.background = `linear-gradient(to right, ${branding.primaryColor}20, ${branding.secondaryColor}20, ${branding.accentColor}20)`;
+    } else {
+      gradientStyle.background = 'linear-gradient(to right, hsl(var(--primary) / 0.2), rgb(168 85 247 / 0.2), rgb(236 72 153 / 0.2))';
+    }
+  }
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
@@ -32,16 +44,12 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
     : '';
 
   return (
-    <section className={`py-20 my-12 relative overflow-hidden ${backgroundClass} ${responsiveClasses}`}>
+    <section className={`py-20 my-12 relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={gradientStyle}>
       <div className="container mx-auto px-4 text-center relative z-10">
-        <h2 data-editable-field="title" className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide" style={getElementCSS(block.elementStyles, 'title')}>
-          {block.title}
-        </h2>
+        <h2 data-editable-field="title" className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
 
         {block.description && (
-          <p data-editable-field="description" className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>
-            {block.description}
-          </p>
+          <p data-editable-field="description" className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

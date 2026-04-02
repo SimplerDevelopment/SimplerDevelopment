@@ -46,6 +46,16 @@ export interface ResolvedBranding {
     navBackground?: string; navTextColor?: string;
     logoUrl?: string; logoSquareUrl?: string; logoRectUrl?: string; logoIconUrl?: string;
   };
+  borderRadius?: string;
+  linkColor?: string;
+  linkHoverColor?: string;
+  buttonStyle?: {
+    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
+    secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
+    borderRadius?: string; variant?: 'filled' | 'outline';
+  };
+  faviconUrl?: string;
+  ogImageUrl?: string;
 }
 
 /** Summary for dropdowns / selectors. */
@@ -103,6 +113,12 @@ function rowToBranding(row: Record<string, unknown>): ResolvedBranding {
     navTextColor: (row.navTextColor as string) ?? DEFAULTS.navTextColor,
     typography: (row.typography as ResolvedBranding['typography']) ?? undefined,
     darkMode: (row.darkMode as ResolvedBranding['darkMode']) ?? undefined,
+    borderRadius: (row.borderRadius as string) ?? undefined,
+    linkColor: (row.linkColor as string) ?? undefined,
+    linkHoverColor: (row.linkHoverColor as string) ?? undefined,
+    buttonStyle: (row.buttonStyle as ResolvedBranding['buttonStyle']) ?? undefined,
+    faviconUrl: (row.faviconUrl as string) ?? undefined,
+    ogImageUrl: (row.ogImageUrl as string) ?? undefined,
   };
 }
 
@@ -225,6 +241,21 @@ export function brandingToCssVars(branding: ResolvedBranding): Record<string, st
 
   if (branding.headingFont) vars['--brand-heading-font'] = branding.headingFont;
   if (branding.bodyFont) vars['--brand-body-font'] = branding.bodyFont;
+  if (branding.borderRadius) vars['--brand-border-radius'] = branding.borderRadius;
+  if (branding.linkColor) vars['--brand-link-color'] = branding.linkColor;
+  if (branding.linkHoverColor) vars['--brand-link-hover-color'] = branding.linkHoverColor;
+
+  if (branding.buttonStyle) {
+    const bs = branding.buttonStyle;
+    if (bs.primaryBg) vars['--brand-btn-primary-bg'] = bs.primaryBg;
+    if (bs.primaryText) vars['--brand-btn-primary-text'] = bs.primaryText;
+    if (bs.primaryHoverBg) vars['--brand-btn-primary-hover-bg'] = bs.primaryHoverBg;
+    if (bs.secondaryBg) vars['--brand-btn-secondary-bg'] = bs.secondaryBg;
+    if (bs.secondaryText) vars['--brand-btn-secondary-text'] = bs.secondaryText;
+    if (bs.secondaryHoverBg) vars['--brand-btn-secondary-hover-bg'] = bs.secondaryHoverBg;
+    if (bs.borderRadius) vars['--brand-btn-border-radius'] = bs.borderRadius;
+    if (bs.variant) vars['--brand-btn-variant'] = bs.variant;
+  }
 
   return vars;
 }

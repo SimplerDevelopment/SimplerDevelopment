@@ -77,6 +77,12 @@ export async function PUT(
     logoText: body.logoText !== undefined ? body.logoText : existing.logoText,
     logoIconUrl: body.logoIconUrl !== undefined ? body.logoIconUrl : existing.logoIconUrl,
     darkMode: body.darkMode !== undefined ? body.darkMode : existing.darkMode,
+    borderRadius: body.borderRadius !== undefined ? body.borderRadius : existing.borderRadius,
+    linkColor: body.linkColor !== undefined ? body.linkColor : existing.linkColor,
+    linkHoverColor: body.linkHoverColor !== undefined ? body.linkHoverColor : existing.linkHoverColor,
+    buttonStyle: body.buttonStyle !== undefined ? body.buttonStyle : existing.buttonStyle,
+    faviconUrl: body.faviconUrl !== undefined ? body.faviconUrl : existing.faviconUrl,
+    ogImageUrl: body.ogImageUrl !== undefined ? body.ogImageUrl : existing.ogImageUrl,
     updatedAt: new Date(),
   }).where(eq(brandingProfiles.id, id)).returning();
 

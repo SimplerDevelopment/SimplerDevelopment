@@ -30,13 +30,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin' && role !== 'employee') {
-    return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-  }
-
   const { id } = await params;
   const projectId = parseInt(id, 10);
+  const role = (session.user as { role?: string })?.role;
+  const isStaff = role === 'admin' || role === 'employee';
+  const userId = parseInt(session.user.id, 10);
+
+  if (!isStaff) {
+    const client = await getPortalClient(userId);
+    if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    const [project] = await db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.clientId, client.id))).limit(1);
+    if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  }
   const body = await req.json();
 
   const existing = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId));

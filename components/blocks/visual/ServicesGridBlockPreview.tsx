@@ -4,6 +4,7 @@ import { ServicesGridBlock } from '@/types/blocks';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { RichTextEditable } from './RichTextEditable';
 
 interface ServicesGridBlockPreviewProps {
   block: ServicesGridBlock;
@@ -49,24 +50,24 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
     <div className="p-6">
       <div className="text-center mb-8">
         {(block.title || isSelected) && (
-          <input
-            type="text"
-            value={block.title || ''}
-            onChange={(e) => onChange({ title: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.title || ''}
+            onChange={(html) => onChange({ title: html })}
             className="text-3xl font-bold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Services Grid Title"
+            singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
-          <input
-            type="text"
-            value={block.description || ''}
-            onChange={(e) => onChange({ description: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
+          <RichTextEditable
+            html={block.description || ''}
+            onChange={(html) => onChange({ description: html })}
             className="text-lg mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
@@ -154,23 +155,23 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
               </div>
             )}
 
-            <input
-              type="text"
-              value={service.title}
-              onChange={(e) => updateService(service.id, { title: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={service.title}
+              onChange={(html) => updateService(service.id, { title: html })}
               className="text-xl font-semibold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
               placeholder="Service Title"
+              singleLine={true}
+              toolbar={true}
               style={getElementCSS(block.elementStyles, 'serviceTitle')}
             />
 
-            <textarea
-              value={service.description}
-              onChange={(e) => updateService(service.id, { description: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
+            <RichTextEditable
+              html={service.description}
+              onChange={(html) => updateService(service.id, { description: html })}
               className="text-muted-foreground w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
               placeholder="Service description..."
-              rows={3}
+              singleLine={false}
+              toolbar={true}
               style={getElementCSS(block.elementStyles, 'serviceDescription')}
             />
 
