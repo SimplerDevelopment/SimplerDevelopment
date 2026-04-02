@@ -45,11 +45,11 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button href={block.primaryButtonUrl} size="lg">
+          <Button href={block.primaryButtonUrl} size="lg" style={getElementCSS(block.elementStyles, 'primaryButton')}>
             {block.primaryButtonText}
           </Button>
           {block.secondaryButtonText && block.secondaryButtonUrl && (
-            <Button href={block.secondaryButtonUrl} variant="outline" size="lg">
+            <Button href={block.secondaryButtonUrl} variant="outline" size="lg" style={getElementCSS(block.elementStyles, 'secondaryButton')}>
               {block.secondaryButtonText}
             </Button>
           )}

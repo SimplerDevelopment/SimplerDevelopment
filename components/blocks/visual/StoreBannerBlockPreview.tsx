@@ -1,6 +1,7 @@
 'use client';
 
 import { StoreBannerBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface StoreBannerBlockPreviewProps {
   block: StoreBannerBlock;
@@ -36,6 +37,7 @@ export function StoreBannerBlockPreview({ block, isSelected, onChange }: StoreBa
             onClick={(e) => e.stopPropagation()}
             className="text-3xl md:text-5xl font-bold mb-3 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-white/50 text-center text-white placeholder-white/50"
             placeholder="Sale Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
           {(block.subtitle || isSelected) && (
             <input
@@ -45,6 +47,7 @@ export function StoreBannerBlockPreview({ block, isSelected, onChange }: StoreBa
               onClick={(e) => e.stopPropagation()}
               className="text-lg md:text-xl mb-6 max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-white/30 text-center text-white/90 placeholder-white/40"
               placeholder="Add a subtitle"
+              style={getElementCSS(block.elementStyles, 'subtitle')}
             />
           )}
 

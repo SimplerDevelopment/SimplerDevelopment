@@ -20,20 +20,20 @@ export default function AdminLayout({
                           pathname.includes('/posts/edit') ||
                           (pathname.match(/\/posts\/\d+/) !== null);
 
-  useEffect(() => {
-    // Load initial state from localStorage
-    const saved = localStorage.getItem('adminSidebarCollapsed');
-    if (saved !== null) {
-      setIsCollapsed(saved === 'true');
-    }
+  // Full-width pages that don't need max-width constraint
+  const isFullWidthPage = pathname === '/admin' ||
+                          pathname.startsWith('/admin/crm') ||
+                          pathname.startsWith('/admin/portal-ecommerce');
 
-    // Listen for sidebar toggle events
+  useEffect(() => {
+    const saved = localStorage.getItem('adminSidebarCollapsed');
+    if (saved !== null) setIsCollapsed(saved === 'true');
+
     const handleSidebarToggle = (event: CustomEvent<{ collapsed: boolean }>) => {
       setIsCollapsed(event.detail.collapsed);
     };
 
     window.addEventListener('sidebarToggle', handleSidebarToggle as EventListener);
-
     return () => {
       window.removeEventListener('sidebarToggle', handleSidebarToggle as EventListener);
     };

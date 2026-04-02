@@ -14,6 +14,9 @@ interface CardProps {
   cardStyle?: React.CSSProperties;
   titleStyle?: React.CSSProperties;
   descriptionStyle?: React.CSSProperties;
+  iconStyle?: React.CSSProperties;
+  linkStyle?: React.CSSProperties;
+  imageStyle?: React.CSSProperties;
 }
 
 export function Card({
@@ -27,6 +30,9 @@ export function Card({
   cardStyle,
   titleStyle,
   descriptionStyle,
+  iconStyle,
+  linkStyle,
+  imageStyle,
 }: CardProps) {
   const content = (
     <motion.div
@@ -40,12 +46,13 @@ export function Card({
             src={image}
             alt={title}
             className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+            style={imageStyle}
           />
         </div>
       )}
 
       {icon && (
-        <span className="material-icons text-primary mb-4 block" style={{ fontSize: iconSize ? `${iconSize}px` : '3rem' }}>{icon}</span>
+        <span className="material-icons text-primary mb-4 block" style={{ fontSize: iconSize ? `${iconSize}px` : '3rem', ...iconStyle }}>{icon}</span>
       )}
 
       <h3 className="font-heading text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors" style={titleStyle}>
@@ -55,7 +62,7 @@ export function Card({
       <p className="text-muted-foreground mb-4" style={descriptionStyle}>{description}</p>
 
       {link && (
-        <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all">
+        <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all" style={linkStyle}>
           Learn more
           <svg
             className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"

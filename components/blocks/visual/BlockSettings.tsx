@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState } from 'react';
@@ -13,10 +13,94 @@ interface BlockSettingsProps {
   currentViewport: Breakpoint;
 }
 
-type SettingsTab = 'general' | 'style';
+type SettingsTab = 'general' | 'style' | 'elements';
+
+const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
+  'hero': [
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'description', label: 'Description' },
+    { key: 'cta', label: 'Primary Button' },
+    { key: 'secondaryCta', label: 'Secondary Button' },
+  ],
+  'cta': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'primaryButton', label: 'Primary Button' },
+    { key: 'secondaryButton', label: 'Secondary Button' },
+  ],
+  'card-grid': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+    { key: 'card', label: 'Card Container' },
+    { key: 'cardTitle', label: 'Card Title' },
+    { key: 'cardDescription', label: 'Card Description' },
+    { key: 'cardIcon', label: 'Card Icon' },
+    { key: 'cardLink', label: 'Card Link' },
+    { key: 'cardImage', label: 'Card Image' },
+  ],
+  'stats': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'statValue', label: 'Stat Value' },
+    { key: 'statLabel', label: 'Stat Label' },
+  ],
+  'testimonial': [
+    { key: 'quote', label: 'Quote Text' },
+    { key: 'author', label: 'Author Name' },
+  ],
+  'services-grid': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+    { key: 'serviceTitle', label: 'Service Title' },
+    { key: 'serviceDescription', label: 'Service Description' },
+    { key: 'serviceIcon', label: 'Service Icon' },
+    { key: 'serviceLink', label: 'Service Link' },
+    { key: 'serviceImage', label: 'Service Image' },
+  ],
+  'featured-content': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'button', label: 'Button' },
+    { key: 'statValue', label: 'Stat Value' },
+    { key: 'statLabel', label: 'Stat Label' },
+  ],
+  'quote': [
+    { key: 'quoteText', label: 'Quote Text' },
+    { key: 'author', label: 'Author' },
+  ],
+  'blog-posts': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+    { key: 'postTitle', label: 'Post Title' },
+    { key: 'postExcerpt', label: 'Post Excerpt' },
+  ],
+  'accordion': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'itemTitle', label: 'Item Title' },
+    { key: 'itemContent', label: 'Item Content' },
+  ],
+  'gallery': [
+    { key: 'caption', label: 'Image Caption' },
+  ],
+  'store-banner': [
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'discountCode', label: 'Discount Code' },
+    { key: 'button', label: 'Button' },
+  ],
+  'product-grid': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+  ],
+  'featured-products': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+  ],
+};
 
 export function BlockSettings({ block, onChange, currentViewport }: BlockSettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const hasElements = !!ELEMENT_DEFINITIONS[block.type]?.length;
 
   return (
     <div className="space-y-4">
@@ -50,16 +134,90 @@ export function BlockSettings({ block, onChange, currentViewport }: BlockSetting
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
           )}
         </button>
+        {hasElements && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('elements')}
+            className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+              activeTab === 'elements'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Elements
+            {activeTab === 'elements' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Tab Content */}
       <div className="pt-2">
         {activeTab === 'general' ? (
           <GeneralSettings block={block} onChange={onChange} currentViewport={currentViewport} />
-        ) : (
+        ) : activeTab === 'style' ? (
           <StyleSettings block={block} onChange={(updates) => onChange(updates, { batch: true })} currentViewport={currentViewport} />
-        )}
+        ) : activeTab === 'elements' ? (
+          <ElementsPanel block={block} onChange={onChange} currentViewport={currentViewport} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function ElementStyleSettings({ block, onChange, currentViewport, elementKey }: BlockSettingsProps & { elementKey: string }) {
+  const elementBlock = {
+    ...block,
+    style: (block.elementStyles?.[elementKey] || {}) as Block['style'],
+  };
+
+  const handleElementChange = (updates: Partial<Block>) => {
+    if (updates.style) {
+      onChange({
+        elementStyles: {
+          ...(block.elementStyles || {}),
+          [elementKey]: {
+            ...(block.elementStyles?.[elementKey] || {}),
+            ...updates.style,
+          },
+        },
+      } as Partial<Block>, { batch: true });
+    }
+  };
+
+  return <StyleSettings block={elementBlock} onChange={handleElementChange} currentViewport={currentViewport} />;
+}
+
+function ElementsPanel({ block, onChange, currentViewport }: BlockSettingsProps) {
+  const elements = ELEMENT_DEFINITIONS[block.type];
+  const [selectedElement, setSelectedElement] = useState(elements?.[0]?.key || '');
+
+  if (!elements || elements.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Element</label>
+        <select
+          value={selectedElement}
+          onChange={(e) => setSelectedElement(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+        >
+          {elements.map(el => (
+            <option key={el.key} value={el.key}>{el.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {selectedElement && (
+        <ElementStyleSettings
+          block={block}
+          onChange={onChange}
+          currentViewport={currentViewport}
+          elementKey={selectedElement}
+        />
+      )}
     </div>
   );
 }
@@ -125,6 +283,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <ShoppingCartBlockSettings block={block as ShoppingCartBlock} onChange={onChange} />;
             case 'store-banner':
               return <StoreBannerBlockSettings block={block as StoreBannerBlock} onChange={onChange} />;
+            case 'product-detail':
+              return <ProductDetailBlockSettings block={block as ProductDetailBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -685,7 +845,7 @@ function ColumnsBlockSettings({ block, onChange, currentViewport }: { block: Col
                 onClick={() => setExpandedColumnId(expandedColumnId === column.id ? null : column.id)}
                 className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-accent transition-colors"
               >
-                <span className="font-medium">Column {index + 1} ({Math.round(column.width)}%)</span>
+                <span className="font-medium">Column {index + 1} ({Math.round(parseFloat(String(column.width)))}%)</span>
                 <svg
                   className={`w-4 h-4 text-muted-foreground transition-transform ${expandedColumnId === column.id ? 'rotate-180' : ''}`}
                   fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -701,7 +861,7 @@ function ColumnsBlockSettings({ block, onChange, currentViewport }: { block: Col
                       type="number"
                       min={5}
                       max={95}
-                      value={Math.round(column.width)}
+                      value={Math.round(parseFloat(String(column.width)))}
                       onChange={(e) => updateColumn(column.id, { width: Math.max(5, Math.min(95, parseInt(e.target.value) || 5)) })}
                       className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
                     />
@@ -1811,10 +1971,18 @@ function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock
             </button>
           )}
           {showMediaPicker && (
-            <MediaPicker
-              onSelect={(url: string) => { onChange({ backgroundImage: url }); setShowMediaPicker(false); }}
-              onClose={() => setShowMediaPicker(false)}
-            />
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]" onClick={() => setShowMediaPicker(false)}>
+              <div className="bg-white dark:bg-gray-900 border border-border rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <MediaPicker
+                  value={block.backgroundImage || ''}
+                  onChange={(url) => {
+                    onChange({ backgroundImage: url });
+                    setShowMediaPicker(false);
+                  }}
+                  label="Select Banner Image"
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1828,6 +1996,68 @@ function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock
           className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
         />
         <p className="text-xs text-muted-foreground mt-1">Optional: Shows a live countdown timer</p>
+      </div>
+    </div>
+  );
+}
+
+function ProductDetailBlockSettings({ block, onChange }: { block: ProductDetailBlock; onChange: (updates: Partial<ProductDetailBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Product Slug</label>
+        <input
+          type="text"
+          value={block.productSlug || ''}
+          onChange={(e) => onChange({ productSlug: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. dinner-at-the-club"
+        />
+        <p className="text-xs text-muted-foreground mt-1">The URL slug of the product to display</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
+        <select
+          value={block.layout || 'standard'}
+          onChange={(e) => onChange({ layout: e.target.value as ProductDetailBlock['layout'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="standard">Standard (2 column)</option>
+          <option value="compact">Compact (image small)</option>
+          <option value="wide">Wide (stacked)</option>
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowGallery" checked={block.showGallery !== false} onChange={(e) => onChange({ showGallery: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowGallery" className="ml-2 text-sm text-foreground">Show Image Gallery</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowDescription" checked={block.showDescription !== false} onChange={(e) => onChange({ showDescription: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowDescription" className="ml-2 text-sm text-foreground">Show Full Description</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowVariants" checked={block.showVariants !== false} onChange={(e) => onChange({ showVariants: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowVariants" className="ml-2 text-sm text-foreground">Show Variant Options</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowAddToCart" checked={block.showAddToCart !== false} onChange={(e) => onChange({ showAddToCart: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowAddToCart" className="ml-2 text-sm text-foreground">Show Add to Cart</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowBulkPricing" checked={block.showBulkPricing !== false} onChange={(e) => onChange({ showBulkPricing: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowBulkPricing" className="ml-2 text-sm text-foreground">Show Bulk Pricing</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowBreadcrumb" checked={block.showBreadcrumb !== false} onChange={(e) => onChange({ showBreadcrumb: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowBreadcrumb" className="ml-2 text-sm text-foreground">Show Breadcrumb</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="pdShowTags" checked={block.showTags !== false} onChange={(e) => onChange({ showTags: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="pdShowTags" className="ml-2 text-sm text-foreground">Show Tags & SKU</label>
+        </div>
       </div>
     </div>
   );

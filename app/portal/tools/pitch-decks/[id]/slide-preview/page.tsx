@@ -65,12 +65,24 @@ function SlidePreviewInner() {
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      <style dangerouslySetInnerHTML={{ __html: `
+        h1, h2, h3, h4, h5, h6 {
+          font-family: "${theme.headingFont}", sans-serif !important;
+          color: ${theme.textColor} !important;
+        }
+        body, p, li, span, div {
+          color: ${theme.textColor};
+        }
+        a, .text-primary {
+          color: ${theme.primaryColor};
+        }
+      `}} />
 
       <div
         style={{
           backgroundColor: theme.backgroundColor,
           color: theme.textColor,
-          fontFamily: theme.bodyFont,
+          fontFamily: `"${theme.bodyFont}", sans-serif`,
           minHeight: '100vh',
           width: '100%',
         }}

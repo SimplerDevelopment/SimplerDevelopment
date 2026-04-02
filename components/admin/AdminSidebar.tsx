@@ -9,7 +9,13 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
+  badge?: number;
   subItems?: NavItem[];
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
 }
 
 export default function AdminSidebar() {
@@ -17,291 +23,272 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  // Load collapsed state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('adminSidebarCollapsed');
-    if (saved !== null) {
-      setIsCollapsed(saved === 'true');
-    }
+    if (saved !== null) setIsCollapsed(saved === 'true');
   }, []);
+
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   if (status !== 'authenticated') return null;
 
-  // Save collapsed state to localStorage
   const toggleCollapsed = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
     localStorage.setItem('adminSidebarCollapsed', String(newState));
-
-    // Dispatch event for layout to listen to
     window.dispatchEvent(new CustomEvent('sidebarToggle', { detail: { collapsed: newState } }));
   };
 
-  const navItems: NavItem[] = [
-    { href: '/admin', label: 'Dashboard', icon: 'dashboard' },
-    {
-      href: '/admin/posts',
-      label: 'Posts',
-      icon: 'article',
-      subItems: [
-        { href: '/admin/post-types', label: 'Post Types', icon: 'category' },
-        { href: '/admin/categories', label: 'Categories', icon: 'folder' },
-        { href: '/admin/tags', label: 'Tags', icon: 'label' },
-      ],
-    },
-    { href: '/admin/templates', label: 'Templates', icon: 'bookmark' },
-    { href: '/admin/media', label: 'Media', icon: 'perm_media' },
-    { href: '/admin/users', label: 'Users', icon: 'group' },
-  ];
+  const toggleSection = (label: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
-  const portalNavItems: NavItem[] = [
-    { href: '/admin/clients', label: 'Clients', icon: 'business' },
+  const sections: NavSection[] = [
     {
-      href: '/admin/portal-projects',
-      label: 'Projects',
-      icon: 'view_kanban',
-      subItems: [
-        { href: '/admin/portal-suggested-projects', label: 'Project Market', icon: 'rocket_launch' },
-        { href: '/admin/portal-project-requests', label: 'Project Requests', icon: 'assignment_add' },
+      label: 'Platform',
+      items: [
+        { href: '/admin', label: 'Dashboard', icon: 'space_dashboard' },
+        { href: '/admin/clients', label: 'Clients', icon: 'business' },
+        { href: '/admin/users', label: 'Staff', icon: 'badge' },
       ],
     },
     {
-      href: '/admin/portal-websites',
-      label: 'Websites',
-      icon: 'web',
-      subItems: [
-        { href: '/admin/portal-websites', label: 'Websites', icon: 'language' },
-        { href: '/admin/portal-hosting', label: 'Hosting & DNS', icon: 'cloud' },
-      ],
-    },
-    { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
-    { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
-    {
-      href: '/admin/portal-services',
       label: 'Services',
-      icon: 'storefront',
-      subItems: [
-        { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
-        { href: '/admin/email', label: 'Email Marketing', icon: 'email' },
+      items: [
+        {
+          href: '/admin/portal-websites',
+          label: 'Websites',
+          icon: 'language',
+          subItems: [
+            { href: '/admin/branding', label: 'Branding', icon: 'palette' },
+            { href: '/admin/portal-hosting', label: 'Hosting & DNS', icon: 'cloud' },
+          ],
+        },
+        { href: '/admin/portal-ecommerce', label: 'eCommerce', icon: 'shopping_cart' },
+        {
+          href: '/admin/email',
+          label: 'Email Marketing',
+          icon: 'campaign',
+          subItems: [
+            { href: '/admin/email/campaigns', label: 'Campaigns', icon: 'send' },
+            { href: '/admin/email/lists', label: 'Lists', icon: 'list' },
+            { href: '/admin/email/domains', label: 'Domains', icon: 'dns' },
+          ],
+        },
+        { href: '/admin/booking', label: 'Booking', icon: 'calendar_month' },
       ],
     },
-    { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
-    { href: '/admin/portal-ecommerce', label: 'eCommerce', icon: 'shopping_cart' },
+    {
+      label: 'Sales & CRM',
+      items: [
+        { href: '/admin/crm', label: 'CRM Dashboard', icon: 'monitoring' },
+        { href: '/admin/crm/contacts', label: 'Contacts', icon: 'contacts' },
+        { href: '/admin/crm/companies', label: 'Companies', icon: 'apartment' },
+        { href: '/admin/crm/deals', label: 'Deals', icon: 'handshake' },
+        { href: '/admin/crm/proposals', label: 'Proposals', icon: 'description' },
+        { href: '/admin/crm/contracts', label: 'Contracts', icon: 'gavel' },
+      ],
+    },
+    {
+      label: 'Operations',
+      items: [
+        {
+          href: '/admin/portal-projects',
+          label: 'Projects',
+          icon: 'view_kanban',
+          subItems: [
+            { href: '/admin/portal-suggested-projects', label: 'Project Market', icon: 'rocket_launch' },
+            { href: '/admin/portal-project-requests', label: 'Requests', icon: 'assignment_add' },
+          ],
+        },
+        { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
+        { href: '/admin/automations', label: 'Automations', icon: 'bolt' },
+        { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
+      ],
+    },
+    {
+      label: 'Billing',
+      items: [
+        { href: '/admin/portal-invoices', label: 'Invoices', icon: 'receipt_long' },
+        { href: '/admin/subscriptions', label: 'Subscriptions', icon: 'loyalty' },
+        { href: '/admin/ai-credits', label: 'AI Credits', icon: 'token' },
+        {
+          href: '/admin/portal-services',
+          label: 'Service Catalog',
+          icon: 'storefront',
+          subItems: [
+            { href: '/admin/portal-service-requests', label: 'Service Requests', icon: 'assignment' },
+          ],
+        },
+      ],
+    },
+    {
+      label: 'Content',
+      items: [
+        {
+          href: '/admin/posts',
+          label: 'Posts',
+          icon: 'article',
+          subItems: [
+            { href: '/admin/content-calendar', label: 'Calendar', icon: 'calendar_month' },
+            { href: '/admin/post-types', label: 'Post Types', icon: 'category' },
+            { href: '/admin/categories', label: 'Categories', icon: 'folder' },
+            { href: '/admin/tags', label: 'Tags', icon: 'label' },
+          ],
+        },
+        { href: '/admin/templates', label: 'Templates', icon: 'bookmark' },
+        { href: '/admin/media', label: 'Media', icon: 'perm_media' },
+      ],
+    },
   ];
 
-  const isPostsActive = pathname.startsWith('/admin/posts') ||
-    pathname.startsWith('/admin/post-types') ||
-    pathname.startsWith('/admin/categories') ||
-    pathname.startsWith('/admin/tags');
+  const isActive = (href: string) => {
+    if (href === '/admin') return pathname === '/admin';
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
-  const isPortalActive = pathname.startsWith('/admin/clients') ||
-    pathname.startsWith('/admin/portal-') ||
-    pathname.startsWith('/admin/portal-websites');
+  const isSectionActive = (section: NavSection) =>
+    section.items.some(item =>
+      isActive(item.href) || item.subItems?.some(sub => isActive(sub.href))
+    );
+
+  const isItemExpanded = (item: NavItem) =>
+    isActive(item.href) || item.subItems?.some(sub => isActive(sub.href));
 
   return (
     <>
-      {/* Mobile toggle button */}
+      {/* Mobile toggle */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border"
       >
-        <svg
-          className="h-6 w-6"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          {isMobileOpen ? (
-            <path d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
+        <span className="material-icons text-xl">{isMobileOpen ? 'close' : 'menu'}</span>
       </button>
 
-      {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 ${
           isCollapsed ? 'w-16' : 'w-64'
-        } bg-card border-r border-border`}
+        } bg-card border-r border-border flex flex-col`}
       >
-        <div className="h-full flex flex-col">
-          {/* Logo & Collapse Button */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-16 border-b border-border px-4`}>
-            {!isCollapsed && (
-              <Link href="/admin" className="text-xl font-bold text-foreground">
-                CMS
-              </Link>
-            )}
-            <button
-              onClick={toggleCollapsed}
-              className="hidden lg:flex p-2 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <span className="material-icons text-xl">
-                {isCollapsed ? 'chevron_right' : 'chevron_left'}
-              </span>
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4">
-            <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-              {/* CMS section */}
-              {!isCollapsed && (
-                <li className="px-4 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">CMS</li>
-              )}
-              {navItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center gap-3 ${
-                      isCollapsed ? 'justify-center px-3' : 'px-4'
-                    } py-3 rounded-md text-sm font-medium transition-colors relative group ${
-                      pathname === item.href
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                    title={isCollapsed ? item.label : ''}
-                  >
-                    <span className="material-icons text-xl">{item.icon}</span>
-                    {!isCollapsed && <span>{item.label}</span>}
-
-                    {/* Tooltip for collapsed mode */}
-                    {isCollapsed && (
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        {item.label}
-                      </div>
-                    )}
-                  </Link>
-
-                  {/* Sub-items - only show when expanded */}
-                  {item.subItems && isPostsActive && !isCollapsed && (
-                    <ul className="mt-1 ml-4 space-y-1">
-                      {item.subItems.map((subItem) => (
-                        <li key={subItem.href}>
-                          <Link
-                            href={subItem.href}
-                            className={`flex items-center gap-3 px-4 py-2 rounded-md text-sm transition-colors ${
-                              pathname === subItem.href || pathname.startsWith(subItem.href + '/')
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                            }`}
-                          >
-                            <span className="material-icons text-base">{subItem.icon}</span>
-                            <span>{subItem.label}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-              {/* Client Portal section */}
-              {!isCollapsed && (
-                <li className="px-4 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t border-border mt-2">
-                  Client Portal
-                </li>
-              )}
-              {isCollapsed && <li className="border-t border-border mt-2 pt-2" />}
-              {portalNavItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={`flex items-center gap-3 ${
-                      isCollapsed ? 'justify-center px-3' : 'px-4'
-                    } py-3 rounded-md text-sm font-medium transition-colors relative group ${
-                      pathname.startsWith(item.href)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                    title={isCollapsed ? item.label : ''}
-                  >
-                    <span className="material-icons text-xl">{item.icon}</span>
-                    {!isCollapsed && <span>{item.label}</span>}
-                    {isCollapsed && (
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        {item.label}
-                      </div>
-                    )}
-                  </Link>
-
-                  {/* Sub-items - only show when expanded and parent section is active */}
-                  {item.subItems && !isCollapsed && (pathname.startsWith(item.href) || item.subItems.some(s => pathname.startsWith(s.href))) && (
-                    <ul className="mt-1 ml-4 space-y-1">
-                      {item.subItems.map((subItem) => (
-                        <li key={subItem.href}>
-                          <Link
-                            href={subItem.href}
-                            className={`flex items-center gap-3 px-4 py-2 rounded-md text-sm transition-colors ${
-                              pathname === subItem.href || pathname.startsWith(subItem.href + '/')
-                                ? 'bg-primary/10 text-primary'
-                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                            }`}
-                          >
-                            <span className="material-icons text-base">{subItem.icon}</span>
-                            <span>{subItem.label}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Footer */}
-          <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
-            {/* Collapse Toggle Button - Always visible */}
-            <button
-              onClick={toggleCollapsed}
-              className={`hidden lg:flex items-center gap-2 w-full ${
-                isCollapsed ? 'justify-center px-3' : 'px-4'
-              } py-3 mb-2 rounded-md text-sm font-medium bg-accent/50 hover:bg-accent text-foreground transition-colors relative group`}
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <span className="material-icons text-xl">
-                {isCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'}
-              </span>
-              {!isCollapsed && <span>Collapse Menu</span>}
-
-              {/* Tooltip for collapsed mode */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                  Expand Menu
-                </div>
-              )}
-            </button>
-
-            <Link
-              href="/"
-              className={`flex items-center gap-2 ${
-                isCollapsed ? 'justify-center px-3' : 'px-4'
-              } py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group`}
-              title={isCollapsed ? 'Back to Site' : ''}
-            >
-              <span className="material-icons text-xl">arrow_back</span>
-              {!isCollapsed && <span>Back to Site</span>}
-
-              {/* Tooltip for collapsed mode */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                  Back to Site
-                </div>
-              )}
+        {/* Header */}
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
+          {!isCollapsed && (
+            <Link href="/admin" className="flex items-center gap-2">
+              <span className="material-icons text-primary text-xl">hub</span>
+              <span className="font-bold text-foreground text-sm">SimplerDev</span>
             </Link>
-          </div>
+          )}
+          <button
+            onClick={toggleCollapsed}
+            className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <span className="material-icons text-lg">
+              {isCollapsed ? 'chevron_right' : 'chevron_left'}
+            </span>
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
+          {sections.map((section) => (
+            <div key={section.label} className="mb-1">
+              {!isCollapsed ? (
+                <button
+                  onClick={() => toggleSection(section.label)}
+                  className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                >
+                  {section.label}
+                  <span className="material-icons text-xs">
+                    {expandedSections.has(section.label) ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+              ) : (
+                <div className="border-t border-border mx-2 my-1" />
+              )}
+
+              {(!expandedSections.has(section.label) || isCollapsed) && (
+                <ul className={`space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-2'}`}>
+                  {section.items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center gap-2.5 ${
+                          isCollapsed ? 'justify-center px-2' : 'px-3'
+                        } py-2 rounded-md text-[13px] font-medium transition-colors relative group ${
+                          isActive(item.href)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        }`}
+                        title={isCollapsed ? item.label : ''}
+                      >
+                        <span className="material-icons text-lg">{item.icon}</span>
+                        {!isCollapsed && <span className="truncate">{item.label}</span>}
+                        {isCollapsed && (
+                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                            {item.label}
+                          </div>
+                        )}
+                      </Link>
+
+                      {/* Sub-items */}
+                      {item.subItems && !isCollapsed && isItemExpanded(item) && (
+                        <ul className="mt-0.5 ml-3 pl-3 border-l border-border space-y-0.5">
+                          {item.subItems.map((sub) => (
+                            <li key={sub.href}>
+                              <Link
+                                href={sub.href}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors ${
+                                  isActive(sub.href)
+                                    ? 'bg-primary/10 text-primary font-medium'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                }`}
+                              >
+                                <span className="material-icons text-sm">{sub.icon}</span>
+                                <span>{sub.label}</span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className={`border-t border-border ${isCollapsed ? 'p-1.5' : 'p-2'}`}>
+          <Link
+            href="/"
+            className={`flex items-center gap-2 ${
+              isCollapsed ? 'justify-center px-2' : 'px-3'
+            } py-2 rounded-md text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors relative group`}
+            title={isCollapsed ? 'Back to Site' : ''}
+          >
+            <span className="material-icons text-lg">arrow_back</span>
+            {!isCollapsed && <span>Back to Site</span>}
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                Back to Site
+              </div>
+            )}
+          </Link>
         </div>
       </aside>
 
-      {/* Overlay for mobile */}
       {isMobileOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"

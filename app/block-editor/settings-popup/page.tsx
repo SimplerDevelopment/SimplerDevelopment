@@ -41,6 +41,12 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'palizzi-rules': 'Palizzi Rules',
   'palizzi-membership': 'Palizzi Membership',
   'palizzi-footer': 'Palizzi Footer',
+  'product-grid': 'Product Grid',
+  'featured-products': 'Featured Products',
+  'product-categories': 'Product Categories',
+  'shopping-cart': 'Shopping Cart',
+  'store-banner': 'Store Banner',
+  'product-detail': 'Product Detail',
 };
 
 function SettingsPopupContent() {

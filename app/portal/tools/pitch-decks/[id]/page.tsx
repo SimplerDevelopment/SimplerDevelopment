@@ -24,6 +24,8 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 
 interface Deck {
   id: number;
@@ -34,7 +36,17 @@ interface Deck {
   slides: PitchDeckSlideV2[];
   theme: PitchDeckTheme;
   sourceUrl: string | null;
+  brandingProfileId: number | null;
   updatedAt: string;
+}
+
+function isColorDark(hex: string): boolean {
+  const clean = hex.replace('#', '');
+  if (clean.length < 6) return false;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
 
 
@@ -88,6 +100,18 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('preview');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  const [boardView, setBoardView] = useState(false);
+  const [aiHistory, setAiHistory] = useState<Record<number, Array<{ role: 'user' | 'assistant'; content: string }>>>({});
+
+  // Close board view on ESC
+  useEffect(() => {
+    if (!boardView) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setBoardView(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [boardView]);
 
   const fetchDeck = useCallback(async () => {
     try {
@@ -119,12 +143,19 @@ useEffect(() => {
     e.preventDefault();
     if (!slidePrompt.trim() || !deck) return;
 
+    const userPrompt = slidePrompt.trim();
     setSlideGenerating(true);
     setError('');
+
+    const slideHistory = aiHistory[activeSlide] || [];
+
     const res = await fetch(`/api/portal/tools/pitch-decks/${id}/slides/${activeSlide}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: slidePrompt.trim() }),
+      body: JSON.stringify({
+        prompt: userPrompt,
+        history: slideHistory,
+      }),
     });
     const data = await res.json();
     setSlideGenerating(false);
@@ -132,6 +163,15 @@ useEffect(() => {
       setDeck(data.data);
       setSlidePrompt('');
       setHasUnsavedChanges(false);
+      // Append to conversation history for multi-turn refinement
+      setAiHistory((prev) => ({
+        ...prev,
+        [activeSlide]: [
+          ...(prev[activeSlide] || []),
+          { role: 'user' as const, content: userPrompt },
+          { role: 'assistant' as const, content: data.aiResponse || '' },
+        ],
+      }));
     } else {
       setError(data.message || 'Failed to edit slide');
     }
@@ -482,6 +522,40 @@ useEffect(() => {
               <span className="material-icons text-base">close</span>
             </button>
           </div>
+          {/* Branding profile selector */}
+          <div className="pb-2 border-b border-border">
+            <BrandingProfileSelector
+              value={deck.brandingProfileId ?? null}
+              onChange={async (profileId) => {
+                if (profileId) {
+                  // Load the profile and apply as theme
+                  const res = await fetch(`/api/portal/branding/profiles/${profileId}`);
+                  const json = await res.json();
+                  if (json.success) {
+                    const p = json.data;
+                    handleThemeUpdate({
+                      primaryColor: p.primaryColor || deck.theme.primaryColor,
+                      accentColor: p.accentColor || deck.theme.accentColor,
+                      backgroundColor: p.backgroundColor && isColorDark(p.backgroundColor) ? p.backgroundColor : deck.theme.backgroundColor,
+                      textColor: p.backgroundColor && isColorDark(p.backgroundColor) ? (p.textColor || '#f8fafc') : deck.theme.textColor,
+                      headingFont: p.headingFont || deck.theme.headingFont,
+                      bodyFont: p.bodyFont || deck.theme.bodyFont,
+                    });
+                  }
+                }
+                setDeck((prev) => prev ? { ...prev, brandingProfileId: profileId } : prev);
+                // Persist the profile assignment
+                await fetch(`/api/portal/tools/pitch-decks/${deck.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ brandingProfileId: profileId }),
+                });
+              }}
+              allowNone
+              noneLabel="Custom Theme"
+            />
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(['primaryColor', 'accentColor', 'backgroundColor', 'textColor'] as const).map((key) => (
               <div key={key}>
@@ -508,20 +582,16 @@ useEffect(() => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>
-              <input
-                type="text"
+              <GoogleFontPicker
                 value={deck.theme.headingFont}
-                onChange={(e) => handleThemeUpdate({ headingFont: e.target.value })}
-                className="w-full px-2 py-1 text-sm bg-background border border-border rounded text-foreground"
+                onChange={(font) => handleThemeUpdate({ headingFont: font })}
               />
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Body Font</label>
-              <input
-                type="text"
+              <GoogleFontPicker
                 value={deck.theme.bodyFont}
-                onChange={(e) => handleThemeUpdate({ bodyFont: e.target.value })}
-                className="w-full px-2 py-1 text-sm bg-background border border-border rounded text-foreground"
+                onChange={(font) => handleThemeUpdate({ bodyFont: font })}
               />
             </div>
           </div>
@@ -545,6 +615,12 @@ useEffect(() => {
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
             disabled={regenerating}
           />
+          {error && (
+            <div className="flex items-center gap-2 p-2 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-xs">
+              <span className="material-icons text-sm">error</span>
+              {error}
+            </div>
+          )}
           <button
             type="submit"
             disabled={regenerating || !regeneratePrompt.trim()}
@@ -689,6 +765,13 @@ useEffect(() => {
                   <div className="p-3 border-b border-border flex items-center justify-between">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Slides</span>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setBoardView(true)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Board view"
+                      >
+                        <span className="material-icons text-base">grid_view</span>
+                      </button>
                       <button onClick={addSlide} className="text-primary hover:text-primary/80" title="Add slide">
                         <span className="material-icons text-lg">add_circle</span>
                       </button>
@@ -820,6 +903,11 @@ useEffect(() => {
                   selectedBlockId={null}
                   viewport={iframeViewport}
                   previewMode={editorMode === 'preview'}
+                  initialZoom={60}
+                  leftCollapsed={editorLeftCollapsed}
+                  rightCollapsed={editorRightCollapsed}
+                  onLeftCollapsedChange={setEditorLeftCollapsed}
+                  onRightCollapsedChange={setEditorRightCollapsed}
                   iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(deck.theme.backgroundColor)}&text=${encodeURIComponent(deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
@@ -846,6 +934,52 @@ useEffect(() => {
                   siteId={undefined}
                 />
               </div>
+          </div>
+        </div>
+      )}
+
+      {/* Board View Overlay */}
+      {boardView && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-auto">
+          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="material-icons text-muted-foreground">grid_view</span>
+              <h2 className="text-sm font-semibold text-foreground">All Slides</h2>
+              <span className="text-xs text-muted-foreground">{deck.slides.length} slides</span>
+            </div>
+            <button
+              onClick={() => setBoardView(false)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Close board view"
+            >
+              <span className="material-icons">close</span>
+            </button>
+          </div>
+          <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {deck.slides.map((slide, idx) => (
+              <button
+                key={slide.id}
+                onClick={() => { setActiveSlide(idx); setBoardView(false); }}
+                className={`group relative bg-card border rounded-xl overflow-hidden text-left transition-all hover:ring-2 hover:ring-primary/50 hover:shadow-lg ${
+                  idx === activeSlide ? 'ring-2 ring-primary border-primary' : 'border-border'
+                }`}
+              >
+                {/* Slide thumbnail via iframe */}
+                <BoardThumbnail
+                  src={`/portal/tools/pitch-decks/${id}/slide-preview?pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(deck.theme.backgroundColor)}&text=${encodeURIComponent(deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
+                  blocks={slide.blocks}
+                />
+                {/* Label */}
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <span className={`text-xs font-mono ${idx === activeSlide ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+                    {idx + 1}
+                  </span>
+                  <span className="text-xs text-foreground truncate">
+                    {slide.label || 'Untitled'}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -930,6 +1064,73 @@ function SortableSlideItem({ slide, index, isActive, onClick, onRename }: {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Board view thumbnail — renders a slide preview in a scaled iframe */
+function BoardThumbnail({ src, blocks }: { src: string; blocks: Block[] }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const sentRef = useRef(false);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    sentRef.current = false;
+
+    const sendBlocks = () => {
+      iframe.contentWindow?.postMessage({
+        source: 'sd-editor-parent',
+        type: 'EDITOR_INIT',
+        payload: { blocks },
+      }, '*');
+    };
+
+    // When iframe signals ready, send blocks immediately
+    const handleMessage = (e: MessageEvent) => {
+      if (e.source !== iframe.contentWindow) return;
+      if (e.data?.type === 'IFRAME_READY' || e.data?.source === 'sd-editor-child') {
+        sentRef.current = true;
+        sendBlocks();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+
+    // Also retry a few times after load to handle race conditions
+    const onLoad = () => {
+      let attempts = 0;
+      const retry = setInterval(() => {
+        if (sentRef.current || attempts > 10) { clearInterval(retry); return; }
+        sendBlocks();
+        attempts++;
+      }, 200);
+    };
+    iframe.addEventListener('load', onLoad);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      iframe.removeEventListener('load', onLoad);
+    };
+  }, [blocks]);
+
+  return (
+    <div className="relative w-full overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
+      <iframe
+        ref={iframeRef}
+        src={src}
+        className="pointer-events-none border-0"
+        style={{
+          width: '1280px',
+          height: '720px',
+          transform: 'scale(0.25)',
+          transformOrigin: 'top left',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+        tabIndex={-1}
+      />
+      <div className="absolute inset-0 z-10" />
     </div>
   );
 }

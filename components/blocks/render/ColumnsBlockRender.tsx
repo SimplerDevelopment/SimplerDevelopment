@@ -90,12 +90,25 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
       )
     : '';
 
+  // Parse numeric width from number or string ("50%") format
+  const parseWidth = (w: number | string) =>
+    typeof w === 'string' ? parseFloat(w) || 50 : w;
+
+  // Normalize widths: if they sum to > 100, scale proportionally so they fit
+  const rawWidths = block.columns.map(c => parseWidth(c.width));
+  const totalWidth = rawWidths.reduce((s, w) => s + w, 0);
+  const normalizedWidths = totalWidth > 100
+    ? rawWidths.map(w => (w / totalWidth) * 100)
+    : rawWidths;
+
   return (
     <div className={`py-8 my-8 ${responsiveClasses}`}>
       <div className={`flex ${stackingClasses} ${gapClasses[block.gap || 'md']}`}>
-        {block.columns.map((column) => {
+        {block.columns.map((column, colIndex) => {
           const paddingClass = column.padding === 'sm' ? 'p-2' : column.padding === 'md' ? 'p-4' : column.padding === 'lg' ? 'p-6' : '';
           const verticalAlignClass = column.verticalAlign === 'center' ? 'flex flex-col justify-center' : column.verticalAlign === 'bottom' ? 'flex flex-col justify-end' : '';
+
+          const colWidth = `${normalizedWidths[colIndex]}%`;
 
           return (
             <div
@@ -105,10 +118,10 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
               style={{
                 ...(shouldStackFromEditor !== null
                   ? {
-                      width: shouldStackFromEditor ? '100%' : `${column.width}%`,
-                      flex: shouldStackFromEditor ? '0 0 100%' : `0 0 ${column.width}%`,
+                      width: shouldStackFromEditor ? '100%' : colWidth,
+                      flex: shouldStackFromEditor ? '0 0 100%' : `0 0 ${colWidth}`,
                     }
-                  : { '--col-width': `${column.width}%` } as React.CSSProperties
+                  : { '--col-width': colWidth } as React.CSSProperties
                 ),
                 ...(column.backgroundColor ? { backgroundColor: column.backgroundColor } : {}),
               }}

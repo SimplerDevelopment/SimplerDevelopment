@@ -42,6 +42,7 @@ const staticNavItems: NavItem[] = [
   { href: '/portal/crm', label: 'CRM', icon: 'contacts' },
   { href: '/portal/email', label: 'Email', icon: 'email' },
   { href: '/portal/surveys', label: 'Surveys', icon: 'poll' },
+  { href: '/portal/branding', label: 'Branding', icon: 'palette' },
   // Dynamic services are injected here as top-level items (see navItems below)
   { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
@@ -153,6 +154,7 @@ export default function PortalSidebar() {
   const isSurveysContext = pathname.startsWith('/portal/surveys');
   const isBookingContext = pathname.startsWith('/portal/tools/booking');
   const isAutomationsContext = pathname === '/portal/automations' || pathname.startsWith('/portal/automations/');
+  const isBrandingContext = pathname === '/portal/branding' || pathname.startsWith('/portal/branding/');
   const isWebsitesListContext = pathname === '/portal/websites' || pathname === '/portal/websites/new';
   const isHostingContext = false; // hosting handled within website/email services
   const isSettingsContext = pathname.startsWith('/portal/settings');
@@ -212,7 +214,7 @@ export default function PortalSidebar() {
   // Build nav items: inject dynamic services as top-level items before Settings
   const navItems: NavItem[] = (() => {
     const serviceItems: NavItem[] = navServices
-      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks' && svc.name !== 'Email Marketing')
+      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks' && svc.name !== 'Email Marketing' && svc.name !== 'Monthly Maintenance' && svc.name !== 'White Label Domain' && svc.name !== 'All-In-One')
       .map(svc => ({
         href: svc.href,
         label: svc.name,
@@ -303,6 +305,7 @@ export default function PortalSidebar() {
               : isProjectsContext ? { label: 'Projects', name: 'Project Management', icon: 'view_kanban', key: 'projects' }
               : isBookingContext ? { label: 'Booking', name: 'Booking System', icon: 'calendar_month', key: 'booking' }
               : isAutomationsContext ? { label: 'Automations', name: 'Automations', icon: 'bolt', key: 'automations' }
+              : isBrandingContext ? { label: 'Branding', name: 'Brand Identity', icon: 'palette', key: 'branding' }
               : isWebsitesListContext ? { label: 'Websites', name: 'Websites', icon: 'language', key: 'websites' }
               : isSettingsContext ? { label: 'Settings', name: 'Settings', icon: 'settings', key: 'settings' }
               : null;
@@ -321,6 +324,7 @@ export default function PortalSidebar() {
               { label: 'Surveys', icon: 'poll', href: '/portal/surveys', key: 'surveys' },
               { label: 'Websites', icon: 'language', href: '/portal/websites', key: 'websites' },
               { label: 'Booking', icon: 'calendar_month', href: '/portal/tools/booking', key: 'booking' },
+              { label: 'Branding', icon: 'palette', href: '/portal/branding', key: 'branding' },
               { label: 'Automations', icon: 'bolt', href: '/portal/automations', key: 'automations' },
               { label: 'Settings', icon: 'settings', href: '/portal/settings', key: 'settings' },
             ];

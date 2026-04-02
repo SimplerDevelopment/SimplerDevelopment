@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, users, clientMembers } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { clients, users, clientMembers, clientServices, services, clientWebsites, projects, supportTickets, invoices } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 
 async function requireStaff() {
@@ -30,10 +30,16 @@ export async function GET() {
       userName: users.name,
       userEmail: users.email,
       userActive: users.active,
+      activeServices: sql<number>`(select count(*) from ${clientServices} where ${clientServices.clientId} = ${clients.id} and ${clientServices.status} = 'active')`,
+      websiteCount: sql<number>`(select count(*) from ${clientWebsites} where ${clientWebsites.clientId} = ${clients.id})`,
+      activeProjects: sql<number>`(select count(*) from ${projects} where ${projects.clientId} = ${clients.id} and ${projects.status} = 'active')`,
+      openTickets: sql<number>`(select count(*) from ${supportTickets} where ${supportTickets.clientId} = ${clients.id} and ${supportTickets.status} in ('open','in_progress'))`,
+      totalRevenue: sql<number>`coalesce((select sum(${invoices.total}) from ${invoices} where ${invoices.clientId} = ${clients.id} and ${invoices.status} = 'paid'), 0)`,
+      mrr: sql<number>`coalesce((select sum(case when ${services.billingCycle} = 'monthly' then ${services.price} when ${services.billingCycle} = 'annually' then ${services.price} / 12 else 0 end) from ${clientServices} inner join ${services} on ${services.id} = ${clientServices.serviceId} where ${clientServices.clientId} = ${clients.id} and ${clientServices.status} = 'active'), 0)`,
     })
     .from(clients)
     .innerJoin(users, eq(clients.userId, users.id))
-    .orderBy(clients.createdAt);
+    .orderBy(sql`${clients.createdAt} desc`);
 
   return NextResponse.json({ success: true, data });
 }

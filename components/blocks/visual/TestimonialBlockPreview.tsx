@@ -2,6 +2,7 @@
 
 import { TestimonialBlock } from '@/types/blocks';
 import { ContentEditable } from './ContentEditable';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface TestimonialBlockPreviewProps {
   block: TestimonialBlock;
@@ -24,13 +25,15 @@ export function TestimonialBlockPreview({ block, isSelected, onChange }: Testimo
           </svg>
 
           {/* Quote */}
-          <ContentEditable
-            html={block.quote}
-            onChange={(quote) => onChange({ quote })}
-            className="text-xl md:text-2xl font-medium text-foreground mb-8 focus:outline-none"
-            placeholder="Enter testimonial quote..."
-            tagName="blockquote"
-          />
+          <div style={getElementCSS(block.elementStyles, 'quote')}>
+            <ContentEditable
+              html={block.quote}
+              onChange={(quote) => onChange({ quote })}
+              className="text-xl md:text-2xl font-medium text-foreground mb-8 focus:outline-none"
+              placeholder="Enter testimonial quote..."
+              tagName="blockquote"
+            />
+          </div>
 
           {/* Author Info */}
           <div className="flex flex-col items-center">
@@ -55,6 +58,7 @@ export function TestimonialBlockPreview({ block, isSelected, onChange }: Testimo
                 onClick={(e) => e.stopPropagation()}
                 className="font-semibold text-foreground w-full bg-transparent border-none focus:outline-none focus:border-b border-primary text-center"
                 placeholder="Author Name"
+                style={getElementCSS(block.elementStyles, 'author')}
               />
               {(block.role || block.company || isSelected) && (
                 <div className="text-sm text-muted-foreground mt-1 text-center">

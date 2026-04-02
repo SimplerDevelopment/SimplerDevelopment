@@ -50,7 +50,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
         )}
 
         <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-          {block.services.map((service) => (
+          {(block.services || []).map((service) => (
             <Card
               key={service.id}
               title={service.title}
@@ -58,6 +58,11 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
               image={service.image}
               link={service.link}
               icon={service.icon}
+              titleStyle={getElementCSS(block.elementStyles, 'serviceTitle')}
+              descriptionStyle={getElementCSS(block.elementStyles, 'serviceDescription')}
+              iconStyle={getElementCSS(block.elementStyles, 'serviceIcon')}
+              linkStyle={getElementCSS(block.elementStyles, 'serviceLink')}
+              imageStyle={getElementCSS(block.elementStyles, 'serviceImage')}
             />
           ))}
         </div>

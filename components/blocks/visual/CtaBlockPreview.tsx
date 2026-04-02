@@ -1,6 +1,7 @@
 'use client';
 
 import { CtaBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface CtaBlockPreviewProps {
   block: CtaBlock;
@@ -26,6 +27,7 @@ export function CtaBlockPreview({ block, isSelected, onChange }: CtaBlockPreview
             onClick={(e) => e.stopPropagation()}
             className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="CTA Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
 
           {(block.description || isSelected) && (
@@ -36,6 +38,7 @@ export function CtaBlockPreview({ block, isSelected, onChange }: CtaBlockPreview
               className="text-xl md:text-2xl mb-12 max-w-3xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border border-primary/50 rounded text-center text-muted-foreground resize-none"
               placeholder="Description (optional)"
               rows={2}
+              style={getElementCSS(block.elementStyles, 'description')}
             />
           )}
 
@@ -44,6 +47,7 @@ export function CtaBlockPreview({ block, isSelected, onChange }: CtaBlockPreview
               type="button"
               className="px-6 py-3 text-lg bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors"
               onClick={(e) => e.preventDefault()}
+              style={getElementCSS(block.elementStyles, 'primaryButton')}
             >
               {block.primaryButtonText}
             </button>
@@ -53,6 +57,7 @@ export function CtaBlockPreview({ block, isSelected, onChange }: CtaBlockPreview
                 type="button"
                 className="px-6 py-3 text-lg border border-primary text-primary rounded-md font-medium hover:bg-primary/10 transition-colors"
                 onClick={(e) => e.preventDefault()}
+                style={getElementCSS(block.elementStyles, 'secondaryButton')}
               >
                 {block.secondaryButtonText || 'Secondary'}
               </button>

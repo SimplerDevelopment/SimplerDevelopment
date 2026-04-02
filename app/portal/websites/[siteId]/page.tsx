@@ -71,13 +71,22 @@ export default async function PortalCmsSitePage({
           )}
           {!site.subdomain && site.domain && <p className="text-muted-foreground font-mono text-sm mt-1">{site.domain}</p>}
         </div>
-        <Link
-          href={`/portal/websites/${site.id}/posts/new`}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">add</span>
-          New Page
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/portal/websites/${site.id}/calendar`}
+            className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+          >
+            <span className="material-icons text-base">calendar_month</span>
+            Calendar
+          </Link>
+          <Link
+            href={`/portal/websites/${site.id}/posts/new`}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">add</span>
+            New Page
+          </Link>
+        </div>
       </div>
 
       {created === '1' && (

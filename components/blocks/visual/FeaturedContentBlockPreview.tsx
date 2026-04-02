@@ -1,6 +1,7 @@
 'use client';
 
 import { FeaturedContentBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface FeaturedContentBlockPreviewProps {
   block: FeaturedContentBlock;
@@ -23,6 +24,7 @@ export function FeaturedContentBlockPreview({ block, isSelected, onChange }: Fea
             onClick={(e) => e.stopPropagation()}
             className="text-3xl font-bold mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-foreground"
             placeholder="Featured Content Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
 
           {(block.description || isSelected) && (
@@ -33,16 +35,17 @@ export function FeaturedContentBlockPreview({ block, isSelected, onChange }: Fea
               className="text-lg text-muted-foreground mb-6 w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
               placeholder="Description (optional)"
               rows={4}
+              style={getElementCSS(block.elementStyles, 'description')}
             />
           )}
 
           {/* Stats */}
           {block.stats && block.stats.length > 0 && (
-            <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-6 mb-6">
               {block.stats.map((stat) => (
                 <div key={stat.id} className="text-center">
-                  <div className="text-2xl font-bold text-primary">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  <div className="text-2xl font-bold text-primary" style={getElementCSS(block.elementStyles, 'statValue')}>{stat.value}</div>
+                  <div className="text-sm text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -53,6 +56,7 @@ export function FeaturedContentBlockPreview({ block, isSelected, onChange }: Fea
               type="button"
               className="px-6 py-3 bg-primary text-primary-foreground rounded-md font-medium"
               onClick={(e) => e.preventDefault()}
+              style={getElementCSS(block.elementStyles, 'button')}
             >
               {block.buttonText || 'Learn More'}
             </button>

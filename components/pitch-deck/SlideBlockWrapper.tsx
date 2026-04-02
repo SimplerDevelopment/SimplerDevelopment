@@ -22,11 +22,11 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
 
   return (
     <div
-      className={className}
+      className={`slide-themed ${className || ''}`}
       style={{
         backgroundColor: slide.pageSettings?.backgroundColor || theme.backgroundColor,
         color: theme.textColor,
-        fontFamily: theme.bodyFont,
+        fontFamily: `"${theme.bodyFont}", sans-serif`,
         width: '100%',
         height: '100%',
         overflow: 'hidden',
@@ -34,6 +34,17 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap');
+        .slide-themed h1, .slide-themed h2, .slide-themed h3,
+        .slide-themed h4, .slide-themed h5, .slide-themed h6 {
+          font-family: "${theme.headingFont}", sans-serif !important;
+          color: ${theme.textColor} !important;
+        }
+        .slide-themed p, .slide-themed li, .slide-themed span {
+          color: ${theme.textColor};
+        }
+        .slide-themed a, .slide-themed .text-primary {
+          color: ${theme.primaryColor};
+        }
       `}</style>
       <div
         className="w-full h-full flex flex-col justify-center"

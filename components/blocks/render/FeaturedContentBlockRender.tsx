@@ -46,10 +46,10 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
               <div className="grid grid-cols-2 gap-6 mb-6">
                 {block.stats.map((stat) => (
                   <div key={stat.id}>
-                    <div className="text-3xl font-bold text-primary mb-1">
+                    <div className="text-3xl font-bold text-primary mb-1" style={getElementCSS(block.elementStyles, 'statValue')}>
                       {stat.value}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>
                       {stat.label}
                     </div>
                   </div>
@@ -61,6 +61,7 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
               <Link
                 href={block.buttonUrl}
                 className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                style={getElementCSS(block.elementStyles, 'button')}
               >
                 {block.buttonText} →
               </Link>

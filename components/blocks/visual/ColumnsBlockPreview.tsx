@@ -5,6 +5,18 @@ import { ColumnsBlock, Block, BlockType } from '@/types/blocks';
 import { VisualBlockPreview } from './VisualBlockPreview';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
 
+/** Parse numeric width from number or string ("50%") format */
+function parseColWidth(w: number | string): number {
+  return typeof w === 'string' ? parseFloat(w) || 50 : w;
+}
+
+/** Normalize column widths: scale proportionally if they sum > 100% */
+function normalizeColWidths(columns: { width: number | string }[]): number[] {
+  const raw = columns.map(c => parseColWidth(c.width));
+  const total = raw.reduce((s, w) => s + w, 0);
+  return total > 100 ? raw.map(w => (w / total) * 100) : raw;
+}
+
 interface ColumnsBlockPreviewProps {
   block: ColumnsBlock;
   isSelected: boolean;
@@ -342,7 +354,7 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     setResizing({
       index,
       startX: e.clientX,
-      startWidths: block.columns.map(col => col.width),
+      startWidths: block.columns.map(col => parseFloat(String(col.width))),
     });
   };
 
@@ -441,7 +453,9 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
         className={`flex relative ${stackingClasses}`}
         style={{ gap: `${effectiveGap}px` }}
       >
-        {block.columns.map((column, columnIndex) => {
+        {(() => {
+          const normWidths = normalizeColWidths(block.columns);
+          return block.columns.map((column, columnIndex) => {
           // Ensure column has an ID
           const columnId = column.id || `col-temp-${columnIndex}`;
           const isColumnDragging = draggedColumnId === columnId;
@@ -451,6 +465,7 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
           const columnPaddingClass = !isSelected ? '' : '';
           const contentPadding = column.padding === 'sm' ? 'p-2' : column.padding === 'lg' ? 'p-6' : column.padding === 'md' ? 'p-4' : '';
           const verticalAlignClass = column.verticalAlign === 'center' ? 'justify-center' : column.verticalAlign === 'bottom' ? 'justify-end' : 'justify-start';
+          const colWidth = `${normWidths[columnIndex]}%`;
 
           return (
           <React.Fragment key={columnId}>
@@ -471,8 +486,8 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                   : `${contentPadding}`
               } ${isColumnDragging ? 'opacity-40' : ''}`}
               style={{
-                width: shouldStack ? '100%' : `${column.width}%`,
-                flex: shouldStack ? '0 0 100%' : `0 0 ${column.width}%`,
+                width: shouldStack ? '100%' : colWidth,
+                flex: shouldStack ? '0 0 100%' : `0 0 ${colWidth}`,
                 ...(column.backgroundColor ? { backgroundColor: column.backgroundColor } : {}),
               }}
               onClick={(e) => {
@@ -503,7 +518,7 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                     </svg>
                   </div>
                   <p className="text-xs font-medium text-muted-foreground">
-                    Col {columnIndex + 1} ({Math.round(column.width * 10) / 10}%)
+                    Col {columnIndex + 1} ({Math.round(parseColWidth(column.width) * 10) / 10}%)
                   </p>
                 </div>
 
@@ -563,7 +578,7 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                     type="number"
                     min={5}
                     max={95}
-                    value={Math.round(column.width)}
+                    value={Math.round(parseColWidth(column.width))}
                     onChange={(e) => {
                       const newWidth = Math.max(5, Math.min(95, parseInt(e.target.value) || 5));
                       updateColumnSettings(column.id, { width: newWidth });
@@ -857,7 +872,8 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
           )}
           </React.Fragment>
           );
-        })}
+        });
+        })()}
       </div>
 
       {/* Add Column Button */}

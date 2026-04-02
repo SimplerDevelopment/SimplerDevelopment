@@ -664,6 +664,7 @@ export const clientWebsites = pgTable('client_websites', {
   provisionError: text('provision_error'),
   logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
   customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
+  brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles — resolved at runtime to avoid circular ref
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -806,6 +807,7 @@ export const pitchDecks = pgTable('pitch_decks', {
     bodyFont: 'Inter',
   }),
   sourceUrl: varchar('source_url', { length: 500 }), // website used for branding
+  brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -1235,14 +1237,54 @@ export const siteBranding = pgTable('site_branding', {
   // Fonts
   headingFont: varchar('heading_font', { length: 255 }),
   bodyFont: varchar('body_font', { length: 255 }),
-  // Per-element typography: { h1: { font, size, weight, lineHeight }, h2: ..., p: ..., etc. }
-  typography: json('typography').$type<Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>>(),
+  // Per-element typography: { h1: { font, size, weight, lineHeight, letterSpacing }, h2: ..., p: ..., etc. }
+  typography: json('typography').$type<Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string; letterSpacing?: string }>>(),
   // Logo variants
   logoSquareUrl: varchar('logo_square_url', { length: 500 }),
   logoRectUrl: varchar('logo_rect_url', { length: 500 }),
   logoText: varchar('logo_text', { length: 255 }),
   logoIconUrl: varchar('logo_icon_url', { length: 500 }),
   // Dark mode overrides (colors + logos)
+  darkMode: json('dark_mode').$type<{
+    primaryColor?: string; secondaryColor?: string; accentColor?: string;
+    backgroundColor?: string; textColor?: string;
+    navBackground?: string; navTextColor?: string;
+    logoUrl?: string; logoSquareUrl?: string; logoRectUrl?: string; logoIconUrl?: string;
+  }>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── Branding Profiles ──────────────────────────────────────────────────────
+
+export const brandingProfiles = pgTable('branding_profiles', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  // Colors
+  primaryColor: varchar('primary_color', { length: 20 }).default('#2563eb'),
+  secondaryColor: varchar('secondary_color', { length: 20 }).default('#1e40af'),
+  accentColor: varchar('accent_color', { length: 20 }).default('#f59e0b'),
+  backgroundColor: varchar('background_color', { length: 20 }).default('#ffffff'),
+  textColor: varchar('text_color', { length: 20 }).default('#111827'),
+  // Navigation
+  navTemplate: varchar('nav_template', { length: 50 }).default('classic'),
+  navPosition: varchar('nav_position', { length: 20 }).default('top'),
+  navBackground: varchar('nav_background', { length: 20 }).default('#ffffff'),
+  navTextColor: varchar('nav_text_color', { length: 20 }).default('#111827'),
+  // Fonts
+  headingFont: varchar('heading_font', { length: 255 }),
+  bodyFont: varchar('body_font', { length: 255 }),
+  typography: json('typography').$type<Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>>(),
+  // Logos
+  logoUrl: varchar('logo_url', { length: 500 }),
+  logoAlt: varchar('logo_alt', { length: 255 }),
+  logoSquareUrl: varchar('logo_square_url', { length: 500 }),
+  logoRectUrl: varchar('logo_rect_url', { length: 500 }),
+  logoText: varchar('logo_text', { length: 255 }),
+  logoIconUrl: varchar('logo_icon_url', { length: 500 }),
+  // Dark mode overrides
   darkMode: json('dark_mode').$type<{
     primaryColor?: string; secondaryColor?: string; accentColor?: string;
     backgroundColor?: string; textColor?: string;

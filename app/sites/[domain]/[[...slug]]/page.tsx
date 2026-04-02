@@ -1,8 +1,12 @@
 import { notFound } from 'next/navigation';
 import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts } from '@/lib/actions/client-sites';
 import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
+import { ProductPage } from '@/components/storefront/ProductPage';
+import { ShopPage } from '@/components/storefront/ShopPage';
+import { getBrandingByWebsiteId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 interface PageProps {
   params: Promise<{ domain: string; slug?: string[] }>;
@@ -17,6 +21,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!pageSlug || pageSlug === '') {
     return { title: site.name };
+  }
+
+  if (pageSlug === 'shop') {
+    return { title: `Shop | ${site.name}`, description: `Browse products from ${site.name}` };
+  }
+
+  if (pageSlug.startsWith('shop/')) {
+    return { title: `Shop | ${site.name}` };
   }
 
   const page = await getClientPage(site.id, pageSlug);
@@ -38,6 +50,9 @@ export default async function ClientSitePage({ params }: PageProps) {
 
   const pageSlug = slug?.join('/');
 
+  // Load site branding once — shared by all BlockRenderer instances on this page
+  const branding = await getBrandingByWebsiteId(site.id);
+
   // Home page
   if (!pageSlug || pageSlug === '') {
     const homePage = await getClientHomePage(site.id);
@@ -54,14 +69,44 @@ export default async function ClientSitePage({ params }: PageProps) {
 
     // Custom layout sites: render blocks full-width with no wrapper
     if (site.customLayout) {
-      return <BlockRenderer content={homePage.content} siteId={site.id} />;
+      return <BlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
     }
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BlockRenderer content={homePage.content} siteId={site.id} />
+        <BlockRenderer content={homePage.content} siteId={site.id} branding={branding} />
       </div>
     );
+  }
+
+  // Shop listing
+  if (pageSlug === 'shop') {
+    return (
+      <Suspense fallback={
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="h-10 bg-muted/20 rounded w-48 mb-8 animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="border border-border rounded-lg overflow-hidden animate-pulse">
+                <div className="aspect-square bg-muted/20" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-muted/30 rounded w-3/4" />
+                  <div className="h-4 bg-muted/20 rounded w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      }>
+        <ShopPage siteId={site.id} />
+      </Suspense>
+    );
+  }
+
+  // Product detail page (shop/some-slug)
+  if (pageSlug.startsWith('shop/')) {
+    const productSlug = pageSlug.replace('shop/', '');
+    return <ProductPage siteId={site.id} productSlug={productSlug} />;
   }
 
   // Blog listing
@@ -117,7 +162,7 @@ export default async function ClientSitePage({ params }: PageProps) {
             </time>
           )}
         </header>
-        <BlockRenderer content={post.content} siteId={site.id} />
+        <BlockRenderer content={post.content} siteId={site.id} branding={branding} />
       </article>
     );
   }
@@ -134,7 +179,7 @@ export default async function ClientSitePage({ params }: PageProps) {
       {page.postType === 'page' && (
         <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
       )}
-      <BlockRenderer content={page.content} siteId={site.id} />
+      <BlockRenderer content={page.content} siteId={site.id} branding={branding} />
     </div>
   );
 }

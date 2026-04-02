@@ -4,6 +4,7 @@ import { BlogPostsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getAllBlogPosts, getBlogPostsByCategory } from '@/lib/actions/blog';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 import Link from 'next/link';
 
 interface BlogPostsBlockRenderProps {
@@ -68,12 +69,12 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
         {(block.title || block.description) && (
           <div className="text-center mb-12">
             {block.title && (
-              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4">
+              <h2 className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')}>
                 {block.title}
               </h2>
             )}
             {block.description && (
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')}>
                 {block.description}
               </p>
             )}
@@ -119,12 +120,12 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
                       </div>
                     )}
 
-                    <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors">
+                    <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors" style={getElementCSS(block.elementStyles, 'postTitle')}>
                       {post.title}
                     </h3>
 
                     {block.showExcerpt && post.excerpt && (
-                      <p className="text-muted-foreground mb-4 line-clamp-3">
+                      <p className="text-muted-foreground mb-4 line-clamp-3" style={getElementCSS(block.elementStyles, 'postExcerpt')}>
                         {post.excerpt}
                       </p>
                     )}

@@ -11,6 +11,7 @@ interface ElementTypography {
   size?: string;
   weight?: string;
   lineHeight?: string;
+  letterSpacing?: string;
 }
 
 interface DarkModeOverrides {
@@ -50,18 +51,18 @@ interface Branding {
 }
 
 const DEFAULT_TYPOGRAPHY: Record<string, ElementTypography> = {
-  h1: { size: '2.5rem', weight: '700', lineHeight: '1.2' },
-  h2: { size: '2rem', weight: '600', lineHeight: '1.25' },
-  h3: { size: '1.5rem', weight: '600', lineHeight: '1.3' },
-  h4: { size: '1.25rem', weight: '600', lineHeight: '1.35' },
-  h5: { size: '1.125rem', weight: '600', lineHeight: '1.4' },
-  h6: { size: '1rem', weight: '600', lineHeight: '1.4' },
-  p: { size: '1rem', weight: '400', lineHeight: '1.6' },
-  blockquote: { size: '1.125rem', weight: '400', lineHeight: '1.6' },
-  button: { size: '0.875rem', weight: '500', lineHeight: '1.25' },
-  nav: { size: '0.875rem', weight: '500', lineHeight: '1.5' },
-  small: { size: '0.75rem', weight: '400', lineHeight: '1.5' },
-  caption: { size: '0.875rem', weight: '400', lineHeight: '1.4' },
+  h1: { size: '2.5rem', weight: '700', lineHeight: '1.2', letterSpacing: '-0.02em' },
+  h2: { size: '2rem', weight: '600', lineHeight: '1.25', letterSpacing: '-0.01em' },
+  h3: { size: '1.5rem', weight: '600', lineHeight: '1.3', letterSpacing: '0' },
+  h4: { size: '1.25rem', weight: '600', lineHeight: '1.35', letterSpacing: '0' },
+  h5: { size: '1.125rem', weight: '600', lineHeight: '1.4', letterSpacing: '0' },
+  h6: { size: '1rem', weight: '600', lineHeight: '1.4', letterSpacing: '0.01em' },
+  p: { size: '1rem', weight: '400', lineHeight: '1.6', letterSpacing: '0' },
+  blockquote: { size: '1.125rem', weight: '400', lineHeight: '1.6', letterSpacing: '0' },
+  button: { size: '0.875rem', weight: '500', lineHeight: '1.25', letterSpacing: '0.02em' },
+  nav: { size: '0.875rem', weight: '500', lineHeight: '1.5', letterSpacing: '0.01em' },
+  small: { size: '0.75rem', weight: '400', lineHeight: '1.5', letterSpacing: '0.01em' },
+  caption: { size: '0.875rem', weight: '400', lineHeight: '1.4', letterSpacing: '0.01em' },
 };
 
 const ELEMENT_LABELS: Record<string, { label: string; desc: string; category: 'heading' | 'body' | 'ui' }> = {
@@ -576,6 +577,7 @@ export default function BrandingPage() {
                               fontSize: t.size,
                               fontWeight: t.weight,
                               lineHeight: t.lineHeight,
+                              letterSpacing: t.letterSpacing,
                             }}
                           >
                             The quick brown fox jumps over the lazy dog
@@ -584,7 +586,7 @@ export default function BrandingPage() {
                       </div>
 
                       {/* Controls */}
-                      <div className="grid grid-cols-4 gap-3 mt-3 pt-3 border-t border-border/50">
+                      <div className="grid grid-cols-5 gap-3 mt-3 pt-3 border-t border-border/50">
                         <div>
                           <label className="block text-[11px] text-muted-foreground mb-1">Font Family</label>
                           <GoogleFontPicker
@@ -625,6 +627,16 @@ export default function BrandingPage() {
                             onChange={(e) => updateTypo(el, { lineHeight: e.target.value })}
                             className={`${inputClass} text-xs`}
                             placeholder="1.5"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-muted-foreground mb-1">Char Spacing</label>
+                          <input
+                            type="text"
+                            value={t.letterSpacing || ''}
+                            onChange={(e) => updateTypo(el, { letterSpacing: e.target.value })}
+                            className={`${inputClass} text-xs`}
+                            placeholder="-0.02em"
                           />
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { HeroBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface HeroBlockPreviewProps {
   block: HeroBlock;
@@ -9,9 +10,22 @@ interface HeroBlockPreviewProps {
 }
 
 export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPreviewProps) {
+  const hasBackground = !!block.backgroundImage;
+
+  const bgStyle: React.CSSProperties = hasBackground
+    ? {
+        backgroundImage: `url(${block.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : {};
+
   return (
     <div className="py-8 my-8 px-6">
-      <div className="bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-lg py-20 px-4 text-center min-h-[60vh] flex items-center justify-center">
+      <div
+        className={`${hasBackground ? '' : 'bg-gradient-to-r from-primary/20 to-purple-500/20'} rounded-lg py-20 px-4 text-center min-h-[60vh] flex items-center justify-center`}
+        style={bgStyle}
+      >
         <div className="max-w-4xl mx-auto">
           {(block.subtitle || isSelected) && (
             <input
@@ -21,6 +35,7 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
               onClick={(e) => e.stopPropagation()}
               className="text-primary font-semibold mb-4 uppercase tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center"
               placeholder="Subtitle (optional)"
+              style={getElementCSS(block.elementStyles, 'subtitle')}
             />
           )}
 
@@ -29,8 +44,9 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
             value={block.title}
             onChange={(e) => onChange({ title: e.target.value })}
             onClick={(e) => e.stopPropagation()}
-            className="font-display text-5xl md:text-7xl font-bold mb-6 tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
+            className={`font-display text-5xl md:text-7xl font-bold mb-6 tracking-wide w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center ${hasBackground ? 'text-white' : 'text-foreground'}`}
             placeholder="Hero Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
 
           {(block.description || isSelected) && (
@@ -38,9 +54,10 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
               value={block.description || ''}
               onChange={(e) => onChange({ description: e.target.value })}
               onClick={(e) => e.stopPropagation()}
-              className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border border-primary/50 rounded text-center text-muted-foreground resize-none"
+              className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border border-primary/50 rounded text-center resize-none ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`}
               placeholder="Description (optional)"
               rows={2}
+              style={getElementCSS(block.elementStyles, 'description')}
             />
           )}
 
@@ -50,6 +67,7 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
                 type="button"
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-md font-medium text-lg hover:bg-primary/90 transition-colors"
                 onClick={(e) => e.preventDefault()}
+                style={getElementCSS(block.elementStyles, 'cta')}
               >
                 {block.ctaText || 'Primary CTA'}
               </button>
@@ -60,6 +78,7 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
                 type="button"
                 className="px-6 py-3 border border-primary text-primary rounded-md font-medium text-lg hover:bg-primary/10 transition-colors"
                 onClick={(e) => e.preventDefault()}
+                style={getElementCSS(block.elementStyles, 'secondaryCta')}
               >
                 {block.secondaryCtaText || 'Secondary CTA'}
               </button>

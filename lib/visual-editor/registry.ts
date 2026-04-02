@@ -25,6 +25,11 @@ import { FeaturedContentBlockRender } from '@/components/blocks/render/FeaturedC
 import { CardGridBlockRender } from '@/components/blocks/render/CardGridBlockRender';
 import { SectionBlockRender } from '@/components/blocks/render/SectionBlockRender';
 import { GalleryBlockRender } from '@/components/blocks/render/GalleryBlockRender';
+import { ProductGridBlockRender } from '@/components/blocks/render/ProductGridBlockRender';
+import { FeaturedProductsBlockRender } from '@/components/blocks/render/FeaturedProductsBlockRender';
+import { ProductCategoriesBlockRender } from '@/components/blocks/render/ProductCategoriesBlockRender';
+import { ShoppingCartBlockRender } from '@/components/blocks/render/ShoppingCartBlockRender';
+import { StoreBannerBlockRender } from '@/components/blocks/render/StoreBannerBlockRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -58,6 +63,11 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'card-grid': CardGridBlockRender,
   section: SectionBlockRender,
   gallery: GalleryBlockRender,
+  'product-grid': ProductGridBlockRender,
+  'featured-products': FeaturedProductsBlockRender,
+  'product-categories': ProductCategoriesBlockRender,
+  'shopping-cart': ShoppingCartBlockRender,
+  'store-banner': StoreBannerBlockRender,
 };
 
 let _registry: BlockRegistry | null = null;

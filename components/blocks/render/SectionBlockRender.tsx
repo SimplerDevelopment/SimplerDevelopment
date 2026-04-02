@@ -72,7 +72,7 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
       style={containerStyle}
     >
       <div style={innerStyle}>
-        {block.blocks.map((nestedBlock) => (
+        {(block.blocks || []).map((nestedBlock) => (
           <div key={nestedBlock.id}>
             <BlockStyleWrapper block={nestedBlock}>
               {renderNestedBlock(nestedBlock)}

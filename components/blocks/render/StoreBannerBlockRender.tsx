@@ -2,6 +2,7 @@
 
 import { StoreBannerBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface StoreBannerBlockRenderProps {
   block: StoreBannerBlock;
@@ -59,15 +60,15 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
             <div className="absolute inset-0 bg-black/50" />
           )}
           <div className="relative z-10 px-8 py-12 md:py-16 text-center">
-            <h2 className="text-3xl md:text-5xl font-bold mb-3">{block.title}</h2>
+            <h2 className="text-3xl md:text-5xl font-bold mb-3" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h2>
             {block.subtitle && (
-              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto">{block.subtitle}</p>
+              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'subtitle')}>{block.subtitle}</p>
             )}
 
             {block.discountCode && (
               <div className="inline-flex items-center gap-3 bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg px-6 py-3 mb-6">
                 <span className="text-sm opacity-80">Use code:</span>
-                <span className="font-mono font-bold text-xl tracking-wider">{block.discountCode}</span>
+                <span className="font-mono font-bold text-xl tracking-wider" style={getElementCSS(block.elementStyles, 'discountCode')}>{block.discountCode}</span>
               </div>
             )}
 
@@ -93,6 +94,7 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
               <a
                 href={block.buttonUrl}
                 className="inline-flex items-center px-8 py-3 bg-white text-gray-900 font-semibold rounded-lg hover:bg-white/90 transition-colors"
+                style={getElementCSS(block.elementStyles, 'button')}
               >
                 {block.buttonText}
               </a>

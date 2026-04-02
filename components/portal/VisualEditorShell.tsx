@@ -35,6 +35,7 @@ import MediaPicker from '@/components/admin/MediaPicker';
 import type { Block, BlockType, BlockStyle, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
+import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 
 // ─── Block type definitions for picker ───────────────────────────────────────
 
@@ -61,6 +62,12 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'testimonial', label: 'Testimonial', icon: 'rate_review', category: 'Components', description: 'Customer quote' },
   { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
   { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Services grid' },
+  { type: 'product-grid', label: 'Product Grid', icon: 'storefront', category: 'eCommerce', description: 'Product listing grid' },
+  { type: 'featured-products', label: 'Featured Products', icon: 'loyalty', category: 'eCommerce', description: 'Featured product showcase' },
+  { type: 'product-categories', label: 'Categories', icon: 'category', category: 'eCommerce', description: 'Product category listing' },
+  { type: 'shopping-cart', label: 'Shopping Cart', icon: 'shopping_cart', category: 'eCommerce', description: 'Cart widget' },
+  { type: 'store-banner', label: 'Store Banner', icon: 'sell', category: 'eCommerce', description: 'Promotional banner' },
+  { type: 'product-detail', label: 'Product Detail', icon: 'inventory_2', category: 'eCommerce', description: 'Single product page' },
 ];
 
 const BLOCK_ICON_MAP: Record<string, string> = {};
@@ -88,6 +95,13 @@ interface VisualEditorShellProps {
   onUpdateBlock: (blockId: string, updates: Partial<Block>) => void;
   onUndoRedoChange?: (controls: UndoRedoControls) => void;
   siteId?: number;
+  initialZoom?: number;
+  leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+  onLeftCollapsedChange?: (collapsed: boolean) => void;
+  onRightCollapsedChange?: (collapsed: boolean) => void;
+  brandingProfileId?: number | null;
+  onBrandingProfileChange?: (profileId: number | null) => void;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -105,6 +119,13 @@ export function VisualEditorShell({
   onUpdateBlock,
   onUndoRedoChange,
   siteId,
+  initialZoom,
+  leftCollapsed: leftCollapsedProp,
+  rightCollapsed: rightCollapsedProp,
+  onLeftCollapsedChange,
+  onRightCollapsedChange,
+  brandingProfileId,
+  onBrandingProfileChange,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -113,9 +134,21 @@ export function VisualEditorShell({
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [leftCollapsedInternal, setLeftCollapsedInternal] = useState(leftCollapsedProp ?? false);
+  const [rightCollapsedInternal, setRightCollapsedInternal] = useState(rightCollapsedProp ?? false);
+  const leftCollapsed = leftCollapsedProp ?? leftCollapsedInternal;
+  const rightCollapsed = rightCollapsedProp ?? rightCollapsedInternal;
+  const setLeftCollapsed = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? v(leftCollapsed) : v;
+    setLeftCollapsedInternal(next);
+    onLeftCollapsedChange?.(next);
+  }, [leftCollapsed, onLeftCollapsedChange]);
+  const setRightCollapsed = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? v(rightCollapsed) : v;
+    setRightCollapsedInternal(next);
+    onRightCollapsedChange?.(next);
+  }, [rightCollapsed, onRightCollapsedChange]);
+  const [zoomLevel, setZoomLevel] = useState(initialZoom ?? 100);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const zoomIn = useCallback(() => setZoomLevel(z => Math.min(z + 10, 200)), []);
@@ -591,6 +624,17 @@ export function VisualEditorShell({
           </button>
         </div>
 
+        {/* Branding profile selector */}
+        {onBrandingProfileChange && (
+          <div className="px-3 py-2 border-b border-border shrink-0">
+            <BrandingProfileSelector
+              value={brandingProfileId ?? null}
+              onChange={onBrandingProfileChange}
+              label="Brand Profile"
+            />
+          </div>
+        )}
+
         {/* Add Block tab */}
         {leftTab === 'add' && (
           <div className="flex flex-col flex-1 min-h-0">
@@ -965,7 +1009,7 @@ export function VisualEditorShell({
                     siteId={siteId}
                   />
                 ) : (
-                  <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} />
+                  <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} siteId={siteId} />
                 )
               ) : (
                 <ElementStyleEditor
@@ -1206,6 +1250,21 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'quoteText', label: 'Quote' },
     { key: 'author', label: 'Author' },
   ],
+  'product-detail': [
+    { key: '_block', label: 'Block' },
+    { key: 'productName', label: 'Product Name' },
+    { key: 'price', label: 'Price' },
+    { key: 'comparePrice', label: 'Compare Price' },
+    { key: 'shortDescription', label: 'Description' },
+    { key: 'badge', label: 'Sale Badge' },
+    { key: 'optionLabel', label: 'Option Label' },
+    { key: 'optionButton', label: 'Option Button' },
+    { key: 'addToCartButton', label: 'Add to Cart' },
+    { key: 'breadcrumb', label: 'Breadcrumb' },
+    { key: 'sku', label: 'SKU / Tags' },
+    { key: 'sectionTitle', label: 'Section Titles' },
+    { key: 'gallery', label: 'Gallery' },
+  ],
 };
 
 function ElementStyleEditor({
@@ -1286,7 +1345,7 @@ function ElementStyleEditor({
 
 // ─── Block Content Editor ────────────────────────────────────────────────────
 
-function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (updates: Partial<Block>) => void }) {
+function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
   const b = block as unknown as Record<string, unknown>;
   const uid = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -1552,6 +1611,89 @@ function BlockContentEditor({ block, onUpdate }: { block: Block; onUpdate: (upda
           <CheckboxField label="Show Excerpt" checked={b.showExcerpt as boolean ?? true} onChange={(v) => onUpdate({ showExcerpt: v } as Partial<Block>)} />
         </>
       )}
+
+      {/* ── Product Grid Block ── */}
+      {block.type === 'product-grid' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Category Slug" value={b.categorySlug as string} onChange={(v) => onUpdate({ categorySlug: v } as Partial<Block>)} />
+          <SelectField label="Sort" value={(b.sort as string) || 'newest'} options={['newest','price_asc','price_desc','featured']} onChange={(v) => onUpdate({ sort: v } as Partial<Block>)} />
+          <SelectField label="Limit" value={String(b.limit || 6)} options={['3','6','9','12']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <CheckboxField label="Show Price" checked={b.showPrice as boolean ?? true} onChange={(v) => onUpdate({ showPrice: v } as Partial<Block>)} />
+          <CheckboxField label="Show Description" checked={b.showDescription as boolean} onChange={(v) => onUpdate({ showDescription: v } as Partial<Block>)} />
+          <CheckboxField label="Show Category" checked={b.showCategory as boolean} onChange={(v) => onUpdate({ showCategory: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Featured Products Block ── */}
+      {block.type === 'featured-products' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <SelectField label="Limit" value={String(b.limit || 4)} options={['2','3','4','6','8']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 4)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','carousel']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
+          <CheckboxField label="Show Price" checked={b.showPrice as boolean ?? true} onChange={(v) => onUpdate({ showPrice: v } as Partial<Block>)} />
+          <CheckboxField label="Show Badge" checked={b.showBadge as boolean} onChange={(v) => onUpdate({ showBadge: v } as Partial<Block>)} />
+          <Field label="Badge Text" value={b.badgeText as string} onChange={(v) => onUpdate({ badgeText: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Product Categories Block ── */}
+      {block.type === 'product-categories' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','list']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
+          <CheckboxField label="Show Product Count" checked={b.showProductCount as boolean ?? true} onChange={(v) => onUpdate({ showProductCount: v } as Partial<Block>)} />
+          <CheckboxField label="Show Image" checked={b.showImage as boolean ?? true} onChange={(v) => onUpdate({ showImage: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Shopping Cart Block ── */}
+      {block.type === 'shopping-cart' && (
+        <>
+          <SelectField label="Variant" value={(b.variant as string) || 'full'} options={['full','mini','icon-only']} onChange={(v) => onUpdate({ variant: v } as Partial<Block>)} />
+          <CheckboxField label="Show Subtotal" checked={b.showSubtotal as boolean ?? true} onChange={(v) => onUpdate({ showSubtotal: v } as Partial<Block>)} />
+          <Field label="Checkout Button Text" value={b.checkoutButtonText as string} onChange={(v) => onUpdate({ checkoutButtonText: v } as Partial<Block>)} />
+          <Field label="Empty Cart Message" value={b.emptyCartMessage as string} onChange={(v) => onUpdate({ emptyCartMessage: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Store Banner Block ── */}
+      {block.type === 'store-banner' && (
+        <>
+          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <Field label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} />
+          <Field label="Discount Code" value={b.discountCode as string} onChange={(v) => onUpdate({ discountCode: v } as Partial<Block>)} />
+          <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
+          <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <SelectField label="Background Style" value={(b.backgroundStyle as string) || 'gradient'} options={['gradient','solid','image']} onChange={(v) => onUpdate({ backgroundStyle: v } as Partial<Block>)} />
+          <Field label="Accent Color" value={b.accentColor as string} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+          <Field label="Countdown Date" value={b.countdownDate as string} onChange={(v) => onUpdate({ countdownDate: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {/* ── Product Detail Block ── */}
+      {block.type === 'product-detail' && (
+        <>
+          <ProductSlugPicker siteId={siteId} value={b.productSlug as string} onChange={(v) => onUpdate({ productSlug: v } as Partial<Block>)} />
+          <SelectField label="Layout" value={(b.layout as string) || 'standard'} options={['standard','compact','wide']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
+          <CheckboxField label="Show Image Gallery" checked={b.showGallery !== false} onChange={(v) => onUpdate({ showGallery: v } as Partial<Block>)} />
+          <CheckboxField label="Show Full Description" checked={b.showDescription !== false} onChange={(v) => onUpdate({ showDescription: v } as Partial<Block>)} />
+          <CheckboxField label="Show Variant Options" checked={b.showVariants !== false} onChange={(v) => onUpdate({ showVariants: v } as Partial<Block>)} />
+          <CheckboxField label="Show Add to Cart" checked={b.showAddToCart !== false} onChange={(v) => onUpdate({ showAddToCart: v } as Partial<Block>)} />
+          <CheckboxField label="Show Bulk Pricing" checked={b.showBulkPricing !== false} onChange={(v) => onUpdate({ showBulkPricing: v } as Partial<Block>)} />
+          <CheckboxField label="Show Breadcrumb" checked={b.showBreadcrumb !== false} onChange={(v) => onUpdate({ showBreadcrumb: v } as Partial<Block>)} />
+          <CheckboxField label="Show Tags & SKU" checked={b.showTags !== false} onChange={(v) => onUpdate({ showTags: v } as Partial<Block>)} />
+        </>
+      )}
     </div>
   );
 }
@@ -1737,7 +1879,8 @@ function SortableListItem({
 
 function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }; onUpdate: (updates: Partial<Block>) => void }) {
   const cols = block.columns;
-  const totalWidth = cols.reduce((sum, c) => sum + c.width, 0);
+  const parseW = (w: number | string) => typeof w === 'string' ? parseFloat(w) : w;
+  const totalWidth = cols.reduce((sum, c) => sum + parseW(c.width), 0);
 
   const updateColumnWidth = (index: number, width: number) => {
     const updated = cols.map((col, i) => i === index ? { ...col, width } : col);
@@ -1775,9 +1918,9 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
             <div
               key={col.id}
               className="bg-primary/10 text-primary text-[10px] font-medium flex items-center justify-center relative group"
-              style={{ width: `${(col.width / totalWidth) * 100}%` }}
+              style={{ width: `${(parseW(col.width) / totalWidth) * 100}%` }}
             >
-              {Math.round(col.width)}%
+              {Math.round(parseW(col.width))}%
               {cols.length > 1 && (
                 <button
                   type="button"
@@ -1799,11 +1942,11 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
                 type="range"
                 min={10}
                 max={90}
-                value={col.width}
+                value={parseW(col.width)}
                 onChange={(e) => updateColumnWidth(i, Number(e.target.value))}
                 className="flex-1 h-1.5 accent-primary"
               />
-              <span className="text-[10px] text-muted-foreground w-8 text-right">{Math.round(col.width)}%</span>
+              <span className="text-[10px] text-muted-foreground w-8 text-right">{Math.round(parseW(col.width))}%</span>
             </div>
           ))}
         </div>
@@ -1868,5 +2011,113 @@ function NumberField({ label, value, onChange, min, max, step = 1 }: { label: st
       <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} min={min} max={max} step={step}
         className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
     </label>
+  );
+}
+
+function ProductSlugPicker({ siteId, value, onChange }: { siteId?: number; value: string; onChange: (v: string) => void }) {
+  const [products, setProducts] = useState<Array<{ slug: string; name: string; image: string | null; price: number }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!siteId) return;
+    setLoading(true);
+    fetch(`/api/portal/websites/${siteId}/store/products?limit=100`)
+      .then(r => r.json())
+      .then(json => { if (json.success) setProducts(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [siteId]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.slug.toLowerCase().includes(search.toLowerCase()))
+    : products;
+
+  const selected = products.find(p => p.slug === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <span className="text-xs font-medium text-muted-foreground">Product</span>
+      {/* Selected product display */}
+      {selected && !open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1 w-full flex items-center gap-2 rounded border border-border px-2.5 py-1.5 text-sm text-left hover:border-primary transition-colors"
+        >
+          {selected.image && (
+            <img src={selected.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="truncate font-medium">{selected.name}</div>
+            <div className="text-xs text-muted-foreground">{selected.slug}</div>
+          </div>
+          <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+        </button>
+      )}
+      {/* Search input */}
+      {(!selected || open) && (
+        <input
+          type="text"
+          value={open ? search : value || ''}
+          onChange={(e) => { setSearch(e.target.value); if (!open) { onChange(e.target.value); } }}
+          onFocus={() => setOpen(true)}
+          placeholder={loading ? 'Loading products...' : 'Search products...'}
+          className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      )}
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+          {open && !selected && (
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products..."
+              autoFocus
+              className="sticky top-0 w-full border-b border-border px-3 py-2 text-sm bg-card focus:outline-none"
+            />
+          )}
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {loading ? 'Loading...' : products.length === 0 ? 'No products in store' : 'No matches'}
+            </div>
+          ) : (
+            filtered.map(p => (
+              <button
+                key={p.slug}
+                type="button"
+                onClick={() => { onChange(p.slug); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 transition-colors ${p.slug === value ? 'bg-primary/10' : ''}`}
+              >
+                {p.image ? (
+                  <img src={p.image} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded bg-muted/20 flex items-center justify-center flex-shrink-0">
+                    <span className="material-icons text-xs text-muted-foreground">inventory_2</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">{p.slug}</div>
+                </div>
+                {p.slug === value && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }

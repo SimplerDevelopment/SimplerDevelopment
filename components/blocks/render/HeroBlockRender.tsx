@@ -62,12 +62,12 @@ export function HeroBlockRender({ block }: HeroBlockRenderProps) {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             {block.ctaText && block.ctaLink && (
-              <Button href={block.ctaLink} size="lg">
+              <Button href={block.ctaLink} size="lg" style={getElementCSS(block.elementStyles, 'cta')}>
                 {block.ctaText}
               </Button>
             )}
             {block.secondaryCtaText && block.secondaryCtaLink && (
-              <Button href={block.secondaryCtaLink} variant="outline" size="lg">
+              <Button href={block.secondaryCtaLink} variant="outline" size="lg" style={getElementCSS(block.elementStyles, 'secondaryCta')}>
                 {block.secondaryCtaText}
               </Button>
             )}

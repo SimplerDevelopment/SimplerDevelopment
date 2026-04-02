@@ -130,7 +130,7 @@ export interface ColumnsBlock extends BaseBlock {
 
 export interface Column {
   id: string;
-  width: number; // Percentage or fraction (e.g., 50 for 50%, or 1/2)
+  width: number | string; // Number (50) or string ("50%")
   blocks: Block[];
   // Per-column settings
   backgroundColor?: string;
@@ -441,6 +441,19 @@ export interface ShoppingCartBlock extends BaseBlock {
   emptyCartMessage?: string;
 }
 
+export interface ProductDetailBlock extends BaseBlock {
+  type: 'product-detail';
+  productSlug?: string;
+  layout?: 'standard' | 'compact' | 'wide';
+  showGallery?: boolean;
+  showDescription?: boolean;
+  showVariants?: boolean;
+  showAddToCart?: boolean;
+  showBulkPricing?: boolean;
+  showBreadcrumb?: boolean;
+  showTags?: boolean;
+}
+
 export interface StoreBannerBlock extends BaseBlock {
   type: 'store-banner';
   title: string;
@@ -509,7 +522,8 @@ export type Block =
   | FeaturedProductsBlock
   | ProductCategoriesBlock
   | ShoppingCartBlock
-  | StoreBannerBlock;
+  | StoreBannerBlock
+  | ProductDetailBlock;
 
 export type BlockType = Block['type'];
 

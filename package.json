@@ -17,6 +17,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed-admin.ts",
+    "db:seed:admin-e2e": "tsx scripts/seed-admin-e2e.ts",
     "android": "expo run:android",
     "ios": "expo run:ios"
   },

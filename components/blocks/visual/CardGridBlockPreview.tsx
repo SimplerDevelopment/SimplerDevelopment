@@ -3,6 +3,7 @@
 import { CardGridBlock } from '@/types/blocks';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface CardGridBlockPreviewProps {
   block: CardGridBlock;
@@ -55,6 +56,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
             onClick={(e) => e.stopPropagation()}
             className="text-3xl font-bold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Card Grid Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
@@ -65,6 +67,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
             onClick={(e) => e.stopPropagation()}
             className="text-lg w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
       </div>
@@ -74,6 +77,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
           <div
             key={card.id}
             className="border border-border rounded-lg overflow-hidden bg-card hover:border-primary transition-colors relative group"
+            style={getElementCSS(block.elementStyles, 'card')}
           >
             {isSelected && (
               <button
@@ -145,6 +149,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
                 onClick={(e) => e.stopPropagation()}
                 className="text-xl font-semibold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
                 placeholder="Card Title"
+                style={getElementCSS(block.elementStyles, 'cardTitle')}
               />
 
               <textarea
@@ -153,6 +158,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
                 onClick={(e) => e.stopPropagation()}
                 className="text-muted-foreground w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
                 placeholder="Card description..."
+                style={getElementCSS(block.elementStyles, 'cardDescription')}
                 rows={3}
               />
 

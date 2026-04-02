@@ -3,6 +3,7 @@
 import { BlogPostsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getAllBlogPosts, getBlogPostsByCategory, type BlogPostWithRelations } from '@/lib/actions/blog';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface BlogPostsBlockPreviewProps {
   block: BlogPostsBlock;
@@ -60,6 +61,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
             onClick={(e) => e.stopPropagation()}
             className="font-heading text-4xl md:text-5xl font-bold mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Blog Posts Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
@@ -70,6 +72,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
             onClick={(e) => e.stopPropagation()}
             className="text-xl max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
       </div>

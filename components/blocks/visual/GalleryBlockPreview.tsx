@@ -1,6 +1,7 @@
 'use client';
 
 import { GalleryBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface GalleryBlockPreviewProps {
   block: GalleryBlock;
@@ -34,7 +35,7 @@ export function GalleryBlockPreview({ block, isSelected, onChange }: GalleryBloc
             className="w-full h-auto aspect-square object-cover rounded-lg"
           />
           {image.caption && (
-            <p className="text-xs text-muted-foreground mt-1 truncate">{image.caption}</p>
+            <p className="text-xs text-muted-foreground mt-1 truncate" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
           )}
         </div>
       ))}

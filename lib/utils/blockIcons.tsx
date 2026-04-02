@@ -27,6 +27,7 @@ import {
   Tags,
   ShoppingCart,
   BadgePercent,
+  Package,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -72,6 +73,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'product-categories': Tags,
   'shopping-cart': ShoppingCart,
   'store-banner': BadgePercent,
+  'product-detail': Package,
 
   // Palizzi custom blocks
   'palizzi-nav': Layers,
@@ -150,6 +152,7 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'product-categories', label: 'Product Categories', icon: Tags, category: 'eCommerce' },
   { type: 'shopping-cart', label: 'Shopping Cart', icon: ShoppingCart, category: 'eCommerce' },
   { type: 'store-banner', label: 'Store Banner', icon: BadgePercent, category: 'eCommerce' },
+  { type: 'product-detail', label: 'Product Detail', icon: Package, category: 'eCommerce' },
 ];
 
 /**

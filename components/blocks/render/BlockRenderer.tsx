@@ -37,14 +37,18 @@ import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
 import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
 import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from './StoreBannerBlockRender';
+import { ProductDetailBlockRender } from './ProductDetailBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import type { ResolvedBranding } from '@/lib/branding';
+import { BrandingProvider } from '@/contexts/BrandingContext';
 
 interface BlockRendererProps {
   content: string;
   siteId?: number;
+  branding?: ResolvedBranding;
 }
 
-export function BlockRenderer({ content, siteId }: BlockRendererProps) {
+export function BlockRenderer({ content, siteId, branding }: BlockRendererProps) {
   // Parse content as BlockEditorData
   let blocks: Block[] = [];
 
@@ -67,7 +71,7 @@ export function BlockRenderer({ content, siteId }: BlockRendererProps) {
   // Detect if content uses custom layout blocks (no wrapper spacing needed)
   const hasCustomLayout = blocks.some((b) => b.type.startsWith('palizzi-'));
 
-  return (
+  const rendered = (
     <div className={hasCustomLayout ? 'block-content' : 'block-content space-y-6'}>
       {blocks.map((block) => (
         <div key={block.id} className={hasCustomLayout ? '' : 'block-wrapper'}>
@@ -78,6 +82,14 @@ export function BlockRenderer({ content, siteId }: BlockRendererProps) {
       ))}
     </div>
   );
+
+  // Wrap with BrandingProvider when branding is available — injects CSS variables
+  // (--brand-primary, --brand-accent, etc.) so blocks can reference them.
+  if (branding) {
+    return <BrandingProvider branding={branding}>{rendered}</BrandingProvider>;
+  }
+
+  return rendered;
 }
 
 function renderBlock(block: Block, siteId?: number) {
@@ -154,6 +166,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <ShoppingCartBlockRender block={block} siteId={siteId} />;
     case 'store-banner':
       return <StoreBannerBlockRender block={block} />;
+    case 'product-detail':
+      return <ProductDetailBlockRender block={block} siteId={siteId} />;
     default:
       return null;
   }

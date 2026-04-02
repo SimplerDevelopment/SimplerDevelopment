@@ -10,6 +10,7 @@ interface Project {
   name: string;
   description: string | null;
   status: string;
+  isPrivate: boolean;
   startDate: string | null;
   dueDate: string | null;
   createdAt: string;
@@ -32,6 +33,8 @@ const statusColor: Record<string, string> = {
   archived: 'bg-gray-100 text-gray-500',
 };
 
+const STATUS_TABS = ['all', 'active', 'paused', 'completed', 'archived'] as const;
+
 function ProjectsContent() {
   const searchParams = useSearchParams();
   const filterClientId = searchParams.get('clientId');
@@ -40,6 +43,8 @@ function ProjectsContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({ name: '', description: '', clientId: filterClientId ?? '', status: 'active', startDate: '', dueDate: '' });
   const [saving, setSaving] = useState(false);
 
@@ -54,7 +59,21 @@ function ProjectsContent() {
     });
   }, []);
 
-  const filtered = filterClientId ? projects.filter(p => String(p.clientId) === filterClientId) : projects;
+  const filtered = projects.filter(p => {
+    if (filterClientId && String(p.clientId) !== filterClientId) return false;
+    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return p.name.toLowerCase().includes(s) ||
+        (p.company || '').toLowerCase().includes(s) ||
+        p.clientName.toLowerCase().includes(s);
+    }
+    return true;
+  });
+
+  const activeCount = projects.filter(p => p.status === 'active').length;
+  const pausedCount = projects.filter(p => p.status === 'paused').length;
+  const completedCount = projects.filter(p => p.status === 'completed').length;
 
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
@@ -74,16 +93,74 @@ function ProjectsContent() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-          <p className="text-muted-foreground mt-1">Manage client projects and Kanban boards.</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Manage client projects and Kanban boards across the platform.</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
           <span className="material-icons text-base">add</span>New Project
         </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-green-600">play_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Active</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{activeCount}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-yellow-600">pause_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Paused</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{pausedCount}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-blue-600">check_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Completed</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{completedCount}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-muted-foreground">folder</span>
+            <span className="text-xs text-muted-foreground font-medium">Total</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{projects.length}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg flex-1 max-w-sm">
+          <span className="material-icons text-muted-foreground text-base">search</span>
+          <input
+            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground"
+            placeholder="Search projects..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1">
+          {STATUS_TABS.map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                statusFilter === s ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {showForm && (
@@ -130,51 +207,80 @@ function ProjectsContent() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        <div className="flex items-center justify-center py-16">
+          <span className="material-icons animate-spin text-primary text-3xl">refresh</span>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
+          <h3 className="mt-4 font-semibold text-foreground">No projects found</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {search || statusFilter !== 'all' ? 'Try adjusting your filters.' : 'Create your first project above.'}
+          </p>
+        </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {filtered.length === 0 ? (
-            <div className="p-12 text-center">
-              <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
-              <h3 className="mt-4 font-semibold text-foreground">No projects</h3>
-            </div>
-          ) : (
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Project</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Start</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Due</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map(p => (
-                  <tr key={p.id} className="hover:bg-accent/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">{p.name}</p>
-                      {p.description && <p className="text-xs text-muted-foreground truncate max-w-xs">{p.description}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.company ?? p.clientName}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[p.status] ?? 'bg-muted text-muted-foreground'}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {p.dueDate ? new Date(p.dueDate).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/portal/projects/${p.id}`} className="text-xs text-primary hover:underline">
-                        Open Board
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map(p => {
+                  const overdue = p.dueDate && p.status === 'active' && new Date(p.dueDate) < new Date();
+                  return (
+                    <tr key={p.id} className={`hover:bg-accent/50 transition-colors ${overdue ? 'bg-red-50/30' : ''}`}>
+                      <td className="px-4 py-3">
+                        <Link href={`/portal/projects/${p.id}`} className="font-medium text-foreground hover:text-primary hover:underline">
+                          {p.name}
+                        </Link>
+                        {p.description && <p className="text-xs text-muted-foreground truncate max-w-xs mt-0.5">{p.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.company ?? p.clientName}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          p.isPrivate ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {p.isPrivate ? 'Private' : 'Agency'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[p.status] ?? 'bg-muted text-muted-foreground'}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {p.startDate ? new Date(p.startDate).toLocaleDateString() : '--'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.dueDate ? (
+                          <span className={`text-xs ${overdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                            {new Date(p.dueDate).toLocaleDateString()}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">--</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link href={`/portal/projects/${p.id}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                          <span className="material-icons text-sm">open_in_new</span>
+                          Board
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          )}
+          </div>
         </div>
       )}
     </div>
@@ -183,7 +289,11 @@ function ProjectsContent() {
 
 export default function AdminPortalProjectsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-16">
+        <span className="material-icons animate-spin text-primary text-3xl">refresh</span>
+      </div>
+    }>
       <ProjectsContent />
     </Suspense>
   );

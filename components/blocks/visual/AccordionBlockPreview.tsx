@@ -2,6 +2,7 @@
 
 import { AccordionBlock } from '@/types/blocks';
 import { useState } from 'react';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface AccordionBlockPreviewProps {
   block: AccordionBlock;
@@ -49,6 +50,9 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
 
   return (
     <div className="p-6">
+      {block.title && (
+        <h3 className="text-2xl font-bold mb-6" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h3>
+      )}
       <div className="space-y-2">
         {block.items.map((item) => (
           <div
@@ -89,6 +93,7 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
                 onClick={(e) => e.stopPropagation()}
                 className="flex-1 text-left font-semibold bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
                 placeholder="Item title"
+                style={getElementCSS(block.elementStyles, 'itemTitle')}
               />
               <svg
                 className={`w-5 h-5 text-muted-foreground transition-transform ${
@@ -111,6 +116,7 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
                   className="w-full text-muted-foreground bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
                   placeholder="Item content..."
                   rows={3}
+                  style={getElementCSS(block.elementStyles, 'itemContent')}
                 />
               </div>
             )}

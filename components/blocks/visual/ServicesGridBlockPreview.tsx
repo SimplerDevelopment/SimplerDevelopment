@@ -3,6 +3,7 @@
 import { ServicesGridBlock } from '@/types/blocks';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface ServicesGridBlockPreviewProps {
   block: ServicesGridBlock;
@@ -55,6 +56,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
             onClick={(e) => e.stopPropagation()}
             className="text-3xl font-bold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Services Grid Title"
+            style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
         {(block.description || isSelected) && (
@@ -65,6 +67,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
             onClick={(e) => e.stopPropagation()}
             className="text-lg mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
             placeholder="Description (optional)"
+            style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
       </div>
@@ -158,6 +161,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
               onClick={(e) => e.stopPropagation()}
               className="text-xl font-semibold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
               placeholder="Service Title"
+              style={getElementCSS(block.elementStyles, 'serviceTitle')}
             />
 
             <textarea
@@ -167,6 +171,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
               className="text-muted-foreground w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
               placeholder="Service description..."
               rows={3}
+              style={getElementCSS(block.elementStyles, 'serviceDescription')}
             />
 
             {(service.link || isSelected) && (

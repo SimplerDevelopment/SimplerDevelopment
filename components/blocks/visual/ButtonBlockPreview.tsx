@@ -13,7 +13,7 @@ export function ButtonBlockPreview({ block, isSelected, onChange }: ButtonBlockP
   const variantClasses = {
     primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
     secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
-    outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground',
+    outline: 'border border-primary text-primary hover:bg-primary/10',
   };
 
   const sizeClasses = {

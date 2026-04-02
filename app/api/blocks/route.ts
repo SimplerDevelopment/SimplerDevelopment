@@ -354,6 +354,24 @@ export async function GET() {
         { name: 'countdownDate', type: 'string', description: 'Countdown end date (ISO string)' },
       ],
     },
+    {
+      type: 'product-detail',
+      name: 'Product Detail',
+      description: 'Display a single product with images, variants, pricing, and add-to-cart',
+      icon: 'package',
+      category: 'ecommerce',
+      inputs: [
+        { name: 'productSlug', type: 'string', required: true, description: 'Product URL slug' },
+        { name: 'layout', type: 'select', options: ['standard', 'compact', 'wide'], default: 'standard', description: 'Page layout' },
+        { name: 'showGallery', type: 'boolean', default: true, description: 'Show image gallery' },
+        { name: 'showDescription', type: 'boolean', default: true, description: 'Show full description' },
+        { name: 'showVariants', type: 'boolean', default: true, description: 'Show variant options' },
+        { name: 'showAddToCart', type: 'boolean', default: true, description: 'Show add to cart button' },
+        { name: 'showBulkPricing', type: 'boolean', default: true, description: 'Show bulk pricing table' },
+        { name: 'showBreadcrumb', type: 'boolean', default: true, description: 'Show breadcrumb navigation' },
+        { name: 'showTags', type: 'boolean', default: true, description: 'Show tags and SKU' },
+      ],
+    },
   ];
 
   return NextResponse.json({

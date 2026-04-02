@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
+import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -115,15 +116,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { prompt, websiteUrl } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
 
-    // Check AI credits
-    const canProceed = await hasCredits(client.id, 5000);
-    if (!canProceed) {
-      const bal = await getBalance(client.id);
-      return NextResponse.json({
-        success: false,
-        message: 'Insufficient AI credits for deck generation.',
-        creditsRemaining: bal.balance,
-      }, { status: 402 });
+    // Check AI credits (skip in development)
+    if (process.env.NODE_ENV === 'production') {
+      const canProceed = await hasCredits(client.id, 5000);
+      if (!canProceed) {
+        const bal = await getBalance(client.id);
+        return NextResponse.json({
+          success: false,
+          message: 'Insufficient AI credits for deck generation.',
+          creditsRemaining: bal.balance,
+        }, { status: 402 });
+      }
     }
 
     // Auto-save current state before AI generation
@@ -146,15 +149,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let totalInput = 0;
     let totalOutput = 0;
 
-    // Step 1: Extract branding from website if URL provided
-    if (websiteUrl?.trim()) {
+    // Step 1: Load branding — prefer deck's assigned profile, then client branding,
+    // fall back to AI extraction from URL if nothing configured.
+    const deckProfileId = (deck as Record<string, unknown>).brandingProfileId as number | null;
+    const clientBranding = deckProfileId
+      ? await getBrandingByProfileId(deckProfileId)
+      : await getBrandingByClientId(client.id);
+    const hasSiteBranding = clientBranding.primaryColor !== '#2563eb' ||
+      clientBranding.headingFont || clientBranding.logoUrl;
+
+    if (hasSiteBranding) {
+      // Use the shared siteBranding — no AI call needed
+      theme = brandingToPitchDeckTheme(clientBranding);
+      brandContext = `Brand colors: primary ${clientBranding.primaryColor}, accent ${clientBranding.accentColor}. Fonts: ${clientBranding.headingFont || 'default'} / ${clientBranding.bodyFont || 'default'}.`;
+    } else if (websiteUrl?.trim()) {
+      // No siteBranding configured — fall back to AI extraction from URL
       try {
         const siteRes = await fetch(websiteUrl.trim(), {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SimplerDev/1.0)' },
           signal: AbortSignal.timeout(10000),
         });
         const html = await siteRes.text();
-        // Truncate to avoid token limits
         const truncatedHtml = html.slice(0, 15000);
 
         const brandResponse = await anthropic.messages.create({
@@ -184,7 +199,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         };
         brandContext = `Company: ${brandData.companyName || 'Unknown'}. Industry: ${brandData.industry || 'Unknown'}. Tagline: ${brandData.tagline || 'N/A'}.`;
       } catch {
-        // Brand extraction failed — continue with defaults
         brandContext = `Website URL provided: ${websiteUrl} (could not fetch details)`;
       }
     }
@@ -194,9 +208,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ? `${brandContext}\n\nUser request: ${prompt.trim()}`
       : prompt.trim();
 
-    const response = await anthropic.messages.create({
+    // Use extended token limit for full deck generation (8-12 slides)
+    let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 16384,
       system: GENERATE_SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     });
@@ -208,6 +223,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
 
+    // If output was truncated, continue generation
+    if (response.stop_reason === 'max_tokens') {
+      const continuation = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8192,
+        system: GENERATE_SYSTEM,
+        messages: [
+          { role: 'user', content: userPrompt },
+          { role: 'assistant', content: text },
+        ],
+      });
+      totalInput += continuation.usage.input_tokens;
+      totalOutput += continuation.usage.output_tokens;
+      text += continuation.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map(b => b.text).join('');
+    }
+
     // Strip markdown code fences if present
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
@@ -216,7 +249,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const parsed = JSON.parse(text);
       slides = parsed.slides || parsed;
     } catch {
-      console.error('[pitch-deck generate] Failed to parse AI response:', text.slice(0, 500));
+      console.error('[pitch-deck generate] Failed to parse AI response:', text.slice(0, 500), '...', text.slice(-200));
       return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
     }
 
@@ -246,8 +279,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     // Deduct AI credits
-    const totalTokens = totalInput + totalOutput;
-    await deductCredits(client.id, totalTokens, 'pitch-decks', String(deckId), `Pitch deck: ${deck.title}`);
+    if (process.env.NODE_ENV === 'production') {
+      const totalTokens = totalInput + totalOutput;
+      await deductCredits(client.id, totalTokens, 'pitch-decks', String(deckId), `Pitch deck: ${deck.title}`);
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {

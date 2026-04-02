@@ -1,6 +1,7 @@
 'use client';
 
 import { StatsBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface StatsBlockPreviewProps {
   block: StatsBlock;
@@ -85,6 +86,7 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
                 onClick={(e) => e.stopPropagation()}
                 className="text-4xl md:text-5xl font-bold text-primary mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center"
                 placeholder="100+"
+                style={getElementCSS(block.elementStyles, 'statValue')}
               />
 
               <input
@@ -94,6 +96,7 @@ export function StatsBlockPreview({ block, isSelected, onChange }: StatsBlockPre
                 onClick={(e) => e.stopPropagation()}
                 className="text-lg text-muted-foreground w-full bg-transparent border-none focus:outline-none focus:border-b border-border text-center"
                 placeholder="Label"
+                style={getElementCSS(block.elementStyles, 'statLabel')}
               />
             </div>
           ))}

@@ -2,6 +2,7 @@
 
 import { GalleryBlock } from '@/types/blocks';
 import { useState } from 'react';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface GalleryBlockRenderProps {
   block: GalleryBlock;
@@ -24,7 +25,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
           className={`columns-${columns} ${gapClasses[gap]} py-8`}
           style={{ columnCount: columns }}
         >
-          {block.images.map((image, index) => (
+          {(block.images || []).map((image, index) => (
             <div key={image.id} className="break-inside-avoid mb-4">
               <button
                 type="button"
@@ -39,7 +40,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
                 />
               </button>
               {image.caption && (
-                <p className="text-sm text-muted-foreground mt-1">{image.caption}</p>
+                <p className="text-sm text-muted-foreground mt-1" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
               )}
             </div>
           ))}
@@ -63,7 +64,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
   return (
     <>
       <div className={`grid ${gridCols[columns]} ${gapClasses[gap]} py-8`}>
-        {block.images.map((image, index) => (
+        {(block.images || []).map((image, index) => (
           <div key={image.id}>
             <button
               type="button"
@@ -78,7 +79,7 @@ export function GalleryBlockRender({ block }: GalleryBlockRenderProps) {
               />
             </button>
             {image.caption && (
-              <p className="text-sm text-muted-foreground mt-1">{image.caption}</p>
+              <p className="text-sm text-muted-foreground mt-1" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
             )}
           </div>
         ))}
