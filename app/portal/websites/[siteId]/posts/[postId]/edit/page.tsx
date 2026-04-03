@@ -41,13 +41,19 @@ export default async function PortalEditPostPage({
   ]);
 
   // Build iframe URL for visual editor
+  // Managed sites (no Vercel project) use the main app's /sites/ route for the iframe
+  // Standalone sites use their actual domain/subdomain
+  const isManaged = !site.vercelProjectId;
   const subdomain = site.subdomain;
-  const vercelDomain = site.vercelDomain;
-  const siteUrl = vercelDomain
-    ? `https://${vercelDomain}`
-    : subdomain
-      ? `https://${subdomain}.simplerdevelopment.com`
-      : null;
+  const fullDomain = site.vercelDomain || (subdomain ? `${subdomain}.simplerdevelopment.com` : null);
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
+  const siteUrl = isManaged && fullDomain
+    ? `${appUrl}/sites/${fullDomain}`
+    : site.domain
+      ? `https://${site.domain}`
+      : fullDomain
+        ? `https://${fullDomain}`
+        : null;
 
   return (
     <PortalPostForm
