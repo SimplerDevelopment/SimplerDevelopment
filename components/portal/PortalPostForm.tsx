@@ -514,7 +514,15 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           backHref={`/portal/websites/${siteId}`}
-          liveUrl={publicUrl && post?.slug ? `${publicUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}${!formData.published ? '?_preview=true' : ''}` : null}
+          liveUrl={(() => {
+            if (!post?.slug) return null;
+            const basePath = `${formData.postType === 'page' ? '' : '/blog'}/${post.slug}`;
+            // Drafts use the internal /sites/ route so the auth cookie is available
+            if (!formData.published && effectiveSiteUrl) return `${effectiveSiteUrl}${basePath}?_preview=true`;
+            // Published posts link to the actual subdomain
+            if (publicUrl) return `${publicUrl}${basePath}`;
+            return null;
+          })()}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls
