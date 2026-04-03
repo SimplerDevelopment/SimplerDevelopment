@@ -36,3 +36,21 @@ export async function GET() {
 
   return NextResponse.json({ success: true, data });
 }
+
+export async function POST(req: Request) {
+  if (!await requireStaff()) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const body = await req.json();
+  const { clientId, serviceId } = body;
+  if (!clientId || !serviceId) {
+    return NextResponse.json({ success: false, message: 'clientId and serviceId are required' }, { status: 400 });
+  }
+
+  const [sub] = await db.insert(clientServices).values({
+    clientId,
+    serviceId,
+    status: 'active',
+  }).returning();
+
+  return NextResponse.json({ success: true, data: sub }, { status: 201 });
+}

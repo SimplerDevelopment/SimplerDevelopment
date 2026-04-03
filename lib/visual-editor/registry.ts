@@ -30,6 +30,11 @@ import { FeaturedProductsBlockRender } from '@/components/blocks/render/Featured
 import { ProductCategoriesBlockRender } from '@/components/blocks/render/ProductCategoriesBlockRender';
 import { ShoppingCartBlockRender } from '@/components/blocks/render/ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from '@/components/blocks/render/StoreBannerBlockRender';
+import { BookingBlockRender } from '@/components/blocks/render/BookingBlockRender';
+import { SurveyBlockRender } from '@/components/blocks/render/SurveyBlockRender';
+import { SocialLinksBlockRender } from '@/components/blocks/render/SocialLinksBlockRender';
+import { EmailHeaderBlockRender } from '@/components/blocks/render/EmailHeaderBlockRender';
+import { EmailFooterBlockRender } from '@/components/blocks/render/EmailFooterBlockRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -68,6 +73,11 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'product-categories': ProductCategoriesBlockRender,
   'shopping-cart': ShoppingCartBlockRender,
   'store-banner': StoreBannerBlockRender,
+  booking: BookingBlockRender,
+  survey: SurveyBlockRender,
+  'social-links': SocialLinksBlockRender,
+  'email-header': EmailHeaderBlockRender,
+  'email-footer': EmailFooterBlockRender,
 };
 
 let _registry: BlockRegistry | null = null;

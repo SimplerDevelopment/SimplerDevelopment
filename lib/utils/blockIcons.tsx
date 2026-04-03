@@ -28,6 +28,11 @@ import {
   ShoppingCart,
   BadgePercent,
   Package,
+  CalendarCheck,
+  ClipboardList,
+  Share2,
+  MailOpen,
+  MailMinus,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -75,6 +80,15 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'store-banner': BadgePercent,
   'product-detail': Package,
 
+  // Interactive blocks
+  booking: CalendarCheck,
+  survey: ClipboardList,
+
+  // Email blocks
+  'social-links': Share2,
+  'email-header': MailOpen,
+  'email-footer': MailMinus,
+
   // Palizzi custom blocks
   'palizzi-nav': Layers,
   'palizzi-hero': Target,
@@ -109,7 +123,7 @@ export interface BlockTypeMetadata {
   type: BlockType;
   label: string;
   icon: LucideIcon;
-  category: 'Basic' | 'Media' | 'Layout' | 'Components' | 'eCommerce';
+  category: 'Basic' | 'Media' | 'Layout' | 'Components' | 'eCommerce' | 'Interactive' | 'Email';
 }
 
 /**
@@ -153,6 +167,15 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'shopping-cart', label: 'Shopping Cart', icon: ShoppingCart, category: 'eCommerce' },
   { type: 'store-banner', label: 'Store Banner', icon: BadgePercent, category: 'eCommerce' },
   { type: 'product-detail', label: 'Product Detail', icon: Package, category: 'eCommerce' },
+
+  // Interactive
+  { type: 'booking', label: 'Booking', icon: CalendarCheck, category: 'Interactive' },
+  { type: 'survey', label: 'Survey', icon: ClipboardList, category: 'Interactive' },
+
+  // Email
+  { type: 'social-links', label: 'Social Links', icon: Share2, category: 'Email' },
+  { type: 'email-header', label: 'Email Header', icon: MailOpen, category: 'Email' },
+  { type: 'email-footer', label: 'Email Footer', icon: MailMinus, category: 'Email' },
 ];
 
 /**

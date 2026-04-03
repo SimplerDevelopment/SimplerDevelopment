@@ -1019,6 +1019,8 @@ export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, o
     { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
     { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
     { type: 'gallery', label: 'Gallery', icon: '🖼️', category: 'Media', description: 'Image gallery with lightbox' },
+    { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
+    { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
   ];
 
   return (
@@ -1093,6 +1095,16 @@ function createDefaultBlock(type: BlockType, order: number): Block {
       return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
     case 'gallery':
       return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3, lightbox: true, gap: 'md' };
+    case 'booking':
+      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
+    case 'survey':
+      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
+    case 'social-links':
+      return { ...base, type: 'social-links', links: [], alignment: 'center' };
+    case 'email-header':
+      return { ...base, type: 'email-header', alignment: 'center' };
+    case 'email-footer':
+      return { ...base, type: 'email-footer', showUnsubscribe: true };
     default:
       return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
   }

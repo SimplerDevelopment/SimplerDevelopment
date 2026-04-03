@@ -33,6 +33,11 @@ import { ProductCategoriesBlockPreview } from './ProductCategoriesBlockPreview';
 import { ShoppingCartBlockPreview } from './ShoppingCartBlockPreview';
 import { StoreBannerBlockPreview } from './StoreBannerBlockPreview';
 import { ProductDetailBlockPreview } from './ProductDetailBlockPreview';
+import { BookingBlockPreview } from './BookingBlockPreview';
+import { SurveyBlockPreview } from './SurveyBlockPreview';
+import { SocialLinksBlockPreview } from './SocialLinksBlockPreview';
+import { EmailHeaderBlockPreview } from './EmailHeaderBlockPreview';
+import { EmailFooterBlockPreview } from './EmailFooterBlockPreview';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -179,6 +184,16 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <StoreBannerBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'product-detail':
       return <ProductDetailBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'booking':
+      return <BookingBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'survey':
+      return <SurveyBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'social-links':
+      return <SocialLinksBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'email-header':
+      return <EmailHeaderBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'email-footer':
+      return <EmailFooterBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

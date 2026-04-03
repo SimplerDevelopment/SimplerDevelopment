@@ -17,6 +17,16 @@ interface StoreSettings {
   stripeAccountId?: string | null;
   payoutSchedule?: string | null;
   platformFeePercent?: number | null;
+  // Customer portal
+  enableCustomerAccounts: boolean;
+  enableGuestCheckout: boolean;
+  enableWishlist: boolean;
+  enableOrderTracking: boolean;
+  enableCustomerSupport: boolean;
+  customerPortalWelcomeMessage?: string | null;
+  supportEmail?: string | null;
+  returnPolicyUrl?: string | null;
+  shippingPolicyUrl?: string | null;
 }
 
 const currencies = [
@@ -306,6 +316,88 @@ export default function StoreSettingsPage() {
                 {settings.enableReviews ? 'Customers can leave reviews' : 'Reviews disabled'}
               </span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Portal */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">person</span>
+          Customer Portal
+        </h2>
+        <p className="text-sm text-muted-foreground">Configure the customer-facing account portal for your store.</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {([
+            { key: 'enableCustomerAccounts' as const, label: 'Customer Accounts', desc: 'Allow customers to create accounts and sign in' },
+            { key: 'enableGuestCheckout' as const, label: 'Guest Checkout', desc: 'Allow checkout without creating an account' },
+            { key: 'enableWishlist' as const, label: 'Wishlist', desc: 'Customers can save products to a wishlist' },
+            { key: 'enableOrderTracking' as const, label: 'Order Tracking', desc: 'Customers can view order status and shipping' },
+            { key: 'enableCustomerSupport' as const, label: 'Customer Support', desc: 'Customers can send support messages' },
+            { key: 'enableReviews' as const, label: 'Product Reviews', desc: 'Customers can leave product reviews' },
+          ] as const).map(toggle => (
+            <div key={toggle.key} className="space-y-1.5">
+              <label className={labelClass}>{toggle.label}</label>
+              <div className="flex items-center gap-3 pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => updateField(toggle.key, !settings[toggle.key])}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    settings[toggle.key] ? 'bg-primary' : 'bg-border'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      settings[toggle.key] ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-muted-foreground">{toggle.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-1.5">
+            <label className={labelClass}>Support Email</label>
+            <input
+              value={settings.supportEmail ?? ''}
+              onChange={(e) => updateField('supportEmail', e.target.value || null)}
+              placeholder="support@yourstore.com"
+              className={inputClass}
+            />
+            <p className="text-xs text-muted-foreground">Where customer support messages are forwarded</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelClass}>Return Policy URL</label>
+            <input
+              value={settings.returnPolicyUrl ?? ''}
+              onChange={(e) => updateField('returnPolicyUrl', e.target.value || null)}
+              placeholder="https://yourstore.com/returns"
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelClass}>Shipping Policy URL</label>
+            <input
+              value={settings.shippingPolicyUrl ?? ''}
+              onChange={(e) => updateField('shippingPolicyUrl', e.target.value || null)}
+              placeholder="https://yourstore.com/shipping"
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className={labelClass}>Welcome Message</label>
+            <textarea
+              value={settings.customerPortalWelcomeMessage ?? ''}
+              onChange={(e) => updateField('customerPortalWelcomeMessage', e.target.value || null)}
+              placeholder="Welcome to your account! Here you can track orders, manage your wishlist, and more."
+              rows={3}
+              className={inputClass}
+            />
+            <p className="text-xs text-muted-foreground">Shown on the customer portal dashboard</p>
           </div>
         </div>
       </div>

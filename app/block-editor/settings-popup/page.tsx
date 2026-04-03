@@ -47,6 +47,11 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'shopping-cart': 'Shopping Cart',
   'store-banner': 'Store Banner',
   'product-detail': 'Product Detail',
+  booking: 'Booking',
+  survey: 'Survey',
+  'social-links': 'Social Links',
+  'email-header': 'Email Header',
+  'email-footer': 'Email Footer',
 };
 
 function SettingsPopupContent() {

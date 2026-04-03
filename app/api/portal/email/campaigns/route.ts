@@ -6,6 +6,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
+import { renderBlocksToEmailHtml } from '@/lib/email';
 
 async function requireClient() {
   const session = await auth();
@@ -56,10 +57,16 @@ export async function POST(req: Request) {
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { name, subject, previewText, fromName, fromEmail, replyTo, listId, htmlContent } = body;
+  const { name, subject, previewText, fromName, fromEmail, replyTo, listId, htmlContent, blockContent } = body;
 
-  if (!name?.trim() || !subject?.trim() || !fromName?.trim() || !fromEmail?.trim() || !listId || !htmlContent?.trim()) {
-    return NextResponse.json({ success: false, message: 'name, subject, fromName, fromEmail, listId, and htmlContent are required' }, { status: 400 });
+  // If blockContent provided, render to HTML; otherwise htmlContent is required
+  let finalHtml = htmlContent?.trim() || '';
+  if (blockContent?.blocks) {
+    finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
+
+  if (!name?.trim() || !subject?.trim() || !fromName?.trim() || !fromEmail?.trim() || !listId || !finalHtml) {
+    return NextResponse.json({ success: false, message: 'name, subject, fromName, fromEmail, listId, and content are required' }, { status: 400 });
   }
 
   // Verify the list belongs to this client
@@ -82,7 +89,8 @@ export async function POST(req: Request) {
       replyTo: replyTo?.trim() || null,
       listId: parseInt(listId),
       clientId: client.id,
-      htmlContent: htmlContent.trim(),
+      htmlContent: finalHtml,
+      blockContent: blockContent ?? null,
     })
     .returning();
 

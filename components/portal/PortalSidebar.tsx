@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 
@@ -25,97 +25,18 @@ interface NavChild {
   href: string;
   label: string;
   icon: string;
+  exact?: boolean;
+  alsoActiveOn?: string;
+  children?: NavChild[];
 }
 
 interface NavItem {
   href: string;
   label: string;
   icon: string;
-  menuOnly?: boolean; // renders as a toggle button, not a link
-  children?: NavChild[];
-  dynamic?: boolean; // children are fetched at runtime
-}
-
-const staticNavItems: NavItem[] = [
-  { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
-  { href: '/portal/crm', label: 'CRM', icon: 'contacts' },
-  { href: '/portal/email', label: 'Email', icon: 'email' },
-  { href: '/portal/surveys', label: 'Surveys', icon: 'poll' },
-  { href: '/portal/branding', label: 'Branding', icon: 'palette' },
-  // Dynamic services are injected here as top-level items (see navItems below)
-  { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
-  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
-];
-
-// CMS nav item with optional children
-interface CmsNavItem {
-  href: string;
-  label: string;
-  icon: string;
   exact?: boolean;
-  alsoActiveOn?: string;
-  children?: { href: string; label: string; icon: string }[];
+  children?: NavChild[];
 }
-
-// CMS nav items — shown when inside /portal/websites/[siteId]
-const cmsNavItems = (siteId: string): CmsNavItem[] => [
-  {
-    href: `/portal/websites/${siteId}`,
-    label: 'Content',
-    icon: 'article',
-    exact: true,
-    alsoActiveOn: `/portal/websites/${siteId}/posts`,
-    children: [
-      { href: `/portal/websites/${siteId}/taxonomy`, label: 'Taxonomy', icon: 'account_tree' },
-      { href: `/portal/websites/${siteId}/content-types`, label: 'Content Types', icon: 'description' },
-    ],
-  },
-  { href: `/portal/websites/${siteId}/media`, label: 'Media', icon: 'perm_media' },
-  { href: `/portal/websites/${siteId}/navigation`, label: 'Navigation', icon: 'menu' },
-  { href: `/portal/websites/${siteId}/store`, label: 'Store', icon: 'shopping_cart', exact: true },
-  { href: `/portal/websites/${siteId}/automations`, label: 'Automations', icon: 'bolt' },
-  { href: `/portal/websites/${siteId}/settings`, label: 'Settings', icon: 'settings' },
-];
-
-// CRM nav items — shown when inside /portal/crm
-const crmNavItemsList = [
-  { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true },
-  { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
-  { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
-  { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
-  { href: '/portal/crm/proposals', label: 'Proposals & Decks', icon: 'description' },
-  { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
-];
-
-// Email nav items — shown when inside /portal/email
-const emailNavItemsList = [
-  { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
-  { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
-  { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
-  { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt' },
-  { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
-  { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics' },
-  { href: '/portal/email/automations', label: 'Automations', icon: 'bolt' },
-  { href: '/portal/email/settings', label: 'Settings', icon: 'settings' },
-];
-
-// Surveys nav items — shown when inside /portal/surveys
-const surveysNavItemsList = [
-  { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
-  { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle' },
-];
-
-// Store nav items — shown when inside /portal/websites/[siteId]/store
-const storeNavItems = (siteId: string) => [
-  { href: `/portal/websites/${siteId}/store`, label: 'Overview', icon: 'dashboard', exact: true, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/products`, label: 'Products', icon: 'inventory_2', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/orders`, label: 'Orders', icon: 'receipt_long', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/categories`, label: 'Categories', icon: 'category', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/discounts`, label: 'Discounts', icon: 'sell', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping', exact: false, alsoActiveOn: undefined },
-  { href: `/portal/websites/${siteId}/store/settings`, label: 'Settings', icon: 'settings', exact: false, alsoActiveOn: undefined },
-];
 
 interface NavService {
   id: number;
@@ -126,40 +47,142 @@ interface NavService {
   subscribed: boolean;
 }
 
+// Static nav structure with collapsible children
+const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
+  { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
+  {
+    href: '/portal/crm',
+    label: 'CRM',
+    icon: 'contacts',
+    exact: true,
+    children: [
+      { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true },
+      { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
+      { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
+      { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
+      { href: '/portal/crm/proposals', label: 'Proposals & Decks', icon: 'description' },
+      { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+  {
+    href: '/portal/email',
+    label: 'Email',
+    icon: 'email',
+    exact: true,
+    children: [
+      { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
+      { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
+      { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
+      { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt' },
+      { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
+      { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics' },
+      { href: '/portal/email/automations', label: 'Automations', icon: 'bolt' },
+      { href: '/portal/email/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
+  {
+    href: '/portal/surveys',
+    label: 'Surveys',
+    icon: 'poll',
+    exact: true,
+    children: [
+      { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
+      { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle' },
+    ],
+  },
+  { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true },
+  ...(activeSiteId
+    ? [{
+        href: `/portal/websites/${activeSiteId}`,
+        label: activeSiteName || 'Website',
+        icon: 'web',
+        exact: true,
+        children: [
+          {
+            href: `/portal/websites/${activeSiteId}/entries`,
+            label: 'Content',
+            icon: 'article',
+            alsoActiveOn: `/portal/websites/${activeSiteId}/posts`,
+            children: [
+              { href: `/portal/websites/${activeSiteId}/entries`, label: 'Entries', icon: 'edit_note', alsoActiveOn: `/portal/websites/${activeSiteId}/posts` },
+              { href: `/portal/websites/${activeSiteId}/taxonomy`, label: 'Taxonomies', icon: 'account_tree' },
+              { href: `/portal/websites/${activeSiteId}/content-types`, label: 'Content Types', icon: 'description' },
+            ],
+          },
+          {
+            href: `/portal/websites/${activeSiteId}/store`,
+            label: 'Store',
+            icon: 'shopping_cart',
+            exact: true,
+            children: [
+              { href: `/portal/websites/${activeSiteId}/store/products`, label: 'Products', icon: 'inventory_2' },
+              { href: `/portal/websites/${activeSiteId}/store/orders`, label: 'Orders', icon: 'receipt_long' },
+              { href: `/portal/websites/${activeSiteId}/store/categories`, label: 'Categories', icon: 'category' },
+              { href: `/portal/websites/${activeSiteId}/store/discounts`, label: 'Discounts', icon: 'sell' },
+              { href: `/portal/websites/${activeSiteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping' },
+              { href: `/portal/websites/${activeSiteId}/store/settings`, label: 'Store Settings', icon: 'settings' },
+            ],
+          },
+          { href: `/portal/websites/${activeSiteId}/email`, label: 'Website Emails', icon: 'email' },
+          { href: `/portal/websites/${activeSiteId}/navigation`, label: 'Navigation', icon: 'menu' },
+          { href: `/portal/websites/${activeSiteId}/settings`, label: 'Website Settings', icon: 'settings' },
+        ],
+      }]
+    : []
+  ),
+  { href: '/portal/branding', label: 'Branding', icon: 'palette' },
+  { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
+  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
+];
+
+const EXCLUDED_SERVICES = new Set([
+  'Chat Bot', 'Project Management System', 'Pitch Decks',
+  'Email Marketing', 'Monthly Maintenance', 'White Label Domain', 'All-In-One',
+  'Websites', 'Surveys', 'Surveys & Forms', 'Hosting & DNS',
+]);
+
+function isItemActive(item: { href: string; exact?: boolean; alsoActiveOn?: string }, pathname: string): boolean {
+  if (item.exact) return pathname === item.href;
+  if (pathname === item.href || pathname.startsWith(item.href + '/')) return true;
+  if (item.alsoActiveOn && pathname.startsWith(item.alsoActiveOn)) return true;
+  return false;
+}
+
+function isChildActive(children: NavChild[] | undefined, pathname: string): boolean {
+  if (!children) return false;
+  return children.some(c => isItemActive(c, pathname) || isChildActive(c.children, pathname));
+}
+
 export default function PortalSidebar() {
   const { status } = useSession();
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
-  const [cmsTitle, setCmsTitle] = useState('');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [navServices, setNavServices] = useState<NavService[]>([]);
-  const [contextMenuOpen, setContextMenuOpen] = useState(false);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-  const prevSiteIdRef = useRef<string | null>(null);
+  const [activeSiteName, setActiveSiteName] = useState<string | null>(null);
 
-  // Detect CMS context: /portal/websites/[numeric-siteId]/...
+  // Detect CMS context
   const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
   const activeSiteId = cmsMatch ? cmsMatch[1] : null;
 
-  // Detect store context: /portal/websites/[siteId]/store/...
-  const isStoreContext = activeSiteId && pathname.startsWith(`/portal/websites/${activeSiteId}/store`);
+  // Fetch active site name
+  useEffect(() => {
+    if (!activeSiteId) { setActiveSiteName(null); return; }
+    fetch('/api/portal/cms/websites')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          const site = res.data.find((s: { id: number }) => String(s.id) === activeSiteId);
+          setActiveSiteName(site?.name ?? null);
+        }
+      })
+      .catch(() => {});
+  }, [activeSiteId]);
 
-  // Detect product contexts
-  const isCrmContext = pathname.startsWith('/portal/crm') || pathname.startsWith('/portal/tools/pitch-decks');
-  const isEmailContext = pathname.startsWith('/portal/email');
-  const isProjectsContext = pathname.startsWith('/portal/projects');
-  const isSurveysContext = pathname.startsWith('/portal/surveys');
-  const isBookingContext = pathname.startsWith('/portal/tools/booking');
-  const isAutomationsContext = pathname === '/portal/automations' || pathname.startsWith('/portal/automations/');
-  const isBrandingContext = pathname === '/portal/branding' || pathname.startsWith('/portal/branding/');
-  const isWebsitesListContext = pathname === '/portal/websites' || pathname === '/portal/websites/new';
-  const isHostingContext = false; // hosting handled within website/email services
-  const isSettingsContext = pathname.startsWith('/portal/settings');
-  const isDashboard = pathname === '/portal/dashboard';
-
-  // Auto-collapse on CMS content editor pages to maximize editing space
+  // Auto-collapse on editor pages
   const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
 
   useEffect(() => {
@@ -173,22 +196,7 @@ export default function PortalSidebar() {
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
   }, [isEditorPage]);
 
-  // Close context menu on click outside
-  useEffect(() => {
-    if (!contextMenuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) setContextMenuOpen(false);
-    };
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenuOpen(false); };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('mousedown', handleClick); document.removeEventListener('keydown', handleKey); };
-  }, [contextMenuOpen]);
-
-  // Close context menu on route change
-  useEffect(() => { setContextMenuOpen(false); }, [pathname]);
-
-  // Fetch services for nav — re-fetch on route change (e.g. after login redirect)
+  // Fetch services for nav
   useEffect(() => {
     fetch('/api/portal/services/nav')
       .then(r => r.json())
@@ -196,31 +204,35 @@ export default function PortalSidebar() {
       .catch(() => {});
   }, [pathname]);
 
+  // Auto-expand sections based on active route
   useEffect(() => {
-    if (!activeSiteId || activeSiteId === prevSiteIdRef.current) return;
-    prevSiteIdRef.current = activeSiteId;
-    fetch(`/api/portal/cms/websites`)
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) {
-          const site = res.data?.find((s: { id: number; name: string }) => String(s.id) === activeSiteId);
-          if (site) setCmsTitle(site.name);
+    const items = buildNavItems(activeSiteId, activeSiteName);
+    const newExpanded: Record<string, boolean> = { ...expandedSections };
+    const autoExpand = (list: NavChild[]) => {
+      for (const item of list) {
+        if (item.children && (isItemActive(item, pathname) || isChildActive(item.children, pathname))) {
+          newExpanded[item.href] = true;
+          autoExpand(item.children);
         }
-      })
-      .catch(() => {});
-  }, [activeSiteId]);
+      }
+    };
+    for (const item of items) {
+      if (item.children && (isItemActive(item, pathname) || isChildActive(item.children, pathname))) {
+        newExpanded[item.href] = true;
+        autoExpand(item.children);
+      }
+    }
+    setExpandedSections(newExpanded);
+    // Only auto-expand on route change, not on every expandedSections change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, activeSiteId]);
 
-  // Build nav items: inject dynamic services as top-level items before Settings
+  // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
+    const items = buildNavItems(activeSiteId, activeSiteName);
     const serviceItems: NavItem[] = navServices
-      .filter(svc => svc.name !== 'Chat Bot' && svc.name !== 'Project Management System' && svc.name !== 'Pitch Decks' && svc.name !== 'Email Marketing' && svc.name !== 'Monthly Maintenance' && svc.name !== 'White Label Domain' && svc.name !== 'All-In-One')
-      .map(svc => ({
-        href: svc.href,
-        label: svc.name,
-        icon: svc.icon,
-      }));
-    // Insert services before the last item (Settings)
-    const items = [...staticNavItems];
+      .filter(svc => !EXCLUDED_SERVICES.has(svc.name) && !svc.name.startsWith('__'))
+      .map(svc => ({ href: svc.href, label: svc.name, icon: svc.icon }));
     const settingsIdx = items.findIndex(i => i.href === '/portal/settings');
     if (settingsIdx >= 0) {
       items.splice(settingsIdx, 0, ...serviceItems);
@@ -237,6 +249,10 @@ export default function PortalSidebar() {
     applyTheme(next);
   };
 
+  const toggleSection = (href: string) => {
+    setExpandedSections(prev => ({ ...prev, [href]: !prev[href] }));
+  };
+
   if (status !== 'authenticated') return null;
 
   const toggleCollapsed = () => {
@@ -244,6 +260,89 @@ export default function PortalSidebar() {
     setIsCollapsed(next);
     localStorage.setItem('portalSidebarCollapsed', String(next));
     window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { collapsed: next } }));
+  };
+
+  // Renders a nav item link (or parent toggle)
+  const renderNavLink = (
+    item: { href: string; label: string; icon: string; exact?: boolean; alsoActiveOn?: string; children?: NavChild[] },
+    depth: number,
+  ) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const active = isItemActive(item, pathname);
+    const childActive = isChildActive(item.children, pathname);
+    const isExpanded = expandedSections[item.href];
+    const depthPadding: Record<number, string> = {
+      0: 'px-4',
+      1: 'pl-8 pr-4',
+      2: 'pl-12 pr-4',
+      3: 'pl-16 pr-4',
+    };
+    const pl = isCollapsed ? 'px-3 justify-center' : (depthPadding[depth] ?? 'pl-16 pr-4');
+
+    const linkClass = `flex items-center gap-3 ${pl} py-2.5 rounded-md text-sm font-medium transition-colors relative group w-full ${
+      active && !childActive
+        ? 'bg-primary text-primary-foreground'
+        : childActive
+        ? 'text-foreground bg-accent/50'
+        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+    }`;
+
+    const tooltip = isCollapsed && (
+      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+        {item.label}
+      </div>
+    );
+
+    const chevron = !isCollapsed && hasChildren && (
+      <span className="material-icons text-base opacity-50 shrink-0">
+        {isExpanded ? 'expand_less' : 'expand_more'}
+      </span>
+    );
+
+    if (hasChildren) {
+      return (
+        <div
+          className={linkClass + ' cursor-pointer'}
+          onClick={() => toggleSection(item.href)}
+          title={isCollapsed ? item.label : ''}
+        >
+          <span className="material-icons text-xl shrink-0">{item.icon}</span>
+          {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+          {chevron}
+          {tooltip}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        href={item.href}
+        onClick={() => setIsMobileOpen(false)}
+        className={linkClass}
+        title={isCollapsed ? item.label : ''}
+      >
+        <span className="material-icons text-xl shrink-0">{item.icon}</span>
+        {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+        {tooltip}
+      </Link>
+    );
+  };
+
+  // Recursive renderer for nav items with children
+  const renderNavItem = (item: NavItem | NavChild, depth: number) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const isExpanded = expandedSections[item.href];
+
+    return (
+      <li key={`${depth}-${item.href}`}>
+        {renderNavLink(item, depth)}
+        {hasChildren && isExpanded && !isCollapsed && (
+          <ul className="mt-0.5 space-y-0.5">
+            {item.children!.map(child => renderNavItem(child, depth + 1))}
+          </ul>
+        )}
+      </li>
+    );
   };
 
   return (
@@ -267,7 +366,7 @@ export default function PortalSidebar() {
         } bg-card border-r border-border`}
       >
         <div className="h-full flex flex-col">
-          {/* Company Switcher — always visible, top-left like Slack */}
+          {/* Company Switcher */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
             <CompanySwitcher collapsed={isCollapsed} />
             {!isCollapsed && (
@@ -290,395 +389,15 @@ export default function PortalSidebar() {
             )}
           </div>
 
-          {/* Context switcher — dropdown to navigate between services */}
-          {(() => {
-            // Show context switcher on any product page (not dashboard)
-            if (isDashboard) return null;
-
-            // Determine current context
-            const ctx = isStoreContext ? { label: 'Store', name: 'Store', icon: 'shopping_cart', key: 'store' }
-              : activeSiteId ? { label: 'Simpler CMS', name: cmsTitle || 'Loading...', icon: 'language', key: 'websites' }
-              : isCrmContext ? { label: 'CRM', name: 'Customer Management', icon: 'contacts', key: 'crm' }
-              : isEmailContext ? { label: 'Email', name: 'Email Marketing', icon: 'email', key: 'email' }
-              : isSurveysContext ? { label: 'Surveys', name: 'Surveys', icon: 'poll', key: 'surveys' }
-              : isProjectsContext ? { label: 'Projects', name: 'Project Management', icon: 'view_kanban', key: 'projects' }
-              : isBookingContext ? { label: 'Booking', name: 'Booking System', icon: 'calendar_month', key: 'booking' }
-              : isAutomationsContext ? { label: 'Automations', name: 'Automations', icon: 'bolt', key: 'automations' }
-              : isBrandingContext ? { label: 'Branding', name: 'Brand Identity', icon: 'palette', key: 'branding' }
-              : isWebsitesListContext ? { label: 'Websites', name: 'Websites', icon: 'language', key: 'websites' }
-              : isSettingsContext ? { label: 'Settings', name: 'Settings', icon: 'settings', key: 'settings' }
-              : null;
-
-            if (!ctx) return null;
-
-            const currentLabel = ctx.label;
-            const currentName = ctx.name;
-            const currentIcon = ctx.icon;
-
-            const allOptions = [
-              { label: 'Dashboard', icon: 'dashboard', href: '/portal/dashboard', key: 'dashboard' },
-              { label: 'Projects', icon: 'view_kanban', href: '/portal/projects', key: 'projects' },
-              { label: 'CRM', icon: 'contacts', href: '/portal/crm', key: 'crm' },
-              { label: 'Email Marketing', icon: 'email', href: '/portal/email', key: 'email' },
-              { label: 'Surveys', icon: 'poll', href: '/portal/surveys', key: 'surveys' },
-              { label: 'Websites', icon: 'language', href: '/portal/websites', key: 'websites' },
-              { label: 'Booking', icon: 'calendar_month', href: '/portal/tools/booking', key: 'booking' },
-              { label: 'Branding', icon: 'palette', href: '/portal/branding', key: 'branding' },
-              { label: 'Automations', icon: 'bolt', href: '/portal/automations', key: 'automations' },
-              { label: 'Settings', icon: 'settings', href: '/portal/settings', key: 'settings' },
-            ];
-
-            const contextOptions = allOptions.filter(opt => opt.key !== ctx.key);
-
-            if (isCollapsed) {
-              return (
-                <div className="flex justify-center py-2 border-b border-border bg-muted/30 relative" ref={contextMenuRef}>
-                  <button
-                    onClick={() => setContextMenuOpen(!contextMenuOpen)}
-                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors relative group"
-                    title={currentName}
-                  >
-                    <span className="material-icons text-lg">{currentIcon}</span>
-                    {!contextMenuOpen && (
-                      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                        {currentName}
-                      </div>
-                    )}
-                  </button>
-                  {contextMenuOpen && (
-                    <div className="absolute top-0 left-full ml-2 w-52 bg-card border border-border rounded-lg shadow-xl z-[60] overflow-hidden py-1">
-                      {contextOptions.map(opt => (
-                        <Link
-                          key={opt.href}
-                          href={opt.href}
-                          onClick={() => { setContextMenuOpen(false); setIsMobileOpen(false); }}
-                          className="flex items-center gap-2.5 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                        >
-                          <span className="material-icons text-lg">{opt.icon}</span>
-                          {opt.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <div className="relative border-b border-border bg-muted/30" ref={contextMenuRef}>
-                <button
-                  onClick={() => setContextMenuOpen(!contextMenuOpen)}
-                  className="flex items-center gap-2 min-w-0 w-full px-3 py-2 text-left hover:bg-accent/50 transition-colors"
-                >
-                  <span className="material-icons text-lg text-primary">{currentIcon}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">{currentLabel}</p>
-                    <p className="text-xs font-semibold text-foreground truncate leading-tight">{currentName}</p>
-                  </div>
-                  <span className="material-icons text-muted-foreground text-sm shrink-0">
-                    {contextMenuOpen ? 'expand_less' : 'expand_more'}
-                  </span>
-                </button>
-                {contextMenuOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-0 bg-card border border-border rounded-b-lg shadow-xl z-[60] overflow-hidden py-1">
-                    {contextOptions.map(opt => (
-                      <Link
-                        key={opt.href}
-                        href={opt.href}
-                        onClick={() => { setContextMenuOpen(false); setIsMobileOpen(false); }}
-                        className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      >
-                        <span className="material-icons text-lg">{opt.icon}</span>
-                        {opt.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Nav */}
+          {/* Unified Nav */}
           <nav className="flex-1 overflow-y-auto py-4">
-            {isStoreContext && activeSiteId ? (
-              // ── Store context nav ───────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {storeNavItems(activeSiteId).map(item => {
-                  const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'));
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 ${
-                          isCollapsed ? 'justify-center px-3' : 'px-4'
-                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-xl">{item.icon}</span>
-                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : activeSiteId ? (
-              // ── CMS context nav ────────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {cmsNavItems(activeSiteId).map(item => {
-                  const isActive = (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/'))
-                    || (item.alsoActiveOn !== undefined && pathname.startsWith(item.alsoActiveOn));
-                  const hasChildren = item.children && item.children.length > 0;
-                  const hasActiveChild = hasChildren && item.children!.some(
-                    c => pathname === c.href || pathname.startsWith(c.href + '/')
-                  );
-                  const showChildren = isActive || hasActiveChild;
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 ${
-                          isCollapsed ? 'justify-center px-3' : 'px-4'
-                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                          isActive || hasActiveChild
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-xl">{item.icon}</span>
-                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                        {!isCollapsed && hasChildren && (
-                          <span className="material-icons text-base opacity-60">{showChildren ? 'expand_less' : 'expand_more'}</span>
-                        )}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
-                        )}
-                      </Link>
-                      {/* Children */}
-                      {hasChildren && showChildren && !isCollapsed && (
-                        <ul className="mt-0.5 space-y-0.5">
-                          {item.children!.map(child => {
-                            const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-                            return (
-                              <li key={child.href}>
-                                <Link
-                                  href={child.href}
-                                  onClick={() => setIsMobileOpen(false)}
-                                  className={`flex items-center gap-3 pl-11 pr-4 py-2 rounded-md text-sm transition-colors ${
-                                    childActive
-                                      ? 'text-primary font-medium bg-primary/10'
-                                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                                  }`}
-                                >
-                                  <span className="material-icons text-lg">{child.icon}</span>
-                                  <span>{child.label}</span>
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : isCrmContext ? (
-              // ── CRM context nav ─────────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {crmNavItemsList.map(item => {
-                  const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 ${
-                          isCollapsed ? 'justify-center px-3' : 'px-4'
-                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-xl">{item.icon}</span>
-                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : isSurveysContext ? (
-              // ── Surveys context nav ─────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {surveysNavItemsList.map(item => {
-                  const isActive = (item as { exact?: boolean }).exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 ${
-                          isCollapsed ? 'justify-center px-3' : 'px-4'
-                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-xl">{item.icon}</span>
-                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : isEmailContext ? (
-              // ── Email context nav ──────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {emailNavItemsList.map(item => {
-                  const isActive = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 ${
-                          isCollapsed ? 'justify-center px-3' : 'px-4'
-                        } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        }`}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        <span className="material-icons text-xl">{item.icon}</span>
-                        {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                        {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              // ── Main portal nav ────────────────────────────────────
-              <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                  const hasActiveChild = item.children?.some(
-                    (c) => pathname === c.href || pathname.startsWith(c.href + '/')
-                  );
-                  const isMenuOpen = item.menuOnly
-                    ? (openMenus[item.href] ?? hasActiveChild ?? false)
-                    : undefined;
-
-                  const sharedClass = `flex items-center gap-3 ${
-                    isCollapsed ? 'justify-center px-3' : 'px-4'
-                  } py-3 rounded-md text-sm font-medium transition-colors relative group w-full ${
-                    !item.menuOnly && isActive && !hasActiveChild
-                      ? 'bg-primary text-primary-foreground'
-                      : hasActiveChild
-                      ? 'text-foreground bg-accent/50'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  }`;
-
-                  return (
-                    <li key={item.href}>
-                      {item.menuOnly ? (
-                        <button
-                          onClick={() => setOpenMenus(prev => ({ ...prev, [item.href]: !isMenuOpen }))}
-                          className={sharedClass}
-                          title={isCollapsed ? item.label : ''}
-                        >
-                          <span className="material-icons text-xl">{item.icon}</span>
-                          {!isCollapsed && (
-                            <>
-                              <span className="flex-1 text-left">{item.label}</span>
-                              <span className="material-icons text-base opacity-50">
-                                {isMenuOpen ? 'expand_less' : 'expand_more'}
-                              </span>
-                            </>
-                          )}
-                          {isCollapsed && (
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                              {item.label}
-                            </div>
-                          )}
-                        </button>
-                      ) : (
-                        <Link
-                          href={item.href}
-                          className={sharedClass}
-                          title={isCollapsed ? item.label : ''}
-                          onClick={() => setIsMobileOpen(false)}
-                        >
-                          <span className="material-icons text-xl">{item.icon}</span>
-                          {!isCollapsed && <span className="flex-1">{item.label}</span>}
-                          {isCollapsed && (
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                              {item.label}
-                            </div>
-                          )}
-                        </Link>
-                      )}
-
-                      {/* Sub-items */}
-                      {!isCollapsed && item.children && (item.menuOnly ? isMenuOpen : hasActiveChild) && item.children.map((child) => {
-                        const childActive = pathname === child.href || pathname.startsWith(child.href + '/');
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={() => setIsMobileOpen(false)}
-                            className={`flex items-center gap-2 ml-4 pl-4 pr-3 py-2 mt-0.5 rounded-md text-sm transition-colors relative border-l-2 ${
-                              childActive
-                                ? 'border-primary text-primary font-medium bg-primary/5'
-                                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent hover:border-primary/40'
-                            }`}
-                          >
-                            <span className="material-icons text-base">{child.icon}</span>
-                            <span>{child.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+              {navItems.map(item => renderNavItem(item, 0))}
+            </ul>
           </nav>
 
           {/* Footer */}
           <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
-            {/* Theme toggle */}
             <button
               onClick={cycleTheme}
               className={`flex items-center gap-2 w-full ${

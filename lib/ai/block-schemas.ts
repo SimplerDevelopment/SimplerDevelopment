@@ -509,6 +509,74 @@ const BUILT_IN_SCHEMAS: BlockSchema[] = [
       showTags: { type: 'boolean', default: true },
     },
   },
+
+  // ── Interactive ────────────────────────────────────────────────────────────
+  {
+    type: 'booking',
+    label: 'Booking',
+    category: 'Interactive',
+    description: 'Embed a booking page so visitors can schedule appointments',
+    properties: {
+      slug: { type: 'string', required: true, description: 'Booking page slug' },
+      title: { type: 'string', description: 'Optional heading above the booking form' },
+      description: { type: 'string', description: 'Optional description text' },
+      showPageTitle: { type: 'boolean', default: true, description: 'Show the booking page title inside the embed' },
+      height: { type: 'string', default: '700px', description: 'Iframe height (e.g. 700px)' },
+    },
+    styledElements: ['title', 'description'],
+  },
+  {
+    type: 'survey',
+    label: 'Survey',
+    category: 'Interactive',
+    description: 'Embed a survey so visitors can submit responses',
+    properties: {
+      slug: { type: 'string', required: true, description: 'Survey slug' },
+      title: { type: 'string', description: 'Optional heading above the survey' },
+      description: { type: 'string', description: 'Optional description text' },
+      showPageTitle: { type: 'boolean', default: true, description: 'Show the survey title inside the embed' },
+      height: { type: 'string', default: '700px', description: 'Iframe height (e.g. 700px)' },
+    },
+    styledElements: ['title', 'description'],
+  },
+
+  // ── Email ──────────────────────────────────────────────────────────────────
+  {
+    type: 'social-links',
+    label: 'Social Links',
+    category: 'Email',
+    description: 'Row of social media profile links',
+    properties: {
+      links: { type: 'array', required: true, description: 'Array of { platform, url } objects', items: { platform: { type: 'enum', enumValues: ['facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok'] }, url: { type: 'url' } } },
+      iconSize: { type: 'number', default: 32, description: 'Icon size in px (24, 32, or 40)' },
+      alignment: { type: 'enum', enumValues: ['left', 'center', 'right'], default: 'center' },
+    },
+  },
+  {
+    type: 'email-header',
+    label: 'Email Header',
+    category: 'Email',
+    description: 'Email header with logo and optional tagline',
+    properties: {
+      logoUrl: { type: 'image', description: 'Logo image URL' },
+      logoWidth: { type: 'number', default: 150, description: 'Logo display width in px' },
+      tagline: { type: 'string', description: 'Optional tagline text below logo' },
+      alignment: { type: 'enum', enumValues: ['left', 'center', 'right'], default: 'center' },
+    },
+  },
+  {
+    type: 'email-footer',
+    label: 'Email Footer',
+    category: 'Email',
+    description: 'Email footer with company info and unsubscribe link',
+    properties: {
+      companyName: { type: 'string', description: 'Company or brand name' },
+      address: { type: 'string', description: 'Physical mailing address' },
+      showUnsubscribe: { type: 'boolean', default: true, description: 'Show unsubscribe link' },
+      showViewInBrowser: { type: 'boolean', default: false, description: 'Show view-in-browser link' },
+      socialLinks: { type: 'array', description: 'Social links in footer', items: { platform: { type: 'string' }, url: { type: 'url' } } },
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------

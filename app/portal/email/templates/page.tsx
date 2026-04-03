@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import type { Block } from '@/types/blocks';
+
+const EmailBlockEditor = dynamic(() => import('@/components/email/EmailBlockEditor').then(m => ({ default: m.EmailBlockEditor })), { ssr: false });
 
 interface Template {
   id: number;
@@ -44,6 +48,8 @@ export default function EmailTemplatesPage() {
   const [newCategory, setNewCategory] = useState('custom');
   const [newSubject, setNewSubject] = useState('');
   const [newHtml, setNewHtml] = useState('');
+  const [newBlocks, setNewBlocks] = useState<Block[]>([]);
+  const [createMode, setCreateMode] = useState<'visual' | 'html'>('visual');
 
   useEffect(() => {
     fetch('/api/portal/email/templates')
@@ -56,19 +62,29 @@ export default function EmailTemplatesPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newHtml.trim()) return;
+    if (!newName.trim()) return;
+    if (createMode === 'html' && !newHtml.trim()) return;
+    if (createMode === 'visual' && newBlocks.length === 0) return;
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        name: newName, description: newDesc, category: newCategory, subject: newSubject,
+      };
+      if (createMode === 'visual') {
+        payload.blockContent = { blocks: newBlocks, version: '1' };
+      } else {
+        payload.htmlContent = newHtml;
+      }
       const res = await fetch('/api/portal/email/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, description: newDesc, category: newCategory, subject: newSubject, htmlContent: newHtml }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
         setTemplates(prev => [data.data, ...prev]);
         setShowCreate(false);
-        setNewName(''); setNewDesc(''); setNewCategory('custom'); setNewSubject(''); setNewHtml('');
+        setNewName(''); setNewDesc(''); setNewCategory('custom'); setNewSubject(''); setNewHtml(''); setNewBlocks([]);
       }
     } finally { setSaving(false); }
   };
@@ -122,8 +138,26 @@ export default function EmailTemplatesPage() {
             <input value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="What this template is for" className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">HTML Content</label>
-            <textarea value={newHtml} onChange={e => setNewHtml(e.target.value)} placeholder="<html>...</html>" rows={8} className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-primary/50" required />
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-muted-foreground">Content</label>
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                <button type="button" onClick={() => setCreateMode('visual')}
+                  className={`px-2 py-0.5 text-xs rounded-md ${createMode === 'visual' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}>
+                  Visual
+                </button>
+                <button type="button" onClick={() => setCreateMode('html')}
+                  className={`px-2 py-0.5 text-xs rounded-md ${createMode === 'html' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}>
+                  HTML
+                </button>
+              </div>
+            </div>
+            {createMode === 'visual' ? (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <EmailBlockEditor blocks={newBlocks} onChange={setNewBlocks} />
+              </div>
+            ) : (
+              <textarea value={newHtml} onChange={e => setNewHtml(e.target.value)} placeholder="<html>...</html>" rows={8} className="w-full text-sm bg-background border border-border rounded-lg px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            )}
           </div>
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">

@@ -576,6 +576,7 @@ export const emailCampaigns = pgTable('email_campaigns', {
   listId: integer('list_id').notNull().references(() => emailLists.id, { onDelete: 'restrict' }),
   clientId: integer('client_id').references(() => clients.id, { onDelete: 'set null' }), // which client this is for (optional)
   htmlContent: text('html_content').notNull(), // final rendered HTML
+  blockContent: json('block_content'), // BlockEditorData JSON when created via visual editor
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, scheduled, sending, sent, cancelled
   scheduledAt: timestamp('scheduled_at'),
   sentAt: timestamp('sent_at'),
@@ -598,6 +599,7 @@ export const emailTemplates = pgTable('email_templates', {
   category: varchar('category', { length: 50 }).default('custom').notNull(), // welcome, newsletter, promotion, transactional, custom
   subject: varchar('subject', { length: 255 }),
   htmlContent: text('html_content').notNull(),
+  blockContent: json('block_content'), // BlockEditorData JSON when created via visual editor
   thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
   isGlobal: boolean('is_global').default(false).notNull(), // admin-created templates available to all
   usageCount: integer('usage_count').default(0).notNull(),
@@ -865,6 +867,7 @@ export const bookingPages = pgTable('booking_pages', {
   ]),
   questions: json('questions').$type<BookingQuestion[]>().default([]),
   color: varchar('color', { length: 7 }).default('#2563eb'),
+  brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
   active: boolean('active').default(true).notNull(),
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -968,6 +971,16 @@ export const storeSettings = pgTable('store_settings', {
   lowStockThreshold: integer('low_stock_threshold').default(5).notNull(),
   orderPrefix: varchar('order_prefix', { length: 10 }).default('ORD'),
   enableReviews: boolean('enable_reviews').default(true).notNull(),
+  // Customer portal settings
+  enableCustomerAccounts: boolean('enable_customer_accounts').default(true).notNull(),
+  enableGuestCheckout: boolean('enable_guest_checkout').default(true).notNull(),
+  enableWishlist: boolean('enable_wishlist').default(true).notNull(),
+  enableOrderTracking: boolean('enable_order_tracking').default(true).notNull(),
+  enableCustomerSupport: boolean('enable_customer_support').default(true).notNull(),
+  customerPortalWelcomeMessage: text('customer_portal_welcome_message'),
+  supportEmail: varchar('support_email', { length: 255 }),
+  returnPolicyUrl: varchar('return_policy_url', { length: 500 }),
+  shippingPolicyUrl: varchar('shipping_policy_url', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1102,6 +1115,7 @@ export const shippingRates = pgTable('shipping_rates', {
 export const carts = pgTable('carts', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id'), // FK added at runtime to avoid circular ref with storeCustomers
   sessionId: varchar('session_id', { length: 255 }),
   customerEmail: varchar('customer_email', { length: 255 }),
   status: varchar('status', { length: 20 }).default('active').notNull(),
@@ -1124,6 +1138,7 @@ export const cartItems = pgTable('cart_items', {
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id'), // FK to store_customers — links order to a customer account (null for guest checkout)
   orderNumber: varchar('order_number', { length: 50 }).notNull(),
   customerEmail: varchar('customer_email', { length: 255 }).notNull(),
   customerName: varchar('customer_name', { length: 255 }).notNull(),
@@ -1199,6 +1214,103 @@ export const discountCodes = pgTable('discount_codes', {
 }, (t) => [
   uniqueIndex('discount_codes_code_website_idx').on(t.code, t.websiteId),
 ]);
+
+// ─── CUSTOMER PORTAL ────────────────────────────────────────────────────────
+
+export const storeCustomers = pgTable('store_customers', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  email: varchar('email', { length: 255 }).notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  firstName: varchar('first_name', { length: 100 }),
+  lastName: varchar('last_name', { length: 100 }),
+  phone: varchar('phone', { length: 50 }),
+  avatarUrl: varchar('avatar_url', { length: 500 }),
+  // Default addresses (JSON: { line1, line2, city, state, postalCode, country })
+  defaultShippingAddress: json('default_shipping_address').$type<{
+    line1: string; line2?: string; city: string; state: string; postalCode: string; country: string;
+  }>(),
+  defaultBillingAddress: json('default_billing_address').$type<{
+    line1: string; line2?: string; city: string; state: string; postalCode: string; country: string;
+  }>(),
+  // Saved address book (array of named addresses)
+  addressBook: json('address_book').$type<Array<{
+    id: string; label: string; line1: string; line2?: string; city: string; state: string; postalCode: string; country: string; isDefault?: boolean;
+  }>>().default([]),
+  emailVerified: boolean('email_verified').default(false).notNull(),
+  emailVerifyToken: varchar('email_verify_token', { length: 100 }),
+  passwordResetToken: varchar('password_reset_token', { length: 100 }),
+  passwordResetExpires: timestamp('password_reset_expires'),
+  lastLoginAt: timestamp('last_login_at'),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // active, disabled
+  orderCount: integer('order_count').default(0).notNull(),
+  totalSpent: integer('total_spent').default(0).notNull(), // in cents
+  notes: text('notes'), // internal notes for store owner
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('store_customers_email_website_idx').on(t.email, t.websiteId),
+]);
+
+export const storeCustomerSessions = pgTable('store_customer_sessions', {
+  id: serial('id').primaryKey(),
+  customerId: integer('customer_id').notNull().references(() => storeCustomers.id, { onDelete: 'cascade' }),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const storeWishlists = pgTable('store_wishlists', {
+  id: serial('id').primaryKey(),
+  customerId: integer('customer_id').notNull().references(() => storeCustomers.id, { onDelete: 'cascade' }),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).default('My Wishlist').notNull(),
+  isDefault: boolean('is_default').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const storeWishlistItems = pgTable('store_wishlist_items', {
+  id: serial('id').primaryKey(),
+  wishlistId: integer('wishlist_id').notNull().references(() => storeWishlists.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  addedAt: timestamp('added_at').defaultNow().notNull(),
+});
+
+export const storeCustomerMessages = pgTable('store_customer_messages', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id').notNull().references(() => storeCustomers.id, { onDelete: 'cascade' }),
+  orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  category: varchar('category', { length: 50 }).default('general').notNull(), // general, order, shipping, return, product
+  status: varchar('status', { length: 20 }).default('open').notNull(), // open, replied, resolved, closed
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const storeCustomerMessageReplies = pgTable('store_customer_message_replies', {
+  id: serial('id').primaryKey(),
+  messageId: integer('message_id').notNull().references(() => storeCustomerMessages.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(),
+  isStaff: boolean('is_staff').default(false).notNull(), // true = store owner reply, false = customer
+  authorName: varchar('author_name', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const storeProductReviews = pgTable('store_product_reviews', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id').references(() => storeCustomers.id, { onDelete: 'set null' }),
+  orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  rating: integer('rating').notNull(), // 1-5
+  title: varchar('title', { length: 255 }),
+  body: text('body'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, approved, rejected
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 // ─── NAVIGATION & BRANDING ──────────────────────────────────────────────────
 
@@ -1651,6 +1763,7 @@ export const surveys = pgTable('surveys', {
   thankYouMessage: text('thank_you_message').default('Your response has been recorded.'),
   redirectUrl: varchar('redirect_url', { length: 500 }),
   color: varchar('color', { length: 7 }).default('#2563eb'),
+  brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
   // Settings
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, closed
   allowMultiple: boolean('allow_multiple').default(true).notNull(), // allow same email to submit multiple times
@@ -1683,6 +1796,51 @@ export const surveyResponses = pgTable('survey_responses', {
   userAgent: text('user_agent'),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ============================================================================
+// Website Email Templates — Transactional / Event-Triggered
+// ============================================================================
+
+export interface EmailTemplateVariable {
+  key: string;        // e.g. 'firstName'
+  label: string;      // e.g. 'First Name'
+  description: string; // e.g. 'Customer first name from order'
+  sampleValue: string; // e.g. 'Jane'
+}
+
+export const websiteEmailTemplates = pgTable('website_email_templates', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 100 }).notNull(), // e.g. 'order.confirmed'
+  name: varchar('name', { length: 255 }).notNull(),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  description: text('description'),
+  htmlContent: text('html_content').notNull().default(''),
+  blockContent: json('block_content'), // BlockEditorData JSON
+  variables: json('variables').$type<EmailTemplateVariable[]>().default([]),
+  brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
+  enabled: boolean('enabled').default(true).notNull(),
+  isRequired: boolean('is_required').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// API keys for public SDK/API access
+export const apiKeys = pgTable('api_keys', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  key: varchar('key', { length: 64 }).notNull().unique(),
+  name: varchar('name', { length: 100 }).notNull(),
+  scopes: json('scopes').$type<string[]>().default([]),
+  rateLimitPerMinute: integer('rate_limit_per_minute').default(60),
+  active: boolean('active').default(true).notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const automationLogs = pgTable('automation_logs', {

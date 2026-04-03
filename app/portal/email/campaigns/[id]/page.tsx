@@ -2,6 +2,9 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
+import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 
 interface Campaign {
   id: number;
@@ -14,6 +17,7 @@ interface Campaign {
   listId: number;
   listName: string | null;
   htmlContent: string;
+  blockContent: BlockEditorData | null;
   status: string;
   scheduledAt: string | null;
   sentAt: string | null;
@@ -55,8 +59,10 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
   // Edit state
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ subject: '', previewText: '', htmlContent: '' });
+  const [editBlocks, setEditBlocks] = useState<Block[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     fetch(`/api/portal/email/campaigns/${id}`)
@@ -68,9 +74,14 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
       });
   }, [id]);
 
+  const hasBlockContent = !!campaign?.blockContent?.blocks;
+
   function startEdit() {
     if (!campaign) return;
     setEditForm({ subject: campaign.subject, previewText: campaign.previewText ?? '', htmlContent: campaign.htmlContent });
+    if (campaign.blockContent?.blocks) {
+      setEditBlocks(campaign.blockContent.blocks);
+    }
     setEditing(true);
     setTab('content');
   }
@@ -79,15 +90,21 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
     e.preventDefault();
     setEditSaving(true);
     setEditError('');
+
+    const payload: Record<string, unknown> = { ...editForm };
+    if (hasBlockContent) {
+      payload.blockContent = { blocks: editBlocks, version: '1' };
+    }
+
     const res = await fetch(`/api/portal/email/campaigns/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setEditSaving(false);
     if (!data.success) { setEditError(data.message ?? 'Save failed'); return; }
-    setCampaign(prev => prev ? { ...prev, ...editForm } : prev);
+    setCampaign(prev => prev ? { ...prev, ...editForm, blockContent: hasBlockContent ? { blocks: editBlocks, version: '1' } : prev.blockContent } : prev);
     setEditing(false);
   }
 
@@ -204,36 +221,82 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
 
       {tab === 'content' && (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold text-foreground">{editing ? 'Edit Content' : 'Email Preview'}</h3>
+            {editing && hasBlockContent && (
+              <button type="button" onClick={() => setShowPreview(!showPreview)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${showPreview ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent'}`}>
+                <span className="material-icons text-sm align-middle mr-1">preview</span>
+                Preview
+              </button>
+            )}
           </div>
           {editing ? (
-            <form onSubmit={saveEdit} className="p-5 space-y-4">
-              {editError && <p className="text-sm text-red-600">{editError}</p>}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Subject *</label>
-                <input required value={editForm.subject} onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))} className={inputClass} />
+            <div>
+              <div className="p-5 space-y-4">
+                {editError && <p className="text-sm text-red-600">{editError}</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Subject *</label>
+                    <input required value={editForm.subject} onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Preview Text</label>
+                    <input value={editForm.previewText} onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))} className={inputClass} />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Preview Text</label>
-                <input value={editForm.previewText} onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">HTML Content *</label>
-                <textarea required value={editForm.htmlContent} onChange={e => setEditForm(p => ({ ...p, htmlContent: e.target.value }))}
-                  rows={16} className={`${inputClass} font-mono text-xs`} />
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={editSaving}
+
+              {hasBlockContent ? (
+                <div className={showPreview ? 'flex gap-4 p-4' : 'p-4'}>
+                  <div className={`${showPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
+                    <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-340px)]" style={{ minHeight: '500px' }}>
+                      <VisualEditorShell
+                        key={`email-edit-${campaign.id}`}
+                        blocks={editBlocks}
+                        selectedBlockId={null}
+                        viewport="desktop"
+                        previewMode={false}
+                        initialZoom={100}
+                        iframeSrc="/portal/email/editor-preview?_edit=true"
+                        onBlocksChange={setEditBlocks}
+                        onSelectBlock={() => {}}
+                        onAddBlock={(type: string) => {
+                          const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                          const newBlock = { id, type: type as BlockType, order: editBlocks.length + 1, content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined, level: type === 'heading' ? 2 : undefined } as Block;
+                          setEditBlocks([...editBlocks, newBlock]);
+                        }}
+                        onDeleteBlock={(blockId: string) => setEditBlocks(editBlocks.filter(b => b.id !== blockId))}
+                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => setEditBlocks(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
+                        siteId={undefined}
+                      />
+                    </div>
+                  </div>
+                  {showPreview && (
+                    <div className="w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
+                      <EmailPreviewPane blocks={editBlocks} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-5 pt-0">
+                  <label className="block text-sm font-medium text-foreground mb-1">HTML Content *</label>
+                  <textarea required value={editForm.htmlContent} onChange={e => setEditForm(p => ({ ...p, htmlContent: e.target.value }))}
+                    rows={16} className={`${inputClass} font-mono text-xs`} />
+                </div>
+              )}
+
+              <div className="flex gap-2 p-5 pt-0">
+                <button type="button" onClick={saveEdit} disabled={editSaving}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
-                  {editSaving ? 'Saving…' : 'Save Changes'}
+                  {editSaving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button type="button" onClick={() => setEditing(false)}
                   className="px-4 py-2 border border-border rounded-md text-sm text-muted-foreground hover:bg-accent">
                   Cancel
                 </button>
               </div>
-            </form>
+            </div>
           ) : (
             <div className="p-5">
               <div className="border border-border rounded-md p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"

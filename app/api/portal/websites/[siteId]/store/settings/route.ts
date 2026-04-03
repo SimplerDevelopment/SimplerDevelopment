@@ -46,15 +46,12 @@ export async function PUT(
 
   const body = await req.json();
   const {
-    storeName,
-    currency,
-    taxRate,
-    taxInclusive,
-    requiresShipping,
-    lowStockThreshold,
-    orderPrefix,
-    enableReviews,
-    enabled,
+    storeName, currency, taxRate, taxInclusive,
+    requiresShipping, lowStockThreshold, orderPrefix, enableReviews, enabled,
+    // Customer portal fields
+    enableCustomerAccounts, enableGuestCheckout, enableWishlist,
+    enableOrderTracking, enableCustomerSupport,
+    customerPortalWelcomeMessage, supportEmail, returnPolicyUrl, shippingPolicyUrl,
   } = body;
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -67,6 +64,16 @@ export async function PUT(
   if (orderPrefix !== undefined) updateData.orderPrefix = orderPrefix;
   if (enableReviews !== undefined) updateData.enableReviews = enableReviews;
   if (enabled !== undefined) updateData.enabled = enabled;
+  // Customer portal
+  if (enableCustomerAccounts !== undefined) updateData.enableCustomerAccounts = enableCustomerAccounts;
+  if (enableGuestCheckout !== undefined) updateData.enableGuestCheckout = enableGuestCheckout;
+  if (enableWishlist !== undefined) updateData.enableWishlist = enableWishlist;
+  if (enableOrderTracking !== undefined) updateData.enableOrderTracking = enableOrderTracking;
+  if (enableCustomerSupport !== undefined) updateData.enableCustomerSupport = enableCustomerSupport;
+  if (customerPortalWelcomeMessage !== undefined) updateData.customerPortalWelcomeMessage = customerPortalWelcomeMessage;
+  if (supportEmail !== undefined) updateData.supportEmail = supportEmail;
+  if (returnPolicyUrl !== undefined) updateData.returnPolicyUrl = returnPolicyUrl;
+  if (shippingPolicyUrl !== undefined) updateData.shippingPolicyUrl = shippingPolicyUrl;
 
   // Upsert: create if not exists, then update
   let [settings] = await db

@@ -1,4 +1,9 @@
 import { Resend } from 'resend';
+import type { Block, BlockEditorData } from '@/types/blocks';
+import { renderBlocksToEmailHtml } from './render-blocks-to-email';
+
+export { renderBlocksToEmailHtml } from './render-blocks-to-email';
+export { EMAIL_BLOCK_TYPES, isEmailBlockType } from './email-block-types';
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -11,6 +16,20 @@ export function generateUnsubscribeToken(): string {
 export function buildUnsubscribeUrl(token: string): string {
   const base = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
   return `${base}/api/email/unsubscribe?token=${token}`;
+}
+
+/**
+ * Render block editor data to email HTML, then wrap in campaign document.
+ * Replaces {{UNSUBSCRIBE_URL}} in footer blocks with the actual URL.
+ */
+export function buildCampaignHtmlFromBlocks(
+  blockContent: BlockEditorData,
+  unsubscribeUrl: string,
+  previewText?: string | null,
+): string {
+  const innerHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  const withUnsub = innerHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl);
+  return buildCampaignHtml(withUnsub, unsubscribeUrl, previewText);
 }
 
 export function buildCampaignHtml(

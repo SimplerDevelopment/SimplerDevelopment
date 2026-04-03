@@ -5,6 +5,7 @@ import { emailTemplates } from '@/lib/db/schema';
 import { eq, or, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { renderBlocksToEmailHtml } from '@/lib/email';
 
 export async function GET() {
   const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
@@ -33,9 +34,15 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
-  const { name, description, category, subject, htmlContent } = await req.json();
-  if (!name?.trim() || !htmlContent?.trim()) {
-    return NextResponse.json({ success: false, message: 'name and htmlContent are required' }, { status: 400 });
+  const { name, description, category, subject, htmlContent, blockContent } = await req.json();
+
+  let finalHtml = htmlContent?.trim() || '';
+  if (blockContent?.blocks) {
+    finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
+
+  if (!name?.trim() || !finalHtml) {
+    return NextResponse.json({ success: false, message: 'name and content are required' }, { status: 400 });
   }
 
   const [template] = await db.insert(emailTemplates).values({
@@ -44,7 +51,8 @@ export async function POST(req: Request) {
     description: description?.trim() || null,
     category: category || 'custom',
     subject: subject?.trim() || null,
-    htmlContent: htmlContent.trim(),
+    htmlContent: finalHtml,
+    blockContent: blockContent ?? null,
     createdBy: userId,
   }).returning();
 

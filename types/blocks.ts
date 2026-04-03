@@ -467,6 +467,55 @@ export interface StoreBannerBlock extends BaseBlock {
   countdownDate?: string;
 }
 
+export interface BookingBlock extends BaseBlock {
+  type: 'booking';
+  slug: string;
+  title?: string;
+  description?: string;
+  showPageTitle?: boolean;
+  height?: string;
+}
+
+export interface SurveyBlock extends BaseBlock {
+  type: 'survey';
+  slug: string;
+  title?: string;
+  description?: string;
+  showPageTitle?: boolean;
+  height?: string;
+}
+
+// ============================================================================
+// Email Marketing — Block Types
+// ============================================================================
+
+export interface SocialLinksBlock extends BaseBlock {
+  type: 'social-links';
+  links: Array<{
+    platform: 'facebook' | 'twitter' | 'instagram' | 'linkedin' | 'youtube' | 'tiktok';
+    url: string;
+  }>;
+  iconSize?: number; // 24, 32, 40
+  alignment?: 'left' | 'center' | 'right';
+}
+
+export interface EmailHeaderBlock extends BaseBlock {
+  type: 'email-header';
+  logoUrl?: string;
+  logoWidth?: number;
+  tagline?: string;
+  alignment?: 'left' | 'center' | 'right';
+}
+
+export interface EmailFooterBlock extends BaseBlock {
+  type: 'email-footer';
+  companyName?: string;
+  address?: string;
+  showUnsubscribe?: boolean; // default true
+  showViewInBrowser?: boolean;
+  socialLinks?: Array<{ platform: string; url: string }>;
+}
+
 // Union type of all blocks
 export interface SectionBlock extends BaseBlock {
   type: 'section';
@@ -523,7 +572,12 @@ export type Block =
   | ProductCategoriesBlock
   | ShoppingCartBlock
   | StoreBannerBlock
-  | ProductDetailBlock;
+  | ProductDetailBlock
+  | BookingBlock
+  | SurveyBlock
+  | SocialLinksBlock
+  | EmailHeaderBlock
+  | EmailFooterBlock;
 
 export type BlockType = Block['type'];
 

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { emailCampaigns, emailCampaignSends, emailSubscribers, emailLists } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { renderBlocksToEmailHtml } from '@/lib/email';
 
 async function requireClient() {
   const session = await auth();
@@ -42,6 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       replyTo: emailCampaigns.replyTo,
       listId: emailCampaigns.listId,
       htmlContent: emailCampaigns.htmlContent,
+      blockContent: emailCampaigns.blockContent,
       status: emailCampaigns.status,
       scheduledAt: emailCampaigns.scheduledAt,
       sentAt: emailCampaigns.sentAt,
@@ -87,7 +89,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   if (existing.status === 'sent') return NextResponse.json({ success: false, message: 'Cannot edit a sent campaign' }, { status: 400 });
 
-  const { name, subject, previewText, fromName, fromEmail, replyTo, htmlContent, scheduledAt } = await req.json();
+  const { name, subject, previewText, fromName, fromEmail, replyTo, htmlContent, blockContent, scheduledAt } = await req.json();
+
+  // If blockContent provided, render to HTML
+  let finalHtml = htmlContent?.trim() || undefined;
+  if (blockContent?.blocks) {
+    finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
 
   const [updated] = await db
     .update(emailCampaigns)
@@ -98,7 +106,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(fromName && { fromName: fromName.trim() }),
       ...(fromEmail && { fromEmail: fromEmail.trim() }),
       replyTo: replyTo?.trim() || null,
-      ...(htmlContent && { htmlContent: htmlContent.trim() }),
+      ...(finalHtml && { htmlContent: finalHtml }),
+      ...(blockContent !== undefined && { blockContent }),
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       status: scheduledAt ? 'scheduled' : 'draft',
       updatedAt: new Date(),

@@ -5,6 +5,7 @@ import { emailTemplates } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { renderBlocksToEmailHtml } from '@/lib/email';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
@@ -23,6 +24,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.category !== undefined) updates.category = body.category;
   if (body.subject !== undefined) updates.subject = body.subject;
   if (body.htmlContent !== undefined) updates.htmlContent = body.htmlContent;
+  if (body.blockContent !== undefined) {
+    updates.blockContent = body.blockContent;
+    if (body.blockContent?.blocks) {
+      updates.htmlContent = renderBlocksToEmailHtml(body.blockContent.blocks);
+    }
+  }
 
   const [updated] = await db.update(emailTemplates)
     .set(updates)

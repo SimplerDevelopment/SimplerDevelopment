@@ -38,6 +38,11 @@ import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
 import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { ProductDetailBlockRender } from './ProductDetailBlockRender';
+import { BookingBlockRender } from './BookingBlockRender';
+import { SurveyBlockRender } from './SurveyBlockRender';
+import { SocialLinksBlockRender } from './SocialLinksBlockRender';
+import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
+import { EmailFooterBlockRender } from './EmailFooterBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -168,6 +173,16 @@ function renderBlock(block: Block, siteId?: number) {
       return <StoreBannerBlockRender block={block} />;
     case 'product-detail':
       return <ProductDetailBlockRender block={block} siteId={siteId} />;
+    case 'booking':
+      return <BookingBlockRender block={block} />;
+    case 'survey':
+      return <SurveyBlockRender block={block} />;
+    case 'social-links':
+      return <SocialLinksBlockRender block={block} />;
+    case 'email-header':
+      return <EmailHeaderBlockRender block={block} />;
+    case 'email-footer':
+      return <EmailFooterBlockRender block={block} />;
     default:
       return null;
   }

@@ -1,21 +1,20 @@
 import { db } from '@/lib/db';
 import { clientWebsites, posts, postTypes } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, count, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
-import ContentList from './ContentList';
 
-export default async function PortalCmsSitePage({
+export default async function PortalCmsDashboardPage({
   params,
   searchParams,
 }: {
   params: Promise<{ siteId: string }>;
-  searchParams: Promise<{ created?: string; type?: string }>;
+  searchParams: Promise<{ created?: string }>;
 }) {
   const { siteId } = await params;
-  const { created, type: activeType } = await searchParams;
+  const { created } = await searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
 
@@ -33,32 +32,21 @@ export default async function PortalCmsSitePage({
 
   const [sitePosts, contentTypes] = await Promise.all([
     db.select().from(posts).where(eq(posts.websiteId, site.id)).orderBy(posts.updatedAt),
-    db.select().from(postTypes).where(
-      eq(postTypes.websiteId, site.id),
-    ),
+    db.select().from(postTypes).where(eq(postTypes.active, true)),
   ]);
 
-  // Also get global (built-in) content types
-  const globalTypes = await db.select().from(postTypes).where(eq(postTypes.active, true));
-  const allTypes = [...globalTypes.filter(t => !t.websiteId), ...contentTypes];
+  const published = sitePosts.filter(p => p.published);
+  const drafts = sitePosts.filter(p => !p.published);
+  const recentPosts = sitePosts.slice(-5).reverse();
 
-  const filteredPosts = activeType
-    ? sitePosts.filter(p => p.postType === activeType)
-    : sitePosts;
-  const published = filteredPosts.filter(p => p.published);
-  const drafts = filteredPosts.filter(p => !p.published);
+  // Count posts by type
+  const typeCounts: Record<string, number> = {};
+  for (const p of sitePosts) {
+    typeCounts[p.postType] = (typeCounts[p.postType] || 0) + 1;
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Breadcrumb */}
-      <Link
-        href="/portal/websites"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span className="material-icons text-base">arrow_back</span>
-        All Websites
-      </Link>
-
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -73,18 +61,11 @@ export default async function PortalCmsSitePage({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href={`/portal/websites/${site.id}/calendar`}
-            className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-          >
-            <span className="material-icons text-base">calendar_month</span>
-            Calendar
-          </Link>
-          <Link
             href={`/portal/websites/${site.id}/posts/new`}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
           >
             <span className="material-icons text-base">add</span>
-            New Page
+            New Entry
           </Link>
         </div>
       </div>
@@ -100,9 +81,9 @@ export default async function PortalCmsSitePage({
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-xs text-muted-foreground mb-1">Total Pages</p>
+          <p className="text-xs text-muted-foreground mb-1">Total Entries</p>
           <p className="text-2xl font-bold text-foreground">{sitePosts.length}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
@@ -111,17 +92,107 @@ export default async function PortalCmsSitePage({
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground mb-1">Drafts</p>
-          <p className="text-2xl font-bold text-muted-foreground">{drafts.length}</p>
+          <p className="text-2xl font-bold text-yellow-600">{drafts.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs text-muted-foreground mb-1">Content Types</p>
+          <p className="text-2xl font-bold text-foreground">{Object.keys(typeCounts).length}</p>
         </div>
       </div>
 
-      {/* Content type tabs + list */}
-      <ContentList
-        siteId={site.id}
-        posts={filteredPosts}
-        contentTypes={allTypes.map(t => ({ slug: t.slug, name: t.name, icon: t.icon || 'description' }))}
-        activeType={activeType || null}
-      />
+      {/* Quick links */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { href: `/portal/websites/${site.id}/entries`, icon: 'article', label: 'Entries' },
+          { href: `/portal/websites/${site.id}/media`, icon: 'perm_media', label: 'Media' },
+          { href: `/portal/websites/${site.id}/navigation`, icon: 'menu', label: 'Navigation' },
+          { href: `/portal/websites/${site.id}/store`, icon: 'shopping_cart', label: 'Store' },
+          { href: `/portal/websites/${site.id}/taxonomy`, icon: 'account_tree', label: 'Taxonomy' },
+          { href: `/portal/websites/${site.id}/content-types`, icon: 'description', label: 'Content Types' },
+          { href: `/portal/websites/${site.id}/calendar`, icon: 'calendar_month', label: 'Calendar' },
+          { href: `/portal/websites/${site.id}/settings`, icon: 'settings', label: 'Settings' },
+        ].map(link => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/30 hover:bg-accent/50 transition-colors"
+          >
+            <span className="material-icons text-xl text-muted-foreground">{link.icon}</span>
+            <span className="text-sm font-medium text-foreground">{link.label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Recent entries */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="font-semibold text-foreground">Recent Entries</h2>
+          <Link
+            href={`/portal/websites/${site.id}/entries`}
+            className="text-xs text-primary hover:underline"
+          >
+            View all
+          </Link>
+        </div>
+        {recentPosts.length === 0 ? (
+          <div className="p-8 text-center">
+            <span className="material-icons text-4xl text-muted-foreground/30">article</span>
+            <p className="text-sm text-muted-foreground mt-2">No entries yet. Create your first page to get started.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {recentPosts.map(post => (
+              <Link
+                key={post.id}
+                href={`/portal/websites/${site.id}/posts/${post.id}/edit`}
+                className="flex items-center gap-4 px-5 py-3 hover:bg-accent/50 transition-colors"
+              >
+                <span className="material-icons text-base text-muted-foreground">
+                  {post.postType === 'blog' ? 'rss_feed' : 'description'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{post.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {post.postType} &middot; {new Date(post.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  post.published
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                }`}>
+                  {post.published ? 'Published' : 'Draft'}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Content type breakdown */}
+      {Object.keys(typeCounts).length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="font-semibold text-foreground">By Content Type</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {Object.entries(typeCounts).map(([type, cnt]) => {
+              const ct = contentTypes.find(t => t.slug === type);
+              return (
+                <Link
+                  key={type}
+                  href={`/portal/websites/${site.id}/entries?type=${type}`}
+                  className="flex items-center gap-4 px-5 py-3 hover:bg-accent/50 transition-colors"
+                >
+                  <span className="material-icons text-base text-muted-foreground">{ct?.icon || 'description'}</span>
+                  <span className="text-sm font-medium text-foreground flex-1">{ct?.name || type}</span>
+                  <span className="text-sm text-muted-foreground">{cnt}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
