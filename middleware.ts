@@ -53,7 +53,20 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     const slug = pathname === '/' ? '' : pathname;
     url.pathname = `/sites/${domain}${slug}`;
-    return NextResponse.rewrite(url);
+    const response = NextResponse.rewrite(url);
+    // Pass the resolved path so layouts can detect specific routes
+    response.headers.set('x-site-pathname', slug || '/');
+    return response;
+  }
+
+  // For the app's own hostname — set x-site-pathname for /sites/ routes
+  const { pathname } = req.nextUrl;
+  if (pathname.startsWith('/sites/')) {
+    const sitePath = pathname.replace(/^\/sites\/[^/]+/, '') || '/';
+    const response = NextResponse.next({
+      headers: { 'x-site-pathname': sitePath },
+    });
+    return response;
   }
 
   // For the app's own hostname, run the standard NextAuth middleware

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getClientWebsiteByDomain, getClientSiteNav } from '@/lib/actions/client-sites';
 import { getBrandingByWebsiteId } from '@/lib/branding';
 import Link from 'next/link';
@@ -48,6 +49,13 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   if (!site) {
     notFound();
+  }
+
+  // Bare layout for preview pages (nav-preview, etc.) — no site header/footer
+  const headersList = await headers();
+  const sitePathname = headersList.get('x-site-pathname') || '';
+  if (sitePathname.includes('/nav-preview')) {
+    return <>{children}</>;
   }
 
   const branding = await getBrandingByWebsiteId(site.id);

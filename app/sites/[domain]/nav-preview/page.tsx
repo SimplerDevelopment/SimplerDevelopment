@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 interface NavItem {
   id: number;
@@ -32,7 +31,6 @@ export default function NavPreviewPage() {
   const [branding, setBranding] = useState<Branding | null>(null);
 
   useEffect(() => {
-    // Signal ready to parent
     window.parent.postMessage({
       source: 'sd-editor-iframe',
       type: 'NAV_PREVIEW_READY',
@@ -71,16 +69,12 @@ export default function NavPreviewPage() {
         }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {branding?.logoUrl ? (
-              <img src={branding.logoUrl} alt={branding.logoAlt || ''} style={{ height: 36, objectFit: 'contain' }} />
-            ) : (
-              <div style={{ fontSize: 18, fontWeight: 700, color: textColor }}>Site Logo</div>
-            )}
-          </div>
+          {branding?.logoUrl ? (
+            <img src={branding.logoUrl} alt={branding.logoAlt || ''} style={{ height: 36, objectFit: 'contain' }} />
+          ) : (
+            <div style={{ fontSize: 18, fontWeight: 700, color: textColor }}>Site Logo</div>
+          )}
 
-          {/* Nav links */}
           <nav style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             {topItems.map(item => {
               if (item.isButton) {
@@ -106,13 +100,7 @@ export default function NavPreviewPage() {
                 <a
                   key={item.id}
                   href={item.href}
-                  style={{
-                    color: textColor,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    textDecoration: 'none',
-                    transition: 'color 0.2s',
-                  }}
+                  style={{ color: textColor, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
                 >
                   {item.label}
                 </a>
@@ -122,7 +110,6 @@ export default function NavPreviewPage() {
         </div>
       </header>
 
-      {/* Placeholder body */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '3rem 1rem' }}>
         <div style={{ backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 12, padding: '4rem 2rem', textAlign: 'center' }}>
           <p style={{ color: '#9ca3af', fontSize: 14 }}>Page content area</p>
