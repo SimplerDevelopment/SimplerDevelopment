@@ -3,8 +3,8 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Copy only package files first — this layer is cached unless deps change
-COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+COPY package.json package-lock.json .npmrc* ./
+RUN npm ci --legacy-peer-deps --force
 
 # ── Stage 2: Build the Next.js app ───────────────────────────────────────────
 FROM node:22-alpine AS builder
