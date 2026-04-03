@@ -37,7 +37,7 @@ const ORDER_VARIABLES: EmailTemplateVariable[] = [
   { key: 'itemsHtml', label: 'Items (HTML)', description: 'HTML table of order line items', sampleValue: '<table>...</table>' },
   { key: 'shippingAddress', label: 'Shipping Address', description: 'Formatted shipping address', sampleValue: '123 Main St, City, ST 12345' },
   { key: 'billingAddress', label: 'Billing Address', description: 'Formatted billing address', sampleValue: '123 Main St, City, ST 12345' },
-  { key: 'orderUrl', label: 'Order URL', description: 'Link to order status page', sampleValue: 'https://mystore.com/orders/ORD-0042' },
+  { key: 'orderUrl', label: 'Order URL', description: 'Link to order status page', sampleValue: 'https://mystore.com/sites/mystore.com/account/orders/ORD-0042' },
 ];
 
 const SHIPPING_VARIABLES: EmailTemplateVariable[] = [
@@ -111,7 +111,7 @@ export const EMAIL_EVENTS: EmailEventDefinition[] = [
     defaultSubject: 'Payment failed for order %%orderNumber%%',
     variables: [
       ...COMMON_VARIABLES, ...CUSTOMER_VARIABLES, ...ORDER_VARIABLES,
-      { key: 'retryUrl', label: 'Retry URL', description: 'Link to retry payment', sampleValue: 'https://mystore.com/checkout/retry' },
+      { key: 'retryUrl', label: 'Retry URL', description: 'Link to retry payment', sampleValue: 'https://mystore.com/sites/mystore.com/account/orders/ORD-0042' },
     ],
   },
   // Account
@@ -133,7 +133,7 @@ export const EMAIL_EVENTS: EmailEventDefinition[] = [
     defaultSubject: 'Reset your %%siteName%% password',
     variables: [
       ...COMMON_VARIABLES, ...CUSTOMER_VARIABLES,
-      { key: 'resetUrl', label: 'Reset URL', description: 'Password reset link', sampleValue: 'https://mystore.com/reset?token=abc123' },
+      { key: 'resetUrl', label: 'Reset URL', description: 'Password reset link', sampleValue: 'https://mystore.com/sites/mystore.com/account/reset-password?token=abc123' },
     ],
   },
   // Booking
@@ -149,7 +149,7 @@ export const EMAIL_EVENTS: EmailEventDefinition[] = [
       { key: 'bookingDate', label: 'Date', description: 'Booking date and time', sampleValue: 'April 5, 2026 at 2:00 PM' },
       { key: 'bookingService', label: 'Service', description: 'Service/appointment name', sampleValue: 'Consultation' },
       { key: 'bookingDuration', label: 'Duration', description: 'Appointment length', sampleValue: '30 minutes' },
-      { key: 'cancelUrl', label: 'Cancel URL', description: 'Link to cancel the booking', sampleValue: 'https://mystore.com/booking/cancel/abc' },
+      { key: 'cancelUrl', label: 'Cancel URL', description: 'Link to cancel the booking', sampleValue: 'https://mystore.com/book/cancel?token=abc123' },
     ],
   },
   {

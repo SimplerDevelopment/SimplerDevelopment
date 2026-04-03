@@ -27,6 +27,14 @@ interface SendTransactionalEmailOptions {
   fromName?: string;
 }
 
+/**
+ * Resolve storefront URLs for a website. Use this in API routes
+ * that need to build email links (order detail, password reset, etc.).
+ */
+export async function getWebsiteUrls(websiteId: number) {
+  return getWebsiteInfo(websiteId);
+}
+
 interface SendResult {
   success: boolean;
   messageId?: string;
@@ -99,7 +107,10 @@ async function loadBranding(websiteId: number, brandingProfileId?: number | null
 }
 
 /**
- * Get the website name for common variables.
+ * Get the website name and URLs for template variables.
+ *
+ * The customer storefront lives at /sites/[domain]/ so all email links
+ * (order detail, reset password, etc.) must use that path structure.
  */
 async function getWebsiteInfo(websiteId: number) {
   const [site] = await db.select({
@@ -111,15 +122,28 @@ async function getWebsiteInfo(websiteId: number) {
     .where(eq(clientWebsites.id, websiteId))
     .limit(1);
 
-  const siteUrl = site?.domain
-    ? `https://${site.domain}`
-    : site?.subdomain
-      ? `https://${site.subdomain}.simplerdevelopment.com`
-      : process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+  // The domain slug used in /sites/[domain] routes
+  const domainSlug = site?.domain || site?.subdomain || '';
+
+  // Public-facing site URL (for "Visit Store" type links)
+  const siteUrl = domainSlug
+    ? `${baseUrl}/sites/${domainSlug}`
+    : baseUrl;
 
   return {
     siteName: site?.name || 'Our Store',
     siteUrl,
+    /** Base URL for storefront account pages: /sites/[domain]/account */
+    accountUrl: `${siteUrl}/account`,
+    /** Build an order detail URL */
+    orderUrl: (orderNumber: string) => `${siteUrl}/account/orders/${orderNumber}`,
+    /** Build a password reset URL */
+    resetPasswordUrl: (token: string) => `${siteUrl}/account/reset-password?token=${token}`,
+    /** Build a booking cancel URL */
+    bookingCancelUrl: (token: string) => `${baseUrl}/book/cancel?token=${token}`,
+    /** Base URL for raw links */
+    baseUrl,
   };
 }
 

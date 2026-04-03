@@ -6,7 +6,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import {
-  sendTransactionalEmail, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
+  sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
 } from '@/lib/email/send-transactional';
 import { emitEvent } from '@/lib/automation/event-bus';
 
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       const nameParts = order.customerName.split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
-      const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+      const urls = await getWebsiteUrls(order.websiteId);
 
       sendTransactionalEmail({
         websiteId: order.websiteId,
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
           itemsHtml: buildItemsHtml(items),
           shippingAddress: formatAddress(order.shippingAddress),
           billingAddress: formatAddress(order.billingAddress),
-          orderUrl: `${baseUrl}/store/orders/${order.orderNumber}`,
+          orderUrl: urls.orderUrl(order.orderNumber),
         },
       }).catch(err => console.error('[webhook] order.confirmed email failed:', err));
 
@@ -183,7 +183,7 @@ export async function POST(req: Request) {
 
         if (failedOrder) {
           const nameParts = failedOrder.customerName.split(' ');
-          const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+          const failedUrls = await getWebsiteUrls(failedOrder.websiteId);
 
           sendTransactionalEmail({
             websiteId: failedOrder.websiteId,
@@ -206,8 +206,8 @@ export async function POST(req: Request) {
               itemsHtml: '',
               shippingAddress: formatAddress(failedOrder.shippingAddress),
               billingAddress: formatAddress(failedOrder.billingAddress),
-              orderUrl: `${baseUrl}/store/orders/${failedOrder.orderNumber}`,
-              retryUrl: `${baseUrl}/store/checkout/retry?order=${failedOrder.orderNumber}`,
+              orderUrl: failedUrls.orderUrl(failedOrder.orderNumber),
+              retryUrl: failedUrls.orderUrl(failedOrder.orderNumber),
             },
           }).catch(err => console.error('[webhook] payment.failed email failed:', err));
         }
@@ -243,7 +243,7 @@ export async function POST(req: Request) {
           });
 
           const nameParts = refundedOrder.customerName.split(' ');
-          const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+          const refundUrls = await getWebsiteUrls(refundedOrder.websiteId);
 
           sendTransactionalEmail({
             websiteId: refundedOrder.websiteId,
@@ -266,7 +266,7 @@ export async function POST(req: Request) {
               itemsHtml: '',
               shippingAddress: formatAddress(refundedOrder.shippingAddress),
               billingAddress: formatAddress(refundedOrder.billingAddress),
-              orderUrl: `${baseUrl}/store/orders/${refundedOrder.orderNumber}`,
+              orderUrl: refundUrls.orderUrl(refundedOrder.orderNumber),
               refundAmount: formatCents(charge.amount_refunded),
             },
           }).catch(err => console.error('[webhook] order.refunded email failed:', err));

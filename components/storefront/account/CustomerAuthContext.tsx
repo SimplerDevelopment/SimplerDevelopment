@@ -14,6 +14,7 @@ interface Customer {
 }
 
 interface CustomerAuthState {
+  siteId: number;
   customer: Customer | null;
   loading: boolean;
   token: string | null;
@@ -104,7 +105,7 @@ export function CustomerAuthProvider({ siteId, children }: { siteId: number; chi
   };
 
   return (
-    <CustomerAuthContext.Provider value={{ customer, loading, token, login, register, logout, refreshCustomer }}>
+    <CustomerAuthContext.Provider value={{ siteId, customer, loading, token, login, register, logout, refreshCustomer }}>
       {children}
     </CustomerAuthContext.Provider>
   );

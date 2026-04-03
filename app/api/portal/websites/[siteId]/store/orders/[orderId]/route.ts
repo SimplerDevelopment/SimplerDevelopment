@@ -5,7 +5,7 @@ import { orders, orderItems, orderStatusHistory } from '@/lib/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import {
-  sendTransactionalEmail, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
+  sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
 } from '@/lib/email/send-transactional';
 import { emitEvent } from '@/lib/automation/event-bus';
 
@@ -90,7 +90,7 @@ export async function PUT(req: Request, { params }: Params) {
     const nameParts = order.customerName.split(' ');
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
-    const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+    const orderUrls = await getWebsiteUrls(order.websiteId);
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
 
     const commonVars: Record<string, string> = {
@@ -109,7 +109,7 @@ export async function PUT(req: Request, { params }: Params) {
       itemsHtml: buildItemsHtml(items),
       shippingAddress: formatAddress(order.shippingAddress),
       billingAddress: formatAddress(order.billingAddress),
-      orderUrl: `${baseUrl}/store/orders/${order.orderNumber}`,
+      orderUrl: orderUrls.orderUrl(order.orderNumber),
     };
 
     const statusEmailMap: Record<string, { event: string; fromName: string; extraVars?: Record<string, string> }> = {
