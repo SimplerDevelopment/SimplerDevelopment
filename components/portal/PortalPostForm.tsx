@@ -46,6 +46,7 @@ interface PortalPostFormProps {
   post?: Post;
   mode: 'create' | 'edit';
   siteUrl?: string | null;
+  publicUrl?: string | null;
   siteDomain?: string;
 }
 
@@ -136,7 +137,7 @@ function createDefaultBlock(type: string, order: number): Block {
   }
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, siteDomain }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -513,7 +514,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, siteDomain
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           backHref={`/portal/websites/${siteId}`}
-          liveUrl={effectiveSiteUrl && post?.slug ? `${effectiveSiteUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
+          liveUrl={publicUrl && post?.slug ? `${publicUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls

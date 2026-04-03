@@ -41,10 +41,17 @@ export default async function PortalNewPostPage({
         ? `https://${fullDomain}`
         : null;
 
+  const publicUrl = site.domain
+    ? `https://${site.domain}`
+    : fullDomain
+      ? `https://${fullDomain}`
+      : null;
+
   return (
     <PortalPostForm
       siteId={site.id}
       mode="create"
+      publicUrl={publicUrl}
       siteUrl={siteUrl}
       siteDomain={site.domain || subdomain || undefined}
     />

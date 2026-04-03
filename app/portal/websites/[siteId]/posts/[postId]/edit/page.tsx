@@ -55,11 +55,19 @@ export default async function PortalEditPostPage({
         ? `https://${fullDomain}`
         : null;
 
+  // Public URL always points to the actual subdomain (for "View Live" link)
+  const publicUrl = site.domain
+    ? `https://${site.domain}`
+    : fullDomain
+      ? `https://${fullDomain}`
+      : null;
+
   return (
     <PortalPostForm
       siteId={site.id}
       mode="edit"
       siteUrl={siteUrl}
+      publicUrl={publicUrl}
       siteDomain={site.domain || subdomain || undefined}
       post={{
         id: post.id,
