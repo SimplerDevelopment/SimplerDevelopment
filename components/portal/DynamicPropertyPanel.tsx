@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { PropSchema } from '@/types/visual-editor';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
 
 interface DynamicPropertyPanelProps {
   inputs: PropSchema[];
@@ -56,15 +57,17 @@ function PropertyField({
 
     case 'richtext':
       return (
-        <label className="block">
+        <div className="block">
           <span className="text-sm font-medium text-foreground">{schema.label}</span>
-          <textarea
-            value={(value as string) || ''}
-            onChange={(e) => onChange(e.target.value)}
-            rows={4}
-            className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-          />
-        </label>
+          <div className="mt-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus-within:border-primary focus-within:ring-1 focus-within:ring-primary min-h-[4rem]">
+            <RichTextEditable
+              html={(value as string) || ''}
+              onChange={(html) => onChange(html)}
+              placeholder={schema.label}
+              className="outline-none min-h-[2em]"
+            />
+          </div>
+        </div>
       );
 
     case 'number':

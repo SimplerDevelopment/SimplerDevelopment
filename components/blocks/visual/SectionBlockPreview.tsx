@@ -264,6 +264,10 @@ function createDefaultBlock(type: BlockType): Block {
       return { ...base, type: 'stats', stats: [], columns: 3 };
     case 'card-grid':
       return { ...base, type: 'card-grid', title: 'Features', cards: [], columns: 3 };
+    case 'booking':
+      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
+    case 'survey':
+      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
     default:
       return { ...base, type: 'text', content: 'Block', alignment: 'left', size: 'base' };
   }

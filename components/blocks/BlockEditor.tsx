@@ -263,6 +263,10 @@ function createDefaultBlock(type: BlockType, order: number): Block {
       return { ...base, type: 'testimonial', quote: 'Great experience!', author: 'John Doe' };
     case 'blog-posts':
       return { ...base, type: 'blog-posts', title: 'Recent Posts', limit: 3, columns: 3, showExcerpt: true };
+    case 'booking':
+      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
+    case 'survey':
+      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
     default:
       return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
   }

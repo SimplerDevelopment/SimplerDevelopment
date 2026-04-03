@@ -11,6 +11,8 @@ import {
   createPasswordResetToken,
   resetPassword,
 } from '@/lib/storefront/customer-auth';
+import { sendTransactionalEmail } from '@/lib/email/send-transactional';
+import { emitEvent } from '@/lib/automation/event-bus';
 
 async function getSiteId(siteIdParam: string) {
   const id = parseInt(siteIdParam);
@@ -65,6 +67,29 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
       }
 
       const { customer, token } = await registerCustomer(websiteId, email, password, firstName, lastName);
+
+      // Send welcome email
+      sendTransactionalEmail({
+        websiteId,
+        event: 'account.welcome',
+        to: customer.email,
+        fromName: 'Welcome',
+        variables: {
+          firstName: customer.firstName || '',
+          lastName: customer.lastName || '',
+          fullName: [customer.firstName, customer.lastName].filter(Boolean).join(' ') || customer.email,
+          email: customer.email,
+        },
+      }).catch(err => console.error('[auth] account.welcome email failed:', err));
+
+      // Emit automation event
+      emitEvent('crm.contact.created', websiteId, 0, {
+        customerId: customer.id,
+        email: customer.email,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        source: 'storefront_registration',
+      });
 
       return NextResponse.json({
         success: true,
@@ -151,7 +176,44 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ sit
       if (!email) return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
 
       // Always return success (don't reveal if email exists)
-      await createPasswordResetToken(websiteId, email);
+      const resetToken = await createPasswordResetToken(websiteId, email);
+
+      if (resetToken) {
+        // Look up customer for name
+        const [cust] = await db.select({
+          firstName: storeCustomers.firstName,
+          lastName: storeCustomers.lastName,
+        }).from(storeCustomers)
+          .where(and(
+            eq(storeCustomers.websiteId, websiteId),
+            eq(storeCustomers.email, email.toLowerCase().trim()),
+          ))
+          .limit(1);
+
+        // Get website domain for reset URL
+        const [site] = await db.select({ domain: clientWebsites.domain, subdomain: clientWebsites.subdomain })
+          .from(clientWebsites).where(eq(clientWebsites.id, websiteId)).limit(1);
+        const baseUrl = site?.domain
+          ? `https://${site.domain}`
+          : site?.subdomain
+            ? `https://${site.subdomain}.simplerdevelopment.com`
+            : process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+
+        sendTransactionalEmail({
+          websiteId,
+          event: 'account.password_reset',
+          to: email,
+          fromName: 'Password Reset',
+          variables: {
+            firstName: cust?.firstName || '',
+            lastName: cust?.lastName || '',
+            fullName: [cust?.firstName, cust?.lastName].filter(Boolean).join(' ') || email,
+            email,
+            resetUrl: `${baseUrl}/store/reset-password?token=${resetToken}`,
+          },
+        }).catch(err => console.error('[auth] account.password_reset email failed:', err));
+      }
+
       return NextResponse.json({ success: true, message: 'If an account exists with that email, a reset link has been sent.' });
     }
 

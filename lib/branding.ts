@@ -12,7 +12,7 @@
  */
 
 import { db } from '@/lib/db';
-import { siteBranding, clientWebsites, brandingProfiles } from '@/lib/db/schema';
+import { siteBranding, clientWebsites, brandingProfiles, bookingPages, surveys } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -186,6 +186,50 @@ export async function getBrandingByClientId(clientId: number): Promise<ResolvedB
 
   const branding = await getBrandingByWebsiteId(site.id);
   return { ...branding, websiteId: site.id };
+}
+
+/** Load branding for a booking page. Prefers assigned profile, falls back to client default. */
+export async function getBrandingByBookingPageSlug(slug: string): Promise<ResolvedBranding | null> {
+  const [page] = await db
+    .select({
+      brandingProfileId: bookingPages.brandingProfileId,
+      clientId: bookingPages.clientId,
+      color: bookingPages.color,
+    })
+    .from(bookingPages)
+    .where(eq(bookingPages.slug, slug))
+    .limit(1);
+
+  if (!page) return null;
+  if (page.brandingProfileId) return getBrandingByProfileId(page.brandingProfileId);
+  // Fall back to client default profile
+  const clientBranding = await getBrandingByClientId(page.clientId);
+  // If no profile exists at all, use the page's color field as primary
+  if (clientBranding.primaryColor === DEFAULTS.primaryColor && page.color && page.color !== DEFAULTS.primaryColor) {
+    return { ...clientBranding, primaryColor: page.color };
+  }
+  return clientBranding;
+}
+
+/** Load branding for a survey. Prefers assigned profile, falls back to client default. */
+export async function getBrandingBySurveySlug(slug: string): Promise<ResolvedBranding | null> {
+  const [survey] = await db
+    .select({
+      brandingProfileId: surveys.brandingProfileId,
+      clientId: surveys.clientId,
+      color: surveys.color,
+    })
+    .from(surveys)
+    .where(eq(surveys.slug, slug))
+    .limit(1);
+
+  if (!survey) return null;
+  if (survey.brandingProfileId) return getBrandingByProfileId(survey.brandingProfileId);
+  const clientBranding = await getBrandingByClientId(survey.clientId);
+  if (clientBranding.primaryColor === DEFAULTS.primaryColor && survey.color && survey.color !== DEFAULTS.primaryColor) {
+    return { ...clientBranding, primaryColor: survey.color };
+  }
+  return clientBranding;
 }
 
 /** List all branding profiles for a client (for dropdown selectors). */

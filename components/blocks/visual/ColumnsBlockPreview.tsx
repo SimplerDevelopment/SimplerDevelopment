@@ -1019,6 +1019,10 @@ function createDefaultBlock(type: BlockType): Block {
       return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
     case 'blog-posts':
       return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
+    case 'booking':
+      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
+    case 'survey':
+      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
     default:
       return { ...base, type: 'text', content: 'Block', alignment: 'left', size: 'base' };
   }

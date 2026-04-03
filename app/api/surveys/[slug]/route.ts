@@ -4,6 +4,7 @@ import { surveys, surveyResponses } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
+import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
 
 // Public GET — fetch survey for rendering
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -33,7 +34,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   if (survey.closesAt && new Date(survey.closesAt) < new Date()) return NextResponse.json({ success: false, message: 'Survey is closed' }, { status: 403 });
   if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return NextResponse.json({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
-  return NextResponse.json({ success: true, data: survey });
+  const branding = await getBrandingBySurveySlug(slug);
+  const cssVars = branding ? brandingToCssVars(branding) : undefined;
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      ...survey,
+      branding: branding ? {
+        primaryColor: branding.primaryColor,
+        secondaryColor: branding.secondaryColor,
+        accentColor: branding.accentColor,
+        backgroundColor: branding.backgroundColor,
+        textColor: branding.textColor,
+        headingFont: branding.headingFont,
+        bodyFont: branding.bodyFont,
+        logoUrl: branding.logoUrl || branding.logoRectUrl,
+        borderRadius: branding.borderRadius,
+        buttonStyle: branding.buttonStyle,
+      } : null,
+      cssVars,
+    },
+  });
 }
 
 // Public POST — submit a response

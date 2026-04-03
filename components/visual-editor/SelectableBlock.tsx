@@ -585,18 +585,18 @@ function EditableContent({
       editable.style.cursor = 'text';
 
       const fieldName = editable.getAttribute('data-editable-field');
-      const originalText = editable.textContent || '';
+      const originalHtml = editable.innerHTML || '';
 
       const handleBlur = () => {
-        const newText = editable.textContent || '';
-        if (newText === originalText) return;
+        const newHtml = editable.innerHTML || '';
+        if (newHtml === originalHtml) return;
 
         if (fieldName) {
-          // Specific field update
+          // Specific field update — send HTML to preserve formatting
           sendToParent(IFRAME_MESSAGES.BLOCK_CONTENT_UPDATED, {
             blockId,
             field: fieldName,
-            value: newText,
+            value: newHtml,
           });
         } else {
           // Heuristic: guess the field from the element tag
@@ -610,10 +610,28 @@ function EditableContent({
             sendToParent(IFRAME_MESSAGES.BLOCK_CONTENT_UPDATED, {
               blockId,
               field: guessedField,
-              value: newText,
+              value: newHtml,
             });
           }
         }
+      };
+
+      // Live sync on input so the sidebar panel updates as you type
+      let inputTimer: ReturnType<typeof setTimeout> | null = null;
+      const handleInput = () => {
+        if (inputTimer) clearTimeout(inputTimer);
+        inputTimer = setTimeout(() => {
+          const html = editable.innerHTML || '';
+          const field = fieldName || (() => {
+            const tag = editable.tagName.toLowerCase();
+            if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(tag)) return 'content';
+            if (tag === 'blockquote') return 'quote';
+            return null;
+          })();
+          if (field) {
+            sendToParent(IFRAME_MESSAGES.BLOCK_CONTENT_UPDATED, { blockId, field, value: html });
+          }
+        }, 300);
       };
 
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -626,11 +644,14 @@ function EditableContent({
       };
 
       editable.addEventListener('blur', handleBlur);
+      editable.addEventListener('input', handleInput);
       editable.addEventListener('keydown', handleKeyDown);
       cleanups.push(() => {
+        if (inputTimer) clearTimeout(inputTimer);
         editable.contentEditable = 'false';
         editable.style.cursor = '';
         editable.removeEventListener('blur', handleBlur);
+        editable.removeEventListener('input', handleInput);
         editable.removeEventListener('keydown', handleKeyDown);
       });
     }

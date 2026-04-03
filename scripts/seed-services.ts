@@ -270,6 +270,26 @@ async function seedServices() {
         surveyFields: [],
       },
       {
+        name: 'Surveys',
+        slug: 'surveys',
+        description: 'Create and distribute surveys to collect feedback, measure satisfaction, and qualify leads. Multi-page forms with conditional logic, branching, custom branding, and response analytics.',
+        category: 'surveys',
+        price: 1500,
+        billingCycle: 'monthly',
+        active: true,
+        includedAiCredits: 25000,
+        features: [
+          'Unlimited surveys',
+          'Multi-page forms with logic branching',
+          '15 field types (rating, slider, etc.)',
+          'Custom branding & colors',
+          'Response analytics & CSV export',
+          'Embeddable forms',
+          '25K AI tokens/mo',
+        ],
+        surveyFields: [],
+      },
+      {
         name: 'Hosting & DNS',
         slug: 'hosting-dns',
         description: 'Managed hosting and DNS for your websites. We handle server configuration, SSL certificates, CDN, backups, and DNS management so you can focus on your business.',
@@ -308,7 +328,7 @@ async function seedServices() {
       {
         name: 'All-In-One',
         slug: 'all-in-one',
-        description: 'Get every SimplerDevelopment tool in one package at 29% off. Includes websites, email marketing, booking, project management, AI chat bot, pitch decks, and hosting — all with pooled AI credits and generous usage limits.',
+        description: 'Get every SimplerDevelopment tool in one package at 29% off. Includes websites, email marketing, booking, surveys, project management, AI chat bot, pitch decks, and hosting — all with pooled AI credits and generous usage limits.',
         category: 'bundle',
         price: 14900,
         billingCycle: 'monthly',
@@ -320,10 +340,11 @@ async function seedServices() {
           hostingBandwidthGb: 500,
         },
         features: [
-          'All 7 services included',
+          'All 8 services included',
           'Websites & CMS',
           'Email Marketing (25K sends/mo)',
           'Booking System',
+          'Surveys',
           'Project Management',
           'AI Chat Bot',
           'Pitch Deck Generator',
@@ -342,6 +363,7 @@ async function seedServices() {
     console.log('   Project Management $39/mo  (50K AI tokens)');
     console.log('   Chat Bot           $49/mo  (500K AI tokens)');
     console.log('   Pitch Decks        $15/mo  (200K AI tokens)');
+    console.log('   Surveys            $15/mo  (25K AI tokens)');
     console.log('   Hosting & DNS      $19/mo  (no AI tokens)');
     console.log('   All-In-One         $149/mo (900K AI tokens, all services)');
 

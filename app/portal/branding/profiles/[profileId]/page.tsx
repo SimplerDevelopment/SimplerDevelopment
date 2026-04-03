@@ -143,7 +143,10 @@ export default function BrandingProfileEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography' | 'style'>('logos');
+  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography' | 'buttons' | 'style'>('logos');
+  const [brandDescription, setBrandDescription] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
 
   useEffect(() => {
     fetch(`/api/portal/branding/profiles/${profileId}`)
@@ -168,6 +171,40 @@ export default function BrandingProfileEditorPage() {
   const updateButtonStyle = (updates: Partial<ButtonStyle>) => {
     if (!profile) return;
     update({ buttonStyle: { ...(profile.buttonStyle || {}), ...updates } });
+  };
+
+  const generateFromDescription = async () => {
+    if (!brandDescription.trim() || !profile) return;
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/portal/branding/generate-theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: brandDescription.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const t = data.data;
+        update({
+          primaryColor: t.primaryColor || profile.primaryColor,
+          secondaryColor: t.secondaryColor || profile.secondaryColor,
+          accentColor: t.accentColor || profile.accentColor,
+          backgroundColor: t.backgroundColor || profile.backgroundColor,
+          textColor: t.textColor || profile.textColor,
+          navBackground: t.navBackground || profile.navBackground,
+          navTextColor: t.navTextColor || profile.navTextColor,
+          headingFont: t.headingFont || profile.headingFont,
+          bodyFont: t.bodyFont || profile.bodyFont,
+          borderRadius: t.borderRadius || profile.borderRadius,
+          linkColor: t.linkColor || profile.linkColor,
+          linkHoverColor: t.linkHoverColor || profile.linkHoverColor,
+          buttonStyle: t.buttonStyle || profile.buttonStyle,
+          darkMode: t.darkMode || profile.darkMode,
+        });
+        setShowAiGenerator(false);
+      }
+    } catch { /* ignore */ }
+    finally { setGenerating(false); }
   };
 
   const save = useCallback(async () => {
@@ -234,6 +271,7 @@ export default function BrandingProfileEditorPage() {
     { id: 'logos' as const, label: 'Logos', icon: 'image' },
     { id: 'colors' as const, label: 'Colors', icon: 'palette' },
     { id: 'typography' as const, label: 'Typography', icon: 'text_fields' },
+    { id: 'buttons' as const, label: 'Buttons', icon: 'smart_button' },
     { id: 'style' as const, label: 'Style', icon: 'tune' },
   ];
 
@@ -279,6 +317,50 @@ export default function BrandingProfileEditorPage() {
           <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
+      </div>
+
+      {/* AI Brand Generator */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <button
+          onClick={() => setShowAiGenerator(!showAiGenerator)}
+          className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
+        >
+          <span className="material-icons text-base text-primary">auto_awesome</span>
+          Describe your brand
+          <span className="material-icons text-sm text-muted-foreground ml-auto transition-transform" style={{ transform: showAiGenerator ? 'rotate(180deg)' : undefined }}>
+            expand_more
+          </span>
+        </button>
+        {showAiGenerator && (
+          <div className="px-4 pb-4 space-y-3 border-t border-border">
+            <p className="text-xs text-muted-foreground pt-3">
+              Describe your brand personality, audience, and vibe. AI will generate matching colors, fonts, and styles.
+            </p>
+            <textarea
+              value={brandDescription}
+              onChange={(e) => setBrandDescription(e.target.value)}
+              placeholder={"e.g. \"Modern fintech startup targeting millennials, bold and energetic\" or \"Luxury real estate agency, sophisticated and minimal\""}
+              className={`${inputClass} h-20 resize-none`}
+              disabled={generating}
+            />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={generateFromDescription}
+                disabled={generating || !brandDescription.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {generating ? (
+                  <><span className="material-icons animate-spin text-base">autorenew</span>Generating...</>
+                ) : (
+                  <><span className="material-icons text-base">auto_awesome</span>Generate Theme</>
+                )}
+              </button>
+              <span className="text-xs text-muted-foreground">
+                This will update colors, fonts, border radius, button styles, and dark mode.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -561,6 +643,59 @@ export default function BrandingProfileEditorPage() {
             </div>
           </div>
         </div>
+
+        {/* Link Colors */}
+        <div className="mt-6 pt-6 border-t border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">link</span>
+            Link Colors
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">Colors for inline text links. Separate from primary color for accessibility.</p>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>Link Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.linkColor || profile.primaryColor}
+                  onChange={(e) => update({ linkColor: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.linkColor ?? ''}
+                  onChange={(e) => update({ linkColor: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.primaryColor}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Link Hover Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.linkHoverColor || profile.primaryColor}
+                  onChange={(e) => update({ linkHoverColor: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.linkHoverColor ?? ''}
+                  onChange={(e) => update({ linkHoverColor: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.primaryColor}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border text-sm">
+            <span style={{ color: profile.linkColor || profile.primaryColor, textDecoration: 'underline', cursor: 'pointer' }}>
+              This is what a link looks like
+            </span>
+            {' '}within body text.
+          </div>
+        </div>
       </div>
       )}
 
@@ -695,6 +830,268 @@ export default function BrandingProfileEditorPage() {
       </div>
       )}
 
+      {/* Buttons */}
+      {activeTab === 'buttons' && (
+      <div className="space-y-8">
+        {/* Variant & Border Radius */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">smart_button</span>
+            Button Style
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">Default styling for buttons and CTAs across blocks.</p>
+
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className={labelClass}>Default Variant</label>
+              <div className="flex gap-2">
+                {(['filled', 'outline'] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => updateButtonStyle({ variant: v })}
+                    className={`px-4 py-2 text-sm font-medium border transition-colors capitalize ${
+                      (profile.buttonStyle?.variant || 'filled') === v
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border text-muted-foreground hover:border-foreground'
+                    }`}
+                    style={{ borderRadius: profile.buttonStyle?.borderRadius || '8px' }}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Button Border Radius</label>
+              <input
+                type="text"
+                value={profile.buttonStyle?.borderRadius || ''}
+                onChange={(e) => updateButtonStyle({ borderRadius: e.target.value })}
+                className={`${inputClass} max-w-[200px]`}
+                placeholder="8px"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">Independent from site border radius.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            {[
+              { value: '0px', label: 'Sharp' },
+              { value: '4px', label: 'Subtle' },
+              { value: '8px', label: 'Rounded' },
+              { value: '9999px', label: 'Pill' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => updateButtonStyle({ borderRadius: opt.value })}
+                className={`p-3 border text-sm font-medium transition-colors ${
+                  (profile.buttonStyle?.borderRadius || '') === opt.value
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border text-muted-foreground hover:border-foreground'
+                }`}
+                style={{ borderRadius: '8px' }}
+              >
+                <div
+                  className="w-full h-8 mb-2"
+                  style={{
+                    borderRadius: opt.value,
+                    backgroundColor: profile.buttonStyle?.primaryBg || profile.primaryColor,
+                  }}
+                />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Button Colors */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Primary Button */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Primary Button</h3>
+            <div>
+              <label className={labelClass}>Background</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.primaryBg || profile.primaryColor}
+                  onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.primaryBg || ''}
+                  onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.primaryColor}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Text Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.primaryText || '#ffffff'}
+                  onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.primaryText || ''}
+                  onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder="#ffffff"
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Hover Background</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.primaryHoverBg || profile.primaryColor}
+                  onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.primaryHoverBg || ''}
+                  onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.primaryColor}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary Button */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Secondary Button</h3>
+            <div>
+              <label className={labelClass}>Background</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.secondaryBg || profile.secondaryColor}
+                  onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.secondaryBg || ''}
+                  onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.secondaryColor}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Text Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.secondaryText || '#ffffff'}
+                  onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.secondaryText || ''}
+                  onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder="#ffffff"
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Hover Background</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={profile.buttonStyle?.secondaryHoverBg || profile.secondaryColor}
+                  onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
+                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
+                />
+                <input
+                  type="text"
+                  value={profile.buttonStyle?.secondaryHoverBg || ''}
+                  onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder={profile.secondaryColor}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Button Previews */}
+        <div>
+          <label className={labelClass}>Preview</label>
+          <div className="p-6 rounded-lg bg-muted/30 border border-border flex flex-wrap gap-4 items-center">
+            {/* Primary Filled */}
+            <button
+              className="px-5 py-2.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: (profile.buttonStyle?.variant || 'filled') === 'filled'
+                  ? (profile.buttonStyle?.primaryBg || profile.primaryColor)
+                  : 'transparent',
+                color: (profile.buttonStyle?.variant || 'filled') === 'filled'
+                  ? (profile.buttonStyle?.primaryText || '#ffffff')
+                  : (profile.buttonStyle?.primaryBg || profile.primaryColor),
+                borderRadius: profile.buttonStyle?.borderRadius || '8px',
+                border: (profile.buttonStyle?.variant || 'filled') === 'outline'
+                  ? `2px solid ${profile.buttonStyle?.primaryBg || profile.primaryColor}`
+                  : '2px solid transparent',
+              }}
+            >
+              Primary Button
+            </button>
+            {/* Secondary */}
+            <button
+              className="px-5 py-2.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: (profile.buttonStyle?.variant || 'filled') === 'filled'
+                  ? (profile.buttonStyle?.secondaryBg || profile.secondaryColor)
+                  : 'transparent',
+                color: (profile.buttonStyle?.variant || 'filled') === 'filled'
+                  ? (profile.buttonStyle?.secondaryText || '#ffffff')
+                  : (profile.buttonStyle?.secondaryBg || profile.secondaryColor),
+                borderRadius: profile.buttonStyle?.borderRadius || '8px',
+                border: (profile.buttonStyle?.variant || 'filled') === 'outline'
+                  ? `2px solid ${profile.buttonStyle?.secondaryBg || profile.secondaryColor}`
+                  : '2px solid transparent',
+              }}
+            >
+              Secondary Button
+            </button>
+            {/* Show opposite variant preview too */}
+            <span className="text-xs text-muted-foreground mx-2">|</span>
+            <span className="text-[11px] text-muted-foreground">
+              {(profile.buttonStyle?.variant || 'filled') === 'filled' ? 'Outline' : 'Filled'} variant:
+            </span>
+            <button
+              className="px-5 py-2.5 text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: (profile.buttonStyle?.variant || 'filled') !== 'filled'
+                  ? (profile.buttonStyle?.primaryBg || profile.primaryColor)
+                  : 'transparent',
+                color: (profile.buttonStyle?.variant || 'filled') !== 'filled'
+                  ? (profile.buttonStyle?.primaryText || '#ffffff')
+                  : (profile.buttonStyle?.primaryBg || profile.primaryColor),
+                borderRadius: profile.buttonStyle?.borderRadius || '8px',
+                border: (profile.buttonStyle?.variant || 'filled') === 'filled'
+                  ? `2px solid ${profile.buttonStyle?.primaryBg || profile.primaryColor}`
+                  : '2px solid transparent',
+              }}
+            >
+              Primary Button
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
+
       {/* Style */}
       {activeTab === 'style' && (
       <div className="space-y-8">
@@ -704,7 +1101,7 @@ export default function BrandingProfileEditorPage() {
             <span className="material-icons text-base">rounded_corner</span>
             Border Radius
           </h2>
-          <p className="text-sm text-muted-foreground mb-4">Global shape language applied to buttons, cards, and UI elements.</p>
+          <p className="text-sm text-muted-foreground mb-4">Global shape language applied to cards, inputs, and UI elements. Button radius is configured separately.</p>
           <div className="grid grid-cols-4 gap-3">
             {[
               { value: '0px', label: 'Sharp' },
@@ -739,247 +1136,6 @@ export default function BrandingProfileEditorPage() {
               className={`${inputClass} max-w-[200px]`}
               placeholder="8px"
             />
-          </div>
-        </div>
-
-        {/* Link Colors */}
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
-            <span className="material-icons text-base">link</span>
-            Link Colors
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">Colors for inline text links. Separate from primary color for accessibility.</p>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className={labelClass}>Link Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={profile.linkColor || profile.primaryColor}
-                  onChange={(e) => update({ linkColor: e.target.value })}
-                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                />
-                <input
-                  type="text"
-                  value={profile.linkColor ?? ''}
-                  onChange={(e) => update({ linkColor: e.target.value })}
-                  className={`${inputClass} font-mono`}
-                  placeholder={profile.primaryColor}
-                />
-              </div>
-            </div>
-            <div>
-              <label className={labelClass}>Link Hover Color</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={profile.linkHoverColor || profile.primaryColor}
-                  onChange={(e) => update({ linkHoverColor: e.target.value })}
-                  className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                />
-                <input
-                  type="text"
-                  value={profile.linkHoverColor ?? ''}
-                  onChange={(e) => update({ linkHoverColor: e.target.value })}
-                  className={`${inputClass} font-mono`}
-                  placeholder={profile.primaryColor}
-                />
-              </div>
-            </div>
-          </div>
-          {/* Preview */}
-          <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-border text-sm">
-            <span style={{ color: profile.linkColor || profile.primaryColor, textDecoration: 'underline', cursor: 'pointer' }}>
-              This is what a link looks like
-            </span>
-            {' '}within body text.
-          </div>
-        </div>
-
-        {/* Button Style */}
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
-            <span className="material-icons text-base">smart_button</span>
-            Button Style
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">Default styling for buttons and CTAs across blocks.</p>
-
-          <div className="mb-4">
-            <label className={labelClass}>Default Variant</label>
-            <div className="flex gap-2">
-              {(['filled', 'outline'] as const).map(v => (
-                <button
-                  key={v}
-                  onClick={() => updateButtonStyle({ variant: v })}
-                  className={`px-4 py-2 text-sm font-medium border transition-colors capitalize ${
-                    (profile.buttonStyle?.variant || 'filled') === v
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border text-muted-foreground hover:border-foreground'
-                  }`}
-                  style={{ borderRadius: profile.buttonStyle?.borderRadius || profile.borderRadius }}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className={labelClass}>Button Border Radius</label>
-            <input
-              type="text"
-              value={profile.buttonStyle?.borderRadius || ''}
-              onChange={(e) => updateButtonStyle({ borderRadius: e.target.value })}
-              className={`${inputClass} max-w-[200px]`}
-              placeholder={profile.borderRadius || '8px'}
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">Leave empty to inherit global border radius.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            {/* Primary Button */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Primary Button</h3>
-              <div>
-                <label className={labelClass}>Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.primaryBg || profile.primaryColor}
-                    onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.primaryBg || ''}
-                    onChange={(e) => updateButtonStyle({ primaryBg: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder={profile.primaryColor}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.primaryText || '#ffffff'}
-                    onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.primaryText || ''}
-                    onChange={(e) => updateButtonStyle({ primaryText: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder="#ffffff"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Hover Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.primaryHoverBg || profile.primaryColor}
-                    onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.primaryHoverBg || ''}
-                    onChange={(e) => updateButtonStyle({ primaryHoverBg: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder={profile.primaryColor}
-                  />
-                </div>
-              </div>
-              {/* Preview */}
-              <div className="pt-2">
-                <button
-                  className="px-4 py-2 text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: profile.buttonStyle?.primaryBg || profile.primaryColor,
-                    color: profile.buttonStyle?.primaryText || '#ffffff',
-                    borderRadius: profile.buttonStyle?.borderRadius || profile.borderRadius,
-                  }}
-                >
-                  Primary Button
-                </button>
-              </div>
-            </div>
-
-            {/* Secondary Button */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Secondary Button</h3>
-              <div>
-                <label className={labelClass}>Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.secondaryBg || profile.secondaryColor}
-                    onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.secondaryBg || ''}
-                    onChange={(e) => updateButtonStyle({ secondaryBg: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder={profile.secondaryColor}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Text Color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.secondaryText || '#ffffff'}
-                    onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.secondaryText || ''}
-                    onChange={(e) => updateButtonStyle({ secondaryText: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder="#ffffff"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Hover Background</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={profile.buttonStyle?.secondaryHoverBg || profile.secondaryColor}
-                    onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
-                    className="h-9 w-9 cursor-pointer rounded border border-border shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={profile.buttonStyle?.secondaryHoverBg || ''}
-                    onChange={(e) => updateButtonStyle({ secondaryHoverBg: e.target.value })}
-                    className={`${inputClass} font-mono`}
-                    placeholder={profile.secondaryColor}
-                  />
-                </div>
-              </div>
-              {/* Preview */}
-              <div className="pt-2">
-                <button
-                  className="px-4 py-2 text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: profile.buttonStyle?.secondaryBg || profile.secondaryColor,
-                    color: profile.buttonStyle?.secondaryText || '#ffffff',
-                    borderRadius: profile.buttonStyle?.borderRadius || profile.borderRadius,
-                  }}
-                >
-                  Secondary Button
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 

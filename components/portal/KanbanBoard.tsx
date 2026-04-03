@@ -193,6 +193,10 @@ function KanbanColumn({
   onCardOpen,
   allColumns,
   onMoveToColumn,
+  onMoveColumn,
+  onDeleteColumn,
+  isFirst,
+  isLast,
 }: {
   column: Column;
   isStaff: boolean;
@@ -205,22 +209,59 @@ function KanbanColumn({
   onCardOpen: (cardId: number) => void;
   allColumns: { id: number; name: string; color: string | null }[];
   onMoveToColumn: (cardId: number, columnId: number) => void;
+  onMoveColumn: (columnId: number, direction: 'left' | 'right') => void;
+  onDeleteColumn: (columnId: number) => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const cardIds = column.cards.map(c => `card-${c.id}`);
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `col-${column.id}` });
+  const isEmpty = column.cards.length === 0;
 
   return (
-    <div className="flex-shrink-0 w-72 flex flex-col bg-muted/40 rounded-xl border border-border">
+    <div className="flex-shrink-0 w-72 flex flex-col bg-muted/40 rounded-xl border border-border group/col">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {column.color && (
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: column.color }} />
+            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
           )}
-          <h3 className="text-sm font-semibold text-foreground">{column.name}</h3>
-          <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
+          <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
+          <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 shrink-0">
             {column.cards.length}
           </span>
+        </div>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity shrink-0">
+          {!isFirst && (
+            <button
+              type="button"
+              onClick={() => onMoveColumn(column.id, 'left')}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Move left"
+            >
+              <span className="material-icons text-sm">chevron_left</span>
+            </button>
+          )}
+          {!isLast && (
+            <button
+              type="button"
+              onClick={() => onMoveColumn(column.id, 'right')}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Move right"
+            >
+              <span className="material-icons text-sm">chevron_right</span>
+            </button>
+          )}
+          {isEmpty && (
+            <button
+              type="button"
+              onClick={() => onDeleteColumn(column.id)}
+              className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-0.5"
+              title="Delete empty column"
+            >
+              <span className="material-icons text-sm">delete_outline</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -477,6 +518,49 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
     }
   }
 
+  async function handleMoveColumn(columnId: number, direction: 'left' | 'right') {
+    setColumns(prev => {
+      const idx = prev.findIndex(c => c.id === columnId);
+      if (idx === -1) return prev;
+      const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const newCols = [...prev];
+      [newCols[idx], newCols[swapIdx]] = [newCols[swapIdx], newCols[idx]];
+      return newCols;
+    });
+
+    // Persist new order
+    const reordered = (() => {
+      const copy = [...columns];
+      const idx = copy.findIndex(c => c.id === columnId);
+      const swapIdx = direction === 'left' ? idx - 1 : idx + 1;
+      if (idx === -1 || swapIdx < 0 || swapIdx >= copy.length) return null;
+      [copy[idx], copy[swapIdx]] = [copy[swapIdx], copy[idx]];
+      return copy.map(c => c.id);
+    })();
+
+    if (reordered) {
+      await fetch(`/api/portal/projects/${projectId}/columns/reorder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ columnIds: reordered }),
+      });
+    }
+  }
+
+  async function handleDeleteColumn(columnId: number) {
+    const col = columns.find(c => c.id === columnId);
+    if (!col || col.cards.length > 0) return;
+
+    const res = await fetch(`/api/portal/projects/${projectId}/columns/${columnId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
+    if (data.success) {
+      setColumns(prev => prev.filter(c => c.id !== columnId));
+    }
+  }
+
   // Move card to a specific column (used by the "Move to" dropdown on cards)
   async function moveCardToColumn(cardId: number, targetColId: number) {
     setColumns(cols => {
@@ -548,7 +632,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
         onDragEnd={onDragEnd}
       >
           <div className="flex gap-4 overflow-x-auto pb-4">
-            {filteredColumns.map(col => (
+            {filteredColumns.map((col, idx) => (
               <KanbanColumn
                 key={col.id}
                 column={col}
@@ -562,6 +646,10 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
                 onCardOpen={id => { if (!activeCard) setSelectedCardId(id); }}
                 allColumns={allColumnsMeta}
                 onMoveToColumn={moveCardToColumn}
+                onMoveColumn={handleMoveColumn}
+                onDeleteColumn={handleDeleteColumn}
+                isFirst={idx === 0}
+                isLast={idx === filteredColumns.length - 1}
               />
             ))}
 

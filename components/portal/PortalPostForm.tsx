@@ -130,6 +130,8 @@ function createDefaultBlock(type: string, order: number): Block {
     case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
     case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;
     case 'blog-posts': return { ...base, type: 'blog-posts', limit: 3, columns: 3 } as Block;
+    case 'booking': return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', showPageTitle: true, height: '700px' } as Block;
+    case 'survey': return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', showPageTitle: true, height: '700px' } as Block;
     default: return { ...base, type: type as 'text', content: '' } as Block;
   }
 }

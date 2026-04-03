@@ -21,6 +21,9 @@ const TOOLBAR_BUTTONS = [
   { cmd: 'underline', icon: 'format_underlined', title: 'Underline (Ctrl+U)' },
   { cmd: 'strikeThrough', icon: 'strikethrough_s', title: 'Strikethrough' },
   { cmd: 'sep' },
+  { cmd: 'foreColor', icon: 'format_color_text', title: 'Text Color' },
+  { cmd: 'hiliteColor', icon: 'format_color_fill', title: 'Highlight Color' },
+  { cmd: 'sep' },
   { cmd: 'insertUnorderedList', icon: 'format_list_bulleted', title: 'Bullet List' },
   { cmd: 'insertOrderedList', icon: 'format_list_numbered', title: 'Numbered List' },
   { cmd: 'sep' },
@@ -42,6 +45,8 @@ export function RichTextEditable({
   const lastHtml = useRef(html);
   const [showToolbar, setShowToolbar] = useState(false);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [colorPicker, setColorPicker] = useState<{ cmd: 'foreColor' | 'hiliteColor'; color: string } | null>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (contentRef.current && html !== contentRef.current.innerHTML) {
@@ -69,7 +74,7 @@ export function RichTextEditable({
       // Strip everything except basic formatting tags
       const cleaned = htmlData
         .replace(/<(?!\/?(?:b|i|u|strong|em|s|strike|a|br|ul|ol|li|p|span)[ >])[^>]*>/gi, '')
-        .replace(/ (class|style|id|data-[a-z-]*)="[^"]*"/gi, '')
+        .replace(/ (class|id|data-[a-z-]*)="[^"]*"/gi, '')
         .replace(/<meta[^>]*>/gi, '')
         .replace(/<!--[\s\S]*?-->/g, '');
       document.execCommand('insertHTML', false, cleaned);
@@ -90,12 +95,42 @@ export function RichTextEditable({
     if (cmd === 'createLink') {
       const url = window.prompt('Enter URL:', 'https://');
       if (url) document.execCommand('createLink', false, url);
+    } else if (cmd === 'foreColor' || cmd === 'hiliteColor') {
+      // Save selection before opening color picker
+      const sel = window.getSelection();
+      const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+      setColorPicker({ cmd, color: cmd === 'foreColor' ? '#000000' : '#ffff00' });
+      // Use a hidden input[type=color] to pick, then apply
+      setTimeout(() => {
+        if (colorInputRef.current) {
+          colorInputRef.current.dataset.cmd = cmd;
+          colorInputRef.current.value = cmd === 'foreColor' ? '#000000' : '#ffff00';
+          // Restore selection before click
+          if (range && sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          colorInputRef.current.click();
+        }
+      }, 0);
+      return;
     } else {
       document.execCommand(cmd, false);
     }
     contentRef.current?.focus();
     updateActiveFormats();
     handleInput();
+  };
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cmd = e.target.dataset.cmd as string;
+    const color = e.target.value;
+    if (cmd && color) {
+      document.execCommand(cmd, false, color);
+      contentRef.current?.focus();
+      handleInput();
+    }
+    setColorPicker(null);
   };
 
   const updateActiveFormats = useCallback(() => {
@@ -134,6 +169,15 @@ export function RichTextEditable({
 
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
+      {/* Hidden color input for foreColor / hiliteColor */}
+      <input
+        ref={colorInputRef}
+        type="color"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={handleColorChange}
+      />
+
       {/* Formatting toolbar */}
       {toolbar && showToolbar && (
         <div className="rte-toolbar absolute -top-9 left-0 z-30 flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg px-1 py-0.5">

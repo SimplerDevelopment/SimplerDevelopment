@@ -20,6 +20,22 @@ interface AvailabilitySlot {
   enabled: boolean;
 }
 
+interface BrandingInfo {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  headingFont: string;
+  bodyFont: string;
+  logoUrl: string;
+  borderRadius?: string;
+  buttonStyle?: {
+    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
+    borderRadius?: string;
+  };
+}
+
 interface BookingPageInfo {
   id: number;
   title: string;
@@ -31,6 +47,8 @@ interface BookingPageInfo {
   questions: BookingQuestion[];
   maxAdvanceDays: number;
   minNoticeMins: number;
+  branding?: BrandingInfo | null;
+  cssVars?: Record<string, string>;
 }
 
 interface TimeSlot {
@@ -116,6 +134,21 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
     }
     fetchInfo();
   }, [slug]);
+
+  // Load Google Fonts dynamically when branding specifies custom fonts
+  useEffect(() => {
+    if (!pageInfo?.branding) return;
+    const fonts = [pageInfo.branding.headingFont, pageInfo.branding.bodyFont].filter(Boolean);
+    if (fonts.length === 0) return;
+    const families = [...new Set(fonts)].map(f => f.replace(/ /g, '+')).join('&family=');
+    const id = 'booking-brand-fonts';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+    document.head.appendChild(link);
+  }, [pageInfo?.branding]);
 
   // ─── Fetch slots ────────────────────────────────────────────────────────
 
@@ -271,14 +304,45 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  const accent = pageInfo.color || '#2563eb';
+  const b = pageInfo.branding;
+  const accent = b?.primaryColor || pageInfo.color || '#2563eb';
+  const bgColor = b?.backgroundColor;
+  const textColor = b?.textColor;
+  const headingFont = b?.headingFont;
+  const bodyFont = b?.bodyFont;
+  const logoUrl = b?.logoUrl;
+  const btnRadius = b?.buttonStyle?.borderRadius || b?.borderRadius;
+  const btnBg = b?.buttonStyle?.primaryBg || accent;
+  const btnText = b?.buttonStyle?.primaryText || '#ffffff';
+  const secondaryColor = b?.secondaryColor;
+
+  const headingStyle: React.CSSProperties | undefined = headingFont
+    ? { fontFamily: `"${headingFont}", sans-serif` }
+    : undefined;
+
+  const cardStyle: React.CSSProperties = {
+    ...(secondaryColor ? { borderColor: `${secondaryColor}30` } : {}),
+  };
+
   const daysInMonth = getDaysInMonth(calYear, calMonth);
   const firstDay = getFirstDayOfMonth(calYear, calMonth);
   const canGoPrev = calYear > today.getFullYear() || (calYear === today.getFullYear() && calMonth > today.getMonth());
 
+  const wrapperStyle: React.CSSProperties = {
+    ...(bgColor ? { backgroundColor: bgColor } : {}),
+    ...(textColor ? { color: textColor } : {}),
+    ...(bodyFont ? { fontFamily: `"${bodyFont}", sans-serif` } : {}),
+    ...(pageInfo.cssVars || {}),
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-start justify-center p-4 sm:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-start justify-center p-4 sm:p-8" style={wrapperStyle}>
       <div className="w-full max-w-lg">
+        {logoUrl && (
+          <div className="flex justify-center mb-6">
+            <img src={logoUrl} alt="Logo" className="h-10 object-contain" />
+          </div>
+        )}
         {/* Header */}
         <div className="text-center mb-6">
           <div
@@ -287,9 +351,9 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
           >
             <span className="material-icons text-2xl" style={{ color: accent }}>calendar_month</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{pageInfo.title}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100" style={{ ...headingStyle, ...(textColor ? { color: textColor } : {}) }}>{pageInfo.title}</h1>
           {pageInfo.description && (
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-sm mx-auto">{pageInfo.description}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-sm mx-auto" style={textColor ? { color: `${textColor}bb` } : undefined}>{pageInfo.description}</p>
           )}
           <div className="flex items-center justify-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1">
@@ -332,8 +396,8 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
 
         {/* ═══════════════ Step 1: Date ═══════════════ */}
         {step === 'date' && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
-            <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Select a date</h2>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5" style={cardStyle}>
+            <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4" style={textColor ? { color: textColor } : undefined}>Select a date</h2>
             {/* Month nav */}
             <div className="flex items-center justify-between mb-4">
               <button
@@ -413,7 +477,7 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
 
         {/* ═══════════════ Step 2: Time ═══════════════ */}
         {step === 'time' && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5" style={cardStyle}>
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => { setStep('date'); setSelectedSlot(null); }}
@@ -474,7 +538,7 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
 
         {/* ═══════════════ Step 3: Info ═══════════════ */}
         {step === 'info' && selectedSlot && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5" style={cardStyle}>
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => setStep('time')}
@@ -602,8 +666,8 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
               <button
                 type="submit"
                 disabled={submitting || !guestName.trim() || !guestEmail.trim()}
-                className="w-full py-3 rounded-xl text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
-                style={{ backgroundColor: accent }}
+                className="w-full py-3 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
+                style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.opacity = '0.9';
                 }}
@@ -629,7 +693,7 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
 
         {/* ═══════════════ Step 4: Confirmed ═══════════════ */}
         {step === 'confirmed' && selectedSlot && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8 text-center">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8 text-center" style={cardStyle}>
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
               style={{ backgroundColor: accent + '15' }}

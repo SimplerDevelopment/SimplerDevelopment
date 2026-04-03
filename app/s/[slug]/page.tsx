@@ -3,6 +3,14 @@
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 
+function lightenColor(hex: string, amount: number): string {
+  const c = hex.replace('#', '');
+  const r = Math.min(255, parseInt(c.slice(0, 2), 16) + Math.round(255 * amount));
+  const g = Math.min(255, parseInt(c.slice(2, 4), 16) + Math.round(255 * amount));
+  const b = Math.min(255, parseInt(c.slice(4, 6), 16) + Math.round(255 * amount));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 interface SurveyField {
   id: string;
   type: string;
@@ -20,6 +28,22 @@ interface SurveyField {
   page?: number;
 }
 
+interface BrandingInfo {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  headingFont: string;
+  bodyFont: string;
+  logoUrl: string;
+  borderRadius?: string;
+  buttonStyle?: {
+    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
+    borderRadius?: string;
+  };
+}
+
 interface SurveyData {
   id: number;
   title: string;
@@ -30,6 +54,8 @@ interface SurveyData {
   thankYouTitle: string;
   thankYouMessage: string;
   redirectUrl: string | null;
+  branding?: BrandingInfo | null;
+  cssVars?: Record<string, string>;
 }
 
 export default function PublicSurveyPage() {
@@ -61,6 +87,21 @@ export default function PublicSurveyPage() {
       })
       .catch(() => { setError('Failed to load survey'); setLoading(false); });
   }, [slug]);
+
+  // Load Google Fonts dynamically when branding specifies custom fonts
+  useEffect(() => {
+    if (!survey?.branding) return;
+    const fonts = [survey.branding.headingFont, survey.branding.bodyFont].filter(Boolean);
+    if (fonts.length === 0) return;
+    const families = [...new Set(fonts)].map(f => f.replace(/ /g, '+')).join('&family=');
+    const id = 'survey-brand-fonts';
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+    document.head.appendChild(link);
+  }, [survey?.branding]);
 
   // Split fields into pages using page_break markers
   const getPages = useCallback(() => {
@@ -200,16 +241,61 @@ export default function PublicSurveyPage() {
 
   if (!survey) return null;
 
+  const br = survey.branding;
+  const accent = br?.primaryColor || survey.color || '#2563eb';
+  const secondaryColor = br?.secondaryColor;
+  const accentColor = br?.accentColor;
+  const bgColor = br?.backgroundColor;
+  const txtColor = br?.textColor;
+  const logoUrl = br?.logoUrl;
+  const headingFont = br?.headingFont;
+  const bodyFont = br?.bodyFont;
+  const btnRadius = br?.buttonStyle?.borderRadius || br?.borderRadius;
+  const btnBg = br?.buttonStyle?.primaryBg || accent;
+  const btnText = br?.buttonStyle?.primaryText || '#ffffff';
+  const hasBranding = !!br;
+
+  // When branding is active, always set explicit backgrounds to override dark mode classes
+  const cardBg = hasBranding
+    ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
+    : undefined;
+  const cardBorder = secondaryColor ? `${secondaryColor}30` : undefined;
+  const inputBorder = accentColor ? `${accentColor}40` : undefined;
+  const inputBg = hasBranding ? (bgColor === '#ffffff' ? '#ffffff' : bgColor ? lightenColor(bgColor, 0.08) : undefined) : undefined;
+
+  const wrapperStyle: React.CSSProperties = {
+    ...(hasBranding && !isEmbed ? { backgroundColor: bgColor || '#ffffff' } : {}),
+    ...(txtColor ? { color: txtColor } : {}),
+    ...(bodyFont ? { fontFamily: `"${bodyFont}", sans-serif` } : {}),
+    ...(survey.cssVars || {}),
+  };
+
+  const headingStyle: React.CSSProperties | undefined = headingFont
+    ? { fontFamily: `"${headingFont}", sans-serif` }
+    : undefined;
+
+  const cardStyle: React.CSSProperties = {
+    ...(cardBg ? { backgroundColor: cardBg } : {}),
+    ...(cardBorder ? { borderColor: cardBorder } : {}),
+  };
+
+  const inputStyle: React.CSSProperties = {
+    '--tw-ring-color': accent,
+    ...(inputBorder ? { borderColor: inputBorder } : {}),
+    ...(inputBg ? { backgroundColor: inputBg, color: txtColor || '#111827' } : {}),
+  } as React.CSSProperties;
+
   if (submitted) {
     return (
-      <div className={`${bgClass} flex items-center justify-center py-20 px-4`}>
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-10 max-w-md w-full text-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${survey.color}15` }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={survey.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className={`${bgClass} flex items-center justify-center py-20 px-4`} style={wrapperStyle}>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-10 max-w-md w-full text-center" style={cardStyle}>
+          {logoUrl && <img src={logoUrl} alt="Logo" className="h-8 object-contain mx-auto mb-4" />}
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${accent}15` }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{thankYou.title}</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white" style={headingStyle}>{thankYou.title}</h2>
           {thankYou.message && <p className="text-gray-600 dark:text-gray-400 mt-2">{thankYou.message}</p>}
         </div>
       </div>
@@ -224,14 +310,19 @@ export default function PublicSurveyPage() {
   }
 
   return (
-    <div className={`${bgClass} py-8 px-4`}>
+    <div className={`${bgClass} py-8 px-4`} style={wrapperStyle}>
       <div className="max-w-2xl mx-auto">
+        {logoUrl && !isEmbed && (
+          <div className="flex justify-center mb-4">
+            <img src={logoUrl} alt="Logo" className="h-8 object-contain" />
+          </div>
+        )}
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 rounded-t-2xl shadow-sm border border-gray-200 dark:border-gray-800 border-b-0 p-6">
-          <div className="h-1.5 rounded-full mb-6" style={{ backgroundColor: survey.color }} />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{survey.title}</h1>
+        <div className="bg-white dark:bg-gray-900 rounded-t-2xl shadow-sm border border-gray-200 dark:border-gray-800 border-b-0 p-6" style={cardStyle}>
+          <div className="h-1.5 rounded-full mb-6" style={{ backgroundColor: accent }} />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{survey.title}</h1>
           {survey.description && (
-            <p className="text-gray-600 dark:text-gray-400 mt-2">{survey.description}</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-2" style={txtColor ? { color: `${txtColor}bb` } : undefined}>{survey.description}</p>
           )}
 
           {/* Progress bar */}
@@ -244,7 +335,7 @@ export default function PublicSurveyPage() {
               <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${((currentPage + 1) / totalPages) * 100}%`, backgroundColor: survey.color }}
+                  style={{ width: `${((currentPage + 1) / totalPages) * 100}%`, backgroundColor: accent }}
                 />
               </div>
             </div>
@@ -253,12 +344,12 @@ export default function PublicSurveyPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800 border-t-0 p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-900 shadow-sm border border-gray-200 dark:border-gray-800 border-t-0 p-6 space-y-6" style={cardStyle}>
             {/* Email/Name on first page if required */}
             {currentPage === 0 && survey.requireEmail && (
               <div className="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={txtColor ? { color: txtColor } : undefined}>
                     Your Email <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -268,18 +359,18 @@ export default function PublicSurveyPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                    style={{ '--tw-ring-color': survey.color } as React.CSSProperties}
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Your Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={txtColor ? { color: txtColor } : undefined}>Your Name</label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
                     className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                    style={{ '--tw-ring-color': survey.color } as React.CSSProperties}
+                    style={inputStyle}
                   />
                 </div>
               </div>
@@ -298,17 +389,17 @@ export default function PublicSurveyPage() {
               return (
                 <div key={field.id}>
                   {field.type === 'heading' ? (
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2">{field.label}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{field.label}</h3>
                   ) : (
                     <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        <span className="text-gray-400 mr-1.5">{qNum}.</span>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={txtColor ? { color: txtColor } : undefined}>
+                        <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
                         {field.label}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}
                       </label>
                       {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{field.helpText}</p>}
 
-                      {renderField(field, answers, setAnswer, survey.color)}
+                      {renderField(field, answers, setAnswer, accent, inputStyle)}
                     </div>
                   )}
                 </div>
@@ -317,7 +408,7 @@ export default function PublicSurveyPage() {
           </div>
 
           {/* Navigation / Submit */}
-          <div className="bg-white dark:bg-gray-900 rounded-b-2xl shadow-sm border border-gray-200 dark:border-gray-800 border-t-0 px-6 pb-6">
+          <div className="bg-white dark:bg-gray-900 rounded-b-2xl shadow-sm border border-gray-200 dark:border-gray-800 border-t-0 px-6 pb-6" style={cardStyle}>
             {error && !currentFields.length && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 mb-4">
                 {error}
@@ -339,8 +430,8 @@ export default function PublicSurveyPage() {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-opacity"
-                  style={{ backgroundColor: survey.color }}
+                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity"
+                  style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
                   Next
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -349,8 +440,8 @@ export default function PublicSurveyPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-opacity disabled:opacity-50"
-                  style={{ backgroundColor: survey.color }}
+                  className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50"
+                  style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
                   {submitting ? 'Submitting...' : 'Submit'}
                 </button>
@@ -374,9 +465,10 @@ function renderField(
   answers: Record<string, unknown>,
   setAnswer: (id: string, val: unknown) => void,
   color: string,
+  fieldInputStyle?: React.CSSProperties,
 ) {
   const inputCls = "w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent";
-  const ringStyle = { '--tw-ring-color': color } as React.CSSProperties;
+  const ringStyle = { '--tw-ring-color': color, ...(fieldInputStyle || {}) } as React.CSSProperties;
 
   switch (field.type) {
     case 'text':

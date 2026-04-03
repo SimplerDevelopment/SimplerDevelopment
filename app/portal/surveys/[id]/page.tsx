@@ -64,6 +64,8 @@ export default function SurveyDetailPage() {
   const [editDescription, setEditDescription] = useState('');
   const [editFields, setEditFields] = useState<SurveyField[]>([]);
   const [editColor, setEditColor] = useState('#2563eb');
+  const [editBrandingProfileId, setEditBrandingProfileId] = useState<number | null>(null);
+  const [brandingProfiles, setBrandingProfiles] = useState<Array<{ id: number; name: string; isDefault: boolean; primaryColor: string | null; logoUrl: string | null }>>([]);
   const [editRequireEmail, setEditRequireEmail] = useState(false);
   const [editAllowMultiple, setEditAllowMultiple] = useState(true);
   const [editNotify, setEditNotify] = useState(true);
@@ -84,6 +86,7 @@ export default function SurveyDetailPage() {
       setEditDescription(data.data.description || '');
       setEditFields(data.data.fields || []);
       setEditColor(data.data.color || '#2563eb');
+      setEditBrandingProfileId(data.data.brandingProfileId || null);
       setEditRequireEmail(data.data.requireEmail);
       setEditAllowMultiple(data.data.allowMultiple);
       setEditNotify(data.data.notifyOnResponse);
@@ -108,6 +111,11 @@ export default function SurveyDetailPage() {
 
   useEffect(() => { fetchSurvey(); }, [fetchSurvey]);
   useEffect(() => { if (tab === 'responses' || tab === 'overview' || tab === 'analytics') fetchResponses(); }, [tab, fetchResponses]);
+  useEffect(() => {
+    fetch('/api/portal/branding/profiles').then(r => r.json()).then(d => {
+      if (d.success) setBrandingProfiles(d.data || []);
+    }).catch(() => {});
+  }, []);
 
   async function save(updates: Record<string, unknown>) {
     setSaving(true);
@@ -811,14 +819,34 @@ export default function SurveyDetailPage() {
               <span className="material-icons text-primary">palette</span>
               Appearance
             </h3>
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Brand Color</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
-                  <span className="text-xs text-muted-foreground">{editColor}</span>
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Branding Profile</label>
+              <select
+                value={editBrandingProfileId || ''}
+                onChange={(e) => setEditBrandingProfileId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              >
+                <option value="">None (use fallback color)</option>
+                {brandingProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Apply your brand colors, fonts, and logo to the public survey.
+                {brandingProfiles.length === 0 && (
+                  <> <a href="/portal/branding" className="text-primary hover:underline">Create a branding profile</a> first.</>
+                )}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Fallback Color</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} className="w-8 h-8 rounded border border-border cursor-pointer" />
+                <span className="text-xs text-muted-foreground">{editColor}</span>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Used when no branding profile is selected.</p>
             </div>
           </div>
 
@@ -928,6 +956,7 @@ export default function SurveyDetailPage() {
             <button
               onClick={() => save({
                 color: editColor,
+                brandingProfileId: editBrandingProfileId,
                 thankYouTitle: editThankYouTitle,
                 thankYouMessage: editThankYouMessage,
                 redirectUrl: editRedirectUrl,

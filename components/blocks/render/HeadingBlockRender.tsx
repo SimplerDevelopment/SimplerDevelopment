@@ -43,9 +43,14 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
   const className = `${alignmentClass} ${headingClasses} ${block.style?.color ? '' : 'text-foreground'} mt-10 mb-4 first:mt-0`;
   const tag = `h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
+  const hasHtml = block.content.includes('<');
+
   return (
     <div className={responsiveClasses}>
-      {React.createElement(tag, { className, 'data-editable-field': 'content' }, block.content)}
+      {hasHtml
+        ? React.createElement(tag, { className, 'data-editable-field': 'content', dangerouslySetInnerHTML: { __html: block.content } })
+        : React.createElement(tag, { className, 'data-editable-field': 'content' }, block.content)
+      }
     </div>
   );
 }

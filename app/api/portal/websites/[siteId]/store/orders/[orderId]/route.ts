@@ -4,6 +4,10 @@ import { db } from '@/lib/db';
 import { orders, orderItems, orderStatusHistory } from '@/lib/db/schema';
 import { and, eq, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import {
+  sendTransactionalEmail, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
+} from '@/lib/email/send-transactional';
+import { emitEvent } from '@/lib/automation/event-bus';
 
 type Params = { params: Promise<{ siteId: string; orderId: string }> };
 
@@ -80,6 +84,73 @@ export async function PUT(req: Request, { params }: Params) {
     .set(updateData)
     .where(eq(orders.id, order.id))
     .returning();
+
+  // Send transactional emails for status changes
+  if (body.status !== undefined && body.status !== order.status) {
+    const nameParts = order.customerName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    const baseUrl = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+
+    const commonVars: Record<string, string> = {
+      firstName,
+      lastName,
+      fullName: order.customerName,
+      email: order.customerEmail,
+      orderNumber: order.orderNumber,
+      orderDate: formatEmailDate(order.createdAt),
+      orderTotal: formatCents(order.total),
+      subtotal: formatCents(order.subtotal),
+      shippingTotal: formatCents(order.shippingTotal),
+      taxTotal: formatCents(order.taxTotal),
+      discountTotal: formatCents(order.discountTotal),
+      itemCount: String(items.length),
+      itemsHtml: buildItemsHtml(items),
+      shippingAddress: formatAddress(order.shippingAddress),
+      billingAddress: formatAddress(order.billingAddress),
+      orderUrl: `${baseUrl}/store/orders/${order.orderNumber}`,
+    };
+
+    const statusEmailMap: Record<string, { event: string; fromName: string; extraVars?: Record<string, string> }> = {
+      shipped: {
+        event: 'order.shipped',
+        fromName: 'Shipping Update',
+        extraVars: {
+          trackingNumber: updated.trackingNumber || body.trackingNumber || '',
+          trackingUrl: updated.trackingUrl || body.trackingUrl || '',
+          shippingMethod: updated.shippingMethod || '',
+          estimatedDelivery: '',
+        },
+      },
+      delivered: { event: 'order.delivered', fromName: 'Delivery Confirmation' },
+      cancelled: {
+        event: 'order.cancelled',
+        fromName: 'Order Update',
+        extraVars: { cancellationReason: body.statusNote || 'Order cancelled' },
+      },
+    };
+
+    const mapping = statusEmailMap[body.status];
+    if (mapping) {
+      sendTransactionalEmail({
+        websiteId: order.websiteId,
+        event: mapping.event,
+        to: order.customerEmail,
+        fromName: mapping.fromName,
+        variables: { ...commonVars, ...(mapping.extraVars || {}) },
+      }).catch(err => console.error(`[orders] ${mapping.event} email failed:`, err));
+    }
+
+    // Emit automation event
+    emitEvent(`order.${body.status}`, order.websiteId, parseInt(session.user.id, 10), {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerEmail: order.customerEmail,
+      newStatus: body.status,
+      previousStatus: order.status,
+    });
+  }
 
   return NextResponse.json({ success: true, data: updated });
 }

@@ -58,6 +58,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.pages !== undefined) updates.pages = body.pages;
   if (body.status !== undefined) updates.status = body.status;
   if (body.color !== undefined) updates.color = body.color;
+  if (body.brandingProfileId !== undefined) updates.brandingProfileId = body.brandingProfileId || null;
   if (body.thankYouTitle !== undefined) updates.thankYouTitle = body.thankYouTitle;
   if (body.thankYouMessage !== undefined) updates.thankYouMessage = body.thankYouMessage;
   if (body.redirectUrl !== undefined) updates.redirectUrl = body.redirectUrl || null;

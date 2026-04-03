@@ -28,7 +28,10 @@ export function QuoteBlockRender({ block }: QuoteBlockRenderProps) {
   return (
     <div className={`py-8 my-8 ${responsiveClasses}`}>
       <blockquote className={`border-l-4 border-primary pl-6 italic text-lg md:text-xl ${block.style?.color ? '' : 'text-muted-foreground'}`}>
-        <p data-editable-field="content" className="mb-4" style={getElementCSS(block.elementStyles, 'quoteText')}>&ldquo;{block.content}&rdquo;</p>
+        {block.content.includes('<')
+          ? <div data-editable-field="content" className="mb-4" style={getElementCSS(block.elementStyles, 'quoteText')} dangerouslySetInnerHTML={{ __html: `\u201C${block.content}\u201D` }} />
+          : <p data-editable-field="content" className="mb-4" style={getElementCSS(block.elementStyles, 'quoteText')}>&ldquo;{block.content}&rdquo;</p>
+        }
         {(block.author || block.citation) && (
           <footer className={`text-base not-italic font-medium ${block.style?.color ? '' : 'text-foreground'}`}>
             {block.author && <cite data-editable-field="author" className="not-italic" style={getElementCSS(block.elementStyles, 'author')}>— {block.author}</cite>}

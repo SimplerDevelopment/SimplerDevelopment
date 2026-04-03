@@ -36,6 +36,7 @@ import type { Block, BlockType, BlockStyle, ColumnsBlock } from '@/types/blocks'
 import type { Breakpoint } from '@/types/responsive';
 import type { ComponentManifestEntry } from '@/types/visual-editor';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
+import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
 
 // ─── Block type definitions for picker ───────────────────────────────────────
 
@@ -68,6 +69,8 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'shopping-cart', label: 'Shopping Cart', icon: 'shopping_cart', category: 'eCommerce', description: 'Cart widget' },
   { type: 'store-banner', label: 'Store Banner', icon: 'sell', category: 'eCommerce', description: 'Promotional banner' },
   { type: 'product-detail', label: 'Product Detail', icon: 'inventory_2', category: 'eCommerce', description: 'Single product page' },
+  { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
+  { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
 ];
 
 const BLOCK_ICON_MAP: Record<string, string> = {};
@@ -1265,6 +1268,14 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'sectionTitle', label: 'Section Titles' },
     { key: 'gallery', label: 'Gallery' },
   ],
+  'booking': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  'survey': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
 };
 
 function ElementStyleEditor({
@@ -1353,14 +1364,14 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
     <div className="space-y-3">
       {block.type === 'heading' && (
         <>
-          <Field label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <RichTextField label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} singleLine />
           <SelectField label="Level" value={String(b.level || 2)} options={['1','2','3','4','5','6']} onChange={(v) => onUpdate({ level: Number(v) } as Partial<Block>)} />
           <SelectField label="Alignment" value={(b.alignment as string) || 'left'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
         </>
       )}
       {block.type === 'text' && (
         <>
-          <TextareaField label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <RichTextField label="Content" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
           <SelectField label="Size" value={(b.size as string) || 'base'} options={['sm','base','lg','xl']} onChange={(v) => onUpdate({ size: v } as Partial<Block>)} />
           <SelectField label="Alignment" value={(b.alignment as string) || 'left'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
         </>
@@ -1386,7 +1397,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'quote' && (
         <>
-          <TextareaField label="Quote" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
+          <RichTextField label="Quote" value={b.content as string} onChange={(v) => onUpdate({ content: v } as Partial<Block>)} />
           <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
           <Field label="Citation" value={b.citation as string} onChange={(v) => onUpdate({ citation: v } as Partial<Block>)} />
         </>
@@ -1419,9 +1430,9 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'hero' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} />
-          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="CTA Text" value={b.ctaText as string} onChange={(v) => onUpdate({ ctaText: v } as Partial<Block>)} />
           <Field label="CTA Link" value={b.ctaLink as string} onChange={(v) => onUpdate({ ctaLink: v } as Partial<Block>)} />
           <Field label="2nd CTA Text" value={b.secondaryCtaText as string} onChange={(v) => onUpdate({ secondaryCtaText: v } as Partial<Block>)} />
@@ -1432,8 +1443,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'cta' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.primaryButtonText as string} onChange={(v) => onUpdate({ primaryButtonText: v } as Partial<Block>)} />
           <Field label="Button URL" value={b.primaryButtonUrl as string} onChange={(v) => onUpdate({ primaryButtonUrl: v } as Partial<Block>)} />
           <Field label="2nd Button Text" value={b.secondaryButtonText as string} onChange={(v) => onUpdate({ secondaryButtonText: v } as Partial<Block>)} />
@@ -1443,7 +1454,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'testimonial' && (
         <>
-          <TextareaField label="Quote" value={b.quote as string} onChange={(v) => onUpdate({ quote: v } as Partial<Block>)} />
+          <RichTextField label="Quote" value={b.quote as string} onChange={(v) => onUpdate({ quote: v } as Partial<Block>)} />
           <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
           <Field label="Role" value={b.role as string} onChange={(v) => onUpdate({ role: v } as Partial<Block>)} />
           <Field label="Company" value={b.company as string} onChange={(v) => onUpdate({ company: v } as Partial<Block>)} />
@@ -1468,7 +1479,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Stats Block — with item editor ── */}
       {block.type === 'stats' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <ListEditor
             label="Stats"
@@ -1485,8 +1496,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Card Grid Block — with card editor ── */}
       {block.type === 'card-grid' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <NumberField label="Icon Size (px)" value={Number(b.iconSize) || 24} onChange={(v) => onUpdate({ iconSize: String(v) } as Partial<Block>)} min={12} max={128} />
           <ListEditor
@@ -1532,8 +1543,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Services Grid Block — with service editor ── */}
       {block.type === 'services-grid' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <ListEditor
             label="Services"
@@ -1555,7 +1566,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Accordion Block — with item editor ── */}
       {block.type === 'accordion' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
           <ListEditor
             label="Items"
             items={(block.items || []).map(item => ({ id: item.id, fields: { title: item.title, content: item.content } }))}
@@ -1590,8 +1601,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Featured Content Block ── */}
       {block.type === 'featured-content' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <TextareaField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
           <SelectField label="Image Position" value={(b.imagePosition as string) || 'right'} options={['left','right']} onChange={(v) => onUpdate({ imagePosition: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
@@ -1602,8 +1613,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Blog Posts Block ── */}
       {block.type === 'blog-posts' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="Post Type" value={b.postType as string} onChange={(v) => onUpdate({ postType: v } as Partial<Block>)} />
           <Field label="Category Slug" value={b.categorySlug as string} onChange={(v) => onUpdate({ categorySlug: v } as Partial<Block>)} />
           <SelectField label="Limit" value={String(b.limit || 6)} options={['3','6','9','12']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
@@ -1615,8 +1626,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Product Grid Block ── */}
       {block.type === 'product-grid' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <Field label="Category Slug" value={b.categorySlug as string} onChange={(v) => onUpdate({ categorySlug: v } as Partial<Block>)} />
           <SelectField label="Sort" value={(b.sort as string) || 'newest'} options={['newest','price_asc','price_desc','featured']} onChange={(v) => onUpdate({ sort: v } as Partial<Block>)} />
           <SelectField label="Limit" value={String(b.limit || 6)} options={['3','6','9','12']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
@@ -1631,8 +1642,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Featured Products Block ── */}
       {block.type === 'featured-products' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Limit" value={String(b.limit || 4)} options={['2','3','4','6','8']} onChange={(v) => onUpdate({ limit: Number(v) } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 4)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','carousel']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
@@ -1646,8 +1657,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Product Categories Block ── */}
       {block.type === 'product-categories' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <SelectField label="Layout" value={(b.layout as string) || 'grid'} options={['grid','list']} onChange={(v) => onUpdate({ layout: v } as Partial<Block>)} />
           <CheckboxField label="Show Product Count" checked={b.showProductCount as boolean ?? true} onChange={(v) => onUpdate({ showProductCount: v } as Partial<Block>)} />
@@ -1668,8 +1679,8 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Store Banner Block ── */}
       {block.type === 'store-banner' && (
         <>
-          <Field label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} />
-          <Field label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Subtitle" value={b.subtitle as string} onChange={(v) => onUpdate({ subtitle: v } as Partial<Block>)} singleLine />
           <Field label="Discount Code" value={b.discountCode as string} onChange={(v) => onUpdate({ discountCode: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
           <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
@@ -1692,6 +1703,26 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
           <CheckboxField label="Show Bulk Pricing" checked={b.showBulkPricing !== false} onChange={(v) => onUpdate({ showBulkPricing: v } as Partial<Block>)} />
           <CheckboxField label="Show Breadcrumb" checked={b.showBreadcrumb !== false} onChange={(v) => onUpdate({ showBreadcrumb: v } as Partial<Block>)} />
           <CheckboxField label="Show Tags & SKU" checked={b.showTags !== false} onChange={(v) => onUpdate({ showTags: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {block.type === 'booking' && (
+        <>
+          <BookingPagePicker value={b.slug as string} onChange={(v) => onUpdate({ slug: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Embed Height" value={(b.height as string) || '700px'} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+          <CheckboxField label="Show Booking Page Title" checked={b.showPageTitle !== false} onChange={(v) => onUpdate({ showPageTitle: v } as Partial<Block>)} />
+        </>
+      )}
+
+      {block.type === 'survey' && (
+        <>
+          <SurveyPicker value={b.slug as string} onChange={(v) => onUpdate({ slug: v } as Partial<Block>)} />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <Field label="Embed Height" value={(b.height as string) || '700px'} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+          <CheckboxField label="Show Survey Title" checked={b.showPageTitle !== false} onChange={(v) => onUpdate({ showPageTitle: v } as Partial<Block>)} />
         </>
       )}
     </div>
@@ -1982,6 +2013,23 @@ function TextareaField({ label, value, onChange, rows = 3 }: { label: string; va
   );
 }
 
+function RichTextField({ label, value, onChange, singleLine = false }: { label: string; value: string | undefined; onChange: (v: string) => void; singleLine?: boolean }) {
+  return (
+    <div className="block">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="mt-1 rounded border border-border px-2.5 py-1.5 text-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary min-h-[2rem]">
+        <RichTextEditable
+          html={value || ''}
+          onChange={onChange}
+          placeholder={label}
+          singleLine={singleLine}
+          className="outline-none min-h-[1.2em]"
+        />
+      </div>
+    </div>
+  );
+}
+
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
   return (
     <label className="block">
@@ -2011,6 +2059,181 @@ function NumberField({ label, value, onChange, min, max, step = 1 }: { label: st
       <input type="number" value={value} onChange={(e) => onChange(Number(e.target.value))} min={min} max={max} step={step}
         className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
     </label>
+  );
+}
+
+function BookingPagePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [pages, setPages] = useState<Array<{ id: number; slug: string; title: string; duration: number; active: boolean }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/tools/booking')
+      .then(r => r.json())
+      .then(json => { if (json.success) setPages(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? pages.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.slug.toLowerCase().includes(search.toLowerCase()))
+    : pages;
+
+  const selected = pages.find(p => p.slug === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <span className="text-xs font-medium text-muted-foreground">Booking Page</span>
+      {selected && !open && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="mt-1 w-full flex items-center gap-2 rounded border border-border px-2.5 py-1.5 text-sm text-left hover:border-primary transition-colors">
+          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-icons text-sm text-primary">calendar_month</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="truncate font-medium">{selected.title}</div>
+            <div className="text-xs text-muted-foreground">{selected.slug} &middot; {selected.duration}min</div>
+          </div>
+          <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+        </button>
+      )}
+      {(!selected || open) && (
+        <input type="text" value={open ? search : value || ''}
+          onChange={(e) => { setSearch(e.target.value); if (!open) onChange(e.target.value); }}
+          onFocus={() => setOpen(true)}
+          placeholder={loading ? 'Loading...' : 'Search booking pages...'}
+          className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
+      )}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+          {!selected && (
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search booking pages..." autoFocus
+              className="sticky top-0 w-full border-b border-border px-3 py-2 text-sm bg-card focus:outline-none" />
+          )}
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {loading ? 'Loading...' : pages.length === 0 ? 'No booking pages found' : 'No matches'}
+            </div>
+          ) : (
+            filtered.map(p => (
+              <button key={p.slug} type="button"
+                onClick={() => { onChange(p.slug); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 transition-colors ${p.slug === value ? 'bg-primary/10' : ''}`}>
+                <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <span className="material-icons text-sm text-primary">calendar_month</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{p.title}</div>
+                  <div className="text-xs text-muted-foreground">{p.slug} &middot; {p.duration}min {!p.active && <span className="text-amber-500">(inactive)</span>}</div>
+                </div>
+                {p.slug === value && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SurveyPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/surveys')
+      .then(r => r.json())
+      .then(json => { if (json.success) setSurveys(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? surveys.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()))
+    : surveys;
+
+  const selected = surveys.find(s => s.slug === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <span className="text-xs font-medium text-muted-foreground">Survey</span>
+      {selected && !open && (
+        <button type="button" onClick={() => setOpen(true)}
+          className="mt-1 w-full flex items-center gap-2 rounded border border-border px-2.5 py-1.5 text-sm text-left hover:border-primary transition-colors">
+          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <span className="material-icons text-sm text-primary">assignment</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="truncate font-medium">{selected.title}</div>
+            <div className="text-xs text-muted-foreground">{selected.slug} &middot; {selected.responseCount} responses</div>
+          </div>
+          <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+        </button>
+      )}
+      {(!selected || open) && (
+        <input type="text" value={open ? search : value || ''}
+          onChange={(e) => { setSearch(e.target.value); if (!open) onChange(e.target.value); }}
+          onFocus={() => setOpen(true)}
+          placeholder={loading ? 'Loading...' : 'Search surveys...'}
+          className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
+      )}
+      {open && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+          {!selected && (
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search surveys..." autoFocus
+              className="sticky top-0 w-full border-b border-border px-3 py-2 text-sm bg-card focus:outline-none" />
+          )}
+          {filtered.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {loading ? 'Loading...' : surveys.length === 0 ? 'No surveys found' : 'No matches'}
+            </div>
+          ) : (
+            filtered.map(s => (
+              <button key={s.slug} type="button"
+                onClick={() => { onChange(s.slug); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 transition-colors ${s.slug === value ? 'bg-primary/10' : ''}`}>
+                <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <span className="material-icons text-sm text-primary">assignment</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.slug}
+                    {s.status !== 'active' && <span className="text-amber-500 ml-1">({s.status})</span>}
+                  </div>
+                </div>
+                {s.slug === value && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

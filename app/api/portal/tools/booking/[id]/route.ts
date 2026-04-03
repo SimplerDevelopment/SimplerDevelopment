@@ -56,6 +56,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.availability !== undefined) updates.availability = body.availability;
   if (body.questions !== undefined) updates.questions = body.questions;
   if (body.color !== undefined) updates.color = body.color;
+  if (body.brandingProfileId !== undefined) updates.brandingProfileId = body.brandingProfileId || null;
   if (body.active !== undefined) updates.active = body.active;
   if (body.googleCalendarSync !== undefined) updates.googleCalendarSync = body.googleCalendarSync;
 

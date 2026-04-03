@@ -1,9 +1,9 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { StyleSettings } from './StyleSettings';
 import { RichTextEditable } from './RichTextEditable';
@@ -96,6 +96,14 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
   'featured-products': [
     { key: 'title', label: 'Section Title' },
     { key: 'description', label: 'Section Description' },
+  ],
+  'booking': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  'survey': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
   ],
 };
 
@@ -286,6 +294,10 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <StoreBannerBlockSettings block={block as StoreBannerBlock} onChange={onChange} />;
             case 'product-detail':
               return <ProductDetailBlockSettings block={block as ProductDetailBlock} onChange={onChange} />;
+            case 'booking':
+              return <BookingBlockSettings block={block as BookingBlock} onChange={onChange} />;
+            case 'survey':
+              return <SurveyBlockSettings block={block as SurveyBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -2238,6 +2250,200 @@ function ProductDetailBlockSettings({ block, onChange }: { block: ProductDetailB
           <input type="checkbox" id="pdShowTags" checked={block.showTags !== false} onChange={(e) => onChange({ showTags: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
           <label htmlFor="pdShowTags" className="ml-2 text-sm text-foreground">Show Tags & SKU</label>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingBlockSettings({ block, onChange }: { block: BookingBlock; onChange: (updates: Partial<BookingBlock>) => void }) {
+  const [pages, setPages] = useState<Array<{ id: number; slug: string; title: string; duration: number; active: boolean }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/tools/booking')
+      .then(r => r.json())
+      .then(json => { if (json.success) setPages(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? pages.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.slug.toLowerCase().includes(search.toLowerCase()))
+    : pages;
+  const selected = pages.find(p => p.slug === block.slug);
+
+  return (
+    <div className="space-y-4">
+      <div ref={ref} className="relative">
+        <label className="block text-sm font-medium text-foreground mb-1">Booking Page</label>
+        {selected && !open ? (
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm text-left hover:border-primary transition-colors">
+            <span className="material-icons text-primary text-base">calendar_month</span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate font-medium">{selected.title}</div>
+              <div className="text-xs text-muted-foreground">{selected.slug} &middot; {selected.duration}min</div>
+            </div>
+            <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+          </button>
+        ) : (
+          <input type="text" value={open ? search : block.slug || ''}
+            onChange={(e) => { setSearch(e.target.value); if (!open) onChange({ slug: e.target.value }); }}
+            onFocus={() => setOpen(true)}
+            placeholder={loading ? 'Loading...' : 'Search booking pages...'}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary" />
+        )}
+        {open && (
+          <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                {loading ? 'Loading...' : pages.length === 0 ? 'No booking pages found' : 'No matches'}
+              </div>
+            ) : filtered.map(p => (
+              <button key={p.slug} type="button"
+                onClick={() => { onChange({ slug: p.slug }); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 ${p.slug === block.slug ? 'bg-primary/10' : ''}`}>
+                <span className="material-icons text-primary text-base">calendar_month</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{p.title}</div>
+                  <div className="text-xs text-muted-foreground">{p.slug} &middot; {p.duration}min {!p.active && <span className="text-amber-500">(inactive)</span>}</div>
+                </div>
+                {p.slug === block.slug && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <input type="text" value={block.title || ''} onChange={(e) => onChange({ title: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="Schedule a Meeting" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <input type="text" value={block.description || ''} onChange={(e) => onChange({ description: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="Pick a time that works for you" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Embed Height</label>
+        <input type="text" value={block.height || '700px'} onChange={(e) => onChange({ height: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="700px" />
+      </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="bookingShowPageTitle" checked={block.showPageTitle !== false}
+          onChange={(e) => onChange({ showPageTitle: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="bookingShowPageTitle" className="ml-2 text-sm text-foreground">Show Booking Page Title</label>
+      </div>
+    </div>
+  );
+}
+
+function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange: (updates: Partial<SurveyBlock>) => void }) {
+  const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/surveys')
+      .then(r => r.json())
+      .then(json => { if (json.success) setSurveys(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? surveys.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()))
+    : surveys;
+  const selected = surveys.find(s => s.slug === block.slug);
+
+  return (
+    <div className="space-y-4">
+      <div ref={ref} className="relative">
+        <label className="block text-sm font-medium text-foreground mb-1">Survey</label>
+        {selected && !open ? (
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm text-left hover:border-primary transition-colors">
+            <span className="material-icons text-primary text-base">assignment</span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate font-medium">{selected.title}</div>
+              <div className="text-xs text-muted-foreground">{selected.slug} &middot; {selected.responseCount} responses</div>
+            </div>
+            <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+          </button>
+        ) : (
+          <input type="text" value={open ? search : block.slug || ''}
+            onChange={(e) => { setSearch(e.target.value); if (!open) onChange({ slug: e.target.value }); }}
+            onFocus={() => setOpen(true)}
+            placeholder={loading ? 'Loading...' : 'Search surveys...'}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary" />
+        )}
+        {open && (
+          <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                {loading ? 'Loading...' : surveys.length === 0 ? 'No surveys found' : 'No matches'}
+              </div>
+            ) : filtered.map(s => (
+              <button key={s.slug} type="button"
+                onClick={() => { onChange({ slug: s.slug }); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 ${s.slug === block.slug ? 'bg-primary/10' : ''}`}>
+                <span className="material-icons text-primary text-base">assignment</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.slug} {s.status !== 'active' && <span className="text-amber-500">({s.status})</span>}
+                  </div>
+                </div>
+                {s.slug === block.slug && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <input type="text" value={block.title || ''} onChange={(e) => onChange({ title: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="Take Our Survey" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <input type="text" value={block.description || ''} onChange={(e) => onChange({ description: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="We'd love to hear your feedback" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Embed Height</label>
+        <input type="text" value={block.height || '700px'} onChange={(e) => onChange({ height: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="700px" />
+      </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="surveyShowPageTitle" checked={block.showPageTitle !== false}
+          onChange={(e) => onChange({ showPageTitle: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="surveyShowPageTitle" className="ml-2 text-sm text-foreground">Show Survey Title</label>
       </div>
     </div>
   );
