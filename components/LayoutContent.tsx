@@ -14,8 +14,9 @@ export function LayoutContent({ children, isClientSite: isClientSiteProp = false
   const isPitchDeck = pathname.startsWith('/pitch-deck');
   const isBooking = pathname.startsWith('/book');
   const isSurvey = pathname.startsWith('/s/');
+  const isSitesRoute = pathname.startsWith('/sites/');
 
-  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isClientSiteProp) {
+  if (isPetersOutdoor || isAdminOrPortal || isPitchDeck || isBooking || isSurvey || isClientSiteProp || isSitesRoute) {
     return <>{children}</>;
   }
 
