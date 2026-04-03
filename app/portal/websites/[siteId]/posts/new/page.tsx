@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { getPortalClient } from '@/lib/portal-client';
 import PortalPostForm from '@/components/portal/PortalPostForm';
+import { generatePreviewToken } from '@/lib/preview-token';
 
 export default async function PortalNewPostPage({
   params,
@@ -41,17 +42,17 @@ export default async function PortalNewPostPage({
         ? `https://${fullDomain}`
         : null;
 
-  const publicUrl = site.domain
-    ? `https://${site.domain}`
-    : fullDomain
-      ? `https://${fullDomain}`
-      : null;
+  const previewToken = generatePreviewToken(site.id);
+  const publicUrl = fullDomain
+    ? `${appUrl}/sites/${fullDomain}`
+    : null;
 
   return (
     <PortalPostForm
       siteId={site.id}
       mode="create"
       publicUrl={publicUrl}
+      previewToken={previewToken}
       siteUrl={siteUrl}
       siteDomain={site.domain || subdomain || undefined}
     />

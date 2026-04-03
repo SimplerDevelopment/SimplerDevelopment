@@ -5,9 +5,13 @@ import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
 import { auth } from '@/lib/auth';
+import { verifyPreviewToken } from '@/lib/preview-token';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
+
+// Prevent Next.js from caching these pages — content changes frequently
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   params: Promise<{ domain: string; slug?: string[] }>;
@@ -44,20 +48,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ClientSitePage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
-  const { _edit, _preview } = await searchParams;
+  const { _edit, _preview, _token } = await searchParams;
   const site = await getClientWebsiteByDomain(domain);
 
   if (!site) {
     notFound();
   }
 
-  // Allow draft preview when _edit=true or _preview=true and user is authenticated
+  // Allow draft preview via auth session or signed preview token
   const isEditMode = _edit === 'true';
   const isPreviewMode = _preview === 'true';
   let preview = false;
   if (isEditMode || isPreviewMode) {
-    const session = await auth();
-    preview = !!session?.user?.id;
+    // Check for preview token first (works cross-origin)
+    if (typeof _token === 'string' && verifyPreviewToken(site.id, _token)) {
+      preview = true;
+    } else {
+      // Fall back to session auth (same-origin only)
+      const session = await auth();
+      preview = !!session?.user?.id;
+    }
   }
 
   const pageSlug = slug?.join('/');

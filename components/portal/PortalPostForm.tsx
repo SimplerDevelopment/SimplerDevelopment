@@ -47,6 +47,7 @@ interface PortalPostFormProps {
   mode: 'create' | 'edit';
   siteUrl?: string | null;
   publicUrl?: string | null;
+  previewToken?: string;
   siteDomain?: string;
 }
 
@@ -137,7 +138,7 @@ function createDefaultBlock(type: string, order: number): Block {
   }
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, siteDomain }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -517,9 +518,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
           liveUrl={(() => {
             if (!post?.slug) return null;
             const basePath = `${formData.postType === 'page' ? '' : '/blog'}/${post.slug}`;
-            // Drafts use the internal /sites/ route so the auth cookie is available
-            if (!formData.published && effectiveSiteUrl) return `${effectiveSiteUrl}${basePath}?_preview=true`;
-            // Published posts link to the actual subdomain
+            // Drafts use the internal /sites/ route with preview token
+            if (!formData.published && effectiveSiteUrl) {
+              const tokenParam = previewToken ? `&_token=${previewToken}` : '';
+              return `${effectiveSiteUrl}${basePath}?_preview=true${tokenParam}`;
+            }
+            // Published posts link to the public URL
             if (publicUrl) return `${publicUrl}${basePath}`;
             return null;
           })()}
@@ -685,7 +689,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
                   const sep = previewMode ? '?' : '&';
                   const cacheBust = iframeSaveVersion > 0 ? `${sep}_v=${iframeSaveVersion}` : '';
-                  return previewMode ? `${effectiveSiteUrl}${basePath}?_preview=true${cacheBust ? '&' + cacheBust.slice(1) : ''}` : `${effectiveSiteUrl}${basePath}?_edit=true${cacheBust}`;
+                  const tokenParam = previewToken ? `&_token=${previewToken}` : '';
+                  return previewMode ? `${effectiveSiteUrl}${basePath}?_preview=true${tokenParam}${cacheBust ? '&' + cacheBust.slice(1) : ''}` : `${effectiveSiteUrl}${basePath}?_edit=true${tokenParam}${cacheBust}`;
                 })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}

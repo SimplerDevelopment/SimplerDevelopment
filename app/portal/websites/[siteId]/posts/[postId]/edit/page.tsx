@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { getPortalClient } from '@/lib/portal-client';
 import PortalPostForm from '@/components/portal/PortalPostForm';
+import { generatePreviewToken } from '@/lib/preview-token';
 
 export default async function PortalEditPostPage({
   params,
@@ -47,6 +48,7 @@ export default async function PortalEditPostPage({
   const subdomain = site.subdomain;
   const fullDomain = site.vercelDomain || (subdomain ? `${subdomain}.simplerdevelopment.com` : null);
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://simplerdevelopment.com';
+  const previewToken = generatePreviewToken(site.id);
   const siteUrl = isManaged && fullDomain
     ? `${appUrl}/sites/${fullDomain}`
     : site.domain
@@ -55,12 +57,11 @@ export default async function PortalEditPostPage({
         ? `https://${fullDomain}`
         : null;
 
-  // Public URL always points to the actual subdomain (for "View Live" link)
-  const publicUrl = site.domain
-    ? `https://${site.domain}`
-    : fullDomain
-      ? `https://${fullDomain}`
-      : null;
+  // Public URL always points to the internal /sites/ route for draft preview
+  // (subdomain doesn't share auth cookies with the main app)
+  const publicUrl = fullDomain
+    ? `${appUrl}/sites/${fullDomain}`
+    : null;
 
   return (
     <PortalPostForm
@@ -68,6 +69,7 @@ export default async function PortalEditPostPage({
       mode="edit"
       siteUrl={siteUrl}
       publicUrl={publicUrl}
+      previewToken={previewToken}
       siteDomain={site.domain || subdomain || undefined}
       post={{
         id: post.id,
