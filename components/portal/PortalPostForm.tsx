@@ -334,7 +334,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
         setLoading(false);
       }
     } else {
-      await savePost(formData.published ? 'publish' : 'manual');
+      // If not yet published, the Publish button should set published=true and save
+      if (!formData.published) {
+        setFormData(prev => ({ ...prev, published: true }));
+        formDataRef.current = { ...formDataRef.current, published: true };
+      }
+      await savePost('publish');
     }
   };
 
