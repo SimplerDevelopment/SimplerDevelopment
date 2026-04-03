@@ -1,5 +1,0 @@
-[phases.install]
-cmds = ["npm ci --legacy-peer-deps"]
-
-[start]
-cmd = "cp -r .next/static .next/standalone/simplerdevelopment/simplerdevelopment2026/.next/static && cp -r public .next/standalone/simplerdevelopment/simplerdevelopment2026/public 2>/dev/null; cd .next/standalone/simplerdevelopment/simplerdevelopment2026 && node server.js"
