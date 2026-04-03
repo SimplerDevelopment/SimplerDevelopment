@@ -514,7 +514,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
           postTitle={formData.title || (mode === 'create' ? 'New Page' : 'Edit Page')}
           onOpenSettings={() => setSettingsOpen(prev => !prev)}
           backHref={`/portal/websites/${siteId}`}
-          liveUrl={publicUrl && post?.slug ? `${publicUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}` : null}
+          liveUrl={publicUrl && post?.slug ? `${publicUrl}${formData.postType === 'page' ? '' : '/blog'}/${post.slug}${!formData.published ? '?_preview=true' : ''}` : null}
           editorControls={
             editorMode === 'iframe' ? undefined : (
               <PostFormInnerControls
@@ -677,7 +677,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
                   const sep = previewMode ? '?' : '&';
                   const cacheBust = iframeSaveVersion > 0 ? `${sep}_v=${iframeSaveVersion}` : '';
-                  return previewMode ? `${effectiveSiteUrl}${basePath}${cacheBust}` : `${effectiveSiteUrl}${basePath}?_edit=true${cacheBust}`;
+                  return previewMode ? `${effectiveSiteUrl}${basePath}?_preview=true${cacheBust ? '&' + cacheBust.slice(1) : ''}` : `${effectiveSiteUrl}${basePath}?_edit=true${cacheBust}`;
                 })()}
                 viewport={iframeViewport}
                 previewMode={previewMode}

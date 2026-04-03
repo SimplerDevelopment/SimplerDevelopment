@@ -44,17 +44,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ClientSitePage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
-  const { _edit } = await searchParams;
+  const { _edit, _preview } = await searchParams;
   const site = await getClientWebsiteByDomain(domain);
 
   if (!site) {
     notFound();
   }
 
-  // Allow draft preview when _edit=true and user is authenticated (portal editor iframe)
+  // Allow draft preview when _edit=true or _preview=true and user is authenticated
   const isEditMode = _edit === 'true';
+  const isPreviewMode = _preview === 'true';
   let preview = false;
-  if (isEditMode) {
+  if (isEditMode || isPreviewMode) {
     const session = await auth();
     preview = !!session?.user?.id;
   }
