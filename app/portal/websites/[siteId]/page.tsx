@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
+import ApiKeysManager from '@/components/portal/ApiKeysManager';
 
 export default async function PortalCmsDashboardPage({
   params,
@@ -111,6 +112,7 @@ export default async function PortalCmsDashboardPage({
           { href: `/portal/websites/${site.id}/content-types`, icon: 'description', label: 'Content Types' },
           { href: `/portal/websites/${site.id}/calendar`, icon: 'calendar_month', label: 'Calendar' },
           { href: `/portal/websites/${site.id}/settings`, icon: 'settings', label: 'Settings' },
+          { href: `#api-keys`, icon: 'code', label: 'Developer' },
         ].map(link => (
           <Link
             key={link.href}
@@ -167,6 +169,22 @@ export default async function PortalCmsDashboardPage({
             ))}
           </div>
         )}
+      </div>
+
+      {/* API Keys / Developer */}
+      <div id="api-keys" className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base">code</span>
+            Developer API Keys
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Create API keys to access your site data via the SDK or REST API.
+          </p>
+        </div>
+        <div className="p-5">
+          <ApiKeysManager siteId={site.id} />
+        </div>
       </div>
 
       {/* Content type breakdown */}

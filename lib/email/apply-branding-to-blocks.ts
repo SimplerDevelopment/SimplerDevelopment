@@ -27,7 +27,7 @@ export interface EmailBranding {
  * - Applies font families where present
  */
 export function applyBrandingToBlocks(blocks: Block[], branding: EmailBranding): Block[] {
-  return blocks.map(block => {
+  return blocks.map((block): Block => {
     switch (block.type) {
       case 'email-header': {
         const updates: Record<string, unknown> = {};
@@ -88,11 +88,12 @@ export function applyBrandingToBlocks(blocks: Block[], branding: EmailBranding):
         if ('columns' in block && Array.isArray(block.columns)) {
           return {
             ...block,
-            columns: block.columns.map((col: { blocks: Block[];[key: string]: unknown }) => ({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            columns: block.columns.map((col: any) => ({
               ...col,
               blocks: applyBrandingToBlocks(col.blocks, branding),
             })),
-          };
+          } as Block;
         }
         return block;
       }

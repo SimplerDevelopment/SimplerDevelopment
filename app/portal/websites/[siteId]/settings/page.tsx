@@ -17,6 +17,7 @@ import InfrastructureTabs from '@/components/portal/InfrastructureTabs';
 import EnvironmentPanel from '@/components/portal/EnvironmentPanel';
 import CopyableSiteId from '@/components/portal/CopyableSiteId';
 import DeveloperSetup from '@/components/portal/DeveloperSetup';
+import RepoConnectionManager from '@/components/portal/RepoConnectionManager';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -80,6 +81,14 @@ export default async function WebsiteSettingsPage({
 
       {/* Custom Domains */}
       <CustomDomainForm siteId={site.id} initialDomains={domains} />
+
+      {/* Repository Connection */}
+      <RepoConnectionManager
+        siteId={site.id}
+        initialRepoName={site.githubRepoName}
+        initialRepoUrl={site.githubRepoUrl}
+        initialBranch={site.deployBranch}
+      />
 
       {/* Environments (env vars, backups, copy) */}
       {environments.length > 0 && (

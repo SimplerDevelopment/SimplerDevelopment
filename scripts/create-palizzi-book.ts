@@ -16,7 +16,7 @@ async function main() {
       enabled: true,
       storeName: 'Palizzi Social Club Shop',
       currency: 'USD',
-      taxRate: 0,
+      taxRate: '0',
       taxInclusive: false,
     });
     console.log('Created store settings');

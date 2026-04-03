@@ -10,6 +10,7 @@ interface Customer {
   phone: string | null;
   orderCount: number;
   totalSpent: number;
+  createdAt: string | null;
 }
 
 interface CustomerAuthState {

@@ -38,6 +38,7 @@ interface BookingPageData {
   availability: AvailabilitySlot[];
   questions: BookingQuestion[];
   color: string;
+  brandingProfileId: number | null;
   active: boolean;
   googleCalendarSync: boolean;
   createdAt: string;
@@ -166,6 +167,8 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState(30);
   const [color, setColor] = useState('#2563eb');
+  const [brandingProfileId, setBrandingProfileId] = useState<number | null>(null);
+  const [brandingProfiles, setBrandingProfiles] = useState<Array<{ id: number; name: string; isDefault: boolean; primaryColor: string | null; logoUrl: string | null }>>([]);
   const [bufferBefore, setBufferBefore] = useState(0);
   const [bufferAfter, setBufferAfter] = useState(15);
   const [maxAdvanceDays, setMaxAdvanceDays] = useState(60);
@@ -186,6 +189,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
         setDescription(p.description || '');
         setDuration(p.duration);
         setColor(p.color || '#2563eb');
+        setBrandingProfileId(p.brandingProfileId || null);
         setBufferBefore(p.bufferBefore);
         setBufferAfter(p.bufferAfter);
         setMaxAdvanceDays(p.maxAdvanceDays);
@@ -219,6 +223,10 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     fetchPage();
     fetchBookings();
+    // Fetch branding profiles
+    fetch('/api/portal/branding/profiles').then(r => r.json()).then(d => {
+      if (d.success) setBrandingProfiles(d.data || []);
+    }).catch(() => {});
   }, [fetchPage, fetchBookings]);
 
   // ─── Save ────────────────────────────────────────────────────────────────
@@ -237,6 +245,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
           description: description || null,
           duration,
           color,
+          brandingProfileId,
           bufferBefore,
           bufferAfter,
           maxAdvanceDays,
@@ -520,7 +529,29 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Color</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Branding Profile</label>
+              <select
+                value={brandingProfileId || ''}
+                onChange={(e) => setBrandingProfileId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              >
+                <option value="">None (use fallback color)</option>
+                {brandingProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Apply your brand colors, fonts, and logo to the public booking page.
+                {brandingProfiles.length === 0 && (
+                  <> <a href="/portal/branding" className="text-primary hover:underline">Create a branding profile</a> first.</>
+                )}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Fallback Color</label>
               <div className="flex items-center gap-3">
                 <input
                   type="color"
@@ -535,6 +566,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
                   className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                 />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">Used when no branding profile is selected.</p>
             </div>
 
             <div>

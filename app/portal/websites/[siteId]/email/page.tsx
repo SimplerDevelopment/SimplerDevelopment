@@ -27,7 +27,7 @@ export default function WebsiteEmailPage({ params }: { params: Promise<{ siteId:
   const [loading, setLoading] = useState(true);
   const seeded = useRef(false);
   const categories = [...new Set(EMAIL_EVENTS.map(e => e.category))];
-  const [activeTab, setActiveTab] = useState(categories[0] ?? 'store');
+  const [activeTab, setActiveTab] = useState<string>(categories[0] ?? 'store');
 
   useEffect(() => {
     let cancelled = false;

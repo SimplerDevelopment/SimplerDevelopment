@@ -29,7 +29,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, description, subdomain } = body;
+  const { name, description, subdomain, githubRepoName, githubRepoUrl, deployBranch } = body;
 
   if (name !== undefined && !name.trim()) {
     return NextResponse.json({ success: false, message: 'Website name cannot be empty.' }, { status: 400 });
@@ -60,6 +60,9 @@ export async function PUT(
   if (name !== undefined) updates.name = name.trim();
   if (description !== undefined) updates.description = description.trim() || null;
   if (subdomain !== undefined && !subdomainChanging) updates.subdomain = subdomain || null;
+  if (githubRepoName !== undefined) updates.githubRepoName = githubRepoName?.trim() || null;
+  if (githubRepoUrl !== undefined) updates.githubRepoUrl = githubRepoUrl?.trim() || null;
+  if (deployBranch !== undefined) updates.deployBranch = deployBranch?.trim() || null;
 
   const [updated] = await db
     .update(clientWebsites)

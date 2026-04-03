@@ -658,6 +658,7 @@ export const clientWebsites = pgTable('client_websites', {
   subdomain: varchar('subdomain', { length: 100 }), // slug for <slug>.simplerdevelopment.com
   githubRepoName: varchar('github_repo_name', { length: 255 }), // e.g. "simplerdevelopment/acme-main"
   githubRepoUrl: varchar('github_repo_url', { length: 500 }),
+  deployBranch: varchar('deploy_branch', { length: 100 }).default('main'), // branch to deploy from
   vercelProjectId: varchar('vercel_project_id', { length: 255 }),
   vercelProjectUrl: varchar('vercel_project_url', { length: 500 }),
   vercelDomain: varchar('vercel_domain', { length: 255 }),
