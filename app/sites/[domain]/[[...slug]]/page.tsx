@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts } from '@/lib/actions/client-sites';
-import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
+import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
@@ -80,12 +80,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     // Custom layout sites: render blocks full-width with no wrapper
     if (site.customLayout) {
-      return <BlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
+      return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
     }
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <BlockRenderer content={homePage.content} siteId={site.id} branding={branding} />
+        <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />
       </div>
     );
   }
@@ -173,7 +173,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
             </time>
           )}
         </header>
-        <BlockRenderer content={post.content} siteId={site.id} branding={branding} />
+        <SiteBlockRenderer content={post.content} siteId={site.id} branding={branding} />
       </article>
     );
   }
@@ -190,7 +190,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       {page.postType === 'page' && (
         <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
       )}
-      <BlockRenderer content={page.content} siteId={site.id} branding={branding} />
+      <SiteBlockRenderer content={page.content} siteId={site.id} branding={branding} />
     </div>
   );
 }
