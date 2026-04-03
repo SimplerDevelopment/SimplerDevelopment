@@ -4,6 +4,7 @@ import "./globals.css";
 import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { generateOrganizationSchema } from "@/lib/utils/structured-data";
+import { headers } from "next/headers";
 import SessionProvider from "@/components/SessionProvider";
 import { LayoutContent } from "@/components/LayoutContent";
 
@@ -37,11 +38,17 @@ const playfairDisplay = Playfair_Display({
 
 export const metadata: Metadata = defaultSEO;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  // Detect client site subdomains — anything that's not the main app hostname
+  const APP_HOSTS = ["localhost", "127.0.0.1", "simplerdevelopment.com", "www.simplerdevelopment.com"];
+  const hostname = host.split(":")[0];
+  const isClientSite = !APP_HOSTS.includes(hostname) && !hostname.endsWith(".railway.app");
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -74,7 +81,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} antialiased min-h-screen flex flex-col`}
       >
         <SessionProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
         </SessionProvider>
       </body>
     </html>
