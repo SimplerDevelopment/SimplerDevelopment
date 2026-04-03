@@ -121,7 +121,8 @@ export default function NavigationEditorPage() {
       if (brandRes.success) setBranding({ ...DEFAULT_BRANDING, ...brandRes.data });
       if (statusRes?.success) {
         const s = statusRes.data;
-        const url = s.vercelDomain ? `https://${s.vercelDomain}` : s.subdomain ? `https://${s.subdomain}.simplerdevelopment.com` : null;
+        const domain = s.vercelDomain || (s.subdomain ? `${s.subdomain}.simplerdevelopment.com` : null);
+        const url = domain ? `/sites/${domain}` : null;
         setSitePreviewUrl(url);
       }
     }).finally(() => setLoading(false));
