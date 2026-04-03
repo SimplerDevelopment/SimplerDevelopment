@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+tests
+playwright-report
+test-results
+scripts
+*.spec.ts
+.env.local
+.env.development
