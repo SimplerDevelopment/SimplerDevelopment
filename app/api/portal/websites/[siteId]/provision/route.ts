@@ -31,7 +31,9 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'Provisioning is already in progress.' }, { status: 409 });
   }
 
-  if (site.deploymentStatus === 'active') {
+  // Allow re-provisioning managed sites (active but no repo) to upgrade to standalone
+  const isManaged = site.deploymentStatus === 'active' && !site.githubRepoName && !site.vercelProjectId;
+  if (site.deploymentStatus === 'active' && !isManaged) {
     return NextResponse.json({ success: false, message: 'Website is already provisioned.' }, { status: 409 });
   }
 

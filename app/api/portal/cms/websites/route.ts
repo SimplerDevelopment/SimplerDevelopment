@@ -56,7 +56,8 @@ export async function POST(req: Request) {
     domain: domain || null,
     description: description || null,
     subdomain,
-    deploymentStatus: 'pending',
+    vercelDomain: `${subdomain}.simplerdevelopment.com`,
+    deploymentStatus: 'active',
     active: true,
   }).returning();
 

@@ -83,14 +83,10 @@ export async function getClientBlogPosts(websiteId: number) {
 }
 
 export async function getPitchDeckByDomainAndSlug(domain: string, slug: string) {
-  // Find client by domain (from clientWebsites)
-  const [site] = await db
-    .select({ clientId: clientWebsites.clientId })
-    .from(clientWebsites)
-    .where(and(eq(clientWebsites.domain, domain), eq(clientWebsites.active, true)))
-    .limit(1);
-
-  if (!site) return null;
+  // Find client by domain or subdomain
+  const website = await getClientWebsiteByDomain(domain);
+  if (!website) return null;
+  const site = { clientId: website.clientId };
 
   const [deck] = await db
     .select()
@@ -108,13 +104,9 @@ export async function getPitchDeckByDomainAndSlug(domain: string, slug: string) 
 }
 
 export async function getClientPitchDecks(domain: string) {
-  const [site] = await db
-    .select({ clientId: clientWebsites.clientId })
-    .from(clientWebsites)
-    .where(and(eq(clientWebsites.domain, domain), eq(clientWebsites.active, true)))
-    .limit(1);
-
-  if (!site) return [];
+  const website = await getClientWebsiteByDomain(domain);
+  if (!website) return [];
+  const site = { clientId: website.clientId };
 
   return db
     .select({ id: pitchDecks.id, title: pitchDecks.title, slug: pitchDecks.slug })

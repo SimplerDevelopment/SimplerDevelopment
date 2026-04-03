@@ -149,14 +149,23 @@ export default function ProvisioningStatus({ siteId }: { siteId: number }) {
   }
 
   // Active — show infrastructure links
+  const isManaged = !data.githubRepoName && !data.vercelProjectId;
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
         <h3 className="font-semibold text-sm text-foreground">Infrastructure</h3>
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-          <span className="material-icons text-xs">check_circle</span>
-          Active
-        </span>
+        <div className="flex items-center gap-2">
+          {isManaged && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+              Managed
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            <span className="material-icons text-xs">check_circle</span>
+            Active
+          </span>
+        </div>
       </div>
       <div className="p-5 space-y-4">
         {/* Subdomain */}
@@ -165,7 +174,7 @@ export default function ProvisioningStatus({ siteId }: { siteId: number }) {
             <div className="flex items-center gap-2 min-w-0">
               <span className="material-icons text-muted-foreground text-lg">language</span>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Subdomain</p>
+                <p className="text-xs text-muted-foreground">Website URL</p>
                 <a href={`https://${data.fullDomain}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline font-mono truncate block">
                   {data.fullDomain}
                 </a>
@@ -178,6 +187,15 @@ export default function ProvisioningStatus({ siteId }: { siteId: number }) {
             >
               <span className="material-icons text-lg">content_copy</span>
             </button>
+          </div>
+        )}
+
+        {isManaged && (
+          <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
+            <span className="material-icons text-muted-foreground text-lg">info</span>
+            <p className="text-xs text-muted-foreground">
+              Hosted on simplerdevelopment.com — manage content with the block editor. Add a custom domain in settings.
+            </p>
           </div>
         )}
 

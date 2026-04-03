@@ -43,9 +43,6 @@ export default function PortalCmsNewPage() {
     const data = await res.json();
     if (!data.success) { setSaving(false); setError(data.message || 'Failed to create website.'); return; }
 
-    // Trigger provisioning (fire and forget — detail page will show progress)
-    fetch(`/api/portal/websites/${data.data.id}/provision`, { method: 'POST' }).catch(() => {});
-
     setSaving(false);
     router.push(`/portal/websites/${data.data.id}?created=1`);
   };
