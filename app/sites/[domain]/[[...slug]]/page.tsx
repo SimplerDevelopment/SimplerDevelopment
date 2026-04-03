@@ -4,12 +4,14 @@ import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
+import { auth } from '@/lib/auth';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
 interface PageProps {
   params: Promise<{ domain: string; slug?: string[] }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -40,12 +42,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function ClientSitePage({ params }: PageProps) {
+export default async function ClientSitePage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
+  const { _edit } = await searchParams;
   const site = await getClientWebsiteByDomain(domain);
 
   if (!site) {
     notFound();
+  }
+
+  // Allow draft preview when _edit=true and user is authenticated (portal editor iframe)
+  const isEditMode = _edit === 'true';
+  let preview = false;
+  if (isEditMode) {
+    const session = await auth();
+    preview = !!session?.user?.id;
   }
 
   const pageSlug = slug?.join('/');
@@ -55,7 +66,7 @@ export default async function ClientSitePage({ params }: PageProps) {
 
   // Home page
   if (!pageSlug || pageSlug === '') {
-    const homePage = await getClientHomePage(site.id);
+    const homePage = await getClientHomePage(site.id, preview);
 
     if (!homePage) {
       // No pages yet — show a placeholder
@@ -146,7 +157,7 @@ export default async function ClientSitePage({ params }: PageProps) {
   // Blog post (blog/some-slug)
   if (pageSlug.startsWith('blog/')) {
     const postSlug = pageSlug.replace('blog/', '');
-    const post = await getClientPage(site.id, postSlug);
+    const post = await getClientPage(site.id, postSlug, preview);
 
     if (!post) {
       notFound();
@@ -168,7 +179,7 @@ export default async function ClientSitePage({ params }: PageProps) {
   }
 
   // Regular page by slug
-  const page = await getClientPage(site.id, pageSlug);
+  const page = await getClientPage(site.id, pageSlug, preview);
 
   if (!page) {
     notFound();

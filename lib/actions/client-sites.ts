@@ -28,41 +28,41 @@ export async function getClientWebsiteByDomain(domain: string) {
   return null;
 }
 
-export async function getClientPage(websiteId: number, slug: string) {
+export async function getClientPage(websiteId: number, slug: string, preview = false) {
+  const conditions = [
+    eq(posts.websiteId, websiteId),
+    eq(posts.slug, slug),
+    or(eq(posts.postType, 'page'), eq(posts.postType, 'blog')),
+  ];
+  if (!preview) conditions.push(eq(posts.published, true));
+
   const [page] = await db
     .select()
     .from(posts)
-    .where(
-      and(
-        eq(posts.websiteId, websiteId),
-        eq(posts.slug, slug),
-        eq(posts.published, true),
-        or(eq(posts.postType, 'page'), eq(posts.postType, 'blog')),
-      )
-    )
+    .where(and(...conditions))
     .limit(1);
 
   return page ?? null;
 }
 
-export async function getClientHomePage(websiteId: number) {
+export async function getClientHomePage(websiteId: number, preview = false) {
   // Try to find a page with slug 'home' or 'index', fall back to first published page
   for (const slug of ['home', 'index']) {
-    const page = await getClientPage(websiteId, slug);
+    const page = await getClientPage(websiteId, slug, preview);
     if (page) return page;
   }
 
-  // Fall back to the first published page
+  // Fall back to the first page (published only unless preview)
+  const conditions = [
+    eq(posts.websiteId, websiteId),
+    eq(posts.postType, 'page'),
+  ];
+  if (!preview) conditions.push(eq(posts.published, true));
+
   const [page] = await db
     .select()
     .from(posts)
-    .where(
-      and(
-        eq(posts.websiteId, websiteId),
-        eq(posts.published, true),
-        eq(posts.postType, 'page'),
-      )
-    )
+    .where(and(...conditions))
     .limit(1);
 
   return page ?? null;
