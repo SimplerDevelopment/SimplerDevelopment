@@ -78,16 +78,16 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
       onMouseEnter={() => pauseOnHover && setIsPaused(true)}
       onMouseLeave={() => pauseOnHover && setIsPaused(false)}
     >
-      {/* Persistent background video — plays continuously behind all slides */}
+      {/* Persistent background video — plays continuously behind all slide images */}
       {backgroundVideo && (
         <video
-          className="absolute inset-0 w-full h-full object-cover z-[1]"
+          className="absolute inset-0 w-full h-full object-cover"
           src={backgroundVideo}
           autoPlay
           muted
           loop
           playsInline
-          style={{ opacity: backgroundVideoOpacity }}
+          style={{ opacity: backgroundVideoOpacity, zIndex: 1 }}
         />
       )}
 
@@ -101,6 +101,7 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
           transMs={transMs}
           kenBurns={kenBurns}
           elementStyles={block.elementStyles}
+          hasBlockVideo={!!backgroundVideo}
         />
       ))}
 
@@ -185,9 +186,10 @@ interface SlideLayerProps {
   transMs: number;
   kenBurns: boolean;
   elementStyles?: Record<string, Record<string, string | undefined>>;
+  hasBlockVideo?: boolean;
 }
 
-function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementStyles }: SlideLayerProps) {
+function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementStyles, hasBlockVideo }: SlideLayerProps) {
   const overlayColor = slide.overlayColor || 'rgba(0,0,0,0.45)';
   const overlayOpacity = slide.overlayOpacity ?? 1;
   const textAlign = slide.textAlignment || 'center';
@@ -219,8 +221,21 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
 
   return (
     <div style={layerStyle}>
-      {/* Background image with Ken Burns */}
-      {slide.backgroundImage && (
+      {/* Background video — renders behind the image */}
+      {slide.backgroundVideo && (
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          src={slide.backgroundVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ zIndex: 0 }}
+        />
+      )}
+
+      {/* Background image with Ken Burns — skipped when persistent block video is playing */}
+      {slide.backgroundImage && !hasBlockVideo && (
         <div
           className="absolute inset-0"
           style={{
@@ -230,30 +245,19 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
             backgroundRepeat: slide.backgroundRepeat || 'no-repeat',
             transform: isActive && kenBurns ? 'scale(1.08)' : 'scale(1)',
             transition: kenBurns ? `transform ${8000}ms ease-out` : undefined,
+            zIndex: 1,
           }}
-        />
-      )}
-
-      {/* Background video */}
-      {slide.backgroundVideo && (
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          src={slide.backgroundVideo}
-          autoPlay
-          muted
-          loop
-          playsInline
         />
       )}
 
       {/* Color overlay */}
       <div
         className="absolute inset-0"
-        style={{ background: overlayColor, opacity: overlayOpacity }}
+        style={{ background: overlayColor, opacity: overlayOpacity, zIndex: 2 }}
       />
 
       {/* Content */}
-      <div className={`relative z-10 h-full flex flex-col justify-center ${alignClass} px-6 md:px-12 lg:px-20`}>
+      <div className={`relative h-full flex flex-col justify-center ${alignClass} px-6 md:px-12 lg:px-20`} style={{ zIndex: 3 }}>
         <div className="max-w-4xl mx-auto w-full" style={{ textAlign }}>
           {slide.subtitle && (
             <p
