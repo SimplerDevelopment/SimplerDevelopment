@@ -41,16 +41,16 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   // Per-side borders
   if (style.borderTopWidth) customStyles.borderTopWidth = style.borderTopWidth;
   if (style.borderTopColor) customStyles.borderTopColor = style.borderTopColor;
-  if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle;
+  if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle as React.CSSProperties['borderTopStyle'];
   if (style.borderRightWidth) customStyles.borderRightWidth = style.borderRightWidth;
   if (style.borderRightColor) customStyles.borderRightColor = style.borderRightColor;
-  if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle;
+  if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle as React.CSSProperties['borderRightStyle'];
   if (style.borderBottomWidth) customStyles.borderBottomWidth = style.borderBottomWidth;
   if (style.borderBottomColor) customStyles.borderBottomColor = style.borderBottomColor;
-  if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle;
+  if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle as React.CSSProperties['borderBottomStyle'];
   if (style.borderLeftWidth) customStyles.borderLeftWidth = style.borderLeftWidth;
   if (style.borderLeftColor) customStyles.borderLeftColor = style.borderLeftColor;
-  if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle;
+  if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle as React.CSSProperties['borderLeftStyle'];
   // Per-corner radius
   if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = style.borderTopLeftRadius;
   if (style.borderTopRightRadius) customStyles.borderTopRightRadius = style.borderTopRightRadius;
