@@ -66,21 +66,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     return <>{children}</>;
   }
 
-  // Gate non-public sites: allow preview access (editor/admin) but block public visitors
-  if (!site.publicAccess) {
-    const url = headersList.get('x-url') || headersList.get('referer') || '';
-    const hasPreviewAccess = url.includes('_preview=true') || url.includes('_edit=true') || url.includes('_token=');
-    if (!hasPreviewAccess) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center max-w-md px-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">{site.name}</h1>
-            <p className="text-gray-500">This site is not yet available to the public.</p>
-          </div>
-        </div>
-      );
-    }
-  }
+  // Gate non-public sites — the actual block is in [[...slug]]/page.tsx
+  // where searchParams are available to check for preview tokens.
 
   const branding = await getBrandingByWebsiteId(site.id);
 
