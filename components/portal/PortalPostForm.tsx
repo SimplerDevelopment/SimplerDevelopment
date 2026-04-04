@@ -276,7 +276,11 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
         }
         // Reload iframe to reflect saved content
         setIframeSaveVersion(v => v + 1);
-        router.refresh();
+        // Only refresh server data on manual save — autosave refresh
+        // causes remount which resets in-progress edits
+        if (trigger !== 'autosave') {
+          router.refresh();
+        }
       } else {
         setPostSaveStatus('error');
         postSaveTimer.current = setTimeout(() => setPostSaveStatus('idle'), 5000);
