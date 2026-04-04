@@ -16,6 +16,8 @@ import { ColumnsBlockRender } from '@/components/blocks/render/ColumnsBlockRende
 import { TabsBlockRender } from '@/components/blocks/render/TabsBlockRender';
 import { AccordionBlockRender } from '@/components/blocks/render/AccordionBlockRender';
 import { HeroBlockRender } from '@/components/blocks/render/HeroBlockRender';
+import { HeroSlideshowBlockRender } from '@/components/blocks/render/HeroSlideshowBlockRender';
+import { MarqueeBlockRender } from '@/components/blocks/render/MarqueeBlockRender';
 import { ServicesGridBlockRender } from '@/components/blocks/render/ServicesGridBlockRender';
 import { CtaBlockRender } from '@/components/blocks/render/CtaBlockRender';
 import { TestimonialBlockRender } from '@/components/blocks/render/TestimonialBlockRender';
@@ -59,6 +61,8 @@ const BUILT_IN: Record<string, BlockComponent> = {
   tabs: TabsBlockRender,
   accordion: AccordionBlockRender,
   hero: HeroBlockRender,
+  'hero-slideshow': HeroSlideshowBlockRender,
+  marquee: MarqueeBlockRender,
   'services-grid': ServicesGridBlockRender,
   cta: CtaBlockRender,
   testimonial: TestimonialBlockRender,

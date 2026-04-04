@@ -15,6 +15,8 @@ import { ButtonBlockRender } from './render/ButtonBlockRender';
 import { SpacerBlockRender } from './render/SpacerBlockRender';
 import { DividerBlockRender } from './render/DividerBlockRender';
 import { HeroBlockRender } from './render/HeroBlockRender';
+import { HeroSlideshowBlockRender } from './render/HeroSlideshowBlockRender';
+import { MarqueeBlockRender } from './render/MarqueeBlockRender';
 import { CtaBlockRender } from './render/CtaBlockRender';
 import { ServicesGridBlockRender } from './render/ServicesGridBlockRender';
 import { TestimonialBlockRender } from './render/TestimonialBlockRender';
@@ -65,6 +67,10 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
         return <DividerBlockRender block={block} />;
       case 'hero':
         return <HeroBlockRender block={block} />;
+      case 'hero-slideshow':
+        return <HeroSlideshowBlockRender block={block} />;
+      case 'marquee':
+        return <MarqueeBlockRender block={block} />;
       case 'cta':
         return <CtaBlockRender block={block} />;
       case 'services-grid':

@@ -26,6 +26,10 @@ function getBlockLabel(block: Block): string {
       return block.text || 'Button';
     case 'hero':
       return block.title || 'Hero';
+    case 'hero-slideshow':
+      return `Hero Slideshow (${(block as { slides?: unknown[] }).slides?.length || 0})`;
+    case 'marquee':
+      return `Marquee (${(block as { items?: unknown[] }).items?.length || 0})`;
     case 'section':
       return `Section (${block.blocks?.length || 0})`;
     case 'columns':

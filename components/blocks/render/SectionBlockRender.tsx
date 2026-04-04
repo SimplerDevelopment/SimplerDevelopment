@@ -15,6 +15,8 @@ import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
+import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
+import { MarqueeBlockRender } from './MarqueeBlockRender';
 import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
 import { TestimonialBlockRender } from './TestimonialBlockRender';
@@ -100,6 +102,8 @@ function renderNestedBlock(block: Block) {
     case 'tabs': return <TabsBlockRender block={block} />;
     case 'accordion': return <AccordionBlockRender block={block} />;
     case 'hero': return <HeroBlockRender block={block} />;
+    case 'hero-slideshow': return <HeroSlideshowBlockRender block={block} />;
+    case 'marquee': return <MarqueeBlockRender block={block} />;
     case 'services-grid': return <ServicesGridBlockRender block={block} />;
     case 'cta': return <CtaBlockRender block={block} />;
     case 'testimonial': return <TestimonialBlockRender block={block} />;

@@ -190,6 +190,7 @@ export default function MediaPicker({
         <MediaUploadModal
           onClose={() => setShowUpload(false)}
           onComplete={handleUploadComplete}
+          apiEndpoint={apiEndpoint ? `${apiEndpoint.replace(/\/$/, '')}/upload` : undefined}
         />
       )}
     </div>

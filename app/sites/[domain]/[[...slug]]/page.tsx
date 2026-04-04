@@ -197,10 +197,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {page.postType === 'page' && (
-        <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
-      )}
+    <div>
       <SiteBlockRenderer content={page.content} siteId={site.id} branding={branding} />
     </div>
   );

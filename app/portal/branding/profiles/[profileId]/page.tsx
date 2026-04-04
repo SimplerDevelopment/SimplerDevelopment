@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
@@ -139,20 +139,88 @@ const DEFAULTS: Omit<ProfileData, 'id' | 'name' | 'isDefault'> = {
 
 export default function BrandingProfileEditorPage() {
   const { profileId } = useParams<{ profileId: string }>();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const validTabs = ['logos', 'colors', 'typography', 'buttons', 'style', 'messaging'] as const;
+  type TabId = typeof validTabs[number];
+  const startTab: TabId = validTabs.includes(initialTab as TabId) ? (initialTab as TabId) : 'logos';
+
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<'logos' | 'colors' | 'typography' | 'buttons' | 'style'>('logos');
-  const [brandDescription, setBrandDescription] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [showAiGenerator, setShowAiGenerator] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>(startTab);
+  const [aiDescription, setAiDescription] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiTargets, setAiTargets] = useState({ visual: true, messaging: true });
+
+  // Messaging state
+  const [messaging, setMessaging] = useState({
+    companyName: '', tagline: '', missionStatement: '', visionStatement: '', valueProposition: '',
+    toneOfVoice: '', brandPersonality: '', writingStyle: '',
+    elevatorPitch: '', boilerplate: '', keyDifferentiators: [] as string[], targetAudience: '',
+    industry: '', yearFounded: '', companySize: '', headquarters: '', websiteUrl: '',
+    socialProof: '', keyClients: '', certifications: '', additionalContext: '',
+  });
+  const [newDifferentiator, setNewDifferentiator] = useState('');
+  const [messagingDirty, setMessagingDirty] = useState(false);
+
+  // Field-level AI rewrite modal
+  const [rewriteModal, setRewriteModal] = useState<{ field: string; label: string } | null>(null);
+  const [rewritePrompt, setRewritePrompt] = useState('');
+  const [rewriteLoading, setRewriteLoading] = useState(false);
+  const [rewritePreview, setRewritePreview] = useState('');
+
+  const openRewrite = (field: string, label: string) => {
+    setRewriteModal({ field, label });
+    setRewritePrompt('');
+    setRewritePreview('');
+  };
+
+  const runRewrite = async () => {
+    if (!rewriteModal || !rewritePrompt.trim()) return;
+    setRewriteLoading(true);
+    setRewritePreview('');
+    try {
+      const companyContext = [messaging.companyName, messaging.tagline, messaging.industry].filter(Boolean).join(' - ');
+      const res = await fetch('/api/portal/branding/rewrite-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fieldName: rewriteModal.field,
+          fieldLabel: rewriteModal.label,
+          currentValue: (messaging as Record<string, unknown>)[rewriteModal.field] || '',
+          prompt: rewritePrompt.trim(),
+          companyContext,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) setRewritePreview(data.data);
+    } catch { /* ignore */ }
+    setRewriteLoading(false);
+  };
+
+  const acceptRewrite = () => {
+    if (!rewriteModal || !rewritePreview) return;
+    updateMessaging(rewriteModal.field, rewritePreview);
+    setRewriteModal(null);
+  };
 
   useEffect(() => {
-    fetch(`/api/portal/branding/profiles/${profileId}`)
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) setProfile({ ...DEFAULTS, ...res.data });
+    Promise.all([
+      fetch(`/api/portal/branding/profiles/${profileId}`).then(r => r.json()),
+      fetch(`/api/portal/branding/messaging?profileId=${profileId}`).then(r => r.json()),
+    ])
+      .then(([profileRes, messagingRes]) => {
+        if (profileRes.success) setProfile({ ...DEFAULTS, ...profileRes.data });
+        if (messagingRes.success && messagingRes.data) {
+          setMessaging(prev => ({
+            ...prev,
+            ...messagingRes.data,
+            keyDifferentiators: messagingRes.data.keyDifferentiators ?? [],
+          }));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -173,54 +241,112 @@ export default function BrandingProfileEditorPage() {
     update({ buttonStyle: { ...(profile.buttonStyle || {}), ...updates } });
   };
 
-  const generateFromDescription = async () => {
-    if (!brandDescription.trim() || !profile) return;
-    setGenerating(true);
+  const generateWithAI = async () => {
+    if (!aiDescription.trim() || !profile) return;
+    if (!aiTargets.visual && !aiTargets.messaging) return;
+    setAiGenerating(true);
     try {
-      const res = await fetch('/api/portal/branding/generate-theme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: brandDescription.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        const t = data.data;
-        update({
-          primaryColor: t.primaryColor || profile.primaryColor,
-          secondaryColor: t.secondaryColor || profile.secondaryColor,
-          accentColor: t.accentColor || profile.accentColor,
-          backgroundColor: t.backgroundColor || profile.backgroundColor,
-          textColor: t.textColor || profile.textColor,
-          navBackground: t.navBackground || profile.navBackground,
-          navTextColor: t.navTextColor || profile.navTextColor,
-          headingFont: t.headingFont || profile.headingFont,
-          bodyFont: t.bodyFont || profile.bodyFont,
-          borderRadius: t.borderRadius || profile.borderRadius,
-          linkColor: t.linkColor || profile.linkColor,
-          linkHoverColor: t.linkHoverColor || profile.linkHoverColor,
-          buttonStyle: t.buttonStyle || profile.buttonStyle,
-          darkMode: t.darkMode || profile.darkMode,
-        });
-        setShowAiGenerator(false);
+      const fetches: Promise<Response>[] = [];
+      if (aiTargets.visual) {
+        fetches.push(fetch('/api/portal/branding/generate-theme', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: aiDescription.trim() }),
+        }));
       }
+      if (aiTargets.messaging) {
+        fetches.push(fetch('/api/portal/branding/generate-messaging', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: aiDescription.trim() }),
+        }));
+      }
+      const results = await Promise.all(fetches);
+      let idx = 0;
+      if (aiTargets.visual) {
+        const data = await results[idx++].json();
+        if (data.success) {
+          const t = data.data;
+          update({
+            primaryColor: t.primaryColor || profile.primaryColor,
+            secondaryColor: t.secondaryColor || profile.secondaryColor,
+            accentColor: t.accentColor || profile.accentColor,
+            backgroundColor: t.backgroundColor || profile.backgroundColor,
+            textColor: t.textColor || profile.textColor,
+            navBackground: t.navBackground || profile.navBackground,
+            navTextColor: t.navTextColor || profile.navTextColor,
+            headingFont: t.headingFont || profile.headingFont,
+            bodyFont: t.bodyFont || profile.bodyFont,
+            borderRadius: t.borderRadius || profile.borderRadius,
+            linkColor: t.linkColor || profile.linkColor,
+            linkHoverColor: t.linkHoverColor || profile.linkHoverColor,
+            buttonStyle: t.buttonStyle || profile.buttonStyle,
+            darkMode: t.darkMode || profile.darkMode,
+          });
+        }
+      }
+      if (aiTargets.messaging) {
+        const data = await results[idx++].json();
+        if (data.success) {
+          const m = data.data;
+          setMessaging(prev => ({
+            companyName: m.companyName || prev.companyName,
+            tagline: m.tagline || prev.tagline,
+            missionStatement: m.missionStatement || prev.missionStatement,
+            visionStatement: m.visionStatement || prev.visionStatement,
+            valueProposition: m.valueProposition || prev.valueProposition,
+            toneOfVoice: m.toneOfVoice || prev.toneOfVoice,
+            brandPersonality: m.brandPersonality || prev.brandPersonality,
+            writingStyle: m.writingStyle || prev.writingStyle,
+            elevatorPitch: m.elevatorPitch || prev.elevatorPitch,
+            boilerplate: m.boilerplate || prev.boilerplate,
+            keyDifferentiators: m.keyDifferentiators?.length ? m.keyDifferentiators : prev.keyDifferentiators,
+            targetAudience: m.targetAudience || prev.targetAudience,
+            industry: m.industry || prev.industry,
+            yearFounded: m.yearFounded || prev.yearFounded,
+            companySize: m.companySize || prev.companySize,
+            headquarters: m.headquarters || prev.headquarters,
+            websiteUrl: m.websiteUrl || prev.websiteUrl,
+            socialProof: m.socialProof || prev.socialProof,
+            keyClients: m.keyClients || prev.keyClients,
+            certifications: m.certifications || prev.certifications,
+            additionalContext: m.additionalContext || prev.additionalContext,
+          }));
+          setMessagingDirty(true);
+        }
+      }
+      setShowAiPanel(false);
     } catch { /* ignore */ }
-    finally { setGenerating(false); }
+    finally { setAiGenerating(false); }
   };
 
   const save = useCallback(async () => {
     if (!profile) return;
     setSaving(true);
     try {
-      await fetch(`/api/portal/branding/profiles/${profileId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
+      const saves = [
+        fetch(`/api/portal/branding/profiles/${profileId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        }),
+      ];
+      if (messagingDirty) {
+        saves.push(
+          fetch('/api/portal/branding/messaging', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...messaging, brandingProfileId: parseInt(profileId, 10) }),
+          }),
+        );
+      }
+      await Promise.all(saves);
       setDirty(false);
+      setMessagingDirty(false);
     } finally {
       setSaving(false);
     }
-  }, [profileId, profile]);
+  }, [profileId, profile, messaging, messagingDirty]);
 
   const getTypo = (el: string): ElementTypography => ({
     ...DEFAULT_TYPOGRAPHY[el],
@@ -246,6 +372,28 @@ export default function BrandingProfileEditorPage() {
     if (info?.category === 'heading') return profile.headingFont || '';
     return profile.bodyFont || '';
   };
+
+  const updateMessaging = (field: string, value: string) => {
+    setMessaging(prev => ({ ...prev, [field]: value }));
+    setMessagingDirty(true);
+  };
+
+  const addDifferentiator = () => {
+    const val = newDifferentiator.trim();
+    if (!val) return;
+    setMessaging(prev => ({ ...prev, keyDifferentiators: [...prev.keyDifferentiators, val] }));
+    setNewDifferentiator('');
+    setMessagingDirty(true);
+  };
+
+  const removeDifferentiator = (index: number) => {
+    setMessaging(prev => ({
+      ...prev,
+      keyDifferentiators: prev.keyDifferentiators.filter((_, i) => i !== index),
+    }));
+    setMessagingDirty(true);
+  };
+
 
   if (loading) {
     return (
@@ -273,6 +421,7 @@ export default function BrandingProfileEditorPage() {
     { id: 'typography' as const, label: 'Typography', icon: 'text_fields' },
     { id: 'buttons' as const, label: 'Buttons', icon: 'smart_button' },
     { id: 'style' as const, label: 'Style', icon: 'tune' },
+    { id: 'messaging' as const, label: 'Messaging', icon: 'chat' },
   ];
 
   return (
@@ -311,7 +460,7 @@ export default function BrandingProfileEditorPage() {
         </div>
         <button
           onClick={save}
-          disabled={!dirty || saving}
+          disabled={(!dirty && !messagingDirty) || saving}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
           <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
@@ -319,45 +468,70 @@ export default function BrandingProfileEditorPage() {
         </button>
       </div>
 
-      {/* AI Brand Generator */}
+      {/* AI Generator */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <button
-          onClick={() => setShowAiGenerator(!showAiGenerator)}
+          onClick={() => setShowAiPanel(!showAiPanel)}
           className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
         >
           <span className="material-icons text-base text-primary">auto_awesome</span>
-          Describe your brand
-          <span className="material-icons text-sm text-muted-foreground ml-auto transition-transform" style={{ transform: showAiGenerator ? 'rotate(180deg)' : undefined }}>
+          Generate with AI
+          <span className="material-icons text-sm text-muted-foreground ml-auto transition-transform" style={{ transform: showAiPanel ? 'rotate(180deg)' : undefined }}>
             expand_more
           </span>
         </button>
-        {showAiGenerator && (
+        {showAiPanel && (
           <div className="px-4 pb-4 space-y-3 border-t border-border">
             <p className="text-xs text-muted-foreground pt-3">
-              Describe your brand personality, audience, and vibe. AI will generate matching colors, fonts, and styles.
+              Describe your brand, company, audience, and personality. AI will generate content for the selected sections.
             </p>
             <textarea
-              value={brandDescription}
-              onChange={(e) => setBrandDescription(e.target.value)}
-              placeholder={"e.g. \"Modern fintech startup targeting millennials, bold and energetic\" or \"Luxury real estate agency, sophisticated and minimal\""}
-              className={`${inputClass} h-20 resize-none`}
-              disabled={generating}
+              value={aiDescription}
+              onChange={(e) => setAiDescription(e.target.value)}
+              placeholder={'e.g. "We\'re a boutique web development agency building custom SaaS platforms for small businesses. Modern, approachable, and professional. Founded in 2020, based in Philadelphia."'}
+              className={`${inputClass} h-24 resize-none`}
+              disabled={aiGenerating}
             />
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-medium text-muted-foreground">Apply to:</span>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiTargets.visual}
+                  onChange={(e) => setAiTargets(prev => ({ ...prev, visual: e.target.checked }))}
+                  className="rounded border-border text-primary focus:ring-primary"
+                  disabled={aiGenerating}
+                />
+                <span className="text-sm text-foreground">Visual Identity</span>
+                <span className="text-[10px] text-muted-foreground">(colors, fonts, buttons, style)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiTargets.messaging}
+                  onChange={(e) => setAiTargets(prev => ({ ...prev, messaging: e.target.checked }))}
+                  className="rounded border-border text-primary focus:ring-primary"
+                  disabled={aiGenerating}
+                />
+                <span className="text-sm text-foreground">Messaging</span>
+                <span className="text-[10px] text-muted-foreground">(company info, voice, pitch)</span>
+              </label>
+            </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={generateFromDescription}
-                disabled={generating || !brandDescription.trim()}
+                onClick={generateWithAI}
+                disabled={aiGenerating || !aiDescription.trim() || (!aiTargets.visual && !aiTargets.messaging)}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                {generating ? (
+                {aiGenerating ? (
                   <><span className="material-icons animate-spin text-base">autorenew</span>Generating...</>
                 ) : (
-                  <><span className="material-icons text-base">auto_awesome</span>Generate Theme</>
+                  <><span className="material-icons text-base">auto_awesome</span>Generate</>
                 )}
               </button>
-              <span className="text-xs text-muted-foreground">
-                This will update colors, fonts, border radius, button styles, and dark mode.
-              </span>
+              {!aiTargets.visual && !aiTargets.messaging && (
+                <span className="text-xs text-destructive">Select at least one section</span>
+              )}
             </div>
           </div>
         )}
@@ -1173,6 +1347,265 @@ export default function BrandingProfileEditorPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Messaging */}
+      {activeTab === 'messaging' && (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+            <span className="material-icons text-base">chat</span>
+            Messaging
+          </h2>
+          <p className="text-sm text-muted-foreground">Company messaging used in proposals, pitch decks, and AI-generated content for this brand profile.</p>
+        </div>
+
+        {/* Company Identity */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">business</span>
+            Company Identity
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Company Name</label>
+              <input type="text" value={messaging.companyName} onChange={(e) => updateMessaging('companyName', e.target.value)} placeholder="Acme Corp" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Tagline</label>
+              <input type="text" value={messaging.tagline} onChange={(e) => updateMessaging('tagline', e.target.value)} placeholder="Building the future, today" className={inputClass} />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Mission Statement</label><button type="button" onClick={() => openRewrite('missionStatement', 'Mission Statement')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.missionStatement} onChange={(e) => updateMessaging('missionStatement', e.target.value)} placeholder="What is your company's mission?" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Vision Statement</label><button type="button" onClick={() => openRewrite('visionStatement', 'Vision Statement')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.visionStatement} onChange={(e) => updateMessaging('visionStatement', e.target.value)} placeholder="What is your long-term vision?" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Value Proposition</label><button type="button" onClick={() => openRewrite('valueProposition', 'Value Proposition')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.valueProposition} onChange={(e) => updateMessaging('valueProposition', e.target.value)} placeholder="What unique value do you provide to customers?" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+        </div>
+
+        {/* Brand Voice */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">record_voice_over</span>
+            Brand Voice
+          </h3>
+          <div>
+            <label className={labelClass}>Tone of Voice</label>
+            <input type="text" value={messaging.toneOfVoice} onChange={(e) => updateMessaging('toneOfVoice', e.target.value)} placeholder="e.g. Professional, Approachable, Innovative" className={inputClass} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Brand Personality</label><button type="button" onClick={() => openRewrite('brandPersonality', 'Brand Personality')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.brandPersonality} onChange={(e) => updateMessaging('brandPersonality', e.target.value)} placeholder="Describe how your brand should come across in communications" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Writing Style Guidelines</label><button type="button" onClick={() => openRewrite('writingStyle', 'Writing Style Guidelines')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.writingStyle} onChange={(e) => updateMessaging('writingStyle', e.target.value)} placeholder="Preferred language, formatting, and communication style" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+        </div>
+
+        {/* Key Messaging */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">campaign</span>
+            Key Messaging
+          </h3>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Elevator Pitch</label><button type="button" onClick={() => openRewrite('elevatorPitch', 'Elevator Pitch')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.elevatorPitch} onChange={(e) => updateMessaging('elevatorPitch', e.target.value)} placeholder="A concise 30-second pitch about your company" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Boilerplate Description</label><button type="button" onClick={() => openRewrite('boilerplate', 'Boilerplate Description')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.boilerplate} onChange={(e) => updateMessaging('boilerplate', e.target.value)} placeholder="Standard company description for press releases, proposals, etc." className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <label className={labelClass}>Key Differentiators</label>
+            <div className="space-y-2">
+              {messaging.keyDifferentiators.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm">{item}</span>
+                  <button onClick={() => removeDifferentiator(i)} className="p-1.5 rounded-md text-destructive hover:bg-destructive/10">
+                    <span className="material-icons text-base">close</span>
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newDifferentiator}
+                  onChange={(e) => setNewDifferentiator(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addDifferentiator()}
+                  placeholder="Add a differentiator"
+                  className={inputClass}
+                />
+                <button
+                  onClick={addDifferentiator}
+                  disabled={!newDifferentiator.trim()}
+                  className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <span className="material-icons text-base">add</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Target Audience</label><button type="button" onClick={() => openRewrite('targetAudience', 'Target Audience')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.targetAudience} onChange={(e) => updateMessaging('targetAudience', e.target.value)} placeholder="Who are your ideal customers? Demographics, needs, pain points" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+        </div>
+
+        {/* Company Details */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">info</span>
+            Company Details
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Industry</label>
+              <input type="text" value={messaging.industry} onChange={(e) => updateMessaging('industry', e.target.value)} placeholder="e.g. SaaS, Healthcare, Fintech" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Year Founded</label>
+              <input type="text" value={messaging.yearFounded} onChange={(e) => updateMessaging('yearFounded', e.target.value)} placeholder="e.g. 2020" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Company Size</label>
+              <input type="text" value={messaging.companySize} onChange={(e) => updateMessaging('companySize', e.target.value)} placeholder="e.g. 50-100 employees" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Headquarters</label>
+              <input type="text" value={messaging.headquarters} onChange={(e) => updateMessaging('headquarters', e.target.value)} placeholder="City, State / Country" className={inputClass} />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Website URL</label>
+            <input type="text" value={messaging.websiteUrl} onChange={(e) => updateMessaging('websiteUrl', e.target.value)} placeholder="https://example.com" className={inputClass} />
+          </div>
+        </div>
+
+        {/* Social Proof */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">verified</span>
+            Social Proof
+          </h3>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Testimonials, Awards & Press</label><button type="button" onClick={() => openRewrite('socialProof', 'Testimonials, Awards & Press')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.socialProof} onChange={(e) => updateMessaging('socialProof', e.target.value)} placeholder="Notable testimonials, awards, or press mentions" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Key Clients / Partners</label><button type="button" onClick={() => openRewrite('keyClients', 'Key Clients / Partners')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.keyClients} onChange={(e) => updateMessaging('keyClients', e.target.value)} placeholder="Notable clients or partners you can reference" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Certifications & Accreditations</label><button type="button" onClick={() => openRewrite('certifications', 'Certifications & Accreditations')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea value={messaging.certifications} onChange={(e) => updateMessaging('certifications', e.target.value)} placeholder="Industry certifications, compliance standards, etc." className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+        </div>
+
+        {/* Additional Context */}
+        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <span className="material-icons text-base text-primary">lightbulb</span>
+            Additional Context
+          </h3>
+          <div>
+            <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Anything else the AI should know</label><button type="button" onClick={() => openRewrite('additionalContext', 'Additional Context')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
+            <textarea
+              value={messaging.additionalContext}
+              onChange={(e) => updateMessaging('additionalContext', e.target.value)}
+              placeholder="Any other information that would be helpful when generating proposals, pitch decks, or other content"
+              className={`${inputClass} min-h-[120px] resize-y`}
+            />
+          </div>
+        </div>
+      </div>
+      )}
+
+      {/* Field-level AI Rewrite Modal */}
+      {rewriteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setRewriteModal(null)} />
+          <div className="relative w-full max-w-lg mx-4 bg-card border border-border rounded-xl shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-base text-primary">auto_awesome</span>
+                <h3 className="text-sm font-semibold text-foreground">Rewrite: {rewriteModal.label}</h3>
+              </div>
+              <button onClick={() => setRewriteModal(null)} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent">
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {Boolean((messaging as Record<string, unknown>)[rewriteModal.field]) && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Current value</label>
+                  <div className="px-3 py-2 rounded-md border border-border bg-muted/30 text-sm text-muted-foreground max-h-24 overflow-y-auto whitespace-pre-wrap">
+                    {String((messaging as Record<string, unknown>)[rewriteModal.field])}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">What should AI do?</label>
+                <textarea
+                  value={rewritePrompt}
+                  onChange={(e) => setRewritePrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), runRewrite())}
+                  placeholder={'e.g. "Make it more concise" or "Write this for a tech-savvy audience" or "Generate from scratch for a fitness brand"'}
+                  className={`${inputClass} h-20 resize-none`}
+                  autoFocus
+                  disabled={rewriteLoading}
+                />
+              </div>
+              {rewritePreview && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Preview</label>
+                  <div className="px-3 py-2 rounded-md border border-primary/30 bg-primary/5 text-sm text-foreground max-h-32 overflow-y-auto whitespace-pre-wrap">
+                    {rewritePreview}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+              {rewritePreview ? (
+                <>
+                  <button
+                    onClick={runRewrite}
+                    disabled={rewriteLoading || !rewritePrompt.trim()}
+                    className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent disabled:opacity-50"
+                  >
+                    {rewriteLoading ? 'Regenerating...' : 'Regenerate'}
+                  </button>
+                  <button
+                    onClick={acceptRewrite}
+                    className="px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    Accept
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={runRewrite}
+                  disabled={rewriteLoading || !rewritePrompt.trim()}
+                  className="px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {rewriteLoading ? (
+                    <><span className="material-icons animate-spin text-sm">autorenew</span>Generating...</>
+                  ) : (
+                    <><span className="material-icons text-sm">auto_awesome</span>Generate</>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

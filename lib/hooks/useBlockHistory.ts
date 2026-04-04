@@ -75,16 +75,10 @@ export function useBlockHistory(
     initializedRef.current = true;
   }
 
-  // Sync with external initialBlocks changes (from parent component)
-  // This is critical for keeping the hook in sync when parent state changes
-  useEffect(() => {
-    // Only sync if initialBlocks actually changed (by reference)
-    if (prevInitialBlocksRef.current !== initialBlocks) {
-      console.log('[useBlockHistory] initialBlocks changed externally, syncing from', blocks.length, 'to', initialBlocks.length);
-      setBlocksState(initialBlocks);
-      prevInitialBlocksRef.current = initialBlocks;
-    }
-  }, [initialBlocks, blocks.length]);
+  // Note: initialBlocks is consumed via lazy useState initialization above.
+  // We intentionally do NOT sync on subsequent changes — the hook owns
+  // block state after mount. Parent changes are handled by unmount/remount
+  // of the provider (e.g., navigating to a different post).
 
   /**
    * Update blocks with history tracking

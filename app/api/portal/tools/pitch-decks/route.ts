@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
-  const { title, description, sourceUrl } = await req.json();
+  const { title, description, sourceUrl, brandingProfileId } = await req.json();
   if (!title?.trim()) return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
 
   // Generate slug from title
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     slug,
     description: description?.trim() || null,
     sourceUrl: sourceUrl?.trim() || null,
+    brandingProfileId: brandingProfileId ?? null,
     createdBy: userId,
   }).returning();
 

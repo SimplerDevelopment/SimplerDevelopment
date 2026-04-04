@@ -15,6 +15,8 @@ import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
+import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
+import { MarqueeBlockRender } from './MarqueeBlockRender';
 import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
 import { TestimonialBlockRender } from './TestimonialBlockRender';
@@ -40,6 +42,7 @@ import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { ProductDetailBlockRender } from './ProductDetailBlockRender';
 import { BookingBlockRender } from './BookingBlockRender';
 import { SurveyBlockRender } from './SurveyBlockRender';
+import { SurveyResultsBlockRender } from './SurveyResultsBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
@@ -127,6 +130,10 @@ function renderBlock(block: Block, siteId?: number) {
       return <AccordionBlockRender block={block} />;
     case 'hero':
       return <HeroBlockRender block={block} />;
+    case 'hero-slideshow':
+      return <HeroSlideshowBlockRender block={block} />;
+    case 'marquee':
+      return <MarqueeBlockRender block={block} />;
     case 'services-grid':
       return <ServicesGridBlockRender block={block} />;
     case 'cta':
@@ -177,6 +184,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <BookingBlockRender block={block} />;
     case 'survey':
       return <SurveyBlockRender block={block} />;
+    case 'survey-results':
+      return <SurveyResultsBlockRender block={block} />;
     case 'social-links':
       return <SocialLinksBlockRender block={block} />;
     case 'email-header':

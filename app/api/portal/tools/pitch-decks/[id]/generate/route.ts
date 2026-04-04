@@ -3,11 +3,12 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks, aiConversations, aiMessages } from '@/lib/db/schema';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
+import { brandingMessaging } from '@/lib/db/schema';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -71,7 +72,10 @@ Guidelines:
 - Use stats for numeric metrics
 - Use testimonial for quotes
 - Make all IDs unique across the entire deck (use descriptive IDs like "slide-1", "block-cover-hero", etc.)
-- Make the content specific to the company/topic, not generic`;
+- Make the content specific to the company/topic, not generic
+- If company messaging is provided, USE IT to write slide content — weave in the company name, tagline, value proposition, differentiators, elevator pitch, and social proof into relevant slides
+- Match the provided tone of voice and writing style throughout
+- Use the target audience info to frame the narrative (who the deck is speaking to and their pain points)`;
 
 const BRAND_SYSTEM = `You are a brand analyst. Given website HTML content, extract the brand identity.
 
@@ -203,9 +207,52 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
+    // Load messaging context — try profile-specific first, fall back to default (null profile)
+    let messagingContext = '';
+    try {
+      const profileCondition = deckProfileId
+        ? and(eq(brandingMessaging.clientId, client.id), eq(brandingMessaging.brandingProfileId, deckProfileId))
+        : and(eq(brandingMessaging.clientId, client.id), isNull(brandingMessaging.brandingProfileId));
+      let [msg] = await db.select().from(brandingMessaging).where(profileCondition).limit(1);
+      // If profile-specific messaging is empty, fall back to default
+      if (!msg && deckProfileId) {
+        [msg] = await db.select().from(brandingMessaging)
+          .where(and(eq(brandingMessaging.clientId, client.id), isNull(brandingMessaging.brandingProfileId)))
+          .limit(1);
+      }
+      if (msg) {
+        const parts: string[] = [];
+        if (msg.companyName) parts.push(`Company Name: ${msg.companyName}`);
+        if (msg.tagline) parts.push(`Tagline: ${msg.tagline}`);
+        if (msg.industry) parts.push(`Industry: ${msg.industry}`);
+        if (msg.missionStatement) parts.push(`Mission: ${msg.missionStatement}`);
+        if (msg.visionStatement) parts.push(`Vision: ${msg.visionStatement}`);
+        if (msg.valueProposition) parts.push(`Value Proposition: ${msg.valueProposition}`);
+        if (msg.elevatorPitch) parts.push(`Elevator Pitch: ${msg.elevatorPitch}`);
+        if (msg.boilerplate) parts.push(`Company Description: ${msg.boilerplate}`);
+        if (msg.targetAudience) parts.push(`Target Audience: ${msg.targetAudience}`);
+        if (msg.toneOfVoice) parts.push(`Tone of Voice: ${msg.toneOfVoice}`);
+        if (msg.brandPersonality) parts.push(`Brand Personality: ${msg.brandPersonality}`);
+        if (msg.writingStyle) parts.push(`Writing Style: ${msg.writingStyle}`);
+        const diffArray = msg.keyDifferentiators as string[] | null;
+        if (diffArray?.length) parts.push(`Key Differentiators: ${diffArray.join('; ')}`);
+        if (msg.socialProof) parts.push(`Social Proof: ${msg.socialProof}`);
+        if (msg.keyClients) parts.push(`Key Clients: ${msg.keyClients}`);
+        if (msg.certifications) parts.push(`Certifications: ${msg.certifications}`);
+        if (msg.yearFounded) parts.push(`Founded: ${msg.yearFounded}`);
+        if (msg.companySize) parts.push(`Company Size: ${msg.companySize}`);
+        if (msg.headquarters) parts.push(`Headquarters: ${msg.headquarters}`);
+        if (msg.additionalContext) parts.push(`Additional Context: ${msg.additionalContext}`);
+        if (parts.length) messagingContext = `# Company Messaging — use this to write authentic, on-brand slide content:\n${parts.join('\n')}`;
+      }
+    } catch { /* messaging is optional */ }
+
     // Step 2: Generate slides
-    const userPrompt = brandContext
-      ? `${brandContext}\n\nUser request: ${prompt.trim()}`
+    const contextParts: string[] = [];
+    if (brandContext) contextParts.push(brandContext);
+    if (messagingContext) contextParts.push(messagingContext);
+    const userPrompt = contextParts.length
+      ? `${contextParts.join('\n\n')}\n\nUser request: ${prompt.trim()}`
       : prompt.trim();
 
     // Use extended token limit for full deck generation (8-12 slides)

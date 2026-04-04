@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 
 export default function NewPitchDeckPage() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [brandingProfileId, setBrandingProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'idle' | 'creating' | 'generating' | 'branding'>('idle');
   const [error, setError] = useState('');
@@ -26,7 +28,11 @@ export default function NewPitchDeckPage() {
       const createRes = await fetch('/api/portal/tools/pitch-decks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), sourceUrl: websiteUrl.trim() || undefined }),
+        body: JSON.stringify({
+          title: title.trim(),
+          sourceUrl: websiteUrl.trim() || undefined,
+          brandingProfileId: brandingProfileId ?? undefined,
+        }),
       });
       const createData = await createRes.json();
       if (!createData.success) {
@@ -107,6 +113,19 @@ export default function NewPitchDeckPage() {
           </div>
 
           <div>
+            <BrandingProfileSelector
+              value={brandingProfileId}
+              onChange={setBrandingProfileId}
+              label="Brand Profile"
+              allowNone
+              noneLabel="None"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Applies your saved brand colors, fonts, and messaging to style and write the deck content.
+            </p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Website URL
               <span className="font-normal text-muted-foreground ml-1">(optional)</span>
@@ -123,7 +142,9 @@ export default function NewPitchDeckPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              We&apos;ll extract your brand colors, fonts, and company info to customize the deck
+              {brandingProfileId
+                ? 'Additional context will be pulled from this URL to supplement your brand profile.'
+                : 'We\'ll extract brand colors, fonts, and company info to customize the deck.'}
             </p>
           </div>
 

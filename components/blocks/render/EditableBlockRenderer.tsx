@@ -35,6 +35,22 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
   const editor = useEditorModeContext();
   const registry = getBlockRegistry();
 
+  // Disable all link navigation while the visual editor is active
+  useEffect(() => {
+    if (!editor.active) return;
+
+    function preventNav(e: MouseEvent) {
+      const target = (e.target as HTMLElement).closest('a');
+      if (target) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
+    document.addEventListener('click', preventNav, true);
+    return () => document.removeEventListener('click', preventNav, true);
+  }, [editor.active]);
+
   let blocks: Block[] = [];
 
   if (editor.active && editor.blocks.length > 0) {

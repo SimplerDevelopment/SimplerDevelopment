@@ -13,6 +13,8 @@ import { DividerBlockPreview } from './DividerBlockPreview';
 import { QuoteBlockPreview } from './QuoteBlockPreview';
 import { CodeBlockPreview } from './CodeBlockPreview';
 import { HeroBlockPreview } from './HeroBlockPreview';
+import { HeroSlideshowBlockPreview } from './HeroSlideshowBlockPreview';
+import { MarqueeBlockPreview } from './MarqueeBlockPreview';
 import { CtaBlockPreview } from './CtaBlockPreview';
 import { VideoBlockPreview } from './VideoBlockPreview';
 import { YoutubeBlockPreview } from './YoutubeBlockPreview';
@@ -35,6 +37,7 @@ import { StoreBannerBlockPreview } from './StoreBannerBlockPreview';
 import { ProductDetailBlockPreview } from './ProductDetailBlockPreview';
 import { BookingBlockPreview } from './BookingBlockPreview';
 import { SurveyBlockPreview } from './SurveyBlockPreview';
+import { SurveyResultsBlockPreview } from './SurveyResultsBlockPreview';
 import { SocialLinksBlockPreview } from './SocialLinksBlockPreview';
 import { EmailHeaderBlockPreview } from './EmailHeaderBlockPreview';
 import { EmailFooterBlockPreview } from './EmailFooterBlockPreview';
@@ -150,6 +153,10 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <ColumnsBlockPreview block={block} isSelected={isSelected} onChange={onChange} selectedBlockId={selectedBlockId} onSelectBlock={onSelectBlock} />;
     case 'hero':
       return <HeroBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'hero-slideshow':
+      return <HeroSlideshowBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'marquee':
+      return <MarqueeBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'services-grid':
       return <ServicesGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'cta':
@@ -188,6 +195,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <BookingBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'survey':
       return <SurveyBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'survey-results':
+      return <SurveyResultsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'social-links':
       return <SocialLinksBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'email-header':

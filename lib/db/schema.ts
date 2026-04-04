@@ -1430,6 +1430,43 @@ export const brandingProfiles = pgTable('branding_profiles', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── Branding Messaging ────────────────────────────────────────────────────
+
+export const brandingMessaging = pgTable('branding_messaging', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'cascade' }),
+  // Company Identity
+  companyName: varchar('company_name', { length: 255 }),
+  tagline: varchar('tagline', { length: 500 }),
+  missionStatement: text('mission_statement'),
+  visionStatement: text('vision_statement'),
+  valueProposition: text('value_proposition'),
+  // Brand Voice
+  toneOfVoice: varchar('tone_of_voice', { length: 255 }), // e.g. "Professional, Approachable, Innovative"
+  brandPersonality: text('brand_personality'),
+  writingStyle: text('writing_style'), // guidelines for written content
+  // Key Messaging
+  elevatorPitch: text('elevator_pitch'),
+  boilerplate: text('boilerplate'), // standard company description
+  keyDifferentiators: json('key_differentiators').$type<string[]>(),
+  targetAudience: text('target_audience'),
+  // Industry & Context
+  industry: varchar('industry', { length: 255 }),
+  yearFounded: varchar('year_founded', { length: 10 }),
+  companySize: varchar('company_size', { length: 100 }),
+  headquarters: varchar('headquarters', { length: 255 }),
+  websiteUrl: varchar('website_url', { length: 500 }),
+  // Social Proof
+  socialProof: text('social_proof'), // testimonials, awards, press mentions
+  keyClients: text('key_clients'),
+  certifications: text('certifications'),
+  // Additional Context
+  additionalContext: text('additional_context'), // anything else AI should know
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // ─── CRM ─────────────────────────────────────────────────────────────────────
 
 export const crmCompanies = pgTable('crm_companies', {

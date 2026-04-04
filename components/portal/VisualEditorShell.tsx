@@ -57,6 +57,8 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed sections' },
   { type: 'accordion', label: 'Accordion', icon: 'expand_more', category: 'Layout', description: 'Collapsible sections' },
   { type: 'hero', label: 'Hero', icon: 'view_carousel', category: 'Components', description: 'Hero section with CTA' },
+  { type: 'hero-slideshow', label: 'Hero Slideshow', icon: 'slideshow', category: 'Components', description: 'Slideshow hero with multiple slides' },
+  { type: 'marquee', label: 'Marquee', icon: 'text_rotation_none', category: 'Components', description: 'Scrolling text, images, or logos' },
   { type: 'cta', label: 'Call to Action', icon: 'campaign', category: 'Components', description: 'CTA section' },
   { type: 'card-grid', label: 'Card Grid', icon: 'grid_view', category: 'Components', description: 'Grid of cards' },
   { type: 'stats', label: 'Statistics', icon: 'bar_chart', category: 'Components', description: 'Stats display' },
@@ -1203,6 +1205,20 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'description', label: 'Description' },
     { key: 'cta', label: 'CTA Button' },
   ],
+  'hero-slideshow': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Slide Title' },
+    { key: 'subtitle', label: 'Slide Subtitle' },
+    { key: 'description', label: 'Slide Description' },
+    { key: 'cta', label: 'Primary Button' },
+    { key: 'secondaryCta', label: 'Secondary Button' },
+  ],
+  marquee: [
+    { key: '_block', label: 'Block' },
+    { key: 'text', label: 'Text Items' },
+    { key: 'image', label: 'Image Items' },
+    { key: 'icon', label: 'Icon Items' },
+  ],
   cta: [
     { key: '_block', label: 'Block' },
     { key: 'title', label: 'Title' },
@@ -1359,6 +1375,7 @@ function ElementStyleEditor({
 function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
   const b = block as unknown as Record<string, unknown>;
   const uid = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
 
   return (
     <div className="space-y-3">
@@ -1378,7 +1395,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'image' && (
         <>
-          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <Field label="Alt Text" value={b.alt as string} onChange={(v) => onUpdate({ alt: v } as Partial<Block>)} />
           <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
           <SelectField label="Width" value={(b.width as string) || 'full'} options={['small','medium','large','full']} onChange={(v) => onUpdate({ width: v } as Partial<Block>)} />
@@ -1422,7 +1439,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'video' && (
         <>
-          <div><span className="text-xs font-medium text-muted-foreground">Video</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="video" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Video</span><MediaPicker value={b.url as string} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} mimeTypeFilter="video" label="" apiEndpoint={mediaApi} /></div>
           <Field label="Caption" value={b.caption as string} onChange={(v) => onUpdate({ caption: v } as Partial<Block>)} />
           <CheckboxField label="Autoplay" checked={b.autoplay as boolean} onChange={(v) => onUpdate({ autoplay: v } as Partial<Block>)} />
           <CheckboxField label="Show Controls" checked={b.controls as boolean ?? true} onChange={(v) => onUpdate({ controls: v } as Partial<Block>)} />
@@ -1437,9 +1454,15 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
           <Field label="CTA Link" value={b.ctaLink as string} onChange={(v) => onUpdate({ ctaLink: v } as Partial<Block>)} />
           <Field label="2nd CTA Text" value={b.secondaryCtaText as string} onChange={(v) => onUpdate({ secondaryCtaText: v } as Partial<Block>)} />
           <Field label="2nd CTA Link" value={b.secondaryCtaLink as string} onChange={(v) => onUpdate({ secondaryCtaLink: v } as Partial<Block>)} />
-          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
-          <div><span className="text-xs font-medium text-muted-foreground">Background Video</span><MediaPicker value={b.backgroundVideo as string} onChange={(v) => onUpdate({ backgroundVideo: v } as Partial<Block>)} mimeTypeFilter="video" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Background Video</span><MediaPicker value={b.backgroundVideo as string} onChange={(v) => onUpdate({ backgroundVideo: v } as Partial<Block>)} mimeTypeFilter="video" label="" apiEndpoint={mediaApi} /></div>
         </>
+      )}
+      {block.type === 'marquee' && (
+        <MarqueeEditor block={block} onUpdate={onUpdate} siteId={siteId} />
+      )}
+      {block.type === 'hero-slideshow' && (
+        <HeroSlideshowEditor block={block} onUpdate={onUpdate} siteId={siteId} />
       )}
       {block.type === 'cta' && (
         <>
@@ -1458,7 +1481,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
           <Field label="Author" value={b.author as string} onChange={(v) => onUpdate({ author: v } as Partial<Block>)} />
           <Field label="Role" value={b.role as string} onChange={(v) => onUpdate({ role: v } as Partial<Block>)} />
           <Field label="Company" value={b.company as string} onChange={(v) => onUpdate({ company: v } as Partial<Block>)} />
-          <div><span className="text-xs font-medium text-muted-foreground">Avatar</span><MediaPicker value={b.avatar as string} onChange={(v) => onUpdate({ avatar: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Avatar</span><MediaPicker value={b.avatar as string} onChange={(v) => onUpdate({ avatar: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
         </>
       )}
       {block.type === 'columns' && (
@@ -1467,7 +1490,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {block.type === 'section' && (
         <>
           <Field label="Background Color" value={b.backgroundColor as string} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
-          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <Field label="Max Width" value={b.maxWidth as string} onChange={(v) => onUpdate({ maxWidth: v } as Partial<Block>)} />
           <Field label="Text Color" value={b.color as string} onChange={(v) => onUpdate({ color: v } as Partial<Block>)} />
           <Field label="Font Family" value={b.fontFamily as string} onChange={(v) => onUpdate({ fontFamily: v } as Partial<Block>)} />
@@ -1603,7 +1626,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
         <>
           <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
           <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
-          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Image</span><MediaPicker value={b.imageUrl as string} onChange={(v) => onUpdate({ imageUrl: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <SelectField label="Image Position" value={(b.imagePosition as string) || 'right'} options={['left','right']} onChange={(v) => onUpdate({ imagePosition: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
           <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
@@ -1684,7 +1707,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
           <Field label="Discount Code" value={b.discountCode as string} onChange={(v) => onUpdate({ discountCode: v } as Partial<Block>)} />
           <Field label="Button Text" value={b.buttonText as string} onChange={(v) => onUpdate({ buttonText: v } as Partial<Block>)} />
           <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
-          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" /></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <SelectField label="Background Style" value={(b.backgroundStyle as string) || 'gradient'} options={['gradient','solid','image']} onChange={(v) => onUpdate({ backgroundStyle: v } as Partial<Block>)} />
           <Field label="Accent Color" value={b.accentColor as string} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
           <Field label="Countdown Date" value={b.countdownDate as string} onChange={(v) => onUpdate({ countdownDate: v } as Partial<Block>)} />
@@ -1999,6 +2022,26 @@ function Field({ label, value, onChange }: { label: string; value: string | unde
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)}
         className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary" />
+    </label>
+  );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  // Extract a hex-ish value for the color picker from rgba/hex strings
+  const toHex = (c: string) => {
+    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) return '#' + [m[1], m[2], m[3]].map(v => parseInt(v).toString(16).padStart(2, '0')).join('');
+    return c.startsWith('#') ? c.slice(0, 7) : '#ffffff';
+  };
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2 mt-1">
+        <input type="color" value={toHex(value)} onChange={(e) => onChange(e.target.value)}
+          className="w-7 h-7 rounded border border-border cursor-pointer shrink-0 p-0" />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+          className="flex-1 rounded border border-border px-2 py-1 text-xs font-mono focus:border-primary focus:ring-1 focus:ring-primary" />
+      </div>
     </label>
   );
 }
@@ -2341,6 +2384,237 @@ function ProductSlugPicker({ siteId, value, onChange }: { siteId?: number; value
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Marquee Editor ─────────────────────────────────────────────────────────
+
+function MarqueeEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
+  const b = block as unknown as Record<string, unknown>;
+  const items = (b.items as Array<Record<string, unknown>>) || [];
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
+
+  function updateItem(index: number, updates: Record<string, unknown>) {
+    const newItems = items.map((it, i) => i === index ? { ...it, ...updates } : it);
+    onUpdate({ items: newItems } as Partial<Block>);
+  }
+
+  function addItem(type: 'text' | 'image' | 'icon') {
+    const newItem: Record<string, unknown> = {
+      id: `mi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type,
+      content: type === 'text' ? 'New item' : type === 'icon' ? 'star' : '',
+      imageUrl: '',
+    };
+    onUpdate({ items: [...items, newItem] } as Partial<Block>);
+  }
+
+  function removeItem(index: number) {
+    onUpdate({ items: items.filter((_, i) => i !== index) } as Partial<Block>);
+  }
+
+  function moveItem(from: number, dir: -1 | 1) {
+    const to = from + dir;
+    if (to < 0 || to >= items.length) return;
+    const arr = [...items];
+    [arr[from], arr[to]] = [arr[to], arr[from]];
+    onUpdate({ items: arr } as Partial<Block>);
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Items list */}
+      <div>
+        <span className="text-xs font-medium text-muted-foreground">Items ({items.length})</span>
+        <div className="space-y-2 mt-1">
+          {items.map((item, i) => (
+            <div key={(item.id as string) || i} className="border border-border rounded p-2 space-y-2 bg-muted/20">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground font-medium flex-1">{String(item.type).toUpperCase()} {i + 1}</span>
+                <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} className="p-0.5 text-xs rounded hover:bg-muted disabled:opacity-30"><span className="material-icons text-xs">arrow_upward</span></button>
+                <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} className="p-0.5 text-xs rounded hover:bg-muted disabled:opacity-30"><span className="material-icons text-xs">arrow_downward</span></button>
+                <button type="button" onClick={() => removeItem(i)} className="p-0.5 text-xs rounded text-destructive hover:bg-destructive/10"><span className="material-icons text-xs">close</span></button>
+              </div>
+              {item.type === 'text' && (
+                <Field label="Text" value={(item.content as string) || ''} onChange={(v) => updateItem(i, { content: v })} />
+              )}
+              {item.type === 'icon' && (
+                <Field label="Icon Name" value={(item.content as string) || ''} onChange={(v) => updateItem(i, { content: v })} />
+              )}
+              {item.type === 'image' && (
+                <div><span className="text-xs text-muted-foreground">Image</span><MediaPicker value={(item.imageUrl as string) || ''} onChange={(v) => updateItem(i, { imageUrl: v })} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
+              )}
+              {item.type === 'image' && (
+                <Field label="Alt Text" value={(item.imageAlt as string) || ''} onChange={(v) => updateItem(i, { imageAlt: v })} />
+              )}
+              <Field label="Link (optional)" value={(item.link as string) || ''} onChange={(v) => updateItem(i, { link: v })} />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-1 mt-2">
+          <button type="button" onClick={() => addItem('text')} className="flex-1 px-2 py-1.5 text-xs rounded bg-muted text-muted-foreground hover:text-foreground">+ Text</button>
+          <button type="button" onClick={() => addItem('image')} className="flex-1 px-2 py-1.5 text-xs rounded bg-muted text-muted-foreground hover:text-foreground">+ Image</button>
+          <button type="button" onClick={() => addItem('icon')} className="flex-1 px-2 py-1.5 text-xs rounded bg-muted text-muted-foreground hover:text-foreground">+ Icon</button>
+        </div>
+      </div>
+
+      {/* Marquee settings */}
+      <div className="border-t border-border pt-3 space-y-2">
+        <span className="text-xs font-medium text-muted-foreground">Marquee Settings</span>
+        <SelectField label="Direction" value={(b.direction as string) || 'left'} options={['left','right','up','down']} onChange={(v) => onUpdate({ direction: v } as Partial<Block>)} />
+        <Field label="Speed (px/s)" value={String((b.speed as number) || 50)} onChange={(v) => onUpdate({ speed: Number(v) || 50 } as Partial<Block>)} />
+        <Field label="Gap" value={(b.gap as string) || '40px'} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
+        <Field label="Height (vertical)" value={(b.height as string) || ''} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+        <CheckboxField label="Auto Fill" checked={(b.autoFill as boolean) ?? true} onChange={(v) => onUpdate({ autoFill: v } as Partial<Block>)} />
+        <CheckboxField label="Pause on Hover" checked={(b.pauseOnHover as boolean) ?? false} onChange={(v) => onUpdate({ pauseOnHover: v } as Partial<Block>)} />
+        <CheckboxField label="Pause on Click" checked={(b.pauseOnClick as boolean) ?? false} onChange={(v) => onUpdate({ pauseOnClick: v } as Partial<Block>)} />
+        <CheckboxField label="Gradient Edges" checked={(b.gradient as boolean) ?? false} onChange={(v) => onUpdate({ gradient: v } as Partial<Block>)} />
+        {(b.gradient as boolean) && (
+          <>
+            <Field label="Gradient Color" value={(b.gradientColor as string) || 'white'} onChange={(v) => onUpdate({ gradientColor: v } as Partial<Block>)} />
+            <Field label="Gradient Width" value={String((b.gradientWidth as number) || 200)} onChange={(v) => onUpdate({ gradientWidth: Number(v) || 200 } as Partial<Block>)} />
+          </>
+        )}
+        <Field label="Loop Count (0=infinite)" value={String((b.loop as number) || 0)} onChange={(v) => onUpdate({ loop: Number(v) || 0 } as Partial<Block>)} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Hero Slideshow Editor ──────────────────────────────────────────────────
+
+function HeroSlideshowEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
+  const b = block as unknown as Record<string, unknown>;
+  const slides = (b.slides as Array<Record<string, unknown>>) || [];
+  const [activeSlide, setActiveSlide] = useState(0);
+  const slide = slides[activeSlide] as Record<string, unknown> | undefined;
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
+
+  function updateSlide(index: number, updates: Record<string, unknown>) {
+    const newSlides = slides.map((s, i) => i === index ? { ...s, ...updates } : s);
+    onUpdate({ slides: newSlides } as Partial<Block>);
+  }
+
+  function addSlide() {
+    const newSlide = { id: `slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, title: 'New Slide', textAlignment: 'center' };
+    onUpdate({ slides: [...slides, newSlide] } as Partial<Block>);
+    setActiveSlide(slides.length);
+  }
+
+  function removeSlide(index: number) {
+    if (slides.length <= 1) return;
+    const newSlides = slides.filter((_, i) => i !== index);
+    onUpdate({ slides: newSlides } as Partial<Block>);
+    if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="text-xs font-medium text-muted-foreground">Slides</span>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {slides.map((_, i) => (
+            <button key={i} type="button" onClick={() => setActiveSlide(i)}
+              className={`px-2.5 py-1 text-xs font-medium rounded ${i === activeSlide ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            >{i + 1}</button>
+          ))}
+          <button type="button" onClick={addSlide} className="px-2.5 py-1 text-xs rounded bg-muted text-muted-foreground hover:text-foreground">+</button>
+        </div>
+        {slides.length > 1 && (
+          <button type="button" onClick={() => removeSlide(activeSlide)} className="text-xs text-destructive hover:underline mt-1">Remove slide {activeSlide + 1}</button>
+        )}
+      </div>
+
+      {slide && (
+        <>
+          <RichTextField label="Title" value={(slide.title as string) || ''} onChange={(v) => updateSlide(activeSlide, { title: v })} singleLine />
+          <Field label="Subtitle" value={(slide.subtitle as string) || ''} onChange={(v) => updateSlide(activeSlide, { subtitle: v })} />
+          <TextareaField label="Description" value={(slide.description as string) || ''} onChange={(v) => updateSlide(activeSlide, { description: v })} rows={3} />
+          <Field label="CTA Text" value={(slide.ctaText as string) || ''} onChange={(v) => updateSlide(activeSlide, { ctaText: v })} />
+          <Field label="CTA Link" value={(slide.ctaLink as string) || ''} onChange={(v) => updateSlide(activeSlide, { ctaLink: v })} />
+          <Field label="2nd CTA Text" value={(slide.secondaryCtaText as string) || ''} onChange={(v) => updateSlide(activeSlide, { secondaryCtaText: v })} />
+          <Field label="2nd CTA Link" value={(slide.secondaryCtaLink as string) || ''} onChange={(v) => updateSlide(activeSlide, { secondaryCtaLink: v })} />
+          <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={(slide.backgroundImage as string) || ''} onChange={(v) => updateSlide(activeSlide, { backgroundImage: v })} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
+          <SelectField label="Background Size" value={(slide.backgroundSize as string) || 'cover'} options={['cover','contain','auto','50%','100%','150%','200%']} onChange={(v) => updateSlide(activeSlide, { backgroundSize: v })} />
+          <Field label="Background Position" value={(slide.backgroundPosition as string) || 'center'} onChange={(v) => updateSlide(activeSlide, { backgroundPosition: v })} />
+          <SelectField label="Background Repeat" value={(slide.backgroundRepeat as string) || 'no-repeat'} options={['no-repeat','repeat','repeat-x','repeat-y','space','round']} onChange={(v) => updateSlide(activeSlide, { backgroundRepeat: v })} />
+          <Field label="Video URL" value={(slide.backgroundVideo as string) || ''} onChange={(v) => updateSlide(activeSlide, { backgroundVideo: v })} />
+          <div>
+            <span className="text-xs font-medium text-muted-foreground mb-1 block">Overlay</span>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={(() => {
+                      const c = (slide.overlayColor as string) || 'rgba(0,0,0,0.45)';
+                      const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                      if (m) return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
+                      return c.startsWith('#') ? c : '#000000';
+                    })()}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      const r = parseInt(hex.slice(1,3),16);
+                      const g = parseInt(hex.slice(3,5),16);
+                      const b = parseInt(hex.slice(5,7),16);
+                      const opacity = (slide.overlayOpacity as number) ?? 0.45;
+                      updateSlide(activeSlide, { overlayColor: `rgba(${r},${g},${b},${opacity})` });
+                    }}
+                    className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
+                  />
+                  <input
+                    type="text"
+                    value={(slide.overlayColor as string) || 'rgba(0,0,0,0.45)'}
+                    onChange={(v) => updateSlide(activeSlide, { overlayColor: v.target.value })}
+                    className="flex-1 text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono text-xs"
+                    placeholder="rgba(0,0,0,0.45)"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] text-muted-foreground">Opacity</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{Math.round(((slide.overlayOpacity as number) ?? 1) * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={(slide.overlayOpacity as number) ?? 1}
+                    onChange={(e) => updateSlide(activeSlide, { overlayOpacity: parseFloat(e.target.value) })}
+                    className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer accent-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <SelectField label="Text Alignment" value={(slide.textAlignment as string) || 'center'} options={['left','center','right']} onChange={(v) => updateSlide(activeSlide, { textAlignment: v })} />
+        </>
+      )}
+
+      <div className="border-t border-border pt-3 space-y-2">
+        <span className="text-xs font-medium text-muted-foreground">Slideshow Settings</span>
+        <SelectField label="Transition" value={(b.transition as string) || 'fade'} options={['fade','slide','zoom']} onChange={(v) => onUpdate({ transition: v } as Partial<Block>)} />
+        <Field label="Height" value={(b.height as string) || '90vh'} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+        <Field label="Interval (ms)" value={String((b.interval as number) || 6000)} onChange={(v) => onUpdate({ interval: Number(v) || 6000 } as Partial<Block>)} />
+        <CheckboxField label="Autoplay" checked={(b.autoplay as boolean) ?? true} onChange={(v) => onUpdate({ autoplay: v } as Partial<Block>)} />
+        <CheckboxField label="Show Dots" checked={(b.showDots as boolean) ?? true} onChange={(v) => onUpdate({ showDots: v } as Partial<Block>)} />
+        <CheckboxField label="Show Arrows" checked={(b.showArrows as boolean) ?? true} onChange={(v) => onUpdate({ showArrows: v } as Partial<Block>)} />
+        <CheckboxField label="Ken Burns Effect" checked={(b.kenBurns as boolean) ?? true} onChange={(v) => onUpdate({ kenBurns: v } as Partial<Block>)} />
+        <CheckboxField label="Pause on Hover" checked={(b.pauseOnHover as boolean) ?? true} onChange={(v) => onUpdate({ pauseOnHover: v } as Partial<Block>)} />
+      </div>
+
+      {/* Navigation Colors */}
+      <div className="border-t border-border pt-3 space-y-2">
+        <span className="text-xs font-medium text-muted-foreground">Navigation Colors</span>
+        <ColorField label="Arrow Color" value={(b.arrowColor as string) || '#fff'} onChange={(v) => onUpdate({ arrowColor: v } as Partial<Block>)} />
+        <ColorField label="Arrow Background" value={(b.arrowBackground as string) || 'rgba(255,255,255,0.12)'} onChange={(v) => onUpdate({ arrowBackground: v } as Partial<Block>)} />
+        <ColorField label="Arrow Border" value={(b.arrowBorderColor as string) || 'rgba(255,255,255,0.2)'} onChange={(v) => onUpdate({ arrowBorderColor: v } as Partial<Block>)} />
+        <ColorField label="Dot Color" value={(b.dotColor as string) || 'rgba(255,255,255,0.4)'} onChange={(v) => onUpdate({ dotColor: v } as Partial<Block>)} />
+        <ColorField label="Active Dot" value={(b.dotActiveColor as string) || '#fff'} onChange={(v) => onUpdate({ dotActiveColor: v } as Partial<Block>)} />
+        <ColorField label="Progress Bar" value={(b.progressBarColor as string) || 'rgba(255,255,255,0.5)'} onChange={(v) => onUpdate({ progressBarColor: v } as Partial<Block>)} />
+      </div>
     </div>
   );
 }

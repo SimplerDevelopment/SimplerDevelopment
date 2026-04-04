@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock, SurveyResultsBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
@@ -21,6 +21,13 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'title', label: 'Title' },
     { key: 'subtitle', label: 'Subtitle' },
     { key: 'description', label: 'Description' },
+    { key: 'cta', label: 'Primary Button' },
+    { key: 'secondaryCta', label: 'Secondary Button' },
+  ],
+  'hero-slideshow': [
+    { key: 'title', label: 'Slide Title' },
+    { key: 'subtitle', label: 'Slide Subtitle' },
+    { key: 'description', label: 'Slide Description' },
     { key: 'cta', label: 'Primary Button' },
     { key: 'secondaryCta', label: 'Secondary Button' },
   ],
@@ -102,6 +109,10 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'description', label: 'Description' },
   ],
   'survey': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  'survey-results': [
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
   ],
@@ -262,6 +273,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <ColumnsBlockSettings block={block as ColumnsBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'hero':
               return <HeroBlockSettings block={block as HeroBlock} onChange={onChange} currentViewport={currentViewport} />;
+            case 'hero-slideshow':
+              return <HeroSlideshowBlockSettings block={block as HeroSlideshowBlock} onChange={onChange} />;
             case 'services-grid':
               return <ServicesGridBlockSettings block={block as ServicesGridBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'cta':
@@ -298,6 +311,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <BookingBlockSettings block={block as BookingBlock} onChange={onChange} />;
             case 'survey':
               return <SurveyBlockSettings block={block as SurveyBlock} onChange={onChange} />;
+            case 'survey-results':
+              return <SurveyResultsBlockSettings block={block as SurveyResultsBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -2444,6 +2459,386 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
           onChange={(e) => onChange({ showPageTitle: e.target.checked })}
           className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
         <label htmlFor="surveyShowPageTitle" className="ml-2 text-sm text-foreground">Show Survey Title</label>
+      </div>
+    </div>
+  );
+}
+
+function SurveyResultsBlockSettings({ block, onChange }: { block: SurveyResultsBlock; onChange: (updates: Partial<SurveyResultsBlock>) => void }) {
+  const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number; fields: Array<{ id: string; label: string; type: string }> }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/surveys')
+      .then(r => r.json())
+      .then(json => { if (json.success) setSurveys(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? surveys.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()))
+    : surveys;
+  const selected = surveys.find(s => s.slug === block.surveySlug);
+
+  const chartOptions: Array<{ value: string; label: string; icon: string }> = [
+    { value: 'bar', label: 'Bar Chart', icon: 'bar_chart' },
+    { value: 'donut', label: 'Donut Chart', icon: 'donut_large' },
+    { value: 'list', label: 'Ranked List', icon: 'format_list_numbered' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Survey Picker */}
+      <div ref={ref} className="relative">
+        <label className="block text-sm font-medium text-foreground mb-1">Survey</label>
+        {selected && !open ? (
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm text-left hover:border-primary transition-colors">
+            <span className="material-icons text-primary text-base">poll</span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate font-medium">{selected.title}</div>
+              <div className="text-xs text-muted-foreground">{selected.responseCount} responses</div>
+            </div>
+            <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+          </button>
+        ) : (
+          <input type="text" value={open ? search : block.surveySlug || ''}
+            onChange={(e) => { setSearch(e.target.value); if (!open) onChange({ surveySlug: e.target.value }); }}
+            onFocus={() => setOpen(true)}
+            placeholder={loading ? 'Loading...' : 'Search surveys...'}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary" />
+        )}
+        {open && (
+          <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                {loading ? 'Loading...' : surveys.length === 0 ? 'No surveys found' : 'No matches'}
+              </div>
+            ) : filtered.map(s => (
+              <button key={s.slug} type="button"
+                onClick={() => { onChange({ surveySlug: s.slug }); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 ${s.slug === block.surveySlug ? 'bg-primary/10' : ''}`}>
+                <span className="material-icons text-primary text-base">poll</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">{s.responseCount} responses</div>
+                </div>
+                {s.slug === block.surveySlug && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Chart Type */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Chart Type</label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {chartOptions.map(opt => (
+            <button key={opt.value} type="button"
+              onClick={() => onChange({ chartType: opt.value as SurveyResultsBlock['chartType'] })}
+              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-md border text-xs transition-colors ${
+                (block.chartType || 'bar') === opt.value
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border text-muted-foreground hover:border-primary/50'
+              }`}>
+              <span className="material-icons text-lg">{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Layout */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Layout</label>
+        <select value={block.layout || 'stacked'}
+          onChange={(e) => onChange({ layout: e.target.value as 'stacked' | 'tabbed' })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground">
+          <option value="stacked">Stacked (all questions visible)</option>
+          <option value="tabbed">Tabbed (one question at a time)</option>
+        </select>
+      </div>
+
+      {/* Title */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <input type="text" value={block.title || ''} onChange={(e) => onChange({ title: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="Survey Results" />
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <input type="text" value={block.description || ''} onChange={(e) => onChange({ description: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="See what our customers are saying" />
+      </div>
+
+      {/* Toggle options */}
+      <div className="space-y-3">
+        <div className="flex items-center">
+          <input type="checkbox" id="srShowCount" checked={block.showResponseCount !== false}
+            onChange={(e) => onChange({ showResponseCount: e.target.checked })}
+            className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="srShowCount" className="ml-2 text-sm text-foreground">Show response count</label>
+        </div>
+        <div className="flex items-center">
+          <input type="checkbox" id="srShowText" checked={block.showTextResponses !== false}
+            onChange={(e) => onChange({ showTextResponses: e.target.checked })}
+            className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+          <label htmlFor="srShowText" className="ml-2 text-sm text-foreground">Show text responses</label>
+        </div>
+      </div>
+
+      {block.showTextResponses !== false && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Text responses per question</label>
+          <input type="number" min={1} max={50} value={block.textResponseLimit || 5}
+            onChange={(e) => onChange({ textResponseLimit: parseInt(e.target.value) || 5 })}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" />
+        </div>
+      )}
+
+      {/* Accent Color */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+        <div className="flex items-center gap-2">
+          <input type="color" value={block.accentColor || '#6366f1'}
+            onChange={(e) => onChange({ accentColor: e.target.value })}
+            className="w-8 h-8 rounded border border-border cursor-pointer" />
+          <input type="text" value={block.accentColor || ''}
+            onChange={(e) => onChange({ accentColor: e.target.value })}
+            placeholder="#6366f1"
+            className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Hero Slideshow Settings ──────────────────────────────────────────────
+
+function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowBlock; onChange: (updates: Partial<HeroSlideshowBlock>) => void }) {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const slides = block.slides || [];
+  const slide = slides[activeSlide];
+  const [showImagePicker, setShowImagePicker] = useState(false);
+
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  const selectClass = inputClass;
+
+  function updateSlide(index: number, updates: Partial<HeroSlideshowSlide>) {
+    const newSlides = slides.map((s, i) => i === index ? { ...s, ...updates } : s);
+    onChange({ slides: newSlides });
+  }
+
+  function addSlide() {
+    const newSlide: HeroSlideshowSlide = {
+      id: `slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: 'New Slide',
+      textAlignment: 'center',
+    };
+    onChange({ slides: [...slides, newSlide] });
+    setActiveSlide(slides.length);
+  }
+
+  function removeSlide(index: number) {
+    if (slides.length <= 1) return;
+    const newSlides = slides.filter((_, i) => i !== index);
+    onChange({ slides: newSlides });
+    if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
+  }
+
+  function moveSlide(from: number, direction: -1 | 1) {
+    const to = from + direction;
+    if (to < 0 || to >= slides.length) return;
+    const newSlides = [...slides];
+    [newSlides[from], newSlides[to]] = [newSlides[to], newSlides[from]];
+    onChange({ slides: newSlides });
+    setActiveSlide(to);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Slide tabs */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Slides</label>
+        <div className="flex flex-wrap gap-1 mb-2">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => setActiveSlide(i)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                i === activeSlide ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button onClick={addSlide} className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground">
+            +
+          </button>
+        </div>
+        {slides.length > 1 && (
+          <div className="flex gap-1 mb-2">
+            <button onClick={() => moveSlide(activeSlide, -1)} disabled={activeSlide === 0} className="px-2 py-1 text-xs rounded border border-border disabled:opacity-30">
+              <span className="material-icons text-xs">arrow_back</span>
+            </button>
+            <button onClick={() => moveSlide(activeSlide, 1)} disabled={activeSlide === slides.length - 1} className="px-2 py-1 text-xs rounded border border-border disabled:opacity-30">
+              <span className="material-icons text-xs">arrow_forward</span>
+            </button>
+            <button onClick={() => removeSlide(activeSlide)} className="px-2 py-1 text-xs rounded border border-border text-destructive hover:bg-destructive/10 ml-auto">
+              <span className="material-icons text-xs">delete</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Active slide content */}
+      {slide && (
+        <div className="space-y-3 border-t border-border pt-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+            <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+              <RichTextEditable html={slide.title} onChange={(html) => updateSlide(activeSlide, { title: html })} singleLine placeholder="Slide Title" className="text-sm text-foreground" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+            <input type="text" value={slide.subtitle || ''} onChange={(e) => updateSlide(activeSlide, { subtitle: e.target.value })} className={inputClass} placeholder="Optional subtitle" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+            <textarea value={slide.description || ''} onChange={(e) => updateSlide(activeSlide, { description: e.target.value })} className={`${inputClass} min-h-[60px] resize-y`} placeholder="Optional description" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">CTA Text</label>
+              <input type="text" value={slide.ctaText || ''} onChange={(e) => updateSlide(activeSlide, { ctaText: e.target.value })} className={inputClass} placeholder="Button text" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">CTA Link</label>
+              <input type="text" value={slide.ctaLink || ''} onChange={(e) => updateSlide(activeSlide, { ctaLink: e.target.value })} className={inputClass} placeholder="/page" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Secondary Text</label>
+              <input type="text" value={slide.secondaryCtaText || ''} onChange={(e) => updateSlide(activeSlide, { secondaryCtaText: e.target.value })} className={inputClass} placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Secondary Link</label>
+              <input type="text" value={slide.secondaryCtaLink || ''} onChange={(e) => updateSlide(activeSlide, { secondaryCtaLink: e.target.value })} className={inputClass} placeholder="Optional" />
+            </div>
+          </div>
+
+          {/* Background */}
+          <div className="border-t border-border pt-3">
+            <label className="block text-sm font-medium text-foreground mb-2">Background Image</label>
+            {slide.backgroundImage ? (
+              <div className="space-y-2">
+                <img src={slide.backgroundImage} alt="Slide background" className="w-full h-24 object-cover rounded border border-border" />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowImagePicker(true)} className="flex-1 px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90">Change</button>
+                  <button type="button" onClick={() => updateSlide(activeSlide, { backgroundImage: '' })} className="px-3 py-1.5 text-xs border border-border rounded hover:bg-accent">Remove</button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setShowImagePicker(true)} className="w-full px-3 py-6 text-sm border border-dashed border-border rounded-lg text-muted-foreground hover:bg-accent/50 transition-colors">
+                Choose Image
+              </button>
+            )}
+            {showImagePicker && (
+              <div className="mt-2">
+                <MediaPicker value={slide.backgroundImage || ''} onChange={(url) => { updateSlide(activeSlide, { backgroundImage: url }); setShowImagePicker(false); }} label="Slide Background" mimeTypeFilter="image" />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Background Video URL</label>
+            <input type="text" value={slide.backgroundVideo || ''} onChange={(e) => updateSlide(activeSlide, { backgroundVideo: e.target.value })} className={inputClass} placeholder="https://...mp4 (optional)" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Overlay Color</label>
+              <div className="flex gap-2">
+                <input type="color" value={slide.overlayColor?.replace(/rgba?\(.*\)/, '#000000') || '#000000'} onChange={(e) => updateSlide(activeSlide, { overlayColor: e.target.value })} className="w-9 h-9 rounded border border-border cursor-pointer shrink-0" />
+                <input type="text" value={slide.overlayColor || ''} onChange={(e) => updateSlide(activeSlide, { overlayColor: e.target.value })} className={inputClass} placeholder="rgba(0,0,0,0.45)" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Text Alignment</label>
+              <select value={slide.textAlignment || 'center'} onChange={(e) => updateSlide(activeSlide, { textAlignment: e.target.value as 'left' | 'center' | 'right' })} className={selectClass}>
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slideshow settings */}
+      <div className="border-t border-border pt-3 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Slideshow Settings</label>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Transition</label>
+            <select value={block.transition || 'fade'} onChange={(e) => onChange({ transition: e.target.value as 'fade' | 'slide' | 'zoom' })} className={selectClass}>
+              <option value="fade">Fade</option>
+              <option value="slide">Slide</option>
+              <option value="zoom">Zoom</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Height</label>
+            <input type="text" value={block.height || '90vh'} onChange={(e) => onChange({ height: e.target.value })} className={inputClass} placeholder="90vh" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Interval (ms)</label>
+            <input type="number" value={block.interval || 6000} onChange={(e) => onChange({ interval: parseInt(e.target.value) || 6000 })} className={inputClass} />
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Transition (ms)</label>
+            <input type="number" value={block.transitionDuration || 800} onChange={(e) => onChange({ transitionDuration: parseInt(e.target.value) || 800 })} className={inputClass} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          {[
+            { key: 'autoplay', label: 'Autoplay', defaultVal: true },
+            { key: 'showDots', label: 'Show Dots', defaultVal: true },
+            { key: 'showArrows', label: 'Show Arrows', defaultVal: true },
+            { key: 'pauseOnHover', label: 'Pause on Hover', defaultVal: true },
+            { key: 'kenBurns', label: 'Ken Burns Effect', defaultVal: true },
+          ].map(({ key, label, defaultVal }) => (
+            <label key={key} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={(block as unknown as Record<string, unknown>)[key] as boolean ?? defaultVal}
+                onChange={(e) => onChange({ [key]: e.target.checked } as Partial<HeroSlideshowBlock>)}
+                className="rounded border-border"
+              />
+              <span className="text-sm text-foreground">{label}</span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );

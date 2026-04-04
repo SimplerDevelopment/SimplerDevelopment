@@ -180,6 +180,71 @@ export interface HeroBlock extends BaseBlock {
   backgroundVideo?: string;
 }
 
+export interface HeroSlideshowSlide {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  ctaText?: string;
+  ctaLink?: string;
+  secondaryCtaText?: string;
+  secondaryCtaLink?: string;
+  backgroundImage?: string;
+  backgroundSize?: 'cover' | 'contain' | 'auto' | '50%' | '100%' | '150%' | '200%';
+  backgroundPosition?: string; // e.g. 'center', 'top', 'bottom', '50% 30%'
+  backgroundRepeat?: 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y' | 'space' | 'round';
+  backgroundVideo?: string;
+  overlayColor?: string;
+  overlayOpacity?: number;
+  textAlignment?: 'left' | 'center' | 'right';
+}
+
+export interface HeroSlideshowBlock extends BaseBlock {
+  type: 'hero-slideshow';
+  slides: HeroSlideshowSlide[];
+  autoplay?: boolean;
+  interval?: number; // ms between slides, default 6000
+  transition?: 'fade' | 'slide' | 'zoom';
+  transitionDuration?: number; // ms, default 800
+  showDots?: boolean;
+  showArrows?: boolean;
+  pauseOnHover?: boolean;
+  height?: string; // CSS height, default '90vh'
+  kenBurns?: boolean; // subtle zoom animation on background images
+  // Navigation colors
+  arrowColor?: string;
+  arrowBackground?: string;
+  arrowBorderColor?: string;
+  dotColor?: string;
+  dotActiveColor?: string;
+  progressBarColor?: string;
+}
+
+export interface MarqueeItem {
+  id: string;
+  type: 'text' | 'image' | 'icon';
+  content?: string; // text content or icon name
+  imageUrl?: string;
+  imageAlt?: string;
+  link?: string;
+}
+
+export interface MarqueeBlock extends BaseBlock {
+  type: 'marquee';
+  items: MarqueeItem[];
+  direction?: 'left' | 'right' | 'up' | 'down';
+  speed?: number; // pixels per second, default 50
+  pauseOnHover?: boolean;
+  pauseOnClick?: boolean;
+  gradient?: boolean;
+  gradientColor?: string;
+  gradientWidth?: number;
+  autoFill?: boolean;
+  gap?: string; // space between items, e.g. '40px'
+  height?: string; // for vertical mode, e.g. '300px'
+  loop?: number; // 0 = infinite
+}
+
 export interface ServicesGridBlock extends BaseBlock {
   type: 'services-grid';
   title?: string;
@@ -485,6 +550,29 @@ export interface SurveyBlock extends BaseBlock {
   height?: string;
 }
 
+export type SurveyResultsChartType = 'bar' | 'pie' | 'donut' | 'list' | 'number';
+
+export interface SurveyResultsBlock extends BaseBlock {
+  type: 'survey-results';
+  surveySlug: string;
+  title?: string;
+  description?: string;
+  /** Which question fields to show (empty = all answerable fields) */
+  fieldIds?: string[];
+  /** Default chart type for questions with options */
+  chartType?: SurveyResultsChartType;
+  /** Show total response count */
+  showResponseCount?: boolean;
+  /** Show individual text responses */
+  showTextResponses?: boolean;
+  /** Max text responses to display per question */
+  textResponseLimit?: number;
+  /** Color theme for charts */
+  accentColor?: string;
+  /** Layout: stack all questions or tabbed */
+  layout?: 'stacked' | 'tabbed';
+}
+
 // ============================================================================
 // Email Marketing — Block Types
 // ============================================================================
@@ -548,6 +636,8 @@ export type Block =
   | VideoBlock
   | YoutubeBlock
   | HeroBlock
+  | HeroSlideshowBlock
+  | MarqueeBlock
   | ServicesGridBlock
   | CtaBlock
   | TestimonialBlock
@@ -575,6 +665,7 @@ export type Block =
   | ProductDetailBlock
   | BookingBlock
   | SurveyBlock
+  | SurveyResultsBlock
   | SocialLinksBlock
   | EmailHeaderBlock
   | EmailFooterBlock;

@@ -43,6 +43,7 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
     { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
     { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
     { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
+    { type: 'survey-results', label: 'Survey Results', icon: 'poll', category: 'Interactive', description: 'Display survey results with charts' },
   ];
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
@@ -572,6 +573,8 @@ function createDefaultBlock(type: BlockType, order: number): Block {
       return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
     case 'blog-posts':
       return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
+    case 'survey-results':
+      return { ...base, type: 'survey-results', surveySlug: '', title: 'Survey Results', description: 'See what our customers are saying', chartType: 'bar', showResponseCount: true, showTextResponses: true, textResponseLimit: 5, layout: 'stacked' };
     default:
       return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
   }

@@ -68,6 +68,8 @@ const blockTypes: Array<{ type: BlockType; label: string; icon: string; category
   { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
   { type: 'section', label: 'Section', icon: '📦', category: 'Layout', description: 'Container wrapper with styling' },
   { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
+  { type: 'hero-slideshow', label: 'Hero Slideshow', icon: '🎞️', category: 'Components', description: 'Slideshow hero with multiple slides' },
+  { type: 'marquee', label: 'Marquee', icon: '📜', category: 'Components', description: 'Scrolling text, images, or logos' },
   { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
   { type: 'card-grid', label: 'Card Grid', icon: '🎴', category: 'Components', description: 'Grid of cards' },
   { type: 'stats', label: 'Stats', icon: '📈', category: 'Components', description: 'Statistics display' },
@@ -118,6 +120,14 @@ function createDefaultBlock(type: string, order: number): Block {
       { id: `acc-${Date.now()}-2`, title: 'Item 2', content: 'Content for item 2' },
     ] } as Block;
     case 'hero': return { ...base, type: 'hero', title: 'Hero Title', subtitle: '', ctaText: 'Learn More', ctaLink: '#' } as Block;
+    case 'marquee': return { ...base, type: 'marquee', items: [
+      { id: `mi-${Date.now()}-1`, type: 'text', content: 'Scrolling text item' },
+      { id: `mi-${Date.now()}-2`, type: 'text', content: 'Another item' },
+    ], autoFill: true, speed: 50, direction: 'left', pauseOnHover: true } as Block;
+    case 'hero-slideshow': return { ...base, type: 'hero-slideshow', slides: [
+      { id: `slide-${Date.now()}-1`, title: 'First Slide', subtitle: '', description: '', ctaText: 'Learn More', ctaLink: '#' },
+      { id: `slide-${Date.now()}-2`, title: 'Second Slide', subtitle: '', description: '', ctaText: 'Learn More', ctaLink: '#' },
+    ], autoplay: true, interval: 6000, transition: 'fade', showDots: true, showArrows: true, kenBurns: true } as Block;
     case 'cta': return { ...base, type: 'cta', title: 'Call to Action', primaryButtonText: 'Get Started', primaryButtonUrl: '#' } as Block;
     case 'testimonial': return { ...base, type: 'testimonial', quote: '', author: '' } as Block;
     case 'stats': return { ...base, type: 'stats', stats: [
