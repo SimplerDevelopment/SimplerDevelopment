@@ -3,7 +3,7 @@ import {
   projects, kanbanColumns, kanbanCards, sprints,
   invoices, invoiceItems, supportTickets, ticketMessages,
   kanbanCardFiles, kanbanCardComments, clients, users,
-  services, clientServices, clientWebsites, posts,
+  services, clientServices, clientWebsites, posts, postRevisions,
   categories, tags, media, hostedSites,
   emailCampaigns, emailLists, emailSubscribers,
   pitchDecks, bookingPages, bookings,
@@ -266,7 +266,7 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
   // ── WRITE: Website Pages ──
   {
     name: 'create_website_page',
-    description: 'Create a new page/post on a client website. Only call AFTER the client confirms the details.',
+    description: 'Create a new page/post on a client website with optional block content. Only call AFTER the client confirms the details. For blog posts, generate appropriate blocks (heading, text, image, etc.).',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -276,6 +276,7 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
         post_type: { type: 'string', enum: ['page', 'blog', 'landing'], description: 'Type of page' },
         excerpt: { type: 'string', description: 'Short excerpt/summary (optional)' },
         published: { type: 'boolean', description: 'Whether to publish immediately' },
+        blocks: { type: 'string', description: 'Optional JSON string of block content array. If omitted, page starts empty.' },
       },
       required: ['website_id', 'title', 'slug', 'post_type'],
     },
@@ -381,6 +382,173 @@ export const PORTAL_TOOLS: Anthropic.Tool[] = [
         role: { type: 'string', enum: ['admin', 'member', 'viewer'], description: 'Role to assign' },
       },
       required: ['name', 'email', 'role'],
+    },
+  },
+
+  // ── READ: Page Content ──
+  {
+    name: 'get_page_content',
+    description: 'Get the full block content (JSON) for a specific page/post. Returns the block editor data including all blocks and page settings.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        post_id: { type: 'number', description: 'The post/page ID' },
+      },
+      required: ['post_id'],
+    },
+  },
+
+  // ── WRITE: Page Content ──
+  {
+    name: 'update_page_blocks',
+    description: 'Replace the full block content for a page/post. Pass the entire blocks JSON array. A revision is saved automatically. Use get_page_content first to read the current blocks, modify what you need, and pass the full array back.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        post_id: { type: 'number', description: 'The post/page ID' },
+        blocks: { type: 'string', description: 'The full blocks JSON array as a string' },
+      },
+      required: ['post_id', 'blocks'],
+    },
+  },
+  {
+    name: 'update_block_by_id',
+    description: 'Update a single block within a page by its block ID. Pass only the fields you want to change — they will be merged into the existing block. For nested arrays like hero-slideshow slides, pass the full updated slides array. A revision is saved automatically.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        post_id: { type: 'number', description: 'The post/page ID' },
+        block_id: { type: 'string', description: 'The block ID within the page' },
+        updates: { type: 'string', description: 'JSON string of fields to merge into the block (e.g. {"title": "New Title"} or {"slides": [...]})' },
+      },
+      required: ['post_id', 'block_id', 'updates'],
+    },
+  },
+  {
+    name: 'update_page_metadata',
+    description: 'Update a page/post title, slug, excerpt, or post type. Only update fields the client explicitly asked to change.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        post_id: { type: 'number', description: 'The post/page ID' },
+        title: { type: 'string', description: 'New page title' },
+        slug: { type: 'string', description: 'New URL slug' },
+        excerpt: { type: 'string', description: 'New excerpt/summary' },
+        post_type: { type: 'string', enum: ['page', 'blog', 'landing'], description: 'New post type' },
+      },
+      required: ['post_id'],
+    },
+  },
+
+  // ── WRITE: Email Campaigns ──
+  {
+    name: 'create_email_campaign',
+    description: 'Create a new email campaign as a draft. The client must have at least one email list. Confirm details with the client first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Internal campaign name' },
+        subject: { type: 'string', description: 'Email subject line' },
+        preview_text: { type: 'string', description: 'Preview text shown in inbox' },
+        from_name: { type: 'string', description: 'Sender display name' },
+        from_email: { type: 'string', description: 'Sender email address' },
+        list_id: { type: 'number', description: 'Email list ID to send to' },
+        html_content: { type: 'string', description: 'HTML email body content' },
+      },
+      required: ['name', 'subject', 'from_name', 'from_email', 'list_id', 'html_content'],
+    },
+  },
+  {
+    name: 'update_email_campaign',
+    description: 'Update an existing draft email campaign. Only draft campaigns can be edited. Only update fields the client explicitly asked to change.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        campaign_id: { type: 'number', description: 'The campaign ID' },
+        name: { type: 'string', description: 'Internal campaign name' },
+        subject: { type: 'string', description: 'Email subject line' },
+        preview_text: { type: 'string', description: 'Preview text shown in inbox' },
+        from_name: { type: 'string', description: 'Sender display name' },
+        from_email: { type: 'string', description: 'Sender email address' },
+        html_content: { type: 'string', description: 'HTML email body content' },
+      },
+      required: ['campaign_id'],
+    },
+  },
+  {
+    name: 'get_email_campaign_details',
+    description: 'Get full details for a specific email campaign including content and stats.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { campaign_id: { type: 'number', description: 'The campaign ID' } },
+      required: ['campaign_id'],
+    },
+  },
+
+  // ── WRITE: Pitch Decks ──
+  {
+    name: 'create_pitch_deck',
+    description: 'Create a new empty pitch deck. Confirm with client first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Deck title' },
+        description: { type: 'string', description: 'Deck description' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'get_pitch_deck_slides',
+    description: 'Get the full slide content for a specific pitch deck.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { deck_id: { type: 'number', description: 'The pitch deck ID' } },
+      required: ['deck_id'],
+    },
+  },
+  {
+    name: 'update_pitch_deck_slide',
+    description: 'Update a specific slide in a pitch deck by slide index. Pass only the fields to change — they will be merged into the existing slide.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        deck_id: { type: 'number', description: 'The pitch deck ID' },
+        slide_index: { type: 'number', description: 'Zero-based slide index' },
+        updates: { type: 'string', description: 'JSON string of fields to merge into the slide' },
+      },
+      required: ['deck_id', 'slide_index', 'updates'],
+    },
+  },
+
+  // ── WRITE: Booking Pages ──
+  {
+    name: 'create_booking_page',
+    description: 'Create a new booking page. Confirm with client first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Booking page title' },
+        slug: { type: 'string', description: 'URL slug for the booking page' },
+        description: { type: 'string', description: 'Description shown to bookers' },
+        duration: { type: 'number', description: 'Meeting duration in minutes (default 30)' },
+      },
+      required: ['title', 'slug'],
+    },
+  },
+  {
+    name: 'update_booking_page',
+    description: 'Update an existing booking page. Only update fields the client explicitly asked to change.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        booking_page_id: { type: 'number', description: 'The booking page ID' },
+        title: { type: 'string', description: 'Booking page title' },
+        description: { type: 'string', description: 'Description shown to bookers' },
+        duration: { type: 'number', description: 'Meeting duration in minutes' },
+        active: { type: 'boolean', description: 'Whether the booking page is active' },
+      },
+      required: ['booking_page_id'],
     },
   },
 
@@ -1108,17 +1276,27 @@ export async function executePortalTool(
       const postType = (input.post_type as string) || 'page';
       const excerpt = input.excerpt as string | undefined;
       const published = input.published as boolean | undefined;
+      const blocksStr = input.blocks as string | undefined;
 
       const [site] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return { error: 'Website not found' };
+
+      let content = '[]';
+      if (blocksStr) {
+        try {
+          const parsed = JSON.parse(blocksStr);
+          if (!Array.isArray(parsed)) return { error: 'blocks must be a JSON array' };
+          content = JSON.stringify(parsed);
+        } catch { return { error: 'Invalid JSON in blocks' }; }
+      }
 
       const [post] = await db.insert(posts).values({
         title,
         slug,
         postType,
         excerpt: excerpt ?? null,
-        content: '[]', // empty block content
+        content,
         published: published ?? false,
         publishedAt: published ? new Date() : null,
         websiteId,
@@ -1294,6 +1472,332 @@ export async function executePortalTool(
       });
 
       return { success: true, message: `${name} (${email}) invited as ${role}.` };
+    }
+
+    // ── READ: Page Content ──
+    case 'get_page_content': {
+      const postId = input.post_id as number;
+      const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      if (!post || !post.websiteId) return { error: 'Page not found' };
+
+      const [site] = await db.select().from(clientWebsites)
+        .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return { error: 'Page does not belong to your website' };
+
+      let blocks: unknown = [];
+      try {
+        blocks = typeof post.content === 'string' ? JSON.parse(post.content) : post.content;
+      } catch {
+        blocks = [];
+      }
+
+      return {
+        postId: post.id,
+        title: post.title,
+        slug: post.slug,
+        postType: post.postType,
+        published: post.published,
+        website: site.name,
+        blocks,
+      };
+    }
+
+    // ── WRITE: Page Content ──
+    case 'update_page_blocks': {
+      const postId = input.post_id as number;
+      const blocksStr = input.blocks as string;
+
+      const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      if (!post || !post.websiteId) return { error: 'Page not found' };
+
+      const [site] = await db.select().from(clientWebsites)
+        .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return { error: 'Page does not belong to your website' };
+
+      // Validate JSON
+      let parsed: unknown;
+      try { parsed = JSON.parse(blocksStr); } catch { return { error: 'Invalid JSON in blocks' }; }
+      if (!Array.isArray(parsed)) return { error: 'blocks must be a JSON array' };
+
+      const newContent = JSON.stringify(parsed);
+
+      // Save revision
+      await db.insert(postRevisions).values({
+        postId,
+        content: post.content,
+        title: post.title,
+        trigger: 'manual',
+        createdBy: userId,
+      });
+
+      await db.update(posts).set({ content: newContent, updatedAt: new Date() })
+        .where(eq(posts.id, postId));
+
+      return { success: true, message: `Page "${post.title}" blocks updated. ${parsed.length} blocks saved.` };
+    }
+
+    case 'update_block_by_id': {
+      const postId = input.post_id as number;
+      const blockId = input.block_id as string;
+      const updatesStr = input.updates as string;
+
+      const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      if (!post || !post.websiteId) return { error: 'Page not found' };
+
+      const [site] = await db.select().from(clientWebsites)
+        .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return { error: 'Page does not belong to your website' };
+
+      let updates: Record<string, unknown>;
+      try { updates = JSON.parse(updatesStr); } catch { return { error: 'Invalid JSON in updates' }; }
+
+      let blocks: Array<Record<string, unknown>>;
+      try {
+        blocks = typeof post.content === 'string' ? JSON.parse(post.content) : post.content;
+      } catch {
+        return { error: 'Could not parse existing page content' };
+      }
+
+      // Find block by ID — search top-level and inside sections/columns
+      let found = false;
+      function findAndUpdate(blockList: Array<Record<string, unknown>>): void {
+        for (const block of blockList) {
+          if (block.id === blockId) {
+            Object.assign(block, updates);
+            found = true;
+            return;
+          }
+          // Search nested blocks in sections
+          if (Array.isArray(block.blocks)) {
+            findAndUpdate(block.blocks as Array<Record<string, unknown>>);
+            if (found) return;
+          }
+          // Search nested blocks in columns
+          if (Array.isArray(block.columns)) {
+            for (const col of block.columns as Array<Record<string, unknown>>) {
+              if (Array.isArray(col.blocks)) {
+                findAndUpdate(col.blocks as Array<Record<string, unknown>>);
+                if (found) return;
+              }
+            }
+          }
+          // Search nested blocks in tabs
+          if (Array.isArray(block.tabs)) {
+            for (const tab of block.tabs as Array<Record<string, unknown>>) {
+              if (Array.isArray(tab.blocks)) {
+                findAndUpdate(tab.blocks as Array<Record<string, unknown>>);
+                if (found) return;
+              }
+            }
+          }
+        }
+      }
+
+      findAndUpdate(blocks);
+      if (!found) return { error: `Block with ID "${blockId}" not found on this page` };
+
+      // Save revision
+      await db.insert(postRevisions).values({
+        postId,
+        content: post.content,
+        title: post.title,
+        trigger: 'manual',
+        createdBy: userId,
+      });
+
+      await db.update(posts).set({ content: JSON.stringify(blocks), updatedAt: new Date() })
+        .where(eq(posts.id, postId));
+
+      return { success: true, message: `Block "${blockId}" updated on page "${post.title}".` };
+    }
+
+    case 'update_page_metadata': {
+      const postId = input.post_id as number;
+      const [post] = await db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+      if (!post || !post.websiteId) return { error: 'Page not found' };
+
+      const [site] = await db.select().from(clientWebsites)
+        .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return { error: 'Page does not belong to your website' };
+
+      const update: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.title !== undefined) update.title = input.title;
+      if (input.slug !== undefined) update.slug = input.slug;
+      if (input.excerpt !== undefined) update.excerpt = input.excerpt;
+      if (input.post_type !== undefined) update.postType = input.post_type;
+
+      await db.update(posts).set(update).where(eq(posts.id, postId));
+
+      return { success: true, message: `Page metadata updated.` };
+    }
+
+    // ── WRITE: Email Campaigns ──
+    case 'create_email_campaign': {
+      const name = input.name as string;
+      const subject = input.subject as string;
+      const previewText = input.preview_text as string | undefined;
+      const fromName = input.from_name as string;
+      const fromEmail = input.from_email as string;
+      const listId = input.list_id as number;
+      const htmlContent = input.html_content as string;
+
+      // Verify list belongs to client
+      const [list] = await db.select().from(emailLists)
+        .where(and(eq(emailLists.id, listId), eq(emailLists.clientId, clientId))).limit(1);
+      if (!list) return { error: 'Email list not found' };
+
+      const [campaign] = await db.insert(emailCampaigns).values({
+        name,
+        subject,
+        previewText: previewText ?? null,
+        fromName,
+        fromEmail,
+        listId,
+        htmlContent,
+        clientId,
+        status: 'draft',
+      }).returning();
+
+      return { success: true, campaignId: campaign.id, message: `Campaign "${name}" created as draft.` };
+    }
+
+    case 'update_email_campaign': {
+      const campaignId = input.campaign_id as number;
+      const [campaign] = await db.select().from(emailCampaigns)
+        .where(and(eq(emailCampaigns.id, campaignId), eq(emailCampaigns.clientId, clientId))).limit(1);
+      if (!campaign) return { error: 'Campaign not found' };
+      if (campaign.status !== 'draft') return { error: `Campaign is "${campaign.status}" and cannot be edited. Only draft campaigns can be updated.` };
+
+      const update: Record<string, unknown> = {};
+      if (input.name !== undefined) update.name = input.name;
+      if (input.subject !== undefined) update.subject = input.subject;
+      if (input.preview_text !== undefined) update.previewText = input.preview_text;
+      if (input.from_name !== undefined) update.fromName = input.from_name;
+      if (input.from_email !== undefined) update.fromEmail = input.from_email;
+      if (input.html_content !== undefined) update.htmlContent = input.html_content;
+
+      await db.update(emailCampaigns).set(update).where(eq(emailCampaigns.id, campaignId));
+
+      return { success: true, message: `Campaign "${campaign.name}" updated.` };
+    }
+
+    case 'get_email_campaign_details': {
+      const campaignId = input.campaign_id as number;
+      const [campaign] = await db.select().from(emailCampaigns)
+        .where(and(eq(emailCampaigns.id, campaignId), eq(emailCampaigns.clientId, clientId))).limit(1);
+      if (!campaign) return { error: 'Campaign not found' };
+
+      return {
+        id: campaign.id,
+        name: campaign.name,
+        subject: campaign.subject,
+        previewText: campaign.previewText,
+        fromName: campaign.fromName,
+        fromEmail: campaign.fromEmail,
+        status: campaign.status,
+        htmlContent: campaign.htmlContent,
+        totalSent: campaign.totalSent,
+        totalOpened: campaign.totalOpened,
+        totalClicked: campaign.totalClicked,
+        sentAt: campaign.sentAt,
+        scheduledAt: campaign.scheduledAt,
+        createdAt: campaign.createdAt,
+      };
+    }
+
+    // ── WRITE: Pitch Decks ──
+    case 'create_pitch_deck': {
+      const title = input.title as string;
+      const description = input.description as string | undefined;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const [deck] = await db.insert(pitchDecks).values({
+        clientId,
+        title,
+        slug,
+        description: description ?? null,
+        status: 'draft',
+        slides: [],
+        formatVersion: 2,
+      }).returning();
+
+      return { success: true, deckId: deck.id, message: `Pitch deck "${title}" created.` };
+    }
+
+    case 'get_pitch_deck_slides': {
+      const deckId = input.deck_id as number;
+      const [deck] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!deck) return { error: 'Pitch deck not found' };
+
+      return {
+        id: deck.id,
+        title: deck.title,
+        status: deck.status,
+        slideCount: Array.isArray(deck.slides) ? deck.slides.length : 0,
+        slides: deck.slides,
+      };
+    }
+
+    case 'update_pitch_deck_slide': {
+      const deckId = input.deck_id as number;
+      const slideIndex = input.slide_index as number;
+      const updatesStr = input.updates as string;
+
+      const [deck] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!deck) return { error: 'Pitch deck not found' };
+
+      let updates: Record<string, unknown>;
+      try { updates = JSON.parse(updatesStr); } catch { return { error: 'Invalid JSON in updates' }; }
+
+      const slides = Array.isArray(deck.slides) ? [...deck.slides] : [];
+      if (slideIndex < 0 || slideIndex >= slides.length) {
+        return { error: `Slide index ${slideIndex} out of range (deck has ${slides.length} slides)` };
+      }
+
+      slides[slideIndex] = { ...slides[slideIndex], ...updates };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await db.update(pitchDecks).set({ slides: slides as any, updatedAt: new Date() })
+        .where(eq(pitchDecks.id, deckId));
+
+      return { success: true, message: `Slide ${slideIndex + 1} of "${deck.title}" updated.` };
+    }
+
+    // ── WRITE: Booking Pages ──
+    case 'create_booking_page': {
+      const title = input.title as string;
+      const slug = input.slug as string;
+      const description = input.description as string | undefined;
+      const duration = input.duration as number | undefined;
+
+      const [page] = await db.insert(bookingPages).values({
+        clientId,
+        title,
+        slug,
+        description: description ?? null,
+        duration: duration ?? 30,
+      }).returning();
+
+      return { success: true, bookingPageId: page.id, message: `Booking page "${title}" created.` };
+    }
+
+    case 'update_booking_page': {
+      const bookingPageId = input.booking_page_id as number;
+      const [page] = await db.select().from(bookingPages)
+        .where(and(eq(bookingPages.id, bookingPageId), eq(bookingPages.clientId, clientId))).limit(1);
+      if (!page) return { error: 'Booking page not found' };
+
+      const update: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.title !== undefined) update.title = input.title;
+      if (input.description !== undefined) update.description = input.description;
+      if (input.duration !== undefined) update.duration = input.duration;
+      if (input.active !== undefined) update.active = input.active;
+
+      await db.update(bookingPages).set(update).where(eq(bookingPages.id, bookingPageId));
+
+      return { success: true, message: `Booking page "${page.title}" updated.` };
     }
 
     // ── NAVIGATION ──
