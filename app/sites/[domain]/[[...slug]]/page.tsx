@@ -89,16 +89,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       );
     }
 
-    // Custom layout sites: render blocks full-width with no wrapper
-    if (site.customLayout) {
-      return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
-    }
-
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />
-      </div>
-    );
+    return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
   }
 
   // Shop listing
