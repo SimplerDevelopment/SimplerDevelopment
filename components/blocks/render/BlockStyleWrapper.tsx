@@ -38,6 +38,24 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.borderColor) customStyles.borderColor = style.borderColor;
   if (style.borderStyle) customStyles.borderStyle = style.borderStyle;
   if (style.borderRadius) customStyles.borderRadius = style.borderRadius;
+  // Per-side borders
+  if (style.borderTopWidth) customStyles.borderTopWidth = style.borderTopWidth;
+  if (style.borderTopColor) customStyles.borderTopColor = style.borderTopColor;
+  if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle;
+  if (style.borderRightWidth) customStyles.borderRightWidth = style.borderRightWidth;
+  if (style.borderRightColor) customStyles.borderRightColor = style.borderRightColor;
+  if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle;
+  if (style.borderBottomWidth) customStyles.borderBottomWidth = style.borderBottomWidth;
+  if (style.borderBottomColor) customStyles.borderBottomColor = style.borderBottomColor;
+  if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle;
+  if (style.borderLeftWidth) customStyles.borderLeftWidth = style.borderLeftWidth;
+  if (style.borderLeftColor) customStyles.borderLeftColor = style.borderLeftColor;
+  if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle;
+  // Per-corner radius
+  if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = style.borderTopLeftRadius;
+  if (style.borderTopRightRadius) customStyles.borderTopRightRadius = style.borderTopRightRadius;
+  if (style.borderBottomLeftRadius) customStyles.borderBottomLeftRadius = style.borderBottomLeftRadius;
+  if (style.borderBottomRightRadius) customStyles.borderBottomRightRadius = style.borderBottomRightRadius;
   if (style.boxShadow) customStyles.boxShadow = style.boxShadow;
   if (style.opacity) customStyles.opacity = style.opacity;
 

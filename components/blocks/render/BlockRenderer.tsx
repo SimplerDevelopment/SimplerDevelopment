@@ -79,15 +79,26 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   // Detect if content uses custom layout blocks (no wrapper spacing needed)
   const hasCustomLayout = blocks.some((b) => b.type.startsWith('palizzi-'));
 
+  // Full-width block types that should NOT get a constraining container.
+  // These handle their own internal widths (hero = full viewport, section = has maxWidth prop, etc.)
+  const FULL_WIDTH_TYPES = new Set([
+    'hero', 'hero-slideshow', 'section', 'marquee', 'cta',
+    'palizzi-nav', 'palizzi-hero', 'palizzi-welcome', 'palizzi-history',
+    'palizzi-menu', 'palizzi-rules', 'palizzi-membership', 'palizzi-footer',
+  ]);
+
   const rendered = (
-    <div className={hasCustomLayout ? 'block-content' : 'block-content space-y-6'}>
-      {blocks.map((block) => (
-        <div key={block.id} className={hasCustomLayout ? '' : 'block-wrapper'}>
-          <BlockStyleWrapper block={block}>
-            {renderBlock(block, siteId)}
-          </BlockStyleWrapper>
-        </div>
-      ))}
+    <div className={hasCustomLayout ? 'block-content' : 'block-content'}>
+      {blocks.map((block) => {
+        const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
+        return (
+          <div key={block.id} className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}>
+            <BlockStyleWrapper block={block}>
+              {renderBlock(block, siteId)}
+            </BlockStyleWrapper>
+          </div>
+        );
+      })}
     </div>
   );
 

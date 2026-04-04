@@ -31,8 +31,7 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
     : '';
 
   return (
-    <section className={`py-16 my-8 ${responsiveClasses}`}>
-      <div className="container mx-auto px-4">
+    <section className={`py-16 ${responsiveClasses}`}>
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${
           block.imagePosition === 'right' ? '' : 'lg:grid-flow-dense'
         }`}>
@@ -81,7 +80,6 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
             </div>
           )}
         </div>
-      </div>
     </section>
   );
 }

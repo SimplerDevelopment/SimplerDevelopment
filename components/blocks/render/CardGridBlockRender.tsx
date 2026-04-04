@@ -32,38 +32,36 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
     : '';
 
   return (
-    <section className={`py-16 my-8 ${responsiveClasses}`}>
-      <div className="container mx-auto px-4">
-        {(block.title || block.description) && (
-          <div className="text-center mb-12">
-            {block.title && (
-              <h2 data-editable-field="title" className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
-            )}
-            {block.description && (
-              <p data-editable-field="description" className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
-            )}
-          </div>
-        )}
-
-        <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-          {(block.cards || []).map((card) => (
-            <Card
-              key={card.id}
-              title={card.title}
-              description={card.description}
-              image={card.image}
-              link={card.link}
-              icon={card.icon}
-              iconSize={block.iconSize}
-              cardStyle={getElementCSS(block.elementStyles, 'card')}
-              titleStyle={getElementCSS(block.elementStyles, 'cardTitle')}
-              descriptionStyle={getElementCSS(block.elementStyles, 'cardDescription')}
-              iconStyle={getElementCSS(block.elementStyles, 'cardIcon')}
-              linkStyle={getElementCSS(block.elementStyles, 'cardLink')}
-              imageStyle={getElementCSS(block.elementStyles, 'cardImage')}
-            />
-          ))}
+    <section className={`py-16 ${responsiveClasses}`}>
+      {(block.title || block.description) && (
+        <div className="text-center mb-12">
+          {block.title && (
+            <h2 data-editable-field="title" className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+          )}
+          {block.description && (
+            <p data-editable-field="description" className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
+          )}
         </div>
+      )}
+
+      <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
+        {(block.cards || []).map((card) => (
+          <Card
+            key={card.id}
+            title={card.title}
+            description={card.description}
+            image={card.image}
+            link={card.link}
+            icon={card.icon}
+            iconSize={block.iconSize}
+            cardStyle={getElementCSS(block.elementStyles, 'card')}
+            titleStyle={getElementCSS(block.elementStyles, 'cardTitle')}
+            descriptionStyle={getElementCSS(block.elementStyles, 'cardDescription')}
+            iconStyle={getElementCSS(block.elementStyles, 'cardIcon')}
+            linkStyle={getElementCSS(block.elementStyles, 'cardLink')}
+            imageStyle={getElementCSS(block.elementStyles, 'cardImage')}
+          />
+        ))}
       </div>
     </section>
   );

@@ -698,7 +698,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Width</label>
           <select value={style.borderWidth || ''} onChange={(e) => updateStyle('borderWidth', e.target.value)} className={selectClass}>
-            <option value="">None</option><option value="1px">1px</option><option value="2px">2px</option><option value="4px">4px</option><option value="8px">8px</option>
+            <option value="">None</option><option value="1px">1px</option><option value="2px">2px</option><option value="3px">3px</option><option value="4px">4px</option><option value="6px">6px</option><option value="8px">8px</option>
           </select>
         </div>
         {style.borderWidth && (
@@ -707,19 +707,69 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5">Style</label>
               <select value={style.borderStyle || 'solid'} onChange={(e) => updateStyle('borderStyle', e.target.value)} className={selectClass}>
-                <option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="double">Double</option>
+                <option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="double">Double</option><option value="groove">Groove</option><option value="ridge">Ridge</option><option value="inset">Inset</option><option value="outset">Outset</option>
               </select>
             </div>
           </>
         )}
+        {/* Per-side border overrides */}
+        {style.borderWidth && (
+          <details className="group">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-side overrides</summary>
+            <div className="mt-2 space-y-2">
+              {(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => {
+                const widthKey = `border${side}Width` as keyof typeof style;
+                const colorKey = `border${side}Color` as keyof typeof style;
+                const styleKey = `border${side}Style` as keyof typeof style;
+                return (
+                  <div key={side} className="grid grid-cols-3 gap-1 items-end">
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground mb-0.5">{side} W</label>
+                      <select value={(style[widthKey] as string) || ''} onChange={(e) => updateStyle(widthKey as string, e.target.value)} className={inputClass}>
+                        <option value="">-</option><option value="0px">0</option><option value="1px">1</option><option value="2px">2</option><option value="3px">3</option><option value="4px">4</option><option value="6px">6</option><option value="8px">8</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground mb-0.5">Color</label>
+                      <input type="text" value={(style[colorKey] as string) || ''} onChange={(e) => updateStyle(colorKey as string, e.target.value)} className={inputClass} placeholder="inherit" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground mb-0.5">Style</label>
+                      <select value={(style[styleKey] as string) || ''} onChange={(e) => updateStyle(styleKey as string, e.target.value)} className={inputClass}>
+                        <option value="">-</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="double">Double</option><option value="none">None</option>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Radius</label>
           <select value={style.borderRadius || ''} onChange={(e) => updateStyle('borderRadius', e.target.value)} className={selectClass}>
-            <option value="">None</option><option value="0.25rem">SM (4px)</option><option value="0.375rem">MD (6px)</option>
+            <option value="">None</option><option value="0.125rem">XS (2px)</option><option value="0.25rem">SM (4px)</option><option value="0.375rem">MD (6px)</option>
             <option value="0.5rem">LG (8px)</option><option value="0.75rem">XL (12px)</option>
-            <option value="1rem">2XL (16px)</option><option value="1.5rem">3XL (24px)</option><option value="9999px">Full (Pill)</option>
+            <option value="1rem">2XL (16px)</option><option value="1.25rem">3XL (20px)</option><option value="1.5rem">4XL (24px)</option><option value="2rem">5XL (32px)</option><option value="9999px">Full (Pill)</option>
           </select>
         </div>
+        {/* Per-corner radius overrides */}
+        {style.borderRadius && (
+          <details className="group">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-corner radius</summary>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {([['TopLeft', 'TL'], ['TopRight', 'TR'], ['BottomLeft', 'BL'], ['BottomRight', 'BR']] as const).map(([corner, label]) => {
+                const key = `border${corner}Radius` as keyof typeof style;
+                return (
+                  <div key={corner}>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">{label}</label>
+                    <input type="text" value={(style[key] as string) || ''} onChange={(e) => updateStyle(key as string, e.target.value)} className={inputClass} placeholder="inherit" />
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
       </StyleSection>
 
       {/* ── Shadows & Effects ───────────────────────────────────── */}

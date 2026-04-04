@@ -64,8 +64,7 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
     : '';
 
   return (
-    <section className={`py-16 my-8 ${responsiveClasses}`}>
-      <div className="container mx-auto px-4">
+    <section className={`py-16 ${responsiveClasses}`}>
         {(block.title || block.description) && (
           <div className="text-center mb-12">
             {block.title && (
@@ -162,7 +161,6 @@ export function BlogPostsBlockRender({ block }: BlogPostsBlockRenderProps) {
             </p>
           </div>
         )}
-      </div>
     </section>
   );
 }

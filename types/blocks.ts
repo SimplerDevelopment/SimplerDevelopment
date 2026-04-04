@@ -12,6 +12,24 @@ export interface BlockStyle {
   borderColor?: string;
   borderStyle?: string;
   borderRadius?: string;
+  // Per-side border overrides
+  borderTopWidth?: string;
+  borderTopColor?: string;
+  borderTopStyle?: string;
+  borderRightWidth?: string;
+  borderRightColor?: string;
+  borderRightStyle?: string;
+  borderBottomWidth?: string;
+  borderBottomColor?: string;
+  borderBottomStyle?: string;
+  borderLeftWidth?: string;
+  borderLeftColor?: string;
+  borderLeftStyle?: string;
+  // Per-corner border radius
+  borderTopLeftRadius?: string;
+  borderTopRightRadius?: string;
+  borderBottomLeftRadius?: string;
+  borderBottomRightRadius?: string;
   padding?: string;
   margin?: string;
   boxShadow?: string;

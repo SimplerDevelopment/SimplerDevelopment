@@ -31,24 +31,22 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
     : '';
 
   return (
-    <div className={`py-16 my-8 ${responsiveClasses}`}>
-      <div className="container mx-auto px-4">
-        {block.title && (
-          <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold text-center mb-12" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
-        )}
+    <div className={`py-16 ${responsiveClasses}`}>
+      {block.title && (
+        <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold text-center mb-12" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+      )}
 
-        <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-          {(block.stats || []).map((stat) => (
-            <div key={stat.id} className="text-center">
-              <div className="text-4xl md:text-5xl font-bold text-primary mb-2" style={getElementCSS(block.elementStyles, 'statValue')}>
-                {stat.value}
-              </div>
-              <div className="text-lg text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>
-                {stat.label}
-              </div>
+      <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
+        {(block.stats || []).map((stat) => (
+          <div key={stat.id} className="text-center">
+            <div className="text-4xl md:text-5xl font-bold text-primary mb-2" style={getElementCSS(block.elementStyles, 'statValue')}>
+              {stat.value}
             </div>
-          ))}
-        </div>
+            <div className="text-lg text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>
+              {stat.label}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
