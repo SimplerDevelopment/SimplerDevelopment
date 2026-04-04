@@ -77,6 +77,7 @@ export default async function WebsiteSettingsPage({
         initialName={site.name}
         initialDescription={site.description || ''}
         subdomain={site.subdomain || undefined}
+        initialPublicAccess={site.publicAccess}
       />
 
       {/* Custom Domains */}

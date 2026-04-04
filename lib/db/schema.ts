@@ -667,6 +667,7 @@ export const clientWebsites = pgTable('client_websites', {
   provisionError: text('provision_error'),
   logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
   customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
+  publicAccess: boolean('public_access').default(false).notNull(), // false = gated (noindex, coming-soon wall); admin must enable
   brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles — resolved at runtime to avoid circular ref
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

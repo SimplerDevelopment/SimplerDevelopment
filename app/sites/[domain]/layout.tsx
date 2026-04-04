@@ -15,6 +15,14 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   const site = await getClientWebsiteByDomain(domain);
   if (!site) return { title: 'Site Not Found' };
 
+  // Block search engine indexing for non-public sites
+  if (!site.publicAccess) {
+    return {
+      title: site.name,
+      robots: { index: false, follow: false },
+    };
+  }
+
   const branding = await getBrandingByWebsiteId(site.id);
 
   const metadata: Metadata = {
@@ -56,6 +64,22 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   const sitePathname = headersList.get('x-site-pathname') || '';
   if (sitePathname.includes('/nav-preview')) {
     return <>{children}</>;
+  }
+
+  // Gate non-public sites: allow preview access (editor/admin) but block public visitors
+  if (!site.publicAccess) {
+    const url = headersList.get('x-url') || headersList.get('referer') || '';
+    const hasPreviewAccess = url.includes('_preview=true') || url.includes('_edit=true') || url.includes('_token=');
+    if (!hasPreviewAccess) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center max-w-md px-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">{site.name}</h1>
+            <p className="text-gray-500">This site is not yet available to the public.</p>
+          </div>
+        </div>
+      );
+    }
   }
 
   const branding = await getBrandingByWebsiteId(site.id);
