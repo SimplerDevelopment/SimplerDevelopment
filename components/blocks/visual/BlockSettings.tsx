@@ -2793,6 +2793,23 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
         </div>
       )}
 
+      {/* Persistent background video */}
+      <div className="border-t border-border pt-3 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Background Video</label>
+        <p className="text-xs text-muted-foreground">Plays continuously behind all slides. Not per-slide.</p>
+        <div>
+          <label className="block text-xs text-muted-foreground mb-1">Video URL</label>
+          <input type="text" value={block.backgroundVideo || ''} onChange={(e) => onChange({ backgroundVideo: e.target.value || undefined })} className={inputClass} placeholder="https://...mp4 (optional)" />
+        </div>
+        {block.backgroundVideo && (
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Video Opacity</label>
+            <input type="range" min="0" max="1" step="0.05" value={block.backgroundVideoOpacity ?? 1} onChange={(e) => onChange({ backgroundVideoOpacity: parseFloat(e.target.value) })} className="w-full" />
+            <span className="text-xs text-muted-foreground">{block.backgroundVideoOpacity ?? 1}</span>
+          </div>
+        )}
+      </div>
+
       {/* Slideshow settings */}
       <div className="border-t border-border pt-3 space-y-3">
         <label className="block text-sm font-medium text-foreground">Slideshow Settings</label>

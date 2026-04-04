@@ -211,6 +211,9 @@ export interface HeroSlideshowBlock extends BaseBlock {
   pauseOnHover?: boolean;
   height?: string; // CSS height, default '90vh'
   kenBurns?: boolean; // subtle zoom animation on background images
+  // Persistent background video that plays behind all slides
+  backgroundVideo?: string; // URL to video file — plays continuously across all slides
+  backgroundVideoOpacity?: number; // 0-1, default 1
   // Navigation colors
   arrowColor?: string;
   arrowBackground?: string;

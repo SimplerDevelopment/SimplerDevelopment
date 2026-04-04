@@ -48,6 +48,25 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
 
   return (
     <div style={bgStyles}>
+      {/* Persistent background video */}
+      {block.backgroundVideo && (
+        <video
+          src={block.backgroundVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: 0,
+            opacity: block.backgroundVideoOpacity ?? 1,
+          }}
+        />
+      )}
       {/* Content */}
       <div style={{ maxWidth: '700px', width: '100%', position: 'relative', zIndex: 2 }}>
         {slide.subtitle && (

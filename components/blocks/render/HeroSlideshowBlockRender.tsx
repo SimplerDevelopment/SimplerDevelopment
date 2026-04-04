@@ -21,6 +21,8 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
     pauseOnHover = true,
     height = '90vh',
     kenBurns = true,
+    backgroundVideo,
+    backgroundVideoOpacity = 1,
     arrowColor = '#fff',
     arrowBackground = 'rgba(255,255,255,0.12)',
     arrowBorderColor = 'rgba(255,255,255,0.2)',
@@ -76,6 +78,19 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
       onMouseEnter={() => pauseOnHover && setIsPaused(true)}
       onMouseLeave={() => pauseOnHover && setIsPaused(false)}
     >
+      {/* Persistent background video — plays continuously behind all slides */}
+      {backgroundVideo && (
+        <video
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
+          src={backgroundVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ opacity: backgroundVideoOpacity }}
+        />
+      )}
+
       {/* Slides */}
       {slides.map((slide, i) => (
         <SlideLayer
