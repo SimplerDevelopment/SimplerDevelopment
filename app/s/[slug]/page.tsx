@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import { isFieldVisible as evalFieldVisible } from '@/lib/survey-logic';
 
 function lightenColor(hex: string, amount: number): string {
   const c = hex.replace('#', '');
@@ -128,10 +129,7 @@ export default function PublicSurveyPage() {
   }
 
   function isFieldVisible(field: SurveyField): boolean {
-    if (!field.showIf) return true;
-    const depVal = answers[field.showIf.fieldId];
-    if (depVal === undefined || depVal === null) return false;
-    return field.showIf.values.includes(String(depVal));
+    return evalFieldVisible(field, answers);
   }
 
   function validateCurrentPage(): string | null {
