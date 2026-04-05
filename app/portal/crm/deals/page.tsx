@@ -497,22 +497,27 @@ export default function CrmDealsPage() {
     if (!editingDeal || (!commentBody.trim() && commentFiles.length === 0)) return;
     setPostingComment(true);
 
+    let res: Response;
     if (commentFiles.length > 0) {
       const formData = new FormData();
       formData.append('body', commentBody);
       commentFiles.forEach(f => formData.append('files', f));
-      await fetch(`/api/portal/crm/deals/${editingDeal.id}/comments`, { method: 'POST', body: formData });
+      res = await fetch(`/api/portal/crm/deals/${editingDeal.id}/comments`, { method: 'POST', body: formData });
     } else {
-      await fetch(`/api/portal/crm/deals/${editingDeal.id}/comments`, {
+      res = await fetch(`/api/portal/crm/deals/${editingDeal.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: commentBody }),
       });
     }
 
+    setPostingComment(false);
+    if (!res.ok) {
+      setEditError('Failed to post comment. Please try again.');
+      return;
+    }
     setCommentBody('');
     setCommentFiles([]);
-    setPostingComment(false);
     fetchComments(editingDeal.id);
   }
 

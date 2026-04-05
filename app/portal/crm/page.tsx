@@ -166,22 +166,34 @@ export default function CrmDashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [period, setPeriod] = useState('12m');
 
   useEffect(() => {
     setLoading(true);
+    setError('');
     Promise.all([
-      fetch('/api/portal/crm/dashboard').then(r => r.json()),
-      fetch(`/api/portal/crm/analytics?period=${period}`).then(r => r.json()),
+      fetch('/api/portal/crm/dashboard').then(r => { if (!r.ok) throw new Error('Dashboard failed'); return r.json(); }),
+      fetch(`/api/portal/crm/analytics?period=${period}`).then(r => { if (!r.ok) throw new Error('Analytics failed'); return r.json(); }),
     ]).then(([d, a]) => {
       setDashboard(d.data ?? null);
       setAnalytics(a.data ?? null);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err) => { setError(err.message || 'Failed to load dashboard'); setLoading(false); });
   }, [period]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><span className="material-icons animate-spin text-primary text-2xl">refresh</span></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <span className="material-icons text-3xl text-destructive">error</span>
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <button onClick={() => setPeriod(p => p)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90">Retry</button>
+      </div>
+    );
   }
 
   const wl = analytics?.winLoss;

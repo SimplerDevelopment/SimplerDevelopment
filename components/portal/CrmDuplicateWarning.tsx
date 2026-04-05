@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 interface DuplicateContact {
@@ -29,6 +29,7 @@ const reasonLabels: Record<string, string> = {
 export default function CrmDuplicateWarning({ email, phone, firstName, lastName }: CrmDuplicateWarningProps) {
   const [duplicates, setDuplicates] = useState<DuplicateContact[]>([]);
   const [loading, setLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!email && !phone && !firstName) {
@@ -45,18 +46,23 @@ export default function CrmDuplicateWarning({ email, phone, firstName, lastName 
 
       if (!params.toString()) return;
 
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setLoading(true);
       try {
-        const res = await fetch(`/api/portal/crm/contacts/duplicates?${params}`);
+        const res = await fetch(`/api/portal/crm/contacts/duplicates?${params}`, { signal: controller.signal });
+        if (!res.ok) { setDuplicates([]); setLoading(false); return; }
         const d = await res.json();
         setDuplicates(d.data ?? []);
       } catch {
-        setDuplicates([]);
+        if (!controller.signal.aborted) setDuplicates([]);
       }
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); abortRef.current?.abort(); };
   }, [email, phone, firstName, lastName]);
 
   if (loading || duplicates.length === 0) return null;

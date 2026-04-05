@@ -70,6 +70,10 @@ export default function CrmImportExport({ entityType, currentFilters, onImportCo
       method: 'POST',
       body: formData,
     });
+    if (!res.ok) {
+      setError('Failed to upload file. Please try again.');
+      return;
+    }
     const d = await res.json();
     if (!d.success) {
       setError(d.message || 'Failed to preview file');
@@ -126,16 +130,21 @@ export default function CrmImportExport({ entityType, currentFilters, onImportCo
       }
     }
 
-    const res = await fetch(`/api/portal/crm/export?${params}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `crm-${entityType}s-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const res = await fetch(`/api/portal/crm/export?${params}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `crm-${entityType}s-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Export failed. Please try again.');
+    }
     setExporting(false);
   }
 
