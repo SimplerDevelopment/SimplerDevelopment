@@ -51,10 +51,12 @@ Exceptions: none — Phase 1 introduces no new layout surfaces.
 
 Pre-populated from detected font tokens in `app/globals.css`.
 
+Two weights only: regular (400) for body and label text, semibold (600) for headings.
+
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 | 1.5 |
-| Label | 12px | 500 | 1.4 |
+| Label | 12px | 400 | 1.4 |
 | Heading | 16px | 600 | 1.2 |
 | Display | not used in this phase | — | — |
 
