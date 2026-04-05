@@ -90,23 +90,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const ip = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() || hdrs.get('x-real-ip') || null;
   const ua = hdrs.get('user-agent') || null;
 
-  const [response] = await db.insert(surveyResponses).values({
-    surveyId: survey.id,
-    answers,
-    respondentEmail: email?.trim() || null,
-    respondentName: name?.trim() || null,
-    source: source || 'link',
-    sourceId: sourceId || null,
-    ipAddress: ip,
-    userAgent: ua,
-    completedAt: new Date(),
-  }).returning();
+  // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
+  // the transaction. Under extreme concurrency at exactly max capacity, two requests could
+  // both pass the gate. The transaction prevents count desync but not the gate race.
+  // See: .planning/phases/01-foundation-and-schema/01-RESEARCH.md — Pitfall 5
+  const [response] = await db.transaction(async (tx) => {
+    const [inserted] = await tx.insert(surveyResponses).values({
+      surveyId: survey.id,
+      answers,
+      respondentEmail: email?.trim() || null,
+      respondentName: name?.trim() || null,
+      source: source || 'link',
+      sourceId: sourceId || null,
+      ipAddress: ip,
+      userAgent: ua,
+      completedAt: new Date(),
+    }).returning();
 
-  // Increment response count
-  await db.update(surveys)
-    .set({ responseCount: sql`${surveys.responseCount} + 1`, updatedAt: new Date() })
-    .where(eq(surveys.id, survey.id));
+    await tx
+      .update(surveys)
+      .set({ responseCount: sql`${surveys.responseCount} + 1`, updatedAt: new Date() })
+      .where(eq(surveys.id, survey.id));
 
+    return [inserted];
+  });
+
+  // NOTE: emitEvent intentionally outside transaction — slow handlers must not hold DB connection
   emitEvent('survey.response_submitted', survey.clientId, 0, {
     surveyId: survey.id,
     responseId: response.id,

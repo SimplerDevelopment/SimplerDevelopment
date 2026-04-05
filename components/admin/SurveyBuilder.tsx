@@ -83,6 +83,12 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
   }
 
   function updateField(id: string, patch: Partial<SurveyField>) {
+    // IMPORTANT: Never include 'id' in patch — field IDs are immutable after creation
+    // Changing IDs corrupts analytics for existing responses (FOUND-03)
+    if ('id' in patch) {
+      console.error('[SurveyBuilder] Attempted to change field ID — blocked');
+      return;
+    }
     onChange(fields.map(f => f.id === id ? { ...f, ...patch } : f));
   }
 
