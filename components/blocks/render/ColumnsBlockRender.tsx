@@ -24,6 +24,16 @@ import { CardGridBlockRender } from './CardGridBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
+import { BookingBlockRender } from './BookingBlockRender';
+import { SurveyBlockRender } from './SurveyBlockRender';
+import { SocialLinksBlockRender } from './SocialLinksBlockRender';
+import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
+import { MarqueeBlockRender } from './MarqueeBlockRender';
+import { ProductGridBlockRender } from './ProductGridBlockRender';
+import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
+import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
+import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
+import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
@@ -167,6 +177,10 @@ function renderNestedBlock(block: Block) {
       return <GalleryBlockRender block={block} />;
     case 'hero':
       return <HeroBlockRender block={block} />;
+    case 'hero-slideshow':
+      return <HeroSlideshowBlockRender block={block} />;
+    case 'marquee':
+      return <MarqueeBlockRender block={block} />;
     case 'services-grid':
       return <ServicesGridBlockRender block={block} />;
     case 'cta':
@@ -187,6 +201,24 @@ function renderNestedBlock(block: Block) {
       return <TabsBlockRender block={block} />;
     case 'section':
       return <SectionBlockRender block={block} />;
+    case 'columns':
+      return <ColumnsBlockRender block={block} />;
+    case 'booking':
+      return <BookingBlockRender block={block} />;
+    case 'survey':
+      return <SurveyBlockRender block={block} />;
+    case 'social-links':
+      return <SocialLinksBlockRender block={block} />;
+    case 'product-grid':
+      return <ProductGridBlockRender block={block} />;
+    case 'featured-products':
+      return <FeaturedProductsBlockRender block={block} />;
+    case 'product-categories':
+      return <ProductCategoriesBlockRender block={block} />;
+    case 'shopping-cart':
+      return <ShoppingCartBlockRender block={block} />;
+    case 'store-banner':
+      return <StoreBannerBlockRender block={block} />;
     default:
       return null;
   }

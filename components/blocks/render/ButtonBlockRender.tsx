@@ -36,6 +36,11 @@ let stylesInjected = false;
 export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   const branding = useBranding();
 
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomBg = !!style.backgroundColor;
+  const hasCustomColor = !!style.color;
+  const hasCustomFontSize = !!style.fontSize;
+
   const alignmentClass = {
     left: 'justify-start',
     center: 'justify-center',
@@ -45,17 +50,33 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   const variant = block.variant || 'primary';
   const bs = branding?.buttonStyle;
 
-  const variantClass = {
-    primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90',
-    outline: 'border border-primary text-primary hover:bg-primary/10',
+  const variantClasses = {
+    primary: {
+      bg: hasCustomBg ? '' : 'bg-primary hover:bg-primary/90',
+      text: hasCustomColor ? '' : 'text-primary-foreground',
+    },
+    secondary: {
+      bg: hasCustomBg ? '' : 'bg-secondary hover:bg-secondary/90',
+      text: hasCustomColor ? '' : 'text-secondary-foreground',
+    },
+    outline: {
+      bg: hasCustomBg ? '' : 'border border-primary hover:bg-primary/10',
+      text: hasCustomColor ? '' : 'text-primary',
+    },
   }[variant];
+  const variantClass = `${variantClasses.bg} ${variantClasses.text}`.trim();
 
-  const sizeClass = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+  const sizePadding = {
+    sm: 'px-3 py-1.5',
+    md: 'px-4 py-2',
+    lg: 'px-6 py-3',
   }[block.size || 'md'];
+  const sizeText = hasCustomFontSize ? '' : {
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-lg',
+  }[block.size || 'md'];
+  const sizeClass = `${sizePadding} ${sizeText}`.trim();
 
   // Build inline styles from branding button settings
   const inlineStyle: React.CSSProperties = {};
@@ -95,7 +116,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
     : '';
 
   // Glow color override — use branding primary or accent for the glow
-  const glowStyle: React.CSSProperties = {};
+  const glowStyle: Record<string, string> = {};
   if (block.hoverEffect === 'glow' && branding) {
     const glowColor = bs?.primaryBg || branding.primaryColor || '#6366f1';
     // Convert hex to rgba for the glow
@@ -103,7 +124,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
     const g = parseInt(glowColor.slice(3, 5), 16);
     const b = parseInt(glowColor.slice(5, 7), 16);
     if (!isNaN(r)) {
-      glowStyle['--glow-color' as string] = `rgba(${r},${g},${b},0.4)`;
+      glowStyle['--glow-color'] = `rgba(${r},${g},${b},0.4)`;
     }
   }
 

@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmCompanies, crmContacts, crmDeals } from '@/lib/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { crmCompanies, crmContacts, crmDeals, crmPipelineStages, crmCustomFields, crmCustomFieldValues } from '@/lib/db/schema';
+import { and, eq, desc } from 'drizzle-orm';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -35,28 +35,85 @@ export async function GET(
   if (!company)
     return NextResponse.json({ success: false, message: 'Company not found' }, { status: 404 });
 
-  // Get contacts count
-  const [contactsResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(crmContacts)
-    .where(eq(crmContacts.companyId, companyId));
-
-  // Get deals value sum
-  const [dealsResult] = await db
+  // Get contacts for this company
+  const contacts = await db
     .select({
-      count: sql<number>`count(*)::int`,
-      totalValue: sql<number>`coalesce(sum(${crmDeals.value}), 0)::int`,
+      id: crmContacts.id,
+      firstName: crmContacts.firstName,
+      lastName: crmContacts.lastName,
+      email: crmContacts.email,
+      phone: crmContacts.phone,
+      title: crmContacts.title,
+      status: crmContacts.status,
+    })
+    .from(crmContacts)
+    .where(eq(crmContacts.companyId, companyId))
+    .orderBy(desc(crmContacts.createdAt));
+
+  // Get deals for this company with stage name and contact name
+  const deals = await db
+    .select({
+      id: crmDeals.id,
+      title: crmDeals.title,
+      value: crmDeals.value,
+      status: crmDeals.status,
+      expectedCloseDate: crmDeals.expectedCloseDate,
+      contactName: crmContacts.firstName,
+      contactLastName: crmContacts.lastName,
+      stageName: crmPipelineStages.name,
     })
     .from(crmDeals)
-    .where(eq(crmDeals.companyId, companyId));
+    .leftJoin(crmContacts, eq(crmDeals.contactId, crmContacts.id))
+    .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
+    .where(eq(crmDeals.companyId, companyId))
+    .orderBy(desc(crmDeals.createdAt));
+
+  const dealsFormatted = deals.map(d => ({
+    id: d.id,
+    title: d.title,
+    value: d.value ?? 0,
+    status: d.status,
+    expectedCloseDate: d.expectedCloseDate,
+    contactName: d.contactName ? `${d.contactName} ${d.contactLastName ?? ''}`.trim() : null,
+    stageName: d.stageName ?? 'Unknown',
+  }));
+
+  // Fetch custom field values
+  const customFieldRows = await db
+    .select({
+      fieldId: crmCustomFields.id,
+      fieldName: crmCustomFields.fieldName,
+      fieldType: crmCustomFields.fieldType,
+      value: crmCustomFieldValues.value,
+    })
+    .from(crmCustomFields)
+    .leftJoin(
+      crmCustomFieldValues,
+      and(
+        eq(crmCustomFieldValues.customFieldId, crmCustomFields.id),
+        eq(crmCustomFieldValues.entityId, companyId),
+        eq(crmCustomFieldValues.entityType, 'company')
+      )
+    )
+    .where(
+      and(
+        eq(crmCustomFields.clientId, client.id),
+        eq(crmCustomFields.entityType, 'company')
+      )
+    );
+
+  const customFields: Record<number, { name: string; type: string; value: string | null }> = {};
+  for (const row of customFieldRows) {
+    customFields[row.fieldId] = { name: row.fieldName, type: row.fieldType, value: row.value };
+  }
 
   return NextResponse.json({
     success: true,
     data: {
-      ...company,
-      contactsCount: contactsResult.count,
-      dealsCount: dealsResult.count,
-      dealsTotalValue: dealsResult.totalValue,
+      company,
+      contacts,
+      deals: dealsFormatted,
+      customFields,
     },
   });
 }

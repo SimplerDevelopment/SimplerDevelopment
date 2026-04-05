@@ -13,6 +13,10 @@ interface CtaBlockRenderProps {
 export function CtaBlockRender({ block }: CtaBlockRenderProps) {
   const branding = useBranding();
 
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+
   // Use branding colors for gradient when available
   const bgStyle = block.backgroundStyle || 'gradient';
   const backgroundClass = bgStyle === 'solid' ? 'bg-primary/10'
@@ -39,17 +43,18 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
         block.responsive.marginBottom,
         block.responsive.marginLeft,
         block.responsive.marginRight,
-        block.responsive.visibility
+        block.responsive.visibility,
+        block.responsive.fontSize
       )
     : '';
 
   return (
     <section className={`py-20 my-12 relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={gradientStyle}>
       <div className="container mx-auto px-4 text-center relative z-10">
-        <h2 data-editable-field="title" className="font-display text-4xl md:text-6xl font-bold mb-6 tracking-wide" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+        <h2 data-editable-field="title" className={`font-display ${hasCustomFontSize ? '' : 'text-4xl md:text-6xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6 tracking-wide`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
 
         {block.description && (
-          <p data-editable-field="description" className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
+          <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl md:text-2xl'} text-muted-foreground mb-12 max-w-3xl mx-auto`} style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">

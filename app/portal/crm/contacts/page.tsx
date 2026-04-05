@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import CrmDuplicateWarning from '@/components/portal/CrmDuplicateWarning';
+import CrmImportExport from '@/components/portal/CrmImportExport';
 
 interface Contact {
   id: number;
@@ -14,8 +16,17 @@ interface Contact {
   companyName: string | null;
   status: string;
   source: string | null;
+  score: number | null;
   lastContactedAt: string | null;
   createdAt: string;
+}
+
+interface SavedView {
+  id: number;
+  name: string;
+  filters: { search?: string; status?: string; companyId?: string };
+  entityType: string;
+  isDefault: boolean;
 }
 
 interface Company {
@@ -40,6 +51,14 @@ const statusColor: Record<string, string> = {
   customer: 'bg-purple-100 text-purple-700',
 };
 
+const scoreColor = (score: number | null): string => {
+  if (score === null || score === undefined) return 'bg-gray-100 text-gray-500';
+  if (score >= 80) return 'bg-green-100 text-green-700';
+  if (score >= 50) return 'bg-blue-100 text-blue-700';
+  if (score >= 20) return 'bg-yellow-100 text-yellow-700';
+  return 'bg-gray-100 text-gray-500';
+};
+
 const LIMIT = 25;
 
 export default function CrmContactsPage() {
@@ -53,6 +72,14 @@ export default function CrmContactsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [page, setPage] = useState(1);
+
+  // Saved views
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [selectedViewId, setSelectedViewId] = useState<number | null>(null);
+  const [showSaveViewForm, setShowSaveViewForm] = useState(false);
+  const [viewName, setViewName] = useState('');
+  const [savingView, setSavingView] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -103,6 +130,85 @@ export default function CrmContactsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Fetch saved views
+  const fetchSavedViews = useCallback(async () => {
+    const res = await fetch('/api/portal/crm/saved-views?entityType=contact');
+    const d = await res.json();
+    if (d.success) setSavedViews(d.data ?? []);
+  }, []);
+
+  useEffect(() => {
+    fetchSavedViews();
+  }, [fetchSavedViews]);
+
+  function applyView(view: SavedView | null) {
+    if (!view) {
+      setSelectedViewId(null);
+      setSearchInput('');
+      setSearch('');
+      setStatusFilter('');
+      setCompanyFilter('');
+      setPage(1);
+      return;
+    }
+    setSelectedViewId(view.id);
+    setSearchInput(view.filters.search ?? '');
+    setSearch(view.filters.search ?? '');
+    setStatusFilter(view.filters.status ?? '');
+    setCompanyFilter(view.filters.companyId ?? '');
+    setPage(1);
+  }
+
+  async function handleSaveView(e: React.FormEvent) {
+    e.preventDefault();
+    if (!viewName.trim()) return;
+    setSavingView(true);
+    const filters: Record<string, string> = {};
+    if (search) filters.search = search;
+    if (statusFilter) filters.status = statusFilter;
+    if (companyFilter) filters.companyId = companyFilter;
+    await fetch('/api/portal/crm/saved-views', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: viewName.trim(), filters, entityType: 'contact' }),
+    });
+    setSavingView(false);
+    setViewName('');
+    setShowSaveViewForm(false);
+    fetchSavedViews();
+  }
+
+  async function handleDeleteView(id: number) {
+    await fetch(`/api/portal/crm/saved-views/${id}`, { method: 'DELETE' });
+    if (selectedViewId === id) applyView(null);
+    fetchSavedViews();
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    const params = new URLSearchParams({ entityType: 'contact' });
+    if (search) params.set('search', search);
+    if (statusFilter) params.set('status', statusFilter);
+    if (companyFilter) params.set('companyId', companyFilter);
+    try {
+      const res = await fetch(`/api/portal/crm/export?${params}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail
+    }
+    setExporting(false);
+  }
+
+  const hasActiveFilters = !!(search || statusFilter || companyFilter);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -138,19 +244,31 @@ export default function CrmContactsPage() {
             {loading ? '' : `${total} contact${total !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(f => !f)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <span className="material-icons text-base">{showForm ? 'close' : 'person_add'}</span>
-          {showForm ? 'Cancel' : 'Add Contact'}
-        </button>
+        <div className="flex items-center gap-2">
+          <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter }} onImportComplete={fetchContacts} />
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
+          >
+            <span className="material-icons text-base">download</span>
+            {exporting ? 'Exporting...' : 'Export'}
+          </button>
+          <button
+            onClick={() => setShowForm(f => !f)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+          >
+            <span className="material-icons text-base">{showForm ? 'close' : 'person_add'}</span>
+            {showForm ? 'Cancel' : 'Add Contact'}
+          </button>
+        </div>
       </div>
 
       {/* Inline form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4">
           <h3 className="font-semibold text-foreground">New Contact</h3>
+          <CrmDuplicateWarning email={form.email} phone={form.phone} firstName={form.firstName} lastName={form.lastName} />
           {error && (
             <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
               <span className="material-icons text-base">error</span>
@@ -263,36 +381,101 @@ export default function CrmContactsPage() {
         </form>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <span className="material-icons text-base text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2">search</span>
-          <input
-            placeholder="Search contacts..."
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-          />
+      {/* Saved Views + Filters */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="material-icons text-base text-muted-foreground">bookmark</span>
+            <select
+              value={selectedViewId ?? ''}
+              onChange={e => {
+                const id = e.target.value ? Number(e.target.value) : null;
+                const view = savedViews.find(v => v.id === id) ?? null;
+                applyView(view);
+              }}
+              className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="">All Contacts</option>
+              {savedViews.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+            {selectedViewId && (
+              <button
+                onClick={() => handleDeleteView(selectedViewId)}
+                className="flex items-center p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded"
+                title="Delete saved view"
+              >
+                <span className="material-icons text-base">delete</span>
+              </button>
+            )}
+          </div>
+          {hasActiveFilters && !showSaveViewForm && (
+            <button
+              onClick={() => setShowSaveViewForm(true)}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-accent transition-colors"
+            >
+              <span className="material-icons text-base">save</span>
+              Save View
+            </button>
+          )}
+          {showSaveViewForm && (
+            <form onSubmit={handleSaveView} className="flex items-center gap-2">
+              <input
+                autoFocus
+                placeholder="View name..."
+                value={viewName}
+                onChange={e => setViewName(e.target.value)}
+                className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-40"
+              />
+              <button
+                type="submit"
+                disabled={savingView || !viewName.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {savingView ? <span className="material-icons animate-spin text-sm">refresh</span> : <span className="material-icons text-sm">check</span>}
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowSaveViewForm(false); setViewName(''); }}
+                className="flex items-center p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+              >
+                <span className="material-icons text-base">close</span>
+              </button>
+            </form>
+          )}
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-        >
-          {statusOptions.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <select
-          value={companyFilter}
-          onChange={e => { setCompanyFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-        >
-          <option value="">All Companies</option>
-          {companies.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <span className="material-icons text-base text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2">search</span>
+            <input
+              placeholder="Search contacts..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            {statusOptions.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <select
+            value={companyFilter}
+            onChange={e => { setCompanyFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="">All Companies</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -322,6 +505,7 @@ export default function CrmContactsPage() {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Company</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Score</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">Last Contacted</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -343,6 +527,11 @@ export default function CrmContactsPage() {
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status] ?? 'bg-gray-100 text-gray-700'}`}>
                         {c.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${scoreColor(c.score)}`}>
+                        {c.score !== null && c.score !== undefined ? c.score : '---'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">

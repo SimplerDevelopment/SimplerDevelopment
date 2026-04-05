@@ -14,12 +14,17 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
     right: 'text-right',
   }[block.alignment || 'left'];
 
-  const sizeClass = {
-    sm: 'text-sm leading-relaxed',
-    base: 'text-base md:text-lg leading-relaxed',
-    lg: 'text-lg leading-relaxed',
-    xl: 'text-xl leading-relaxed',
-  }[block.size || 'base'];
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+
+  const sizeClass = hasCustomFontSize
+    ? 'leading-relaxed'
+    : {
+        sm: 'text-sm leading-relaxed',
+        base: 'text-base md:text-lg leading-relaxed',
+        lg: 'text-lg leading-relaxed',
+        xl: 'text-xl leading-relaxed',
+      }[block.size || 'base'];
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive

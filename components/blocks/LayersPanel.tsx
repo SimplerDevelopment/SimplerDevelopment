@@ -66,8 +66,28 @@ function getBlockLabel(block: Block): string {
       return block.caption || 'Video';
     case 'code':
       return `Code (${block.language || 'plain'})`;
+    case 'booking':
+      return block.title || `Booking (${block.slug || 'no slug'})`;
+    case 'survey':
+      return block.title || `Survey (${block.slug || 'no slug'})`;
+    case 'survey-results':
+      return `Survey Results`;
+    case 'product-grid':
+      return block.title || 'Product Grid';
+    case 'featured-products':
+      return block.title || 'Featured Products';
+    case 'product-categories':
+      return block.title || 'Product Categories';
+    case 'product-detail':
+      return 'Product Detail';
+    case 'shopping-cart':
+      return 'Shopping Cart';
+    case 'store-banner':
+      return block.title || 'Store Banner';
+    case 'social-links':
+      return 'Social Links';
     default:
-      return (block as Block).type;
+      return block.label || (block as Block).type;
   }
 }
 

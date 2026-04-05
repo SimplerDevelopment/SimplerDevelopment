@@ -6,6 +6,14 @@ import { ColumnsEditorOverlay } from './ColumnsEditorOverlay';
 import { sendToParent } from '@/lib/visual-editor/protocol';
 import { IFRAME_MESSAGES } from '@/types/visual-editor';
 
+/**
+ * Module-level flag for Cmd/Ctrl+click deep-select.
+ * When Cmd/Ctrl is held, the innermost SelectableBlock's onClick fires first
+ * (event bubbling goes inner -> outer) and sets this flag. Outer handlers
+ * then see the flag and skip their own onClicked call, so the deepest block wins.
+ */
+let deepSelectClaimed = false;
+
 interface ColumnData {
   id: string;
   width: number;
@@ -60,12 +68,24 @@ export function SelectableBlock({
       data-block-id={blockId}
       onClick={(e) => {
         e.preventDefault();
-        e.stopPropagation();
-        onClicked(blockId);
+        const isDeepSelect = e.metaKey || e.ctrlKey;
+        if (isDeepSelect) {
+          // Cmd/Ctrl+click: select the innermost (deepest) block under the cursor.
+          // Don't stopPropagation so the event reaches all nested SelectableBlocks.
+          // The innermost fires first; once it claims the click, outer handlers skip.
+          if (deepSelectClaimed) return;
+          deepSelectClaimed = true;
+          onClicked(blockId);
+          // Reset the flag asynchronously so it's clean for the next click
+          requestAnimationFrame(() => { deepSelectClaimed = false; });
+        } else {
+          e.stopPropagation();
+          onClicked(blockId);
+        }
       }}
       onMouseEnter={() => onHovered(blockId)}
       onMouseLeave={() => onHovered(null)}
-      className="relative cursor-pointer"
+      className="relative"
       style={{
         outline: isSelected
           ? '2px solid #3b82f6'
@@ -77,7 +97,7 @@ export function SelectableBlock({
         transition: 'outline 0.15s ease',
       }}
     >
-      {/* Top toolbar on hover/select */}
+      {/* Top toolbar on hover/select — drag handle lives here */}
       {showControls && (
         <div
           className="absolute -top-6 left-1 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-t z-50"
@@ -86,16 +106,14 @@ export function SelectableBlock({
             color: 'white',
           }}
         >
-          {dragListeners && (
-            <span
-              {...dragListeners}
-              className="cursor-grab active:cursor-grabbing"
-              style={{ lineHeight: 1, fontSize: '12px' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              ⠿
-            </span>
-          )}
+          <span
+            {...(dragListeners || {})}
+            className="cursor-grab active:cursor-grabbing"
+            style={{ lineHeight: 1, fontSize: '12px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            ⠿
+          </span>
           <span>{blockType || 'Block'}</span>
         </div>
       )}
@@ -556,6 +574,33 @@ function EditableContent({
   children: React.ReactNode;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const [modifierHeld, setModifierHeld] = useState(false);
+
+  // Track Cmd/Ctrl key state so we can temporarily allow pointer events through
+  // to nested blocks for deep-select. Uses keydown/keyup on the window.
+  useEffect(() => {
+    if (isSelected) {
+      // When already selected, no need to override pointer events
+      setModifierHeld(false);
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) setModifierHeld(true);
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!e.metaKey && !e.ctrlKey) setModifierHeld(false);
+    };
+    // Also reset when the window loses focus
+    const onBlur = () => setModifierHeld(false);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [isSelected]);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -662,7 +707,7 @@ function EditableContent({
   return (
     <div
       ref={contentRef}
-      style={{ pointerEvents: isSelected ? 'auto' : 'none' }}
+      style={{ pointerEvents: isSelected || modifierHeld ? 'auto' : 'none' }}
       onClick={(e) => {
         if (isSelected) {
           // Allow clicking into text when selected, but stop propagation
@@ -673,7 +718,7 @@ function EditableContent({
         }
       }}
     >
-      <div style={{ pointerEvents: 'auto' }}>
+      <div style={{ pointerEvents: 'auto' }} className="[&_iframe]:pointer-events-none">
         {children}
       </div>
     </div>

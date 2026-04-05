@@ -15,14 +15,29 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
     right: 'text-right',
   }[block.alignment || 'left'];
 
-  const headingClasses = {
-    1: 'text-4xl md:text-5xl font-extrabold',
-    2: 'text-3xl md:text-4xl font-extrabold',
-    3: 'text-2xl md:text-3xl font-bold',
-    4: 'text-xl md:text-2xl font-bold',
-    5: 'text-lg md:text-xl font-semibold',
-    6: 'text-base md:text-lg font-semibold',
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+
+  const sizeClasses = {
+    1: 'text-4xl md:text-5xl',
+    2: 'text-3xl md:text-4xl',
+    3: 'text-2xl md:text-3xl',
+    4: 'text-xl md:text-2xl',
+    5: 'text-lg md:text-xl',
+    6: 'text-base md:text-lg',
   }[block.level];
+
+  const weightClasses = {
+    1: 'font-extrabold',
+    2: 'font-extrabold',
+    3: 'font-bold',
+    4: 'font-bold',
+    5: 'font-semibold',
+    6: 'font-semibold',
+  }[block.level];
+
+  const headingClasses = `${hasCustomFontSize ? '' : sizeClasses} ${hasCustomFontWeight ? '' : weightClasses}`.trim();
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive

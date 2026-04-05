@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
     conditions.push(eq(crmContacts.companyId, parseInt(companyId, 10)));
   }
 
+  const ownerId = url.searchParams.get('ownerId') || '';
+  if (ownerId) {
+    conditions.push(eq(crmContacts.ownerId, parseInt(ownerId, 10)));
+  }
+
   // If filtering by tag, get matching contact IDs first
   let tagContactIds: number[] | null = null;
   if (tagId) {
@@ -95,6 +100,8 @@ export async function GET(req: NextRequest) {
       address: crmContacts.address,
       notes: crmContacts.notes,
       lastContactedAt: crmContacts.lastContactedAt,
+      score: crmContacts.score,
+      ownerId: crmContacts.ownerId,
       createdAt: crmContacts.createdAt,
       updatedAt: crmContacts.updatedAt,
       companyName: crmCompanies.name,
@@ -182,6 +189,7 @@ export async function POST(req: Request) {
       avatarUrl: body.avatarUrl || null,
       address: body.address?.trim() || null,
       notes: body.notes?.trim() || null,
+      ownerId: body.ownerId || null,
     })
     .returning();
 

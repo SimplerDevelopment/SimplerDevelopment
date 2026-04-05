@@ -36,6 +36,8 @@ export function ImageBlockRender({ block }: ImageBlockRenderProps) {
       )
     : '';
 
+  const style = typeof block.style === 'object' ? block.style : {};
+
   if (!block.url) return null;
 
   return (
@@ -44,7 +46,7 @@ export function ImageBlockRender({ block }: ImageBlockRenderProps) {
         <img
           src={block.url}
           alt={block.alt}
-          className="w-full h-auto rounded-lg"
+          className={`w-full h-auto ${style.borderRadius ? '' : 'rounded-lg'}`}
         />
         {block.caption && (
           <figcaption className="text-center text-sm text-muted-foreground mt-2">

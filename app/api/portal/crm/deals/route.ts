@@ -7,6 +7,7 @@ import {
   crmContacts,
   crmCompanies,
   crmPipelineStages,
+  users,
 } from '@/lib/db/schema';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
@@ -42,6 +43,11 @@ export async function GET(req: NextRequest) {
     conditions.push(sql`${crmDeals.title} ILIKE ${'%' + search + '%'}`);
   }
 
+  const ownerId = url.searchParams.get('ownerId') || '';
+  if (ownerId) {
+    conditions.push(eq(crmDeals.ownerId, parseInt(ownerId, 10)));
+  }
+
   const deals = await db
     .select({
       id: crmDeals.id,
@@ -66,15 +72,25 @@ export async function GET(req: NextRequest) {
       companyName: crmCompanies.name,
       stageName: crmPipelineStages.name,
       stageColor: crmPipelineStages.color,
+      ownerId: crmDeals.ownerId,
+      ownerName: users.name,
+      recurringValue: crmDeals.recurringValue,
+      billingCycle: crmDeals.billingCycle,
     })
     .from(crmDeals)
     .leftJoin(crmContacts, eq(crmDeals.contactId, crmContacts.id))
     .leftJoin(crmCompanies, eq(crmDeals.companyId, crmCompanies.id))
     .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
+    .leftJoin(users, eq(crmDeals.ownerId, users.id))
     .where(and(...conditions))
     .orderBy(asc(crmDeals.sortOrder), desc(crmDeals.createdAt));
 
-  return NextResponse.json({ success: true, data: deals });
+  const data = deals.map(d => ({
+    ...d,
+    contactName: [d.contactFirstName, d.contactLastName].filter(Boolean).join(' ') || null,
+  }));
+
+  return NextResponse.json({ success: true, data });
 }
 
 export async function POST(req: Request) {
@@ -117,7 +133,10 @@ export async function POST(req: Request) {
       priority: body.priority || 'medium',
       expectedCloseDate: body.expectedCloseDate ? new Date(body.expectedCloseDate) : null,
       notes: body.notes?.trim() || null,
+      recurringValue: body.recurringValue != null ? body.recurringValue : null,
+      billingCycle: body.billingCycle || null,
       sortOrder: body.sortOrder ?? 0,
+      ownerId: body.ownerId ?? userId,
     })
     .returning();
 

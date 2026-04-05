@@ -575,6 +575,7 @@ function NestedSortableBlock({
     minWidth: 0,
   };
 
+  const isContainer = block.type === 'columns' || block.type === 'section' || block.type === 'tabs';
   const Component = registry.get(block.type);
   if (!Component) return null;
 
@@ -593,10 +594,15 @@ function NestedSortableBlock({
         onStyleUpdate={editor.onBlockStyleUpdated}
         currentStyle={liveBlock.style ? { padding: liveBlock.style.padding, margin: liveBlock.style.margin } : undefined}
         dragListeners={listeners}
+        columnsData={liveBlock.type === 'columns' && 'columns' in liveBlock ? { columns: (liveBlock as { columns: { id: string; width: number }[] }).columns, gap: (liveBlock as { gap?: 'sm' | 'md' | 'lg' }).gap } : undefined}
       >
-        <BlockStyleWrapper block={liveBlock}>
-          <Component block={liveBlock} />
-        </BlockStyleWrapper>
+        {isContainer ? (
+          <ContainerBlockRenderer block={liveBlock} registry={registry} draggingId={draggingId} editor={editor} />
+        ) : (
+          <BlockStyleWrapper block={liveBlock}>
+            <Component block={liveBlock} />
+          </BlockStyleWrapper>
+        )}
       </SelectableBlock>
     </div>
   );

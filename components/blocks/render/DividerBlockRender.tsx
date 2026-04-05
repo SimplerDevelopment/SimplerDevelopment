@@ -14,6 +14,8 @@ export function DividerBlockRender({ block }: DividerBlockRenderProps) {
     dotted: 'border-dotted',
   }[block.lineStyle || 'solid'];
 
+  const style = typeof block.style === 'object' ? block.style : {};
+
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
@@ -29,5 +31,5 @@ export function DividerBlockRender({ block }: DividerBlockRenderProps) {
       )
     : '';
 
-  return <hr className={`my-8 border-border ${styleClass} ${responsiveClasses}`} />;
+  return <hr className={`my-8 ${style.borderColor ? '' : 'border-border'} ${styleClass} ${responsiveClasses}`} />;
 }

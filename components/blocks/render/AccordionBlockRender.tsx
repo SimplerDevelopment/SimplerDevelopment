@@ -10,6 +10,11 @@ interface AccordionBlockRenderProps {
 }
 
 export function AccordionBlockRender({ block }: AccordionBlockRenderProps) {
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+  const hasCustomColor = !!style.color;
+
   const [openItems, setOpenItems] = useState<string[]>([]);
 
   const toggleItem = (id: string) => {
@@ -31,14 +36,15 @@ export function AccordionBlockRender({ block }: AccordionBlockRenderProps) {
         block.responsive.marginBottom,
         block.responsive.marginLeft,
         block.responsive.marginRight,
-        block.responsive.visibility
+        block.responsive.visibility,
+        block.responsive.fontSize
       )
     : '';
 
   return (
     <div className={`py-8 my-8 ${responsiveClasses}`}>
       {block.title && (
-        <h3 className="text-2xl font-bold mb-6" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+        <h3 className={`${hasCustomFontSize ? '' : 'text-2xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
       )}
       <div className="space-y-3">
         {(block.items || []).map((item) => {
@@ -61,7 +67,7 @@ export function AccordionBlockRender({ block }: AccordionBlockRenderProps) {
                 </svg>
               </button>
               {isOpen && (
-                <div className="p-4 pt-0 text-muted-foreground" style={getElementCSS(block.elementStyles, 'itemContent')} dangerouslySetInnerHTML={{ __html: item.content }} />
+                <div className={`p-4 pt-0 ${hasCustomColor ? '' : 'text-muted-foreground'}`} style={getElementCSS(block.elementStyles, 'itemContent')} dangerouslySetInnerHTML={{ __html: item.content }} />
               )}
             </div>
           );

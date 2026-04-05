@@ -562,6 +562,8 @@ export interface BookingBlock extends BaseBlock {
   title?: string;
   description?: string;
   showPageTitle?: boolean;
+  showDescription?: boolean;
+  showSteps?: boolean;
   height?: string;
 }
 

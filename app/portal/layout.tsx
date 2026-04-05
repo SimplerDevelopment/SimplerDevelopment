@@ -3,6 +3,7 @@
 import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
+import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -58,6 +59,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <div className="min-h-screen bg-background">
         {!previewMode && <PortalSidebar />}
         <div className={`transition-all duration-300 ${previewMode ? '' : isCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
+          {!previewMode && (
+            <div className="flex justify-end items-center px-6 pt-4 pb-0">
+              <CrmNotificationBell />
+            </div>
+          )}
           <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-6'}`}>{children}</main>
         </div>
         {!previewMode && <AIChatWidget />}

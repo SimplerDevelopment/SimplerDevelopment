@@ -11,6 +11,11 @@ interface FeaturedContentBlockRenderProps {
 }
 
 export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRenderProps) {
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+  const hasCustomColor = !!style.color;
+
   const branding = useBranding();
   const bs = branding?.buttonStyle;
   const btnRadius = bs?.borderRadius || branding?.borderRadius;
@@ -26,7 +31,8 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
         block.responsive.marginBottom,
         block.responsive.marginLeft,
         block.responsive.marginRight,
-        block.responsive.visibility
+        block.responsive.visibility,
+        block.responsive.fontSize
       )
     : '';
 
@@ -37,16 +43,16 @@ export function FeaturedContentBlockRender({ block }: FeaturedContentBlockRender
         }`}>
           {/* Content */}
           <div className={block.imagePosition === 'right' ? 'lg:col-start-1' : 'lg:col-start-2'}>
-            <h2 data-editable-field="title" className="text-3xl md:text-4xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+            <h2 data-editable-field="title" className={`${hasCustomFontSize ? '' : 'text-3xl md:text-4xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-4`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
             {block.description && (
-              <p data-editable-field="description" className="text-lg text-muted-foreground mb-6" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
+              <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-lg'} text-muted-foreground mb-6`} style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
             )}
 
             {block.stats && block.stats.length > 0 && (
               <div className="grid grid-cols-2 gap-6 mb-6">
                 {block.stats.map((stat) => (
                   <div key={stat.id}>
-                    <div className="text-3xl font-bold text-primary mb-1" style={getElementCSS(block.elementStyles, 'statValue')}>
+                    <div className={`${hasCustomFontSize ? '' : 'text-3xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor ? '' : 'text-primary'} mb-1`} style={getElementCSS(block.elementStyles, 'statValue')}>
                       {stat.value}
                     </div>
                     <div className="text-sm text-muted-foreground" style={getElementCSS(block.elementStyles, 'statLabel')}>

@@ -18,6 +18,8 @@ interface Contact {
   address: string | null;
   notes: string | null;
   tags: string[];
+  score: number;
+  ownerId: number | null;
   lastContactedAt: string | null;
   createdAt: string;
 }
@@ -128,6 +130,12 @@ export default function CrmContactDetailPage() {
   const [activityForm, setActivityForm] = useState({ type: 'call', title: '', description: '' });
   const [activitySaving, setActivitySaving] = useState(false);
 
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailForm, setEmailForm] = useState({ subject: '', body: '' });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+
   const fetchContact = useCallback(async () => {
     const res = await fetch(`/api/portal/crm/contacts/${contactId}`);
     const d = await res.json();
@@ -141,7 +149,7 @@ export default function CrmContactDetailPage() {
   const fetchActivities = useCallback(async () => {
     const res = await fetch(`/api/portal/crm/activities?contactId=${contactId}`);
     const d = await res.json();
-    setActivities(d.data ?? []);
+    setActivities(Array.isArray(d.data) ? d.data : []);
   }, [contactId]);
 
   useEffect(() => {
@@ -244,6 +252,30 @@ export default function CrmContactDetailPage() {
     }
   }
 
+  async function sendEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!emailForm.subject.trim() || !emailForm.body.trim()) return;
+    setEmailSending(true);
+    setEmailError('');
+    setEmailSuccess('');
+    const res = await fetch(`/api/portal/crm/contacts/${contactId}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(emailForm),
+    });
+    const d = await res.json();
+    setEmailSending(false);
+    if (d.success) {
+      setEmailSuccess('Email sent successfully.');
+      setEmailForm({ subject: '', body: '' });
+      setShowEmailForm(false);
+      fetchActivities();
+      setTimeout(() => setEmailSuccess(''), 3000);
+    } else {
+      setEmailError(d.message ?? 'Failed to send email.');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -278,6 +310,17 @@ export default function CrmContactDetailPage() {
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[contact.status] ?? 'bg-gray-100 text-gray-700'}`}>
                 {contact.status}
               </span>
+              {contact.score > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                  contact.score >= 80 ? 'bg-green-100 text-green-700' :
+                  contact.score >= 50 ? 'bg-blue-100 text-blue-700' :
+                  contact.score >= 20 ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-gray-100 text-gray-500'
+                }`}>
+                  <span className="material-icons text-xs">star</span>
+                  {contact.score}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
               {contact.title && <span>{contact.title}</span>}
@@ -291,6 +334,15 @@ export default function CrmContactDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {!editing && contact.email && (
+            <button
+              onClick={() => setShowEmailForm(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <span className="material-icons text-base">mail</span>
+              Send Email
+            </button>
+          )}
           {!editing && (
             <button
               onClick={startEditing}
@@ -421,6 +473,69 @@ export default function CrmContactDetailPage() {
             >
               {saving && <span className="material-icons animate-spin text-sm">refresh</span>}
               Save Changes
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Email Success Banner */}
+      {emailSuccess && (
+        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100 border border-green-200 rounded-lg px-3 py-2">
+          <span className="material-icons text-base">check_circle</span>
+          {emailSuccess}
+        </div>
+      )}
+
+      {/* Send Email Form */}
+      {showEmailForm && (
+        <form onSubmit={sendEmail} className="bg-card border border-border rounded-xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-foreground">Send Email to {contact.email}</h3>
+            <button type="button" onClick={() => setShowEmailForm(false)} className="text-muted-foreground hover:text-foreground">
+              <span className="material-icons text-base">close</span>
+            </button>
+          </div>
+          {emailError && (
+            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+              <span className="material-icons text-base">error</span>
+              {emailError}
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Subject</label>
+            <input
+              required
+              value={emailForm.subject}
+              onChange={e => setEmailForm(f => ({ ...f, subject: e.target.value }))}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Body</label>
+            <textarea
+              required
+              value={emailForm.body}
+              onChange={e => setEmailForm(f => ({ ...f, body: e.target.value }))}
+              rows={6}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(false)}
+              className="px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={emailSending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {emailSending && <span className="material-icons animate-spin text-sm">refresh</span>}
+              <span className="material-icons text-sm">send</span>
+              Send Email
             </button>
           </div>
         </form>

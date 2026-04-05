@@ -83,6 +83,17 @@ const MONTH_NAMES = [
 export default function PublicBookingPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
 
+  // Read embed query params for toggling elements
+  const [embedFlags, setEmbedFlags] = useState({ hideTitle: false, hideDescription: false, hideSteps: false });
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setEmbedFlags({
+      hideTitle: sp.get('hideTitle') === '1',
+      hideDescription: sp.get('hideDescription') === '1',
+      hideSteps: sp.get('hideSteps') === '1',
+    });
+  }, []);
+
   const [pageInfo, setPageInfo] = useState<BookingPageInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -346,55 +357,59 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
           </div>
         )}
         {/* Header */}
-        <div className="text-center mb-6">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
-            style={{ backgroundColor: accent + '15' }}
-          >
-            <span className="material-icons text-2xl" style={{ color: accent }}>calendar_month</span>
+        {!embedFlags.hideTitle && (
+          <div className="text-center mb-6">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
+              style={{ backgroundColor: accent + '15' }}
+            >
+              <span className="material-icons text-2xl" style={{ color: accent }}>calendar_month</span>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100" style={{ ...headingStyle, ...(textColor ? { color: textColor } : {}) }}>{pageInfo.title}</h1>
+            {pageInfo.description && !embedFlags.hideDescription && (
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-sm mx-auto" style={textColor ? { color: `${textColor}bb` } : undefined}>{pageInfo.description}</p>
+            )}
+            <div className="flex items-center justify-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="material-icons text-sm">timer</span>
+                {pageInfo.duration} min
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="material-icons text-sm">public</span>
+                {pageInfo.timezone}
+              </span>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100" style={{ ...headingStyle, ...(textColor ? { color: textColor } : {}) }}>{pageInfo.title}</h1>
-          {pageInfo.description && (
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 max-w-sm mx-auto" style={textColor ? { color: `${textColor}bb` } : undefined}>{pageInfo.description}</p>
-          )}
-          <div className="flex items-center justify-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
-            <span className="flex items-center gap-1">
-              <span className="material-icons text-sm">timer</span>
-              {pageInfo.duration} min
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="material-icons text-sm">public</span>
-              {pageInfo.timezone}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {(['date', 'time', 'info'] as const).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
-                  step === s || (step === 'confirmed' && i < 3)
-                    ? 'text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                }`}
-                style={
-                  step === s || (step === 'confirmed' && i < 3)
-                    ? { backgroundColor: accent }
-                    : undefined
-                }
-              >
-                {step === 'confirmed' || (['time', 'info', 'confirmed'].indexOf(step) > i - 1 && i < ['date', 'time', 'info'].indexOf(step))
-                  ? <span className="material-icons text-sm">check</span>
-                  : i + 1}
+        {!embedFlags.hideSteps && (
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {(['date', 'time', 'info'] as const).map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                    step === s || (step === 'confirmed' && i < 3)
+                      ? 'text-white'
+                      : 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                  }`}
+                  style={
+                    step === s || (step === 'confirmed' && i < 3)
+                      ? { backgroundColor: accent }
+                      : undefined
+                  }
+                >
+                  {step === 'confirmed' || (['time', 'info', 'confirmed'].indexOf(step) > i - 1 && i < ['date', 'time', 'info'].indexOf(step))
+                    ? <span className="material-icons text-sm">check</span>
+                    : i + 1}
+                </div>
+                {i < 2 && (
+                  <div className="w-8 h-0.5 bg-gray-200 dark:bg-gray-800 rounded" />
+                )}
               </div>
-              {i < 2 && (
-                <div className="w-8 h-0.5 bg-gray-200 dark:bg-gray-800 rounded" />
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* ═══════════════ Step 1: Date ═══════════════ */}
         {step === 'date' && (

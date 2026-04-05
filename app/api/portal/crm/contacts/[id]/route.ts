@@ -8,6 +8,8 @@ import {
   crmContactTags,
   crmTags,
   crmActivities,
+  crmCustomFields,
+  crmCustomFieldValues,
 } from '@/lib/db/schema';
 import { and, eq, desc, inArray } from 'drizzle-orm';
 
@@ -49,6 +51,8 @@ export async function GET(
       address: crmContacts.address,
       notes: crmContacts.notes,
       lastContactedAt: crmContacts.lastContactedAt,
+      score: crmContacts.score,
+      ownerId: crmContacts.ownerId,
       createdAt: crmContacts.createdAt,
       updatedAt: crmContacts.updatedAt,
       companyName: crmCompanies.name,
@@ -85,9 +89,38 @@ export async function GET(
     .orderBy(desc(crmActivities.createdAt))
     .limit(10);
 
+  // Fetch custom field values
+  const customFieldRows = await db
+    .select({
+      fieldId: crmCustomFields.id,
+      fieldName: crmCustomFields.fieldName,
+      fieldType: crmCustomFields.fieldType,
+      value: crmCustomFieldValues.value,
+    })
+    .from(crmCustomFields)
+    .leftJoin(
+      crmCustomFieldValues,
+      and(
+        eq(crmCustomFieldValues.customFieldId, crmCustomFields.id),
+        eq(crmCustomFieldValues.entityId, contactId),
+        eq(crmCustomFieldValues.entityType, 'contact')
+      )
+    )
+    .where(
+      and(
+        eq(crmCustomFields.clientId, client.id),
+        eq(crmCustomFields.entityType, 'contact')
+      )
+    );
+
+  const customFields: Record<number, { name: string; type: string; value: string | null }> = {};
+  for (const row of customFieldRows) {
+    customFields[row.fieldId] = { name: row.fieldName, type: row.fieldType, value: row.value };
+  }
+
   return NextResponse.json({
     success: true,
-    data: { ...contact, tags, recentActivities },
+    data: { ...contact, tags, recentActivities, customFields },
   });
 }
 
@@ -129,6 +162,7 @@ export async function PUT(
   if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
   if (body.lastContactedAt !== undefined)
     updateData.lastContactedAt = body.lastContactedAt ? new Date(body.lastContactedAt) : null;
+  if (body.ownerId !== undefined) updateData.ownerId = body.ownerId || null;
 
   const [updated] = await db
     .update(crmContacts)

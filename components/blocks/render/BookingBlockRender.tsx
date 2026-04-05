@@ -40,7 +40,7 @@ export function BookingBlockRender({ block }: BookingBlockRenderProps) {
         </p>
       )}
       <iframe
-        src={`/book/${block.slug}?embed=1${block.showPageTitle === false ? '&hideTitle=1' : ''}`}
+        src={`/book/${block.slug}?embed=1${block.showPageTitle === false ? '&hideTitle=1' : ''}${block.showDescription === false ? '&hideDescription=1' : ''}${block.showSteps === false ? '&hideSteps=1' : ''}`}
         width="100%"
         height={height}
         style={{ border: 'none', borderRadius: '0.5rem' }}

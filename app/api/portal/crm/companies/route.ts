@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmCompanies } from '@/lib/db/schema';
+import { crmCompanies, crmContacts, crmDeals } from '@/lib/db/schema';
 import { and, eq, desc, sql } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
@@ -25,7 +25,21 @@ export async function GET(req: NextRequest) {
   }
 
   const companies = await db
-    .select()
+    .select({
+      id: crmCompanies.id,
+      clientId: crmCompanies.clientId,
+      name: crmCompanies.name,
+      domain: crmCompanies.domain,
+      industry: crmCompanies.industry,
+      size: crmCompanies.size,
+      phone: crmCompanies.phone,
+      website: crmCompanies.website,
+      address: crmCompanies.address,
+      notes: crmCompanies.notes,
+      createdAt: crmCompanies.createdAt,
+      contactCount: sql<number>`(SELECT COUNT(*) FROM crm_contacts WHERE company_id = ${crmCompanies.id})`.as('contact_count'),
+      totalDealValue: sql<number>`COALESCE((SELECT SUM(value) FROM crm_deals WHERE company_id = ${crmCompanies.id}), 0)`.as('total_deal_value'),
+    })
     .from(crmCompanies)
     .where(and(...conditions))
     .orderBy(desc(crmCompanies.createdAt));

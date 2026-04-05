@@ -13,32 +13,33 @@ const PLACEHOLDER_TIMES = ['9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 
 export function BookingBlockPreview({ block, isSelected, onChange }: BookingBlockPreviewProps) {
   return (
     <div className="py-8 px-6 relative">
-      {/* Transparent overlay when not selected — lets clicks reach SelectableBlock parent */}
-      {!isSelected && (
-        <div className="absolute inset-0 z-10" />
-      )}
+      {/* Full overlay — prevents interaction with calendar/time elements,
+          lets clicks and drags pass through to SelectableBlock parent */}
+      <div
+        className="absolute inset-0 z-10 flex items-center justify-center"
+        style={{ cursor: 'inherit' }}
+      >
+        {!isSelected && (
+          <div className="bg-background/60 backdrop-blur-[1px] rounded-lg px-4 py-2 flex items-center gap-2 text-sm text-muted-foreground border border-border shadow-sm">
+            <span className="material-icons text-base">calendar_month</span>
+            <span>Booking: {block.slug || 'not configured'}</span>
+            <span className="material-icons text-xs">touch_app</span>
+          </div>
+        )}
+      </div>
+
       {(block.title || isSelected) && (
-        <input
-          type="text"
-          value={block.title || ''}
-          onChange={(e) => onChange({ title: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
-          className="font-heading text-3xl font-bold mb-2 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-foreground"
-          placeholder="Schedule a Meeting"
-        />
+        <div className="font-heading text-3xl font-bold mb-2 text-foreground">
+          {block.title || 'Schedule a Meeting'}
+        </div>
       )}
       {(block.description || isSelected) && (
-        <input
-          type="text"
-          value={block.description || ''}
-          onChange={(e) => onChange({ description: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
-          className="text-lg mb-6 w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-muted-foreground"
-          placeholder="Pick a time that works for you"
-        />
+        <div className="text-lg mb-6 text-muted-foreground">
+          {block.description || 'Pick a time that works for you'}
+        </div>
       )}
 
-      <div className="border rounded-lg bg-card overflow-hidden">
+      <div className="border rounded-lg bg-card overflow-hidden opacity-60">
         <div className="flex flex-col md:flex-row">
           {/* Left: booking info */}
           <div className="p-6 border-b md:border-b-0 md:border-r md:w-1/3">
@@ -63,8 +64,8 @@ export function BookingBlockPreview({ block, isSelected, onChange }: BookingBloc
             <div className="flex items-center justify-between mb-4">
               <span className="font-medium">April 2026</span>
               <div className="flex gap-1">
-                <span className="material-icons text-muted-foreground cursor-pointer">chevron_left</span>
-                <span className="material-icons text-muted-foreground cursor-pointer">chevron_right</span>
+                <span className="material-icons text-muted-foreground">chevron_left</span>
+                <span className="material-icons text-muted-foreground">chevron_right</span>
               </div>
             </div>
             {/* Mini calendar grid */}
@@ -78,7 +79,7 @@ export function BookingBlockPreview({ block, isSelected, onChange }: BookingBloc
                   className={`py-1 rounded ${
                     i === 14
                       ? 'bg-primary text-primary-foreground font-bold'
-                      : 'hover:bg-muted/50'
+                      : ''
                   }`}
                 >
                   {i + 1}
@@ -91,7 +92,7 @@ export function BookingBlockPreview({ block, isSelected, onChange }: BookingBloc
               {PLACEHOLDER_TIMES.map((time) => (
                 <div
                   key={time}
-                  className="text-center text-sm py-2 border rounded-md hover:bg-primary/10 hover:border-primary cursor-pointer transition-colors"
+                  className="text-center text-sm py-2 border rounded-md"
                 >
                   {time}
                 </div>
@@ -101,15 +102,15 @@ export function BookingBlockPreview({ block, isSelected, onChange }: BookingBloc
         </div>
       </div>
 
-      {isSelected && !block.slug && (
-        <p className="text-center text-xs text-amber-500 mt-4">
+      {!block.slug && (
+        <p className="text-center text-xs text-amber-500 mt-4 relative z-0">
           <span className="material-icons text-xs align-middle mr-1">warning</span>
           Set the booking page slug in the settings panel to connect a booking page.
         </p>
       )}
 
-      <p className="text-center text-xs text-muted-foreground mt-4 italic">
-        Preview: Live booking form loads from /book/{block.slug || 'your-slug'}
+      <p className="text-center text-xs text-muted-foreground mt-4 italic relative z-0">
+        Preview only — live booking form renders on the published site
       </p>
     </div>
   );

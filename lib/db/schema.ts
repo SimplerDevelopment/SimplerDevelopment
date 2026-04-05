@@ -1512,6 +1512,8 @@ export const crmContacts = pgTable('crm_contacts', {
   address: text('address'),
   notes: text('notes'),
   lastContactedAt: timestamp('last_contacted_at'),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  score: integer('score').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1551,6 +1553,9 @@ export const crmDeals = pgTable('crm_deals', {
   closedAt: timestamp('closed_at'),
   notes: text('notes'),
   sortOrder: integer('sort_order').default(0).notNull(),
+  recurringValue: integer('recurring_value'), // monthly recurring value in cents
+  billingCycle: varchar('billing_cycle', { length: 20 }), // 'monthly' | 'quarterly' | 'annual' | 'one-time'
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1736,6 +1741,21 @@ export const crmContractTemplates = pgTable('crm_contract_templates', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── CRM NOTIFICATIONS ──────────────────────────────────────────────────────
+
+export const crmNotifications = pgTable('crm_notifications', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 50 }).notNull(), // 'deal_stage_changed', 'proposal_viewed', 'proposal_signed', 'mention', 'deal_assigned', 'contact_created'
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body'),
+  entityType: varchar('entity_type', { length: 20 }), // 'deal', 'contact', 'proposal', 'contract'
+  entityId: integer('entity_id'),
+  read: boolean('read').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ─── AUTOMATION ENGINE ────────────────────────────────────────────────────────
 
 export interface AutomationTrigger {
@@ -1894,6 +1914,29 @@ export const apiKeys = pgTable('api_keys', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── CRM DEAL ARTIFACTS & COMMENTS ──────────────────────────────────────────
+
+export const crmDealArtifacts = pgTable('crm_deal_artifacts', {
+  id: serial('id').primaryKey(),
+  dealId: integer('deal_id').notNull().references(() => crmDeals.id, { onDelete: 'cascade' }),
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project
+  artifactId: integer('artifact_id').notNull(),
+  displayTitle: varchar('display_title', { length: 255 }).notNull(),
+  pinned: boolean('pinned').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmDealComments = pgTable('crm_deal_comments', {
+  id: serial('id').primaryKey(),
+  dealId: integer('deal_id').notNull().references(() => crmDeals.id, { onDelete: 'cascade' }),
+  authorId: integer('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  body: text('body').notNull(), // supports @mentions as @[name](userId)
+  attachments: json('attachments').$type<{ url: string; filename: string; mimeType: string; fileSize: number }[]>().default([]),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const automationLogs = pgTable('automation_logs', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -1904,5 +1947,48 @@ export const automationLogs = pgTable('automation_logs', {
   status: varchar('status', { length: 20 }).default('success').notNull(), // 'success' | 'partial' | 'failed'
   duration: integer('duration'), // ms
   errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmCustomFields = pgTable('crm_custom_fields', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(), // 'contact' | 'company' | 'deal'
+  fieldName: varchar('field_name', { length: 100 }).notNull(),
+  fieldType: varchar('field_type', { length: 20 }).notNull(), // 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'url' | 'email' | 'phone' | 'boolean'
+  options: json('options').$type<string[]>(), // for select/multiselect types
+  required: boolean('required').default(false).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmCustomFieldValues = pgTable('crm_custom_field_values', {
+  id: serial('id').primaryKey(),
+  customFieldId: integer('custom_field_id').notNull().references(() => crmCustomFields.id, { onDelete: 'cascade' }),
+  entityId: integer('entity_id').notNull(),
+  entityType: varchar('entity_type', { length: 20 }).notNull(),
+  value: text('value'), // stored as text, parsed by fieldType
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmScoringRules = pgTable('crm_scoring_rules', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  eventType: varchar('event_type', { length: 50 }).notNull(), // 'form_submitted', 'booking_made', 'email_opened', 'proposal_viewed', 'deal_created', 'meeting_completed', 'page_visited'
+  points: integer('points').notNull(),
+  description: varchar('description', { length: 255 }),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const crmSavedViews = pgTable('crm_saved_views', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(), // 'contact' | 'company' | 'deal'
+  name: varchar('name', { length: 100 }).notNull(),
+  filters: json('filters').$type<Record<string, string>>().notNull(), // { status: 'lead', tag: '5', ownerId: '3', search: 'john' }
+  isDefault: boolean('is_default').default(false).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

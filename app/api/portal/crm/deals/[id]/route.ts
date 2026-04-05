@@ -7,9 +7,12 @@ import {
   crmContacts,
   crmCompanies,
   crmPipelineStages,
+  crmCustomFields,
+  crmCustomFieldValues,
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
+import { notifyAllClientUsers } from '@/lib/crm/notifications';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -68,7 +71,36 @@ export async function GET(
   if (!deal)
     return NextResponse.json({ success: false, message: 'Deal not found' }, { status: 404 });
 
-  return NextResponse.json({ success: true, data: deal });
+  // Fetch custom field values
+  const customFieldRows = await db
+    .select({
+      fieldId: crmCustomFields.id,
+      fieldName: crmCustomFields.fieldName,
+      fieldType: crmCustomFields.fieldType,
+      value: crmCustomFieldValues.value,
+    })
+    .from(crmCustomFields)
+    .leftJoin(
+      crmCustomFieldValues,
+      and(
+        eq(crmCustomFieldValues.customFieldId, crmCustomFields.id),
+        eq(crmCustomFieldValues.entityId, dealId),
+        eq(crmCustomFieldValues.entityType, 'deal')
+      )
+    )
+    .where(
+      and(
+        eq(crmCustomFields.clientId, client.id),
+        eq(crmCustomFields.entityType, 'deal')
+      )
+    );
+
+  const customFields: Record<number, { name: string; type: string; value: string | null }> = {};
+  for (const row of customFieldRows) {
+    customFields[row.fieldId] = { name: row.fieldName, type: row.fieldType, value: row.value };
+  }
+
+  return NextResponse.json({ success: true, data: { ...deal, customFields } });
 }
 
 export async function PUT(
@@ -115,12 +147,34 @@ export async function PUT(
     updateData.expectedCloseDate = body.expectedCloseDate ? new Date(body.expectedCloseDate) : null;
   if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
   if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
+  if (body.ownerId !== undefined) updateData.ownerId = body.ownerId || null;
+  if (body.recurringValue !== undefined) updateData.recurringValue = body.recurringValue;
+  if (body.billingCycle !== undefined) updateData.billingCycle = body.billingCycle || null;
 
   const [updated] = await db
     .update(crmDeals)
     .set(updateData)
     .where(eq(crmDeals.id, dealId))
     .returning();
+
+  // Notify all client users when the deal stage changes
+  if (body.stageId !== undefined) {
+    let stageName = 'Unknown';
+    const [stage] = await db
+      .select({ name: crmPipelineStages.name })
+      .from(crmPipelineStages)
+      .where(eq(crmPipelineStages.id, body.stageId));
+    if (stage) stageName = stage.name;
+
+    notifyAllClientUsers({
+      clientId: client.id,
+      excludeUserId: result.userId,
+      type: 'deal_stage_changed',
+      title: `Deal '${updated.title}' moved to stage '${stageName}'`,
+      entityType: 'deal',
+      entityId: updated.id,
+    });
+  }
 
   // Emit specific event for won/lost, generic for other updates
   const eventPayload = { id: updated.id, title: updated.title, value: updated.value, status: updated.status, stageId: updated.stageId, contactId: updated.contactId };

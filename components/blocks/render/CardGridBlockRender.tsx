@@ -10,6 +10,10 @@ interface CardGridBlockRenderProps {
 }
 
 export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+
   const columnsClass = {
     2: 'md:grid-cols-2',
     3: 'md:grid-cols-2 lg:grid-cols-3',
@@ -27,7 +31,8 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
         block.responsive.marginBottom,
         block.responsive.marginLeft,
         block.responsive.marginRight,
-        block.responsive.visibility
+        block.responsive.visibility,
+        block.responsive.fontSize
       )
     : '';
 
@@ -36,10 +41,10 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
       {(block.title || block.description) && (
         <div className="text-center mb-12">
           {block.title && (
-            <h2 data-editable-field="title" className="font-heading text-4xl md:text-5xl font-bold mb-4" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+            <h2 data-editable-field="title" className={`font-heading ${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-4`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
           )}
           {block.description && (
-            <p data-editable-field="description" className="text-xl text-muted-foreground max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
+            <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl'} text-muted-foreground max-w-2xl mx-auto`} style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: block.description }} />
           )}
         </div>
       )}
