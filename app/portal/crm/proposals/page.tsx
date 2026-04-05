@@ -112,10 +112,10 @@ function computeValue(lineItems: LineItem[], fees: Fee[]): number {
   const feeList = Array.isArray(fees) ? fees : [];
   const subtotal = items
     .filter(li => !li.optional)
-    .reduce((sum, li) => sum + li.qty * li.unitPrice, 0);
+    .reduce((sum, li) => sum + (li.qty || 0) * (li.unitPrice || 0), 0);
   const feesTotal = feeList.reduce((sum, f) => {
-    if (f.type === 'flat') return sum + f.amount;
-    if (f.type === 'percent') return sum + Math.round(subtotal * f.amount / 100);
+    if (f.type === 'flat') return sum + (f.amount || 0);
+    if (f.type === 'percent') return sum + Math.round(subtotal * (f.amount || 0) / 100);
     return sum;
   }, 0);
   return subtotal + feesTotal;

@@ -67,8 +67,8 @@ export default function CrmNotificationBell() {
       if (!res.ok) return;
       const json = await res.json();
       if (json.success) {
-        setNotifications(json.data.notifications);
-        setUnreadCount(json.data.unreadCount);
+        setNotifications(json.data ?? []);
+        setUnreadCount(json.unreadCount ?? 0);
       }
     } catch {
       // silently ignore fetch errors for polling
@@ -101,7 +101,7 @@ export default function CrmNotificationBell() {
       const res = await fetch('/api/portal/crm/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllRead: true }),
+        body: JSON.stringify({ all: true }),
       });
       if (res.ok) {
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -120,7 +120,7 @@ export default function CrmNotificationBell() {
         await fetch('/api/portal/crm/notifications', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: notification.id }),
+          body: JSON.stringify({ ids: [notification.id] }),
         });
         setNotifications((prev) =>
           prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
