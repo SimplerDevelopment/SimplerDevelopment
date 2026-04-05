@@ -79,7 +79,6 @@ export default function CrmContactsPage() {
   const [showSaveViewForm, setShowSaveViewForm] = useState(false);
   const [viewName, setViewName] = useState('');
   const [savingView, setSavingView] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -184,29 +183,6 @@ export default function CrmContactsPage() {
     fetchSavedViews();
   }
 
-  async function handleExport() {
-    setExporting(true);
-    const params = new URLSearchParams({ entityType: 'contact' });
-    if (search) params.set('search', search);
-    if (statusFilter) params.set('status', statusFilter);
-    if (companyFilter) params.set('companyId', companyFilter);
-    try {
-      const res = await fetch(`/api/portal/crm/export?${params}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      // silently fail
-    }
-    setExporting(false);
-  }
-
   const hasActiveFilters = !!(search || statusFilter || companyFilter);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -246,14 +222,6 @@ export default function CrmContactsPage() {
         </div>
         <div className="flex items-center gap-2">
           <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter }} onImportComplete={fetchContacts} />
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-colors shrink-0 disabled:opacity-50"
-          >
-            <span className="material-icons text-base">download</span>
-            {exporting ? 'Exporting...' : 'Export'}
-          </button>
           <button
             onClick={() => setShowForm(f => !f)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
