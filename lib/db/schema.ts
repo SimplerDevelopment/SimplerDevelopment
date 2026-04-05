@@ -1866,7 +1866,70 @@ export const surveyResponses = pgTable('survey_responses', {
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   completedAt: timestamp('completed_at'),
+  // A/B variant reference — nullable, FK constraint defined in SQL migration (0042)
+  variantId: integer('variant_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── SURVEY EXTENSION TABLES (Phase 1 schema migration) ─────────────────────
+
+export const surveyPartialResponses = pgTable('survey_partial_responses', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  sessionId: varchar('session_id', { length: 64 }).notNull(),
+  answers: json('answers').$type<Record<string, unknown>>().notNull().default({}),
+  lastPage: integer('last_page').notNull().default(0),
+  respondentEmail: varchar('respondent_email', { length: 255 }),
+  source: varchar('source', { length: 30 }).default('link'),
+  sourceId: varchar('source_id', { length: 255 }),
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  completed: boolean('completed').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const surveyWebhooks = pgTable('survey_webhooks', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  secret: varchar('secret', { length: 64 }),
+  events: json('events').$type<string[]>().notNull().default(['response.submitted']),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const surveyEmailSequences = pgTable('survey_email_sequences', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  bodyHtml: text('body_html').notNull(),
+  delayHours: integer('delay_hours').notNull().default(0),
+  conditionField: varchar('condition_field', { length: 64 }),
+  conditionValue: varchar('condition_value', { length: 255 }),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const surveyVariants = pgTable('survey_variants', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  fields: json('fields').$type<SurveyFieldDef[]>().notNull().default([]),
+  weight: integer('weight').notNull().default(50),
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const surveyAiSummaries = pgTable('survey_ai_summaries', {
+  id: serial('id').primaryKey(),
+  surveyId: integer('survey_id').notNull().unique().references(() => surveys.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull(),
+  sentiment: varchar('sentiment', { length: 20 }),
+  themes: json('themes'),
+  perQuestion: json('per_question'),
+  responseCountAtGeneration: integer('response_count_at_generation'),
+  generatedAt: timestamp('generated_at').defaultNow().notNull(),
 });
 
 // ============================================================================
