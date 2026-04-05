@@ -83,6 +83,53 @@ export function ButtonBlockEdit({ block, onChange }: ButtonBlockEditProps) {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Icon
+          </label>
+          <input
+            type="text"
+            value={block.icon || ''}
+            onChange={(e) => onChange({ ...block, icon: e.target.value || undefined })}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-primary"
+            placeholder="arrow_forward"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            Icon Position
+          </label>
+          <select
+            value={block.iconPosition || 'left'}
+            onChange={(e) => onChange({ ...block, iconPosition: e.target.value as ButtonBlock['iconPosition'] })}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-primary"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">
+          Hover Effect
+        </label>
+        <select
+          value={block.hoverEffect || 'none'}
+          onChange={(e) => onChange({ ...block, hoverEffect: e.target.value as ButtonBlock['hoverEffect'] })}
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:outline-none focus:ring-primary"
+        >
+          <option value="none">None</option>
+          <option value="lift">Lift (raise + shadow)</option>
+          <option value="glow">Glow (color aura)</option>
+          <option value="fill">Fill (overlay)</option>
+          <option value="slide">Slide (shine sweep)</option>
+          <option value="pulse">Pulse (bounce)</option>
+        </select>
+      </div>
+
       <div className="flex items-center">
         <input
           type="checkbox"

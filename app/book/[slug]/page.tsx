@@ -108,6 +108,7 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
 
   // Step
   const [step, setStep] = useState<Step>('date');
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
 
   // ─── Fetch page info ────────────────────────────────────────────────────
 
@@ -219,6 +220,7 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
       });
       const data = await res.json();
       if (data.success) {
+        if (data.data?.meetingLink) setMeetingLink(data.data.meetingLink);
         setStep('confirmed');
       } else {
         setSubmitError(data.message || 'Failed to book. Please try again.');
@@ -730,7 +732,34 @@ export default function PublicBookingPage({ params }: { params: Promise<{ slug: 
                 <span className="material-icons text-gray-400 text-lg">person</span>
                 <span className="text-sm text-gray-900 dark:text-gray-100">{guestName}</span>
               </div>
+              {meetingLink && (
+                <div className="flex items-center gap-3">
+                  <span className="material-icons text-gray-400 text-lg">videocam</span>
+                  <a
+                    href={meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium hover:underline"
+                    style={{ color: accent }}
+                  >
+                    Join Video Call
+                  </a>
+                </div>
+              )}
             </div>
+
+            {meetingLink && (
+              <a
+                href={meetingLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-4 px-6 py-3 rounded-lg text-sm font-medium text-white transition-colors"
+                style={{ backgroundColor: accent }}
+              >
+                <span className="material-icons text-lg">videocam</span>
+                Join Video Call
+              </a>
+            )}
           </div>
         )}
 

@@ -47,7 +47,7 @@ async function getAuthedClient(clientId: number) {
 
 /**
  * Create a Google Calendar event for a booking.
- * Returns the Google event ID or null on failure.
+ * Returns { eventId, meetingLink } or null on failure.
  */
 export async function createCalendarEvent(opts: {
   clientId: number;
@@ -59,47 +59,66 @@ export async function createCalendarEvent(opts: {
   timezone: string;
   guestEmail: string;
   guestName: string;
-}): Promise<string | null> {
+  addGoogleMeet?: boolean;
+}): Promise<{ eventId: string; meetingLink: string | null } | null> {
   const auth = await getAuthedClient(opts.clientId);
   if (!auth) return null;
 
   const calendar = google.calendar({ version: 'v3', auth: auth.oauth2Client });
 
   try {
+    const requestBody: Record<string, unknown> = {
+      summary: `${opts.title} — ${opts.guestName}`,
+      description: opts.description || `Booking with ${opts.guestName} (${opts.guestEmail})`,
+      start: {
+        dateTime: opts.startTime.toISOString(),
+        timeZone: opts.timezone,
+      },
+      end: {
+        dateTime: opts.endTime.toISOString(),
+        timeZone: opts.timezone,
+      },
+      attendees: [
+        { email: opts.guestEmail, displayName: opts.guestName },
+      ],
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'popup', minutes: 30 },
+          { method: 'email', minutes: 60 },
+        ],
+      },
+    };
+
+    if (opts.addGoogleMeet) {
+      requestBody.conferenceData = {
+        createRequest: {
+          requestId: `booking-${opts.bookingId}-${Date.now()}`,
+          conferenceSolutionKey: { type: 'hangoutsMeet' },
+        },
+      };
+    }
+
     const event = await calendar.events.insert({
       calendarId: auth.calendarId,
-      requestBody: {
-        summary: `${opts.title} — ${opts.guestName}`,
-        description: opts.description || `Booking with ${opts.guestName} (${opts.guestEmail})`,
-        start: {
-          dateTime: opts.startTime.toISOString(),
-          timeZone: opts.timezone,
-        },
-        end: {
-          dateTime: opts.endTime.toISOString(),
-          timeZone: opts.timezone,
-        },
-        attendees: [
-          { email: opts.guestEmail, displayName: opts.guestName },
-        ],
-        reminders: {
-          useDefault: false,
-          overrides: [
-            { method: 'popup', minutes: 30 },
-            { method: 'email', minutes: 60 },
-          ],
-        },
-      },
+      conferenceDataVersion: opts.addGoogleMeet ? 1 : 0,
+      requestBody,
     });
 
     const eventId = event.data.id;
+    const meetingLink = event.data.hangoutLink || null;
+
     if (eventId) {
       await db.update(bookings)
-        .set({ googleEventId: eventId, updatedAt: new Date() })
+        .set({
+          googleEventId: eventId,
+          ...(meetingLink && { meetingLink }),
+          updatedAt: new Date(),
+        })
         .where(eq(bookings.id, opts.bookingId));
     }
 
-    return eventId || null;
+    return { eventId: eventId || '', meetingLink };
   } catch (err) {
     console.error('Failed to create Google Calendar event:', err);
     return null;

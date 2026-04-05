@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { bookingPages, bookings, googleCalendarTokens } from '@/lib/db/schema';
+import { bookingPages, bookings, googleCalendarTokens, zoomTokens } from '@/lib/db/schema';
 import { eq, desc, and, gte, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import Link from 'next/link';
@@ -46,6 +46,13 @@ export default async function BookingPagesListPage() {
     .where(eq(googleCalendarTokens.clientId, client.id))
     .limit(1);
   const isCalendarConnected = calTokens.length > 0;
+
+  const zmTokens = await db
+    .select()
+    .from(zoomTokens)
+    .where(eq(zoomTokens.clientId, client.id))
+    .limit(1);
+  const isZoomConnected = zmTokens.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -97,6 +104,45 @@ export default async function BookingPagesListPage() {
         ) : (
           <a
             href="/api/portal/tools/booking/google/auth"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <span className="material-icons text-lg">link</span>
+            Connect
+          </a>
+        )}
+      </div>
+
+      {/* Zoom Status */}
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="material-icons text-xl text-primary">video_camera_front</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Zoom</p>
+            <p className="text-xs text-muted-foreground">
+              {isZoomConnected
+                ? 'Connected — Zoom meetings are auto-created for bookings'
+                : 'Connect to automatically create Zoom meetings for bookings'}
+            </p>
+          </div>
+        </div>
+        {isZoomConnected ? (
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              <span className="material-icons text-sm">check_circle</span>
+              Connected
+            </span>
+            <form action="/api/portal/tools/booking/zoom/disconnect" method="POST">
+              <button
+                type="submit"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+              >
+                Disconnect
+              </button>
+            </form>
+          </div>
+        ) : (
+          <a
+            href="/api/portal/tools/booking/zoom/auth"
             className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
             <span className="material-icons text-lg">link</span>

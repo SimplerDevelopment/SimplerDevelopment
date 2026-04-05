@@ -125,6 +125,9 @@ export interface ButtonBlock extends BaseBlock {
   size?: 'sm' | 'md' | 'lg';
   alignment?: 'left' | 'center' | 'right';
   openInNewTab?: boolean;
+  icon?: string; // Material Icon name
+  iconPosition?: 'left' | 'right'; // default: 'left'
+  hoverEffect?: 'none' | 'lift' | 'glow' | 'fill' | 'slide' | 'pulse';
 }
 
 export interface SpacerBlock extends BaseBlock {

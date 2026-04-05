@@ -41,6 +41,7 @@ interface BookingPageData {
   brandingProfileId: number | null;
   active: boolean;
   googleCalendarSync: boolean;
+  conferenceType: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -175,6 +176,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
   const [minNoticeMins, setMinNoticeMins] = useState(60);
   const [timezone, setTimezone] = useState('America/New_York');
   const [active, setActive] = useState(true);
+  const [conferenceType, setConferenceType] = useState('none');
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [questions, setQuestions] = useState<BookingQuestion[]>([]);
 
@@ -196,6 +198,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
         setMinNoticeMins(p.minNoticeMins);
         setTimezone(p.timezone);
         setActive(p.active);
+        setConferenceType(p.conferenceType || 'none');
         setAvailability(p.availability || []);
         setQuestions(p.questions || []);
       } else {
@@ -252,6 +255,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
           minNoticeMins,
           timezone,
           active,
+          conferenceType,
           availability,
           questions,
         }),
@@ -638,6 +642,41 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
                   }`}
                 />
               </button>
+            </div>
+          </div>
+
+          {/* Video Conferencing */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+              <span className="material-icons text-lg">videocam</span>
+              Video Conferencing
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Automatically generate a video call link for each booking. The link will be included in confirmation emails.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { value: 'none', label: 'None', icon: 'videocam_off', desc: 'No video call' },
+                { value: 'google_meet', label: 'Google Meet', icon: 'video_call', desc: 'Requires Google Calendar' },
+                { value: 'zoom', label: 'Zoom', icon: 'video_camera_front', desc: 'Requires Zoom connection' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setConferenceType(opt.value)}
+                  className={`p-3 rounded-lg border text-left transition-all ${
+                    conferenceType === opt.value
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <span className={`material-icons text-xl mb-1 ${conferenceType === opt.value ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {opt.icon}
+                  </span>
+                  <p className="text-sm font-medium text-foreground">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
 

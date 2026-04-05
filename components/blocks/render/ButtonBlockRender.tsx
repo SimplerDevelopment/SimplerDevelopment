@@ -9,6 +9,30 @@ interface ButtonBlockRenderProps {
   block: ButtonBlock;
 }
 
+// CSS for hover effects — injected once via <style> tag
+const HOVER_STYLES = `
+.btn-hover-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.btn-hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+
+.btn-hover-glow { transition: box-shadow 0.3s ease; }
+.btn-hover-glow:hover { box-shadow: 0 0 20px rgba(99,102,241,0.4), 0 0 40px rgba(99,102,241,0.15); }
+
+.btn-hover-fill { position: relative; overflow: hidden; z-index: 0; transition: color 0.3s ease; }
+.btn-hover-fill::before { content: ''; position: absolute; inset: 0; z-index: -1; background: currentColor; opacity: 0; transition: opacity 0.3s ease; }
+.btn-hover-fill:hover::before { opacity: 0.1; }
+
+.btn-hover-slide { position: relative; overflow: hidden; z-index: 0; }
+.btn-hover-slide::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; z-index: -1; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transition: left 0.5s ease; }
+.btn-hover-slide:hover::before { left: 100%; }
+
+.btn-hover-pulse:hover { animation: btn-pulse 0.6s ease; }
+@keyframes btn-pulse { 0% { transform: scale(1); } 30% { transform: scale(1.05); } 60% { transform: scale(0.98); } 100% { transform: scale(1); } }
+
+.btn-icon { font-family: 'Material Icons'; font-size: 1.15em; line-height: 1; vertical-align: middle; }
+`;
+
+let stylesInjected = false;
+
 export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   const branding = useBranding();
 
@@ -65,20 +89,51 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
       )
     : '';
 
+  // Hover effect class
+  const hoverClass = block.hoverEffect && block.hoverEffect !== 'none'
+    ? `btn-hover-${block.hoverEffect}`
+    : '';
+
+  // Glow color override — use branding primary or accent for the glow
+  const glowStyle: React.CSSProperties = {};
+  if (block.hoverEffect === 'glow' && branding) {
+    const glowColor = bs?.primaryBg || branding.primaryColor || '#6366f1';
+    // Convert hex to rgba for the glow
+    const r = parseInt(glowColor.slice(1, 3), 16);
+    const g = parseInt(glowColor.slice(3, 5), 16);
+    const b = parseInt(glowColor.slice(5, 7), 16);
+    if (!isNaN(r)) {
+      glowStyle['--glow-color' as string] = `rgba(${r},${g},${b},0.4)`;
+    }
+  }
+
+  const iconEl = block.icon ? (
+    <span className="btn-icon material-icons" aria-hidden="true">{block.icon}</span>
+  ) : null;
+
+  const iconPos = block.iconPosition || 'left';
+
   return (
-    <div className={responsiveClasses}>
-      <div className={`flex ${alignmentClass} my-4`}>
-        <Link
-          href={block.url}
-          target={block.openInNewTab ? '_blank' : undefined}
-          rel={block.openInNewTab ? 'noopener noreferrer' : undefined}
-          className={`${variantClass} ${sizeClass} font-medium inline-flex items-center transition-colors ${!bs?.borderRadius && !branding?.borderRadius ? 'rounded-md' : ''}`}
-          style={inlineStyle}
-          data-editable-field="text"
-        >
-          {block.text}
-        </Link>
+    <>
+      {!stylesInjected && (
+        <style dangerouslySetInnerHTML={{ __html: HOVER_STYLES }} />
+      )}
+      <div className={responsiveClasses}>
+        <div className={`flex ${alignmentClass} my-4`}>
+          <Link
+            href={block.url}
+            target={block.openInNewTab ? '_blank' : undefined}
+            rel={block.openInNewTab ? 'noopener noreferrer' : undefined}
+            className={`${variantClass} ${sizeClass} ${hoverClass} font-medium inline-flex items-center gap-2 transition-colors ${!bs?.borderRadius && !branding?.borderRadius ? 'rounded-md' : ''}`}
+            style={{ ...inlineStyle, ...glowStyle }}
+            data-editable-field="text"
+          >
+            {iconPos === 'left' && iconEl}
+            {block.text}
+            {iconPos === 'right' && iconEl}
+          </Link>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

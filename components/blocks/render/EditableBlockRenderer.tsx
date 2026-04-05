@@ -640,7 +640,20 @@ function ContainerBlockRenderer({
 
   if (block.type === 'section') {
     const s = block.style;
+    // Apply section-specific props (backgroundColor, padding, etc.) that live
+    // on the SectionBlock type, not in block.style — mirrors SectionBlockRender
+    const sectionOuterStyle: React.CSSProperties = {
+      ...(block.backgroundColor ? { backgroundColor: block.backgroundColor } : {}),
+      ...(block.backgroundImage ? {
+        backgroundImage: `url(${block.backgroundImage})`,
+        backgroundSize: block.backgroundSize || 'cover',
+        backgroundPosition: block.backgroundPosition || 'center',
+      } : {}),
+      ...(block.color ? { color: block.color } : {}),
+      padding: `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`,
+    };
     const sectionInnerStyle: React.CSSProperties = {
+      ...(block.maxWidth ? { maxWidth: block.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),
       ...(s?.display ? { display: s.display } : {}),
       ...(s?.flexDirection ? { flexDirection: s.flexDirection } : {}),
       ...(s?.justifyContent ? { justifyContent: s.justifyContent } : {}),
@@ -649,19 +662,21 @@ function ContainerBlockRenderer({
       ...(s?.gap ? { gap: s.gap } : {}),
     };
     return (
-      <BlockStyleWrapper block={block}>
-        <div className="py-4 px-2 border border-dashed border-gray-200 rounded min-h-[60px]" style={sectionInnerStyle}>
-          {block.blocks.map((nested, ni) => (
-            <Fragment key={nested.id}>
-              <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
-              {ni === block.blocks.length - 1 && draggingId && (
-                <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
-              )}
-            </Fragment>
-          ))}
-          <ContainerSlotDropZone containerId={block.id} slotIndex={0} hasChildren={block.blocks.length > 0} />
-        </div>
-      </BlockStyleWrapper>
+      <div style={sectionOuterStyle}>
+        <BlockStyleWrapper block={block}>
+          <div className="border border-dashed border-gray-200/40 rounded min-h-[60px]" style={sectionInnerStyle}>
+            {block.blocks.map((nested, ni) => (
+              <Fragment key={nested.id}>
+                <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
+                {ni === block.blocks.length - 1 && draggingId && (
+                  <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
+                )}
+              </Fragment>
+            ))}
+            <ContainerSlotDropZone containerId={block.id} slotIndex={0} hasChildren={block.blocks.length > 0} />
+          </div>
+        </BlockStyleWrapper>
+      </div>
     );
   }
 

@@ -13,6 +13,7 @@ interface BookingEmailData {
   cancelToken: string;
   bookingSlug: string;
   duration: number;
+  meetingLink?: string | null;
 }
 
 function formatDateTime(date: Date, timezone: string): string {
@@ -95,6 +96,12 @@ export async function sendGuestConfirmation(data: BookingEmailData): Promise<voi
           <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">${data.duration} minutes (until ${formattedEnd})</p>
         </td>
       </tr>
+      ${data.meetingLink ? `<tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Where</p>
+          <a href="${data.meetingLink}" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">Join Video Call</a>
+        </td>
+      </tr>` : ''}
     </table>
 
     <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
@@ -151,6 +158,12 @@ export async function sendHostNotification(
           <p style="margin:4px 0 0;font-size:14px;color:#6b7280;">${data.duration} minutes (until ${formattedEnd})</p>
         </td>
       </tr>
+      ${data.meetingLink ? `<tr>
+        <td style="padding:12px 20px;">
+          <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;">Video Call</p>
+          <a href="${data.meetingLink}" style="color:#2563eb;text-decoration:none;font-size:14px;">${data.meetingLink}</a>
+        </td>
+      </tr>` : ''}
     </table>
 
     <a href="${portalUrl}" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">View in Portal</a>

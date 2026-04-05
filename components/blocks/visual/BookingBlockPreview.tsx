@@ -12,7 +12,11 @@ const PLACEHOLDER_TIMES = ['9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 
 
 export function BookingBlockPreview({ block, isSelected, onChange }: BookingBlockPreviewProps) {
   return (
-    <div className="py-8 px-6">
+    <div className="py-8 px-6 relative">
+      {/* Transparent overlay when not selected — lets clicks reach SelectableBlock parent */}
+      {!isSelected && (
+        <div className="absolute inset-0 z-10" />
+      )}
       {(block.title || isSelected) && (
         <input
           type="text"

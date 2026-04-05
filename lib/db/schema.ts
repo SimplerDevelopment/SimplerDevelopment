@@ -872,6 +872,7 @@ export const bookingPages = pgTable('booking_pages', {
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
   active: boolean('active').default(true).notNull(),
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
+  conferenceType: varchar('conference_type', { length: 20 }).default('none').notNull(), // none, google_meet, zoom
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -891,6 +892,7 @@ export const bookings = pgTable('bookings', {
   answers: json('answers').$type<Record<string, string>>(),
   notes: text('notes'),
   googleEventId: varchar('google_event_id', { length: 255 }),
+  meetingLink: varchar('meeting_link', { length: 500 }),
   cancelToken: varchar('cancel_token', { length: 64 }).notNull(),
   cancelledAt: timestamp('cancelled_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -904,6 +906,16 @@ export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   refreshToken: text('refresh_token').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   calendarId: varchar('calendar_id', { length: 255 }).default('primary').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const zoomTokens = pgTable('zoom_tokens', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

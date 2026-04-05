@@ -4,6 +4,7 @@ import { bookings, bookingPages, clients, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendCancellationEmail } from '@/lib/email/booking-emails';
 import { deleteCalendarEvent } from '@/lib/google-calendar';
+import { deleteZoomMeeting } from '@/lib/zoom';
 
 export async function POST(req: Request) {
   const { token } = await req.json();
@@ -42,6 +43,11 @@ export async function POST(req: Request) {
   // Delete Google Calendar event if it exists
   if (booking.googleEventId) {
     deleteCalendarEvent(booking.clientId, booking.googleEventId).catch(() => {});
+  }
+
+  // Delete Zoom meeting if it exists
+  if (booking.meetingLink?.includes('zoom.us')) {
+    deleteZoomMeeting(booking.clientId, booking.meetingLink).catch(() => {});
   }
 
   // Send cancellation email to guest

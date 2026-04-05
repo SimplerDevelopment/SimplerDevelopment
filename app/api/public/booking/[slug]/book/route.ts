@@ -5,6 +5,7 @@ import { eq, and, ne, gte, lte } from 'drizzle-orm';
 import crypto from 'crypto';
 import { sendGuestConfirmation, sendHostNotification } from '@/lib/email/booking-emails';
 import { createCalendarEvent } from '@/lib/google-calendar';
+import { createZoomMeeting } from '@/lib/zoom';
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -75,6 +76,52 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   }).returning();
 
   const bookingTimezone = timezone || page.timezone;
+
+  // Generate meeting link + calendar event based on conference type
+  let meetingLink: string | null = null;
+
+  if (page.googleCalendarSync || page.conferenceType === 'google_meet') {
+    const result = await createCalendarEvent({
+      clientId: page.clientId,
+      bookingId: booking.id,
+      title: page.title,
+      startTime: slotStart,
+      endTime: slotEnd,
+      timezone: bookingTimezone,
+      guestEmail: booking.guestEmail,
+      guestName: booking.guestName,
+      addGoogleMeet: page.conferenceType === 'google_meet',
+    });
+    if (result?.meetingLink) meetingLink = result.meetingLink;
+  }
+
+  if (page.conferenceType === 'zoom') {
+    meetingLink = await createZoomMeeting({
+      clientId: page.clientId,
+      bookingId: booking.id,
+      title: `${page.title} — ${booking.guestName}`,
+      startTime: slotStart,
+      duration: page.duration,
+      timezone: bookingTimezone,
+    });
+
+    // Still create calendar event if sync enabled (without Meet)
+    if (page.googleCalendarSync) {
+      createCalendarEvent({
+        clientId: page.clientId,
+        bookingId: booking.id,
+        title: page.title,
+        description: meetingLink ? `Zoom: ${meetingLink}` : undefined,
+        startTime: slotStart,
+        endTime: slotEnd,
+        timezone: bookingTimezone,
+        guestEmail: booking.guestEmail,
+        guestName: booking.guestName,
+      }).catch(() => {});
+    }
+  }
+
+  // Send emails after meeting link is available
   const emailData = {
     guestName: booking.guestName,
     guestEmail: booking.guestEmail,
@@ -85,12 +132,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     cancelToken,
     bookingSlug: page.slug,
     duration: page.duration,
+    meetingLink,
   };
 
-  // Fire-and-forget: send confirmation email to guest
   sendGuestConfirmation(emailData).catch(() => {});
 
-  // Fire-and-forget: send notification to host
   (async () => {
     const [client] = await db.select({ userId: clients.userId }).from(clients)
       .where(eq(clients.id, page.clientId)).limit(1);
@@ -103,20 +149,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     }
   })();
 
-  // Fire-and-forget: create Google Calendar event if sync is enabled
-  if (page.googleCalendarSync) {
-    createCalendarEvent({
-      clientId: page.clientId,
-      bookingId: booking.id,
-      title: page.title,
-      startTime: slotStart,
-      endTime: slotEnd,
-      timezone: bookingTimezone,
-      guestEmail: booking.guestEmail,
-      guestName: booking.guestName,
-    }).catch(() => {});
-  }
-
   return NextResponse.json({
     success: true,
     data: {
@@ -127,6 +159,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       endTime: booking.endTime,
       timezone: booking.timezone,
       status: booking.status,
+      meetingLink,
     },
   });
 }
