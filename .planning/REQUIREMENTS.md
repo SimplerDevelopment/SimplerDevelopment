@@ -82,37 +82,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | -- | Pending |
-| FOUND-02 | -- | Pending |
-| FOUND-03 | -- | Pending |
-| LOGIC-01 | -- | Pending |
-| LOGIC-02 | -- | Pending |
-| LOGIC-03 | -- | Pending |
-| RESP-01 | -- | Pending |
-| RESP-02 | -- | Pending |
-| RESP-03 | -- | Pending |
-| SCORE-01 | -- | Pending |
-| SCORE-02 | -- | Pending |
-| HOOK-01 | -- | Pending |
-| HOOK-02 | -- | Pending |
-| DIST-01 | -- | Pending |
-| DIST-02 | -- | Pending |
-| DIST-03 | -- | Pending |
-| DIST-04 | -- | Pending |
-| REAL-01 | -- | Pending |
-| REAL-02 | -- | Pending |
-| AI-01 | -- | Pending |
-| AI-02 | -- | Pending |
-| AB-01 | -- | Pending |
-| AB-02 | -- | Pending |
-| PDF-01 | -- | Pending |
-| PDF-02 | -- | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| LOGIC-01 | Phase 2 | Pending |
+| LOGIC-02 | Phase 2 | Pending |
+| LOGIC-03 | Phase 6 | Pending |
+| RESP-01 | Phase 3 | Pending |
+| RESP-02 | Phase 3 | Pending |
+| RESP-03 | Phase 3 | Pending |
+| SCORE-01 | Phase 4 | Pending |
+| SCORE-02 | Phase 4 | Pending |
+| HOOK-01 | Phase 4 | Pending |
+| HOOK-02 | Phase 4 | Pending |
+| DIST-01 | Phase 5 | Pending |
+| DIST-02 | Phase 5 | Pending |
+| DIST-03 | Phase 5 | Pending |
+| DIST-04 | Phase 5 | Pending |
+| REAL-01 | Phase 6 | Pending |
+| REAL-02 | Phase 6 | Pending |
+| AI-01 | Phase 7 | Pending |
+| AI-02 | Phase 7 | Pending |
+| AB-01 | Phase 8 | Pending |
+| AB-02 | Phase 8 | Pending |
+| PDF-01 | Phase 9 | Pending |
+| PDF-02 | Phase 9 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after initial definition*
+*Last updated: 2026-04-05 after roadmap creation — traceability complete*
