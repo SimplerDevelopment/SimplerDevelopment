@@ -242,6 +242,8 @@ export interface HeroSlideshowBlock extends BaseBlock {
   dotColor?: string;
   dotActiveColor?: string;
   progressBarColor?: string;
+  // Bottom stats bar (renders inside the hero at the bottom)
+  stats?: Array<{ id: string; value: string; label: string }>;
 }
 
 export interface MarqueeItem {
@@ -630,6 +632,112 @@ export interface EmailFooterBlock extends BaseBlock {
   socialLinks?: Array<{ platform: string; url: string }>;
 }
 
+// ============================================================================
+// Generic Premium Block Types
+// ============================================================================
+
+export interface TimelineStep {
+  id: string;
+  title: string;
+  description: string;
+  number?: string; // e.g. "01", "02" — auto-generated if omitted
+  icon?: string; // Material Icon name (alternative to number)
+}
+
+export interface TimelineBlock extends BaseBlock {
+  type: 'timeline';
+  title?: string;
+  subtitle?: string;
+  overline?: string;
+  steps: TimelineStep[];
+  /** Color of the connecting line and node borders */
+  lineColor?: string;
+  /** Color of the large step numbers */
+  numberColor?: string;
+  /** Color of the node dot fill */
+  nodeColor?: string;
+  /** Layout: 'alternating' zigzags left/right, 'left' keeps all steps on one side */
+  layout?: 'alternating' | 'left';
+}
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  title: string;
+  credentials?: string;
+  photo: string;
+  bio: string;
+  specialties?: string[];
+}
+
+export interface TeamShowcaseBlock extends BaseBlock {
+  type: 'team-showcase';
+  title?: string;
+  subtitle?: string;
+  overline?: string;
+  members: TeamMember[];
+  /** Background color for the bio panel */
+  bioPanelColor?: string;
+  /** Color of the decorative accent line above names */
+  accentColor?: string;
+  /** Photo filter: sepia(0.08) etc. */
+  photoFilter?: string;
+}
+
+export interface BentoCard {
+  id: string;
+  title: string;
+  lead?: string; // Italic lead/question text
+  items: string[];
+  link?: string;
+  linkText?: string;
+  /** 'dark' = dark bg + light text, 'light' = light bg + dark text + border */
+  variant?: 'dark' | 'light';
+  /** Relative width weight (7 = wider, 5 = narrower). Two cards in a row should sum to 12. */
+  span?: number;
+}
+
+export interface BentoGridBlock extends BaseBlock {
+  type: 'bento-grid';
+  title?: string;
+  subtitle?: string;
+  overline?: string;
+  /** Cards arranged in rows of 2. Adjacent cards' spans determine width ratio. */
+  cards: BentoCard[];
+  /** Background color for dark-variant cards */
+  darkBg?: string;
+  /** Border color for light-variant cards */
+  lightBorder?: string;
+  /** Accent color for the left bar on cards */
+  accentColor?: string;
+  /** Number of columns per row */
+  columns?: number;
+}
+
+export interface FooterLinkGroup {
+  label: string;
+  links: Array<{ label: string; href: string }>;
+}
+
+export interface SiteFooterBlock extends BaseBlock {
+  type: 'site-footer';
+  logoUrl?: string;
+  logoAlt?: string;
+  tagline?: string;
+  linkGroups: FooterLinkGroup[];
+  contactInfo?: {
+    address?: string;
+    phone?: string;
+    email?: string;
+  };
+  socialLinks?: Array<{ platform: string; url: string; label?: string }>;
+  copyright?: string;
+  disclaimer?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
 // Union type of all blocks
 export interface SectionBlock extends BaseBlock {
   type: 'section';
@@ -647,6 +755,10 @@ export interface SectionBlock extends BaseBlock {
   fontFamily?: string;
   cssClass?: string;
   htmlTag?: 'section' | 'div' | 'article' | 'aside' | 'header' | 'footer';
+  /** Diagonal split: a second color rendered with a clip-path on the right side */
+  splitColor?: string;
+  /** Clip-path polygon for the split overlay, e.g. "polygon(55% 0, 100% 0, 100% 100%, 45% 100%)" */
+  splitClipPath?: string;
 }
 
 export type Block =
@@ -694,7 +806,11 @@ export type Block =
   | SurveyResultsBlock
   | SocialLinksBlock
   | EmailHeaderBlock
-  | EmailFooterBlock;
+  | EmailFooterBlock
+  | TimelineBlock
+  | TeamShowcaseBlock
+  | BentoGridBlock
+  | SiteFooterBlock;
 
 export type BlockType = Block['type'];
 

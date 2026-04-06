@@ -34,6 +34,9 @@ import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
 import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
 import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from './StoreBannerBlockRender';
+import { TimelineBlockRender } from './TimelineBlockRender';
+import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
+import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
@@ -219,6 +222,12 @@ function renderNestedBlock(block: Block) {
       return <ShoppingCartBlockRender block={block} />;
     case 'store-banner':
       return <StoreBannerBlockRender block={block} />;
+    case 'timeline':
+      return <TimelineBlockRender block={block} />;
+    case 'team-showcase':
+      return <TeamShowcaseBlockRender block={block} />;
+    case 'bento-grid':
+      return <BentoGridBlockRender block={block} />;
     default:
       return null;
   }

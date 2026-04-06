@@ -103,6 +103,12 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'palizzi-rules': FileText,
   'palizzi-membership': FileText,
   'palizzi-footer': Layers,
+
+  // New blocks
+  timeline: Layers,
+  'team-showcase': Layers,
+  'bento-grid': LayoutGrid,
+  'site-footer': Layers,
 };
 
 /**

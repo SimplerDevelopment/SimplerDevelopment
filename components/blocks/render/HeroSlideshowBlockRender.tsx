@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HeroSlideshowBlock, HeroSlideshowSlide } from '@/types/blocks';
 import { Button } from '@/components/ui/Button';
 import { getElementCSS } from '@/lib/utils/elementStyles';
@@ -173,6 +173,34 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
           />
         </div>
       )}
+
+      {/* Stats bar at bottom of hero */}
+      {block.stats && block.stats.length > 0 && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-6 md:px-12 lg:px-20 pb-8 lg:pb-12">
+          <div className="max-w-7xl mx-auto">
+            <div
+              className="pt-8 flex flex-wrap items-center gap-x-12 gap-y-4"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              {block.stats.map((stat, i) => (
+                <React.Fragment key={stat.id}>
+                  {i > 0 && (
+                    <div className="w-px h-10 hidden sm:block" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                  )}
+                  <div>
+                    <p style={getElementCSS(block.elementStyles, 'statValue')}>
+                      {stat.value}
+                    </p>
+                    <p className="mt-1" style={getElementCSS(block.elementStyles, 'statLabel')}>
+                      {stat.label}
+                    </p>
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -258,7 +286,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
 
       {/* Content */}
       <div className={`relative h-full flex flex-col justify-center ${alignClass} px-6 md:px-12 lg:px-20`} style={{ zIndex: 3 }}>
-        <div className="max-w-4xl mx-auto w-full" style={{ textAlign }}>
+        <div className={`w-full ${textAlign === 'center' ? 'max-w-4xl mx-auto' : 'max-w-7xl mx-auto'}`} style={{ textAlign }}>
           {slide.subtitle && (
             <p
               className="font-semibold mb-4 uppercase tracking-widest"

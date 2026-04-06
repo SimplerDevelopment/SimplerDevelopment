@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { clientWebsites, posts, categories, postCategories, pitchDecks, clients } from '@/lib/db/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation } from '@/lib/db/schema';
+import { eq, and, or, asc, isNull } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
   // Try exact domain match first
@@ -127,4 +127,46 @@ export async function getClientSiteNav(websiteId: number) {
       )
     )
     .orderBy(posts.createdAt);
+}
+
+export type NavItem = {
+  id: number;
+  label: string;
+  href: string;
+  parentId: number | null;
+  sortOrder: number;
+  openInNewTab: boolean;
+  isButton: boolean;
+  children?: NavItem[];
+};
+
+export async function getClientSiteNavItems(websiteId: number): Promise<NavItem[]> {
+  const rows = await db
+    .select()
+    .from(siteNavigation)
+    .where(eq(siteNavigation.websiteId, websiteId))
+    .orderBy(asc(siteNavigation.sortOrder));
+
+  // Build tree: top-level items with nested children
+  const topLevel = rows.filter(r => !r.parentId);
+  return topLevel.map(item => ({
+    id: item.id,
+    label: item.label,
+    href: item.href,
+    parentId: item.parentId,
+    sortOrder: item.sortOrder,
+    openInNewTab: item.openInNewTab,
+    isButton: item.isButton,
+    children: rows
+      .filter(r => r.parentId === item.id)
+      .map(child => ({
+        id: child.id,
+        label: child.label,
+        href: child.href,
+        parentId: child.parentId,
+        sortOrder: child.sortOrder,
+        openInNewTab: child.openInNewTab,
+        isButton: child.isButton,
+      })),
+  }));
 }

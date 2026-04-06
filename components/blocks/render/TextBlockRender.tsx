@@ -42,7 +42,7 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
       )
     : '';
 
-  const hasHtml = block.content.includes('<');
+  const hasHtml = block.content.includes('<') || block.content.includes('&');
 
   return (
     <div className={responsiveClasses}>

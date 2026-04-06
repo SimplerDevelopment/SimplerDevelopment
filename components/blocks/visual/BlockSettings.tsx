@@ -30,6 +30,8 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'description', label: 'Slide Description' },
     { key: 'cta', label: 'Primary Button' },
     { key: 'secondaryCta', label: 'Secondary Button' },
+    { key: 'statValue', label: 'Stat Value' },
+    { key: 'statLabel', label: 'Stat Label' },
   ],
   'cta': [
     { key: 'title', label: 'Title' },
@@ -2856,6 +2858,58 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
             </label>
           ))}
         </div>
+      </div>
+
+      {/* Stats Bar */}
+      <div className="border-t border-border pt-3 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Stats Bar</label>
+        <p className="text-xs text-muted-foreground">Displayed at the bottom of the hero.</p>
+        {(block.stats || []).map((stat, i) => (
+          <div key={stat.id} className="flex gap-2 items-start">
+            <div className="flex-1 space-y-1">
+              <input
+                type="text"
+                value={stat.value}
+                onChange={(e) => {
+                  const newStats = [...(block.stats || [])];
+                  newStats[i] = { ...newStats[i], value: e.target.value };
+                  onChange({ stats: newStats });
+                }}
+                className={inputClass}
+                placeholder="Value (e.g. 22+)"
+              />
+              <input
+                type="text"
+                value={stat.label}
+                onChange={(e) => {
+                  const newStats = [...(block.stats || [])];
+                  newStats[i] = { ...newStats[i], label: e.target.value };
+                  onChange({ stats: newStats });
+                }}
+                className={inputClass}
+                placeholder="Label"
+              />
+            </div>
+            <button
+              onClick={() => {
+                const newStats = (block.stats || []).filter((_, j) => j !== i);
+                onChange({ stats: newStats });
+              }}
+              className="px-2 py-1 text-xs rounded border border-border text-destructive hover:bg-destructive/10 mt-1"
+            >
+              <span className="material-icons text-xs">delete</span>
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={() => {
+            const newStat = { id: `stat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, value: '', label: '' };
+            onChange({ stats: [...(block.stats || []), newStat] });
+          }}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+        >
+          + Add Stat
+        </button>
       </div>
     </div>
   );

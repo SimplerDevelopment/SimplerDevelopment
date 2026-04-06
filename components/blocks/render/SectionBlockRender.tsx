@@ -33,6 +33,9 @@ import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { BookingBlockRender } from './BookingBlockRender';
 import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
+import { TimelineBlockRender } from './TimelineBlockRender';
+import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
+import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
 
@@ -70,10 +73,20 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
 
   return (
     <Tag
-      className={`${block.fontFamily || ''} ${block.cssClass || ''}`}
+      className={`${block.fontFamily || ''} ${block.cssClass || ''} relative overflow-hidden`}
       style={containerStyle}
     >
-      <div style={innerStyle}>
+      {/* Diagonal split overlay */}
+      {block.splitColor && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: block.splitColor,
+            clipPath: block.splitClipPath || 'polygon(55% 0, 100% 0, 100% 100%, 45% 100%)',
+          }}
+        />
+      )}
+      <div className="relative z-10" style={innerStyle}>
         {(block.blocks || []).map((nestedBlock) => (
           <div key={nestedBlock.id}>
             <BlockStyleWrapper block={nestedBlock}>
@@ -121,6 +134,9 @@ function renderNestedBlock(block: Block) {
     case 'product-categories': return <ProductCategoriesBlockRender block={block} />;
     case 'shopping-cart': return <ShoppingCartBlockRender block={block} />;
     case 'store-banner': return <StoreBannerBlockRender block={block} />;
+    case 'timeline': return <TimelineBlockRender block={block} />;
+    case 'team-showcase': return <TeamShowcaseBlockRender block={block} />;
+    case 'bento-grid': return <BentoGridBlockRender block={block} />;
     default: return null;
   }
 }

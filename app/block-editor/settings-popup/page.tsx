@@ -55,6 +55,10 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'social-links': 'Social Links',
   'email-header': 'Email Header',
   'email-footer': 'Email Footer',
+  timeline: 'Timeline',
+  'team-showcase': 'Team Showcase',
+  'bento-grid': 'Bento Grid',
+  'site-footer': 'Site Footer',
 };
 
 function SettingsPopupContent() {

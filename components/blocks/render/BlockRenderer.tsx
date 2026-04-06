@@ -46,6 +46,10 @@ import { SurveyResultsBlockRender } from './SurveyResultsBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
+import { TimelineBlockRender } from './TimelineBlockRender';
+import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
+import { BentoGridBlockRender } from './BentoGridBlockRender';
+import { SiteFooterBlockRender } from './SiteFooterBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -82,7 +86,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   // Full-width block types that should NOT get a constraining container.
   // These handle their own internal widths (hero = full viewport, section = has maxWidth prop, etc.)
   const FULL_WIDTH_TYPES = new Set([
-    'hero', 'hero-slideshow', 'section', 'marquee', 'cta',
+    'hero', 'hero-slideshow', 'section', 'marquee', 'cta', 'site-footer',
     'palizzi-nav', 'palizzi-hero', 'palizzi-welcome', 'palizzi-history',
     'palizzi-menu', 'palizzi-rules', 'palizzi-membership', 'palizzi-footer',
   ]);
@@ -203,6 +207,14 @@ function renderBlock(block: Block, siteId?: number) {
       return <EmailHeaderBlockRender block={block} />;
     case 'email-footer':
       return <EmailFooterBlockRender block={block} />;
+    case 'timeline':
+      return <TimelineBlockRender block={block} />;
+    case 'team-showcase':
+      return <TeamShowcaseBlockRender block={block} />;
+    case 'bento-grid':
+      return <BentoGridBlockRender block={block} />;
+    case 'site-footer':
+      return <SiteFooterBlockRender block={block} />;
     default:
       return null;
   }

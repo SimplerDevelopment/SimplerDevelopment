@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getClientWebsiteByDomain, getClientSiteNav } from '@/lib/actions/client-sites';
+import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/client-sites';
 import { getBrandingByWebsiteId } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { SiteNavClient } from './SiteNavClient';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,7 +16,6 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   const site = await getClientWebsiteByDomain(domain);
   if (!site) return { title: 'Site Not Found' };
 
-  // Block search engine indexing for non-public sites
   if (!site.publicAccess) {
     return {
       title: site.name,
@@ -59,19 +59,16 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     notFound();
   }
 
-  // Bare layout for preview pages (nav-preview, etc.) — no site header/footer
+  // Bare layout for preview pages
   const headersList = await headers();
   const sitePathname = headersList.get('x-site-pathname') || '';
   if (sitePathname.includes('/nav-preview')) {
     return <>{children}</>;
   }
 
-  // Gate non-public sites — the actual block is in [[...slug]]/page.tsx
-  // where searchParams are available to check for preview tokens.
-
   const branding = await getBrandingByWebsiteId(site.id);
 
-  // Build link + button brand styles that require pseudo-selectors
+  // Build link + button brand styles
   const brandStyles = [
     branding.linkColor && `a { color: ${branding.linkColor}; }`,
     branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
@@ -79,60 +76,68 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
   ].filter(Boolean).join('\n');
 
+  // Google Fonts for branding fonts
+  const fonts = [branding.headingFont, branding.bodyFont].filter(Boolean);
+  const googleFontsUrl = fonts.length > 0
+    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700`).join('&')}&display=swap`
+    : null;
+
   // Custom layout mode: blocks handle their own nav/footer/styling
   if (site.customLayout) {
     return (
       <>
         {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
-        {/* Load Google Fonts for custom-layout sites */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap"
-          rel="stylesheet"
-        />
-        <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: '"Inter", system-ui, sans-serif' }}>
+        {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+        <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: branding.bodyFont ? `"${branding.bodyFont}", system-ui, sans-serif` : 'system-ui, sans-serif' }}>
           {children}
         </div>
       </>
     );
   }
 
-  const pages = await getClientSiteNav(site.id);
+  // Standard layout with branded nav
+  const navItems = await getClientSiteNavItems(site.id);
+  const isTransparent = branding.navTemplate === 'transparent';
+  const navBg = isTransparent ? 'transparent' : (branding.navBackground || '#ffffff');
+  const navText = isTransparent ? '#ffffff' : (branding.navTextColor || '#1e293b');
+  const primaryColor = branding.primaryColor || '#cfa122';
+  const secondaryColor = branding.secondaryColor || '#0a1628';
 
   return (
     <>
-    {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
-    <div className="min-h-screen flex flex-col bg-white text-gray-900">
-      <header className="border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold">
-            {site.name}
-          </Link>
-          <nav className="flex gap-6">
-            {pages
-              .filter((p) => p.slug !== 'home' && p.slug !== 'index')
-              .map((page) => (
-                <Link
-                  key={page.id}
-                  href={`/${page.slug}`}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  {page.title}
-                </Link>
-              ))}
-          </nav>
-        </div>
-      </header>
+      {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      <div
+        className="min-h-screen flex flex-col"
+        style={{
+          backgroundColor: branding.backgroundColor || '#ffffff',
+          color: branding.textColor || '#1e293b',
+          fontFamily: branding.bodyFont ? `"${branding.bodyFont}", system-ui, sans-serif` : 'system-ui, sans-serif',
+          scrollBehavior: 'smooth',
+        }}
+      >
+        <SiteNavClient
+          siteName={site.name}
+          navItems={navItems}
+          isTransparent={isTransparent}
+          navBg={navBg}
+          navText={navText}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
+          logoUrl={branding.logoUrl || undefined}
+          logoAlt={branding.logoAlt || site.name}
+          buttonStyle={branding.buttonStyle}
+          headingFont={branding.headingFont || undefined}
+        />
 
-      <main className="flex-1">{children}</main>
-
-      <footer className="border-t border-gray-200 py-8">
-        <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} {site.name}
-        </div>
-      </footer>
-    </div>
+        <main className="flex-1">{children}</main>
+      </div>
     </>
   );
 }
