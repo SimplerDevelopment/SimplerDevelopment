@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# screenshots / QA artifacts
+*.jpeg
+*.jpg
+*.png
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+/qa-screenshots/
