@@ -28,6 +28,17 @@ interface CreditBalance {
   payAsYouGo: boolean;
 }
 
+interface LedgerEntry {
+  id: number;
+  type: string; // grant, usage, purchase, refund, expiry
+  amount: number; // positive = credit, negative = debit
+  balanceAfter: number;
+  description: string | null;
+  serviceCategory: string | null;
+  referenceId: string | null;
+  createdAt: string;
+}
+
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -87,6 +98,9 @@ export default function AISettingsPage() {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [monthlyUsage, setMonthlyUsage] = useState(0);
+  const [showAllReceipts, setShowAllReceipts] = useState(false);
 
   const [emailPrefix, setEmailPrefix] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
@@ -96,11 +110,15 @@ export default function AISettingsPage() {
     setLoading(true);
     const [convRes, creditRes, profileRes] = await Promise.all([
       fetch('/api/portal/ai/conversations').then(r => r.json()),
-      fetch('/api/portal/credits').then(r => r.json()).catch(() => null),
+      fetch('/api/portal/credits?limit=100').then(r => r.json()).catch(() => null),
       fetch('/api/portal/settings/profile').then(r => r.json()).catch(() => null),
     ]);
     setConversations(convRes.data ?? []);
-    if (creditRes?.success) setCredits(creditRes.data ?? null);
+    if (creditRes) {
+      setCredits({ balance: creditRes.balance ?? 0, monthlyGrant: creditRes.monthlyGrant ?? 0, payAsYouGo: creditRes.payAsYouGo ?? false });
+      setLedger(creditRes.ledger ?? []);
+      setMonthlyUsage(creditRes.monthlyUsage ?? 0);
+    }
     if (profileRes?.success) setEmailPrefix(profileRes.data?.emailPrefix ?? '');
     setLoading(false);
   }, []);
@@ -153,6 +171,71 @@ export default function AISettingsPage() {
           <p className="mt-2 text-xl font-bold text-foreground">{Math.round(totalTokens / 1000).toLocaleString()}k</p>
           <p className="text-xs text-muted-foreground">Total Tokens Used</p>
         </div>
+      </div>
+
+      {/* Token Receipts */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="material-icons text-base text-primary">receipt_long</span>
+            <h2 className="text-sm font-semibold text-foreground">Token Receipts</h2>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>This month: <span className="font-medium text-foreground">{monthlyUsage.toLocaleString()}</span> tokens</span>
+            {ledger.length > 5 && (
+              <button onClick={() => setShowAllReceipts(v => !v)} className="text-primary hover:underline">
+                {showAllReceipts ? 'Show less' : `View all (${ledger.length})`}
+              </button>
+            )}
+          </div>
+        </div>
+        {ledger.length === 0 ? (
+          <div className="p-6 text-center text-xs text-muted-foreground">No token activity yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Date</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Type</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Description</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Tokens</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(showAllReceipts ? ledger : ledger.slice(0, 5)).map(entry => {
+                  const isDebit = entry.amount < 0;
+                  const typeLabel: Record<string, string> = { grant: 'Credit Grant', usage: 'Usage', purchase: 'Purchase', refund: 'Refund', expiry: 'Expired' };
+                  const typeColor: Record<string, string> = { grant: 'text-green-600 bg-green-100', usage: 'text-blue-600 bg-blue-100', purchase: 'text-purple-600 bg-purple-100', refund: 'text-orange-600 bg-orange-100', expiry: 'text-gray-500 bg-gray-100' };
+                  const typeIcon: Record<string, string> = { grant: 'card_giftcard', usage: 'smart_toy', purchase: 'shopping_cart', refund: 'undo', expiry: 'timer_off' };
+                  return (
+                    <tr key={entry.id} className="hover:bg-accent/30 transition-colors">
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {new Date(entry.createdAt).toLocaleDateString()} {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${typeColor[entry.type] || 'text-gray-600 bg-gray-100'}`}>
+                          <span className="material-icons text-[10px]">{typeIcon[entry.type] || 'circle'}</span>
+                          {typeLabel[entry.type] || entry.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-foreground truncate max-w-[200px]">
+                        {entry.description || (entry.serviceCategory ? `${entry.serviceCategory} service` : '---')}
+                      </td>
+                      <td className={`px-4 py-2.5 text-xs text-right font-mono font-medium ${isDebit ? 'text-red-600' : 'text-green-600'}`}>
+                        {isDebit ? '' : '+'}{entry.amount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-right font-mono text-muted-foreground">
+                        {entry.balanceAfter.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Email Configuration */}
