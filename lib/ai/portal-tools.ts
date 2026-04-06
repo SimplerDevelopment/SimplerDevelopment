@@ -9,8 +9,11 @@ import {
   pitchDecks, bookingPages, bookings,
   suggestedProjects, suggestedProjectRequests,
   serviceRequests, clientMembers, paymentMethods,
+  crmContacts, crmCompanies, crmDeals, crmActivities,
+  crmPipelines, crmPipelineStages, crmProposals,
 } from '@/lib/db/schema';
-import { eq, and, desc, asc, sql, isNull, or } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, isNull, or, inArray } from 'drizzle-orm';
+import { emitEvent } from '@/lib/automation';
 import type Anthropic from '@anthropic-ai/sdk';
 
 // ─── TOOL DEFINITIONS ────────────────────────────────────────────────────────
@@ -613,6 +616,181 @@ Available routes:
         invoice_id: { type: 'number', description: 'The invoice ID to pay' },
       },
       required: ['invoice_id'],
+    },
+  },
+
+  // ── READ: CRM ──
+  {
+    name: 'get_crm_contacts',
+    description: 'Get CRM contacts. Optionally filter by status or search by name/email.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        search: { type: 'string', description: 'Search by name or email' },
+        status: { type: 'string', description: 'Filter by status: active, inactive, lead, customer' },
+        limit: { type: 'number', description: 'Max results (default 25)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_crm_contact_detail',
+    description: 'Get full details for a specific CRM contact including recent activities and deals.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        contact_id: { type: 'number', description: 'The contact ID' },
+      },
+      required: ['contact_id'],
+    },
+  },
+  {
+    name: 'get_crm_companies',
+    description: 'Get all CRM companies for this client.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        search: { type: 'string', description: 'Search by company name' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_crm_deals',
+    description: 'Get CRM deals. Optionally filter by status (open/won/lost) or pipeline.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        status: { type: 'string', description: 'Filter: open, won, or lost' },
+        pipeline_id: { type: 'number', description: 'Filter by pipeline ID' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_crm_pipelines',
+    description: 'Get all CRM pipelines and their stages.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'get_crm_activities',
+    description: 'Get recent CRM activities, optionally filtered by contact or deal.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        contact_id: { type: 'number', description: 'Filter by contact ID' },
+        deal_id: { type: 'number', description: 'Filter by deal ID' },
+        limit: { type: 'number', description: 'Max results (default 20)' },
+      },
+      required: [],
+    },
+  },
+
+  // ── WRITE: CRM ──
+  {
+    name: 'create_crm_contact',
+    description: 'Create a new CRM contact. Confirm details with the user before calling.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        first_name: { type: 'string', description: 'First name' },
+        last_name: { type: 'string', description: 'Last name' },
+        email: { type: 'string', description: 'Email address' },
+        phone: { type: 'string', description: 'Phone number' },
+        title: { type: 'string', description: 'Job title' },
+        company_id: { type: 'number', description: 'Company ID to associate' },
+        source: { type: 'string', description: 'Lead source: web, referral, cold-call, event, social, email, other' },
+        status: { type: 'string', description: 'Status: lead, active, customer, inactive. Default: lead' },
+        notes: { type: 'string', description: 'Notes about this contact' },
+      },
+      required: ['first_name'],
+    },
+  },
+  {
+    name: 'update_crm_contact',
+    description: 'Update an existing CRM contact. Only provide fields you want to change.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        contact_id: { type: 'number', description: 'The contact ID to update' },
+        first_name: { type: 'string' },
+        last_name: { type: 'string' },
+        email: { type: 'string' },
+        phone: { type: 'string' },
+        title: { type: 'string' },
+        company_id: { type: 'number' },
+        status: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['contact_id'],
+    },
+  },
+  {
+    name: 'create_crm_company',
+    description: 'Create a new CRM company. Confirm details with the user before calling.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Company name' },
+        domain: { type: 'string', description: 'Website domain' },
+        industry: { type: 'string', description: 'Industry' },
+        size: { type: 'string', description: 'Company size: 1-10, 11-50, 51-200, 201-500, 500+' },
+        phone: { type: 'string', description: 'Phone number' },
+        notes: { type: 'string', description: 'Notes' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'create_crm_deal',
+    description: 'Create a new CRM deal. Confirm details with the user before calling.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Deal title' },
+        value: { type: 'number', description: 'Deal value in dollars (will be stored as cents)' },
+        pipeline_id: { type: 'number', description: 'Pipeline ID (use get_crm_pipelines to find)' },
+        stage_id: { type: 'number', description: 'Stage ID within the pipeline' },
+        contact_id: { type: 'number', description: 'Associated contact ID' },
+        company_id: { type: 'number', description: 'Associated company ID' },
+        priority: { type: 'string', description: 'Priority: low, medium, high. Default: medium' },
+        expected_close_date: { type: 'string', description: 'Expected close date (YYYY-MM-DD)' },
+        notes: { type: 'string', description: 'Deal notes' },
+      },
+      required: ['title', 'pipeline_id', 'stage_id'],
+    },
+  },
+  {
+    name: 'update_crm_deal',
+    description: 'Update a CRM deal. Can change stage, status, value, etc.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        deal_id: { type: 'number', description: 'The deal ID to update' },
+        title: { type: 'string' },
+        value: { type: 'number', description: 'Value in dollars' },
+        stage_id: { type: 'number', description: 'Move to this stage' },
+        status: { type: 'string', description: 'Set status: open, won, lost' },
+        priority: { type: 'string' },
+        expected_close_date: { type: 'string' },
+        notes: { type: 'string' },
+      },
+      required: ['deal_id'],
+    },
+  },
+  {
+    name: 'log_crm_activity',
+    description: 'Log an activity (call, email, meeting, note, task) on a contact or deal.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        type: { type: 'string', description: 'Activity type: call, email, meeting, note, task' },
+        title: { type: 'string', description: 'Activity title/subject' },
+        description: { type: 'string', description: 'Details or notes' },
+        contact_id: { type: 'number', description: 'Associated contact ID' },
+        deal_id: { type: 'number', description: 'Associated deal ID' },
+      },
+      required: ['type', 'title'],
     },
   },
 ];
@@ -1825,6 +2003,228 @@ export async function executePortalTool(
         section: `invoice-${inv.id}`,
         message: `Click "Pay Now" on invoice ${inv.number} to proceed to checkout.`,
       };
+    }
+
+    // ── READ: CRM ──
+    case 'get_crm_contacts': {
+      const search = input.search as string | undefined;
+      const status = input.status as string | undefined;
+      const limit = Math.min((input.limit as number) || 25, 100);
+      const conditions = [eq(crmContacts.clientId, clientId)];
+      if (search) conditions.push(sql`(${crmContacts.firstName} ILIKE ${'%' + search + '%'} OR ${crmContacts.lastName} ILIKE ${'%' + search + '%'} OR ${crmContacts.email} ILIKE ${'%' + search + '%'})`);
+      if (status) conditions.push(eq(crmContacts.status, status));
+      const rows = await db.select({
+        id: crmContacts.id, firstName: crmContacts.firstName, lastName: crmContacts.lastName,
+        email: crmContacts.email, phone: crmContacts.phone, title: crmContacts.title,
+        status: crmContacts.status, source: crmContacts.source, score: crmContacts.score,
+        companyId: crmContacts.companyId, companyName: crmCompanies.name,
+      }).from(crmContacts)
+        .leftJoin(crmCompanies, eq(crmContacts.companyId, crmCompanies.id))
+        .where(and(...conditions))
+        .orderBy(desc(crmContacts.updatedAt)).limit(limit);
+      return { contacts: rows, total: rows.length };
+    }
+
+    case 'get_crm_contact_detail': {
+      const contactId = input.contact_id as number;
+      const [contact] = await db.select({
+        id: crmContacts.id, firstName: crmContacts.firstName, lastName: crmContacts.lastName,
+        email: crmContacts.email, phone: crmContacts.phone, title: crmContacts.title,
+        status: crmContacts.status, source: crmContacts.source, score: crmContacts.score,
+        notes: crmContacts.notes, companyName: crmCompanies.name,
+        createdAt: crmContacts.createdAt, lastContactedAt: crmContacts.lastContactedAt,
+      }).from(crmContacts)
+        .leftJoin(crmCompanies, eq(crmContacts.companyId, crmCompanies.id))
+        .where(and(eq(crmContacts.id, contactId), eq(crmContacts.clientId, clientId)));
+      if (!contact) return { error: 'Contact not found' };
+      const activities = await db.select({
+        id: crmActivities.id, type: crmActivities.type, title: crmActivities.title,
+        description: crmActivities.description, createdAt: crmActivities.createdAt,
+      }).from(crmActivities)
+        .where(and(eq(crmActivities.clientId, clientId), eq(crmActivities.contactId, contactId)))
+        .orderBy(desc(crmActivities.createdAt)).limit(10);
+      const deals = await db.select({
+        id: crmDeals.id, title: crmDeals.title, value: crmDeals.value,
+        status: crmDeals.status, stageName: crmPipelineStages.name,
+      }).from(crmDeals)
+        .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
+        .where(and(eq(crmDeals.clientId, clientId), eq(crmDeals.contactId, contactId)));
+      return { contact, activities, deals };
+    }
+
+    case 'get_crm_companies': {
+      const search = input.search as string | undefined;
+      const conditions = [eq(crmCompanies.clientId, clientId)];
+      if (search) conditions.push(sql`${crmCompanies.name} ILIKE ${'%' + search + '%'}`);
+      const rows = await db.select({
+        id: crmCompanies.id, name: crmCompanies.name, domain: crmCompanies.domain,
+        industry: crmCompanies.industry, size: crmCompanies.size, phone: crmCompanies.phone,
+      }).from(crmCompanies).where(and(...conditions)).orderBy(asc(crmCompanies.name));
+      return rows;
+    }
+
+    case 'get_crm_deals': {
+      const status = input.status as string | undefined;
+      const pipelineId = input.pipeline_id as number | undefined;
+      const conditions = [eq(crmDeals.clientId, clientId)];
+      if (status) conditions.push(eq(crmDeals.status, status));
+      if (pipelineId) conditions.push(eq(crmDeals.pipelineId, pipelineId));
+      const rows = await db.select({
+        id: crmDeals.id, title: crmDeals.title, value: crmDeals.value,
+        status: crmDeals.status, priority: crmDeals.priority,
+        contactFirstName: crmContacts.firstName, contactLastName: crmContacts.lastName,
+        companyName: crmCompanies.name, stageName: crmPipelineStages.name,
+        expectedCloseDate: crmDeals.expectedCloseDate, createdAt: crmDeals.createdAt,
+      }).from(crmDeals)
+        .leftJoin(crmContacts, eq(crmDeals.contactId, crmContacts.id))
+        .leftJoin(crmCompanies, eq(crmDeals.companyId, crmCompanies.id))
+        .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
+        .where(and(...conditions))
+        .orderBy(desc(crmDeals.createdAt));
+      return rows.map(d => ({ ...d, contactName: [d.contactFirstName, d.contactLastName].filter(Boolean).join(' ') || null }));
+    }
+
+    case 'get_crm_pipelines': {
+      const pipes = await db.select({
+        id: crmPipelines.id, name: crmPipelines.name, isDefault: crmPipelines.isDefault,
+      }).from(crmPipelines).where(eq(crmPipelines.clientId, clientId)).orderBy(asc(crmPipelines.id));
+      const stageRows = pipes.length > 0
+        ? await db.select({
+            id: crmPipelineStages.id, pipelineId: crmPipelineStages.pipelineId,
+            name: crmPipelineStages.name, sortOrder: crmPipelineStages.sortOrder,
+          }).from(crmPipelineStages)
+            .where(inArray(crmPipelineStages.pipelineId, pipes.map(p => p.id)))
+            .orderBy(asc(crmPipelineStages.sortOrder))
+        : [];
+      return pipes.map(p => ({
+        ...p,
+        stages: stageRows.filter(s => s.pipelineId === p.id),
+      }));
+    }
+
+    case 'get_crm_activities': {
+      const contactId = input.contact_id as number | undefined;
+      const dealId = input.deal_id as number | undefined;
+      const limit = Math.min((input.limit as number) || 20, 50);
+      const conditions = [eq(crmActivities.clientId, clientId)];
+      if (contactId) conditions.push(eq(crmActivities.contactId, contactId));
+      if (dealId) conditions.push(eq(crmActivities.dealId, dealId));
+      const rows = await db.select({
+        id: crmActivities.id, type: crmActivities.type, title: crmActivities.title,
+        description: crmActivities.description, createdAt: crmActivities.createdAt,
+      }).from(crmActivities).where(and(...conditions))
+        .orderBy(desc(crmActivities.createdAt)).limit(limit);
+      return rows;
+    }
+
+    // ── WRITE: CRM ──
+    case 'create_crm_contact': {
+      const { first_name, last_name, email, phone, title, company_id, source, status, notes } = input as Record<string, string | number | undefined>;
+      const [contact] = await db.insert(crmContacts).values({
+        clientId,
+        firstName: (first_name as string).trim(),
+        lastName: (last_name as string)?.trim() || null,
+        email: (email as string)?.trim() || null,
+        phone: (phone as string)?.trim() || null,
+        title: (title as string)?.trim() || null,
+        companyId: company_id ? Number(company_id) : null,
+        source: (source as string)?.trim() || null,
+        status: (status as string) || 'lead',
+        notes: (notes as string)?.trim() || null,
+        ownerId: userId,
+      }).returning();
+      emitEvent('crm.contact.created', clientId, userId, { id: contact.id, name: `${contact.firstName} ${contact.lastName || ''}`.trim(), email: contact.email });
+      return { success: true, contactId: contact.id, message: `Contact "${contact.firstName} ${contact.lastName || ''}" created.` };
+    }
+
+    case 'update_crm_contact': {
+      const contactId = input.contact_id as number;
+      const [existing] = await db.select({ id: crmContacts.id }).from(crmContacts)
+        .where(and(eq(crmContacts.id, contactId), eq(crmContacts.clientId, clientId)));
+      if (!existing) return { error: 'Contact not found' };
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.first_name !== undefined) updates.firstName = (input.first_name as string).trim();
+      if (input.last_name !== undefined) updates.lastName = (input.last_name as string).trim() || null;
+      if (input.email !== undefined) updates.email = (input.email as string).trim() || null;
+      if (input.phone !== undefined) updates.phone = (input.phone as string).trim() || null;
+      if (input.title !== undefined) updates.title = (input.title as string).trim() || null;
+      if (input.company_id !== undefined) updates.companyId = input.company_id ? Number(input.company_id) : null;
+      if (input.status !== undefined) updates.status = input.status as string;
+      if (input.notes !== undefined) updates.notes = (input.notes as string).trim() || null;
+      await db.update(crmContacts).set(updates).where(eq(crmContacts.id, contactId));
+      return { success: true, message: `Contact updated.` };
+    }
+
+    case 'create_crm_company': {
+      const [company] = await db.insert(crmCompanies).values({
+        clientId,
+        name: (input.name as string).trim(),
+        domain: (input.domain as string)?.trim() || null,
+        industry: (input.industry as string)?.trim() || null,
+        size: (input.size as string)?.trim() || null,
+        phone: (input.phone as string)?.trim() || null,
+        notes: (input.notes as string)?.trim() || null,
+      }).returning();
+      return { success: true, companyId: company.id, message: `Company "${company.name}" created.` };
+    }
+
+    case 'create_crm_deal': {
+      const valueCents = input.value ? Math.round(Number(input.value) * 100) : null;
+      const [deal] = await db.insert(crmDeals).values({
+        clientId,
+        title: (input.title as string).trim(),
+        value: valueCents,
+        pipelineId: input.pipeline_id as number,
+        stageId: input.stage_id as number,
+        contactId: input.contact_id ? Number(input.contact_id) : null,
+        companyId: input.company_id ? Number(input.company_id) : null,
+        priority: (input.priority as string) || 'medium',
+        expectedCloseDate: input.expected_close_date ? new Date(input.expected_close_date as string) : null,
+        notes: (input.notes as string)?.trim() || null,
+        ownerId: userId,
+        status: 'open',
+      }).returning();
+      emitEvent('crm.deal.created', clientId, userId, { id: deal.id, title: deal.title, value: deal.value });
+      return { success: true, dealId: deal.id, message: `Deal "${deal.title}" created.` };
+    }
+
+    case 'update_crm_deal': {
+      const dealId = input.deal_id as number;
+      const [existing] = await db.select({ id: crmDeals.id, status: crmDeals.status }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId)));
+      if (!existing) return { error: 'Deal not found' };
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.title !== undefined) updates.title = (input.title as string).trim();
+      if (input.value !== undefined) updates.value = Math.round(Number(input.value) * 100);
+      if (input.stage_id !== undefined) updates.stageId = input.stage_id as number;
+      if (input.status !== undefined) {
+        updates.status = input.status as string;
+        if (input.status === 'won' || input.status === 'lost') updates.closedAt = new Date();
+      }
+      if (input.priority !== undefined) updates.priority = input.priority as string;
+      if (input.expected_close_date !== undefined) updates.expectedCloseDate = input.expected_close_date ? new Date(input.expected_close_date as string) : null;
+      if (input.notes !== undefined) updates.notes = (input.notes as string).trim() || null;
+      await db.update(crmDeals).set(updates).where(eq(crmDeals.id, dealId));
+      const newStatus = input.status as string | undefined;
+      if (newStatus === 'won') emitEvent('crm.deal.won', clientId, userId, { id: dealId });
+      else if (newStatus === 'lost') emitEvent('crm.deal.lost', clientId, userId, { id: dealId });
+      else emitEvent('crm.deal.updated', clientId, userId, { id: dealId });
+      return { success: true, message: `Deal updated.` };
+    }
+
+    case 'log_crm_activity': {
+      const [activity] = await db.insert(crmActivities).values({
+        clientId,
+        type: (input.type as string).trim(),
+        title: (input.title as string).trim(),
+        description: (input.description as string)?.trim() || null,
+        contactId: input.contact_id ? Number(input.contact_id) : null,
+        dealId: input.deal_id ? Number(input.deal_id) : null,
+      }).returning();
+      if (input.contact_id) {
+        await db.update(crmContacts).set({ lastContactedAt: new Date() }).where(eq(crmContacts.id, Number(input.contact_id)));
+      }
+      return { success: true, activityId: activity.id, message: `Activity logged: ${activity.title}` };
     }
 
     default:
