@@ -133,7 +133,6 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
   ),
   { href: '/portal/branding', label: 'Branding', icon: 'palette' },
   { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
-  { href: '/portal/ai-activity', label: 'AI Activity', icon: 'smart_toy' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
