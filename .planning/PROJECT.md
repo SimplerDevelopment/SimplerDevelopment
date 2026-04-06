@@ -31,6 +31,10 @@ Clients can collect structured feedback and data from their audiences through br
 - Notification options (per-response, daily/weekly digest)
 - Response limits (closesAt, maxResponses)
 - Respondent tracking (email, name, IP, user-agent)
+- Atomic response submission (transaction-wrapped INSERT + UPDATE) — Validated in Phase 01
+- Shared condition evaluator (isFieldVisible/getConditionalOptions) — Validated in Phase 01
+- Immutable field IDs (updateField guard) — Validated in Phase 01
+- Schema tables for partial responses, webhooks, email sequences, A/B variants, AI summaries — Validated in Phase 01
 
 ### Active
 
@@ -97,4 +101,4 @@ Clients can collect structured feedback and data from their audiences through br
 | Build conditional UI on existing showIf schema | Schema already supports it, just needs builder UI | -- Pending |
 
 ---
-*Last updated: 2026-04-05 after milestone v1.0 initialization*
+*Last updated: 2026-04-06 after Phase 01 (foundation-and-schema) completion*
