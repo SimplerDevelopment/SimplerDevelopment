@@ -257,6 +257,9 @@ export default function AISettingsPage() {
                           <p className="text-sm font-medium text-foreground truncate">{cleanTitle(conv.title)}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[10px] text-muted-foreground">{relativeTime(conv.updatedAt)}</span>
+                            {(conv.totalInputTokens + conv.totalOutputTokens) > 0 && (
+                              <span className="text-[10px] text-muted-foreground">{((conv.totalInputTokens + conv.totalOutputTokens) / 1000).toFixed(1)}k tokens</span>
+                            )}
                             {conv.flagged && <span className="material-icons text-[10px] text-orange-500">flag</span>}
                           </div>
                         </div>
@@ -307,6 +310,11 @@ export default function AISettingsPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-foreground">{msg.role === 'user' ? 'Request' : 'AI Response'}</span>
                           <span className="text-[10px] text-muted-foreground">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                          {(msg.inputTokens > 0 || msg.outputTokens > 0) && (
+                            <span className="text-[10px] text-muted-foreground bg-accent px-1.5 py-0.5 rounded">
+                              {msg.inputTokens.toLocaleString()} in / {msg.outputTokens.toLocaleString()} out
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-foreground whitespace-pre-wrap mt-0.5 leading-relaxed">{msg.content}</div>
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
@@ -323,6 +331,20 @@ export default function AISettingsPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Token Receipt */}
+                {messages.length > 0 && (
+                  <div className="px-4 py-3 border-t border-border bg-muted/30">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-medium">Token Receipt</span>
+                      <div className="flex items-center gap-3">
+                        <span>Input: {selectedConv.totalInputTokens.toLocaleString()}</span>
+                        <span>Output: {selectedConv.totalOutputTokens.toLocaleString()}</span>
+                        <span className="font-medium text-foreground">Total: {(selectedConv.totalInputTokens + selectedConv.totalOutputTokens).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
