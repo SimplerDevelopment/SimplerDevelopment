@@ -11,7 +11,12 @@ import {
   serviceRequests, clientMembers, paymentMethods,
   crmContacts, crmCompanies, crmDeals, crmActivities,
   crmPipelines, crmPipelineStages, crmProposals,
+  surveys, surveyResponses,
+  automationRules,
+  emailSegments,
 } from '@/lib/db/schema';
+import type { SurveyFieldDef, ProposalLineItem, AutomationTrigger, AutomationCondition, AutomationAction } from '@/lib/db/schema';
+import crypto from 'crypto';
 import { eq, and, desc, asc, sql, isNull, or, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation/event-bus';
 import type Anthropic from '@anthropic-ai/sdk';
@@ -791,6 +796,199 @@ Available routes:
         deal_id: { type: 'number', description: 'Associated deal ID' },
       },
       required: ['type', 'title'],
+    },
+  },
+
+  // ── READ/WRITE: Projects & Cards ──
+  {
+    name: 'create_project_card',
+    description: 'Create a new card (task) in a project board column. Confirm with user first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        column_id: { type: 'number', description: 'Column ID to place the card in (use get_project_board to find columns)' },
+        title: { type: 'string', description: 'Card title' },
+        description: { type: 'string', description: 'Card description' },
+        priority: { type: 'string', description: 'Priority: low, medium, high, urgent. Default: medium' },
+        due_date: { type: 'string', description: 'Due date (YYYY-MM-DD)' },
+      },
+      required: ['column_id', 'title'],
+    },
+  },
+  {
+    name: 'update_project_card',
+    description: 'Update a project card (title, description, priority, due date).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        card_id: { type: 'number', description: 'Card ID to update' },
+        title: { type: 'string' }, description: { type: 'string' },
+        priority: { type: 'string' }, due_date: { type: 'string' },
+      },
+      required: ['card_id'],
+    },
+  },
+  {
+    name: 'move_project_card',
+    description: 'Move a card to a different column (e.g. from "To Do" to "In Progress").',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        card_id: { type: 'number', description: 'Card ID to move' },
+        column_id: { type: 'number', description: 'Destination column ID' },
+      },
+      required: ['card_id', 'column_id'],
+    },
+  },
+
+  // ── READ/WRITE: Surveys ──
+  {
+    name: 'get_my_surveys',
+    description: 'Get all surveys for this client.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'get_survey_details',
+    description: 'Get a survey with its responses and stats.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { survey_id: { type: 'number', description: 'Survey ID' } },
+      required: ['survey_id'],
+    },
+  },
+  {
+    name: 'create_survey',
+    description: 'Create a new survey. Confirm details with user first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Survey title' },
+        description: { type: 'string', description: 'Survey description' },
+        fields: { type: 'string', description: 'JSON array of field objects: [{label, type (text|email|textarea|select|radio|checkbox|rating|number), required, options (for select/radio)}]' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'update_survey',
+    description: 'Update a survey (title, description, status, fields).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        survey_id: { type: 'number', description: 'Survey ID' },
+        title: { type: 'string' }, description: { type: 'string' },
+        status: { type: 'string', description: 'draft, active, or closed' },
+        fields: { type: 'string', description: 'JSON array of fields' },
+      },
+      required: ['survey_id'],
+    },
+  },
+
+  // ── READ/WRITE: CRM Proposals ──
+  {
+    name: 'get_crm_proposals',
+    description: 'Get CRM proposals. Optionally filter by status or deal.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        status: { type: 'string', description: 'Filter: draft, sent, viewed, accepted, declined' },
+        deal_id: { type: 'number', description: 'Filter by deal' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'create_crm_proposal',
+    description: 'Create a new CRM proposal. Confirm with user first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Proposal title' },
+        contact_id: { type: 'number', description: 'Contact to send to' },
+        company_id: { type: 'number', description: 'Company' },
+        deal_id: { type: 'number', description: 'Associated deal' },
+        summary: { type: 'string', description: 'Executive summary' },
+        line_items: { type: 'string', description: 'JSON array: [{description, qty, unitPrice (cents)}]' },
+        valid_until: { type: 'string', description: 'Expiry date (YYYY-MM-DD)' },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'send_crm_proposal',
+    description: 'Send a draft proposal to the contact. This marks it as sent and generates a shareable link.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { proposal_id: { type: 'number', description: 'Proposal ID to send' } },
+      required: ['proposal_id'],
+    },
+  },
+
+  // ── READ/WRITE: Automations ──
+  {
+    name: 'get_my_automations',
+    description: 'Get all automation rules for this client.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'create_automation',
+    description: 'Create an automation rule. Confirm with user first. Use get_my_automations to see examples of trigger/action format.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Rule name' },
+        description: { type: 'string', description: 'What this rule does' },
+        trigger: { type: 'string', description: 'JSON: {event: "crm.deal.won"} — event name from automation events' },
+        conditions: { type: 'string', description: 'JSON array: [{field, operator, value}]' },
+        actions: { type: 'string', description: 'JSON array: [{tool: "create_support_ticket", params: {subject: "...", body: "...", priority: "medium", category: "general"}}]' },
+      },
+      required: ['name', 'trigger', 'actions'],
+    },
+  },
+  {
+    name: 'toggle_automation',
+    description: 'Enable or disable an automation rule.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        rule_id: { type: 'number', description: 'Automation rule ID' },
+        enabled: { type: 'boolean', description: 'true to enable, false to disable' },
+      },
+      required: ['rule_id', 'enabled'],
+    },
+  },
+
+  // ── WRITE: Email Subscribers & Segments ──
+  {
+    name: 'add_email_subscriber',
+    description: 'Add a subscriber to an email list. Use get_my_email_lists to find list IDs.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        list_id: { type: 'number', description: 'Email list ID' },
+        email: { type: 'string', description: 'Subscriber email' },
+        name: { type: 'string', description: 'Subscriber name' },
+      },
+      required: ['list_id', 'email'],
+    },
+  },
+  {
+    name: 'get_email_segments',
+    description: 'Get all email segments for this client.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'create_email_segment',
+    description: 'Create an email segment with filter rules.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: { type: 'string', description: 'Segment name' },
+        description: { type: 'string', description: 'Segment description' },
+        rules: { type: 'string', description: 'JSON array: [{field, operator, value}]' },
+        match_type: { type: 'string', description: 'all or any. Default: all' },
+      },
+      required: ['name'],
     },
   },
 ];
@@ -2225,6 +2423,233 @@ export async function executePortalTool(
         await db.update(crmContacts).set({ lastContactedAt: new Date() }).where(eq(crmContacts.id, Number(input.contact_id)));
       }
       return { success: true, activityId: activity.id, message: `Activity logged: ${activity.title}` };
+    }
+
+    // ── Projects & Cards ──
+    case 'create_project_card': {
+      const colId = input.column_id as number;
+      const [col] = await db.select({ id: kanbanColumns.id, projectId: kanbanColumns.projectId })
+        .from(kanbanColumns).where(eq(kanbanColumns.id, colId));
+      if (!col) return { error: 'Column not found' };
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, col.projectId), eq(projects.clientId, clientId)));
+      if (!proj) return { error: 'Project not found or access denied' };
+      const [countRow] = await db.select({ c: sql<number>`count(*)::int` }).from(kanbanCards).where(eq(kanbanCards.columnId, colId));
+      const [card] = await db.insert(kanbanCards).values({
+        columnId: colId,
+        projectId: col.projectId,
+        title: (input.title as string).trim(),
+        description: (input.description as string)?.trim() || null,
+        priority: (input.priority as string) || 'medium',
+        dueDate: input.due_date ? new Date(input.due_date as string) : null,
+        order: countRow?.c ?? 0,
+        createdBy: userId,
+      }).returning();
+      return { success: true, cardId: card.id, message: `Card "${card.title}" created.` };
+    }
+
+    case 'update_project_card': {
+      const cardId = input.card_id as number;
+      const [card] = await db.select({ id: kanbanCards.id, projectId: kanbanCards.projectId })
+        .from(kanbanCards).where(eq(kanbanCards.id, cardId));
+      if (!card) return { error: 'Card not found' };
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId)));
+      if (!proj) return { error: 'Access denied' };
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.title !== undefined) updates.title = (input.title as string).trim();
+      if (input.description !== undefined) updates.description = (input.description as string).trim() || null;
+      if (input.priority !== undefined) updates.priority = input.priority as string;
+      if (input.due_date !== undefined) updates.dueDate = input.due_date ? new Date(input.due_date as string) : null;
+      await db.update(kanbanCards).set(updates).where(eq(kanbanCards.id, cardId));
+      return { success: true, message: 'Card updated.' };
+    }
+
+    case 'move_project_card': {
+      const cardId = input.card_id as number;
+      const destColId = input.column_id as number;
+      const [card] = await db.select({ id: kanbanCards.id, projectId: kanbanCards.projectId })
+        .from(kanbanCards).where(eq(kanbanCards.id, cardId));
+      if (!card) return { error: 'Card not found' };
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId)));
+      if (!proj) return { error: 'Access denied' };
+      const [countRow] = await db.select({ c: sql<number>`count(*)::int` }).from(kanbanCards).where(eq(kanbanCards.columnId, destColId));
+      await db.update(kanbanCards).set({ columnId: destColId, order: countRow?.c ?? 0, updatedAt: new Date() }).where(eq(kanbanCards.id, cardId));
+      return { success: true, message: 'Card moved.' };
+    }
+
+    // ── Surveys ──
+    case 'get_my_surveys': {
+      const rows = await db.select({
+        id: surveys.id, title: surveys.title, slug: surveys.slug,
+        status: surveys.status, description: surveys.description,
+        createdAt: surveys.createdAt, updatedAt: surveys.updatedAt,
+      }).from(surveys).where(eq(surveys.clientId, clientId)).orderBy(desc(surveys.updatedAt));
+      return rows;
+    }
+
+    case 'get_survey_details': {
+      const surveyId = input.survey_id as number;
+      const [survey] = await db.select().from(surveys)
+        .where(and(eq(surveys.id, surveyId), eq(surveys.clientId, clientId)));
+      if (!survey) return { error: 'Survey not found' };
+      const responses = await db.select().from(surveyResponses)
+        .where(eq(surveyResponses.surveyId, surveyId)).orderBy(desc(surveyResponses.createdAt)).limit(50);
+      const [stats] = await db.select({
+        total: sql<number>`count(*)::int`,
+        withEmail: sql<number>`count(respondent_email)::int`,
+      }).from(surveyResponses).where(eq(surveyResponses.surveyId, surveyId));
+      return { survey, responses, stats };
+    }
+
+    case 'create_survey': {
+      const title = (input.title as string).trim();
+      const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
+      let fields: SurveyFieldDef[] = [];
+      if (input.fields) { try { fields = JSON.parse(input.fields as string); } catch { return { error: 'Invalid fields JSON' }; } }
+      const [survey] = await db.insert(surveys).values({
+        clientId, title, slug,
+        description: (input.description as string)?.trim() || null,
+        fields, createdBy: userId,
+      }).returning();
+      emitEvent('survey.created', clientId, userId, { id: survey.id, title });
+      return { success: true, surveyId: survey.id, slug: survey.slug, message: `Survey "${title}" created. Share link: /s/${survey.slug}` };
+    }
+
+    case 'update_survey': {
+      const surveyId = input.survey_id as number;
+      const [existing] = await db.select({ id: surveys.id }).from(surveys)
+        .where(and(eq(surveys.id, surveyId), eq(surveys.clientId, clientId)));
+      if (!existing) return { error: 'Survey not found' };
+      const updates: Record<string, unknown> = { updatedAt: new Date() };
+      if (input.title !== undefined) updates.title = (input.title as string).trim();
+      if (input.description !== undefined) updates.description = (input.description as string).trim() || null;
+      if (input.status !== undefined) updates.status = input.status as string;
+      if (input.fields !== undefined) { try { updates.fields = JSON.parse(input.fields as string); } catch { return { error: 'Invalid fields JSON' }; } }
+      await db.update(surveys).set(updates).where(eq(surveys.id, surveyId));
+      return { success: true, message: 'Survey updated.' };
+    }
+
+    // ── CRM Proposals ──
+    case 'get_crm_proposals': {
+      const conditions = [eq(crmProposals.clientId, clientId)];
+      if (input.status) conditions.push(eq(crmProposals.status, input.status as string));
+      if (input.deal_id) conditions.push(eq(crmProposals.dealId, input.deal_id as number));
+      const rows = await db.select({
+        id: crmProposals.id, title: crmProposals.title, status: crmProposals.status,
+        contactFirstName: crmContacts.firstName, contactLastName: crmContacts.lastName,
+        companyName: crmCompanies.name, dealTitle: crmDeals.title,
+        sentAt: crmProposals.sentAt, viewCount: crmProposals.viewCount,
+        createdAt: crmProposals.createdAt,
+      }).from(crmProposals)
+        .leftJoin(crmContacts, eq(crmProposals.contactId, crmContacts.id))
+        .leftJoin(crmCompanies, eq(crmProposals.companyId, crmCompanies.id))
+        .leftJoin(crmDeals, eq(crmProposals.dealId, crmDeals.id))
+        .where(and(...conditions)).orderBy(desc(crmProposals.createdAt));
+      return rows.map(r => ({ ...r, contactName: [r.contactFirstName, r.contactLastName].filter(Boolean).join(' ') || null }));
+    }
+
+    case 'create_crm_proposal': {
+      let lineItems: ProposalLineItem[] = [];
+      if (input.line_items) { try { lineItems = JSON.parse(input.line_items as string); } catch { return { error: 'Invalid line_items JSON' }; } }
+      const clientToken = crypto.randomBytes(32).toString('hex');
+      const [proposal] = await db.insert(crmProposals).values({
+        clientId, title: (input.title as string).trim(),
+        contactId: input.contact_id ? Number(input.contact_id) : null,
+        companyId: input.company_id ? Number(input.company_id) : null,
+        dealId: input.deal_id ? Number(input.deal_id) : null,
+        summary: (input.summary as string)?.trim() || null,
+        lineItems, fees: [], sections: [],
+        currency: 'USD', status: 'draft', clientToken,
+        validUntil: input.valid_until ? new Date(input.valid_until as string) : null,
+        createdBy: userId,
+      }).returning();
+      return { success: true, proposalId: proposal.id, message: `Proposal "${proposal.title}" created as draft.` };
+    }
+
+    case 'send_crm_proposal': {
+      const propId = input.proposal_id as number;
+      const [proposal] = await db.select({ id: crmProposals.id, status: crmProposals.status, clientToken: crmProposals.clientToken })
+        .from(crmProposals).where(and(eq(crmProposals.id, propId), eq(crmProposals.clientId, clientId)));
+      if (!proposal) return { error: 'Proposal not found' };
+      if (proposal.status !== 'draft' && proposal.status !== 'sent') return { error: `Cannot send proposal with status "${proposal.status}"` };
+      await db.update(crmProposals).set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() }).where(eq(crmProposals.id, propId));
+      return { success: true, proposalUrl: `/proposal/${proposal.clientToken}`, message: 'Proposal sent.' };
+    }
+
+    // ── Automations ──
+    case 'get_my_automations': {
+      const rows = await db.select({
+        id: automationRules.id, name: automationRules.name, description: automationRules.description,
+        trigger: automationRules.trigger, conditions: automationRules.conditions, actions: automationRules.actions,
+        enabled: automationRules.enabled, executionCount: automationRules.executionCount,
+        lastExecutedAt: automationRules.lastExecutedAt,
+      }).from(automationRules).where(eq(automationRules.clientId, clientId)).orderBy(desc(automationRules.createdAt));
+      return rows;
+    }
+
+    case 'create_automation': {
+      let trigger: AutomationTrigger, conditions: AutomationCondition[] = [], actions: AutomationAction[];
+      try { trigger = JSON.parse(input.trigger as string); } catch { return { error: 'Invalid trigger JSON' }; }
+      try { actions = JSON.parse(input.actions as string); } catch { return { error: 'Invalid actions JSON' }; }
+      if (input.conditions) { try { conditions = JSON.parse(input.conditions as string); } catch { return { error: 'Invalid conditions JSON' }; } }
+      if (!Array.isArray(actions) || actions.length === 0) return { error: 'At least one action is required' };
+      const [rule] = await db.insert(automationRules).values({
+        clientId, name: (input.name as string).trim(),
+        description: (input.description as string)?.trim() || null,
+        trigger, conditions, actions,
+        source: 'ai', createdBy: userId,
+      }).returning();
+      return { success: true, ruleId: rule.id, message: `Automation "${rule.name}" created and enabled.` };
+    }
+
+    case 'toggle_automation': {
+      const ruleId = input.rule_id as number;
+      const enabled = input.enabled as boolean;
+      const [rule] = await db.select({ id: automationRules.id }).from(automationRules)
+        .where(and(eq(automationRules.id, ruleId), eq(automationRules.clientId, clientId)));
+      if (!rule) return { error: 'Automation rule not found' };
+      await db.update(automationRules).set({ enabled, updatedAt: new Date() }).where(eq(automationRules.id, ruleId));
+      return { success: true, message: `Automation ${enabled ? 'enabled' : 'disabled'}.` };
+    }
+
+    // ── Email Subscribers & Segments ──
+    case 'add_email_subscriber': {
+      const listId = input.list_id as number;
+      const email = (input.email as string).trim().toLowerCase();
+      const [list] = await db.select({ id: emailLists.id }).from(emailLists)
+        .where(and(eq(emailLists.id, listId), eq(emailLists.clientId, clientId)));
+      if (!list) return { error: 'Email list not found' };
+      const [existing] = await db.select({ id: emailSubscribers.id }).from(emailSubscribers)
+        .where(and(eq(emailSubscribers.listId, listId), eq(emailSubscribers.email, email)));
+      if (existing) return { error: 'Already subscribed to this list' };
+      const token = crypto.randomBytes(16).toString('hex');
+      const [sub] = await db.insert(emailSubscribers).values({
+        listId, email, name: (input.name as string)?.trim() || null, unsubscribeToken: token,
+      }).returning();
+      return { success: true, subscriberId: sub.id, message: `${email} added to list.` };
+    }
+
+    case 'get_email_segments': {
+      const rows = await db.select({
+        id: emailSegments.id, name: emailSegments.name, description: emailSegments.description,
+        rules: emailSegments.rules, matchType: emailSegments.matchType,
+        subscriberCount: emailSegments.subscriberCount, createdAt: emailSegments.createdAt,
+      }).from(emailSegments).where(eq(emailSegments.clientId, clientId)).orderBy(desc(emailSegments.createdAt));
+      return rows;
+    }
+
+    case 'create_email_segment': {
+      let rules: { field: string; operator: string; value: string }[] = [];
+      if (input.rules) { try { rules = JSON.parse(input.rules as string); } catch { return { error: 'Invalid rules JSON' }; } }
+      const [segment] = await db.insert(emailSegments).values({
+        clientId, name: (input.name as string).trim(),
+        description: (input.description as string)?.trim() || null,
+        rules, matchType: (input.match_type as string) || 'all',
+      }).returning();
+      return { success: true, segmentId: segment.id, message: `Segment "${segment.name}" created.` };
     }
 
     default:
