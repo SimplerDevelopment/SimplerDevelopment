@@ -13,7 +13,7 @@ import {
   crmPipelines, crmPipelineStages, crmProposals,
 } from '@/lib/db/schema';
 import { eq, and, desc, asc, sql, isNull, or, inArray } from 'drizzle-orm';
-import { emitEvent } from '@/lib/automation';
+import { emitEvent } from '@/lib/automation/event-bus';
 import type Anthropic from '@anthropic-ai/sdk';
 
 // ─── TOOL DEFINITIONS ────────────────────────────────────────────────────────
