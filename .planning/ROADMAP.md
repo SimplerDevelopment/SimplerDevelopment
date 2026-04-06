@@ -35,8 +35,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. All five new schema tables (survey_partial_responses, survey_webhooks, survey_email_sequences, survey_variants, survey_ai_summaries) exist in the database with correct columns
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
-- [ ] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
+- [x] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
+- [x] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
 
 ### Phase 2: Conditional Logic UI and Piping
 **Goal**: Non-technical users can configure conditional field visibility rules visually in SurveyBuilder, and question text can reference prior answers using piping tokens
@@ -49,8 +49,8 @@ Plans:
   4. Compound AND/OR conditions can be configured in the conditional logic panel and evaluated correctly in both builder preview and public form
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
-- [ ] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
+- [x] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
+- [x] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
 
 ### Phase 3: Response Management
 **Goal**: Response data is complete, filterable, and extensible — partial completions are recovered, responses are searchable, and file attachments are supported
@@ -63,8 +63,8 @@ Plans:
   4. Resuming a partial survey in the same browser session pre-populates previously entered answers
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
-- [ ] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
+- [x] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
+- [x] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
 
 ### Phase 4: Scoring Engine and Webhooks
 **Goal**: Survey responses can be automatically scored and routed, and external systems can receive response payloads reliably via webhook
