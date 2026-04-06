@@ -50,9 +50,9 @@ that already follows this scale).
 | 2xl | 48px | Not used in Phase 2 |
 | 3xl | 64px | Not used in Phase 2 |
 
-Exceptions: The "Add condition" and "Add rule" buttons use 6px vertical padding (`py-1.5`) to match
-the compact control density already established in `SurveyBuilder.tsx` (see `inputCls` variable,
-`px-3 py-1.5` pattern used for the "Done editing" button at line 397).
+Exceptions: The "Add condition" and "Add rule" buttons use 8px vertical padding (`py-2`) to maintain
+compact control density consistent with the existing `SurveyBuilder.tsx` control patterns while
+remaining on the 4-point scale.
 
 ---
 
@@ -106,7 +106,7 @@ The panel renders as a single collapsed row inside the expanded field editor, af
 toggle section. It shows:
 - Section label: "Conditional Logic" at 12px/400 in `text-foreground`
 - Sub-label: "Show this field only when..." at 12px/400 in `text-muted-foreground`
-- "Add Condition" button: `bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors` with `material-icons text-sm` "add" icon
+- "Add Condition" button: `bg-primary/10 text-primary px-3 py-2 rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors` with `material-icons text-sm` "add" icon
 
 **State 2 — Single rule configured**
 
@@ -133,8 +133,8 @@ All elements from State 2 plus:
 
 Rendered at the bottom of the panel whenever at least one rule is configured. Shows current
 evaluation result against `previewAnswers`:
-- Visible result: `bg-accent-secondary/10 text-accent-secondary px-2 py-0.5 rounded text-xs` — text: "Visible in preview"
-- Hidden result: `bg-muted text-muted-foreground px-2 py-0.5 rounded text-xs` — text: "Hidden in preview"
+- Visible result: `bg-accent-secondary/10 text-accent-secondary px-2 py-1 rounded text-xs` — text: "Visible in preview"
+- Hidden result: `bg-muted text-muted-foreground px-2 py-1 rounded text-xs` — text: "Hidden in preview"
 
 (`--accent-secondary` = #10b981, the green already defined in globals.css)
 
@@ -147,7 +147,7 @@ Options textarea). It is a `div` with `space-y-2` internal spacing.
 Rule rows are `flex items-center gap-2`. Each select/input within a rule row uses the same
 `inputCls` defined in `SurveyBuilder.tsx`: `w-full px-3 py-2 rounded-lg border border-border
 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary`. For compactness within
-the row, override to `px-2 py-1.5 text-xs`.
+the row, override to `px-2 py-2 text-xs`.
 
 ---
 
@@ -163,7 +163,7 @@ answered).
 
 **Builder expanded editor — Label input:**
 When a label input contains a `{fieldId_answer}` token, a subtle hint is shown below the input:
-`<p class="text-xs text-muted-foreground mt-0.5">Uses piping token — preview shows live substitution</p>`
+`<p class="text-xs text-muted-foreground mt-1">Uses piping token — preview shows live substitution</p>`
 This hint is purely informational and does not alter save behavior.
 
 **Builder preview (collapsed chip row):**
