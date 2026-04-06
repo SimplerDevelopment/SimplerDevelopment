@@ -122,9 +122,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       content: `Current slide:\n${JSON.stringify(currentSlide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve all existing styling (style, elementStyles), content (text, headings, images, URLs), and structure that is not explicitly referenced in the instruction above. Ensure the edited slide flows naturally with the surrounding slides.`,
     });
 
-    const response = await anthropic.messages.create({
+    // Scale max_tokens based on slide complexity to avoid truncation
+    const slideJsonSize = JSON.stringify(currentSlide).length;
+    const maxTokens = Math.max(4096, Math.min(16384, Math.ceil(slideJsonSize / 2) + 2048));
+
+    let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages,
     });
@@ -132,14 +136,44 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
+
+    // If output was truncated, continue generation
+    if (response.stop_reason === 'max_tokens') {
+      const continuation = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages: [
+          ...messages,
+          { role: 'assistant' as const, content: text },
+        ],
+      });
+      text += continuation.content
+        .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+        .map(b => b.text).join('');
+    }
+
+    // Strip markdown code fences
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
+    // Extract JSON object from response — handle explanation text before/after
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
-      console.error('[pitch-deck slide edit] Failed to parse AI response:', text.slice(0, 500));
-      return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
+      // Try to extract JSON object from within the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          console.error('[pitch-deck slide edit] Failed to parse AI response:', text.slice(0, 500), '...', text.slice(-200));
+          return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
+        }
+      } else {
+        console.error('[pitch-deck slide edit] No JSON found in AI response:', text.slice(0, 500));
+        return NextResponse.json({ success: false, message: 'AI returned invalid JSON. Please try again.' }, { status: 500 });
+      }
     }
 
     // Validate and normalize
