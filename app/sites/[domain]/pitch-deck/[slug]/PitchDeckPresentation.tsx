@@ -38,7 +38,12 @@ interface Props {
 }
 
 export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {} }: Props) {
-  const [current, setCurrent] = useState(0);
+  // Initialize from URL hash (e.g. #3 starts on slide 3)
+  const [current, setCurrent] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const hash = parseInt(window.location.hash.replace('#', ''), 10);
+    return hash > 0 ? hash - 1 : 0;
+  });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isAnimating, setIsAnimating] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -103,6 +108,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     setDirection(dir || (visibleIdx > current ? 'next' : 'prev'));
     setIsAnimating(true);
     setCurrent(visibleIdx);
+    // Update URL hash to reflect current slide (1-indexed)
+    window.history.replaceState(null, '', `#${visibleIdx + 1}`);
     setTimeout(() => setIsAnimating(false), 400);
   }, [current, visibleCount, isAnimating]);
 
@@ -370,6 +377,20 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
             animation: isAnimating
               ? `slideIn${direction === 'next' ? 'Left' : 'Right'} 0.4s ease-out`
               : undefined,
+          }}
+          onClick={(e) => {
+            // Handle deck navigation button clicks
+            const btn = (e.target as HTMLElement).closest('[data-deck-action]') as HTMLElement | null;
+            if (!btn) return;
+            const action = btn.dataset.deckAction;
+            if (action === 'next-slide') {
+              next();
+            } else if (action === 'jump-to') {
+              const target = parseInt(btn.dataset.deckTarget || '1', 10);
+              if (target > 0 && target <= visibleCount) {
+                goTo(target - 1, target - 1 > current ? 'next' : 'prev');
+              }
+            }
           }}
         >
           {currentVS?.kind === 'block' && (

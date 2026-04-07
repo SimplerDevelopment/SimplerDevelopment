@@ -107,6 +107,8 @@ interface VisualEditorShellProps {
   onRightCollapsedChange?: (collapsed: boolean) => void;
   brandingProfileId?: number | null;
   onBrandingProfileChange?: (profileId: number | null) => void;
+  /** Additional block types to show in the picker (e.g. pitch-deck-only blocks) */
+  extraBlockTypes?: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -131,6 +133,7 @@ export function VisualEditorShell({
   onRightCollapsedChange,
   brandingProfileId,
   onBrandingProfileChange,
+  extraBlockTypes = [],
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -435,8 +438,8 @@ export function VisualEditorShell({
     const custom = customComponents.map((c) => ({
       type: c.type as BlockType, label: c.label, icon: c.icon, category: c.category, description: c.description,
     }));
-    return [...BUILT_IN_BLOCK_TYPES, ...custom];
-  }, [customComponents]);
+    return [...BUILT_IN_BLOCK_TYPES, ...custom, ...extraBlockTypes];
+  }, [customComponents, extraBlockTypes]);
 
   const categories = useMemo(() => Array.from(new Set(allBlockTypes.map((b) => b.category))), [allBlockTypes]);
 

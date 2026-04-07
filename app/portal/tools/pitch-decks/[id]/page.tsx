@@ -1222,6 +1222,8 @@ useEffect(() => {
                       ] }),
                       ...(type === 'section' && { blocks: [] }),
                       ...(type === 'accordion' && { items: [{ id: `item-${Date.now()}-1`, title: 'Item 1', content: '' }] }),
+                      ...(type === 'deck-next-slide' && { text: 'Next Slide', variant: 'primary', size: 'md', alignment: 'center' }),
+                      ...(type === 'deck-jump-to' && { text: 'Jump To', targetSlide: 1, variant: 'secondary', size: 'md', alignment: 'center' }),
                     } as Block;
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
@@ -1235,6 +1237,10 @@ useEffect(() => {
                     );
                   }}
                   siteId={undefined}
+                  extraBlockTypes={[
+                    { type: 'deck-next-slide', label: 'Next Slide', icon: 'arrow_forward', category: 'Pitch Deck', description: 'Button that advances to the next slide' },
+                    { type: 'deck-jump-to', label: 'Jump To Slide', icon: 'shortcut', category: 'Pitch Deck', description: 'Button that jumps to a specific slide' },
+                  ]}
                 />
               </div>
             </>

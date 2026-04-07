@@ -59,6 +59,8 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'team-showcase': 'Team Showcase',
   'bento-grid': 'Bento Grid',
   'site-footer': 'Site Footer',
+  'deck-next-slide': 'Next Slide',
+  'deck-jump-to': 'Jump To Slide',
 };
 
 function SettingsPopupContent() {

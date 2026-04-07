@@ -35,6 +35,8 @@ import {
   MailMinus,
   GalleryVerticalEnd,
   TextCursorInput,
+  ArrowRight,
+  CornerDownRight,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -109,6 +111,8 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'team-showcase': Layers,
   'bento-grid': LayoutGrid,
   'site-footer': Layers,
+  'deck-next-slide': ArrowRight,
+  'deck-jump-to': CornerDownRight,
 };
 
 /**

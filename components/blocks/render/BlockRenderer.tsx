@@ -50,6 +50,7 @@ import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { SiteFooterBlockRender } from './SiteFooterBlockRender';
+import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -215,6 +216,10 @@ function renderBlock(block: Block, siteId?: number) {
       return <BentoGridBlockRender block={block} />;
     case 'site-footer':
       return <SiteFooterBlockRender block={block} />;
+    case 'deck-next-slide':
+      return <DeckNextSlideBlockRender block={block} />;
+    case 'deck-jump-to':
+      return <DeckJumpToBlockRender block={block} />;
     default:
       return null;
   }

@@ -761,6 +761,29 @@ export interface SectionBlock extends BaseBlock {
   splitClipPath?: string;
 }
 
+// ─── Pitch Deck Navigation Blocks ─────────────────────────────────────────────
+
+export interface DeckNextSlideBlock extends BaseBlock {
+  type: 'deck-next-slide';
+  text: string;
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  alignment?: 'left' | 'center' | 'right';
+  icon?: string;
+  iconPosition?: 'left' | 'right';
+}
+
+export interface DeckJumpToBlock extends BaseBlock {
+  type: 'deck-jump-to';
+  text: string;
+  targetSlide: number; // 1-indexed slide number to jump to
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  alignment?: 'left' | 'center' | 'right';
+  icon?: string;
+  iconPosition?: 'left' | 'right';
+}
+
 export type Block =
   | TextBlock
   | HeadingBlock
@@ -810,7 +833,9 @@ export type Block =
   | TimelineBlock
   | TeamShowcaseBlock
   | BentoGridBlock
-  | SiteFooterBlock;
+  | SiteFooterBlock
+  | DeckNextSlideBlock
+  | DeckJumpToBlock;
 
 export type BlockType = Block['type'];
 
