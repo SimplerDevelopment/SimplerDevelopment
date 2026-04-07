@@ -15,6 +15,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -510,11 +511,34 @@ useEffect(() => {
   function handleSlideDragEnd(event: DragEndEvent) {
     if (!deck) return;
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = deck.slides.findIndex(s => s.id === active.id);
-    const newIndex = deck.slides.findIndex(s => s.id === over.id);
+    if (!over) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    // Check if dropped onto a path group droppable zone (id = "drop-zone-{pg}" or "drop-zone-main")
+    if (overId.startsWith('drop-zone-')) {
+      const targetGroup = overId === 'drop-zone-main' ? undefined : overId.replace('drop-zone-', '');
+      const slideIdx = deck.slides.findIndex(s => s.id === activeId);
+      if (slideIdx === -1) return;
+      const newSlides = [...deck.slides];
+      newSlides[slideIdx] = { ...newSlides[slideIdx], pathGroup: targetGroup };
+      setDeck({ ...deck, slides: newSlides });
+      setHasUnsavedChanges(true);
+      return;
+    }
+
+    if (activeId === overId) return;
+    const oldIndex = deck.slides.findIndex(s => s.id === activeId);
+    const newIndex = deck.slides.findIndex(s => s.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
+
+    // Inherit the pathGroup of the target slide
+    const targetPathGroup = deck.slides[newIndex].pathGroup;
     const newSlides = arrayMove(deck.slides, oldIndex, newIndex);
+    // Update the moved slide's pathGroup to match where it landed
+    const movedIdx = newIndex;
+    newSlides[movedIdx] = { ...newSlides[movedIdx], pathGroup: targetPathGroup };
     setDeck({ ...deck, slides: newSlides });
     if (activeSlide === oldIndex) setActiveSlide(newIndex);
     else if (activeSlide > Math.min(oldIndex, newIndex) && activeSlide <= Math.max(oldIndex, newIndex)) {
@@ -1076,99 +1100,101 @@ useEffect(() => {
                     </div>
                   )}
                   <div className="max-h-[calc(100vh-340px)] overflow-y-auto">
-                    {/* Main sequence slides */}
                     <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
                       <SortableContext items={deck.slides.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                        {deck.slides.map((slide, idx) => {
-                          if (slide.pathGroup) return null; // shown in path group sections below
+                        {/* Main sequence slides */}
+                        <PathGroupDropZone id="drop-zone-main" label="Main Sequence">
+                          {deck.slides.map((slide, idx) => {
+                            if (slide.pathGroup) return null;
+                            return (
+                              <SortableSlideItem
+                                key={slide.id}
+                                slide={slide}
+                                index={idx}
+                                isActive={idx === activeSlide}
+                                isSelected={selectedSlides.has(idx)}
+                                onClick={() => setActiveSlide(idx)}
+                                onRename={(newLabel) => {
+                                  if (!deck) return;
+                                  const newSlides = [...deck.slides];
+                                  newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                  setDeck({ ...deck, slides: newSlides });
+                                  setHasUnsavedChanges(true);
+                                }}
+                                onDuplicate={() => duplicateSlide(idx)}
+                                onRemove={() => removeSlide(idx)}
+                                onToggleSelect={() => toggleSlideSelection(idx)}
+                                canRemove={deck.slides.length > 1}
+                              />
+                            );
+                          })}
+                        </PathGroupDropZone>
+
+                        {/* Add decision / path buttons */}
+                        <div className="border-t border-border p-2 space-y-1">
+                          <button
+                            onClick={addDecisionSlide}
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <span className="material-icons text-sm text-amber-500">fork_right</span>
+                            Add Decision Slide
+                          </button>
+                          <button
+                            onClick={addPathGroup}
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <span className="material-icons text-sm text-blue-500">route</span>
+                            Add Path Group
+                          </button>
+                        </div>
+
+                        {/* Path group sections */}
+                        {getPathGroups().map(pg => {
+                          const pgSlides = deck.slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => slide.pathGroup === pg);
                           return (
-                            <SortableSlideItem
-                              key={slide.id}
-                              slide={slide}
-                              index={idx}
-                              isActive={idx === activeSlide}
-                              isSelected={selectedSlides.has(idx)}
-                              onClick={() => setActiveSlide(idx)}
-                              onRename={(newLabel) => {
-                                if (!deck) return;
-                                const newSlides = [...deck.slides];
-                                newSlides[idx] = { ...newSlides[idx], label: newLabel };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              onDuplicate={() => duplicateSlide(idx)}
-                              onRemove={() => removeSlide(idx)}
-                              onToggleSelect={() => toggleSlideSelection(idx)}
-                              canRemove={deck.slides.length > 1}
-                            />
+                            <PathGroupDropZone key={pg} id={`drop-zone-${pg}`} label={pg}>
+                              <div className="px-3 py-2 flex items-center justify-between bg-accent/20">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="material-icons text-sm text-blue-500">route</span>
+                                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{pg}</span>
+                                </div>
+                                <button
+                                  onClick={() => addSlideToPathGroup(pg)}
+                                  className="text-primary hover:text-primary/80"
+                                  title={`Add slide to ${pg}`}
+                                >
+                                  <span className="material-icons text-base">add_circle</span>
+                                </button>
+                              </div>
+                              {pgSlides.map(({ slide, idx }) => (
+                                <SortableSlideItem
+                                  key={slide.id}
+                                  slide={slide}
+                                  index={idx}
+                                  isActive={idx === activeSlide}
+                                  isSelected={selectedSlides.has(idx)}
+                                  onClick={() => setActiveSlide(idx)}
+                                  onRename={(newLabel) => {
+                                    if (!deck) return;
+                                    const newSlides = [...deck.slides];
+                                    newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                    setDeck({ ...deck, slides: newSlides });
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  onDuplicate={() => duplicateSlide(idx)}
+                                  onRemove={() => removeSlide(idx)}
+                                  onToggleSelect={() => toggleSlideSelection(idx)}
+                                  canRemove={deck.slides.length > 1}
+                                />
+                              ))}
+                              {pgSlides.length === 0 && (
+                                <p className="text-[10px] text-muted-foreground text-center py-2">Drop slides here or click + to add</p>
+                              )}
+                            </PathGroupDropZone>
                           );
                         })}
                       </SortableContext>
                     </DndContext>
-
-                    {/* Add decision / path buttons */}
-                    <div className="border-t border-border p-2 space-y-1">
-                      <button
-                        onClick={addDecisionSlide}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                      >
-                        <span className="material-icons text-sm text-amber-500">fork_right</span>
-                        Add Decision Slide
-                      </button>
-                      <button
-                        onClick={addPathGroup}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                      >
-                        <span className="material-icons text-sm text-blue-500">route</span>
-                        Add Path Group
-                      </button>
-                    </div>
-
-                    {/* Path group sections */}
-                    {getPathGroups().map(pg => {
-                      const pgSlides = deck.slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => slide.pathGroup === pg);
-                      return (
-                        <div key={pg} className="border-t border-border">
-                          <div className="px-3 py-2 flex items-center justify-between bg-accent/20">
-                            <div className="flex items-center gap-1.5">
-                              <span className="material-icons text-sm text-blue-500">route</span>
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{pg}</span>
-                            </div>
-                            <button
-                              onClick={() => addSlideToPathGroup(pg)}
-                              className="text-primary hover:text-primary/80"
-                              title={`Add slide to ${pg}`}
-                            >
-                              <span className="material-icons text-base">add_circle</span>
-                            </button>
-                          </div>
-                          {pgSlides.map(({ slide, idx }) => (
-                            <SortableSlideItem
-                              key={slide.id}
-                              slide={slide}
-                              index={idx}
-                              isActive={idx === activeSlide}
-                              isSelected={selectedSlides.has(idx)}
-                              onClick={() => setActiveSlide(idx)}
-                              onRename={(newLabel) => {
-                                if (!deck) return;
-                                const newSlides = [...deck.slides];
-                                newSlides[idx] = { ...newSlides[idx], label: newLabel };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              onDuplicate={() => duplicateSlide(idx)}
-                              onRemove={() => removeSlide(idx)}
-                              onToggleSelect={() => toggleSlideSelection(idx)}
-                              canRemove={deck.slides.length > 1}
-                            />
-                          ))}
-                          {pgSlides.length === 0 && (
-                            <p className="text-[10px] text-muted-foreground text-center py-2">No slides in this path yet</p>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 </>
               )}
@@ -1592,6 +1618,21 @@ useEffect(() => {
 }
 
 /** Sortable slide item for dnd-kit reordering with double-click rename */
+// ─── Droppable zone for path groups ──────────────────────────────────────────
+
+function PathGroupDropZone({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`border-t border-border transition-colors ${isOver ? 'bg-blue-500/10 ring-1 ring-blue-500/30 ring-inset' : ''}`}
+      data-droppable={label}
+    >
+      {children}
+    </div>
+  );
+}
+
 function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect, canRemove }: {
   slide: PitchDeckSlideV2;
   index: number;
