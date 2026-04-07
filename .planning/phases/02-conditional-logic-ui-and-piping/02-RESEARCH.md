@@ -11,8 +11,8 @@
 
 | ID | Description | Research Support |
 |----|-------------|-----------------|
-| LOGIC-01 | User can configure conditional visibility rules (showIf) for any field via a visual rule builder in SurveyBuilder | `SurveyField.showIf` is already defined in schema and builder; currently no UI exposes it. Builder expanded editor is the right insertion point. Compound AND/OR requires extending the `showIf` type in schema and `isFieldVisible` in `lib/survey-logic.ts`. |
-| LOGIC-02 | User can reference prior answers in question labels and help text using piping syntax (e.g., "You said {Q3_answer}") | No piping exists today. Must add a `resolvePiping(template, answers, fields)` function to `lib/survey-logic.ts`. Public form renders labels directly — needs to wrap label/helpText through resolver before render. |
+| LOGIC-01 | User can configure conditional visibility rules (showIf) for any field via a visual rule builder in SurveyBuilder | `SurveyField.showIf` is already defined in schema and builder; currently no UI exposes it. Builder expanded editor is the right insertion point. Compound AND requires extending the `showIf` type in schema and `isFieldVisible` in `lib/survey-logic.ts`. |
+| LOGIC-02 | User can reference prior answers in question labels and help text using piping syntax (e.g., "You said {fieldId}") | No piping exists today. Must add a `resolvePiping(template, answers)` function to `lib/survey-logic.ts`. Public form renders labels directly — needs to wrap label/helpText through resolver before render. |
 | LOGIC-03 | User can view a flow diagram visualizing page flow, skip logic, and conditional branching for multi-page surveys | LOGIC-03 is assigned to Phase 6 in REQUIREMENTS.md traceability, but is listed in Phase 2 Success Criteria. Per STATE.md decision: "LOGIC-03 (flow diagram) placed in Phase 6 — depends on Phase 2 conditional UI having meaningful content to render." Only LOGIC-01 and LOGIC-02 are in Phase 2. The flow diagram tab in the success criteria is Phase 6 scope. |
 </phase_requirements>
 
@@ -22,13 +22,13 @@
 
 Phase 2 adds two capabilities on top of the Phase 1 foundation: (1) a visual conditional-logic rule builder panel inside the SurveyBuilder's expanded field editor, and (2) answer piping token substitution in question labels and help text. Both work against the existing `SurveyFieldDef` schema and the shared evaluator in `lib/survey-logic.ts`.
 
-The current `showIf` schema is `{ fieldId: string; values: string[] }` — it handles only a single field + values check. Success criterion 4 ("compound AND/OR conditions") requires extending this type to support multiple rules with an AND/OR combinator. This is a schema type change plus an evaluator update. Both the schema type (`lib/db/schema.ts`) and the evaluator (`lib/survey-logic.ts`) must be updated together, and the change must be backward-compatible so existing single-condition surveys continue to work.
+The current `showIf` schema is `{ fieldId: string; values: string[] }` — it handles only a single field + values check. Success criterion 4 ("compound AND conditions") requires extending this type to support multiple rules with an AND combinator. This is a schema type change plus an evaluator update. Both the schema type (`lib/db/schema.ts`) and the evaluator (`lib/survey-logic.ts`) must be updated together, and the change must be backward-compatible so existing single-condition surveys continue to work.
 
-Answer piping is pure string processing: scan label/helpText for `{fieldId_answer}` tokens and replace with the live answer value from `answers`. This is a new pure function in `lib/survey-logic.ts` used by the public form renderer and the builder preview. No schema changes are needed for piping.
+Answer piping is pure string processing: scan label/helpText for `{fieldId}` tokens and replace with the live answer value from `answers`. This is a new pure function in `lib/survey-logic.ts` used by the public form renderer. No schema changes are needed for piping.
 
 The flow diagram (LOGIC-03) is confirmed in Phase 6 per the STATE.md decision. Do not implement it in Phase 2.
 
-**Primary recommendation:** Implement in three tasks — (1) extend `showIf` schema type and evaluator for compound conditions, (2) add `ConditionalLogicPanel` component to `SurveyBuilder`, (3) add piping resolver and wire it into the public form and builder preview.
+**Primary recommendation:** Implement in three tasks — (1) extend `showIf` schema type and evaluator for compound conditions, (2) add `ConditionalLogicPanel` component to `SurveyBuilder`, (3) add piping resolver and wire it into the public form.
 
 ---
 
@@ -65,7 +65,7 @@ npm install @xyflow/react
 
 ```
 lib/
-└── survey-logic.ts          # MODIFIED: extend isFieldVisible for compound AND/OR; add resolvePiping()
+└── survey-logic.ts          # MODIFIED: extend isFieldVisible for compound AND; add resolvePiping()
 
 lib/db/
 └── schema.ts                # MODIFIED: extend SurveyFieldDef.showIf type for compound conditions
@@ -78,12 +78,12 @@ app/s/[slug]/
 └── page.tsx                 # MODIFIED: wrap field.label/helpText through resolvePiping() before render
 
 lib/
-└── survey-logic.test.ts     # MODIFIED: add tests for compound AND/OR and piping resolver
+└── survey-logic.test.ts     # MODIFIED: add tests for compound AND and piping resolver
 ```
 
 ### Pattern 1: Compound showIf Schema Type Extension
 
-**What:** Extend `showIf` from a single rule to a compound rule set with an AND/OR combinator.
+**What:** Extend `showIf` from a single rule to a compound rule set with an AND combinator.
 
 **Backward compatibility requirement:** The existing shape `{ fieldId: string; values: string[] }` must remain valid. Use a union type so old surveys with simple conditions work without migration.
 
@@ -92,21 +92,23 @@ lib/
 // Single-rule shape (existing, backward-compatible)
 export interface ShowIfRule {
   fieldId: string;
-  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains';
+  operator: 'equals' | 'not_equals';
   values: string[];
 }
 
 // Compound shape (new for Phase 2)
 export interface ShowIfCondition {
-  combinator: 'AND' | 'OR';
+  combinator: 'AND';
   rules: ShowIfRule[];
 }
 
 // Union on SurveyFieldDef — both forms are valid
-showIf?: ShowIfRule | ShowIfCondition;
+showIf?: { fieldId: string; values: string[] } | ShowIfCondition;
 ```
 
 **Why union not replace:** Existing surveys in the database have `showIf: { fieldId: string; values: string[] }`. Replacing the type would require a data migration on all existing survey JSON fields. A union type makes the evaluator handle both shapes without touching stored data.
+
+**Note on D-02 operators:** D-02 specifies four UI operators: "equals, not equals, is one of, is not one of." The data model uses only two operators (`equals` / `not_equals`) with `values: string[]`. "Is one of" maps to `{ operator: 'equals', values: ['A', 'B', 'C'] }` because the evaluator checks `values.includes(answer)`. "Is not one of" maps to `{ operator: 'not_equals', values: ['A', 'B', 'C'] }` because the evaluator checks `!values.includes(answer)`. The UI presents four operator labels but stores only two operator values with varying `values` array lengths.
 
 ### Pattern 2: Updated isFieldVisible Evaluator
 
@@ -119,18 +121,17 @@ showIf?: ShowIfRule | ShowIfCondition;
 // Source: lib/survey-logic.ts (to be updated in Phase 2)
 import type { SurveyFieldDef, ShowIfRule, ShowIfCondition } from '@/lib/db/schema';
 
-function isRule(showIf: ShowIfRule | ShowIfCondition): showIf is ShowIfRule {
-  return 'fieldId' in showIf;
+function isLegacyRule(showIf: { fieldId: string; values: string[] } | ShowIfCondition): showIf is { fieldId: string; values: string[] } {
+  return 'fieldId' in showIf && !('combinator' in showIf);
 }
 
 function evaluateRule(rule: ShowIfRule, answers: AnswerMap): boolean {
-  const val = String(answers[rule.fieldId] ?? '');
-  const strVal = String(answers[rule.fieldId] ?? '');
+  const rawVal = answers[rule.fieldId];
+  if (rawVal === undefined || rawVal === null) return rule.operator === 'not_equals';
+  const strVal = String(rawVal);
   switch (rule.operator) {
     case 'equals':      return rule.values.includes(strVal);
     case 'not_equals':  return !rule.values.includes(strVal);
-    case 'contains':    return rule.values.some(v => strVal.includes(v));
-    case 'not_contains': return rule.values.every(v => !strVal.includes(v));
     default:            return rule.values.includes(strVal);
   }
 }
@@ -141,25 +142,23 @@ export function isFieldVisible(
 ): boolean {
   if (!field.showIf) return true;
   const showIf = field.showIf;
-  if (isRule(showIf)) {
-    // Backward-compatible: old single-rule shape — treat as AND with 'equals'
+  if (isLegacyRule(showIf)) {
+    // Backward-compatible: old single-rule shape — treat as 'equals'
     const depVal = answers[showIf.fieldId];
     if (depVal === undefined || depVal === null) return false;
     return showIf.values.includes(String(depVal));
   }
-  // Compound condition
-  const { combinator, rules } = showIf;
-  if (combinator === 'AND') return rules.every(r => evaluateRule(r, answers));
-  if (combinator === 'OR')  return rules.some(r => evaluateRule(r, answers));
-  return true;
+  // Compound condition — per D-05, combinator is always 'AND'
+  const { rules } = showIf;
+  return rules.every(r => evaluateRule(r, answers));
 }
 ```
 
 ### Pattern 3: Answer Piping Resolver
 
-**What:** A pure function that replaces `{fieldId_answer}` tokens in a string with the live answer for that field.
+**What:** A pure function that replaces `{fieldId}` tokens in a string with the live answer for that field.
 
-**Token syntax chosen:** `{fieldId_answer}` where `fieldId` is the field's ID (e.g., `abc123_answer`). This avoids ambiguity with fields whose IDs contain curly-brace-like patterns and is distinct from Tailwind/JSX syntax.
+**Token syntax (per D-08):** `{fieldId}` where `fieldId` is the field's ID (e.g., `{abc123}`). Single curly braces, field ID only, no suffix.
 
 **Why this token format:** Simple regex match, no escaping needed, surveyors will see field IDs in the builder so the token is discoverable.
 
@@ -167,26 +166,25 @@ export function isFieldVisible(
 // Source: lib/survey-logic.ts (new export for Phase 2)
 export function resolvePiping(
   template: string,
-  answers: AnswerMap,
-  fields: Array<{ id: string; label: string }>
+  answers: AnswerMap
 ): string {
   if (!template || !template.includes('{')) return template;
-  return template.replace(/\{([^}]+)_answer\}/g, (match, fieldId) => {
+  return template.replace(/\{([^}]+)\}/g, (_match, fieldId: string) => {
     const val = answers[fieldId];
-    if (val === undefined || val === null || val === '') return match; // keep token if unanswered
+    if (val === undefined || val === null || val === '') return '';
     return String(val);
   });
 }
 ```
 
+**Per D-10:** Unanswered piped tokens render as empty string (blank), not the raw token.
+
 **Usage in public form (`app/s/[slug]/page.tsx`):**
 ```typescript
 // Before rendering a field's label/helpText:
-const resolvedLabel = resolvePiping(field.label, answers, survey.fields);
-const resolvedHelp = resolvePiping(field.helpText, answers, survey.fields);
+const resolvedLabel = resolvePiping(field.label, answers);
+const resolvedHelp = resolvePiping(field.helpText, answers);
 ```
-
-**Builder preview:** Same call inside `ConditionalLogicPanel` / builder preview rendering so authors can see piping substitution in builder preview mode using mock answer values.
 
 ### Pattern 4: ConditionalLogicPanel Component
 
@@ -198,25 +196,24 @@ const resolvedHelp = resolvePiping(field.helpText, answers, survey.fields);
 ```tsx
 // components/admin/ConditionalLogicPanel.tsx
 interface Props {
-  field: SurveyField;
-  allFields: SurveyField[]; // all fields in the survey for the "field" dropdown
-  onChange: (patch: Partial<SurveyField>) => void;
+  field: SurveyFieldMinimal;
+  allFields: SurveyFieldMinimal[]; // pre-filtered fields for the "field" dropdown
+  onChange: (patch: { showIf?: ShowIfCondition | undefined }) => void;
 }
 ```
 
 **UI flow:**
 1. "No condition" state: shows "Add condition" button
 2. Single rule state: shows field selector + operator dropdown + value input(s)
-3. Compound state: shows combinator toggle (AND/OR) + list of rules with add/remove controls
-4. Live preview chip: shows current evaluation state (Visible / Hidden) against the builder's current preview answer state
+3. Compound state: shows list of AND'd rules with add/remove controls (per D-05: AND-only, no OR toggle)
 
-**Operator options exposed in UI:** `equals` (Is), `not_equals` (Is not). `contains`/`not_contains` are supported in the evaluator but can be exposed in a follow-up.
+**Operator options exposed in UI per D-02:** `equals` ("Is"), `not_equals` ("Is not"), plus "Is one of" and "Is not one of" which map to `equals`/`not_equals` with multiple values in the `values` array.
 
-**Why a separate component file:** `SurveyBuilder.tsx` is already 411 lines. The panel is complex enough (multiple rules, add/remove, preview state) to warrant its own file.
+**Why a separate component file:** `SurveyBuilder.tsx` is already 411 lines. The panel is complex enough (multiple rules, add/remove, multi-value input) to warrant its own file.
 
 ### Pattern 5: Builder Preview State for Live Logic
 
-**What:** The builder must maintain a preview answer state so that conditional logic and piping can be evaluated live during editing.
+**What:** The builder must maintain a preview answer state so that conditional logic can be evaluated live during editing.
 
 **Current builder state:** No preview answer map — the builder only shows field configuration, not a form simulation.
 
@@ -226,17 +223,14 @@ interface Props {
 const [previewAnswers, setPreviewAnswers] = useState<Record<string, unknown>>({});
 ```
 
-This preview state is passed to `ConditionalLogicPanel` and to the label renderer so the builder can show "if answer X is set, this field would be visible."
-
-**Important:** Preview state is local to the builder session and never saved to the survey definition.
+This preview state is local to the builder session and never saved to the survey definition.
 
 ### Anti-Patterns to Avoid
 
-- **Storing `operator` as freeform string:** Always use a TypeScript union (`'equals' | 'not_equals' | 'contains' | 'not_contains'`) so the evaluator can exhaustively switch.
+- **Storing `operator` as freeform string:** Always use a TypeScript union (`'equals' | 'not_equals'`) so the evaluator can exhaustively switch.
 - **Replacing `showIf` type outright:** A hard replacement breaks existing surveys. Use the backward-compatible union.
-- **Piping in the API response:** Only resolve piping client-side in the browser form and builder preview. Never store resolved values — the raw token must be in the database so piping works for each respondent with their unique answers.
-- **Token collision with field IDs:** Do not use bare `{fieldId}` as the token format — this conflicts with Tailwind bracket syntax in template literals. Use `{fieldId_answer}`.
-- **Building a full expression editor:** Scope is AND/OR of simple field+operator+value rules only. Do not build nested groups, date range operators, or regex operators in Phase 2.
+- **Piping in the API response:** Only resolve piping client-side in the browser form. Never store resolved values — the raw token must be in the database so piping works for each respondent with their unique answers.
+- **Building a full expression editor:** Scope is AND of simple field+operator+value rules only. Do not build nested groups, date range operators, or regex operators in Phase 2.
 
 ---
 
@@ -244,8 +238,8 @@ This preview state is passed to `ConditionalLogicPanel` and to the label rendere
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Compound AND/OR evaluation | Custom recursive parser | Simple `every`/`some` over a flat rules array | Success criteria asks for AND/OR of flat rules only — no nested groups needed |
-| Token substitution regex | Complex parser | Single `.replace(/\{([^}]+)_answer\}/g, ...)` | One regex handles all token replacements; no library needed |
+| Compound AND evaluation | Custom recursive parser | Simple `every` over a flat rules array | Success criteria asks for AND of flat rules only — no nested groups needed |
+| Token substitution regex | Complex parser | Single `.replace(/\{([^}]+)\}/g, ...)` | One regex handles all token replacements; no library needed |
 | Flow diagram (LOGIC-03) | Custom SVG/canvas graph | @xyflow/react | Phase 6 scope; complex enough to warrant a dedicated library |
 | Drag-to-reorder rules | Custom DnD | @dnd-kit (already installed) | Project already uses @dnd-kit/sortable — use for rule reordering if needed |
 
@@ -259,7 +253,7 @@ This preview state is passed to `ConditionalLogicPanel` and to the label rendere
 
 **What goes wrong:** Changing `SurveyFieldDef.showIf` from `{ fieldId: string; values: string[] }` to the new compound type causes TypeScript errors AND breaks `isFieldVisible` for all surveys that have the simple shape stored in JSON.
 **Why it happens:** The JSON column stores the literal object — changing the TypeScript type doesn't migrate the data.
-**How to avoid:** Use the union type. The evaluator's `isRule()` discriminator detects which shape is present at runtime.
+**How to avoid:** Use the union type. The evaluator's `isLegacyRule()` discriminator detects which shape is present at runtime.
 **Warning signs:** TypeScript errors saying `showIf.fieldId` doesn't exist, or `isFieldVisible` returning wrong results for existing surveys.
 
 ### Pitfall 2: Circular Field References in showIf
@@ -271,10 +265,10 @@ This preview state is passed to `ConditionalLogicPanel` and to the label rendere
 
 ### Pitfall 3: Piping Unresolved Tokens in Form Submission
 
-**What goes wrong:** The stored survey definition has `"You said {abc123_answer}"` as a label and that literal string gets submitted to the server in the form data.
+**What goes wrong:** The stored survey definition has `"You said {abc123}"` as a label and that literal string gets submitted to the server in the form data.
 **Why it happens:** Developer wraps `resolvePiping` in a `useMemo` but forgets to apply it to the submission payload.
 **How to avoid:** `resolvePiping` must only be applied for rendering labels, never for field IDs, keys, or submission data. Submission payload uses field IDs (never labels).
-**Warning signs:** Submitted answers contain token strings like `{abc123_answer}` as keys.
+**Warning signs:** Submitted answers contain token strings like `{abc123}` as keys.
 
 ### Pitfall 4: Builder Preview Answers Not Cleared on Field Delete
 
@@ -292,9 +286,9 @@ This preview state is passed to `ConditionalLogicPanel` and to the label rendere
 
 ### Pitfall 6: TypeScript Discriminator Not Working
 
-**What goes wrong:** The `isRule()` discriminator `'fieldId' in showIf` returns true for a `ShowIfCondition` that also happens to have a field named `fieldId` (won't happen with the defined type but worth noting).
+**What goes wrong:** The `isLegacyRule()` discriminator `'fieldId' in showIf` returns true for a `ShowIfCondition` that also happens to have a field named `fieldId` (won't happen with the defined type but worth noting).
 **Why it happens:** Union discriminator relies on a unique property name.
-**How to avoid:** `ShowIfCondition` has no `fieldId` property — the discriminator is reliable. Alternatively use a `type` discriminant field like `{ type: 'rule' | 'compound' }` for extra safety if the type becomes ambiguous.
+**How to avoid:** `ShowIfCondition` has no `fieldId` property — the discriminator is reliable. Uses both `'fieldId' in showIf` AND `!('combinator' in showIf)` for extra safety.
 
 ---
 
@@ -346,7 +340,6 @@ function updateField(id: string, patch: Partial<SurveyField>) {
   field={field}
   allFields={fields.filter(f => f.type !== 'page_break' && f.type !== 'heading' && f.id !== field.id)}
   onChange={(patch) => updateField(field.id, patch)}
-  previewAnswers={previewAnswers}
 />
 ```
 
@@ -357,30 +350,24 @@ function updateField(id: string, patch: Partial<SurveyField>) {
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
 | Inline visibility logic in page.tsx | Shared `isFieldVisible` in lib/survey-logic.ts | Phase 1 (2026-04-05) | Phase 2 extends the evaluator without touching page.tsx call sites |
-| Single field + values showIf | Compound AND/OR with typed operators | Phase 2 | Schema type change + evaluator update required |
-| No piping | Token substitution `{fieldId_answer}` | Phase 2 | New pure function in survey-logic.ts |
+| Single field + values showIf | Compound AND with typed operators | Phase 2 | Schema type change + evaluator update required |
+| No piping | Token substitution `{fieldId}` | Phase 2 | New pure function in survey-logic.ts |
 
 **Deprecated/outdated:**
 - Single-shape `showIf: { fieldId, values }`: Still valid as backward-compatible union member, but new rules created via the UI will use the compound shape.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should single-rule creation via UI write the simple shape or the compound shape?**
-   - What we know: The evaluator handles both. UI creates rules one at a time.
-   - What's unclear: If a user adds exactly one rule in the UI, which shape should be saved to JSON? Simple `{ fieldId, values }` or `{ combinator: 'AND', rules: [...] }`?
-   - Recommendation: Always write the compound shape `{ combinator: 'AND', rules: [{ fieldId, operator: 'equals', values }] }` for all new rules created via UI. Simpler: the evaluator's backward-compat path handles old simple-shape data, and new data is always compound. No branching in the writer path.
+1. **Should single-rule creation via UI write the simple shape or the compound shape?** (RESOLVED)
+   - Resolution: Always write the compound shape `{ combinator: 'AND', rules: [{ fieldId, operator: 'equals', values }] }` for all new rules created via UI. Plan 01 and Plan 02 implement this — the evaluator's backward-compat path handles old simple-shape data, and new data is always compound. No branching in the writer path.
 
-2. **Should piping be shown in builder labels during editing (not just preview)?**
-   - What we know: Builder currently shows the raw label string (no preview rendering).
-   - What's unclear: Do we substitute tokens in the builder's field label chip (the collapsed row), or only in a dedicated "Preview" mode?
-   - Recommendation: Substitute tokens in the expanded editor and in a designated preview-mode render. Keep collapsed field chip showing the raw template so authors can see the token syntax.
+2. **Should piping be shown in builder labels during editing (not just preview)?** (RESOLVED)
+   - Resolution: Per D-12, piping tokens are displayed as raw `{fieldId}` in the label editor with a tooltip hint. Tokens are NOT substituted in the builder view. Substitution only occurs in the public form renderer via `resolvePiping()`. Plan 02 Task 2 implements the piping hint below the label input.
 
-3. **Operator scope in Phase 2 UI**
-   - What we know: `equals`, `not_equals`, `contains`, `not_contains` are defined in the type.
-   - What's unclear: Should `contains`/`not_contains` be exposed in the UI in Phase 2?
-   - Recommendation: Expose only `equals` and `not_equals` in Phase 2 — sufficient for the stated success criteria. `contains`/`not_contains` supported in evaluator for future use.
+3. **Operator scope in Phase 2 UI** (RESOLVED)
+   - Resolution: Per D-02, the UI exposes four operator labels: "Is" (equals), "Is not" (not_equals), "Is one of" (equals with multiple values), "Is not one of" (not_equals with multiple values). The data model uses only `equals` and `not_equals` operators — "is one of" / "is not one of" are achieved through multi-value `values: string[]` arrays. Plan 02 Task 1 implements multi-value input (checkboxes for choice fields, comma-separated text for free-text fields).
 
 ---
 
@@ -395,19 +382,19 @@ function updateField(id: string, patch: Partial<SurveyField>) {
 | Quick run command | `npx vitest run lib/survey-logic.test.ts` |
 | Full suite command | `npx vitest run` |
 
-### Phase Requirements → Test Map
+### Phase Requirements -> Test Map
 
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| LOGIC-01 | `isFieldVisible` returns false when AND rule not met | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 — new tests needed |
-| LOGIC-01 | `isFieldVisible` returns true when all AND rules met | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-01 | `isFieldVisible` returns true when any OR rule met | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-01 | `isFieldVisible` backward-compat: old simple shape still works | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-01 | `isFieldVisible` with `not_equals` operator | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-02 | `resolvePiping` replaces answered token | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-02 | `resolvePiping` keeps token when answer not yet given | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-02 | `resolvePiping` is a no-op on strings with no tokens | unit | `npx vitest run lib/survey-logic.test.ts` | ❌ Wave 0 |
-| LOGIC-03 | Flow diagram out of scope for Phase 2 | — | — | N/A |
+| LOGIC-01 | `isFieldVisible` returns false when AND rule not met | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 — new tests needed |
+| LOGIC-01 | `isFieldVisible` returns true when all AND rules met | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-01 | `isFieldVisible` backward-compat: old simple shape still works | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-01 | `isFieldVisible` with `not_equals` operator | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-01 | `isFieldVisible` with multi-value equals (is one of) | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-02 | `resolvePiping` replaces answered token | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-02 | `resolvePiping` renders empty string for unanswered token per D-10 | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-02 | `resolvePiping` is a no-op on strings with no tokens | unit | `npx vitest run lib/survey-logic.test.ts` | Wave 0 |
+| LOGIC-03 | Flow diagram out of scope for Phase 2 | -- | -- | N/A |
 
 ### Sampling Rate
 
@@ -417,7 +404,7 @@ function updateField(id: string, patch: Partial<SurveyField>) {
 
 ### Wave 0 Gaps
 
-- [ ] `lib/survey-logic.test.ts` — add compound AND/OR and piping tests (file exists from Phase 1; needs new test cases appended)
+- [ ] `lib/survey-logic.test.ts` — add compound AND and piping tests (file exists from Phase 1; needs new test cases appended)
 
 *(Existing file from Phase 1 has 10 tests for the simple evaluator — these pass. New compound + piping tests will be added, not replace.)*
 

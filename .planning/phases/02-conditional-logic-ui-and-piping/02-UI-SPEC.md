@@ -14,7 +14,7 @@ created: 2026-04-05
 >
 > **Scope:** Phase 2 adds two UI surfaces — (1) the `ConditionalLogicPanel` component inside the
 > SurveyBuilder's expanded field editor (LOGIC-01), and (2) piping token rendering in question
-> labels and help text during builder preview and public form completion (LOGIC-02). No new pages
+> labels and help text during public form completion (LOGIC-02). No new pages
 > or routes are created. All surfaces live inside the existing SurveyBuilder and public survey form.
 
 ---
@@ -66,7 +66,7 @@ Two weights only: regular (400) for all body and label text, semibold (600) for 
 | Body | 14px | 400 | 1.5 |
 | Label | 12px | 400 | 1.4 |
 | Heading | 16px | 600 | 1.2 |
-| Display | not used in Phase 2 | — | — |
+| Display | not used in Phase 2 | -- | -- |
 
 The `ConditionalLogicPanel` uses label text at 12px/400 (matching the pattern `text-xs font-medium
 text-foreground` already used for all section labels in the expanded editor). Rule rows use 12px/400
@@ -77,20 +77,19 @@ body text for inline field/operator/value selectors.
 ## Color
 
 Pre-populated from `app/globals.css` CSS custom properties and Phase 1 contract. Phase 2 extends
-usage with one new accent reservation: the combinator toggle badge.
+usage with one new accent reservation: the conditional badge.
 
 | Role | Value (light) | Value (dark) | Usage |
 |------|---------------|-------------|-------|
 | Dominant (60%) | #fafaf9 (`--background`) | #18181b | Builder canvas background |
 | Secondary (30%) | #ffffff (`--card`) + #f5f5f4 (`--muted`) | #0c0c0d + #27272a | Field card surfaces; expanded editor bg (`bg-muted/20`) |
-| Accent (10%) | #2563eb (`--primary`) | #3b82f6 | Active field border, focus ring, "Add Condition" button bg (`bg-primary/10`), combinator toggle active state |
+| Accent (10%) | #2563eb (`--primary`) | #3b82f6 | Active field border, focus ring, "Add Condition" button bg (`bg-primary/10`), conditional badge |
 | Destructive | #ef4444 (`--destructive`) | #ef4444 | "Remove rule" action within ConditionalLogicPanel |
 
 Accent (`--primary`) reserved for:
 1. The "Add Condition" button background tint (`bg-primary/10 text-primary hover:bg-primary/20`)
-2. The AND/OR combinator toggle — active state uses `bg-primary/10 text-primary` on the selected value
-3. Focus ring on all select/input elements within the panel (`focus:ring-2 focus:ring-primary`)
-4. The piping token hint chip background in label inputs where tokens are present
+2. Focus ring on all select/input elements within the panel (`focus:ring-2 focus:ring-primary`)
+3. The piping token hint chip background in label inputs where tokens are present
 
 Destructive (`--destructive`) reserved for: the remove-rule icon button (`hover:text-destructive`) within the ConditionalLogicPanel rule list.
 
@@ -114,29 +113,20 @@ The panel expands inline (no modal, no separate drawer). It shows:
 - Section label row: "Conditional Logic" + an "X" clear-all button (icon: `cancel`, `hover:text-destructive`)
 - One rule row containing three controls:
   1. Field selector: `<select>` with `text-xs` styling matching `inputCls` — lists all fields in the survey excluding `page_break` and `heading` types and the current field itself. Placeholder: "Select field..."
-  2. Operator selector: `<select>` with two options — "Is" (`equals`) and "Is not" (`not_equals`). Default: "Is"
-  3. Value input: `<input type="text">` for free-text or comma-separated values. Placeholder: "Enter value..."
+  2. Operator selector: `<select>` with four options per D-02 — "Is" (`equals`), "Is not" (`not_equals`), "Is one of" (`equals` with multi-value), "Is not one of" (`not_equals` with multi-value). Default: "Is"
+  3. Value input: Varies by operator and trigger field type:
+     - Single-value operators (Is / Is not) + choice field: `<select>` dropdown with trigger field's options
+     - Single-value operators + free-text field: `<input type="text">` with placeholder "Enter value..."
+     - Multi-value operators (Is one of / Is not one of) + choice field: checkboxes for each option allowing multiple selections
+     - Multi-value operators + free-text field: `<input type="text">` with placeholder "Enter values, comma-separated..."
 - "Add another rule" link: `text-xs text-primary hover:underline` with "add" icon
-- Live preview chip: see State 4 below
 
 **State 3 — Compound rules configured (2+ rules)**
 
 All elements from State 2 plus:
-- AND/OR combinator toggle inserted above the rule list:
-  - Renders as two buttons: "AND" and "OR", styled as a segmented control
-  - Active/selected: `bg-primary/10 text-primary font-medium`
-  - Inactive: `text-muted-foreground hover:text-foreground`
-  - Container: `inline-flex rounded-lg border border-border overflow-hidden text-xs`
+- Per D-05: all rules are AND'd together. No AND/OR combinator toggle — the combinator is always 'AND'.
+- A label "All conditions must match (AND)" in `text-xs text-muted-foreground` above the rule list to clarify AND behavior.
 - Each rule row has a remove button (icon: `remove_circle_outline`, `text-muted-foreground hover:text-destructive`) at the far right
-
-**State 4 — Live preview chip**
-
-Rendered at the bottom of the panel whenever at least one rule is configured. Shows current
-evaluation result against `previewAnswers`:
-- Visible result: `bg-accent-secondary/10 text-accent-secondary px-2 py-1 rounded text-xs` — text: "Visible in preview"
-- Hidden result: `bg-muted text-muted-foreground px-2 py-1 rounded text-xs` — text: "Hidden in preview"
-
-(`--accent-secondary` = #10b981, the green already defined in globals.css)
 
 ### Panel Layout
 
@@ -156,25 +146,24 @@ the row, override to `px-2 py-2 text-xs`.
 ### Where Piping is Visible
 
 **Public form (app/s/[slug]/page.tsx):**
-Labels and help text with unresolved tokens (`{fieldId_answer}`) are replaced with the live answer
-value. No visual indicator — the substitution is silent. If a referenced answer has not been given
-yet, the raw token is preserved verbatim (e.g., `"You said {abc123_answer}"` remains until Q3 is
-answered).
+Labels and help text with piping tokens (`{fieldId}`) are replaced with the live answer
+value via `resolvePiping()`. No visual indicator — the substitution is silent. Per D-10, if a
+referenced answer has not been given yet, the token renders as empty string (blank space), so
+text reads naturally with a gap.
 
 **Builder expanded editor — Label input:**
-When a label input contains a `{fieldId_answer}` token, a subtle hint is shown below the input:
+When a label input contains a `{fieldId}` token, a subtle hint is shown below the input:
 `<p class="text-xs text-muted-foreground mt-1">Uses piping token — preview shows live substitution</p>`
 This hint is purely informational and does not alter save behavior.
 
 **Builder preview (collapsed chip row):**
 The collapsed field chip (line 203 in `SurveyBuilder.tsx`) shows the raw template string — tokens
-are NOT substituted in the collapsed view. This lets authors see the token syntax. Tokens are
-substituted only in the expanded editor's preview rendering and in the live preview chip.
+are NOT substituted in the collapsed view. This lets authors see the token syntax.
 
 ### Piping Token Format
 
-Token syntax: `{fieldId_answer}` — exact format, case-sensitive fieldId, literal `_answer` suffix.
-Example: `"You said {abc123_answer}"` where `abc123` is the field's `id` property.
+Token syntax (per D-08): `{fieldId}` — single curly braces, field ID only, no suffix. Case-sensitive.
+Example: `"You said {abc123}"` where `abc123` is the field's `id` property.
 
 Authors discover available field IDs from the Field ID shown in the expanded editor header. A
 field ID display is added to the expanded editor header row: `<span class="text-xs text-muted-foreground font-mono">ID: {field.id}</span>`. This is read-only, monospace, and
@@ -191,12 +180,12 @@ positioned after the field type label.
 | Section label | "Conditional Logic" |
 | Section sub-label | "Show this field only when..." |
 | No-condition state | "No condition set — field always shows" |
-| Live preview chip — visible | "Visible in preview" |
-| Live preview chip — hidden | "Hidden in preview" |
+| AND label (compound state) | "All conditions must match (AND)" |
 | Clear-all tooltip | "Remove all conditions" |
 | Remove-rule tooltip | "Remove this rule" |
 | Field selector placeholder | "Select field..." |
-| Value input placeholder | "Enter value..." |
+| Value input placeholder (single) | "Enter value..." |
+| Value input placeholder (multi) | "Enter values, comma-separated..." |
 | Piping hint (label input) | "Uses piping token — preview shows live substitution" |
 | Field ID label in expanded header | "ID: {field.id}" |
 | Empty conditions error | "Select a field and value to complete this rule." |
@@ -211,7 +200,7 @@ positioned after the field type label.
 | `components/admin/ConditionalLogicPanel.tsx` | NEW | Full ConditionalLogicPanel component — all states above |
 | `components/admin/SurveyBuilder.tsx` | MODIFIED | Add `previewAnswers` state; add `<ConditionalLogicPanel>` after Required toggle; add field ID display in expanded header; wire delete to clear previewAnswers entry |
 | `app/s/[slug]/page.tsx` | MODIFIED | Wrap `field.label` and `field.helpText` through `resolvePiping()` before render — no visual change except token substitution |
-| `lib/survey-logic.ts` | MODIFIED | Add `resolvePiping()` export; extend `isFieldVisible()` for compound AND/OR — no new UI |
+| `lib/survey-logic.ts` | MODIFIED | Add `resolvePiping()` export; extend `isFieldVisible()` for compound AND — no new UI |
 
 ---
 
