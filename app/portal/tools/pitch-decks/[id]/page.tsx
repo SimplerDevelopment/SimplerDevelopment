@@ -1516,7 +1516,7 @@ useEffect(() => {
                   rightCollapsed={editorRightCollapsed}
                   onLeftCollapsedChange={setEditorLeftCollapsed}
                   onRightCollapsedChange={setEditorRightCollapsed}
-                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(deck.theme.backgroundColor)}&text=${encodeURIComponent(deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
+                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {
