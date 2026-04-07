@@ -646,17 +646,47 @@ function ContainerBlockRenderer({
 
   if (block.type === 'section') {
     const s = block.style;
-    // Apply section-specific props (backgroundColor, padding, etc.) that live
-    // on the SectionBlock type, not in block.style — mirrors SectionBlockRender
+    // Apply section-specific props — mirrors SectionBlockRender
+    const bgColor = s?.backgroundColor || block.backgroundColor;
+    const color = s?.color || block.color;
+    const padding = s?.padding || `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`;
     const sectionOuterStyle: React.CSSProperties = {
-      ...(block.backgroundColor ? { backgroundColor: block.backgroundColor } : {}),
+      ...(bgColor ? { backgroundColor: bgColor } : {}),
       ...(block.backgroundImage ? {
         backgroundImage: `url(${block.backgroundImage})`,
         backgroundSize: block.backgroundSize || 'cover',
         backgroundPosition: block.backgroundPosition || 'center',
       } : {}),
-      ...(block.color ? { color: block.color } : {}),
-      padding: `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`,
+      ...(s?.backgroundImage ? {
+        backgroundImage: `url(${s.backgroundImage})`,
+        backgroundSize: s.backgroundSize || 'cover',
+        backgroundPosition: s.backgroundPosition || 'center',
+      } : {}),
+      ...(color ? { color } : {}),
+      padding,
+      // Border
+      ...(s?.borderWidth ? { borderWidth: s.borderWidth } : {}),
+      ...(s?.borderColor ? { borderColor: s.borderColor } : {}),
+      ...(s?.borderStyle ? { borderStyle: s.borderStyle as React.CSSProperties['borderStyle'] } : {}),
+      ...(s?.borderRadius ? { borderRadius: s.borderRadius } : {}),
+      ...(s?.borderTopWidth ? { borderTopWidth: s.borderTopWidth } : {}),
+      ...(s?.borderTopColor ? { borderTopColor: s.borderTopColor } : {}),
+      ...(s?.borderTopStyle ? { borderTopStyle: s.borderTopStyle as React.CSSProperties['borderTopStyle'] } : {}),
+      ...(s?.borderRightWidth ? { borderRightWidth: s.borderRightWidth } : {}),
+      ...(s?.borderRightColor ? { borderRightColor: s.borderRightColor } : {}),
+      ...(s?.borderRightStyle ? { borderRightStyle: s.borderRightStyle as React.CSSProperties['borderRightStyle'] } : {}),
+      ...(s?.borderBottomWidth ? { borderBottomWidth: s.borderBottomWidth } : {}),
+      ...(s?.borderBottomColor ? { borderBottomColor: s.borderBottomColor } : {}),
+      ...(s?.borderBottomStyle ? { borderBottomStyle: s.borderBottomStyle as React.CSSProperties['borderBottomStyle'] } : {}),
+      ...(s?.borderLeftWidth ? { borderLeftWidth: s.borderLeftWidth } : {}),
+      ...(s?.borderLeftColor ? { borderLeftColor: s.borderLeftColor } : {}),
+      ...(s?.borderLeftStyle ? { borderLeftStyle: s.borderLeftStyle as React.CSSProperties['borderLeftStyle'] } : {}),
+      ...(s?.borderTopLeftRadius ? { borderTopLeftRadius: s.borderTopLeftRadius } : {}),
+      ...(s?.borderTopRightRadius ? { borderTopRightRadius: s.borderTopRightRadius } : {}),
+      ...(s?.borderBottomLeftRadius ? { borderBottomLeftRadius: s.borderBottomLeftRadius } : {}),
+      ...(s?.borderBottomRightRadius ? { borderBottomRightRadius: s.borderBottomRightRadius } : {}),
+      ...(s?.boxShadow ? { boxShadow: s.boxShadow } : {}),
+      ...(s?.opacity ? { opacity: s.opacity } : {}),
     };
     const sectionInnerStyle: React.CSSProperties = {
       ...(block.maxWidth ? { maxWidth: block.maxWidth, marginLeft: 'auto', marginRight: 'auto' } : {}),

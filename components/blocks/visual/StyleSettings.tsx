@@ -229,6 +229,8 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
   // Get current style values or defaults
   const style = typeof block.style === 'object' ? block.style : {};
   const responsive = block.responsive || {};
+  const [perSideBorderOpen, setPerSideBorderOpen] = useState(false);
+  const [perCornerRadiusOpen, setPerCornerRadiusOpen] = useState(false);
 
   const updateStyle = (property: string, value: any) => {
     const existingStyle = typeof block.style === 'object' ? block.style : {};
@@ -721,9 +723,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
           </>
         )}
         {/* Per-side border overrides — always available */}
-        <details className="group">
-          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-side borders</summary>
-          <div className="mt-2 space-y-2">
+        <div>
+          <button type="button" onClick={() => setPerSideBorderOpen(o => !o)} className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+            <span className="material-icons text-xs">{perSideBorderOpen ? 'expand_less' : 'expand_more'}</span>
+            Per-side borders
+          </button>
+          {perSideBorderOpen && <div className="mt-2 space-y-2">
             {(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => {
               const widthKey = `border${side}Width` as keyof typeof style;
               const colorKey = `border${side}Color` as keyof typeof style;
@@ -758,8 +763,8 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
                 </div>
               );
             })}
-          </div>
-        </details>
+          </div>}
+        </div>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Radius</label>
           <select value={style.borderRadius || ''} onChange={(e) => updateStyle('borderRadius', e.target.value)} className={selectClass}>
@@ -770,9 +775,12 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
         </div>
         {/* Per-corner radius overrides */}
         {style.borderRadius && (
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-corner radius</summary>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+          <div>
+            <button type="button" onClick={() => setPerCornerRadiusOpen(o => !o)} className="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+              <span className="material-icons text-xs">{perCornerRadiusOpen ? 'expand_less' : 'expand_more'}</span>
+              Per-corner radius
+            </button>
+            {perCornerRadiusOpen && <div className="mt-2 grid grid-cols-2 gap-2">
               {([['TopLeft', 'TL'], ['TopRight', 'TR'], ['BottomLeft', 'BL'], ['BottomRight', 'BR']] as const).map(([corner, label]) => {
                 const key = `border${corner}Radius` as keyof typeof style;
                 return (
@@ -782,8 +790,8 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
                   </div>
                 );
               })}
-            </div>
-          </details>
+            </div>}
+          </div>
         )}
       </StyleSection>
 

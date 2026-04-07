@@ -1706,26 +1706,28 @@ function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChan
           <option value="footer">footer</option>
         </select>
       </div>
-      <div className="border-t border-border pt-4">
-        <PageSettingsPanel
-          settings={{
-            backgroundColor: block.backgroundColor,
-            backgroundImage: block.backgroundImage,
-            backgroundSize: block.backgroundSize,
-            backgroundPosition: block.backgroundPosition,
-            maxWidth: block.maxWidth,
-            paddingTop: block.paddingTop,
-            paddingBottom: block.paddingBottom,
-            paddingLeft: block.paddingLeft,
-            paddingRight: block.paddingRight,
-            color: block.color,
-            fontFamily: block.fontFamily,
-            cssClass: block.cssClass,
-          }}
-          onChange={(updates) => onChange(updates as Partial<SectionBlock>)}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Max Width</label>
+        <input
+          type="text"
+          value={block.maxWidth || ''}
+          onChange={(e) => onChange({ maxWidth: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. 1280px, 100%"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">CSS Class</label>
+        <input
+          type="text"
+          value={block.cssClass || ''}
+          onChange={(e) => onChange({ cssClass: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. rounded-lg shadow-md"
         />
       </div>
       <p className="text-xs text-muted-foreground">{block.blocks.length} nested block{block.blocks.length !== 1 ? 's' : ''}</p>
+      <p className="text-xs text-muted-foreground italic">Use the Style tab for colors, padding, borders, and other visual properties.</p>
     </div>
   );
 }

@@ -28,36 +28,42 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
 
   const customStyles: React.CSSProperties = {};
 
+  // Section blocks apply their own border/shadow/opacity on their <Tag> element,
+  // so skip those here to avoid double-applying on this wrapper div.
+  const selfStyled = block.type === 'section';
+
   if (style.backgroundColor) customStyles.backgroundColor = style.backgroundColor;
   if (style.color) customStyles.color = style.color;
   if (style.fontSize) customStyles.fontSize = style.fontSize;
   if (style.fontWeight) customStyles.fontWeight = style.fontWeight;
   if (style.lineHeight) customStyles.lineHeight = style.lineHeight;
   if (style.letterSpacing) customStyles.letterSpacing = style.letterSpacing;
-  if (style.borderWidth) customStyles.borderWidth = style.borderWidth;
-  if (style.borderColor) customStyles.borderColor = style.borderColor;
-  if (style.borderStyle) customStyles.borderStyle = style.borderStyle;
-  if (style.borderRadius) customStyles.borderRadius = style.borderRadius;
-  // Per-side borders
-  if (style.borderTopWidth) customStyles.borderTopWidth = style.borderTopWidth;
-  if (style.borderTopColor) customStyles.borderTopColor = style.borderTopColor;
-  if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle as React.CSSProperties['borderTopStyle'];
-  if (style.borderRightWidth) customStyles.borderRightWidth = style.borderRightWidth;
-  if (style.borderRightColor) customStyles.borderRightColor = style.borderRightColor;
-  if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle as React.CSSProperties['borderRightStyle'];
-  if (style.borderBottomWidth) customStyles.borderBottomWidth = style.borderBottomWidth;
-  if (style.borderBottomColor) customStyles.borderBottomColor = style.borderBottomColor;
-  if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle as React.CSSProperties['borderBottomStyle'];
-  if (style.borderLeftWidth) customStyles.borderLeftWidth = style.borderLeftWidth;
-  if (style.borderLeftColor) customStyles.borderLeftColor = style.borderLeftColor;
-  if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle as React.CSSProperties['borderLeftStyle'];
-  // Per-corner radius
-  if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = style.borderTopLeftRadius;
-  if (style.borderTopRightRadius) customStyles.borderTopRightRadius = style.borderTopRightRadius;
-  if (style.borderBottomLeftRadius) customStyles.borderBottomLeftRadius = style.borderBottomLeftRadius;
-  if (style.borderBottomRightRadius) customStyles.borderBottomRightRadius = style.borderBottomRightRadius;
-  if (style.boxShadow) customStyles.boxShadow = style.boxShadow;
-  if (style.opacity) customStyles.opacity = style.opacity;
+  if (!selfStyled) {
+    if (style.borderWidth) customStyles.borderWidth = style.borderWidth;
+    if (style.borderColor) customStyles.borderColor = style.borderColor;
+    if (style.borderStyle) customStyles.borderStyle = style.borderStyle;
+    if (style.borderRadius) customStyles.borderRadius = style.borderRadius;
+    // Per-side borders
+    if (style.borderTopWidth) customStyles.borderTopWidth = style.borderTopWidth;
+    if (style.borderTopColor) customStyles.borderTopColor = style.borderTopColor;
+    if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle as React.CSSProperties['borderTopStyle'];
+    if (style.borderRightWidth) customStyles.borderRightWidth = style.borderRightWidth;
+    if (style.borderRightColor) customStyles.borderRightColor = style.borderRightColor;
+    if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle as React.CSSProperties['borderRightStyle'];
+    if (style.borderBottomWidth) customStyles.borderBottomWidth = style.borderBottomWidth;
+    if (style.borderBottomColor) customStyles.borderBottomColor = style.borderBottomColor;
+    if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle as React.CSSProperties['borderBottomStyle'];
+    if (style.borderLeftWidth) customStyles.borderLeftWidth = style.borderLeftWidth;
+    if (style.borderLeftColor) customStyles.borderLeftColor = style.borderLeftColor;
+    if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle as React.CSSProperties['borderLeftStyle'];
+    // Per-corner radius
+    if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = style.borderTopLeftRadius;
+    if (style.borderTopRightRadius) customStyles.borderTopRightRadius = style.borderTopRightRadius;
+    if (style.borderBottomLeftRadius) customStyles.borderBottomLeftRadius = style.borderBottomLeftRadius;
+    if (style.borderBottomRightRadius) customStyles.borderBottomRightRadius = style.borderBottomRightRadius;
+    if (style.boxShadow) customStyles.boxShadow = style.boxShadow;
+    if (style.opacity) customStyles.opacity = style.opacity;
+  }
 
   // Only apply static padding/margin if no responsive equivalents are set.
   // Responsive spacing uses Tailwind classes in render components; inline styles
