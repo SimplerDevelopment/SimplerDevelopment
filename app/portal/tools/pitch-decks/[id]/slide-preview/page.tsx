@@ -111,13 +111,13 @@ function SlidePreviewInner() {
             ['--slide-body-font' as string]: theme.bodyFont,
           }}
         >
-          <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
-            {isEditMode ? (
+          {isEditMode ? (
+            <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
               <EditableBlockRenderer content={content} />
-            ) : (
-              <BlockRenderer content={content} />
-            )}
-          </div>
+            </div>
+          ) : (
+            <BlockRenderer content={content} />
+          )}
         </div>
       </div>
     </>
