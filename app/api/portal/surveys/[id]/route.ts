@@ -70,6 +70,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.maxResponses !== undefined) updates.maxResponses = body.maxResponses || null;
   if (body.linkedType !== undefined) updates.linkedType = body.linkedType || null;
   if (body.linkedId !== undefined) updates.linkedId = body.linkedId || null;
+  if (body.styling !== undefined) updates.styling = body.styling;
 
   const [updated] = await db
     .update(surveys)

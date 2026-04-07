@@ -1866,6 +1866,25 @@ export interface SurveyPageDef {
   description?: string;
 }
 
+/** Per-survey style overrides. Takes precedence over branding profile. */
+export interface SurveyStyling {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  headingFont?: string;
+  bodyFont?: string;
+  borderRadius?: string;
+  buttonPrimaryBg?: string;
+  buttonPrimaryText?: string;
+  buttonBorderRadius?: string;
+  formBg?: string;
+  inputBg?: string;
+  hideTitle?: boolean;
+  hideLogo?: boolean;
+}
+
 export const surveys = pgTable('surveys', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -1880,6 +1899,7 @@ export const surveys = pgTable('surveys', {
   redirectUrl: varchar('redirect_url', { length: 500 }),
   color: varchar('color', { length: 7 }).default('#2563eb'),
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
+  styling: json('survey_styling').$type<SurveyStyling>().default({}),
   // Settings
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, closed
   allowMultiple: boolean('allow_multiple').default(true).notNull(), // allow same email to submit multiple times
