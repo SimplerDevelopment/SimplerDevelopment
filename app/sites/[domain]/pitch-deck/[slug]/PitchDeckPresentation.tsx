@@ -293,11 +293,12 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         if (e.key === 'Enter') { e.preventDefault(); next(); }
         return;
       }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault(); next();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault(); prev();
       }
+      // ArrowUp/ArrowDown left to browser default (scroll)
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
