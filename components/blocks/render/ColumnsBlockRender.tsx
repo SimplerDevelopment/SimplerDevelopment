@@ -37,6 +37,7 @@ import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
+import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
@@ -230,6 +231,10 @@ function renderNestedBlock(block: Block) {
       return <TeamShowcaseBlockRender block={block} />;
     case 'bento-grid':
       return <BentoGridBlockRender block={block} />;
+    case 'deck-next-slide':
+      return <DeckNextSlideBlockRender block={block} />;
+    case 'deck-jump-to':
+      return <DeckJumpToBlockRender block={block} />;
     default:
       return null;
   }

@@ -35,6 +35,7 @@ import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { BookingBlockRender } from './BookingBlockRender';
 import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
+import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface TabsBlockRenderProps {
@@ -170,6 +171,10 @@ function renderNestedBlock(block: Block) {
       return <ShoppingCartBlockRender block={block} />;
     case 'store-banner':
       return <StoreBannerBlockRender block={block} />;
+    case 'deck-next-slide':
+      return <DeckNextSlideBlockRender block={block} />;
+    case 'deck-jump-to':
+      return <DeckJumpToBlockRender block={block} />;
     default:
       return null;
   }
