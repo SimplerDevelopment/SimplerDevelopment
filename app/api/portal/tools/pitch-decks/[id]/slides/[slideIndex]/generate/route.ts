@@ -8,6 +8,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
+import { classifyEdit, minimizePayload, applyPatchResponse, isPatchResponse } from '@/lib/ai/slide-edit-optimizer';
 import { getBrandingByClientId } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -78,8 +79,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       };
     } catch { /* non-critical */ }
 
+    // Classify the edit and optimize the payload
+    const editType = classifyEdit(prompt.trim());
+    const optimized = minimizePayload(currentSlide, editType);
+
+    console.log(`[pitch-deck slide edit] type=${editType}, full=${JSON.stringify(currentSlide).length}chars, optimized=${JSON.stringify(optimized.slide).length}chars`);
+
     // Build dynamic system prompt from block schemas + theme + deck context
-    const systemPrompt = buildSlideEditPrompt(
+    let systemPrompt = buildSlideEditPrompt(
       theme,
       {
         title: deck.title,
@@ -95,6 +102,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
     );
 
+    // Append edit-type-specific instructions
+    if (optimized.systemAddendum) {
+      systemPrompt += optimized.systemAddendum;
+    }
+
     // Build messages: include conversation history for multi-turn refinement
     const messages: Anthropic.MessageParam[] = [];
 
@@ -104,31 +116,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
-    // Build adjacent slide context for narrative flow
-    const adjacentContext: string[] = [];
-    if (idx > 0) {
-      adjacentContext.push(`Previous slide (${slides[idx - 1].label || 'Slide ' + idx}):\n${JSON.stringify(slides[idx - 1], null, 2)}`);
+    // Build adjacent slide context for narrative flow (skip for style-only)
+    let adjacentSection = '';
+    if (!optimized.skipAdjacentSlides) {
+      const adjacentContext: string[] = [];
+      if (idx > 0) {
+        adjacentContext.push(`Previous slide (${slides[idx - 1].label || 'Slide ' + idx}):\n${JSON.stringify(slides[idx - 1], null, 2)}`);
+      }
+      if (idx < slides.length - 1) {
+        adjacentContext.push(`Next slide (${slides[idx + 1].label || 'Slide ' + (idx + 2)}):\n${JSON.stringify(slides[idx + 1], null, 2)}`);
+      }
+      if (adjacentContext.length) {
+        adjacentSection = `\n\nAdjacent slides for narrative context (do NOT modify these, only use for reference):\n${adjacentContext.join('\n\n')}`;
+      }
     }
-    if (idx < slides.length - 1) {
-      adjacentContext.push(`Next slide (${slides[idx + 1].label || 'Slide ' + (idx + 2)}):\n${JSON.stringify(slides[idx + 1], null, 2)}`);
-    }
-    const adjacentSection = adjacentContext.length
-      ? `\n\nAdjacent slides for narrative context (do NOT modify these, only use for reference):\n${adjacentContext.join('\n\n')}`
-      : '';
 
-    // Current turn — include preservation reminder alongside the slide data
+    // Current turn — use optimized payload
     messages.push({
       role: 'user',
-      content: `Current slide:\n${JSON.stringify(currentSlide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve all existing styling (style, elementStyles), content (text, headings, images, URLs), and structure that is not explicitly referenced in the instruction above. Ensure the edited slide flows naturally with the surrounding slides.`,
+      content: `${optimized.userPrefix}\n${JSON.stringify(optimized.slide, null, 2)}\n\nInstruction: ${prompt.trim()}${adjacentSection}\n\nIMPORTANT: Only change what the instruction asks for. Preserve everything not explicitly referenced.`,
     });
-
-    // Scale max_tokens based on slide complexity to avoid truncation
-    const slideJsonSize = JSON.stringify(currentSlide).length;
-    const maxTokens = Math.max(4096, Math.min(16384, Math.ceil(slideJsonSize / 2) + 2048));
 
     let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
+      max_tokens: optimized.maxTokens,
       system: systemPrompt,
       messages,
     });
@@ -141,7 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (response.stop_reason === 'max_tokens') {
       const continuation = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: maxTokens,
+        max_tokens: optimized.maxTokens,
         system: systemPrompt,
         messages: [
           ...messages,
@@ -156,12 +167,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Strip markdown code fences
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
-    // Extract JSON object from response — handle explanation text before/after
+    // Extract JSON from response
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
-      // Try to extract JSON object from within the text
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
@@ -176,20 +186,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
-    // Validate and normalize
-    const { valid, slide: updatedSlide, warnings } = validateSlideResponse(parsed, currentSlide.id);
-    if (!valid) {
-      console.error('[pitch-deck slide edit] Validation failed:', warnings);
-      return NextResponse.json({ success: false, message: 'AI response failed validation. Please try again.' }, { status: 500 });
-    }
+    // Apply response based on edit type
+    let finalSlide: PitchDeckSlideV2;
+    const warnings: string[] = [];
 
-    if (warnings.length) {
-      console.warn('[pitch-deck slide edit] Warnings:', warnings);
+    if ((editType === 'style' || editType === 'content') && isPatchResponse(parsed)) {
+      // Patch mode: merge patches into original slide (no data loss)
+      finalSlide = applyPatchResponse(currentSlide, parsed, editType);
+      console.log(`[pitch-deck slide edit] Applied ${editType} patch with ${(parsed as { patches: unknown[] }).patches.length} changes`);
+    } else {
+      // Full slide mode: validate and replace
+      const { valid, slide: updatedSlide, warnings: w } = validateSlideResponse(parsed, currentSlide.id);
+      if (!valid) {
+        console.error('[pitch-deck slide edit] Validation failed:', w);
+        return NextResponse.json({ success: false, message: 'AI response failed validation. Please try again.' }, { status: 500 });
+      }
+      if (w.length) warnings.push(...w);
+      finalSlide = updatedSlide;
     }
 
     // Replace the slide at the index
     const newSlides = [...slides];
-    newSlides[idx] = updatedSlide;
+    newSlides[idx] = finalSlide;
 
     const [updated] = await db.update(pitchDecks).set({
       slides: newSlides,
@@ -200,8 +218,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({
       success: true,
       data: updated,
-      // Return the AI's raw text for multi-turn history
       aiResponse: text,
+      editType,
       warnings: warnings.length ? warnings : undefined,
     });
   } catch (err) {

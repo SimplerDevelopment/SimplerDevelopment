@@ -904,8 +904,8 @@ export function VisualEditorShell({
                       }
                       // Merge elementStyles (per-element shallow merge)
                       if ((upd as Record<string, unknown>).elementStyles) {
-                        const existing = (block as Record<string, unknown>).elementStyles as Record<string, Record<string, unknown>> || {};
-                        const incoming = (upd as Record<string, unknown>).elementStyles as Record<string, Record<string, unknown>>;
+                        const existing = (block as unknown as Record<string, unknown>).elementStyles as Record<string, Record<string, unknown>> || {};
+                        const incoming = (upd as unknown as Record<string, unknown>).elementStyles as Record<string, Record<string, unknown>>;
                         const result = { ...existing };
                         for (const key of Object.keys(incoming)) {
                           result[key] = { ...(existing[key] || {}), ...incoming[key] };
@@ -914,8 +914,8 @@ export function VisualEditorShell({
                       }
                       // Merge responsive (per-property shallow merge)
                       if ((upd as Record<string, unknown>).responsive) {
-                        const existing = (block as Record<string, unknown>).responsive as Record<string, unknown> || {};
-                        const incoming = (upd as Record<string, unknown>).responsive as Record<string, unknown>;
+                        const existing = (block as unknown as Record<string, unknown>).responsive as Record<string, unknown> || {};
+                        const incoming = (upd as unknown as Record<string, unknown>).responsive as Record<string, unknown>;
                         const result = { ...existing };
                         for (const key of Object.keys(incoming)) {
                           result[key] = { ...((existing[key] as Record<string, unknown>) || {}), ...(incoming[key] as Record<string, unknown>) };
@@ -928,7 +928,7 @@ export function VisualEditorShell({
                           merged[key] = (upd as Record<string, unknown>)[key];
                         }
                       }
-                      return merged as Block;
+                      return merged as unknown as Block;
                     };
 
                     // Apply merged updates to ALL selected blocks
