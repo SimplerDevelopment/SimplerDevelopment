@@ -77,7 +77,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   // Path branching state
   const [activePath, setActivePath] = useState<string | null>(null);
-  const [pathHistory, setPathHistory] = useState<string[]>([]); // tracks chosen paths for back navigation
+  const [pathHistory, setPathHistory] = useState<string[]>([]);
+  const [pendingAdvance, setPendingAdvance] = useState(false); // triggers advance after path injection
 
   // Pre-compute path group slide maps
   const pathGroupSlides = useMemo(() => {
@@ -151,13 +152,18 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   function handleDecisionChoice(pathGroup: string) {
     setActivePath(pathGroup);
     setPathHistory(prev => [...prev, pathGroup]);
-    // After state update, the virtualSlides will re-expand with the path injected.
-    // We need to advance to the next slide (first slide of the path).
-    // Use a timeout to let the useMemo recalculate.
-    setTimeout(() => {
-      goTo(current + 1, 'next');
-    }, 50);
+    setPendingAdvance(true);
   }
+
+  // After path injection, advance past the decision slide
+  useEffect(() => {
+    if (!pendingAdvance) return;
+    setPendingAdvance(false);
+    // visibleSlideIndices is now recalculated with the injected path
+    if (current + 1 < visibleCount) {
+      goTo(current + 1, 'next');
+    }
+  }, [pendingAdvance, visibleCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Validate current survey field before advancing
   function validateCurrentSurveyField(): boolean {
@@ -388,15 +394,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           }} />
         </div>
 
-        {/* Active path indicator */}
-        {activePath && (
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 opacity-40">
-            <span className="material-icons text-sm" style={{ color: theme.accentColor }}>fork_right</span>
-            <span className="text-xs tracking-wide" style={{ fontFamily: theme.bodyFont, color: theme.textColor }}>
-              {activePath.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-            </span>
-          </div>
-        )}
 
         {/* Slide content */}
         <div

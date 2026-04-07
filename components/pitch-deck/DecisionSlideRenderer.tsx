@@ -18,13 +18,7 @@ export function DecisionSlideRenderer({ title, options, theme, onChoose }: Props
     <div className="flex flex-col items-center justify-center min-h-screen px-8">
       <div className="w-full max-w-3xl space-y-10">
         {/* Title */}
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-2 opacity-40">
-            <span className="material-icons text-sm" style={{ color: theme.accentColor }}>fork_right</span>
-            <span className="text-xs tracking-widest uppercase" style={{ fontFamily: theme.bodyFont, color: theme.textColor }}>
-              Choose your path
-            </span>
-          </div>
+        <div className="text-center">
           <h2
             className="text-3xl md:text-4xl font-bold"
             style={{ fontFamily: theme.headingFont, color: theme.textColor }}
