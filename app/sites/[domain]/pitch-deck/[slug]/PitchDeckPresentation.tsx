@@ -46,9 +46,27 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
     const survey = surveys[slide.surveyId];
     const fields = [...survey.fields].sort((a, b) => a.order - b.order);
     const questionFields = fields.filter(f => f.type !== 'page_break');
-    const result: VirtualSlide[] = questionFields.map(field => ({
-      kind: 'survey-question' as const, surveyId: survey.id, field, surveyTitle: survey.title,
-    }));
+    const result: VirtualSlide[] = [];
+    // If email is required, inject an email collection slide first
+    if (survey.requireEmail) {
+      result.push({
+        kind: 'survey-question', surveyId: survey.id, surveyTitle: survey.title,
+        field: {
+          id: '__email', type: 'email', label: 'Your Email', placeholder: 'you@example.com',
+          helpText: '', required: true, options: [], order: -2, page: 0,
+        },
+      });
+      result.push({
+        kind: 'survey-question', surveyId: survey.id, surveyTitle: survey.title,
+        field: {
+          id: '__name', type: 'text', label: 'Your Name', placeholder: 'John Doe',
+          helpText: '', required: false, options: [], order: -1, page: 0,
+        },
+      });
+    }
+    for (const field of questionFields) {
+      result.push({ kind: 'survey-question', surveyId: survey.id, field, surveyTitle: survey.title });
+    }
     result.push({
       kind: 'survey-thanks', surveyId: survey.id,
       thankYouTitle: survey.thankYouTitle || 'Thank you!',
@@ -218,11 +236,20 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     if (!survey) return;
     setSubmitting(true);
     try {
+      const allAnswers = { ...(surveyAnswers[surveyId] || {}) };
+      // Extract synthetic email/name fields from answers
+      const email = allAnswers.__email as string | undefined;
+      const name = allAnswers.__name as string | undefined;
+      delete allAnswers.__email;
+      delete allAnswers.__name;
+
       const res = await fetch(`/api/surveys/${survey.slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          answers: surveyAnswers[surveyId] || {},
+          answers: allAnswers,
+          email: email || undefined,
+          name: name || undefined,
           source: 'pitch_deck',
           sourceId: title,
         }),
