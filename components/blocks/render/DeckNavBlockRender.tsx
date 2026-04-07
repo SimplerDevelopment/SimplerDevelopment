@@ -14,21 +14,31 @@ const alignClasses = {
   right: 'justify-end',
 };
 
-function variantStyles(variant: string = 'primary') {
+function variantInlineStyles(variant: string = 'primary'): React.CSSProperties {
   switch (variant) {
     case 'secondary':
-      return 'bg-[var(--slide-accent,var(--accent))] text-[var(--slide-bg,var(--background))]';
+      return {
+        backgroundColor: 'var(--slide-accent, var(--accent, #60a5fa))',
+        color: 'var(--slide-bg, var(--background, #0f172a))',
+      };
     case 'outline':
-      return 'border-2 border-[var(--slide-primary,var(--primary))] text-[var(--slide-primary,var(--primary))] bg-transparent hover:bg-[var(--slide-primary,var(--primary))] hover:text-[var(--slide-bg,var(--background))]';
+      return {
+        backgroundColor: 'transparent',
+        color: 'var(--slide-primary, var(--primary, #2563eb))',
+        border: '2px solid var(--slide-primary, var(--primary, #2563eb))',
+      };
     default:
-      return 'bg-[var(--slide-primary,var(--primary))] text-[var(--slide-bg,var(--primary-foreground))]';
+      return {
+        backgroundColor: 'var(--slide-primary, var(--primary, #2563eb))',
+        color: 'var(--slide-bg, var(--primary-foreground, #ffffff))',
+      };
   }
 }
 
 export function DeckNextSlideBlockRender({ block }: { block: DeckNextSlideBlock }) {
   const size = sizeClasses[block.size || 'md'];
   const align = alignClasses[block.alignment || 'center'];
-  const variant = variantStyles(block.variant);
+  const style = variantInlineStyles(block.variant);
   const iconLeft = block.icon && (block.iconPosition || 'left') === 'left';
   const iconRight = block.icon && block.iconPosition === 'right';
 
@@ -37,7 +47,8 @@ export function DeckNextSlideBlockRender({ block }: { block: DeckNextSlideBlock 
       <button
         type="button"
         data-deck-action="next-slide"
-        className={`inline-flex items-center gap-2 rounded-lg font-semibold transition-all hover:opacity-90 cursor-pointer ${size} ${variant}`}
+        className={`inline-flex items-center gap-2 rounded-lg font-semibold transition-all hover:opacity-90 cursor-pointer ${size}`}
+        style={style}
       >
         {iconLeft && <span className="material-icons text-[1.1em]">{block.icon}</span>}
         {block.text || 'Next'}
@@ -51,7 +62,7 @@ export function DeckNextSlideBlockRender({ block }: { block: DeckNextSlideBlock 
 export function DeckJumpToBlockRender({ block }: { block: DeckJumpToBlock }) {
   const size = sizeClasses[block.size || 'md'];
   const align = alignClasses[block.alignment || 'center'];
-  const variant = variantStyles(block.variant);
+  const style = variantInlineStyles(block.variant);
   const iconLeft = block.icon && (block.iconPosition || 'left') === 'left';
   const iconRight = block.icon && block.iconPosition === 'right';
 
@@ -61,7 +72,8 @@ export function DeckJumpToBlockRender({ block }: { block: DeckJumpToBlock }) {
         type="button"
         data-deck-action="jump-to"
         data-deck-target={block.targetSlide}
-        className={`inline-flex items-center gap-2 rounded-lg font-semibold transition-all hover:opacity-90 cursor-pointer ${size} ${variant}`}
+        className={`inline-flex items-center gap-2 rounded-lg font-semibold transition-all hover:opacity-90 cursor-pointer ${size}`}
+        style={style}
       >
         {iconLeft && <span className="material-icons text-[1.1em]">{block.icon}</span>}
         {block.text || `Go to Slide ${block.targetSlide}`}
