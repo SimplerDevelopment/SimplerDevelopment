@@ -51,6 +51,7 @@ import { TimelineBlockRender } from '@/components/blocks/render/TimelineBlockRen
 import { TeamShowcaseBlockRender } from '@/components/blocks/render/TeamShowcaseBlockRender';
 import { BentoGridBlockRender } from '@/components/blocks/render/BentoGridBlockRender';
 import { SiteFooterBlockRender } from '@/components/blocks/render/SiteFooterBlockRender';
+import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from '@/components/blocks/render/DeckNavBlockRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -110,6 +111,8 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'team-showcase': TeamShowcaseBlockRender,
   'bento-grid': BentoGridBlockRender,
   'site-footer': SiteFooterBlockRender,
+  'deck-next-slide': DeckNextSlideBlockRender,
+  'deck-jump-to': DeckJumpToBlockRender,
 };
 
 let _registry: BlockRegistry | null = null;
