@@ -70,12 +70,8 @@ function SlidePreviewInner() {
   useEffect(() => {
     document.documentElement.style.backgroundColor = theme.backgroundColor;
     document.documentElement.style.margin = '0';
-    document.documentElement.style.height = '100%';
-    document.documentElement.style.overflow = 'hidden';
     document.body.style.backgroundColor = theme.backgroundColor;
     document.body.style.margin = '0';
-    document.body.style.height = '100%';
-    document.body.style.overflow = 'hidden';
   }, [theme.backgroundColor]);
 
   if (isEditMode) {

@@ -54,8 +54,7 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
         color: theme.textColor,
         fontFamily: `"${theme.bodyFont}", sans-serif`,
         width: '100%',
-        height: '100%',
-        overflow: 'hidden',
+        minHeight: '100%',
       }}
     >
       <style>{`
@@ -69,7 +68,7 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
         }
       `}</style>
       <div
-        className="w-full h-full flex flex-col justify-center"
+        className="w-full min-h-full flex flex-col"
         style={{
           ['--slide-primary' as string]: theme.primaryColor,
           ['--slide-accent' as string]: theme.accentColor,
@@ -79,7 +78,7 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
           ['--slide-body-font' as string]: theme.bodyFont,
         }}
       >
-        <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
+        <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
           <BlockRenderer content={content} />
         </div>
       </div>
