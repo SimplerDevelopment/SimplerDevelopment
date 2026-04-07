@@ -66,6 +66,13 @@ function SlidePreviewInner() {
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <style dangerouslySetInnerHTML={{ __html: `
+        html, body {
+          background-color: ${theme.backgroundColor} !important;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          height: 100%;
+        }
         :root {
           --foreground: ${theme.textColor};
           --card-foreground: ${theme.textColor};
@@ -123,13 +130,13 @@ function SlidePreviewInner() {
             ['--slide-body-font' as string]: theme.bodyFont,
           }}
         >
-          <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
-            {isEditMode ? (
+          {isEditMode ? (
+            <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
               <EditableBlockRenderer content={content} />
-            ) : (
-              <BlockRenderer content={content} />
-            )}
-          </div>
+            </div>
+          ) : (
+            <BlockRenderer content={content} />
+          )}
         </div>
       </div>
     </>
