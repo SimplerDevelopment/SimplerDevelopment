@@ -1560,6 +1560,7 @@ useEffect(() => {
                     { type: 'deck-next-slide', label: 'Next Slide', icon: 'arrow_forward', category: 'Pitch Deck', description: 'Button that advances to the next slide' },
                     { type: 'deck-jump-to', label: 'Jump To Slide', icon: 'shortcut', category: 'Pitch Deck', description: 'Button that jumps to a specific slide' },
                   ]}
+                  allowIframeScroll
                 />
               </div>
             </>

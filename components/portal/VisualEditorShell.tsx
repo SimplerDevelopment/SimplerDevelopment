@@ -110,6 +110,8 @@ interface VisualEditorShellProps {
   onBrandingProfileChange?: (profileId: number | null) => void;
   /** Additional block types to show in the picker (e.g. pitch-deck-only blocks) */
   extraBlockTypes?: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
+  /** Allow scrolling inside the iframe viewport (for pitch deck slides with tall content) */
+  allowIframeScroll?: boolean;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -135,6 +137,7 @@ export function VisualEditorShell({
   brandingProfileId,
   onBrandingProfileChange,
   extraBlockTypes = [],
+  allowIframeScroll = false,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -771,7 +774,7 @@ export function VisualEditorShell({
             }}
           >
             <div
-              className="overflow-auto relative shadow-xl rounded-lg border border-border/50"
+              className={`${allowIframeScroll ? 'overflow-auto' : 'overflow-hidden'} relative shadow-xl rounded-lg border border-border/50`}
               style={{
                 width: viewportWidth,
                 height: viewportHeight,
