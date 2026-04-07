@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { isFieldVisible as evalFieldVisible } from '@/lib/survey-logic';
+import { isFieldVisible as evalFieldVisible, resolvePiping } from '@/lib/survey-logic';
 
 function lightenColor(hex: string, amount: number): string {
   const c = hex.replace('#', '');
@@ -387,15 +387,15 @@ export default function PublicSurveyPage() {
               return (
                 <div key={field.id}>
                   {field.type === 'heading' ? (
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{field.label}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{resolvePiping(field.label, answers)}</h3>
                   ) : (
                     <div className="space-y-1.5">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={txtColor ? { color: txtColor } : undefined}>
                         <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
-                        {field.label}
+                        {resolvePiping(field.label, answers)}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}
                       </label>
-                      {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{field.helpText}</p>}
+                      {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
 
                       {renderField(field, answers, setAnswer, accent, inputStyle)}
                     </div>

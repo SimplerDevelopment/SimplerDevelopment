@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ShowIfRule, ShowIfCondition } from '@/lib/db/schema';
+import ConditionalLogicPanel from './ConditionalLogicPanel';
 
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
@@ -64,6 +65,7 @@ function genId() {
 export default function SurveyBuilder({ fields, onChange }: Props) {
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [expandedId, setExpandedId]         = useState<string | null>(null);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, unknown>>({});
 
   function addField(type: FieldType) {
     const next: SurveyField = {
@@ -96,6 +98,11 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
   function deleteField(id: string) {
     onChange(fields.filter(f => f.id !== id).map((f, i) => ({ ...f, order: i })));
     if (expandedId === id) setExpandedId(null);
+    setPreviewAnswers(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   function moveField(id: string, dir: -1 | 1) {
@@ -196,7 +203,7 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
             }
 
             return (
-              <div key={field.id} className="border border-border rounded-xl bg-card overflow-hidden">
+              <div key={field.id} className={`border border-border rounded-xl bg-card overflow-hidden${field.showIf ? ' opacity-60' : ''}`}>
                 {/* Collapsed header */}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="material-icons text-base text-primary flex-shrink-0">{meta.icon}</span>
@@ -206,6 +213,20 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                   </div>
                   {field.required && hasRequired(field.type) && (
                     <span className="text-xs text-destructive bg-destructive/10 px-1.5 py-0.5 rounded flex-shrink-0">Required</span>
+                  )}
+                  {field.showIf && (
+                    <span
+                      className="material-icons text-xs text-primary ml-1 cursor-help flex-shrink-0"
+                      title={(() => {
+                        const showIf = field.showIf;
+                        if ('combinator' in showIf) {
+                          return `Conditional: ${showIf.rules.length} rule(s) (AND)`;
+                        }
+                        return `Conditional: depends on field ${(showIf as { fieldId: string }).fieldId}`;
+                      })()}
+                    >
+                      visibility
+                    </span>
                   )}
                   <div className="flex items-center gap-0.5 flex-shrink-0">
                     <button type="button" onClick={() => moveField(field.id, -1)} disabled={idx === 0}
@@ -230,6 +251,11 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                 {/* Expanded editor */}
                 {isOpen && (
                   <div className="border-t border-border px-4 pb-4 pt-3 bg-muted/20 grid sm:grid-cols-2 gap-3">
+                    {/* Field ID display */}
+                    <div className="sm:col-span-2 flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground font-mono">ID: {field.id}</span>
+                    </div>
+
                     {/* Type selector */}
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-foreground mb-1">Field Type</label>
@@ -263,6 +289,9 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                         className={inputCls}
                         placeholder="e.g. What is your domain name?"
                       />
+                      {field.label.includes('{') && field.label.includes('}') && (
+                        <p className="text-xs text-muted-foreground mt-1">Uses piping token — preview shows live substitution</p>
+                      )}
                     </div>
 
                     {/* Placeholder (if applicable) */}
@@ -352,6 +381,18 @@ export default function SurveyBuilder({ fields, onChange }: Props) {
                         <span className="text-xs text-foreground">Required field</span>
                       </div>
                     )}
+
+                    {/* Conditional Logic */}
+                    <ConditionalLogicPanel
+                      field={field}
+                      allFields={fields.filter(f =>
+                        f.type !== 'page_break' &&
+                        f.type !== 'heading' &&
+                        f.id !== field.id &&
+                        fields.indexOf(f) < fields.indexOf(field)
+                      )}
+                      onChange={(patch) => updateField(field.id, patch)}
+                    />
 
                     {/* Logic branching (select/radio only) */}
                     {hasBranching(field.type) && field.options.length > 0 && (() => {
