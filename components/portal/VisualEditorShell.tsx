@@ -112,6 +112,8 @@ interface VisualEditorShellProps {
   extraBlockTypes?: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
   /** Allow scrolling inside the iframe viewport (for pitch deck slides with tall content) */
   allowIframeScroll?: boolean;
+  /** Custom content for the right panel when no block is selected */
+  noSelectionPanel?: React.ReactNode;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ export function VisualEditorShell({
   onBrandingProfileChange,
   extraBlockTypes = [],
   allowIframeScroll = false,
+  noSelectionPanel,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -1009,6 +1012,8 @@ export function VisualEditorShell({
               )}
             </div>
           </>
+        ) : noSelectionPanel ? (
+          <div className="flex-1 overflow-y-auto p-4">{noSelectionPanel}</div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
             <span className="material-icons text-3xl mb-2">touch_app</span>
