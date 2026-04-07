@@ -11,9 +11,9 @@ export function findBlockById(blocks: Block[], blockId: string): Block | null {
     }
 
     // If this is a columns block, search within the columns
-    if (block.type === 'columns') {
+    if (block.type === 'columns' && block.columns) {
       for (const column of block.columns) {
-        const found = findBlockById(column.blocks, blockId);
+        const found = findBlockById(column.blocks || [], blockId);
         if (found) {
           return found;
         }
@@ -21,9 +21,9 @@ export function findBlockById(blocks: Block[], blockId: string): Block | null {
     }
 
     // If this is a tabs block, search within the tabs
-    if (block.type === 'tabs') {
+    if (block.type === 'tabs' && block.tabs) {
       for (const tab of block.tabs) {
-        const found = findBlockById(tab.blocks, blockId);
+        const found = findBlockById(tab.blocks || [], blockId);
         if (found) {
           return found;
         }
@@ -31,7 +31,7 @@ export function findBlockById(blocks: Block[], blockId: string): Block | null {
     }
 
     // If this is a section block, search within its children
-    if (block.type === 'section') {
+    if (block.type === 'section' && block.blocks) {
       const found = findBlockById(block.blocks, blockId);
       if (found) {
         return found;
@@ -52,21 +52,21 @@ export function getAllBlocks(blocks: Block[]): Block[] {
     result.push(block);
 
     // If this is a columns block, include all nested blocks
-    if (block.type === 'columns') {
+    if (block.type === 'columns' && block.columns) {
       for (const column of block.columns) {
-        result.push(...getAllBlocks(column.blocks));
+        result.push(...getAllBlocks(column.blocks || []));
       }
     }
 
     // If this is a tabs block, include all nested blocks
-    if (block.type === 'tabs') {
+    if (block.type === 'tabs' && block.tabs) {
       for (const tab of block.tabs) {
-        result.push(...getAllBlocks(tab.blocks));
+        result.push(...getAllBlocks(tab.blocks || []));
       }
     }
 
     // If this is a section block, include all nested blocks
-    if (block.type === 'section') {
+    if (block.type === 'section' && block.blocks) {
       result.push(...getAllBlocks(block.blocks));
     }
   }
