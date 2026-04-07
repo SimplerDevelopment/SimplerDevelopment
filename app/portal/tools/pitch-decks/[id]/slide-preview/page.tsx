@@ -12,7 +12,7 @@ import type { PitchDeckTheme } from '@/lib/db/schema';
 
 export default function SlidePreviewPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', backgroundColor: '#0f172a' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>
       <EditorModeProvider>
         <SlidePreviewInner />
       </EditorModeProvider>
@@ -66,6 +66,19 @@ function SlidePreviewInner() {
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          --foreground: ${theme.textColor};
+          --card-foreground: ${theme.textColor};
+          --background: ${theme.backgroundColor};
+          --card: ${theme.backgroundColor};
+          --primary: ${theme.primaryColor};
+          --primary-foreground: ${theme.backgroundColor};
+          --muted: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
+          --muted-foreground: color-mix(in srgb, ${theme.textColor} 70%, transparent);
+          --accent: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
+          --accent-foreground: ${theme.textColor};
+          --border: color-mix(in srgb, ${theme.textColor} 20%, transparent);
+        }
         h1, h2, h3, h4, h5, h6 {
           font-family: "${theme.headingFont}", sans-serif !important;
           color: ${theme.textColor} !important;
