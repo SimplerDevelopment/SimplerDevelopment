@@ -1597,7 +1597,7 @@ useEffect(() => {
               >
                 {/* Slide thumbnail via iframe */}
                 <BoardThumbnail
-                  src={`/portal/tools/pitch-decks/${id}/slide-preview?pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(deck.theme.backgroundColor)}&text=${encodeURIComponent(deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
+                  src={`/portal/tools/pitch-decks/${id}/slide-preview?pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(slide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(slide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
                   blocks={slide.blocks}
                 />
                 {/* Label */}
@@ -1758,6 +1758,7 @@ function BoardThumbnail({ src, blocks }: { src: string; blocks: Block[] }) {
         source: 'sd-editor-parent',
         type: 'EDITOR_INIT',
         payload: { blocks },
+        timestamp: Date.now(),
       }, '*');
     };
 
