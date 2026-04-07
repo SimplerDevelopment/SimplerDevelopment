@@ -771,7 +771,7 @@ export function VisualEditorShell({
             }}
           >
             <div
-              className="overflow-hidden relative shadow-xl rounded-lg border border-border/50"
+              className="overflow-auto relative shadow-xl rounded-lg border border-border/50"
               style={{
                 width: viewportWidth,
                 height: viewportHeight,
