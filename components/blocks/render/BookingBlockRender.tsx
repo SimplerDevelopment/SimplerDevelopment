@@ -43,6 +43,7 @@ export function BookingBlockRender({ block }: BookingBlockRenderProps) {
         showPageTitle={block.showPageTitle !== false}
         showDescription={block.showDescription !== false}
         showSteps={block.showSteps !== false}
+        styleOverrides={block.styleOverrides}
       />
     </div>
   );

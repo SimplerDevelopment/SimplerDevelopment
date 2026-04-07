@@ -63,6 +63,18 @@ export interface BookingFormInlineProps {
   showPageTitle?: boolean;
   showDescription?: boolean;
   showSteps?: boolean;
+  /** Style overrides from the CMS block — take precedence over branding */
+  styleOverrides?: {
+    primaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonBg?: string;
+    buttonText?: string;
+    buttonBorderRadius?: string;
+    borderRadius?: string;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -91,6 +103,7 @@ export function BookingFormInline({
   showPageTitle = true,
   showDescription = true,
   showSteps = true,
+  styleOverrides,
 }: BookingFormInlineProps) {
   const [pageInfo, setPageInfo] = useState<BookingPageInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -293,15 +306,16 @@ export function BookingFormInline({
   }
 
   const b = pageInfo.branding;
-  const accent = b?.primaryColor || pageInfo.color || '#2563eb';
-  const bgColor = b?.backgroundColor;
-  const textColor = b?.textColor;
-  const headingFont = b?.headingFont;
-  const bodyFont = b?.bodyFont;
+  const so = styleOverrides;
+  const accent = so?.primaryColor || b?.primaryColor || pageInfo.color || '#2563eb';
+  const bgColor = so?.backgroundColor || b?.backgroundColor;
+  const textColor = so?.textColor || b?.textColor;
+  const headingFont = so?.headingFont || b?.headingFont;
+  const bodyFont = so?.bodyFont || b?.bodyFont;
   const logoUrl = b?.logoUrl;
-  const btnRadius = b?.buttonStyle?.borderRadius || b?.borderRadius;
-  const btnBg = b?.buttonStyle?.primaryBg || accent;
-  const btnText = b?.buttonStyle?.primaryText || '#ffffff';
+  const btnRadius = so?.buttonBorderRadius || b?.buttonStyle?.borderRadius || b?.borderRadius;
+  const btnBg = so?.buttonBg || b?.buttonStyle?.primaryBg || accent;
+  const btnText = so?.buttonText || b?.buttonStyle?.primaryText || '#ffffff';
   const secondaryColor = b?.secondaryColor;
 
   const headingStyle: React.CSSProperties | undefined = headingFont

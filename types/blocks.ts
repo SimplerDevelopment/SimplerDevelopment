@@ -567,6 +567,18 @@ export interface BookingBlock extends BaseBlock {
   showDescription?: boolean;
   showSteps?: boolean;
   height?: string;
+  // Style overrides — take precedence over the booking page's branding
+  styleOverrides?: {
+    primaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonBg?: string;
+    buttonText?: string;
+    buttonBorderRadius?: string;
+    borderRadius?: string;
+  };
 }
 
 export interface SurveyBlock extends BaseBlock {
