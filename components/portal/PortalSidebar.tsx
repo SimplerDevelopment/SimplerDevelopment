@@ -376,24 +376,6 @@ export default function PortalSidebar() {
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
             <CompanySwitcher collapsed={isCollapsed} />
             <div className="flex items-center gap-1 shrink-0">
-              {!isCollapsed && (
-                <button
-                  onClick={toggleCollapsed}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  title="Collapse"
-                >
-                  <span className="material-icons text-lg">chevron_left</span>
-                </button>
-              )}
-              {isCollapsed && (
-                <button
-                  onClick={toggleCollapsed}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors absolute right-1"
-                  title="Expand"
-                >
-                  <span className="material-icons text-lg">chevron_right</span>
-                </button>
-              )}
               <button
                 onClick={toggleOpen}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
