@@ -862,6 +862,23 @@ export interface BookingQuestion {
   options?: string[];
 }
 
+/** Per-booking-page style overrides. When set, these take precedence over the branding profile. */
+export interface BookingPageStyling {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  headingFont?: string;
+  bodyFont?: string;
+  borderRadius?: string;
+  buttonPrimaryBg?: string;
+  buttonPrimaryText?: string;
+  buttonBorderRadius?: string;
+  hideTitle?: boolean;
+  hideLogo?: boolean;
+}
+
 export const bookingPages = pgTable('booking_pages', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -886,6 +903,7 @@ export const bookingPages = pgTable('booking_pages', {
   questions: json('questions').$type<BookingQuestion[]>().default([]),
   color: varchar('color', { length: 7 }).default('#2563eb'),
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
+  styling: json('styling').$type<BookingPageStyling>().default({}),
   active: boolean('active').default(true).notNull(),
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
   conferenceType: varchar('conference_type', { length: 20 }).default('none').notNull(), // none, google_meet, zoom
