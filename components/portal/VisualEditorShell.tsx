@@ -931,32 +931,28 @@ export function VisualEditorShell({
                       return merged as unknown as Block;
                     };
 
-                    // Apply merged updates to ALL selected blocks
-                    const updatedBlocks = blocks.map(b => {
-                      if (selectedBlockIds.includes(b.id)) {
-                        return mergeUpdates(b, updates);
-                      }
-                      if (b.type === 'columns') {
-                        const col = b as ColumnsBlock;
-                        const hasNested = col.columns.some(c => c.blocks.some(nb => selectedBlockIds.includes(nb.id)));
-                        if (hasNested) {
-                          return { ...col, columns: col.columns.map(c => ({ ...c, blocks: c.blocks.map(nb =>
-                            selectedBlockIds.includes(nb.id) ? mergeUpdates(nb, updates) : nb
-                          ) })) } as Block;
+                    // Recursively apply merged updates to ALL selected blocks at any depth
+                    const applyToTree = (blockList: Block[]): Block[] => {
+                      return blockList.map(b => {
+                        if (selectedBlockIds.includes(b.id)) {
+                          return mergeUpdates(b, updates);
                         }
-                      }
-                      if (b.type === 'section' && 'blocks' in b) {
-                        const sec = b as Block & { blocks: Block[] };
-                        const hasNested = sec.blocks.some(nb => selectedBlockIds.includes(nb.id));
-                        if (hasNested) {
-                          return { ...sec, blocks: sec.blocks.map(nb =>
-                            selectedBlockIds.includes(nb.id) ? mergeUpdates(nb, updates) : nb
-                          ) } as Block;
+                        if (b.type === 'columns') {
+                          const col = b as ColumnsBlock;
+                          return { ...col, columns: col.columns.map(c => ({ ...c, blocks: applyToTree(c.blocks) })) } as Block;
                         }
-                      }
-                      return b;
-                    });
-                    iframeOriginatedRef.current = true;
+                        if (b.type === 'section' && 'blocks' in b) {
+                          const sec = b as Block & { blocks: Block[] };
+                          return { ...sec, blocks: applyToTree(sec.blocks) } as Block;
+                        }
+                        if (b.type === 'tabs' && 'tabs' in b) {
+                          const tabs = b as Block & { tabs: { id: string; label: string; blocks: Block[] }[] };
+                          return { ...tabs, tabs: tabs.tabs.map(t => ({ ...t, blocks: applyToTree(t.blocks) })) } as Block;
+                        }
+                        return b;
+                      });
+                    };
+                    const updatedBlocks = applyToTree(blocks);
                     onBlocksChange(updatedBlocks);
                   }}
                   currentViewport={currentViewport}
