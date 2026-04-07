@@ -17,7 +17,9 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
   const [current, setCurrent] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
+  const [mainZoom, setMainZoom] = useState(50);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mainSlideRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`/api/portal/tools/pitch-decks/${id}`)
@@ -116,44 +118,82 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
         <div className="flex-1 flex min-h-0">
           {/* Left: Current slide + navigation */}
           <div className="flex-1 flex flex-col p-4 min-w-0">
-            {/* Current slide */}
+            {/* Current slide with zoom */}
             <div className="flex-1 rounded-lg overflow-hidden border border-white/10 relative min-h-0">
-              <div className="absolute inset-0">
-                <SlideBlockWrapper
-                  slide={slide}
-                  theme={deck.theme}
-                  className="w-full h-full"
-                />
+              <div className="absolute inset-0 overflow-auto flex items-center justify-center" ref={mainSlideRef}>
+                <div style={{
+                  transform: `scale(${mainZoom / 100})`,
+                  transformOrigin: 'center center',
+                  width: `${10000 / mainZoom}%`,
+                  minHeight: `${10000 / mainZoom}%`,
+                }}>
+                  <SlideBlockWrapper
+                    slide={slide}
+                    theme={deck.theme}
+                    className="w-full h-full"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Navigation controls */}
-            <div className="flex items-center justify-center gap-3 mt-3 shrink-0">
-              <button
-                onClick={prev}
-                disabled={current === 0}
-                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
-              >
-                <span className="material-icons text-base">chevron_left</span>
-                Prev
-              </button>
-              <div className="flex items-center gap-1">
-                {deck.slides.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrent(i)}
-                    className={`w-2 h-2 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/20 hover:bg-white/40'}`}
-                  />
-                ))}
+            {/* Zoom + Navigation controls */}
+            <div className="flex items-center justify-between mt-3 shrink-0">
+              {/* Zoom controls */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setMainZoom(z => Math.max(25, z - 10))}
+                  className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                  title="Zoom out"
+                >
+                  <span className="material-icons text-base">remove</span>
+                </button>
+                <button
+                  onClick={() => setMainZoom(50)}
+                  className="px-2 py-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors text-xs font-mono tabular-nums min-w-[40px] text-center"
+                  title="Reset zoom"
+                >
+                  {mainZoom}%
+                </button>
+                <button
+                  onClick={() => setMainZoom(z => Math.min(100, z + 10))}
+                  className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                  title="Zoom in"
+                >
+                  <span className="material-icons text-base">add</span>
+                </button>
               </div>
-              <button
-                onClick={next}
-                disabled={current >= deck.slides.length - 1}
-                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
-              >
-                Next
-                <span className="material-icons text-base">chevron_right</span>
-              </button>
+
+              {/* Navigation */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={prev}
+                  disabled={current === 0}
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
+                >
+                  <span className="material-icons text-base">chevron_left</span>
+                  Prev
+                </button>
+                <div className="flex items-center gap-1">
+                  {deck.slides.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrent(i)}
+                      className={`w-2 h-2 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/20 hover:bg-white/40'}`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={next}
+                  disabled={current >= deck.slides.length - 1}
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
+                >
+                  Next
+                  <span className="material-icons text-base">chevron_right</span>
+                </button>
+              </div>
+
+              {/* Spacer to balance the zoom controls */}
+              <div className="w-[120px]" />
             </div>
           </div>
 
@@ -167,7 +207,12 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
               </div>
               {nextSlide ? (
                 <div className="rounded-lg overflow-hidden border border-white/10 aspect-[16/9] relative">
-                  <div className="absolute inset-0" style={{ transform: 'scale(1)', transformOrigin: 'top left' }}>
+                  <div className="absolute inset-0" style={{
+                    transform: 'scale(0.25)',
+                    transformOrigin: 'top left',
+                    width: '400%',
+                    height: '400%',
+                  }}>
                     <SlideBlockWrapper
                       slide={nextSlide}
                       theme={deck.theme}
