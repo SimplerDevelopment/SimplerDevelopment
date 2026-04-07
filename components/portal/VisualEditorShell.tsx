@@ -1060,16 +1060,16 @@ function LayerItem({
 
   // Get nested children
   const children: { label: string; blocks: Block[] }[] = [];
-  if (block.type === 'columns') {
-    block.columns.forEach((col, i) => children.push({ label: `Col ${i + 1}`, blocks: col.blocks }));
+  if (block.type === 'columns' && block.columns) {
+    block.columns.forEach((col, i) => children.push({ label: `Col ${i + 1}`, blocks: col.blocks || [] }));
   }
-  if (block.type === 'tabs') {
-    block.tabs.forEach((tab) => children.push({ label: tab.label, blocks: tab.blocks }));
+  if (block.type === 'tabs' && block.tabs) {
+    block.tabs.forEach((tab) => children.push({ label: tab.label, blocks: tab.blocks || [] }));
   }
-  if (block.type === 'section') {
+  if (block.type === 'section' && block.blocks) {
     children.push({ label: 'Content', blocks: block.blocks });
   }
-  if (block.type === 'accordion') {
+  if (block.type === 'accordion' && block.items) {
     block.items.forEach((item) => children.push({ label: item.title, blocks: [] }));
   }
 
