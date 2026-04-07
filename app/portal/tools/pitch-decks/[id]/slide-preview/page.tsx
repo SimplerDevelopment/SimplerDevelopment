@@ -4,11 +4,11 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
 import { EditableBlockRenderer } from '@/components/blocks/render/EditableBlockRenderer';
-import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
+import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { isVisualEditorMessage, sendToParent } from '@/lib/visual-editor/protocol';
 import { PARENT_MESSAGES } from '@/types/visual-editor';
 import type { Block } from '@/types/blocks';
-import type { PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 
 export default function SlidePreviewPage() {
   return (
@@ -23,7 +23,6 @@ export default function SlidePreviewPage() {
 function SlidePreviewInner() {
   const searchParams = useSearchParams();
   const isEditMode = searchParams.get('_edit') === 'true';
-  // For preview mode (no _edit=true), we track blocks ourselves via postMessage
   const [previewBlocks, setPreviewBlocks] = useState<Block[]>([]);
 
   const theme: PitchDeckTheme = {
@@ -37,7 +36,7 @@ function SlidePreviewInner() {
 
   // In preview mode, listen for blocks from parent since useEditorMode is inactive
   useEffect(() => {
-    if (isEditMode) return; // Edit mode handled by EditorModeProvider
+    if (isEditMode) return;
 
     function handleMessage(event: MessageEvent) {
       if (!isVisualEditorMessage(event.data)) return;
@@ -50,95 +49,101 @@ function SlidePreviewInner() {
     }
 
     window.addEventListener('message', handleMessage);
-    // Signal ready so parent sends EDITOR_INIT
     sendToParent('IFRAME_READY', { registeredComponents: [] });
 
     return () => window.removeEventListener('message', handleMessage);
   }, [isEditMode]);
 
-  const fontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap`;
-
   const content = JSON.stringify({ blocks: isEditMode ? [] : previewBlocks, version: '1.0' });
 
-  return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link href={fontsUrl} rel="stylesheet" />
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-      <style dangerouslySetInnerHTML={{ __html: `
-        html, body {
-          background-color: ${theme.backgroundColor} !important;
-          margin: 0;
-          padding: 0;
-          overflow: hidden;
-          height: 100%;
-        }
-        :root {
-          --foreground: ${theme.textColor};
-          --card-foreground: ${theme.textColor};
-          --background: ${theme.backgroundColor};
-          --card: ${theme.backgroundColor};
-          --primary: ${theme.primaryColor};
-          --primary-foreground: ${theme.backgroundColor};
-          --muted: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
-          --muted-foreground: color-mix(in srgb, ${theme.textColor} 70%, transparent);
-          --accent: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
-          --accent-foreground: ${theme.textColor};
-          --border: color-mix(in srgb, ${theme.textColor} 20%, transparent);
-        }
-        h1, h2, h3, h4, h5, h6 {
-          font-family: "${theme.headingFont}", sans-serif !important;
-          color: ${theme.textColor} !important;
-        }
-        body, p, li, span, div {
-          color: ${theme.textColor};
-        }
-        a, .text-primary {
-          color: ${theme.primaryColor};
-        }
-      `}} />
+  // Build a virtual slide from the current blocks for SlideBlockWrapper
+  const virtualSlide: PitchDeckSlideV2 = {
+    id: 'preview',
+    label: 'Preview',
+    blocks: isEditMode ? [] : previewBlocks,
+    pageSettings: {
+      backgroundColor: theme.backgroundColor,
+    },
+  };
 
-      <div
-        className="slide-themed"
-        style={{
-          backgroundColor: theme.backgroundColor,
-          color: theme.textColor,
-          fontFamily: `"${theme.bodyFont}", sans-serif`,
-          width: '100%',
-          height: '100vh',
-          overflow: 'hidden',
-        }}
-      >
+  // Force body to match theme so no portal background bleeds through
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = theme.backgroundColor;
+    document.documentElement.style.margin = '0';
+    document.documentElement.style.height = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.backgroundColor = theme.backgroundColor;
+    document.body.style.margin = '0';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
+  }, [theme.backgroundColor]);
+
+  if (isEditMode) {
+    // Edit mode: keep the existing editable structure with theme styling
+    return (
+      <>
+        <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap`} rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: `
-          .slide-themed h1, .slide-themed h2, .slide-themed h3,
-          .slide-themed h4, .slide-themed h5, .slide-themed h6 {
+          :root {
+            --foreground: ${theme.textColor};
+            --card-foreground: ${theme.textColor};
+            --background: ${theme.backgroundColor};
+            --card: ${theme.backgroundColor};
+            --primary: ${theme.primaryColor};
+            --primary-foreground: ${theme.backgroundColor};
+            --muted: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
+            --muted-foreground: color-mix(in srgb, ${theme.textColor} 70%, transparent);
+            --accent: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
+            --accent-foreground: ${theme.textColor};
+            --border: color-mix(in srgb, ${theme.textColor} 20%, transparent);
+          }
+          h1, h2, h3, h4, h5, h6 {
             font-family: "${theme.headingFont}", sans-serif !important;
             color: ${theme.textColor} !important;
           }
-          .slide-themed a {
-            color: ${theme.accentColor};
-          }
+          body, p, li, span, div { color: ${theme.textColor}; }
+          a, .text-primary { color: ${theme.primaryColor}; }
         `}} />
         <div
-          className="w-full h-full flex flex-col justify-center"
           style={{
-            ['--slide-primary' as string]: theme.primaryColor,
-            ['--slide-accent' as string]: theme.accentColor,
-            ['--slide-bg' as string]: theme.backgroundColor,
-            ['--slide-text' as string]: theme.textColor,
-            ['--slide-heading-font' as string]: theme.headingFont,
-            ['--slide-body-font' as string]: theme.bodyFont,
+            backgroundColor: theme.backgroundColor,
+            color: theme.textColor,
+            fontFamily: `"${theme.bodyFont}", sans-serif`,
+            width: '100%',
+            height: '100vh',
+            overflow: 'hidden',
           }}
         >
-          {isEditMode ? (
+          <div
+            className="w-full h-full flex flex-col justify-center"
+            style={{
+              ['--slide-primary' as string]: theme.primaryColor,
+              ['--slide-accent' as string]: theme.accentColor,
+              ['--slide-bg' as string]: theme.backgroundColor,
+              ['--slide-text' as string]: theme.textColor,
+              ['--slide-heading-font' as string]: theme.headingFont,
+              ['--slide-body-font' as string]: theme.bodyFont,
+            }}
+          >
             <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
               <EditableBlockRenderer content={content} />
             </div>
-          ) : (
-            <BlockRenderer content={content} />
-          )}
+          </div>
         </div>
-      </div>
+      </>
+    );
+  }
+
+  // Preview mode: use the actual SlideBlockWrapper for pixel-perfect match with live view
+  return (
+    <>
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      <SlideBlockWrapper
+        slide={virtualSlide}
+        theme={theme}
+        className="min-h-screen w-full flex items-center justify-center"
+      />
     </>
   );
 }
