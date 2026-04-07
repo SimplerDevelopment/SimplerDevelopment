@@ -626,17 +626,17 @@ function ContainerBlockRenderer({
     return (
       <BlockStyleWrapper block={block}>
         <div className={`flex ${gapClass} py-4`}>
-          {block.columns.map((col, i) => (
+          {(block.columns || []).map((col, i) => (
             <div key={col.id} style={{ width: `${col.width}%` }} className="min-h-[60px]">
-              {col.blocks.map((nested, ni) => (
+              {(col.blocks || []).map((nested, ni) => (
                 <div key={nested.id}>
                   <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
-                  {ni === col.blocks.length - 1 && draggingId && (
+                  {ni === (col.blocks || []).length - 1 && draggingId && (
                     <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
                   )}
                 </div>
               ))}
-              <ContainerSlotDropZone containerId={block.id} slotIndex={i} hasChildren={col.blocks.length > 0} />
+              <ContainerSlotDropZone containerId={block.id} slotIndex={i} hasChildren={(col.blocks || []).length > 0} />
             </div>
           ))}
         </div>
@@ -701,15 +701,15 @@ function ContainerBlockRenderer({
       <div style={sectionOuterStyle}>
         <BlockStyleWrapper block={block}>
           <div className="border border-dashed border-gray-200/40 rounded min-h-[60px]" style={sectionInnerStyle}>
-            {block.blocks.map((nested, ni) => (
+            {(block.blocks || []).map((nested, ni) => (
               <Fragment key={nested.id}>
                 <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
-                {ni === block.blocks.length - 1 && draggingId && (
+                {ni === (block.blocks || []).length - 1 && draggingId && (
                   <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
                 )}
               </Fragment>
             ))}
-            <ContainerSlotDropZone containerId={block.id} slotIndex={0} hasChildren={block.blocks.length > 0} />
+            <ContainerSlotDropZone containerId={block.id} slotIndex={0} hasChildren={(block.blocks || []).length > 0} />
           </div>
         </BlockStyleWrapper>
       </div>

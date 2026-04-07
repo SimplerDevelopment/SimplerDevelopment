@@ -107,8 +107,10 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
   const parseWidth = (w: number | string) =>
     typeof w === 'string' ? parseFloat(w) || 50 : w;
 
+  const columns = block.columns || [];
+
   // Normalize widths: if they sum to > 100, scale proportionally so they fit
-  const rawWidths = block.columns.map(c => parseWidth(c.width));
+  const rawWidths = columns.map(c => parseWidth(c.width));
   const totalWidth = rawWidths.reduce((s, w) => s + w, 0);
   const normalizedWidths = totalWidth > 100
     ? rawWidths.map(w => (w / totalWidth) * 100)
@@ -117,7 +119,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
   return (
     <div className={`py-8 my-8 ${responsiveClasses}`}>
       <div className={`flex ${stackingClasses} ${gapClasses[block.gap || 'md']}`}>
-        {block.columns.map((column, colIndex) => {
+        {columns.map((column, colIndex) => {
           const paddingClass = column.padding === 'sm' ? 'p-2' : column.padding === 'md' ? 'p-4' : column.padding === 'lg' ? 'p-6' : '';
           const verticalAlignClass = column.verticalAlign === 'center' ? 'flex flex-col justify-center' : column.verticalAlign === 'bottom' ? 'flex flex-col justify-end' : '';
 

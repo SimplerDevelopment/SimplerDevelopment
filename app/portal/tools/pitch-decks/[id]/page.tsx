@@ -1061,13 +1061,27 @@ useEffect(() => {
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {
+                    const uid = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
                     const newBlock = {
-                      id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                      id: uid,
                       type: type as BlockType,
                       order: currentSlide.blocks.length + 1,
-                      content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined,
-                      level: type === 'heading' ? 2 : undefined,
-                      title: type === 'hero' ? 'Hero Title' : type === 'cta' ? 'Call to Action' : undefined,
+                      // Text/heading defaults
+                      ...(type === 'text' && { content: 'New text...' }),
+                      ...(type === 'heading' && { content: 'New heading', level: 2 }),
+                      ...(type === 'hero' && { title: 'Hero Title' }),
+                      ...(type === 'cta' && { title: 'Call to Action', primaryButtonText: 'Learn More', primaryButtonUrl: '#' }),
+                      // Container defaults — must initialize arrays
+                      ...(type === 'columns' && { columns: [
+                        { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
+                        { id: `col-${Date.now()}-2`, width: 50, blocks: [] },
+                      ], gap: 'md' }),
+                      ...(type === 'tabs' && { tabs: [
+                        { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
+                        { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] },
+                      ] }),
+                      ...(type === 'section' && { blocks: [] }),
+                      ...(type === 'accordion' && { items: [{ id: `item-${Date.now()}-1`, title: 'Item 1', content: '' }] }),
                     } as Block;
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
