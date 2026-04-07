@@ -697,7 +697,15 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
       <StyleSection title="Border">
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Width</label>
-          <select value={style.borderWidth || ''} onChange={(e) => updateStyle('borderWidth', e.target.value)} className={selectClass}>
+          <select value={style.borderWidth || ''} onChange={(e) => {
+            const v = e.target.value;
+            if (v && !style.borderStyle) {
+              const existingStyle = typeof block.style === 'object' ? block.style : {};
+              onChange({ style: { ...existingStyle, borderWidth: v, borderStyle: 'solid' } });
+            } else {
+              updateStyle('borderWidth', v);
+            }
+          }} className={selectClass}>
             <option value="">None</option><option value="1px">1px</option><option value="2px">2px</option><option value="3px">3px</option><option value="4px">4px</option><option value="6px">6px</option><option value="8px">8px</option>
           </select>
         </div>
@@ -712,39 +720,46 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
             </div>
           </>
         )}
-        {/* Per-side border overrides */}
-        {style.borderWidth && (
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-side overrides</summary>
-            <div className="mt-2 space-y-2">
-              {(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => {
-                const widthKey = `border${side}Width` as keyof typeof style;
-                const colorKey = `border${side}Color` as keyof typeof style;
-                const styleKey = `border${side}Style` as keyof typeof style;
-                return (
-                  <div key={side} className="grid grid-cols-3 gap-1 items-end">
-                    <div>
-                      <label className="block text-[10px] text-muted-foreground mb-0.5">{side} W</label>
-                      <select value={(style[widthKey] as string) || ''} onChange={(e) => updateStyle(widthKey as string, e.target.value)} className={inputClass}>
-                        <option value="">-</option><option value="0px">0</option><option value="1px">1</option><option value="2px">2</option><option value="3px">3</option><option value="4px">4</option><option value="6px">6</option><option value="8px">8</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-muted-foreground mb-0.5">Color</label>
-                      <input type="text" value={(style[colorKey] as string) || ''} onChange={(e) => updateStyle(colorKey as string, e.target.value)} className={inputClass} placeholder="inherit" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-muted-foreground mb-0.5">Style</label>
-                      <select value={(style[styleKey] as string) || ''} onChange={(e) => updateStyle(styleKey as string, e.target.value)} className={inputClass}>
-                        <option value="">-</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="double">Double</option><option value="none">None</option>
-                      </select>
-                    </div>
+        {/* Per-side border overrides — always available */}
+        <details className="group">
+          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">Per-side borders</summary>
+          <div className="mt-2 space-y-2">
+            {(['Top', 'Right', 'Bottom', 'Left'] as const).map((side) => {
+              const widthKey = `border${side}Width` as keyof typeof style;
+              const colorKey = `border${side}Color` as keyof typeof style;
+              const styleKey = `border${side}Style` as keyof typeof style;
+              return (
+                <div key={side} className="grid grid-cols-3 gap-1 items-end">
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">{side} W</label>
+                    <select value={(style[widthKey] as string) || ''} onChange={(e) => {
+                      const v = e.target.value;
+                      // Auto-set border style to solid when width is set
+                      if (v && v !== '0px' && !(style[styleKey] as string)) {
+                        const existingStyle = typeof block.style === 'object' ? block.style : {};
+                        onChange({ style: { ...existingStyle, [widthKey]: v, [styleKey]: 'solid' } });
+                      } else {
+                        updateStyle(widthKey as string, v);
+                      }
+                    }} className={inputClass}>
+                      <option value="">-</option><option value="0px">0</option><option value="1px">1</option><option value="2px">2</option><option value="3px">3</option><option value="4px">4</option><option value="6px">6</option><option value="8px">8</option>
+                    </select>
                   </div>
-                );
-              })}
-            </div>
-          </details>
-        )}
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">Color</label>
+                    <input type="text" value={(style[colorKey] as string) || ''} onChange={(e) => updateStyle(colorKey as string, e.target.value)} className={inputClass} placeholder="inherit" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground mb-0.5">Style</label>
+                    <select value={(style[styleKey] as string) || ''} onChange={(e) => updateStyle(styleKey as string, e.target.value)} className={inputClass}>
+                      <option value="">-</option><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option><option value="double">Double</option><option value="none">None</option>
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
         <div>
           <label className="block text-xs text-muted-foreground mb-1.5">Border Radius</label>
           <select value={style.borderRadius || ''} onChange={(e) => updateStyle('borderRadius', e.target.value)} className={selectClass}>

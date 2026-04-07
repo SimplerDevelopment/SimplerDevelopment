@@ -193,11 +193,12 @@ export function useVisualEditorParent({
 
   // Send selection changes
   const sendSelectBlock = useCallback(
-    (blockId: string | null) => {
+    (blockId: string | null, selectedBlockIds?: string[]) => {
       if (!iframeReady) return;
       sendToIframe(iframeRef.current, PARENT_MESSAGES.SELECT_BLOCK, {
         blockId,
-      } satisfies SelectBlockPayload);
+        selectedBlockIds,
+      } as SelectBlockPayload & { selectedBlockIds?: string[] });
     },
     [iframeReady],
   );

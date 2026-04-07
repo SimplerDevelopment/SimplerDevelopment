@@ -9,10 +9,11 @@ interface EditorModeContextValue {
   active: boolean;
   blocks: Block[];
   selectedBlockId: string | null;
+  selectedBlockIds: string[];
   hoveredBlockId: string | null;
   pageSettings?: PageSettings;
   externalDrag: ExternalDragState;
-  onBlockClicked: (blockId: string) => void;
+  onBlockClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered: (blocks: Block[]) => void;
   onAddBlockAfter: (blockId: string) => void;
@@ -28,6 +29,7 @@ const EditorModeContext = createContext<EditorModeContextValue>({
   active: false,
   blocks: [],
   selectedBlockId: null,
+  selectedBlockIds: [],
   hoveredBlockId: null,
   externalDrag: { active: false, blockType: null, x: 0, y: 0 },
   onBlockClicked: () => {},

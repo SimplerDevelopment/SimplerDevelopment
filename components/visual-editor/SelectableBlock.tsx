@@ -33,7 +33,7 @@ interface SelectableBlockProps {
   blockType?: string;
   isSelected: boolean;
   isHovered: boolean;
-  onClicked: (blockId: string) => void;
+  onClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onHovered: (blockId: string | null) => void;
   onAddAfter?: (blockId: string) => void;
   onResize?: (blockId: string, width: string | undefined, height: string | undefined) => void;
@@ -68,19 +68,20 @@ export function SelectableBlock({
       data-block-id={blockId}
       onClick={(e) => {
         e.preventDefault();
-        const isDeepSelect = e.metaKey || e.ctrlKey;
+        const modifiers = { shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey };
+        const isDeepSelect = (e.metaKey || e.ctrlKey) && !e.shiftKey;
         if (isDeepSelect) {
-          // Cmd/Ctrl+click: select the innermost (deepest) block under the cursor.
+          // Cmd/Ctrl+click (without Shift): select the innermost (deepest) block under the cursor.
           // Don't stopPropagation so the event reaches all nested SelectableBlocks.
           // The innermost fires first; once it claims the click, outer handlers skip.
           if (deepSelectClaimed) return;
           deepSelectClaimed = true;
-          onClicked(blockId);
+          onClicked(blockId, modifiers);
           // Reset the flag asynchronously so it's clean for the next click
           requestAnimationFrame(() => { deepSelectClaimed = false; });
         } else {
           e.stopPropagation();
-          onClicked(blockId);
+          onClicked(blockId, modifiers);
         }
       }}
       onMouseEnter={() => onHovered(blockId)}
@@ -718,7 +719,7 @@ function EditableContent({
         }
       }}
     >
-      <div style={{ pointerEvents: 'auto' }} className="[&_iframe]:pointer-events-none">
+      <div style={{ pointerEvents: isSelected || modifierHeld ? 'auto' : 'none' }} className="[&_iframe]:pointer-events-none">
         {children}
       </div>
     </div>

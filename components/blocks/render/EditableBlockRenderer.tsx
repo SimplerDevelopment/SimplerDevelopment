@@ -382,7 +382,7 @@ function DraggableBlockList({
               <DropIndicator id={`between:${block.id}:before`} dragging={draggingId !== null} />
               <SortableBlock
                 block={block}
-                isSelected={editor.selectedBlockId === block.id}
+                isSelected={editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id}
                 isHovered={editor.hoveredBlockId === block.id}
                 onClicked={editor.onBlockClicked}
                 onHovered={editor.onBlockHovered}
@@ -487,7 +487,7 @@ function SortableBlock({
   block: Block;
   isSelected: boolean;
   isHovered: boolean;
-  onClicked: (id: string) => void;
+  onClicked: (id: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onHovered: (id: string | null) => void;
   onAddAfter?: (id: string) => void;
   onResize?: (id: string, width: string | undefined, height: string | undefined) => void;
@@ -585,7 +585,7 @@ function NestedSortableBlock({
       <SelectableBlock
         blockId={block.id}
         blockType={block.type}
-        isSelected={editor.selectedBlockId === block.id}
+        isSelected={editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id}
         isHovered={editor.hoveredBlockId === block.id || isDragging}
         onClicked={editor.onBlockClicked}
         onHovered={editor.onBlockHovered}

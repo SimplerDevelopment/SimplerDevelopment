@@ -17,6 +17,7 @@ interface EditorState {
   active: boolean;
   blocks: Block[];
   selectedBlockId: string | null;
+  selectedBlockIds: string[];
   hoveredBlockId: string | null;
   pageSettings?: PageSettings;
   externalDrag: ExternalDragState;
@@ -29,6 +30,7 @@ export function useEditorMode() {
     active: false,
     blocks: [],
     selectedBlockId: null,
+    selectedBlockIds: [],
     hoveredBlockId: null,
     externalDrag: { active: false, blockType: null, x: 0, y: 0 },
   });
@@ -140,8 +142,8 @@ export function useEditorMode() {
           break;
         }
         case PARENT_MESSAGES.SELECT_BLOCK: {
-          const { blockId } = event.data.payload as { blockId: string | null };
-          setState((s) => ({ ...s, selectedBlockId: blockId }));
+          const { blockId, selectedBlockIds: ids } = event.data.payload as { blockId: string | null; selectedBlockIds?: string[] };
+          setState((s) => ({ ...s, selectedBlockId: blockId, selectedBlockIds: ids || (blockId ? [blockId] : []) }));
           break;
         }
         case PARENT_MESSAGES.HOVER_BLOCK: {
@@ -201,10 +203,10 @@ export function useEditorMode() {
   }, []);
 
   const onBlockClicked = useCallback(
-    (blockId: string) => {
+    (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => {
       if (!state.active) return;
       setState((s) => ({ ...s, selectedBlockId: blockId }));
-      sendToParent(IFRAME_MESSAGES.BLOCK_CLICKED, { blockId });
+      sendToParent(IFRAME_MESSAGES.BLOCK_CLICKED, { blockId, modifiers });
     },
     [state.active],
   );
