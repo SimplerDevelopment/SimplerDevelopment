@@ -4,34 +4,24 @@ import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/portal/login';
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
-    if (isEditorRoute) {
-      setIsCollapsed(true);
-    } else {
+    if (!isEditorRoute) {
       setPreviewMode(false);
-      const saved = localStorage.getItem('portalSidebarCollapsed');
-      if (saved !== null) setIsCollapsed(saved === 'true');
     }
-
-    const handler = (e: CustomEvent<{ collapsed: boolean }>) => setIsCollapsed(e.detail.collapsed);
-    window.addEventListener('portalSidebarToggle', handler as EventListener);
 
     const previewHandler = (e: CustomEvent<{ active: boolean }>) => setPreviewMode(e.detail.active);
     window.addEventListener('portalPreviewMode', previewHandler as EventListener);
 
     return () => {
-      window.removeEventListener('portalSidebarToggle', handler as EventListener);
       window.removeEventListener('portalPreviewMode', previewHandler as EventListener);
     };
   }, [isEditorRoute]);
@@ -58,7 +48,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     <SessionProvider>
       <div className="min-h-screen bg-background">
         {!previewMode && <PortalSidebar />}
-        <div className={`transition-all duration-300 ${previewMode ? '' : isCollapsed ? 'lg:pl-16' : 'lg:pl-64'}`}>
+        <div>
           {!previewMode && (
             <div className="flex justify-end items-center px-6 pt-4 pb-0">
               <CrmNotificationBell />

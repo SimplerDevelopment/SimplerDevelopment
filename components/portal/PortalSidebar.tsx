@@ -157,7 +157,7 @@ function isChildActive(children: NavChild[] | undefined, pathname: string): bool
 export default function PortalSidebar() {
   const { status } = useSession();
   const pathname = usePathname();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -255,11 +255,17 @@ export default function PortalSidebar() {
 
   if (status !== 'authenticated') return null;
 
+  const toggleOpen = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: next, collapsed: isCollapsed } }));
+  };
+
   const toggleCollapsed = () => {
     const next = !isCollapsed;
     setIsCollapsed(next);
     localStorage.setItem('portalSidebarCollapsed', String(next));
-    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { collapsed: next } }));
+    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: isOpen, collapsed: next } }));
   };
 
   // Renders a nav item link (or parent toggle)
@@ -317,7 +323,7 @@ export default function PortalSidebar() {
     return (
       <Link
         href={item.href}
-        onClick={() => setIsMobileOpen(false)}
+        onClick={toggleOpen}
         className={linkClass}
         title={isCollapsed ? item.label : ''}
       >
@@ -347,46 +353,55 @@ export default function PortalSidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border"
-      >
-        <span className="material-icons text-xl">
-          {isMobileOpen ? 'close' : 'menu'}
-        </span>
-      </button>
+      {/* Hamburger toggle — always visible when sidebar is closed */}
+      {!isOpen && (
+        <button
+          onClick={toggleOpen}
+          className="fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
+        >
+          <span className="material-icons text-xl">menu</span>
+        </button>
+      )}
 
       {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
           isCollapsed ? 'w-16' : 'w-64'
         } bg-card border-r border-border`}
       >
         <div className="h-full flex flex-col">
-          {/* Company Switcher */}
+          {/* Header with close button */}
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
             <CompanySwitcher collapsed={isCollapsed} />
-            {!isCollapsed && (
+            <div className="flex items-center gap-1 shrink-0">
+              {!isCollapsed && (
+                <button
+                  onClick={toggleCollapsed}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title="Collapse"
+                >
+                  <span className="material-icons text-lg">chevron_left</span>
+                </button>
+              )}
+              {isCollapsed && (
+                <button
+                  onClick={toggleCollapsed}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors absolute right-1"
+                  title="Expand"
+                >
+                  <span className="material-icons text-lg">chevron_right</span>
+                </button>
+              )}
               <button
-                onClick={toggleCollapsed}
-                className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                title="Collapse"
+                onClick={toggleOpen}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Close sidebar"
               >
-                <span className="material-icons text-lg">chevron_left</span>
+                <span className="material-icons text-lg">close</span>
               </button>
-            )}
-            {isCollapsed && (
-              <button
-                onClick={toggleCollapsed}
-                className="hidden lg:flex p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0 absolute right-1"
-                title="Expand"
-              >
-                <span className="material-icons text-lg">chevron_right</span>
-              </button>
-            )}
+            </div>
           </div>
 
           {/* Unified Nav */}
@@ -438,11 +453,11 @@ export default function PortalSidebar() {
         </div>
       </aside>
 
-      {/* Mobile overlay */}
-      {isMobileOpen && (
+      {/* Overlay when sidebar is open */}
+      {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 bg-black/50 z-30"
+          onClick={toggleOpen}
         />
       )}
     </>
