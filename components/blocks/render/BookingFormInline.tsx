@@ -68,6 +68,8 @@ export interface BookingFormInlineProps {
     primaryColor?: string;
     backgroundColor?: string;
     textColor?: string;
+    formBg?: string;
+    inputBg?: string;
     headingFont?: string;
     bodyFont?: string;
     buttonBg?: string;
@@ -317,6 +319,8 @@ export function BookingFormInline({
   const btnBg = so?.buttonBg || b?.buttonStyle?.primaryBg || accent;
   const btnText = so?.buttonText || b?.buttonStyle?.primaryText || '#ffffff';
   const secondaryColor = b?.secondaryColor;
+  const formBg = so?.formBg;
+  const inputBg = so?.inputBg;
 
   const headingStyle: React.CSSProperties | undefined = headingFont
     ? { fontFamily: `"${headingFont}", sans-serif` }
@@ -324,6 +328,12 @@ export function BookingFormInline({
 
   const cardStyle: React.CSSProperties = {
     ...(secondaryColor ? { borderColor: `${secondaryColor}30` } : {}),
+    ...(formBg ? { backgroundColor: formBg } : {}),
+  };
+
+  const inputFieldStyle: React.CSSProperties = {
+    ...(inputBg ? { backgroundColor: inputBg } : {}),
+    ...(textColor ? { color: textColor } : {}),
   };
 
   const daysInMonth = getDaysInMonth(calYear, calMonth);
@@ -577,7 +587,7 @@ export function BookingFormInline({
                   onChange={(e) => setGuestName(e.target.value)}
                   placeholder="Your full name"
                   className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                  style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                   disabled={submitting}
                 />
               </div>
@@ -593,7 +603,7 @@ export function BookingFormInline({
                   onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                  style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                   disabled={submitting}
                 />
               </div>
@@ -608,7 +618,7 @@ export function BookingFormInline({
                   onChange={(e) => setGuestPhone(e.target.value)}
                   placeholder="(555) 123-4567"
                   className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                  style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                   disabled={submitting}
                 />
               </div>
@@ -627,7 +637,7 @@ export function BookingFormInline({
                       value={answers[q.id] || ''}
                       onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                       className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
-                      style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                      style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                       disabled={submitting}
                     />
                   )}
@@ -638,7 +648,7 @@ export function BookingFormInline({
                       onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                       rows={3}
                       className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent resize-none"
-                      style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                      style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                       disabled={submitting}
                     />
                   )}
@@ -648,7 +658,7 @@ export function BookingFormInline({
                       value={answers[q.id] || ''}
                       onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                       className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:border-transparent"
-                      style={{ '--tw-ring-color': accent + '50' } as React.CSSProperties}
+                      style={{ '--tw-ring-color': accent + '50', ...inputFieldStyle } as React.CSSProperties}
                       disabled={submitting}
                     >
                       <option value="">Select...</option>

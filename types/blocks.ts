@@ -572,6 +572,8 @@ export interface BookingBlock extends BaseBlock {
     primaryColor?: string;
     backgroundColor?: string;
     textColor?: string;
+    formBg?: string; // card/form body background color
+    inputBg?: string; // input field background color
     headingFont?: string;
     bodyFont?: string;
     buttonBg?: string;
