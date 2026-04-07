@@ -75,10 +75,10 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   const [surveySubmitted, setSurveySubmitted] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  // Path branching state
+  // Path branching state — keyed by decision slide ID → chosen pathGroup
   const [activePath, setActivePath] = useState<string | null>(null);
-  const [pathHistory, setPathHistory] = useState<string[]>([]);
-  const [pendingAdvance, setPendingAdvance] = useState(false); // triggers advance after path injection
+  const [decisionChoices, setDecisionChoices] = useState<Record<string, string>>({});
+  const [pendingAdvance, setPendingAdvance] = useState(false);
 
   // Pre-compute path group slide maps
   const pathGroupSlides = useMemo(() => {
@@ -103,19 +103,16 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       const expanded = expandSlide(slide, surveys);
       result.push(...expanded);
 
-      // If this is a decision slide and a path is active, inject the path slides right after
+      // If this is a decision slide and a choice has been made, inject that path's slides
       if (slide.decisionSlide && slide.decisionOptions?.length) {
-        // Check if any chosen path should be injected after this decision
-        const chosenForThis = pathHistory.find(pg =>
-          slide.decisionOptions!.some(opt => opt.pathGroup === pg)
-        );
-        if (chosenForThis && pathGroupSlides[chosenForThis]) {
-          result.push(...pathGroupSlides[chosenForThis]);
+        const chosenPath = decisionChoices[slide.id];
+        if (chosenPath && pathGroupSlides[chosenPath]) {
+          result.push(...pathGroupSlides[chosenPath]);
         }
       }
     }
     return result;
-  }, [slides, surveys, pathHistory, pathGroupSlides]);
+  }, [slides, surveys, decisionChoices, pathGroupSlides]);
 
   // Filter visible slides (survey conditional logic)
   const visibleSlideIndices = useMemo(() => {
@@ -150,8 +147,9 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   // Decision slide handler — user picks a path
   function handleDecisionChoice(pathGroup: string) {
+    if (!currentVS || currentVS.kind !== 'decision') return;
     setActivePath(pathGroup);
-    setPathHistory(prev => [...prev, pathGroup]);
+    setDecisionChoices(prev => ({ ...prev, [currentVS.slide.id]: pathGroup }));
     setPendingAdvance(true);
   }
 
