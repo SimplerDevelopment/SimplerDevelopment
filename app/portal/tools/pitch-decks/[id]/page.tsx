@@ -7,6 +7,7 @@ import { use } from 'react';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import {
   DndContext,
   closestCenter,
@@ -1595,11 +1596,20 @@ useEffect(() => {
                   idx === activeSlide ? 'ring-2 ring-primary border-primary' : 'border-border'
                 }`}
               >
-                {/* Slide thumbnail via iframe */}
-                <BoardThumbnail
-                  src={`/portal/tools/pitch-decks/${id}/slide-preview?pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(slide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(slide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
-                  blocks={slide.blocks}
-                />
+                {/* Slide thumbnail — direct render, no iframe */}
+                <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                  <div
+                    className="pointer-events-none absolute top-0 left-0"
+                    style={{
+                      width: '1280px',
+                      height: '720px',
+                      transform: 'scale(0.25)',
+                      transformOrigin: 'top left',
+                    }}
+                  >
+                    <SlideBlockWrapper slide={slide} theme={deck.theme} className="w-full h-full" />
+                  </div>
+                </div>
                 {/* Label */}
                 <div className="px-3 py-2 flex items-center gap-2">
                   <span className={`text-xs font-mono ${idx === activeSlide ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
@@ -1744,69 +1754,3 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
 }
 
 /** Board view thumbnail — renders a slide preview in a scaled iframe */
-function BoardThumbnail({ src, blocks }: { src: string; blocks: Block[] }) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const sentRef = useRef(false);
-
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    sentRef.current = false;
-
-    const sendBlocks = () => {
-      iframe.contentWindow?.postMessage({
-        source: 'sd-editor-parent',
-        type: 'EDITOR_INIT',
-        payload: { blocks },
-        timestamp: Date.now(),
-      }, '*');
-    };
-
-    // When iframe signals ready, send blocks immediately
-    const handleMessage = (e: MessageEvent) => {
-      if (e.source !== iframe.contentWindow) return;
-      if (e.data?.type === 'IFRAME_READY' || e.data?.source === 'sd-editor-child') {
-        sentRef.current = true;
-        sendBlocks();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-
-    // Also retry a few times after load to handle race conditions
-    const onLoad = () => {
-      let attempts = 0;
-      const retry = setInterval(() => {
-        if (sentRef.current || attempts > 10) { clearInterval(retry); return; }
-        sendBlocks();
-        attempts++;
-      }, 200);
-    };
-    iframe.addEventListener('load', onLoad);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-      iframe.removeEventListener('load', onLoad);
-    };
-  }, [blocks]);
-
-  return (
-    <div className="relative w-full overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
-      <iframe
-        ref={iframeRef}
-        src={src}
-        className="pointer-events-none border-0"
-        style={{
-          width: '1280px',
-          height: '720px',
-          transform: 'scale(0.25)',
-          transformOrigin: 'top left',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-        tabIndex={-1}
-      />
-      <div className="absolute inset-0 z-10" />
-    </div>
-  );
-}
