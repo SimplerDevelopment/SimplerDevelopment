@@ -567,8 +567,8 @@ export function VisualEditorShell({
     const ids = all.map(b => b.id);
     // Add drop zone IDs for all containers (including nested ones)
     for (const block of all) {
-      if (block.type === 'columns') block.columns.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
-      if (block.type === 'tabs') block.tabs.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
+      if (block.type === 'columns' && block.columns) block.columns.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
+      if (block.type === 'tabs' && block.tabs) block.tabs.forEach((_, i) => ids.push(`dropzone:${block.id}:${i}`));
       if (block.type === 'section') ids.push(`dropzone:${block.id}:0`);
     }
     return ids;
