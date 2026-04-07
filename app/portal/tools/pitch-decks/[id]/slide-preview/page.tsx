@@ -92,16 +92,28 @@ function SlidePreviewInner() {
       `}} />
 
       <div
+        className="slide-themed"
         style={{
           backgroundColor: theme.backgroundColor,
           color: theme.textColor,
           fontFamily: `"${theme.bodyFont}", sans-serif`,
-          minHeight: '100vh',
           width: '100%',
+          height: '100vh',
+          overflow: 'hidden',
         }}
       >
+        <style dangerouslySetInnerHTML={{ __html: `
+          .slide-themed h1, .slide-themed h2, .slide-themed h3,
+          .slide-themed h4, .slide-themed h5, .slide-themed h6 {
+            font-family: "${theme.headingFont}", sans-serif !important;
+            color: ${theme.textColor} !important;
+          }
+          .slide-themed a {
+            color: ${theme.accentColor};
+          }
+        `}} />
         <div
-          className="w-full min-h-screen flex flex-col justify-center"
+          className="w-full h-full flex flex-col justify-center"
           style={{
             ['--slide-primary' as string]: theme.primaryColor,
             ['--slide-accent' as string]: theme.accentColor,
@@ -111,13 +123,13 @@ function SlidePreviewInner() {
             ['--slide-body-font' as string]: theme.bodyFont,
           }}
         >
-          {isEditMode ? (
-            <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
+          <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12">
+            {isEditMode ? (
               <EditableBlockRenderer content={content} />
-            </div>
-          ) : (
-            <BlockRenderer content={content} />
-          )}
+            ) : (
+              <BlockRenderer content={content} />
+            )}
+          </div>
         </div>
       </div>
     </>
