@@ -23,6 +23,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -1587,41 +1588,22 @@ useEffect(() => {
               <span className="material-icons">close</span>
             </button>
           </div>
-          <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {deck.slides.map((slide, idx) => (
-              <button
-                key={slide.id}
-                onClick={() => { setActiveSlide(idx); setBoardView(false); }}
-                className={`group relative bg-card border rounded-xl overflow-hidden text-left transition-all hover:ring-2 hover:ring-primary/50 hover:shadow-lg ${
-                  idx === activeSlide ? 'ring-2 ring-primary border-primary' : 'border-border'
-                }`}
-              >
-                {/* Slide thumbnail — direct render, no iframe */}
-                <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                  <div
-                    className="pointer-events-none absolute top-0 left-0"
-                    style={{
-                      width: '1280px',
-                      height: '720px',
-                      transform: 'scale(0.25)',
-                      transformOrigin: 'top left',
-                    }}
-                  >
-                    <SlideBlockWrapper slide={slide} theme={deck.theme} className="w-full h-full" />
-                  </div>
-                </div>
-                {/* Label */}
-                <div className="px-3 py-2 flex items-center gap-2">
-                  <span className={`text-xs font-mono ${idx === activeSlide ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-                    {idx + 1}
-                  </span>
-                  <span className="text-xs text-foreground truncate">
-                    {slide.label || 'Untitled'}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+          <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
+            <SortableContext items={deck.slides.map(s => s.id)} strategy={rectSortingStrategy}>
+              <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                {deck.slides.map((slide, idx) => (
+                  <SortableBoardCard
+                    key={slide.id}
+                    slide={slide}
+                    index={idx}
+                    isActive={idx === activeSlide}
+                    theme={deck.theme}
+                    onClick={() => { setActiveSlide(idx); setBoardView(false); }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
     </div>
@@ -1640,6 +1622,69 @@ function PathGroupDropZone({ id, label, children }: { id: string; label: string;
       data-droppable={label}
     >
       {children}
+    </div>
+  );
+}
+
+function SortableBoardCard({ slide, index, isActive, theme, onClick }: {
+  slide: PitchDeckSlideV2;
+  index: number;
+  isActive: boolean;
+  theme: PitchDeckTheme;
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative bg-card border rounded-xl overflow-hidden text-left transition-all hover:ring-2 hover:ring-primary/50 hover:shadow-lg ${
+        isActive ? 'ring-2 ring-primary border-primary' : 'border-border'
+      }`}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 z-20 p-1 rounded bg-black/30 text-white/70 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+      >
+        <span className="material-icons text-sm">drag_indicator</span>
+      </div>
+      {/* Clickable area */}
+      <button type="button" onClick={onClick} className="w-full text-left">
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+          <div
+            className="pointer-events-none absolute top-0 left-0"
+            style={{
+              width: '1280px',
+              height: '720px',
+              transform: 'scale(0.25)',
+              transformOrigin: 'top left',
+            }}
+          >
+            <SlideBlockWrapper slide={slide} theme={theme} className="w-full h-full" />
+          </div>
+        </div>
+        <div className="px-3 py-2 flex items-center gap-2">
+          <span className={`text-xs font-mono ${isActive ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+            {index + 1}
+          </span>
+          <span className="material-icons text-xs text-muted-foreground">{getSlideIcon(slide)}</span>
+          <span className="text-xs text-foreground truncate">
+            {slide.label || 'Untitled'}
+          </span>
+          {slide.pathGroup && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">{slide.pathGroup}</span>
+          )}
+        </div>
+      </button>
     </div>
   );
 }
