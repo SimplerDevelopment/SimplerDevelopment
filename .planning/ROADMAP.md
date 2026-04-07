@@ -49,8 +49,8 @@ Plans:
   4. Compound AND/OR conditions can be configured in the conditional logic panel and evaluated correctly in both builder preview and public form
 **Plans**: 2 plans
 Plans:
-- [x] 01-01-PLAN.md — Code fixes: transaction wrap, shared evaluator, field ID guard
-- [x] 01-02-PLAN.md — Schema migration: five new tables + drizzle-kit push
+- [ ] 02-01-PLAN.md — Extend showIf schema types, compound evaluator, and piping resolver (TDD)
+- [ ] 02-02-PLAN.md — ConditionalLogicPanel component, SurveyBuilder integration, piping in public form
 
 ### Phase 3: Response Management
 **Goal**: Response data is complete, filterable, and extensible — partial completions are recovered, responses are searchable, and file attachments are supported
@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation and Schema | 0/2 | Planned | - |
-| 2. Conditional Logic UI and Piping | 0/TBD | Not started | - |
+| 2. Conditional Logic UI and Piping | 0/2 | Planned | - |
 | 3. Response Management | 0/TBD | Not started | - |
 | 4. Scoring Engine and Webhooks | 0/TBD | Not started | - |
 | 5. Distribution and Email Follow-up | 0/TBD | Not started | - |
