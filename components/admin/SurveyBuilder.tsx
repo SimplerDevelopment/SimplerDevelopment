@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { ShowIfRule, ShowIfCondition } from '@/lib/db/schema';
 
 export type FieldType =
   | 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
@@ -18,7 +19,7 @@ export interface SurveyField {
   min?: number;
   max?: number;
   step?: number;
-  showIf?: { fieldId: string; values: string[] };
+  showIf?: { fieldId: string; values: string[] } | ShowIfCondition;
   conditionalOptions?: { fieldId: string; map: Record<string, string[]>; default?: string[] };
   goToPage?: Record<string, number>;
   order: number;

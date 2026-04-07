@@ -1795,6 +1795,17 @@ export const automationRules = pgTable('automation_rules', {
 
 // ─── SURVEYS ────────────────────────────────────────────────────────────────
 
+export interface ShowIfRule {
+  fieldId: string;
+  operator: 'equals' | 'not_equals';
+  values: string[];
+}
+
+export interface ShowIfCondition {
+  combinator: 'AND';
+  rules: ShowIfRule[];
+}
+
 export interface SurveyFieldDef {
   id: string;
   type: 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
@@ -1808,7 +1819,7 @@ export interface SurveyFieldDef {
   min?: number;
   max?: number;
   step?: number;
-  showIf?: { fieldId: string; values: string[] };
+  showIf?: { fieldId: string; values: string[] } | ShowIfCondition;
   conditionalOptions?: { fieldId: string; map: Record<string, string[]>; default?: string[] };
   // Logic branching: if answer matches a value, jump to page N (0-indexed)
   goToPage?: Record<string, number>; // { "option_value": pageIndex }
