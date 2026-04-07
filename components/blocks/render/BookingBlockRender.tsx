@@ -2,6 +2,7 @@
 
 import { BookingBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { BookingFormInline } from './BookingFormInline';
 
 interface BookingBlockRenderProps {
   block: BookingBlock;
@@ -16,8 +17,6 @@ export function BookingBlockRender({ block }: BookingBlockRenderProps) {
       </div>
     );
   }
-
-  const height = block.height || '700px';
 
   return (
     <div>
@@ -39,13 +38,11 @@ export function BookingBlockRender({ block }: BookingBlockRenderProps) {
           {block.description}
         </p>
       )}
-      <iframe
-        src={`/book/${block.slug}?embed=1${block.showPageTitle === false ? '&hideTitle=1' : ''}${block.showDescription === false ? '&hideDescription=1' : ''}${block.showSteps === false ? '&hideSteps=1' : ''}`}
-        width="100%"
-        height={height}
-        style={{ border: 'none', borderRadius: '0.5rem' }}
-        title={block.title || 'Schedule a Booking'}
-        loading="lazy"
+      <BookingFormInline
+        slug={block.slug}
+        showPageTitle={block.showPageTitle !== false}
+        showDescription={block.showDescription !== false}
+        showSteps={block.showSteps !== false}
       />
     </div>
   );

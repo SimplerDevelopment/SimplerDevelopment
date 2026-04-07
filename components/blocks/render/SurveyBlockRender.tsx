@@ -2,6 +2,7 @@
 
 import { SurveyBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { SurveyFormInline } from './SurveyFormInline';
 
 interface SurveyBlockRenderProps {
   block: SurveyBlock;
@@ -16,8 +17,6 @@ export function SurveyBlockRender({ block }: SurveyBlockRenderProps) {
       </div>
     );
   }
-
-  const height = block.height || '700px';
 
   return (
     <div>
@@ -39,13 +38,9 @@ export function SurveyBlockRender({ block }: SurveyBlockRenderProps) {
           {block.description}
         </p>
       )}
-      <iframe
-        src={`/s/${block.slug}?embed=1${block.showPageTitle === false ? '&hideTitle=1' : ''}`}
-        width="100%"
-        height={height}
-        style={{ border: 'none', borderRadius: '0.5rem' }}
-        title={block.title || 'Take a Survey'}
-        loading="lazy"
+      <SurveyFormInline
+        slug={block.slug}
+        showPageTitle={block.showPageTitle !== false}
       />
     </div>
   );
