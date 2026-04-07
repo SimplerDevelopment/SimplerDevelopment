@@ -781,6 +781,9 @@ export interface PitchDeckSlideV2 {
   blocks: import('@/types/blocks').Block[];
   pageSettings?: import('@/types/blocks').PageSettings;
   notes?: string; // Speaker notes
+  // Survey integration — when set, this slide expands into per-question slides in the viewer
+  surveySlide?: boolean;
+  surveyId?: number;
 }
 
 export interface PitchDeckTheme {

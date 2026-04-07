@@ -1,13 +1,14 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
-import { pitchDecks } from '@/lib/db/schema';
+import { pitchDecks, surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
+import type { SurveyDataForDeck } from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
 
 /** Convert v1 slides on read if needed */
 function resolveSlides(raw: unknown, theme: PitchDeckTheme): PitchDeckSlideV2[] {
@@ -15,6 +16,43 @@ function resolveSlides(raw: unknown, theme: PitchDeckTheme): PitchDeckSlideV2[] 
   if (!arr.length) return [];
   if (isV2Slides(arr)) return arr;
   return convertAllSlidesToV2(arr as PitchDeckSlide[]);
+}
+
+/** Fetch survey data for any survey slides in the deck */
+async function fetchSurveyData(deckSlides: PitchDeckSlideV2[]): Promise<Record<number, SurveyDataForDeck>> {
+  const surveyIds = deckSlides
+    .filter(s => s.surveySlide && s.surveyId)
+    .map(s => s.surveyId!);
+  if (surveyIds.length === 0) return {};
+
+  const uniqueIds = [...new Set(surveyIds)];
+  const rows = await db.select({
+    id: surveys.id,
+    title: surveys.title,
+    slug: surveys.slug,
+    fields: surveys.fields,
+    requireEmail: surveys.requireEmail,
+    thankYouTitle: surveys.thankYouTitle,
+    thankYouMessage: surveys.thankYouMessage,
+    redirectUrl: surveys.redirectUrl,
+    status: surveys.status,
+  }).from(surveys).where(inArray(surveys.id, uniqueIds));
+
+  const result: Record<number, SurveyDataForDeck> = {};
+  for (const row of rows) {
+    // Only include active surveys (or drafts for preview)
+    result[row.id] = {
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      fields: (row.fields || []) as SurveyDataForDeck['fields'],
+      requireEmail: row.requireEmail,
+      thankYouTitle: row.thankYouTitle || 'Thank you!',
+      thankYouMessage: row.thankYouMessage || '',
+      redirectUrl: row.redirectUrl,
+    };
+  }
+  return result;
 }
 
 interface PageProps {
@@ -66,7 +104,8 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
 
     const theme = (deck.theme || {}) as PitchDeckTheme;
     const slides = resolveSlides(deck.slides, theme);
-    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} />;
+    const surveyData = await fetchSurveyData(slides);
+    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} />;
   }
 
   const deck = await getDeck(slug, false);
@@ -74,5 +113,6 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
 
   const theme = (deck.theme || {}) as PitchDeckTheme;
   const slides = resolveSlides(deck.slides, theme);
-  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} />;
+  const surveyData = await fetchSurveyData(slides);
+  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} />;
 }

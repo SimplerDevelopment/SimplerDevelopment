@@ -63,6 +63,7 @@ function getSlideTitle(slide: PitchDeckSlideV2): string {
 
 /** Get an icon for a slide based on its first block */
 function getSlideIcon(slide: PitchDeckSlideV2): string {
+  if (slide.surveySlide) return 'assignment';
   if (!slide.blocks.length) return 'edit_note';
   const first = slide.blocks[0].type;
   const iconMap: Record<string, string> = {
@@ -107,6 +108,56 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [batchPrompt, setBatchPrompt] = useState('');
   const [batchGenerating, setBatchGenerating] = useState(false);
+
+  // Survey integration state
+  const [hasSurveyService, setHasSurveyService] = useState(false);
+  const [surveyList, setSurveyList] = useState<{ id: number; title: string; status: string; fields: unknown[] }[]>([]);
+  const [showSurveyPicker, setShowSurveyPicker] = useState(false);
+  const [surveyListLoaded, setSurveyListLoaded] = useState(false);
+
+  // Check if surveys service is available via the nav services endpoint
+  useEffect(() => {
+    fetch('/api/portal/services/nav')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.success) return;
+        const hasSurveys = data.data.some((s: { category: string; subscribed: boolean }) =>
+          (s.category === 'surveys' || s.category === 'bundle') && s.subscribed
+        );
+        if (hasSurveys) {
+          setHasSurveyService(true);
+          // Now fetch the actual survey list
+          fetch('/api/portal/surveys')
+            .then(r => r.ok ? r.json() : null)
+            .then(sData => {
+              if (sData?.success) {
+                setSurveyList(sData.data.map((s: { id: number; title: string; status: string; fields: unknown[] }) => ({
+                  id: s.id, title: s.title, status: s.status, fields: s.fields,
+                })));
+              }
+              setSurveyListLoaded(true);
+            })
+            .catch(() => setSurveyListLoaded(true));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  function addSurveySlide(surveyId: number, surveyTitle: string) {
+    if (!deck) return;
+    const newSlide: PitchDeckSlideV2 = {
+      id: `slide-survey-${Date.now()}`,
+      label: `Survey: ${surveyTitle}`,
+      blocks: [],
+      surveySlide: true,
+      surveyId,
+    };
+    const newSlides = [...deck.slides, newSlide];
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(newSlides.length - 1);
+    setHasUnsavedChanges(true);
+    setShowSurveyPicker(false);
+  }
 
   // Close board view on ESC
   useEffect(() => {
@@ -843,6 +894,15 @@ useEffect(() => {
                       >
                         <span className="material-icons text-base">grid_view</span>
                       </button>
+                      {hasSurveyService && (
+                        <button
+                          onClick={() => setShowSurveyPicker(!showSurveyPicker)}
+                          className="text-primary hover:text-primary/80"
+                          title="Insert survey as slides"
+                        >
+                          <span className="material-icons text-lg">assignment</span>
+                        </button>
+                      )}
                       <button onClick={addSlide} className="text-primary hover:text-primary/80" title="Add slide">
                         <span className="material-icons text-lg">add_circle</span>
                       </button>
@@ -855,6 +915,43 @@ useEffect(() => {
                       </button>
                     </div>
                   </div>
+                  {/* Survey picker dropdown */}
+                  {showSurveyPicker && (
+                    <div className="border-b border-border p-3 space-y-2 bg-accent/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-foreground">Insert Survey</span>
+                        <button onClick={() => setShowSurveyPicker(false)} className="text-muted-foreground hover:text-foreground">
+                          <span className="material-icons text-sm">close</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Each question becomes its own slide in the presentation.</p>
+                      {!surveyListLoaded ? (
+                        <div className="flex items-center justify-center py-3">
+                          <span className="material-icons animate-spin text-base text-muted-foreground">autorenew</span>
+                        </div>
+                      ) : surveyList.filter(s => s.status === 'active').length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-2 text-center">
+                          No active surveys found. Create one in the Surveys section first.
+                        </p>
+                      ) : (
+                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                          {surveyList.filter(s => s.status === 'active').map(s => (
+                            <button
+                              key={s.id}
+                              onClick={() => addSurveySlide(s.id, s.title)}
+                              className="w-full text-left px-2.5 py-2 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2"
+                            >
+                              <span className="material-icons text-sm text-primary">assignment</span>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-foreground truncate">{s.title}</div>
+                                <div className="text-muted-foreground">{Array.isArray(s.fields) ? (s.fields as { type?: string }[]).filter(f => f.type !== 'page_break' && f.type !== 'heading').length : 0} questions</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="max-h-[calc(100vh-340px)] overflow-y-auto">
                     <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
                       <SortableContext items={deck.slides.map(s => s.id)} strategy={verticalListSortingStrategy}>
@@ -997,6 +1094,49 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* Survey slide info panel */}
+            {currentSlide.surveySlide ? (
+              <div className="bg-card border border-border rounded-xl p-8 space-y-4" style={{ minHeight: '600px' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <span className="material-icons text-2xl text-primary">assignment</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">{currentSlide.label}</h3>
+                    <p className="text-sm text-muted-foreground">Survey ID: {currentSlide.surveyId}</p>
+                  </div>
+                </div>
+                <div className="bg-accent/30 rounded-lg p-4 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="material-icons text-base text-primary mt-0.5">info</span>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>This slide will expand into individual question slides in the live presentation.</p>
+                      <p>Each question appears as its own full-screen slide, styled with the deck theme.</p>
+                      <p>Conditional logic (show/hide, branching) is fully supported.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <a
+                    href={`/portal/surveys/${currentSlide.surveyId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    <span className="material-icons text-base">open_in_new</span>
+                    Edit Survey
+                  </a>
+                  <button
+                    onClick={() => removeSlide(activeSlide)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <span className="material-icons text-base">delete</span>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <>
             {/* AI slide editing prompt */}
             <form onSubmit={handleSlideEdit} className="flex items-center gap-2">
                 <div className="flex-1 relative">
@@ -1097,6 +1237,8 @@ useEffect(() => {
                   siteId={undefined}
                 />
               </div>
+            </>
+            )}
           </div>
         </div>
       )}
