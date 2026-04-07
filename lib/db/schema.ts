@@ -784,6 +784,19 @@ export interface PitchDeckSlideV2 {
   // Survey integration — when set, this slide expands into per-question slides in the viewer
   surveySlide?: boolean;
   surveyId?: number;
+  // Path groups — slides with a pathGroup belong to that branch, not the main sequence
+  pathGroup?: string;
+  // Decision slides — force the viewer to choose a path
+  decisionSlide?: boolean;
+  decisionOptions?: PitchDeckDecisionOption[];
+}
+
+export interface PitchDeckDecisionOption {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string; // Material Icon name
+  pathGroup: string; // which path group this choice leads to
 }
 
 export interface PitchDeckTheme {

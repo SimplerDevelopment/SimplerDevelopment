@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckSlideV2, PitchDeckTheme, PitchDeckDecisionOption } from '@/lib/db/schema';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { SurveySlideRenderer } from '@/components/pitch-deck/SurveySlideRenderer';
+import { DecisionSlideRenderer } from '@/components/pitch-deck/DecisionSlideRenderer';
 import type { SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import { isFieldVisible as evalFieldVisible } from '@/lib/survey-logic';
 
@@ -20,11 +21,11 @@ export interface SurveyDataForDeck {
 }
 
 /**
- * A "virtual slide" — either a normal block slide or a survey question slide.
- * Used to build the flattened slide list for navigation.
+ * A "virtual slide" — either a normal block slide, decision slide, or survey question slide.
  */
 type VirtualSlide =
   | { kind: 'block'; slide: PitchDeckSlideV2 }
+  | { kind: 'decision'; slide: PitchDeckSlideV2; options: PitchDeckDecisionOption[] }
   | { kind: 'survey-question'; surveyId: number; field: SurveySlideField; surveyTitle: string }
   | { kind: 'survey-thanks'; surveyId: number; thankYouTitle: string; thankYouMessage: string };
 
@@ -33,12 +34,32 @@ interface Props {
   theme: PitchDeckTheme;
   title: string;
   isDraft?: boolean;
-  /** Survey data keyed by survey ID, fetched server-side */
   surveys?: Record<number, SurveyDataForDeck>;
 }
 
+/** Expand a slide (possibly a survey marker) into virtual slides */
+function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyDataForDeck>): VirtualSlide[] {
+  if (slide.decisionSlide && slide.decisionOptions?.length) {
+    return [{ kind: 'decision', slide, options: slide.decisionOptions }];
+  }
+  if (slide.surveySlide && slide.surveyId && surveys[slide.surveyId]) {
+    const survey = surveys[slide.surveyId];
+    const fields = [...survey.fields].sort((a, b) => a.order - b.order);
+    const questionFields = fields.filter(f => f.type !== 'page_break');
+    const result: VirtualSlide[] = questionFields.map(field => ({
+      kind: 'survey-question' as const, surveyId: survey.id, field, surveyTitle: survey.title,
+    }));
+    result.push({
+      kind: 'survey-thanks', surveyId: survey.id,
+      thankYouTitle: survey.thankYouTitle || 'Thank you!',
+      thankYouMessage: survey.thankYouMessage || '',
+    });
+    return result;
+  }
+  return [{ kind: 'block', slide }];
+}
+
 export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {} }: Props) {
-  // Initialize from URL hash (e.g. #3 starts on slide 3)
   const [current, setCurrent] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const hash = parseInt(window.location.hash.replace('#', ''), 10);
@@ -48,39 +69,54 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   const [isAnimating, setIsAnimating] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
-  // Survey answer state — keyed by surveyId, then fieldId
+  // Survey state
   const [surveyAnswers, setSurveyAnswers] = useState<Record<number, Record<string, unknown>>>({});
   const [surveyErrors, setSurveyErrors] = useState<Record<string, string>>({});
   const [surveySubmitted, setSurveySubmitted] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  // Build the flattened virtual slide list — expands survey marker slides into per-question slides
+  // Path branching state
+  const [activePath, setActivePath] = useState<string | null>(null);
+  const [pathHistory, setPathHistory] = useState<string[]>([]); // tracks chosen paths for back navigation
+
+  // Pre-compute path group slide maps
+  const pathGroupSlides = useMemo(() => {
+    const groups: Record<string, VirtualSlide[]> = {};
+    for (const slide of slides) {
+      if (slide.pathGroup) {
+        if (!groups[slide.pathGroup]) groups[slide.pathGroup] = [];
+        groups[slide.pathGroup].push(...expandSlide(slide, surveys));
+      }
+    }
+    return groups;
+  }, [slides, surveys]);
+
+  // Build the active virtual slide sequence
   const virtualSlides = useMemo(() => {
     const result: VirtualSlide[] = [];
-    for (const slide of slides) {
-      if (slide.surveySlide && slide.surveyId && surveys[slide.surveyId]) {
-        const survey = surveys[slide.surveyId];
-        const fields = [...survey.fields].sort((a, b) => a.order - b.order);
-        // Filter out page_break fields — each question becomes its own slide
-        const questionFields = fields.filter(f => f.type !== 'page_break');
-        for (const field of questionFields) {
-          result.push({ kind: 'survey-question', surveyId: survey.id, field, surveyTitle: survey.title });
+    // Main sequence = slides without a pathGroup
+    const mainSlides = slides.filter(s => !s.pathGroup);
+
+    for (let i = 0; i < mainSlides.length; i++) {
+      const slide = mainSlides[i];
+      const expanded = expandSlide(slide, surveys);
+      result.push(...expanded);
+
+      // If this is a decision slide and a path is active, inject the path slides right after
+      if (slide.decisionSlide && slide.decisionOptions?.length) {
+        // Check if any chosen path should be injected after this decision
+        const chosenForThis = pathHistory.find(pg =>
+          slide.decisionOptions!.some(opt => opt.pathGroup === pg)
+        );
+        if (chosenForThis && pathGroupSlides[chosenForThis]) {
+          result.push(...pathGroupSlides[chosenForThis]);
         }
-        // Add a thank-you slide at the end of the survey
-        result.push({
-          kind: 'survey-thanks',
-          surveyId: survey.id,
-          thankYouTitle: survey.thankYouTitle || 'Thank you!',
-          thankYouMessage: survey.thankYouMessage || '',
-        });
-      } else {
-        result.push({ kind: 'block', slide });
       }
     }
     return result;
-  }, [slides, surveys]);
+  }, [slides, surveys, pathHistory, pathGroupSlides]);
 
-  // Determine which virtual slides are currently visible (survey conditional logic)
+  // Filter visible slides (survey conditional logic)
   const visibleSlideIndices = useMemo(() => {
     const indices: number[] = [];
     for (let i = 0; i < virtualSlides.length; i++) {
@@ -90,7 +126,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         if (!evalFieldVisible(vs.field, answers)) continue;
       }
       if (vs.kind === 'survey-thanks') {
-        // Only show thank-you if the survey has been submitted
         if (!surveySubmitted.has(vs.surveyId)) continue;
       }
       indices.push(i);
@@ -98,27 +133,37 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     return indices;
   }, [virtualSlides, surveyAnswers, surveySubmitted]);
 
-  // Map from visible position to virtual index
   const visibleCount = visibleSlideIndices.length;
   const currentVirtualIdx = visibleSlideIndices[current] ?? 0;
   const currentVS = virtualSlides[currentVirtualIdx];
+  const isOnDecisionSlide = currentVS?.kind === 'decision';
 
   const goTo = useCallback((visibleIdx: number, dir?: 'next' | 'prev') => {
     if (visibleIdx < 0 || visibleIdx >= visibleCount || isAnimating) return;
     setDirection(dir || (visibleIdx > current ? 'next' : 'prev'));
     setIsAnimating(true);
     setCurrent(visibleIdx);
-    // Update URL hash to reflect current slide (1-indexed)
     window.history.replaceState(null, '', `#${visibleIdx + 1}`);
     setTimeout(() => setIsAnimating(false), 400);
   }, [current, visibleCount, isAnimating]);
+
+  // Decision slide handler — user picks a path
+  function handleDecisionChoice(pathGroup: string) {
+    setActivePath(pathGroup);
+    setPathHistory(prev => [...prev, pathGroup]);
+    // After state update, the virtualSlides will re-expand with the path injected.
+    // We need to advance to the next slide (first slide of the path).
+    // Use a timeout to let the useMemo recalculate.
+    setTimeout(() => {
+      goTo(current + 1, 'next');
+    }, 50);
+  }
 
   // Validate current survey field before advancing
   function validateCurrentSurveyField(): boolean {
     if (!currentVS || currentVS.kind !== 'survey-question') return true;
     const field = currentVS.field;
     const answers = surveyAnswers[currentVS.surveyId] || {};
-
     if (field.required && field.type !== 'heading') {
       const val = answers[field.id];
       if (val === undefined || val === null || val === '') {
@@ -130,22 +175,18 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     return true;
   }
 
-  // Check if next slide is a thank-you (meaning we need to submit)
   function isLastQuestionBeforeSubmit(): boolean {
     if (!currentVS || currentVS.kind !== 'survey-question') return false;
     const surveyId = currentVS.surveyId;
-    // Find the next visible slide
     const nextVisibleIdx = current + 1;
-    if (nextVisibleIdx >= visibleCount) return true; // end of deck
+    if (nextVisibleIdx >= visibleCount) return true;
     const nextVirtualIdx = visibleSlideIndices[nextVisibleIdx];
     const nextVS = virtualSlides[nextVirtualIdx];
-    // If the next visible non-survey-question slide belongs to a different survey or is a block, submit
     if (!nextVS) return true;
     if (nextVS.kind !== 'survey-question' || nextVS.surveyId !== surveyId) return true;
     return false;
   }
 
-  // Handle goToPage branching for survey fields
   function getNextVisibleIndex(): number {
     if (currentVS?.kind === 'survey-question') {
       const field = currentVS.field;
@@ -154,7 +195,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         const val = String(answers[field.id] || '');
         if (val && field.goToPage[val] !== undefined) {
           const targetPage = field.goToPage[val];
-          // Find the question slide at the target page index within this survey
           let surveyQuestionIdx = 0;
           for (let vi = 0; vi < visibleSlideIndices.length; vi++) {
             const vs = virtualSlides[visibleSlideIndices[vi]];
@@ -192,24 +232,23 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         }
       }
     } catch {
-      // Silently continue to next slide on error
+      // Silently continue
     }
     setSubmitting(false);
   }
 
   const next = useCallback(async () => {
-    // Validate survey question before advancing
-    if (!validateCurrentSurveyField()) return;
+    // Block navigation on decision slides — user must click a choice
+    if (isOnDecisionSlide) return;
 
-    // If this is the last question of a survey, submit before advancing
+    if (!validateCurrentSurveyField()) return;
     if (isLastQuestionBeforeSubmit() && currentVS?.kind === 'survey-question') {
       await submitSurvey(currentVS.surveyId);
     }
-
     const nextIdx = getNextVisibleIndex();
     goTo(nextIdx, 'next');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, currentVS, goTo, surveyAnswers]);
+  }, [current, currentVS, goTo, surveyAnswers, isOnDecisionSlide]);
 
   const prev = useCallback(() => {
     setSurveyErrors({});
@@ -218,38 +257,26 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      // Don't capture keys when user is typing in an input
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          next();
-        }
+        if (e.key === 'Enter') { e.preventDefault(); next(); }
         return;
       }
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
-        e.preventDefault();
-        next();
+        e.preventDefault(); next();
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        prev();
+        e.preventDefault(); prev();
       }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [next, prev]);
 
-  function handleTouchStart(e: React.TouchEvent) {
-    setTouchStart(e.touches[0].clientX);
-  }
-
+  function handleTouchStart(e: React.TouchEvent) { setTouchStart(e.touches[0].clientX); }
   function handleTouchEnd(e: React.TouchEvent) {
     if (touchStart === null) return;
     const diff = touchStart - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) next();
-      else prev();
-    }
+    if (Math.abs(diff) > 50) { if (diff > 0) next(); else prev(); }
     setTouchStart(null);
   }
 
@@ -258,13 +285,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       ...prev,
       [surveyId]: { ...(prev[surveyId] || {}), [fieldId]: value },
     }));
-    // Clear error on answer
     setSurveyErrors(prev => {
-      if (prev[fieldId]) {
-        const next = { ...prev };
-        delete next[fieldId];
-        return next;
-      }
+      if (prev[fieldId]) { const n = { ...prev }; delete n[fieldId]; return n; }
       return prev;
     });
   }
@@ -277,13 +299,11 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     );
   }
 
-  // Count survey questions for numbering
+  // Survey question numbering
   const surveyQuestionCounts: Record<number, { total: number; currentNum: number }> = {};
   if (currentVS?.kind === 'survey-question') {
     const sid = currentVS.surveyId;
-    let total = 0;
-    let currentNum = 0;
-    let foundCurrent = false;
+    let total = 0; let currentNum = 0; let foundCurrent = false;
     for (const vi of visibleSlideIndices) {
       const vs = virtualSlides[vi];
       if (vs.kind === 'survey-question' && vs.surveyId === sid && vs.field.type !== 'heading') {
@@ -311,7 +331,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Draft banner */}
         {isDraft && (
           <div className="absolute top-0 left-0 right-0 z-30 bg-yellow-500/90 text-black text-center text-xs font-medium py-1 tracking-wide">
             DRAFT PREVIEW — This deck is not published
@@ -323,7 +342,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           {String(current + 1).padStart(2, '0')}/{String(visibleCount).padStart(2, '0')}
         </div>
 
-        {/* SimplerDevelopment branding */}
+        {/* Branding */}
         <div className="absolute top-5 right-8 z-20 flex items-center gap-2 opacity-30 hover:opacity-60 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/iconLogo.png" alt="" className="h-6 w-6 brightness-0 invert" />
@@ -332,22 +351,22 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           </span>
         </div>
 
-        {/* Navigation hint - only on first slide */}
+        {/* Navigation hint */}
         {current === 0 && currentVS?.kind === 'block' && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-xs opacity-20 tracking-wide" style={{ fontFamily: theme.bodyFont }}>
             Press arrow keys or spacebar &middot; Swipe on mobile
           </div>
         )}
 
-        {/* Prev/Next buttons */}
-        {current > 0 && (
+        {/* Prev/Next arrow buttons — hidden on decision slides */}
+        {current > 0 && !isOnDecisionSlide && (
           <button onClick={prev}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-0 hover:opacity-60"
             style={{ color: theme.textColor }}>
             <span className="material-icons text-3xl">chevron_left</span>
           </button>
         )}
-        {current < visibleCount - 1 && !submitting && (
+        {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && (
           <button onClick={next}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-0 hover:opacity-60"
             style={{ color: theme.textColor }}>
@@ -355,7 +374,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           </button>
         )}
 
-        {/* Submitting indicator */}
         {submitting && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3">
             <span className="material-icons text-2xl animate-spin" style={{ color: theme.accentColor }}>autorenew</span>
@@ -370,6 +388,16 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           }} />
         </div>
 
+        {/* Active path indicator */}
+        {activePath && (
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 opacity-40">
+            <span className="material-icons text-sm" style={{ color: theme.accentColor }}>fork_right</span>
+            <span className="text-xs tracking-wide" style={{ fontFamily: theme.bodyFont, color: theme.textColor }}>
+              {activePath.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+            </span>
+          </div>
+        )}
+
         {/* Slide content */}
         <div
           className="min-h-screen flex items-center justify-center"
@@ -379,13 +407,11 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               : undefined,
           }}
           onClick={(e) => {
-            // Handle deck navigation button clicks
             const btn = (e.target as HTMLElement).closest('[data-deck-action]') as HTMLElement | null;
             if (!btn) return;
             const action = btn.dataset.deckAction;
-            if (action === 'next-slide') {
-              next();
-            } else if (action === 'jump-to') {
+            if (action === 'next-slide') { next(); }
+            else if (action === 'jump-to') {
               const target = parseInt(btn.dataset.deckTarget || '1', 10);
               if (target > 0 && target <= visibleCount) {
                 goTo(target - 1, target - 1 > current ? 'next' : 'prev');
@@ -398,6 +424,15 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               slide={currentVS.slide}
               theme={theme}
               className="min-h-screen w-full flex items-center justify-center"
+            />
+          )}
+
+          {currentVS?.kind === 'decision' && (
+            <DecisionSlideRenderer
+              title={currentVS.slide.label || 'Choose your path'}
+              options={currentVS.options}
+              theme={theme}
+              onChoose={handleDecisionChoice}
             />
           )}
 
@@ -421,16 +456,12 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
           {currentVS?.kind === 'survey-thanks' && (
             <div className="flex flex-col items-center justify-center min-h-screen px-8 text-center">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                style={{ backgroundColor: `${theme.accentColor}20` }}
-              >
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+                style={{ backgroundColor: `${theme.accentColor}20` }}>
                 <span className="material-icons text-4xl" style={{ color: theme.accentColor }}>check_circle</span>
               </div>
-              <h2
-                className="text-3xl md:text-4xl font-bold mb-4"
-                style={{ fontFamily: theme.headingFont, color: theme.textColor }}
-              >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4"
+                style={{ fontFamily: theme.headingFont, color: theme.textColor }}>
                 {currentVS.thankYouTitle}
               </h2>
               {currentVS.thankYouMessage && (

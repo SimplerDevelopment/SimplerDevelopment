@@ -63,6 +63,7 @@ function getSlideTitle(slide: PitchDeckSlideV2): string {
 
 /** Get an icon for a slide based on its first block */
 function getSlideIcon(slide: PitchDeckSlideV2): string {
+  if (slide.decisionSlide) return 'fork_right';
   if (slide.surveySlide) return 'assignment';
   if (!slide.blocks.length) return 'edit_note';
   const first = slide.blocks[0].type;
@@ -157,6 +158,128 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     setActiveSlide(newSlides.length - 1);
     setHasUnsavedChanges(true);
     setShowSurveyPicker(false);
+  }
+
+  // ─── Path Groups & Decision Slides ───────────────────────────────────────────
+
+  function getPathGroups(): string[] {
+    if (!deck) return [];
+    const groups = new Set<string>();
+    for (const slide of deck.slides) {
+      if (slide.pathGroup) groups.add(slide.pathGroup);
+    }
+    // Also include any groups referenced in decision options that don't have slides yet
+    for (const slide of deck.slides) {
+      if (slide.decisionOptions) {
+        for (const opt of slide.decisionOptions) {
+          groups.add(opt.pathGroup);
+        }
+      }
+    }
+    return Array.from(groups).sort();
+  }
+
+  function addPathGroup() {
+    const name = prompt('Path group name (e.g. "pricing", "case-studies"):');
+    if (!name?.trim() || !deck) return;
+    const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    if (!slug) return;
+    // Add a blank slide to this path group
+    const newSlide: PitchDeckSlideV2 = {
+      id: `slide-${Date.now()}`,
+      label: 'New Slide',
+      blocks: [
+        { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
+      ],
+      pathGroup: slug,
+    };
+    const newSlides = [...deck.slides, newSlide];
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(newSlides.length - 1);
+    setHasUnsavedChanges(true);
+  }
+
+  function addSlideToPathGroup(pathGroup: string) {
+    if (!deck) return;
+    const newSlide: PitchDeckSlideV2 = {
+      id: `slide-${Date.now()}`,
+      label: 'New Slide',
+      blocks: [
+        { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
+      ],
+      pathGroup,
+    };
+    // Insert after the last slide of this path group
+    const lastIdx = deck.slides.reduce((acc, s, i) => s.pathGroup === pathGroup ? i : acc, -1);
+    const newSlides = [...deck.slides];
+    newSlides.splice(lastIdx + 1, 0, newSlide);
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(lastIdx + 1);
+    setHasUnsavedChanges(true);
+  }
+
+  function addDecisionSlide() {
+    if (!deck) return;
+    const groups = getPathGroups();
+    const newSlide: PitchDeckSlideV2 = {
+      id: `slide-decision-${Date.now()}`,
+      label: 'Decision Point',
+      blocks: [],
+      decisionSlide: true,
+      decisionOptions: groups.length >= 2
+        ? groups.slice(0, 2).map((pg, i) => ({
+            id: `opt-${Date.now()}-${i}`,
+            label: pg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            pathGroup: pg,
+          }))
+        : [
+            { id: `opt-${Date.now()}-0`, label: 'Option A', pathGroup: 'path-a' },
+            { id: `opt-${Date.now()}-1`, label: 'Option B', pathGroup: 'path-b' },
+          ],
+    };
+    // Insert before the last main-sequence slide
+    const mainSlides = deck.slides.filter(s => !s.pathGroup);
+    const lastMainIdx = deck.slides.indexOf(mainSlides[mainSlides.length - 1]);
+    const newSlides = [...deck.slides];
+    newSlides.splice(lastMainIdx >= 0 ? lastMainIdx : deck.slides.length, 0, newSlide);
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(lastMainIdx >= 0 ? lastMainIdx : deck.slides.length - 1);
+    setHasUnsavedChanges(true);
+  }
+
+  function updateDecisionOption(slideIdx: number, optionId: string, updates: Partial<{ label: string; description: string; icon: string; pathGroup: string }>) {
+    if (!deck) return;
+    const newSlides = [...deck.slides];
+    const slide = { ...newSlides[slideIdx] };
+    slide.decisionOptions = (slide.decisionOptions || []).map(opt =>
+      opt.id === optionId ? { ...opt, ...updates } : opt
+    );
+    newSlides[slideIdx] = slide;
+    setDeck({ ...deck, slides: newSlides });
+    setHasUnsavedChanges(true);
+  }
+
+  function addDecisionOption(slideIdx: number) {
+    if (!deck) return;
+    const newSlides = [...deck.slides];
+    const slide = { ...newSlides[slideIdx] };
+    slide.decisionOptions = [
+      ...(slide.decisionOptions || []),
+      { id: `opt-${Date.now()}`, label: 'New Option', pathGroup: `path-${Date.now()}` },
+    ];
+    newSlides[slideIdx] = slide;
+    setDeck({ ...deck, slides: newSlides });
+    setHasUnsavedChanges(true);
+  }
+
+  function removeDecisionOption(slideIdx: number, optionId: string) {
+    if (!deck) return;
+    const newSlides = [...deck.slides];
+    const slide = { ...newSlides[slideIdx] };
+    slide.decisionOptions = (slide.decisionOptions || []).filter(opt => opt.id !== optionId);
+    newSlides[slideIdx] = slide;
+    setDeck({ ...deck, slides: newSlides });
+    setHasUnsavedChanges(true);
   }
 
   // Close board view on ESC
@@ -953,31 +1076,99 @@ useEffect(() => {
                     </div>
                   )}
                   <div className="max-h-[calc(100vh-340px)] overflow-y-auto">
+                    {/* Main sequence slides */}
                     <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
                       <SortableContext items={deck.slides.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                        {deck.slides.map((slide, idx) => (
-                          <SortableSlideItem
-                            key={slide.id}
-                            slide={slide}
-                            index={idx}
-                            isActive={idx === activeSlide}
-                            isSelected={selectedSlides.has(idx)}
-                            onClick={() => setActiveSlide(idx)}
-                            onRename={(newLabel) => {
-                              if (!deck) return;
-                              const newSlides = [...deck.slides];
-                              newSlides[idx] = { ...newSlides[idx], label: newLabel };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            onDuplicate={() => duplicateSlide(idx)}
-                            onRemove={() => removeSlide(idx)}
-                            onToggleSelect={() => toggleSlideSelection(idx)}
-                            canRemove={deck.slides.length > 1}
-                          />
-                        ))}
+                        {deck.slides.map((slide, idx) => {
+                          if (slide.pathGroup) return null; // shown in path group sections below
+                          return (
+                            <SortableSlideItem
+                              key={slide.id}
+                              slide={slide}
+                              index={idx}
+                              isActive={idx === activeSlide}
+                              isSelected={selectedSlides.has(idx)}
+                              onClick={() => setActiveSlide(idx)}
+                              onRename={(newLabel) => {
+                                if (!deck) return;
+                                const newSlides = [...deck.slides];
+                                newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                setDeck({ ...deck, slides: newSlides });
+                                setHasUnsavedChanges(true);
+                              }}
+                              onDuplicate={() => duplicateSlide(idx)}
+                              onRemove={() => removeSlide(idx)}
+                              onToggleSelect={() => toggleSlideSelection(idx)}
+                              canRemove={deck.slides.length > 1}
+                            />
+                          );
+                        })}
                       </SortableContext>
                     </DndContext>
+
+                    {/* Add decision / path buttons */}
+                    <div className="border-t border-border p-2 space-y-1">
+                      <button
+                        onClick={addDecisionSlide}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <span className="material-icons text-sm text-amber-500">fork_right</span>
+                        Add Decision Slide
+                      </button>
+                      <button
+                        onClick={addPathGroup}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-accent transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <span className="material-icons text-sm text-blue-500">route</span>
+                        Add Path Group
+                      </button>
+                    </div>
+
+                    {/* Path group sections */}
+                    {getPathGroups().map(pg => {
+                      const pgSlides = deck.slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => slide.pathGroup === pg);
+                      return (
+                        <div key={pg} className="border-t border-border">
+                          <div className="px-3 py-2 flex items-center justify-between bg-accent/20">
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-icons text-sm text-blue-500">route</span>
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{pg}</span>
+                            </div>
+                            <button
+                              onClick={() => addSlideToPathGroup(pg)}
+                              className="text-primary hover:text-primary/80"
+                              title={`Add slide to ${pg}`}
+                            >
+                              <span className="material-icons text-base">add_circle</span>
+                            </button>
+                          </div>
+                          {pgSlides.map(({ slide, idx }) => (
+                            <SortableSlideItem
+                              key={slide.id}
+                              slide={slide}
+                              index={idx}
+                              isActive={idx === activeSlide}
+                              isSelected={selectedSlides.has(idx)}
+                              onClick={() => setActiveSlide(idx)}
+                              onRename={(newLabel) => {
+                                if (!deck) return;
+                                const newSlides = [...deck.slides];
+                                newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                setDeck({ ...deck, slides: newSlides });
+                                setHasUnsavedChanges(true);
+                              }}
+                              onDuplicate={() => duplicateSlide(idx)}
+                              onRemove={() => removeSlide(idx)}
+                              onToggleSelect={() => toggleSlideSelection(idx)}
+                              canRemove={deck.slides.length > 1}
+                            />
+                          ))}
+                          {pgSlides.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground text-center py-2">No slides in this path yet</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -1126,6 +1317,108 @@ useEffect(() => {
                     <span className="material-icons text-base">open_in_new</span>
                     Edit Survey
                   </a>
+                  <button
+                    onClick={() => removeSlide(activeSlide)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <span className="material-icons text-base">delete</span>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : currentSlide.decisionSlide ? (
+              <div className="bg-card border border-border rounded-xl p-8 space-y-6" style={{ minHeight: '600px' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <span className="material-icons text-2xl text-amber-500">fork_right</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Decision Slide</h3>
+                    <p className="text-sm text-muted-foreground">Viewers must choose a path to continue</p>
+                  </div>
+                </div>
+
+                {/* Slide label */}
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Slide Title</label>
+                  <input
+                    type="text"
+                    value={currentSlide.label || ''}
+                    onChange={(e) => {
+                      const newSlides = [...deck.slides];
+                      newSlides[activeSlide] = { ...newSlides[activeSlide], label: e.target.value };
+                      setDeck({ ...deck, slides: newSlides });
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="e.g. Choose your path"
+                  />
+                </div>
+
+                {/* Decision options */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-muted-foreground">Options</label>
+                    <button
+                      onClick={() => addDecisionOption(activeSlide)}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
+                    >
+                      <span className="material-icons text-sm">add</span>
+                      Add Option
+                    </button>
+                  </div>
+                  {(currentSlide.decisionOptions || []).map((opt) => (
+                    <div key={opt.id} className="bg-accent/30 rounded-lg p-4 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            value={opt.label}
+                            onChange={(e) => updateDecisionOption(activeSlide, opt.id, { label: e.target.value })}
+                            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="Option label"
+                          />
+                          <input
+                            type="text"
+                            value={opt.description || ''}
+                            onChange={(e) => updateDecisionOption(activeSlide, opt.id, { description: e.target.value })}
+                            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            placeholder="Description (optional)"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={opt.icon || ''}
+                              onChange={(e) => updateDecisionOption(activeSlide, opt.id, { icon: e.target.value })}
+                              className="flex-1 px-2.5 py-1.5 bg-background border border-border rounded text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              placeholder="Material icon name"
+                            />
+                            <input
+                              type="text"
+                              value={opt.pathGroup}
+                              onChange={(e) => updateDecisionOption(activeSlide, opt.id, { pathGroup: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                              className="flex-1 px-2.5 py-1.5 bg-background border border-border rounded text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                              placeholder="path-group-name"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeDecisionOption(activeSlide, opt.id)}
+                          className="p-1 text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                        >
+                          <span className="material-icons text-base">close</span>
+                        </button>
+                      </div>
+                      {/* Show path group slide count */}
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <span className="material-icons text-xs text-blue-500">route</span>
+                        {deck.slides.filter(s => s.pathGroup === opt.pathGroup).length} slide(s) in &quot;{opt.pathGroup}&quot;
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
                   <button
                     onClick={() => removeSlide(activeSlide)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
