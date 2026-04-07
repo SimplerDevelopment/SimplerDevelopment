@@ -28,6 +28,8 @@ export interface ContentCalendarProps {
   websiteId?: number;
   /** Base path for "New Post" and "Edit" links. e.g. "/portal/websites/5" */
   basePath: string;
+  /** Site ID used when creating posts from the calendar. Falls back to websiteId. */
+  siteId?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +236,170 @@ function ScheduleModal({
 }
 
 // ---------------------------------------------------------------------------
+// Create Post Modal (click on empty date)
+// ---------------------------------------------------------------------------
+
+function CreatePostModal({
+  date,
+  basePath,
+  websiteId,
+  onClose,
+  onCreated,
+}: {
+  date: Date;
+  basePath: string;
+  websiteId?: number;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [postType, setPostType] = useState('blog');
+  const dateStr = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 9, 0).toISOString().slice(0, 16);
+  const [scheduledAt, setScheduledAt] = useState(dateStr);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const handleCreate = async () => {
+    if (!title.trim()) { setError('Title is required'); return; }
+    if (!websiteId) { setError('Website ID missing'); return; }
+    setSaving(true);
+    setError('');
+
+    // 1. Create the post as a draft
+    const res = await fetch(`/api/portal/cms/websites/${websiteId}/posts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title.trim(),
+        slug: slug || `post-${Date.now()}`,
+        postType,
+        content: JSON.stringify({ blocks: [] }),
+        published: false,
+      }),
+    });
+    const json = await res.json();
+
+    if (!json.success) {
+      setError(json.message || 'Failed to create post');
+      setSaving(false);
+      return;
+    }
+
+    // 2. Schedule it for the selected date
+    await fetch(`/api/posts/${json.data.id}/schedule`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        publishedAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        published: false,
+      }),
+    });
+
+    setSaving(false);
+    onCreated();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Schedule New Post</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <span className="material-icons">close</span>
+          </button>
+        </div>
+
+        <p className="text-sm text-muted-foreground mb-4">
+          {date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </p>
+
+        {error && (
+          <div className="mb-4 px-3 py-2 text-sm rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Post title"
+              autoFocus
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              onKeyDown={(e) => { if (e.key === 'Enter' && title.trim()) handleCreate(); }}
+            />
+            {slug && (
+              <p className="text-xs text-muted-foreground mt-1">/{slug}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Post Type</label>
+            <select
+              value={postType}
+              onChange={(e) => setPostType(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="blog">Blog Post</option>
+              <option value="page">Page</option>
+              <option value="case-study">Case Study</option>
+              <option value="landing">Landing Page</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Scheduled Date & Time</label>
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-between mt-6">
+          <a
+            href={`${basePath}/posts/new`}
+            className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-accent inline-flex items-center gap-1"
+          >
+            <span className="material-icons text-sm">open_in_new</span>
+            Full Editor
+          </a>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={saving || !title.trim()}
+              className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? 'Creating...' : 'Create & Schedule'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Post Card (appears on calendar cells)
 // ---------------------------------------------------------------------------
 
@@ -256,6 +422,7 @@ function PostCard({
   if (compact) {
     return (
       <div
+        data-post-card
         draggable
         onDragStart={(e) => onDragStart(e, post)}
         className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium truncate cursor-grab active:cursor-grabbing ${colors.bg} ${colors.text}`}
@@ -269,6 +436,7 @@ function PostCard({
 
   return (
     <div
+      data-post-card
       draggable
       onDragStart={(e) => onDragStart(e, post)}
       className={`group flex items-start gap-2 p-2 rounded-md border border-transparent hover:border-border ${colors.bg} cursor-grab active:cursor-grabbing transition-colors`}
@@ -305,12 +473,13 @@ function PostCard({
 // Main Calendar Component
 // ---------------------------------------------------------------------------
 
-export default function ContentCalendar({ websiteId, basePath }: ContentCalendarProps) {
+export default function ContentCalendar({ websiteId, basePath, siteId }: ContentCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<ViewMode>('month');
   const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [schedulePost, setSchedulePost] = useState<CalendarPost | null>(null);
+  const [createDate, setCreateDate] = useState<Date | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const draggedPost = useRef<CalendarPost | null>(null);
@@ -528,7 +697,12 @@ export default function ContentCalendar({ websiteId, basePath }: ContentCalendar
                   key={i}
                   onDrop={(e) => handleDrop(e, day)}
                   onDragOver={handleDragOver}
-                  className={`border-b border-r border-border ${
+                  onClick={(e) => {
+                    // Only open create modal if clicking empty space, not a post card
+                    if ((e.target as HTMLElement).closest('[data-post-card]')) return;
+                    setCreateDate(day);
+                  }}
+                  className={`border-b border-r border-border cursor-pointer ${
                     view === 'month' ? 'min-h-[110px]' : 'min-h-[400px]'
                   } ${isCurrentMonth ? '' : 'bg-muted/30'} ${
                     today ? 'bg-primary/5' : ''
@@ -611,6 +785,17 @@ export default function ContentCalendar({ websiteId, basePath }: ContentCalendar
           post={schedulePost}
           onClose={() => setSchedulePost(null)}
           onSave={handleScheduleSave}
+        />
+      )}
+
+      {/* Create Post Modal (click on date) */}
+      {createDate && (
+        <CreatePostModal
+          date={createDate}
+          basePath={basePath}
+          websiteId={siteId ?? websiteId}
+          onClose={() => setCreateDate(null)}
+          onCreated={fetchPosts}
         />
       )}
     </div>

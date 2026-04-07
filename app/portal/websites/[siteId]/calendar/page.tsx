@@ -62,7 +62,7 @@ export default async function PortalCalendarPage({
         </Link>
       </div>
 
-      <ContentCalendar websiteId={site.id} basePath={basePath} />
+      <ContentCalendar websiteId={site.id} siteId={site.id} basePath={basePath} />
     </div>
   );
 }

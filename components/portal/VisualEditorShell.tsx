@@ -578,16 +578,17 @@ export function VisualEditorShell({
     <div className="flex h-[calc(100vh-3rem)] overflow-hidden">
       {/* ── Left Panel ── */}
       {!previewMode && (
-      <div className={`${leftCollapsed ? 'w-10' : 'w-60'} flex-shrink-0 border-r border-border bg-muted flex flex-col overflow-hidden transition-all duration-200`}>
-        {leftCollapsed ? (
-          <button
-            onClick={() => setLeftCollapsed(false)}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors border-b border-border"
-            title="Expand panel"
-          >
-            <span className="material-icons text-base">chevron_right</span>
-          </button>
-        ) : (
+      <div className={`${leftCollapsed ? 'w-0' : 'w-60'} flex-shrink-0 transition-all duration-200 relative`}>
+        {/* Collapse/expand toggle – vertically centered on panel edge */}
+        <button
+          onClick={() => setLeftCollapsed((v) => !v)}
+          className="absolute top-1/2 -translate-y-1/2 -right-3.5 z-30 w-7 h-10 flex items-center justify-center rounded-r-md bg-muted border border-l-0 border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shadow-sm"
+          title={leftCollapsed ? 'Expand panel' : 'Collapse panel'}
+        >
+          <span className="material-icons text-sm">{leftCollapsed ? 'chevron_right' : 'chevron_left'}</span>
+        </button>
+        <div className="h-full border-r border-border bg-muted flex flex-col overflow-hidden">
+        {!leftCollapsed && (
         <>
         {/* Tab bar */}
         <div className="flex border-b border-border shrink-0">
@@ -736,16 +737,9 @@ export function VisualEditorShell({
             )}
           </div>
         )}
-        {/* Collapse button at bottom */}
-        <button
-          onClick={() => setLeftCollapsed(true)}
-          className="shrink-0 p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors text-center"
-          title="Collapse panel"
-        >
-          <span className="material-icons text-base">chevron_left</span>
-        </button>
         </>
         )}
+        </div>
       </div>
       )}
 
@@ -833,7 +827,7 @@ export function VisualEditorShell({
         </div>
 
         {/* Zoom controls — shown in both preview and edit modes */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg z-10">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-lg px-2 py-1 shadow-lg z-10">
             <button type="button" onClick={zoomOut} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={zoomLevel <= 30} title="Zoom out">
               <span className="material-icons text-sm">remove</span>
             </button>
@@ -848,16 +842,17 @@ export function VisualEditorShell({
 
       {/* ── Right Panel — Property Editor ── */}
       {!previewMode && (
-      <div className={`${rightCollapsed ? 'w-10' : 'w-80'} flex-shrink-0 border-l border-border bg-card flex flex-col overflow-hidden transition-all duration-200`}>
-        {rightCollapsed ? (
-          <button
-            onClick={() => setRightCollapsed(false)}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors border-b border-border"
-            title="Expand panel"
-          >
-            <span className="material-icons text-base">chevron_left</span>
-          </button>
-        ) : (
+      <div className={`${rightCollapsed ? 'w-0' : 'w-80'} flex-shrink-0 transition-all duration-200 relative`}>
+        {/* Collapse/expand toggle – vertically centered on panel edge */}
+        <button
+          onClick={() => setRightCollapsed((v) => !v)}
+          className="absolute top-1/2 -translate-y-1/2 -left-3.5 z-30 w-7 h-10 flex items-center justify-center rounded-l-md bg-card border border-r-0 border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shadow-sm"
+          title={rightCollapsed ? 'Expand panel' : 'Collapse panel'}
+        >
+          <span className="material-icons text-sm">{rightCollapsed ? 'chevron_left' : 'chevron_right'}</span>
+        </button>
+        <div className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
+        {!rightCollapsed && (
         <>
         {isMultiSelect ? (
           /* ── Multi-select: bulk actions + full style editor ── */
@@ -1013,16 +1008,9 @@ export function VisualEditorShell({
             <p className="text-sm">Click a block to edit</p>
           </div>
         )}
-        {/* Collapse button at bottom */}
-        <button
-          onClick={() => setRightCollapsed(true)}
-          className="shrink-0 p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors text-center"
-          title="Collapse panel"
-        >
-          <span className="material-icons text-base">chevron_right</span>
-        </button>
         </>
         )}
+        </div>
       </div>
       )}
     </div>
