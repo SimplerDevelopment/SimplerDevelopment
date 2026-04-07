@@ -88,6 +88,7 @@ export function SelectableBlock({
       onMouseLeave={() => onHovered(null)}
       className="relative"
       style={{
+        pointerEvents: 'auto',
         outline: isSelected
           ? '2px solid #3b82f6'
           : isHovered
@@ -105,6 +106,7 @@ export function SelectableBlock({
           style={{
             backgroundColor: isSelected ? '#3b82f6' : '#64748b',
             color: 'white',
+            pointerEvents: 'auto',
           }}
         >
           <span
