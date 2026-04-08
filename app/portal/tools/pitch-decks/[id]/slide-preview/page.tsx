@@ -111,16 +111,30 @@ function SlidePreviewInner() {
           a, .text-primary { color: ${theme.primaryColor}; }
         `}} />
         <div
+          className="relative"
           style={{
             backgroundColor: theme.backgroundColor,
             color: theme.textColor,
             fontFamily: `"${theme.bodyFont}", sans-serif`,
             width: '100%',
             minHeight: '100vh',
+            ...(parsedPageSettings.backgroundImage ? {
+              backgroundImage: `url(${parsedPageSettings.backgroundImage})`,
+              backgroundSize: parsedPageSettings.backgroundSize || 'cover',
+              backgroundPosition: parsedPageSettings.backgroundPosition || 'center',
+              backgroundRepeat: parsedPageSettings.backgroundRepeat || 'no-repeat',
+            } : {}),
           }}
         >
+          {parsedPageSettings.backgroundVideo && (
+            <video
+              autoPlay muted loop playsInline
+              className="absolute inset-0 w-full h-full object-cover z-0"
+              src={parsedPageSettings.backgroundVideo}
+            />
+          )}
           <div
-            className="w-full min-h-screen flex flex-col"
+            className="w-full min-h-screen flex flex-col relative z-10"
             style={{
               ['--slide-primary' as string]: theme.primaryColor,
               ['--slide-accent' as string]: theme.accentColor,
