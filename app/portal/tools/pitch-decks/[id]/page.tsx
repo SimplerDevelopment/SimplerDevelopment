@@ -103,7 +103,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('preview');
+  const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('edit');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
