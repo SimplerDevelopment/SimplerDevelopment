@@ -1651,12 +1651,23 @@ useEffect(() => {
                             <div>
                               <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
                               <select
-                                value={currentSlide.pageSettings?.backgroundSize || 'cover'}
+                                value={['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') ? (currentSlide.pageSettings?.backgroundSize || 'cover') : 'custom'}
                                 onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'custom') {
+                                    const newSlides = [...deck.slides];
+                                    newSlides[activeSlide] = {
+                                      ...newSlides[activeSlide],
+                                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: '200px' as 'cover' },
+                                    };
+                                    setDeck({ ...deck, slides: newSlides });
+                                    setHasUnsavedChanges(true);
+                                    return;
+                                  }
                                   const newSlides = [...deck.slides];
                                   newSlides[activeSlide] = {
                                     ...newSlides[activeSlide],
-                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' | 'contain' | 'auto' },
+                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: val as 'cover' | 'contain' | 'auto' },
                                   };
                                   setDeck({ ...deck, slides: newSlides });
                                   setHasUnsavedChanges(true);
@@ -1666,7 +1677,25 @@ useEffect(() => {
                                 <option value="cover">Cover</option>
                                 <option value="contain">Contain</option>
                                 <option value="auto">Auto</option>
+                                <option value="custom">Custom</option>
                               </select>
+                              {!['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') && (
+                                <input
+                                  type="text"
+                                  value={currentSlide.pageSettings?.backgroundSize || ''}
+                                  onChange={(e) => {
+                                    const newSlides = [...deck.slides];
+                                    newSlides[activeSlide] = {
+                                      ...newSlides[activeSlide],
+                                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' },
+                                    };
+                                    setDeck({ ...deck, slides: newSlides });
+                                    setHasUnsavedChanges(true);
+                                  }}
+                                  placeholder="e.g. 200px, 50%, 100px auto"
+                                  className="mt-1 w-full px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                />
+                              )}
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-muted-foreground mb-1">Repeat</label>
