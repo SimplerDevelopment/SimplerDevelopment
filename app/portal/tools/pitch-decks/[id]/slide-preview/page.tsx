@@ -118,18 +118,25 @@ function SlidePreviewInner() {
             fontFamily: `"${theme.bodyFont}", sans-serif`,
             width: '100%',
             minHeight: '100vh',
-            ...(parsedPageSettings.backgroundImage ? {
-              backgroundImage: `url(${parsedPageSettings.backgroundImage})`,
-              backgroundSize: parsedPageSettings.backgroundSize || 'cover',
-              backgroundPosition: parsedPageSettings.backgroundPosition || 'center',
-              backgroundRepeat: parsedPageSettings.backgroundRepeat || 'no-repeat',
-            } : {}),
           }}
         >
+          {parsedPageSettings.backgroundImage && (
+            <div
+              className="absolute inset-0 z-0"
+              style={{
+                backgroundImage: `url(${parsedPageSettings.backgroundImage})`,
+                backgroundSize: parsedPageSettings.backgroundSize || 'cover',
+                backgroundPosition: parsedPageSettings.backgroundPosition || 'center',
+                backgroundRepeat: parsedPageSettings.backgroundRepeat || 'no-repeat',
+                opacity: parsedPageSettings.backgroundOpacity ?? 1,
+              }}
+            />
+          )}
           {parsedPageSettings.backgroundVideo && (
             <video
               autoPlay muted loop playsInline
               className="absolute inset-0 w-full h-full object-cover z-0"
+              style={{ opacity: parsedPageSettings.backgroundOpacity ?? 1 }}
               src={parsedPageSettings.backgroundVideo}
             />
           )}

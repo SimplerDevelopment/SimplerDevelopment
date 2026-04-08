@@ -1745,6 +1745,28 @@ useEffect(() => {
                               <option value="bottom right">Bottom Right</option>
                             </select>
                           </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">
+                              Opacity: {Math.round((currentSlide.pageSettings?.backgroundOpacity ?? 1) * 100)}%
+                            </label>
+                            <input
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={currentSlide.pageSettings?.backgroundOpacity ?? 1}
+                              onChange={(e) => {
+                                const newSlides = [...deck.slides];
+                                newSlides[activeSlide] = {
+                                  ...newSlides[activeSlide],
+                                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundOpacity: parseFloat(e.target.value) },
+                                };
+                                setDeck({ ...deck, slides: newSlides });
+                                setHasUnsavedChanges(true);
+                              }}
+                              className="w-full accent-primary"
+                            />
+                          </div>
                         </>
                       )}
 

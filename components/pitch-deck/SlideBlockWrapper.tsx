@@ -55,14 +55,21 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
         fontFamily: `"${theme.bodyFont}", sans-serif`,
         width: '100%',
         minHeight: '100%',
-        ...(slide.pageSettings?.backgroundImage ? {
-          backgroundImage: `url(${slide.pageSettings.backgroundImage})`,
-          backgroundSize: slide.pageSettings.backgroundSize || 'cover',
-          backgroundPosition: slide.pageSettings.backgroundPosition || 'center',
-          backgroundRepeat: slide.pageSettings.backgroundRepeat || 'no-repeat',
-        } : {}),
       }}
     >
+      {/* Background image overlay (separate div for opacity control) */}
+      {slide.pageSettings?.backgroundImage && (
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage: `url(${slide.pageSettings.backgroundImage})`,
+            backgroundSize: slide.pageSettings.backgroundSize || 'cover',
+            backgroundPosition: slide.pageSettings.backgroundPosition || 'center',
+            backgroundRepeat: slide.pageSettings.backgroundRepeat || 'no-repeat',
+            opacity: slide.pageSettings.backgroundOpacity ?? 1,
+          }}
+        />
+      )}
       {/* Background video */}
       {slide.pageSettings?.backgroundVideo && (
         <video
@@ -71,6 +78,7 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
           loop
           playsInline
           className="absolute inset-0 w-full h-full object-cover z-0"
+          style={{ opacity: slide.pageSettings.backgroundOpacity ?? 1 }}
           src={slide.pageSettings.backgroundVideo}
         />
       )}

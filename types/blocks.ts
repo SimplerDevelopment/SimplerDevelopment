@@ -868,6 +868,7 @@ export interface PageSettings {
   cssClass?: string;
   backgroundVideo?: string;
   backgroundRepeat?: 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y';
+  backgroundOpacity?: number; // 0 to 1
 }
 
 export interface BlockEditorData {
