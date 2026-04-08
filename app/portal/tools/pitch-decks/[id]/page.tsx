@@ -8,6 +8,7 @@ import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
+import MediaPicker from '@/components/admin/MediaPicker';
 import {
   DndContext,
   closestCenter,
@@ -1625,44 +1626,22 @@ useEffect(() => {
 
                       {/* Background Image */}
                       <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">Background Image</label>
-                        <input
-                          type="text"
+                        <span className="text-xs font-medium text-muted-foreground">Background Image</span>
+                        <MediaPicker
                           value={currentSlide.pageSettings?.backgroundImage || ''}
-                          onChange={(e) => {
+                          onChange={(v) => {
                             const newSlides = [...deck.slides];
                             newSlides[activeSlide] = {
                               ...newSlides[activeSlide],
-                              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundImage: e.target.value },
+                              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundImage: v },
                             };
                             setDeck({ ...deck, slides: newSlides });
                             setHasUnsavedChanges(true);
                           }}
-                          placeholder="https://... or /uploads/..."
-                          className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          mimeTypeFilter="image"
+                          label=""
+                          apiEndpoint="/api/media"
                         />
-                        {currentSlide.pageSettings?.backgroundImage && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <div className="w-16 h-10 rounded border border-border overflow-hidden bg-muted">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={currentSlide.pageSettings.backgroundImage} alt="" className="w-full h-full object-cover" />
-                            </div>
-                            <button
-                              onClick={() => {
-                                const newSlides = [...deck.slides];
-                                const ps = { ...newSlides[activeSlide].pageSettings };
-                                delete ps.backgroundImage;
-                                delete ps.backgroundSize;
-                                newSlides[activeSlide] = { ...newSlides[activeSlide], pageSettings: ps };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              className="text-xs text-red-500 hover:text-red-400"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        )}
                       </div>
 
                       {/* Background Size (when image is set) */}
@@ -1688,6 +1667,26 @@ useEffect(() => {
                           </select>
                         </div>
                       )}
+
+                      {/* Background Video */}
+                      <div>
+                        <span className="text-xs font-medium text-muted-foreground">Background Video</span>
+                        <MediaPicker
+                          value={currentSlide.pageSettings?.backgroundVideo || ''}
+                          onChange={(v) => {
+                            const newSlides = [...deck.slides];
+                            newSlides[activeSlide] = {
+                              ...newSlides[activeSlide],
+                              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundVideo: v },
+                            };
+                            setDeck({ ...deck, slides: newSlides });
+                            setHasUnsavedChanges(true);
+                          }}
+                          mimeTypeFilter="video"
+                          label=""
+                          apiEndpoint="/api/media"
+                        />
+                      </div>
 
                       {/* Text Color */}
                       <div>

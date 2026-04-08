@@ -866,6 +866,7 @@ export interface PageSettings {
   fontFamily?: string;
   color?: string;
   cssClass?: string;
+  backgroundVideo?: string;
 }
 
 export interface BlockEditorData {

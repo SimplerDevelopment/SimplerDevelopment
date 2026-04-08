@@ -48,15 +48,31 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
   return (
     <div
       ref={rootRef}
-      className={`slide-themed ${className || ''}`}
+      className={`slide-themed ${className || ''} relative`}
       style={{
         backgroundColor: slide.pageSettings?.backgroundColor || theme.backgroundColor,
         color: theme.textColor,
         fontFamily: `"${theme.bodyFont}", sans-serif`,
         width: '100%',
         minHeight: '100%',
+        ...(slide.pageSettings?.backgroundImage ? {
+          backgroundImage: `url(${slide.pageSettings.backgroundImage})`,
+          backgroundSize: slide.pageSettings.backgroundSize || 'cover',
+          backgroundPosition: 'center',
+        } : {}),
       }}
     >
+      {/* Background video */}
+      {slide.pageSettings?.backgroundVideo && (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover z-0"
+          src={slide.pageSettings.backgroundVideo}
+        />
+      )}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap');
         .slide-themed h1, .slide-themed h2, .slide-themed h3,
@@ -68,7 +84,7 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
         }
       `}</style>
       <div
-        className="w-full min-h-full flex flex-col"
+        className="w-full min-h-full flex flex-col relative z-10"
         style={{
           ['--slide-primary' as string]: theme.primaryColor,
           ['--slide-accent' as string]: theme.accentColor,
