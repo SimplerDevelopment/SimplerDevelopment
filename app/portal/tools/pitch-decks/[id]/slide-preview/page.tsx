@@ -56,6 +56,14 @@ function SlidePreviewInner() {
 
   const content = JSON.stringify({ blocks: isEditMode ? [] : previewBlocks, version: '1.0' });
 
+  // Parse full pageSettings from URL param (includes bg image, video, etc.)
+  const parsedPageSettings = (() => {
+    try {
+      const ps = searchParams.get('ps');
+      return ps ? JSON.parse(ps) : {};
+    } catch { return {}; }
+  })();
+
   // Build a virtual slide from the current blocks for SlideBlockWrapper
   const virtualSlide: PitchDeckSlideV2 = {
     id: 'preview',
@@ -63,6 +71,7 @@ function SlidePreviewInner() {
     blocks: isEditMode ? [] : previewBlocks,
     pageSettings: {
       backgroundColor: theme.backgroundColor,
+      ...parsedPageSettings,
     },
   };
 

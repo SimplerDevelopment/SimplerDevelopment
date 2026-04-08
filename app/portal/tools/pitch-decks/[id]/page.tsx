@@ -1519,7 +1519,7 @@ useEffect(() => {
                   rightCollapsed={editorRightCollapsed}
                   onLeftCollapsedChange={setEditorLeftCollapsed}
                   onRightCollapsedChange={setEditorRightCollapsed}
-                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}`}
+                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}`}
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {
@@ -1644,28 +1644,79 @@ useEffect(() => {
                         />
                       </div>
 
-                      {/* Background Size (when image is set) */}
+                      {/* Background Image Controls (when image is set) */}
                       {currentSlide.pageSettings?.backgroundImage && (
-                        <div>
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">Background Size</label>
-                          <select
-                            value={currentSlide.pageSettings?.backgroundSize || 'cover'}
-                            onChange={(e) => {
-                              const newSlides = [...deck.slides];
-                              newSlides[activeSlide] = {
-                                ...newSlides[activeSlide],
-                                pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' | 'contain' | 'auto' },
-                              };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          >
-                            <option value="cover">Cover</option>
-                            <option value="contain">Contain</option>
-                            <option value="auto">Auto</option>
-                          </select>
-                        </div>
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
+                              <select
+                                value={currentSlide.pageSettings?.backgroundSize || 'cover'}
+                                onChange={(e) => {
+                                  const newSlides = [...deck.slides];
+                                  newSlides[activeSlide] = {
+                                    ...newSlides[activeSlide],
+                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' | 'contain' | 'auto' },
+                                  };
+                                  setDeck({ ...deck, slides: newSlides });
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              >
+                                <option value="cover">Cover</option>
+                                <option value="contain">Contain</option>
+                                <option value="auto">Auto</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-muted-foreground mb-1">Repeat</label>
+                              <select
+                                value={currentSlide.pageSettings?.backgroundRepeat || 'no-repeat'}
+                                onChange={(e) => {
+                                  const newSlides = [...deck.slides];
+                                  newSlides[activeSlide] = {
+                                    ...newSlides[activeSlide],
+                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundRepeat: e.target.value as 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y' },
+                                  };
+                                  setDeck({ ...deck, slides: newSlides });
+                                  setHasUnsavedChanges(true);
+                                }}
+                                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                              >
+                                <option value="no-repeat">No Repeat</option>
+                                <option value="repeat">Repeat</option>
+                                <option value="repeat-x">Repeat X</option>
+                                <option value="repeat-y">Repeat Y</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Position</label>
+                            <select
+                              value={currentSlide.pageSettings?.backgroundPosition || 'center'}
+                              onChange={(e) => {
+                                const newSlides = [...deck.slides];
+                                newSlides[activeSlide] = {
+                                  ...newSlides[activeSlide],
+                                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundPosition: e.target.value },
+                                };
+                                setDeck({ ...deck, slides: newSlides });
+                                setHasUnsavedChanges(true);
+                              }}
+                              className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            >
+                              <option value="center">Center</option>
+                              <option value="top">Top</option>
+                              <option value="bottom">Bottom</option>
+                              <option value="left">Left</option>
+                              <option value="right">Right</option>
+                              <option value="top left">Top Left</option>
+                              <option value="top right">Top Right</option>
+                              <option value="bottom left">Bottom Left</option>
+                              <option value="bottom right">Bottom Right</option>
+                            </select>
+                          </div>
+                        </>
                       )}
 
                       {/* Background Video */}

@@ -58,7 +58,8 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
         ...(slide.pageSettings?.backgroundImage ? {
           backgroundImage: `url(${slide.pageSettings.backgroundImage})`,
           backgroundSize: slide.pageSettings.backgroundSize || 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: slide.pageSettings.backgroundPosition || 'center',
+          backgroundRepeat: slide.pageSettings.backgroundRepeat || 'no-repeat',
         } : {}),
       }}
     >
