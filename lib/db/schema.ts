@@ -1527,6 +1527,14 @@ export const crmCompanies = pgTable('crm_companies', {
   address: text('address'),
   website: varchar('website', { length: 500 }),
   notes: text('notes'),
+  description: text('description'),
+  logoUrl: varchar('logo_url', { length: 500 }),
+  revenue: varchar('revenue', { length: 100 }),
+  employeeCount: integer('employee_count'),
+  foundedYear: integer('founded_year'),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
+  twitterUrl: varchar('twitter_url', { length: 500 }),
+  facebookUrl: varchar('facebook_url', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1548,6 +1556,9 @@ export const crmContacts = pgTable('crm_contacts', {
   lastContactedAt: timestamp('last_contacted_at'),
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
   score: integer('score').default(0).notNull(),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
+  seniority: varchar('seniority', { length: 100 }),
+  department: varchar('department', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -2118,5 +2129,29 @@ export const crmSavedViews = pgTable('crm_saved_views', {
   filters: json('filters').$type<Record<string, string>>().notNull(), // { status: 'lead', tag: '5', ownerId: '3', search: 'john' }
   isDefault: boolean('is_default').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// --- CRM Enrichment ---------------------------------------------------------------
+
+export const crmEnrichmentConfig = pgTable('crm_enrichment_config', {
+  clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').default(false).notNull(),
+  keySource: varchar('key_source', { length: 20 }).default('platform').notNull(), // 'platform' | 'own'
+  ownApiKey: varchar('own_api_key', { length: 500 }), // TODO: encrypt before storing in production
+  platformCreditBalance: integer('platform_credit_balance').default(0).notNull(),
+  costPerEnrichment: integer('cost_per_enrichment').default(1).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmEnrichmentLog = pgTable('crm_enrichment_log', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(), // 'contact' | 'company'
+  entityId: integer('entity_id').notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(), // 'scrape' | 'apollo'
+  fieldsPopulated: json('fields_populated').$type<string[]>().default([]),
+  fieldChanges: json('field_changes').$type<Record<string, { from: unknown; to: unknown }>>().default({}),
+  cost: integer('cost').default(0).notNull(), // credits consumed (0 for free scrape)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
