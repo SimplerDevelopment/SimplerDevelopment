@@ -32,6 +32,23 @@ function isAppHostname(host: string): boolean {
   return false;
 }
 
+/**
+ * Extract the subdomain from a hostname if it's a *.simplerdevelopment.com address.
+ * Returns null for bare simplerdevelopment.com or non-matching hostnames.
+ */
+function extractSubdomain(host: string): string | null {
+  const bare = host.split(':')[0]; // strip port
+  const appDomains = ['simplerdevelopment.com', 'www.simplerdevelopment.com'];
+  for (const base of appDomains) {
+    if (bare === base) return null; // bare domain, not a subdomain
+  }
+  if (bare.endsWith('.simplerdevelopment.com')) {
+    const sub = bare.replace('.simplerdevelopment.com', '');
+    if (sub && !sub.includes('.')) return sub;
+  }
+  return null;
+}
+
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
 
@@ -46,6 +63,15 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith('/favicon.ico')
     ) {
       return NextResponse.next();
+    }
+
+    // Subdomain portal access: e.g. acme.simplerdevelopment.com/portal
+    // Let these requests through to the portal app instead of the sites renderer
+    const subdomain = extractSubdomain(host);
+    if (subdomain && (pathname.startsWith('/portal') || pathname === '/portal')) {
+      const response = NextResponse.next();
+      response.headers.set('x-portal-subdomain', subdomain);
+      return response;
     }
 
     // Rewrite to internal /sites/[domain]/[...slug] route

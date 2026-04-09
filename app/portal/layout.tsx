@@ -13,6 +13,29 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const isEditorRoute = /\/portal\/websites\/\d+\/(posts\/|navigation)|\/portal\/tools\/pitch-decks\/\d+/.test(pathname);
   const [previewMode, setPreviewMode] = useState(false);
 
+  // Auto-resolve subdomain portal: e.g. acme.simplerdevelopment.com/portal
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    if (hostname.endsWith('.simplerdevelopment.com') && hostname !== 'simplerdevelopment.com' && hostname !== 'www.simplerdevelopment.com') {
+      const subdomain = hostname.replace('.simplerdevelopment.com', '');
+      if (subdomain && !subdomain.includes('.')) {
+        fetch(`/api/portal/resolve-subdomain?subdomain=${encodeURIComponent(subdomain)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            if (data?.success) {
+              // Reload to pick up the new active client cookie (only if not already resolved)
+              const resolved = sessionStorage.getItem('sd-subdomain-resolved');
+              if (resolved !== subdomain) {
+                sessionStorage.setItem('sd-subdomain-resolved', subdomain);
+                window.location.reload();
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!isEditorRoute) {
       setPreviewMode(false);
