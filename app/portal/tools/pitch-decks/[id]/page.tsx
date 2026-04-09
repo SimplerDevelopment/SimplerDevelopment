@@ -176,11 +176,11 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     return (survey.fields as { type?: string }[]).filter(f => f.type !== 'page_break').length;
   }
 
-  function getSurveyFields(surveyId?: number): { id: string; type: string; label: string; required: boolean; options: string[] }[] {
+  function getSurveyFields(surveyId?: number): { id: string; type: string; label: string; required: boolean; options: string[]; placeholder?: string; min?: number; max?: number; step?: number }[] {
     if (!surveyId) return [];
     const survey = surveyList.find(s => s.id === surveyId);
     if (!survey) return [];
-    return (survey.fields as { id: string; type: string; label: string; required: boolean; options: string[]; order: number }[])
+    return (survey.fields as { id: string; type: string; label: string; required: boolean; options: string[]; placeholder?: string; min?: number; max?: number; step?: number; order: number }[])
       .filter(f => f.type !== 'page_break')
       .sort((a, b) => a.order - b.order);
   }
@@ -197,11 +197,11 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   }
 
   /** Generate default blocks for a survey question field */
-  function getDefaultSurveyFieldBlocks(field: { id: string; type: string; label: string; required: boolean }): Block[] {
+  function getDefaultSurveyFieldBlocks(field: { id: string; type: string; label: string; required: boolean; options?: string[]; min?: number; max?: number; step?: number; placeholder?: string }): Block[] {
     const uid = () => `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     return [
       { id: uid(), type: 'heading' as BlockType, order: 1, content: field.label + (field.required ? ' *' : ''), level: 2, required: true } as Block,
-      { id: uid(), type: 'text' as BlockType, order: 2, content: `<p>Type: ${field.type}</p>`, required: true } as Block,
+      { id: uid(), type: 'survey-input' as BlockType, order: 2, fieldType: field.type, fieldLabel: field.label, placeholder: field.placeholder, options: field.options, min: field.min, max: field.max, step: field.step, required: true } as Block,
     ];
   }
 
@@ -1407,12 +1407,27 @@ useEffect(() => {
                           <span className="material-icons text-sm">arrow_back</span>
                           Back to questions
                         </button>
-                        {editingField && (
-                          <span className="text-xs text-muted-foreground">
-                            <span className="material-icons text-xs align-middle mr-1">{getSurveyFieldIcon(editingField.type)}</span>
-                            {editingField.label}
+                        <div className="relative flex-1 min-w-0">
+                          <select
+                            value={editingSurveyFieldId || ''}
+                            onChange={(e) => setEditingSurveyFieldId(e.target.value)}
+                            className="w-full appearance-none bg-accent/50 border border-border rounded-lg pl-7 pr-7 py-1 text-xs text-foreground cursor-pointer hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 truncate"
+                          >
+                            {surveyFields.map((f, i) => (
+                              <option key={f.id} value={f.id}>
+                                {i + 1}. {f.label} ({f.type})
+                              </option>
+                            ))}
+                          </select>
+                          {editingField && (
+                            <span className="material-icons text-xs text-emerald-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                              {getSurveyFieldIcon(editingField.type)}
+                            </span>
+                          )}
+                          <span className="material-icons text-xs text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                            unfold_more
                           </span>
-                        )}
+                        </div>
                       </div>
                       <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-220px)]" style={{ minHeight: '600px' }}>
                         <VisualEditorShell
