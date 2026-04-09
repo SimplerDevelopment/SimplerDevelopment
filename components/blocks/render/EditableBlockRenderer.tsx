@@ -371,7 +371,11 @@ function DraggableBlockList({
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <SortableContext items={ids} strategy={noMovementStrategy}>
-        <div className="block-content" ref={contentRef}>
+        <div className="block-content" ref={contentRef} onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              editor.onBlockClicked('');
+            }
+          }}>
           {blocks.map((block, i) => (
             <div key={block.id}>
               {/* External drop indicator before this block */}

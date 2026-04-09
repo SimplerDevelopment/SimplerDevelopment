@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
+import { EditorModeProvider, useEditorModeContext } from '@/components/visual-editor/EditorModeProvider';
 import { EditableBlockRenderer } from '@/components/blocks/render/EditableBlockRenderer';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { isVisualEditorMessage, sendToParent } from '@/lib/visual-editor/protocol';
@@ -23,6 +23,7 @@ export default function SlidePreviewPage() {
 function SlidePreviewInner() {
   const searchParams = useSearchParams();
   const isEditMode = searchParams.get('_edit') === 'true';
+  const editor = useEditorModeContext();
   const [previewBlocks, setPreviewBlocks] = useState<Block[]>([]);
 
   const theme: PitchDeckTheme = {
@@ -142,6 +143,11 @@ function SlidePreviewInner() {
           )}
           <div
             className="w-full min-h-screen flex flex-col relative z-10"
+            onClick={(e) => {
+              if (e.target === e.currentTarget || !(e.target as HTMLElement).closest('[data-block-id]')) {
+                editor.onBlockClicked('');
+              }
+            }}
             style={{
               ['--slide-primary' as string]: theme.primaryColor,
               ['--slide-accent' as string]: theme.accentColor,
