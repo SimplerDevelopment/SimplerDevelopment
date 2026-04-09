@@ -90,6 +90,11 @@ export async function POST(req: Request) {
 </body>
 </html>`,
     });
+    if (result.error) {
+      console.error('[portal] Resend error for password reset:', JSON.stringify(result.error));
+    } else {
+      console.log('[portal] Password reset email sent to', email.toLowerCase().trim(), 'messageId:', result.data?.id);
+    }
   } catch (err) {
     console.error('[portal] Failed to send password reset email:', err);
   }
