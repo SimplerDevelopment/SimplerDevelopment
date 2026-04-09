@@ -77,6 +77,7 @@ export const users = pgTable('users', {
   inviteExpiresAt: timestamp('invite_expires_at'),
   passwordResetToken: varchar('password_reset_token', { length: 255 }),
   passwordResetExpires: timestamp('password_reset_expires'),
+  defaultClientId: integer('default_client_id'), // preferred portal for multi-client users
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

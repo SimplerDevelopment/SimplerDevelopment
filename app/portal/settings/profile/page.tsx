@@ -166,6 +166,7 @@ export default function ProfileSettingsPage() {
       </form>
 
       <ChangePasswordSection />
+      <DefaultPortalSection />
     </div>
   );
 }
@@ -295,5 +296,105 @@ function ChangePasswordSection() {
         </button>
       </div>
     </form>
+  );
+}
+
+function DefaultPortalSection() {
+  const [portals, setPortals] = useState<{ clientId: number; company: string; subdomain: string | null }[]>([]);
+  const [defaultClientId, setDefaultClientId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/portal/my-subdomain')
+      .then(r => r.json())
+      .then(data => {
+        if (data.portals) setPortals(data.portals);
+        if (data.defaultClientId) setDefaultClientId(data.defaultClientId);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Don't show section if user only has one portal
+  if (loading || portals.length <= 1) return null;
+
+  const handleChange = async (clientId: number) => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/portal/default-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDefaultClientId(clientId);
+        setMessage({ type: 'success', text: 'Default portal updated.' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Something went wrong.' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Something went wrong.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Default Portal</h2>
+          <p className="text-sm text-muted-foreground mt-1">Choose which portal you sign in to by default.</p>
+        </div>
+
+        <div className="space-y-2">
+          {portals.map((portal) => (
+            <button
+              key={portal.clientId}
+              onClick={() => handleChange(portal.clientId)}
+              disabled={saving}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors text-left disabled:opacity-50 ${
+                defaultClientId === portal.clientId
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50 hover:bg-accent'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                defaultClientId === portal.clientId ? 'bg-primary/10' : 'bg-accent'
+              }`}>
+                <span className={`text-sm font-bold ${defaultClientId === portal.clientId ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {(portal.company || 'U').charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-foreground block truncate">{portal.company}</span>
+                {portal.subdomain && (
+                  <span className="text-xs text-muted-foreground">{portal.subdomain}.simplerdevelopment.com</span>
+                )}
+              </div>
+              {defaultClientId === portal.clientId && (
+                <span className="material-icons text-primary text-base shrink-0">check_circle</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {message && (
+        <div className={`flex items-center gap-3 p-4 rounded-xl border text-sm ${
+          message.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
+            : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300'
+        }`}>
+          <span className="material-icons text-base">
+            {message.type === 'success' ? 'check_circle' : 'error'}
+          </span>
+          {message.text}
+        </div>
+      )}
+    </div>
   );
 }

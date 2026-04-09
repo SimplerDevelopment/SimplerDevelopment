@@ -2,10 +2,15 @@
 
 import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+
+interface Portal {
+  clientId: number;
+  company: string;
+  subdomain: string | null;
+}
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/portal/dashboard';
   const [email, setEmail] = useState('');
@@ -13,6 +18,10 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Portal chooser state
+  const [portals, setPortals] = useState<Portal[]>([]);
+  const [choosingPortal, setChoosingPortal] = useState(false);
+  const [settingDefault, setSettingDefault] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +43,14 @@ function LoginForm() {
       try {
         const subRes = await fetch('/api/portal/my-subdomain');
         const subData = await subRes.json();
+
+        if (subData.needsChoice && subData.portals?.length > 1) {
+          // Multiple portals, no default — show chooser
+          setPortals(subData.portals);
+          setChoosingPortal(true);
+          return;
+        }
+
         if (subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
           window.location.href = `https://${subData.subdomain}.simplerdevelopment.com${callbackUrl}`;
           return;
@@ -41,6 +58,82 @@ function LoginForm() {
       } catch {}
       window.location.href = callbackUrl;
     }
+  }
+
+  async function selectPortal(portal: Portal, setAsDefault: boolean) {
+    setSettingDefault(true);
+    try {
+      if (setAsDefault) {
+        await fetch('/api/portal/default-portal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId: portal.clientId }),
+        });
+      }
+      // Switch to the selected client
+      await fetch('/api/portal/switch-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: portal.clientId }),
+      });
+
+      if (portal.subdomain) {
+        window.location.href = `https://${portal.subdomain}.simplerdevelopment.com${callbackUrl}`;
+      } else {
+        window.location.href = callbackUrl;
+      }
+    } catch {
+      setSettingDefault(false);
+    }
+  }
+
+  if (choosingPortal) {
+    return (
+      <div className="w-full max-w-md px-4">
+        <div className="text-center mb-8">
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
+          <h1 className="text-2xl font-bold text-foreground">Simpler Development</h1>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <span className="material-icons text-2xl text-primary">switch_account</span>
+            </div>
+            <h2 className="text-xl font-semibold text-foreground">Choose your portal</h2>
+            <p className="text-sm text-muted-foreground mt-1">You have access to multiple portals. Select one to continue.</p>
+          </div>
+
+          <div className="space-y-2">
+            {portals.map((portal) => (
+              <button
+                key={portal.clientId}
+                onClick={() => selectPortal(portal, true)}
+                disabled={settingDefault}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:border-primary/50 hover:bg-accent transition-colors text-left disabled:opacity-50"
+              >
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-bold text-primary">
+                    {(portal.company || 'U').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground block truncate">{portal.company}</span>
+                  {portal.subdomain && (
+                    <span className="text-xs text-muted-foreground">{portal.subdomain}.simplerdevelopment.com</span>
+                  )}
+                </div>
+                <span className="material-icons text-sm text-muted-foreground">arrow_forward</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            This will be set as your default. You can change it in Settings.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
