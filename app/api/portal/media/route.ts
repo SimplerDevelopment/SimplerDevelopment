@@ -2,18 +2,14 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { media, brandingProfiles } from '@/lib/db/schema';
-import { resolveClientSite, getPortalClient } from '@/lib/portal-client';
+import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, like, or, desc, sql, isNull } from 'drizzle-orm';
 
-export async function GET(req: Request, { params }: { params: Promise<{ siteId: string }> }) {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const { siteId } = await params;
   const userId = parseInt(session.user.id, 10);
-  const site = await resolveClientSite(userId, parseInt(siteId));
-  if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 

@@ -131,6 +131,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       }]
     : []
   ),
+  { href: '/portal/media', label: 'Media', icon: 'perm_media' },
   { href: '/portal/branding', label: 'Branding', icon: 'palette' },
   { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },

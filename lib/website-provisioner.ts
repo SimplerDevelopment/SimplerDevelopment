@@ -147,35 +147,43 @@ export async function provisionWebsite(
 }
 
 /**
- * Change a website's subdomain: update Vercel domain, Cloudflare DNS, and DB.
+ * Change a website's subdomain: update Vercel domain (if dedicated), Cloudflare DNS, and DB.
+ * For shared-hosted sites (no vercelProjectId), only updates DNS and DB.
  */
 export async function changeSubdomain(
   siteId: number,
   oldSubdomain: string,
   newSubdomain: string,
-  vercelProjectId: string,
+  vercelProjectId: string | null,
 ): Promise<void> {
   const oldDomain = `${oldSubdomain}.simplerdevelopment.com`;
   const newDomain = `${newSubdomain}.simplerdevelopment.com`;
 
-  // 1. Add new domain to Vercel
-  await addDomain(vercelProjectId, newDomain);
+  if (vercelProjectId) {
+    // Dedicated Vercel project — update domain on Vercel
+    // 1. Add new domain to Vercel
+    await addDomain(vercelProjectId, newDomain);
 
-  // 2. Get the project-specific DNS target for the new domain
-  const domainConfig = await getDomainConfig(newDomain);
-  const dnsTarget = domainConfig.cnames[0] || 'cname.vercel-dns.com';
+    // 2. Get the project-specific DNS target for the new domain
+    const domainConfig = await getDomainConfig(newDomain);
+    const dnsTarget = domainConfig.cnames[0] || 'cname.vercel-dns.com';
 
-  // 3. Create new Cloudflare CNAME
-  await createCnameRecord(newSubdomain, dnsTarget);
+    // 3. Create new Cloudflare CNAME
+    await createCnameRecord(newSubdomain, dnsTarget);
 
-  // 4. Remove old domain from Vercel (non-fatal if it fails)
-  try {
-    await removeDomain(vercelProjectId, oldDomain);
-  } catch {
-    // Old domain may not exist
+    // 4. Remove old domain from Vercel (non-fatal if it fails)
+    try {
+      await removeDomain(vercelProjectId, oldDomain);
+    } catch {
+      // Old domain may not exist
+    }
+  } else {
+    // Shared hosting — CNAME points to the platform's Railway domain
+    const platformDomain = process.env.RAILWAY_PUBLIC_DOMAIN || 'simplerdevelopment.com';
+    await createCnameRecord(newSubdomain, platformDomain);
   }
 
-  // 5. Delete old Cloudflare CNAME (non-fatal)
+  // Delete old Cloudflare CNAME (non-fatal)
   try {
     const oldRecords = await listDnsRecords(oldSubdomain);
     for (const r of oldRecords) {
@@ -185,7 +193,7 @@ export async function changeSubdomain(
     // Old record may not exist
   }
 
-  // 6. Update DB
+  // Update DB
   await db.update(clientWebsites)
     .set({
       subdomain: newSubdomain,

@@ -44,12 +44,29 @@ export async function PUT(
     }
   }
 
-  // If subdomain is changing and site is provisioned, update infrastructure
-  const subdomainChanging = subdomain !== undefined && subdomain !== site.subdomain && site.deploymentStatus === 'active';
+  // If subdomain is changing, update infrastructure (DNS + optionally Vercel)
+  const subdomainChanging = subdomain !== undefined && subdomain !== site.subdomain;
 
   if (subdomainChanging) {
     try {
-      await changeSubdomain(site.id, site.subdomain!, subdomain, site.vercelProjectId!);
+      if (site.subdomain) {
+        // Existing subdomain — change it (handles old cleanup + new creation)
+        await changeSubdomain(site.id, site.subdomain, subdomain, site.vercelProjectId || null);
+      } else if (subdomain) {
+        // First time setting subdomain — just create DNS + update DB
+        const { createCnameRecord } = await import('@/lib/cloudflare-dns');
+        if (site.vercelProjectId) {
+          const { addDomain, getDomainConfig } = await import('@/lib/vercel');
+          const fullDomain = `${subdomain}.simplerdevelopment.com`;
+          await addDomain(site.vercelProjectId, fullDomain);
+          const config = await getDomainConfig(fullDomain);
+          const target = config.cnames[0] || 'cname.vercel-dns.com';
+          await createCnameRecord(subdomain, target);
+        } else {
+          const platformDomain = process.env.RAILWAY_PUBLIC_DOMAIN || 'simplerdevelopment.com';
+          await createCnameRecord(subdomain, platformDomain);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update subdomain infrastructure';
       return NextResponse.json({ success: false, message }, { status: 500 });
@@ -59,7 +76,10 @@ export async function PUT(
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (name !== undefined) updates.name = name.trim();
   if (description !== undefined) updates.description = description.trim() || null;
-  if (subdomain !== undefined && !subdomainChanging) updates.subdomain = subdomain || null;
+  if (subdomain !== undefined) {
+    updates.subdomain = subdomain || null;
+    updates.vercelDomain = subdomain ? `${subdomain}.simplerdevelopment.com` : null;
+  }
   if (githubRepoName !== undefined) updates.githubRepoName = githubRepoName?.trim() || null;
   if (githubRepoUrl !== undefined) updates.githubRepoUrl = githubRepoUrl?.trim() || null;
   if (publicAccess !== undefined) updates.publicAccess = !!publicAccess;

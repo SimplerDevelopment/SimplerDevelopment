@@ -105,7 +105,7 @@ export default async function PortalCmsDashboardPage({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { href: `/portal/websites/${site.id}/entries`, icon: 'article', label: 'Entries' },
-          { href: `/portal/websites/${site.id}/media`, icon: 'perm_media', label: 'Media' },
+          { href: '/portal/media', icon: 'perm_media', label: 'Media' },
           { href: `/portal/websites/${site.id}/navigation`, icon: 'menu', label: 'Navigation' },
           { href: `/portal/websites/${site.id}/store`, icon: 'shopping_cart', label: 'Store' },
           { href: `/portal/websites/${site.id}/taxonomy`, icon: 'account_tree', label: 'Taxonomy' },

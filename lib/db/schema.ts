@@ -193,7 +193,9 @@ export const media = pgTable('media', {
   alt: text('alt'),
   caption: text('caption'),
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }), // null = admin-only media
   websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
+  brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }), // shared across services using same branding
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

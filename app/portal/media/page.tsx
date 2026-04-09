@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
 
 interface MediaItem {
   id: number;
@@ -30,8 +29,7 @@ function formatFileSize(bytes: number) {
 }
 
 export default function PortalMediaPage() {
-  const { siteId } = useParams<{ siteId: string }>();
-  const base = `/api/portal/cms/websites/${siteId}/media`;
+  const base = '/api/portal/media';
 
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +49,7 @@ export default function PortalMediaPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [uploadAlt, setUploadAlt] = useState('');
   const [uploadCaption, setUploadCaption] = useState('');
+  const [uploadProfileId, setUploadProfileId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Detail state
@@ -113,6 +112,7 @@ export default function PortalMediaPage() {
     fd.append('file', selectedFile);
     if (uploadAlt) fd.append('alt', uploadAlt);
     if (uploadCaption) fd.append('caption', uploadCaption);
+    if (uploadProfileId) fd.append('brandingProfileId', uploadProfileId);
 
     try {
       const res = await fetch(`${base}/upload`, { method: 'POST', body: fd });
@@ -122,6 +122,7 @@ export default function PortalMediaPage() {
         setPreview(null);
         setUploadAlt('');
         setUploadCaption('');
+        setUploadProfileId('');
         load();
       } else {
         const data = await res.json();
@@ -177,7 +178,7 @@ export default function PortalMediaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Media Library</h1>
-          <p className="text-muted-foreground text-sm mt-1">Upload and manage images, videos, and documents.</p>
+          <p className="text-muted-foreground text-sm mt-1">Upload and manage images, videos, and documents across all services.</p>
         </div>
         <button
           onClick={() => setShowUpload(true)}
@@ -264,7 +265,7 @@ export default function PortalMediaPage() {
                   {formatFileSize(item.fileSize)}
                   {item.width && item.height ? ` · ${item.width}x${item.height}` : ''}
                 </p>
-                {brandingProfiles.length > 0 && item.brandingProfileName && (
+                {item.brandingProfileName && (
                   <p className="text-[10px] text-muted-foreground mt-1 truncate">
                     <span className="material-icons text-[10px] align-middle mr-0.5">palette</span>
                     {item.brandingProfileName}
@@ -337,6 +338,21 @@ export default function PortalMediaPage() {
 
               {selectedFile && (
                 <>
+                  {brandingProfiles.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">Brand</label>
+                      <select
+                        value={uploadProfileId}
+                        onChange={e => setUploadProfileId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        <option value="">No brand assigned</option>
+                        {brandingProfiles.map(p => (
+                          <option key={p.id} value={String(p.id)}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-foreground">Alt Text</label>
                     <input

@@ -109,6 +109,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
   const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
   const [boardView, setBoardView] = useState(false);
+  const [boardColumns, setBoardColumns] = useState(4);
   const [aiHistory, setAiHistory] = useState<Record<number, Array<{ role: 'user' | 'assistant'; content: string }>>>({});
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
   const [batchPrompt, setBatchPrompt] = useState('');
@@ -219,6 +220,23 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     newSlides.splice(lastIdx + 1, 0, newSlide);
     setDeck({ ...deck, slides: newSlides });
     setActiveSlide(lastIdx + 1);
+    setHasUnsavedChanges(true);
+  }
+
+  function renamePathGroup(oldName: string, newName: string) {
+    if (!deck || !newName.trim() || newName === oldName) return;
+    const slug = newName.trim().toLowerCase().replace(/\s+/g, '-');
+    const newSlides = deck.slides.map(s => {
+      const updated = { ...s };
+      if (updated.pathGroup === oldName) updated.pathGroup = slug;
+      if (updated.decisionOptions) {
+        updated.decisionOptions = updated.decisionOptions.map(opt =>
+          opt.pathGroup === oldName ? { ...opt, pathGroup: slug } : opt
+        );
+      }
+      return updated;
+    });
+    setDeck({ ...deck, slides: newSlides });
     setHasUnsavedChanges(true);
   }
 
@@ -1303,14 +1321,6 @@ useEffect(() => {
                     Edit Blocks
                   </button>
                 </div>
-                <button
-                  onClick={() => removeSlide(activeSlide)}
-                  disabled={deck.slides.length <= 1}
-                  className="p-1.5 rounded text-muted-foreground hover:text-red-500 disabled:opacity-30 transition-colors"
-                  title="Delete slide"
-                >
-                  <span className="material-icons text-base">delete</span>
-                </button>
               </div>
             </div>
 
@@ -1877,28 +1887,109 @@ useEffect(() => {
               <h2 className="text-sm font-semibold text-foreground">All Slides</h2>
               <span className="text-xs text-muted-foreground">{deck.slides.length} slides</span>
             </div>
-            <button
-              onClick={() => setBoardView(false)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Close board view"
-            >
-              <span className="material-icons">close</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-accent/50 rounded-lg p-1">
+                {[2, 3, 4, 5, 6].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setBoardColumns(n)}
+                    className={`w-7 h-7 flex items-center justify-center rounded text-xs font-medium transition-colors ${
+                      boardColumns === n ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }`}
+                    title={`${n} columns`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setBoardView(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Close board view"
+              >
+                <span className="material-icons">close</span>
+              </button>
+            </div>
           </div>
           <DndContext sensors={slideDndSensors} collisionDetection={closestCenter} onDragEnd={handleSlideDragEnd}>
             <SortableContext items={deck.slides.map(s => s.id)} strategy={rectSortingStrategy}>
-              <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                {deck.slides.map((slide, idx) => (
-                  <SortableBoardCard
-                    key={slide.id}
-                    slide={slide}
-                    index={idx}
-                    isActive={idx === activeSlide}
-                    theme={deck.theme}
-                    onClick={() => { setActiveSlide(idx); setBoardView(false); }}
-                  />
-                ))}
-              </div>
+              {(() => {
+                const mainSlides = deck.slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => !slide.pathGroup);
+                const groups = getPathGroups();
+                return (
+                  <div className="p-6 space-y-6">
+                    {/* Main slides */}
+                    {mainSlides.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3 px-1">
+                          <span className="material-icons text-sm text-muted-foreground">slideshow</span>
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</span>
+                          <span className="text-[10px] text-muted-foreground">{mainSlides.length} slides</span>
+                        </div>
+                        <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
+                          {mainSlides.map(({ slide, idx }) => (
+                            <SortableBoardCard
+                              key={slide.id}
+                              slide={slide}
+                              index={idx}
+                              isActive={idx === activeSlide}
+                              theme={deck.theme}
+                              onClick={() => { setActiveSlide(idx); setBoardView(false); }}
+                              pathGroups={groups}
+                              columns={boardColumns}
+                              onRename={(newLabel) => {
+                                if (!deck) return;
+                                const newSlides = [...deck.slides];
+                                newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                setDeck({ ...deck, slides: newSlides });
+                                setHasUnsavedChanges(true);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Path groups */}
+                    {groups.map((pg, groupIdx) => {
+                      const pgSlides = deck.slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => slide.pathGroup === pg);
+                      const c = PATH_GROUP_COLORS[groupIdx % PATH_GROUP_COLORS.length];
+                      return (
+                        <div key={pg} className={`rounded-xl border p-5 ${c.bg} ${c.border}`}>
+                          <BoardPathGroupHeader name={pg} color={c} slideCount={pgSlides.length} onRename={(newName) => renamePathGroup(pg, newName)} />
+                          <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
+                            {pgSlides.map(({ slide, idx }) => (
+                              <SortableBoardCard
+                                key={slide.id}
+                                slide={slide}
+                                index={idx}
+                                isActive={idx === activeSlide}
+                                theme={deck.theme}
+                                onClick={() => { setActiveSlide(idx); setBoardView(false); }}
+                                pathGroups={groups}
+                                onRename={(newLabel) => {
+                                  if (!deck) return;
+                                  const newSlides = [...deck.slides];
+                                  newSlides[idx] = { ...newSlides[idx], label: newLabel };
+                                  setDeck({ ...deck, slides: newSlides });
+                                  setHasUnsavedChanges(true);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Add new slide */}
+                    <button
+                      onClick={() => { addSlide(); }}
+                      className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                    >
+                      <span className="material-icons text-base">add</span>
+                      Add Slide
+                    </button>
+                  </div>
+                );
+              })()}
             </SortableContext>
           </DndContext>
         </div>
@@ -1909,6 +2000,47 @@ useEffect(() => {
 
 /** Sortable slide item for dnd-kit reordering with double-click rename */
 // ─── Droppable zone for path groups ──────────────────────────────────────────
+
+function BoardPathGroupHeader({ name, color, slideCount, onRename }: {
+  name: string;
+  color: { text: string };
+  slideCount: number;
+  onRename: (newName: string) => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [value, setValue] = useState('');
+
+  const commit = () => {
+    if (value.trim() && value.trim() !== name) {
+      onRename(value.trim());
+    }
+    setRenaming(false);
+  };
+
+  return (
+    <div className="flex items-center gap-2 mb-3 px-1">
+      <span className={`material-icons text-sm ${color.text}`}>route</span>
+      {renaming ? (
+        <input
+          autoFocus
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setRenaming(false); }}
+          className="text-xs font-semibold text-foreground uppercase tracking-wider bg-transparent border-b border-primary outline-none"
+        />
+      ) : (
+        <span
+          className="text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-text"
+          onDoubleClick={() => { setValue(name); setRenaming(true); }}
+        >
+          {name}
+        </span>
+      )}
+      <span className="text-[10px] text-muted-foreground">{slideCount} slides</span>
+    </div>
+  );
+}
 
 function PathGroupDropZone({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -1923,19 +2055,58 @@ function PathGroupDropZone({ id, label, children }: { id: string; label: string;
   );
 }
 
-function SortableBoardCard({ slide, index, isActive, theme, onClick }: {
+const PATH_GROUP_COLORS = [
+  { bg: 'bg-blue-500/10', text: 'text-blue-500', dot: 'bg-blue-500', border: 'border-blue-500/20' },
+  { bg: 'bg-emerald-500/10', text: 'text-emerald-500', dot: 'bg-emerald-500', border: 'border-emerald-500/20' },
+  { bg: 'bg-amber-500/10', text: 'text-amber-500', dot: 'bg-amber-500', border: 'border-amber-500/20' },
+  { bg: 'bg-purple-500/10', text: 'text-purple-500', dot: 'bg-purple-500', border: 'border-purple-500/20' },
+  { bg: 'bg-rose-500/10', text: 'text-rose-500', dot: 'bg-rose-500', border: 'border-rose-500/20' },
+  { bg: 'bg-cyan-500/10', text: 'text-cyan-500', dot: 'bg-cyan-500', border: 'border-cyan-500/20' },
+];
+
+function getPathGroupColor(pathGroup: string, allGroups: string[]) {
+  const idx = allGroups.indexOf(pathGroup);
+  return PATH_GROUP_COLORS[idx >= 0 ? idx % PATH_GROUP_COLORS.length : 0];
+}
+
+function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups, onRename, columns = 4 }: {
   slide: PitchDeckSlideV2;
   index: number;
   isActive: boolean;
   theme: PitchDeckTheme;
   onClick: () => void;
+  pathGroups: string[];
+  onRename: (newLabel: string) => void;
+  columns?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const [thumbScale, setThumbScale] = useState(0.25);
+
+  useEffect(() => {
+    const el = thumbRef.current;
+    if (!el) return;
+    const update = () => setThumbScale(el.offsetWidth / 1280);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [columns]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : undefined,
+  };
+
+  const commitRename = () => {
+    if (renameValue.trim() && renameValue.trim() !== slide.label) {
+      onRename(renameValue.trim());
+    }
+    setRenaming(false);
   };
 
   return (
@@ -1956,32 +2127,62 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick }: {
       </div>
       {/* Clickable area */}
       <button type="button" onClick={onClick} className="w-full text-left">
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        <div ref={thumbRef} className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
           <div
             className="pointer-events-none absolute top-0 left-0"
             style={{
               width: '1280px',
               height: '720px',
-              transform: 'scale(0.25)',
+              transform: `scale(${thumbScale})`,
               transformOrigin: 'top left',
             }}
           >
             <SlideBlockWrapper slide={slide} theme={theme} className="w-full h-full" />
           </div>
         </div>
-        <div className="px-3 py-2 flex items-center gap-2">
-          <span className={`text-xs font-mono ${isActive ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-            {index + 1}
-          </span>
-          <span className="material-icons text-xs text-muted-foreground">{getSlideIcon(slide)}</span>
-          <span className="text-xs text-foreground truncate">
+      </button>
+      <div className="px-3 py-2 flex items-center gap-2">
+        <span className={`text-xs font-mono ${isActive ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+          {index + 1}
+        </span>
+        <span className="material-icons text-xs text-muted-foreground">{getSlideIcon(slide)}</span>
+        {renaming ? (
+          <input
+            autoFocus
+            value={renameValue}
+            onChange={e => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setRenaming(false); }}
+            className="text-xs text-foreground bg-transparent border-b border-primary outline-none flex-1 min-w-0"
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span
+            className="text-xs text-foreground truncate cursor-text"
+            onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(slide.label || ''); setRenaming(true); }}
+          >
             {slide.label || 'Untitled'}
           </span>
-          {slide.pathGroup && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">{slide.pathGroup}</span>
-          )}
+        )}
+        {slide.pathGroup && !renaming && (() => {
+          const c = getPathGroupColor(slide.pathGroup, pathGroups);
+          return <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.bg} ${c.text} font-medium shrink-0`}>{slide.pathGroup}</span>;
+        })()}
+      </div>
+      {/* Decision slide path indicators */}
+      {slide.decisionSlide && slide.decisionOptions && slide.decisionOptions.length > 0 && (
+        <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+          {slide.decisionOptions.map(opt => {
+            const c = getPathGroupColor(opt.pathGroup, pathGroups);
+            return (
+              <span key={opt.id} className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${c.bg} ${c.text} font-medium`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                {opt.label || opt.pathGroup}
+              </span>
+            );
+          })}
         </div>
-      </button>
+      )}
     </div>
   );
 }
