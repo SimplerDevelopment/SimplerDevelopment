@@ -55,6 +55,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   pages: {
     signIn: '/admin/login',
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-authjs.session-token' : 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        // Share session across all *.simplerdevelopment.com subdomains
+        domain: process.env.NODE_ENV === 'production' ? '.simplerdevelopment.com' : undefined,
+      },
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

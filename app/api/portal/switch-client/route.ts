@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     path: '/',
     maxAge: 60 * 60 * 24 * 365, // 1 year
     secure: process.env.NODE_ENV === 'production',
+    domain: process.env.NODE_ENV === 'production' ? '.simplerdevelopment.com' : undefined,
   });
 
   return response;
