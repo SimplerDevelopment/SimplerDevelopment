@@ -77,6 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const isOnAdminLogin = nextUrl.pathname === '/admin/login';
       const isOnPortal = nextUrl.pathname.startsWith('/portal');
       const isOnPortalLogin = nextUrl.pathname === '/portal/login';
+      const isOnPortalPublic = nextUrl.pathname === '/portal/forgot-password' || nextUrl.pathname === '/portal/reset-password';
 
       // Admin panel: require auth, block clients
       if (isOnAdmin && !isOnAdminLogin) {
@@ -87,8 +88,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true;
       }
 
-      // Portal: require auth
-      if (isOnPortal && !isOnPortalLogin) {
+      // Portal: require auth (except login, forgot-password, reset-password)
+      if (isOnPortal && !isOnPortalLogin && !isOnPortalPublic) {
         if (!isLoggedIn) {
           const loginUrl = new URL('/portal/login', nextUrl);
           loginUrl.searchParams.set('callbackUrl', nextUrl.pathname + nextUrl.search);

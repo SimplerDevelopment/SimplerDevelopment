@@ -104,6 +104,12 @@ function LoginForm() {
               )}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <a href="/portal/forgot-password" className="text-sm text-primary hover:underline">
+              Forgot your password?
+            </a>
+          </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">

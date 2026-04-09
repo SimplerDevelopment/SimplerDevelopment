@@ -75,6 +75,8 @@ export const users = pgTable('users', {
   active: boolean('active').default(true).notNull(),
   inviteToken: varchar('invite_token', { length: 255 }),
   inviteExpiresAt: timestamp('invite_expires_at'),
+  passwordResetToken: varchar('password_reset_token', { length: 255 }),
+  passwordResetExpires: timestamp('password_reset_expires'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -886,9 +888,13 @@ export interface BookingPageStyling {
 export const bookingPages = pgTable('booking_pages', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 255 }).notNull(),
   slug: varchar('slug', { length: 255 }).notNull().unique(),
   description: text('description'),
+  price: integer('price').default(0).notNull(), // cents, 0 = free booking
+  priceLabel: varchar('price_label', { length: 100 }), // "per person", "per session", etc.
+  maxGuests: integer('max_guests'), // null = 1:1 appointment (no capacity tracking)
   duration: integer('duration').default(30).notNull(), // minutes
   bufferBefore: integer('buffer_before').default(0).notNull(), // minutes
   bufferAfter: integer('buffer_after').default(15).notNull(), // minutes
@@ -908,6 +914,14 @@ export const bookingPages = pgTable('booking_pages', {
   color: varchar('color', { length: 7 }).default('#2563eb'),
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }),
   styling: json('styling').$type<BookingPageStyling>().default({}),
+  // Feature toggles
+  enableAddOns: boolean('enable_add_ons').default(false).notNull(),
+  enableGiftCertificates: boolean('enable_gift_certificates').default(false).notNull(),
+  enableDiscountCodes: boolean('enable_discount_codes').default(false).notNull(),
+  enableWaivers: boolean('enable_waivers').default(false).notNull(),
+  waiverContent: text('waiver_content'),
+  requireWaiverBeforeBooking: boolean('require_waiver_before_booking').default(false).notNull(),
+  checkinEnabled: boolean('checkin_enabled').default(false).notNull(),
   active: boolean('active').default(true).notNull(),
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
   conferenceType: varchar('conference_type', { length: 20 }).default('none').notNull(), // none, google_meet, zoom
@@ -933,6 +947,22 @@ export const bookings = pgTable('bookings', {
   meetingLink: varchar('meeting_link', { length: 500 }),
   cancelToken: varchar('cancel_token', { length: 64 }).notNull(),
   cancelledAt: timestamp('cancelled_at'),
+  // Capacity
+  groupSize: integer('group_size').default(1).notNull(),
+  // Payment
+  subtotal: integer('subtotal').default(0).notNull(), // cents
+  discountTotal: integer('discount_total').default(0).notNull(),
+  total: integer('total').default(0).notNull(), // cents
+  discountCode: varchar('discount_code', { length: 50 }),
+  giftCertificateCode: varchar('gift_certificate_code', { length: 50 }),
+  giftCertificateAmount: integer('gift_certificate_amount').default(0).notNull(),
+  stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+  paymentStatus: varchar('payment_status', { length: 20 }).default('free').notNull(), // free, pending, paid, refunded
+  paidAt: timestamp('paid_at'),
+  // Check-in
+  checkinCode: varchar('checkin_code', { length: 10 }),
+  checkedInAt: timestamp('checked_in_at'),
+  checkedInBy: integer('checked_in_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -957,6 +987,121 @@ export const zoomTokens = pgTable('zoom_tokens', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── BOOKING ADD-ONS, WAIVERS, QUOTES, DATE OVERRIDES ─────────────────────
+
+export const bookingAddOns = pgTable('booking_add_ons', {
+  id: serial('id').primaryKey(),
+  bookingPageId: integer('booking_page_id').notNull().references(() => bookingPages.id, { onDelete: 'cascade' }),
+  source: varchar('source', { length: 10 }).default('custom').notNull(), // custom, product
+  // Custom add-on fields
+  name: varchar('name', { length: 255 }),
+  description: text('description'),
+  price: integer('price'), // cents
+  image: varchar('image', { length: 500 }),
+  // Product reference fields (when source = 'product')
+  productId: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
+  variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  // Common
+  maxQuantity: integer('max_quantity').default(10),
+  active: boolean('active').default(true).notNull(),
+  order: integer('order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const bookingSelectedAddOns = pgTable('booking_selected_add_ons', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  addOnId: integer('add_on_id').notNull().references(() => bookingAddOns.id, { onDelete: 'cascade' }),
+  quantity: integer('quantity').default(1).notNull(),
+  unitPrice: integer('unit_price').notNull(), // snapshot price at time of booking (cents)
+  productName: varchar('product_name', { length: 255 }).notNull(), // snapshot name
+});
+
+export const bookingWaivers = pgTable('booking_waivers', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  bookingPageId: integer('booking_page_id').notNull().references(() => bookingPages.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  signerName: varchar('signer_name', { length: 255 }).notNull(),
+  signerEmail: varchar('signer_email', { length: 255 }).notNull(),
+  signatureData: text('signature_data').notNull(), // base64 PNG from signature pad
+  waiverContent: text('waiver_content').notNull(), // snapshot of waiver text at time of signing
+  ipAddress: varchar('ip_address', { length: 45 }),
+  signedAt: timestamp('signed_at').defaultNow().notNull(),
+});
+
+export const bookingQuotes = pgTable('booking_quotes', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  bookingPageId: integer('booking_page_id').references(() => bookingPages.id, { onDelete: 'set null' }),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  customerName: varchar('customer_name', { length: 255 }).notNull(),
+  customerEmail: varchar('customer_email', { length: 255 }).notNull(),
+  customerPhone: varchar('customer_phone', { length: 50 }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  price: integer('price').notNull(), // cents
+  lineItems: json('line_items').$type<{ name: string; quantity: number; unitPrice: number }[]>().default([]),
+  startTime: timestamp('start_time'),
+  endTime: timestamp('end_time'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, paid, cancelled, expired
+  stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+  paidAt: timestamp('paid_at'),
+  bookingId: integer('booking_id').references(() => bookings.id, { onDelete: 'set null' }),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const bookingDateOverrides = pgTable('booking_date_overrides', {
+  id: serial('id').primaryKey(),
+  bookingPageId: integer('booking_page_id').notNull().references(() => bookingPages.id, { onDelete: 'cascade' }),
+  date: varchar('date', { length: 10 }).notNull(), // YYYY-MM-DD
+  type: varchar('type', { length: 10 }).notNull(), // available, blocked
+  startTime: varchar('start_time', { length: 5 }), // "09:00" (for type=available)
+  endTime: varchar('end_time', { length: 5 }),     // "17:00" (for type=available)
+  note: varchar('note', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('booking_date_overrides_page_date_idx').on(t.bookingPageId, t.date),
+]);
+
+// ─── GIFT CERTIFICATES ──────────────────────────────────────────────────────
+
+export const giftCertificates = pgTable('gift_certificates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'set null' }),
+  code: varchar('code', { length: 50 }).notNull().unique(),
+  initialAmount: integer('initial_amount').notNull(), // cents
+  remainingAmount: integer('remaining_amount').notNull(), // cents
+  status: varchar('status', { length: 20 }).default('pending_payment').notNull(),
+  // pending_payment, active, fully_redeemed, expired, cancelled
+  purchaserName: varchar('purchaser_name', { length: 255 }).notNull(),
+  purchaserEmail: varchar('purchaser_email', { length: 255 }).notNull(),
+  recipientName: varchar('recipient_name', { length: 255 }),
+  recipientEmail: varchar('recipient_email', { length: 255 }),
+  personalMessage: text('personal_message'),
+  stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+  paymentStatus: varchar('payment_status', { length: 20 }).default('pending'),
+  redeemableAt: varchar('redeemable_at', { length: 20 }).default('both').notNull(), // booking, store, both
+  expiresAt: timestamp('expires_at'), // null = never expires
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const giftCertificateRedemptions = pgTable('gift_certificate_redemptions', {
+  id: serial('id').primaryKey(),
+  giftCertificateId: integer('gift_certificate_id').notNull().references(() => giftCertificates.id, { onDelete: 'cascade' }),
+  amount: integer('amount').notNull(), // cents redeemed
+  context: varchar('context', { length: 20 }).notNull(), // booking, store
+  referenceId: integer('reference_id'), // booking.id or order.id
+  referenceType: varchar('reference_type', { length: 20 }), // booking, order
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── EMAIL CAMPAIGNS ────────────────────────────────────────────────────────
 
 export const emailCampaignSends = pgTable('email_campaign_sends', {
   id: serial('id').primaryKey(),
@@ -1260,6 +1405,7 @@ export const discountCodes = pgTable('discount_codes', {
   usedCount: integer('used_count').default(0).notNull(),
   startsAt: timestamp('starts_at'),
   expiresAt: timestamp('expires_at'),
+  applicableTo: varchar('applicable_to', { length: 10 }).default('both').notNull(), // store, booking, both
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
