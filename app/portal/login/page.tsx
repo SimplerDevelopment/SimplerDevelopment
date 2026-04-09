@@ -30,7 +30,15 @@ function LoginForm() {
     if (result?.error) {
       setError('Invalid email or password.');
     } else {
-      // Full page navigation to ensure session is picked up by the sidebar
+      // Check if the user's client has a subdomain portal
+      try {
+        const subRes = await fetch('/api/portal/my-subdomain');
+        const subData = await subRes.json();
+        if (subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
+          window.location.href = `https://${subData.subdomain}.simplerdevelopment.com${callbackUrl}`;
+          return;
+        }
+      } catch {}
       window.location.href = callbackUrl;
     }
   }
