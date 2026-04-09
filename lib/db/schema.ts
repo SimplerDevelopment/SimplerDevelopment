@@ -215,6 +215,7 @@ export const clients = pgTable('clients', {
   address: text('address'),
   stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
   emailPrefix: varchar('email_prefix', { length: 50 }), // prefix@simplerdevelopment.com for AI email gateway
+  defaultWebsiteId: integer('default_website_id'), // which website determines the portal subdomain
   notes: text('notes'), // internal staff notes
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

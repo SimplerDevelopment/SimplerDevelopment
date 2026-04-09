@@ -166,6 +166,7 @@ export default function ProfileSettingsPage() {
       </form>
 
       <ChangePasswordSection />
+      <PortalSubdomainSection />
       <DefaultPortalSection />
     </div>
   );
@@ -296,6 +297,115 @@ function ChangePasswordSection() {
         </button>
       </div>
     </form>
+  );
+}
+
+function PortalSubdomainSection() {
+  const [websites, setWebsites] = useState<{ id: number; name: string; subdomain: string | null; domain: string | null }[]>([]);
+  const [defaultWebsiteId, setDefaultWebsiteId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/portal/default-website')
+      .then(r => r.json())
+      .then(data => {
+        if (data.websites) setWebsites(data.websites);
+        if (data.defaultWebsiteId) setDefaultWebsiteId(data.defaultWebsiteId);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Don't show if no websites or only one with no subdomain options
+  const websitesWithSubdomains = websites.filter(w => w.subdomain);
+  if (loading || websitesWithSubdomains.length === 0) return null;
+
+  const handleSelect = async (websiteId: number) => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/portal/default-website', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ websiteId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDefaultWebsiteId(websiteId);
+        const site = websites.find(w => w.id === websiteId);
+        setMessage({ type: 'success', text: `Portal subdomain set to ${site?.subdomain}.simplerdevelopment.com` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Something went wrong.' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Something went wrong.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activeSubdomain = websites.find(w => w.id === defaultWebsiteId)?.subdomain
+    || websitesWithSubdomains[0]?.subdomain;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-5">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">Portal Subdomain</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose which website determines your portal URL.
+            {activeSubdomain && (
+              <> Your portal is at <strong>{activeSubdomain}.simplerdevelopment.com/portal</strong></>
+            )}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {websitesWithSubdomains.map((site) => {
+            const isSelected = defaultWebsiteId === site.id || (!defaultWebsiteId && site.id === websitesWithSubdomains[0]?.id);
+            return (
+              <button
+                key={site.id}
+                onClick={() => handleSelect(site.id)}
+                disabled={saving}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors text-left disabled:opacity-50 ${
+                  isSelected
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50 hover:bg-accent'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  isSelected ? 'bg-primary/10' : 'bg-accent'
+                }`}>
+                  <span className={`material-icons text-base ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>language</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground block truncate">{site.name}</span>
+                  <span className="text-xs text-muted-foreground">{site.subdomain}.simplerdevelopment.com</span>
+                </div>
+                {isSelected && (
+                  <span className="material-icons text-primary text-base shrink-0">check_circle</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {message && (
+        <div className={`flex items-center gap-3 p-4 rounded-xl border text-sm ${
+          message.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300'
+            : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300'
+        }`}>
+          <span className="material-icons text-base">
+            {message.type === 'success' ? 'check_circle' : 'error'}
+          </span>
+          {message.text}
+        </div>
+      )}
+    </div>
   );
 }
 

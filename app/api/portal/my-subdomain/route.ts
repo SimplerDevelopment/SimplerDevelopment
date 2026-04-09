@@ -1,9 +1,29 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users, clientWebsites } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, clients, clientWebsites } from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { getPortalClients } from '@/lib/portal-client';
+
+/** Get the portal subdomain for a client, using their defaultWebsiteId if set */
+async function getClientSubdomain(clientId: number, defaultWebsiteId?: number | null): Promise<string | null> {
+  // Prefer the client's chosen default website
+  if (defaultWebsiteId) {
+    const [site] = await db
+      .select({ subdomain: clientWebsites.subdomain })
+      .from(clientWebsites)
+      .where(and(eq(clientWebsites.id, defaultWebsiteId), eq(clientWebsites.clientId, clientId)))
+      .limit(1);
+    if (site?.subdomain) return site.subdomain;
+  }
+  // Fall back to first website with a subdomain
+  const [site] = await db
+    .select({ subdomain: clientWebsites.subdomain })
+    .from(clientWebsites)
+    .where(eq(clientWebsites.clientId, clientId))
+    .limit(1);
+  return site?.subdomain || null;
+}
 
 /**
  * Returns the subdomain for the current user's default or active client.
@@ -29,18 +49,20 @@ export async function GET() {
     return NextResponse.json({ subdomain: null, portals: [], needsChoice: false });
   }
 
-  // Build portals list with subdomains
+  // Build portals list with subdomains (respecting each client's default website)
   const portals = await Promise.all(
     allClients.map(async (client) => {
-      const [site] = await db
-        .select({ subdomain: clientWebsites.subdomain })
-        .from(clientWebsites)
-        .where(eq(clientWebsites.clientId, client.id))
+      // Get the client's defaultWebsiteId
+      const [clientRow] = await db
+        .select({ defaultWebsiteId: clients.defaultWebsiteId })
+        .from(clients)
+        .where(eq(clients.id, client.id))
         .limit(1);
+      const subdomain = await getClientSubdomain(client.id, clientRow?.defaultWebsiteId);
       return {
         clientId: client.id,
         company: client.company || 'Unnamed',
-        subdomain: site?.subdomain || null,
+        subdomain,
       };
     }),
   );
