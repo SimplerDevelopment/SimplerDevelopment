@@ -1429,14 +1429,25 @@ useEffect(() => {
                   const editingField = surveyFields.find(f => f.id === editingSurveyFieldId);
                   return (
                     <>
-                      {/* Back button + field info */}
-                      <div className="flex items-center gap-3 mb-3">
+                      {/* Back button + field selector + prev/next */}
+                      <div className="flex items-center gap-2 mb-3">
                         <button
                           onClick={() => setEditingSurveyFieldId(null)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors shrink-0"
                         >
                           <span className="material-icons text-sm">arrow_back</span>
-                          Back to questions
+                          Back
+                        </button>
+                        <button
+                          onClick={() => {
+                            const idx = surveyFields.findIndex(f => f.id === editingSurveyFieldId);
+                            if (idx > 0) setEditingSurveyFieldId(surveyFields[idx - 1].id);
+                          }}
+                          disabled={surveyFields.findIndex(f => f.id === editingSurveyFieldId) <= 0}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                          title="Previous question"
+                        >
+                          <span className="material-icons text-sm">chevron_left</span>
                         </button>
                         <div className="relative flex-1 min-w-0">
                           <select
@@ -1459,6 +1470,17 @@ useEffect(() => {
                             unfold_more
                           </span>
                         </div>
+                        <button
+                          onClick={() => {
+                            const idx = surveyFields.findIndex(f => f.id === editingSurveyFieldId);
+                            if (idx < surveyFields.length - 1) setEditingSurveyFieldId(surveyFields[idx + 1].id);
+                          }}
+                          disabled={surveyFields.findIndex(f => f.id === editingSurveyFieldId) >= surveyFields.length - 1}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                          title="Next question"
+                        >
+                          <span className="material-icons text-sm">chevron_right</span>
+                        </button>
                       </div>
                       <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-220px)]" style={{ minHeight: '600px' }}>
                         <VisualEditorShell
