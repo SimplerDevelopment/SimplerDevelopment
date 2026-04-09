@@ -120,6 +120,10 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [surveyList, setSurveyList] = useState<{ id: number; title: string; status: string; fields: unknown[] }[]>([]);
   const [showSurveyPicker, setShowSurveyPicker] = useState(false);
   const [surveyListLoaded, setSurveyListLoaded] = useState(false);
+  const [editingSurveyFieldId, setEditingSurveyFieldId] = useState<string | null>(null);
+
+  // Clear survey field editing when switching slides
+  useEffect(() => { setEditingSurveyFieldId(null); }, [activeSlide]);
 
   // Check if surveys service is available via the nav services endpoint
   useEffect(() => {
@@ -163,6 +167,64 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     setActiveSlide(newSlides.length - 1);
     setHasUnsavedChanges(true);
     setShowSurveyPicker(false);
+  }
+
+  function getSurveyFieldCount(surveyId?: number): number | undefined {
+    if (!surveyId) return undefined;
+    const survey = surveyList.find(s => s.id === surveyId);
+    if (!survey) return undefined;
+    return (survey.fields as { type?: string }[]).filter(f => f.type !== 'page_break').length;
+  }
+
+  function getSurveyFields(surveyId?: number): { id: string; type: string; label: string; required: boolean; options: string[] }[] {
+    if (!surveyId) return [];
+    const survey = surveyList.find(s => s.id === surveyId);
+    if (!survey) return [];
+    return (survey.fields as { id: string; type: string; label: string; required: boolean; options: string[]; order: number }[])
+      .filter(f => f.type !== 'page_break')
+      .sort((a, b) => a.order - b.order);
+  }
+
+  /** Get the icon for a survey field type */
+  function getSurveyFieldIcon(type: string): string {
+    const map: Record<string, string> = {
+      text: 'short_text', textarea: 'notes', email: 'email', phone: 'phone',
+      url: 'link', number: 'tag', date: 'calendar_today', select: 'arrow_drop_down_circle',
+      radio: 'radio_button_checked', checkbox: 'check_box', toggle: 'toggle_on',
+      rating: 'star', slider: 'tune', heading: 'title',
+    };
+    return map[type] || 'help_outline';
+  }
+
+  /** Generate default blocks for a survey question field */
+  function getDefaultSurveyFieldBlocks(field: { id: string; type: string; label: string; required: boolean }): Block[] {
+    const uid = () => `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    return [
+      { id: uid(), type: 'heading' as BlockType, order: 1, content: field.label + (field.required ? ' *' : ''), level: 2, required: true } as Block,
+      { id: uid(), type: 'text' as BlockType, order: 2, content: `<p>Type: ${field.type}</p>`, required: true } as Block,
+    ];
+  }
+
+  /** Get blocks for a survey sub-slide, falling back to defaults */
+  function getSurveyFieldBlocksForEditing(slideIdx: number, fieldId: string): Block[] {
+    if (!deck) return [];
+    const slide = deck.slides[slideIdx];
+    if (slide.surveyFieldBlocks?.[fieldId]) return slide.surveyFieldBlocks[fieldId];
+    const fields = getSurveyFields(slide.surveyId);
+    const field = fields.find(f => f.id === fieldId);
+    if (!field) return [];
+    return getDefaultSurveyFieldBlocks(field);
+  }
+
+  /** Update blocks for a specific survey sub-slide */
+  function updateSurveyFieldBlocks(slideIdx: number, fieldId: string, blocks: Block[]) {
+    if (!deck) return;
+    const newSlides = [...deck.slides];
+    const slide = { ...newSlides[slideIdx] };
+    slide.surveyFieldBlocks = { ...(slide.surveyFieldBlocks || {}), [fieldId]: blocks };
+    newSlides[slideIdx] = slide;
+    setDeck({ ...deck, slides: newSlides });
+    setHasUnsavedChanges(true);
   }
 
   // ─── Path Groups & Decision Slides ───────────────────────────────────────────
@@ -1146,6 +1208,7 @@ useEffect(() => {
                                 onRemove={() => removeSlide(idx)}
                                 onToggleSelect={() => toggleSlideSelection(idx)}
                                 canRemove={deck.slides.length > 1}
+                                surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                               />
                             );
                           })}
@@ -1206,6 +1269,7 @@ useEffect(() => {
                                   onRemove={() => removeSlide(idx)}
                                   onToggleSelect={() => toggleSlideSelection(idx)}
                                   canRemove={deck.slides.length > 1}
+                                  surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                                 />
                               ))}
                               {pgSlides.length === 0 && (
@@ -1326,45 +1390,151 @@ useEffect(() => {
 
             {/* Survey slide info panel */}
             {currentSlide.surveySlide ? (
-              <div className="bg-card border border-border rounded-xl p-8 space-y-4" style={{ minHeight: '600px' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <span className="material-icons text-2xl text-primary">assignment</span>
+              editingSurveyFieldId ? (
+                /* ── Survey sub-slide editor ── */
+                (() => {
+                  const surveyFieldBlocks = getSurveyFieldBlocksForEditing(activeSlide, editingSurveyFieldId);
+                  const surveyFields = getSurveyFields(currentSlide.surveyId);
+                  const editingField = surveyFields.find(f => f.id === editingSurveyFieldId);
+                  return (
+                    <>
+                      {/* Back button + field info */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <button
+                          onClick={() => setEditingSurveyFieldId(null)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                        >
+                          <span className="material-icons text-sm">arrow_back</span>
+                          Back to questions
+                        </button>
+                        {editingField && (
+                          <span className="text-xs text-muted-foreground">
+                            <span className="material-icons text-xs align-middle mr-1">{getSurveyFieldIcon(editingField.type)}</span>
+                            {editingField.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-220px)]" style={{ minHeight: '600px' }}>
+                        <VisualEditorShell
+                          key={`survey-field-${activeSlide}-${editingSurveyFieldId}`}
+                          blocks={surveyFieldBlocks}
+                          selectedBlockId={null}
+                          viewport={iframeViewport}
+                          previewMode={editorMode === 'preview'}
+                          initialZoom={60}
+                          leftCollapsed={editorLeftCollapsed}
+                          rightCollapsed={editorRightCollapsed}
+                          onLeftCollapsedChange={setEditorLeftCollapsed}
+                          onRightCollapsedChange={setEditorRightCollapsed}
+                          iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}`}
+                          onBlocksChange={(blocks: Block[]) => updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, blocks)}
+                          onSelectBlock={() => {}}
+                          onAddBlock={(type: string) => {
+                            const uid = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+                            const newBlock = {
+                              id: uid,
+                              type: type as BlockType,
+                              order: surveyFieldBlocks.length + 1,
+                              ...(type === 'text' && { content: 'New text...' }),
+                              ...(type === 'heading' && { content: 'New heading', level: 2 }),
+                              ...(type === 'columns' && { columns: [
+                                { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
+                                { id: `col-${Date.now()}-2`, width: 50, blocks: [] },
+                              ], gap: 'md' }),
+                            } as Block;
+                            updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, [...surveyFieldBlocks, newBlock]);
+                          }}
+                          onDeleteBlock={(blockId: string) => {
+                            const block = surveyFieldBlocks.find(b => b.id === blockId);
+                            if (block?.required) return;
+                            updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, surveyFieldBlocks.filter(b => b.id !== blockId));
+                          }}
+                          onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
+                            updateSurveyFieldBlocks(
+                              activeSlide,
+                              editingSurveyFieldId,
+                              surveyFieldBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b),
+                            );
+                          }}
+                          siteId={undefined}
+                          allowIframeScroll
+                        />
+                      </div>
+                    </>
+                  );
+                })()
+              ) : (
+                /* ── Survey question list ── */
+                <div className="bg-card border border-border rounded-xl p-6 space-y-4" style={{ minHeight: '600px' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <span className="material-icons text-xl text-emerald-500">assignment</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-semibold text-foreground">{currentSlide.label}</h3>
+                      <p className="text-xs text-muted-foreground">Click a question to customize its slide layout</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`/portal/surveys/${currentSlide.surveyId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        <span className="material-icons text-sm">open_in_new</span>
+                        Edit Survey
+                      </a>
+                      <button
+                        onClick={() => removeSlide(activeSlide)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border border-border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <span className="material-icons text-sm">delete</span>
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">{currentSlide.label}</h3>
-                    <p className="text-sm text-muted-foreground">Survey ID: {currentSlide.surveyId}</p>
+
+                  {/* Question list */}
+                  <div className="space-y-1">
+                    {getSurveyFields(currentSlide.surveyId).map((field, fieldIdx) => {
+                      const hasCustomBlocks = !!(currentSlide.surveyFieldBlocks?.[field.id]);
+                      return (
+                        <button
+                          key={field.id}
+                          onClick={() => setEditingSurveyFieldId(field.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-accent transition-colors group/field border border-transparent hover:border-border"
+                        >
+                          <span className="text-xs font-mono text-muted-foreground/50 w-5 text-right shrink-0">{fieldIdx + 1}</span>
+                          <span className="material-icons text-base text-emerald-500 shrink-0">{getSurveyFieldIcon(field.type)}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-foreground truncate block">{field.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{field.type}{field.required ? ' (required)' : ''}</span>
+                          </div>
+                          {hasCustomBlocks && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0">customized</span>
+                          )}
+                          <span className="material-icons text-sm text-muted-foreground/50 group-hover/field:text-foreground transition-colors shrink-0">chevron_right</span>
+                        </button>
+                      );
+                    })}
+                    {getSurveyFields(currentSlide.surveyId).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        <span className="material-icons text-2xl mb-2 block">quiz</span>
+                        No questions found. Add questions in the survey editor.
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="bg-accent/30 rounded-lg p-4 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="material-icons text-base text-primary mt-0.5">info</span>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <p>This slide will expand into individual question slides in the live presentation.</p>
-                      <p>Each question appears as its own full-screen slide, styled with the deck theme.</p>
-                      <p>Conditional logic (show/hide, branching) is fully supported.</p>
+
+                  <div className="bg-accent/30 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <span className="material-icons text-sm text-emerald-500 mt-0.5">info</span>
+                      <p className="text-xs text-muted-foreground">
+                        Each question expands into its own full-screen slide during the presentation.
+                        Customize the layout by clicking a question above. Required blocks (heading, input) cannot be deleted.
+                      </p>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <a
-                    href={`/portal/surveys/${currentSlide.surveyId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  >
-                    <span className="material-icons text-base">open_in_new</span>
-                    Edit Survey
-                  </a>
-                  <button
-                    onClick={() => removeSlide(activeSlide)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <span className="material-icons text-base">delete</span>
-                    Remove
-                  </button>
-                </div>
-              </div>
+              )
             ) : currentSlide.decisionSlide ? (
               <div className="bg-card border border-border rounded-xl p-8 space-y-6" style={{ minHeight: '600px' }}>
                 <div className="flex items-center gap-3">
@@ -1560,6 +1730,8 @@ useEffect(() => {
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
                   onDeleteBlock={(blockId: string) => {
+                    const block = currentSlide.blocks.find(b => b.id === blockId);
+                    if (block?.required) return;
                     handleSlideBlocksChange(activeSlide, currentSlide.blocks.filter(b => b.id !== blockId));
                   }}
                   onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
@@ -1944,6 +2116,7 @@ useEffect(() => {
                                 setDeck({ ...deck, slides: newSlides });
                                 setHasUnsavedChanges(true);
                               }}
+                              surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                             />
                           ))}
                         </div>
@@ -1973,6 +2146,7 @@ useEffect(() => {
                                   setDeck({ ...deck, slides: newSlides });
                                   setHasUnsavedChanges(true);
                                 }}
+                                surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                               />
                             ))}
                           </div>
@@ -2069,7 +2243,7 @@ function getPathGroupColor(pathGroup: string, allGroups: string[]) {
   return PATH_GROUP_COLORS[idx >= 0 ? idx % PATH_GROUP_COLORS.length : 0];
 }
 
-function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups, onRename, columns = 4 }: {
+function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups, onRename, columns = 4, surveyFieldCount }: {
   slide: PitchDeckSlideV2;
   index: number;
   isActive: boolean;
@@ -2078,6 +2252,7 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups,
   pathGroups: string[];
   onRename: (newLabel: string) => void;
   columns?: number;
+  surveyFieldCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const [renaming, setRenaming] = useState(false);
@@ -2114,6 +2289,8 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups,
       ref={setNodeRef}
       style={style}
       className={`group relative bg-card border rounded-xl overflow-hidden text-left transition-all hover:ring-2 hover:ring-primary/50 hover:shadow-lg ${
+        slide.surveySlide ? 'border-l-2 border-l-emerald-500' : ''
+      } ${
         isActive ? 'ring-2 ring-primary border-primary' : 'border-border'
       }`}
     >
@@ -2125,6 +2302,13 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups,
       >
         <span className="material-icons text-sm">drag_indicator</span>
       </div>
+      {/* Survey group badge */}
+      {slide.surveySlide && surveyFieldCount != null && (
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/90 text-white text-[10px] font-semibold shadow">
+          <span className="material-icons text-xs">assignment</span>
+          {surveyFieldCount} question slides
+        </div>
+      )}
       {/* Clickable area */}
       <button type="button" onClick={onClick} className="w-full text-left">
         <div ref={thumbRef} className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
@@ -2187,7 +2371,7 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups,
   );
 }
 
-function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect, canRemove }: {
+function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect, canRemove, surveyFieldCount }: {
   slide: PitchDeckSlideV2;
   index: number;
   isActive: boolean;
@@ -2198,6 +2382,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
   onRemove: () => void;
   onToggleSelect: () => void;
   canRemove: boolean;
+  surveyFieldCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const [renaming, setRenaming] = useState(false);
@@ -2222,6 +2407,8 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
       ref={setNodeRef}
       style={style}
       className={`group flex items-center gap-2 border-b border-border/50 last:border-0 transition-colors ${
+        slide.surveySlide ? 'border-l-2 border-l-emerald-500' : ''
+      } ${
         isActive
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -2246,7 +2433,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
         className="flex-1 text-left py-2.5 pr-3 flex items-center gap-2 min-w-0 cursor-pointer"
       >
         <span className="text-xs font-mono opacity-50 w-4 text-right shrink-0">{index + 1}</span>
-        <span className="material-icons text-base shrink-0">{getSlideIcon(slide)}</span>
+        <span className={`material-icons text-base shrink-0 ${slide.surveySlide ? 'text-emerald-500' : ''}`}>{getSlideIcon(slide)}</span>
         {renaming ? (
           <input
             autoFocus
@@ -2272,6 +2459,11 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
             title="Double-click to rename"
           >
             {getSlideTitle(slide)}
+          </span>
+        )}
+        {slide.surveySlide && surveyFieldCount != null && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium shrink-0" title={`Expands to ${surveyFieldCount} question slides`}>
+            {surveyFieldCount} slides
           </span>
         )}
       </div>

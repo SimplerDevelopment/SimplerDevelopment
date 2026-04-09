@@ -290,8 +290,10 @@ function DraggableBlockList({
         return;
       }
 
-      // Cmd+Backspace: delete
+      // Cmd+Backspace: delete (skip required blocks)
       if (e.key === 'Backspace' && selectedId) {
+        const targetBlock = findBlock(blocks, selectedId);
+        if (targetBlock?.required) return;
         e.preventDefault();
         const nextId = idx < blocks.length - 1 ? blocks[idx + 1]?.id : blocks[idx - 1]?.id;
         const updated = removeBlock(blocks, selectedId);

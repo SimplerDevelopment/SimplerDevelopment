@@ -91,6 +91,8 @@ export interface BaseBlock {
   style?: BlockStyle;
   /** Per-element styles for blocks with multiple visual elements */
   elementStyles?: Record<string, Partial<BlockStyle>>;
+  /** When true, block cannot be deleted in the editor */
+  required?: boolean;
 }
 
 // Basic Blocks

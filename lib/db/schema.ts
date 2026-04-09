@@ -786,6 +786,8 @@ export interface PitchDeckSlideV2 {
   // Survey integration — when set, this slide expands into per-question slides in the viewer
   surveySlide?: boolean;
   surveyId?: number;
+  /** Per-field block overrides for survey sub-slide editing. Key is the field ID. */
+  surveyFieldBlocks?: Record<string, import('@/types/blocks').Block[]>;
   // Path groups — slides with a pathGroup belong to that branch, not the main sequence
   pathGroup?: string;
   // Decision slides — force the viewer to choose a path

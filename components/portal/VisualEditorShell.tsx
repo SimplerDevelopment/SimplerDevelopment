@@ -376,13 +376,19 @@ export function VisualEditorShell({
   const isMultiSelect = selectedBlockIds.length > 1;
 
   const bulkDelete = useCallback(() => {
+    // Filter out required blocks from deletion
+    const deletableIds = selectedBlockIds.filter(id => {
+      const block = findBlockById(blocks, id);
+      return block && !block.required;
+    });
+    if (deletableIds.length === 0) return;
     let updated = [...blocks];
-    for (const id of selectedBlockIds) {
+    for (const id of deletableIds) {
       updated = updated.filter(b => b.id !== id);
       // Also remove from nested containers
       updated = updated.map(b => {
-        if (b.type === 'columns') return { ...b, columns: (b as ColumnsBlock).columns.map(c => ({ ...c, blocks: c.blocks.filter(nb => !selectedBlockIds.includes(nb.id)) })) };
-        if (b.type === 'section' && 'blocks' in b) return { ...b, blocks: (b as Block & { blocks: Block[] }).blocks.filter(nb => !selectedBlockIds.includes(nb.id)) };
+        if (b.type === 'columns') return { ...b, columns: (b as ColumnsBlock).columns.map(c => ({ ...c, blocks: c.blocks.filter(nb => !deletableIds.includes(nb.id)) })) };
+        if (b.type === 'section' && 'blocks' in b) return { ...b, blocks: (b as Block & { blocks: Block[] }).blocks.filter(nb => !deletableIds.includes(nb.id)) };
         return b;
       }) as Block[];
     }
@@ -974,9 +980,15 @@ export function VisualEditorShell({
                 <span className="text-sm font-semibold text-foreground capitalize">{selectedBlock.type.replace('-', ' ')}</span>
               </div>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={() => onDeleteBlock(selectedBlock.id)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete">
-                  <span className="material-icons text-base">delete</span>
-                </button>
+                {selectedBlock.required ? (
+                  <span className="p-1 text-muted-foreground/40" title="Required block">
+                    <span className="material-icons text-base">lock</span>
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => onDeleteBlock(selectedBlock.id)} className="p-1 text-muted-foreground hover:text-destructive" title="Delete">
+                    <span className="material-icons text-base">delete</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1134,12 +1146,16 @@ function LayerItem({
             {block.label || previewText || block.type}
           </span>
         )}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
-          className="material-icons text-xs text-muted-foreground/50 hover:text-destructive opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
-          title="Delete"
-        >close</button>
+        {block.required ? (
+          <span className="material-icons text-xs text-muted-foreground/30 shrink-0" title="Required">lock</span>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
+            className="material-icons text-xs text-muted-foreground/50 hover:text-destructive opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
+            title="Delete"
+          >close</button>
+        )}
       </div>
 
       {/* Nested children with drop zones */}
