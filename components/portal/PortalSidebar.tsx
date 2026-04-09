@@ -418,7 +418,10 @@ export default function PortalSidebar() {
             </button>
 
             <button
-              onClick={() => signOut({ callbackUrl: '/portal/login' })}
+              onClick={async () => {
+                await fetch('/api/portal/sign-out', { method: 'POST' });
+                await signOut({ callbackUrl: '/portal/login' });
+              }}
               className={`flex items-center gap-2 w-full ${
                 isCollapsed ? 'justify-center px-3' : 'px-4'
               } py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group`}
