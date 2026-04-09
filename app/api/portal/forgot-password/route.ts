@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const resetUrl = `${BASE_URL}/portal/reset-password?token=${token}`;
 
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: `Simpler Development <${FROM_EMAIL}>`,
       to: email.toLowerCase().trim(),
       subject: 'Reset your password — Simpler Development',
