@@ -1,4 +1,5 @@
 import { resend } from './index';
+import crypto from 'crypto';
 
 const BASE_URL = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'bookings@simplerdevelopment.com';
@@ -14,6 +15,51 @@ interface BookingEmailData {
   bookingSlug: string;
   duration: number;
   meetingLink?: string | null;
+  hostEmail?: string;
+}
+
+/** Format a Date to ICS timestamp (UTC): 20260410T140000Z */
+function toIcsDate(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+}
+
+/** Generate an .ics calendar file for a booking */
+function generateIcs(data: BookingEmailData): string {
+  const uid = crypto.randomUUID() + '@simplerdevelopment.com';
+  const now = toIcsDate(new Date());
+  const dtStart = toIcsDate(data.startTime);
+  const dtEnd = toIcsDate(data.endTime);
+  const location = data.meetingLink || '';
+  const description = data.meetingLink
+    ? `Join: ${data.meetingLink}\\nCancel/Reschedule: ${BASE_URL}/book/cancel?token=${data.cancelToken}`
+    : `Cancel/Reschedule: ${BASE_URL}/book/cancel?token=${data.cancelToken}`;
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//SimplerDevelopment//Booking//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${data.pageTitle}`,
+    `DESCRIPTION:${description}`,
+    location ? `LOCATION:${location}` : '',
+    `ORGANIZER;CN=SimplerDevelopment:mailto:${FROM_EMAIL}`,
+    `ATTENDEE;CN=${data.guestName};RSVP=TRUE:mailto:${data.guestEmail}`,
+    data.hostEmail ? `ATTENDEE;CN=Host;RSVP=TRUE:mailto:${data.hostEmail}` : '',
+    'STATUS:CONFIRMED',
+    `BEGIN:VALARM`,
+    `TRIGGER:-PT15M`,
+    `ACTION:DISPLAY`,
+    `DESCRIPTION:Reminder: ${data.pageTitle}`,
+    `END:VALARM`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n');
 }
 
 function formatDateTime(date: Date, timezone: string): string {
@@ -110,12 +156,21 @@ export async function sendGuestConfirmation(data: BookingEmailData): Promise<voi
     </p>
   `, `Your ${data.pageTitle} appointment is confirmed for ${formattedStart}`);
 
+  const icsContent = generateIcs(data);
+
   try {
     await resend.emails.send({
       from: `Booking Confirmation <${FROM_EMAIL}>`,
       to: data.guestEmail,
       subject: `Confirmed: ${data.pageTitle}`,
       html,
+      attachments: [
+        {
+          filename: 'invite.ics',
+          content: Buffer.from(icsContent).toString('base64'),
+          content_type: 'text/calendar; method=REQUEST',
+        },
+      ],
     });
   } catch (err) {
     console.error('Failed to send guest confirmation email:', err);
@@ -169,12 +224,21 @@ export async function sendHostNotification(
     <a href="${portalUrl}" style="display:inline-block;padding:10px 24px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;">View in Portal</a>
   `, `New booking: ${data.guestName} — ${data.pageTitle}`);
 
+  const icsContent = generateIcs({ ...data, hostEmail });
+
   try {
     await resend.emails.send({
       from: `SimplerDevelopment <${FROM_EMAIL}>`,
       to: hostEmail,
       subject: `New Booking: ${data.guestName} — ${data.pageTitle}`,
       html,
+      attachments: [
+        {
+          filename: 'invite.ics',
+          content: Buffer.from(icsContent).toString('base64'),
+          content_type: 'text/calendar; method=REQUEST',
+        },
+      ],
     });
   } catch (err) {
     console.error('Failed to send host notification email:', err);
