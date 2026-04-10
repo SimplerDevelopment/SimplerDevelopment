@@ -94,7 +94,7 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   ]);
 
   const rendered = (
-    <div className={hasCustomLayout ? 'block-content' : 'block-content'}>
+    <div className={hasCustomLayout ? 'block-content' : 'block-content'} data-site-id={siteId || undefined}>
       {blocks.map((block) => {
         const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
         return (

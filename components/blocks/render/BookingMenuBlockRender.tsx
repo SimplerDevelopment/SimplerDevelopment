@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BookingMenuBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 
@@ -16,35 +16,43 @@ interface BookingPageInfo {
   maxGuests: number | null;
 }
 
-export function BookingMenuBlockRender({ block, siteId }: { block: BookingMenuBlock; siteId?: number }) {
+export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: BookingMenuBlock; siteId?: number }) {
   const [pages, setPages] = useState<BookingPageInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!siteId) { setLoading(false); return; }
-    fetch(`/api/public/booking/by-site/${siteId}`)
+    // Resolve siteId from prop or from nearest parent [data-site-id]
+    let resolvedSiteId = siteIdProp;
+    if (!resolvedSiteId && ref.current) {
+      const parent = ref.current.closest('[data-site-id]');
+      const val = parent?.getAttribute('data-site-id');
+      if (val) resolvedSiteId = parseInt(val, 10);
+    }
+    if (!resolvedSiteId) { setLoading(false); return; }
+    fetch(`/api/public/booking/by-site/${resolvedSiteId}`)
       .then(r => r.ok ? r.json() : { data: [] })
       .then(d => setPages(d.data || []))
       .finally(() => setLoading(false));
-  }, [siteId]);
+  }, [siteIdProp]);
 
   const cols = block.columns || 3;
 
   if (loading) {
     return (
-      <div className="py-12 text-center">
+      <div ref={ref} className="py-12 text-center">
         <span className="material-icons animate-spin text-2xl" style={{ color: '#888' }}>refresh</span>
       </div>
     );
   }
 
-  if (pages.length === 0) return null;
+  if (pages.length === 0) return <div ref={ref} />;
 
   // Use the first booking page's color as the accent (they all share the brand color)
   const accentColor = pages[0]?.color || '#2563eb';
 
   return (
-    <div className="py-12 px-4">
+    <div ref={ref} className="py-12 px-4">
       {block.title && (
         <h2
           className="text-3xl font-bold text-center mb-3"

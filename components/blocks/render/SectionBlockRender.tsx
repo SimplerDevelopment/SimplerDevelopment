@@ -31,6 +31,7 @@ import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
 import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { BookingBlockRender } from './BookingBlockRender';
+import { BookingMenuBlockRender } from './BookingMenuBlockRender';
 import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { TimelineBlockRender } from './TimelineBlockRender';
@@ -161,6 +162,7 @@ function renderNestedBlock(block: Block) {
     case 'section': return <SectionBlockRender block={block} />;
     case 'gallery': return <GalleryBlockRender block={block} />;
     case 'booking': return <BookingBlockRender block={block} />;
+    case 'booking-menu': return <BookingMenuBlockRender block={block} />;
     case 'survey': return <SurveyBlockRender block={block} />;
     case 'social-links': return <SocialLinksBlockRender block={block} />;
     case 'product-grid': return <ProductGridBlockRender block={block} />;
