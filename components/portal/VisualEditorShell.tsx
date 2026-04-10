@@ -992,6 +992,27 @@ export function VisualEditorShell({
               </div>
             </div>
 
+            {/* Anchor ID field (universal to all blocks) */}
+            <div className="px-4 py-2 border-b border-border shrink-0">
+              <label className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                <span className="material-icons text-xs">link</span>
+                Anchor ID
+              </label>
+              <div className="flex items-center gap-1 bg-background border border-border rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-primary/40">
+                <span className="text-xs text-muted-foreground select-none">#</span>
+                <input
+                  type="text"
+                  value={selectedBlock.anchor || ''}
+                  onChange={(e) => handleUpdateBlock(selectedBlock.id, { anchor: e.target.value.replace(/[^a-zA-Z0-9-_]/g, '').toLowerCase() } as Partial<Block>)}
+                  placeholder="my-section"
+                  className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none font-mono"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                Used for #jumplink URLs like /page#{selectedBlock.anchor || 'my-section'}
+              </p>
+            </div>
+
             {/* Content / Style tabs */}
             <div className="flex border-b border-border shrink-0">
               <button type="button" onClick={() => setRightPanelTab('content')}

@@ -98,7 +98,12 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
       {blocks.map((block) => {
         const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
         return (
-          <div key={block.id} className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}>
+          <div
+            key={block.id}
+            id={block.anchor || undefined}
+            className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}
+            style={block.anchor ? { scrollMarginTop: '80px' } : undefined}
+          >
             <BlockStyleWrapper block={block}>
               {renderBlock(block, siteId)}
             </BlockStyleWrapper>

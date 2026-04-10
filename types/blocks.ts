@@ -87,6 +87,8 @@ export interface BaseBlock {
   type: string;
   order: number;
   label?: string;
+  /** Anchor id for jump links (e.g. #about-us). Rendered as the block's DOM id. */
+  anchor?: string;
   responsive?: ResponsiveSettings;
   style?: BlockStyle;
   /** Per-element styles for blocks with multiple visual elements */
