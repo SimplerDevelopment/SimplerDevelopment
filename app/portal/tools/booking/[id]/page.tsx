@@ -7,6 +7,7 @@ import { use } from 'react';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import MediaPicker from '@/components/admin/MediaPicker';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,8 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [questions, setQuestions] = useState<BookingQuestion[]>([]);
   const [styling, setStyling] = useState<Record<string, string | boolean | undefined>>({});
+  const [thumbnail, setThumbnail] = useState('');
+
 
   const fetchPage = useCallback(async () => {
     try {
@@ -205,6 +208,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
         setAvailability(p.availability || []);
         setQuestions(p.questions || []);
         setStyling((p as unknown as Record<string, unknown>).styling as Record<string, string | boolean | undefined> || {});
+        setThumbnail((p as unknown as Record<string, unknown>).thumbnail as string || '');
       } else {
         setError('Booking page not found');
       }
@@ -263,6 +267,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
           availability,
           questions,
           styling,
+          thumbnail: thumbnail || null,
         }),
       });
       const data = await res.json();
@@ -643,6 +648,23 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Block Thumbnail */}
+          <div className="border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+              <span className="material-icons text-lg">image</span>
+              Block Thumbnail
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              This image is used as the preview thumbnail when this booking page appears on your website.
+            </p>
+            <MediaPicker
+              value={thumbnail}
+              onChange={(url) => setThumbnail(url)}
+              label="Select Thumbnail"
+              apiEndpoint="/api/portal/media"
+            />
           </div>
 
           {/* Danger zone */}
