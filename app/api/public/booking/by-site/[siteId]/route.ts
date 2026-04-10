@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { bookingPages, clientWebsites } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
@@ -10,7 +10,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ siteId:
     return NextResponse.json({ error: 'Invalid site ID' }, { status: 400 });
   }
 
-  // Get the client ID for this website
   const [site] = await db
     .select({ clientId: clientWebsites.clientId })
     .from(clientWebsites)
@@ -32,9 +31,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ siteId:
       priceLabel: bookingPages.priceLabel,
       color: bookingPages.color,
       maxGuests: bookingPages.maxGuests,
+      thumbnail: bookingPages.thumbnail,
     })
     .from(bookingPages)
-    .where(and(eq(bookingPages.clientId, site.clientId), eq(bookingPages.active, true)));
+    .where(and(eq(bookingPages.clientId, site.clientId), eq(bookingPages.active, true)))
+    .orderBy(asc(bookingPages.price));
 
   return NextResponse.json({ data: pages });
 }

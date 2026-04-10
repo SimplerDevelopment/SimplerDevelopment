@@ -927,6 +927,7 @@ export const bookingPages = pgTable('booking_pages', {
   active: boolean('active').default(true).notNull(),
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
   conferenceType: varchar('conference_type', { length: 20 }).default('none').notNull(), // none, google_meet, zoom
+  thumbnail: varchar('thumbnail', { length: 500 }), // preview image URL
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

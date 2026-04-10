@@ -14,6 +14,7 @@ interface BookingPageInfo {
   priceLabel: string | null;
   color: string;
   maxGuests: number | null;
+  thumbnail: string | null;
 }
 
 export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: BookingMenuBlock; siteId?: number }) {
@@ -94,7 +95,18 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
               (e.currentTarget as HTMLElement).style.borderColor = '#e5e5e5';
             }}
           >
-            <div className="h-1" style={{ backgroundColor: accentColor }} />
+            {page.thumbnail ? (
+              <div className="relative overflow-hidden" style={{ height: '160px' }}>
+                <img
+                  src={page.thumbnail}
+                  alt={page.title}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div className="absolute bottom-0 left-0 right-0 h-1" style={{ backgroundColor: accentColor }} />
+              </div>
+            ) : (
+              <div className="h-1" style={{ backgroundColor: accentColor }} />
+            )}
             <div className="p-5">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <h3 className="text-base font-semibold transition-colors" style={{ color: '#1b1b1b' }}>
