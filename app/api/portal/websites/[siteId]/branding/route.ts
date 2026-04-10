@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { clientWebsites, siteBranding } from '@/lib/db/schema';
+import { clientWebsites, siteBranding, brandingProfiles } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 async function verifySiteAccess(siteId: string) {
@@ -117,6 +117,36 @@ export async function PUT(
       .insert(siteBranding)
       .values(values)
       .returning();
+  }
+
+  // Also sync to branding profile if the site has one assigned
+  const [siteRow] = await db
+    .select({ brandingProfileId: clientWebsites.brandingProfileId })
+    .from(clientWebsites)
+    .where(eq(clientWebsites.id, site.id))
+    .limit(1);
+
+  if (siteRow?.brandingProfileId) {
+    await db.update(brandingProfiles).set({
+      logoUrl: values.logoUrl || null,
+      logoAlt: values.logoAlt || null,
+      primaryColor: values.primaryColor,
+      secondaryColor: values.secondaryColor,
+      accentColor: values.accentColor,
+      backgroundColor: values.backgroundColor,
+      textColor: values.textColor,
+      headingFont: values.headingFont || null,
+      bodyFont: values.bodyFont || null,
+      navTemplate: values.navTemplate,
+      navBackground: values.navBackground,
+      navTextColor: values.navTextColor,
+      linkColor: values.linkColor,
+      linkHoverColor: values.linkHoverColor,
+      buttonStyle: values.buttonStyle,
+      faviconUrl: values.faviconUrl,
+      ogImageUrl: values.ogImageUrl,
+      updatedAt: new Date(),
+    }).where(eq(brandingProfiles.id, siteRow.brandingProfileId));
   }
 
   return NextResponse.json({ success: true, data: result });
