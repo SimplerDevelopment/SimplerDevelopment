@@ -392,17 +392,19 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
         {/* Prev/Next arrow buttons — hidden on decision slides.
             Survey slides manage their own Back/Next UI inside SurveySlideRenderer,
-            so these side chevrons are only shown for non-survey slides. */}
+            so these side chevrons are only shown for non-survey slides.
+            Positioned `fixed` so they anchor to the viewport center regardless of
+            how tall the current slide is — otherwise they jump around on slide change. */}
         {current > 0 && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
+            className="fixed left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
             style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
             <span className="material-icons text-3xl">chevron_left</span>
           </button>
         )}
         {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
+            className="fixed right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
             style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
             <span className="material-icons text-3xl">chevron_right</span>
           </button>
