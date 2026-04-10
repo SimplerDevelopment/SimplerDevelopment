@@ -23,14 +23,26 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Resolve siteId from prop or from nearest parent [data-site-id]
+    // Resolve siteId from prop, parent data attribute, or URL path
     let resolvedSiteId = siteIdProp;
     if (!resolvedSiteId && ref.current) {
       const parent = ref.current.closest('[data-site-id]');
       const val = parent?.getAttribute('data-site-id');
       if (val) resolvedSiteId = parseInt(val, 10);
     }
-    if (!resolvedSiteId) { setLoading(false); return; }
+    if (!resolvedSiteId) {
+      // Try to extract domain from URL path (e.g. /sites/[domain]/...)
+      const match = window.location.pathname.match(/^\/sites\/([^/]+)/);
+      if (match) {
+        fetch(`/api/public/booking/by-domain/${encodeURIComponent(match[1])}`)
+          .then(r => r.ok ? r.json() : { data: [] })
+          .then(d => setPages(d.data || []))
+          .finally(() => setLoading(false));
+        return;
+      }
+      setLoading(false);
+      return;
+    }
     fetch(`/api/public/booking/by-site/${resolvedSiteId}`)
       .then(r => r.ok ? r.json() : { data: [] })
       .then(d => setPages(d.data || []))
