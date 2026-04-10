@@ -56,7 +56,10 @@ export function SlideBlockWrapper({ slide, theme, className, presentation = fals
         color: theme.textColor,
         fontFamily: `"${theme.bodyFont}", sans-serif`,
         width: '100%',
-        minHeight: '100%',
+        // In presentation mode, fill the full viewport so the slide background
+        // doesn't collapse to content height inside a flex-centered parent.
+        // In editor/preview contexts, fall back to 100% of the sized preview container.
+        minHeight: presentation ? '100vh' : '100%',
       }}
     >
       {/* Background image overlay (separate div for opacity control) */}
