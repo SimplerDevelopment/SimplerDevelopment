@@ -6,6 +6,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteNavClient } from './SiteNavClient';
 
+export const dynamic = 'force-dynamic';
+
 interface LayoutProps {
   children: React.ReactNode;
   params: Promise<{ domain: string }>;
