@@ -390,18 +390,20 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           </div>
         )}
 
-        {/* Prev/Next arrow buttons — hidden on decision slides */}
-        {current > 0 && !isOnDecisionSlide && (
+        {/* Prev/Next arrow buttons — hidden on decision slides.
+            Survey slides manage their own Back/Next UI inside SurveySlideRenderer,
+            so these side chevrons are only shown for non-survey slides. */}
+        {current > 0 && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={prev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-0 hover:opacity-60"
-            style={{ color: theme.textColor }}>
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
             <span className="material-icons text-3xl">chevron_left</span>
           </button>
         )}
-        {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && (
+        {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={next}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-0 hover:opacity-60"
-            style={{ color: theme.textColor }}>
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
             <span className="material-icons text-3xl">chevron_right</span>
           </button>
         )}
@@ -447,6 +449,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               slide={currentVS.slide}
               theme={theme}
               className="min-h-screen w-full flex items-center justify-center"
+              presentation
             />
           )}
 

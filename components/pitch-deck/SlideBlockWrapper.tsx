@@ -8,13 +8,15 @@ interface SlideBlockWrapperProps {
   slide: PitchDeckSlideV2;
   theme: PitchDeckTheme;
   className?: string;
+  /** When true (live viewer / presenter), drop the vertical padding around block content. */
+  presentation?: boolean;
 }
 
 /**
  * Renders a pitch deck slide's blocks wrapped with the deck's theme styling.
  * Used in both the editor preview and the presentation viewer.
  */
-export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapperProps) {
+export function SlideBlockWrapper({ slide, theme, className, presentation = false }: SlideBlockWrapperProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const content = JSON.stringify({
     blocks: slide.blocks,
@@ -103,7 +105,10 @@ export function SlideBlockWrapper({ slide, theme, className }: SlideBlockWrapper
           ['--slide-body-font' as string]: theme.bodyFont,
         }}
       >
-        <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
+        <div
+          className={`w-full max-w-6xl mx-auto px-12 md:px-20 ${presentation ? 'py-0' : 'py-12'}`}
+          style={{ marginTop: 'auto', marginBottom: 'auto' }}
+        >
           <BlockRenderer content={content} />
         </div>
       </div>
