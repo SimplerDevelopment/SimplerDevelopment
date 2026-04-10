@@ -65,12 +65,11 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
-    // Subdomain portal access: e.g. acme.simplerdevelopment.com/portal
-    // Let these requests through to the portal app instead of the sites renderer
+    // Subdomain portal/booking access: let these through to the main app
     const subdomain = extractSubdomain(host);
-    if (subdomain && (pathname.startsWith('/portal') || pathname === '/portal')) {
+    if (subdomain && (pathname.startsWith('/portal') || pathname.startsWith('/book'))) {
       const response = NextResponse.next();
-      response.headers.set('x-portal-subdomain', subdomain);
+      if (pathname.startsWith('/portal')) response.headers.set('x-portal-subdomain', subdomain);
       return response;
     }
 
