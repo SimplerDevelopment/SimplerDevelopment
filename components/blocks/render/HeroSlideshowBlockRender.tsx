@@ -74,7 +74,7 @@ export function HeroSlideshowBlockRender({ block }: HeroSlideshowBlockRenderProp
   return (
     <div
       className="relative overflow-hidden"
-      style={{ height }}
+      style={{ minHeight: height, height }}
       onMouseEnter={() => pauseOnHover && setIsPaused(true)}
       onMouseLeave={() => pauseOnHover && setIsPaused(false)}
     >
