@@ -704,6 +704,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
               <VisualEditorShell
                 blocks={blocks}
                 selectedBlockId={null}
+                initialZoom={55}
                 iframeSrc={(() => {
                   const basePath = formData.postType === 'page' ? `/${post.slug}` : `/blog/${post.slug}`;
                   const sep = previewMode ? '?' : '&';
