@@ -751,11 +751,7 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-muted-foreground mb-0.5">Color</label>
-                    <div className="flex gap-1">
-                      <input type="color" value={(style[colorKey] as string) || '#000000'} onChange={(e) => updateStyle(colorKey as string, e.target.value)} className="w-7 h-7 rounded border border-border cursor-pointer shrink-0 p-0" />
-                      <input type="text" value={(style[colorKey] as string) || ''} onChange={(e) => updateStyle(colorKey as string, e.target.value)} className={`${inputClass} flex-1`} placeholder="#000" />
-                    </div>
+                    <TokenColorPicker label="Color" value={(style[colorKey] as string) || ''} onChange={(v) => updateStyle(colorKey as string, v)} placeholder="#000" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-muted-foreground mb-0.5">Style</label>

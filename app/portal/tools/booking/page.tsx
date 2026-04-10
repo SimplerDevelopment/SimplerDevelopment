@@ -152,8 +152,9 @@ export default async function BookingPagesListPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
+          { href: '/portal/tools/booking/calendar', icon: 'calendar_month', label: 'Calendar', desc: 'Combined view' },
           { href: '/portal/tools/booking/analytics', icon: 'bar_chart', label: 'Analytics', desc: 'Revenue & insights' },
           { href: '/portal/tools/booking/checkin', icon: 'qr_code_scanner', label: 'Check-in', desc: 'Scan & manage' },
           { href: '/portal/tools/booking/quotes', icon: 'request_quote', label: 'Quotes', desc: 'Custom pricing' },

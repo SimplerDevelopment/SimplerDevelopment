@@ -40,6 +40,7 @@ export async function PUT(req: Request, { params }: Params) {
   if (body.startsAt !== undefined) updateData.startsAt = body.startsAt ? new Date(body.startsAt) : null;
   if (body.expiresAt !== undefined) updateData.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   if (body.active !== undefined) updateData.active = body.active;
+  if (body.applicableTo !== undefined) updateData.applicableTo = body.applicableTo;
 
   // Check code uniqueness if code is being updated
   if (body.code && body.code.toUpperCase() !== discount.code) {

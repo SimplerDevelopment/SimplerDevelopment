@@ -2,6 +2,7 @@
 
 import { PageSettings } from '@/types/blocks';
 import { TokenColorPicker } from './TokenColorPicker';
+import { GoogleFontPicker } from './GoogleFontPicker';
 import { DesignTokensEditor } from './DesignTokensEditor';
 
 interface PageSettingsPanelProps {
@@ -119,16 +120,10 @@ export function PageSettingsPanel({ settings, onChange }: PageSettingsPanelProps
       {/* Font Family */}
       <div>
         <label className="block text-xs font-medium text-foreground mb-1.5">Font Family</label>
-        <select
+        <GoogleFontPicker
           value={settings.fontFamily || ''}
-          onChange={(e) => onChange({ fontFamily: e.target.value || undefined })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="">Default</option>
-          <option value="font-sans">Sans Serif</option>
-          <option value="font-serif">Serif</option>
-          <option value="font-mono">Monospace</option>
-        </select>
+          onChange={(v) => onChange({ fontFamily: v || undefined })}
+        />
       </div>
 
       {/* Padding */}

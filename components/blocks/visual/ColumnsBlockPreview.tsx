@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ColumnsBlock, Block, BlockType } from '@/types/blocks';
 import { VisualBlockPreview } from './VisualBlockPreview';
+import { TokenColorPicker } from './TokenColorPicker';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
 
 /** Parse numeric width from number or string ("50%") format */
@@ -587,31 +588,21 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Background Color</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={column.backgroundColor || '#ffffff'}
-                      onChange={(e) => updateColumnSettings(column.id, { backgroundColor: e.target.value })}
-                      className="w-8 h-8 rounded border border-border cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={column.backgroundColor || ''}
-                      onChange={(e) => updateColumnSettings(column.id, { backgroundColor: e.target.value || undefined })}
-                      placeholder="transparent"
-                      className="flex-1 text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                    />
-                    {column.backgroundColor && (
-                      <button
-                        type="button"
-                        onClick={() => updateColumnSettings(column.id, { backgroundColor: undefined })}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
+                  <TokenColorPicker
+                    label="Background Color"
+                    value={column.backgroundColor || ''}
+                    onChange={(v) => updateColumnSettings(column.id, { backgroundColor: v || undefined })}
+                    placeholder="transparent"
+                  />
+                  {column.backgroundColor && (
+                    <button
+                      type="button"
+                      onClick={() => updateColumnSettings(column.id, { backgroundColor: undefined })}
+                      className="mt-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

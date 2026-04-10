@@ -38,6 +38,7 @@ import { ProductDetailBlockPreview } from './ProductDetailBlockPreview';
 import { BookingBlockPreview } from './BookingBlockPreview';
 import { SurveyBlockPreview } from './SurveyBlockPreview';
 import { SurveyResultsBlockPreview } from './SurveyResultsBlockPreview';
+import { SurveyInputBlockPreview } from './SurveyInputBlockPreview';
 import { SocialLinksBlockPreview } from './SocialLinksBlockPreview';
 import { EmailHeaderBlockPreview } from './EmailHeaderBlockPreview';
 import { EmailFooterBlockPreview } from './EmailFooterBlockPreview';
@@ -197,6 +198,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <SurveyBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'survey-results':
       return <SurveyResultsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'survey-input':
+      return <SurveyInputBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'social-links':
       return <SocialLinksBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'email-header':

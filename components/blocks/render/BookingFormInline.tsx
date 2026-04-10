@@ -60,6 +60,8 @@ interface BookingPageInfo {
   requireWaiverBeforeBooking: boolean;
   waiverContent: string | null;
   checkinEnabled: boolean;
+  allowStaffSelection: boolean;
+  staffMembers: { userId: number; name: string; color: string | null }[];
 }
 
 interface SlotData {
@@ -158,6 +160,9 @@ export function BookingFormInline({
   // Group size
   const [groupSize, setGroupSize] = useState(1);
 
+  // Staff selection
+  const [selectedStaff, setSelectedStaff] = useState<number | null>(null);
+
   // Discount & gift cert
   const [discountCode, setDiscountCode] = useState('');
   const [discountResult, setDiscountResult] = useState<{ code: string; discountType: string; amount: number; discountAmount: number | null } | null>(null);
@@ -224,7 +229,9 @@ export function BookingFormInline({
     setSlotsLoading(true);
     setSlots([]);
     try {
-      const res = await fetch(`/api/public/booking/${slug}/slots?date=${date}`);
+      const params = new URLSearchParams({ date });
+      if (selectedStaff) params.set('staffId', String(selectedStaff));
+      const res = await fetch(`/api/public/booking/${slug}/slots?${params}`);
       const data = await res.json();
       if (data.success && pageInfo) {
         const mapped: TimeSlot[] = (data.data as SlotData[]).map((slot) => {
@@ -239,7 +246,16 @@ export function BookingFormInline({
       }
     } catch { /* ignore */ }
     finally { setSlotsLoading(false); }
-  }, [slug, pageInfo]);
+  }, [slug, pageInfo, selectedStaff]);
+
+  // Refetch slots when staff changes
+  useEffect(() => {
+    if (selectedDate) {
+      setSelectedSlot(null);
+      fetchSlots(selectedDate);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStaff]);
 
   // ─── Price calculation ──────────────────────────────────────────────────
 
@@ -351,6 +367,7 @@ export function BookingFormInline({
           addOns: addOnsList.length > 0 ? addOnsList : undefined,
           discountCode: discountResult?.code || undefined,
           giftCertificateCode: giftCertResult?.code || undefined,
+          staffId: selectedStaff || undefined,
         }),
       });
       const data = await res.json();
@@ -564,6 +581,46 @@ export function BookingFormInline({
         {/* Step: Date */}
         {step === 'date' && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-5" style={cardStyle}>
+            {/* Staff picker */}
+            {pageInfo?.allowStaffSelection && pageInfo.staffMembers && pageInfo.staffMembers.length > 0 && (
+              <div className="mb-5">
+                <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3" style={textColor ? { color: textColor } : undefined}>
+                  Choose a staff member
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStaff(null)}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      selectedStaff === null
+                        ? 'border-current ring-1 bg-opacity-5'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                    }`}
+                    style={selectedStaff === null ? { borderColor: btnBg, color: btnBg, backgroundColor: btnBg + '10' } : undefined}
+                  >
+                    <span className="material-icons text-lg mb-1 block" style={selectedStaff === null ? { color: btnBg } : { color: '#9ca3af' }}>groups</span>
+                    <p className="text-xs font-medium" style={textColor ? { color: textColor } : undefined}>Any available</p>
+                  </button>
+                  {pageInfo.staffMembers.map(staff => (
+                    <button
+                      key={staff.userId}
+                      type="button"
+                      onClick={() => setSelectedStaff(staff.userId)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        selectedStaff === staff.userId
+                          ? 'ring-1'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                      }`}
+                      style={selectedStaff === staff.userId ? { borderColor: staff.color || btnBg, backgroundColor: (staff.color || btnBg) + '10' } : undefined}
+                    >
+                      <span className="w-5 h-5 rounded-full inline-block mb-1" style={{ backgroundColor: staff.color || '#6b7280' }} />
+                      <p className="text-xs font-medium truncate" style={textColor ? { color: textColor } : undefined}>{staff.name}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h2 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4" style={textColor ? { color: textColor } : undefined}>Select a date</h2>
             <div className="flex items-center justify-between mb-4">
               <button onClick={prevMonth} disabled={!canGoPrev}

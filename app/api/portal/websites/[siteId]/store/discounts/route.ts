@@ -37,7 +37,7 @@ export async function POST(
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { code, description, discountType, amount, minOrderAmount, maxUses, startsAt, expiresAt, active } = body;
+  const { code, description, discountType, amount, minOrderAmount, maxUses, startsAt, expiresAt, active, applicableTo } = body;
 
   if (!code || !discountType || amount === undefined) {
     return NextResponse.json({ success: false, message: 'code, discountType, and amount are required' }, { status: 400 });
@@ -66,6 +66,7 @@ export async function POST(
       maxUses: maxUses != null ? parseInt(String(maxUses)) : null,
       startsAt: startsAt ? new Date(startsAt) : null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
+      applicableTo: applicableTo || 'both',
       active: active ?? true,
     })
     .returning();

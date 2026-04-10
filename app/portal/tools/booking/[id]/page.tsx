@@ -44,6 +44,8 @@ interface BookingPageData {
   active: boolean;
   googleCalendarSync: boolean;
   conferenceType: string;
+  allowStaffSelection: boolean;
+  assignedMembers: number[];
   createdAt: string;
   updatedAt: string;
 }
@@ -57,12 +59,31 @@ interface Booking {
   endTime: string;
   timezone: string;
   status: string;
+  assignedTo: number | null;
   answers: Record<string, string> | null;
   notes: string | null;
   createdAt: string;
 }
 
-type Tab = 'settings' | 'styling' | 'availability' | 'questions' | 'embed' | 'bookings' | 'automations';
+interface PageMember {
+  id: number;
+  userId: number;
+  displayName: string | null;
+  color: string | null;
+  availability: AvailabilitySlot[] | null;
+  active: boolean;
+  userName: string;
+  userEmail: string;
+}
+
+interface TeamMember {
+  userId: number;
+  role: string;
+  name: string;
+  email: string;
+}
+
+type Tab = 'settings' | 'styling' | 'availability' | 'questions' | 'embed' | 'bookings' | 'staff' | 'automations';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -73,6 +94,7 @@ const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'questions', label: 'Questions', icon: 'quiz' },
   { key: 'embed', label: 'Embed', icon: 'code' },
   { key: 'bookings', label: 'Bookings', icon: 'event' },
+  { key: 'staff', label: 'Staff', icon: 'group' },
   { key: 'automations', label: 'Automations', icon: 'bolt' },
 ];
 
@@ -184,6 +206,15 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
   const [questions, setQuestions] = useState<BookingQuestion[]>([]);
   const [styling, setStyling] = useState<Record<string, string | boolean | undefined>>({});
   const [thumbnail, setThumbnail] = useState('');
+  const [allowStaffSelection, setAllowStaffSelection] = useState(false);
+
+  // Staff management state
+  const [pageMembers, setPageMembers] = useState<PageMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [addMemberUserId, setAddMemberUserId] = useState<number | ''>('');
+  const [addMemberName, setAddMemberName] = useState('');
+  const [addMemberColor, setAddMemberColor] = useState('#2563eb');
 
 
   const fetchPage = useCallback(async () => {
@@ -209,6 +240,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
         setQuestions(p.questions || []);
         setStyling((p as unknown as Record<string, unknown>).styling as Record<string, string | boolean | undefined> || {});
         setThumbnail((p as unknown as Record<string, unknown>).thumbnail as string || '');
+        setAllowStaffSelection(p.allowStaffSelection || false);
       } else {
         setError('Booking page not found');
       }
@@ -231,14 +263,31 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
     }
   }, [id]);
 
+  const fetchMembers = useCallback(async () => {
+    setStaffLoading(true);
+    try {
+      const res = await fetch(`/api/portal/tools/booking/${id}/members`);
+      const data = await res.json();
+      if (data.success) {
+        setPageMembers(data.data.members);
+        setTeamMembers(data.data.teamMembers);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setStaffLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchPage();
     fetchBookings();
+    fetchMembers();
     // Fetch branding profiles
     fetch('/api/portal/branding/profiles').then(r => r.json()).then(d => {
       if (d.success) setBrandingProfiles(d.data || []);
     }).catch(() => {});
-  }, [fetchPage, fetchBookings]);
+  }, [fetchPage, fetchBookings, fetchMembers]);
 
   // ─── Save ────────────────────────────────────────────────────────────────
 
@@ -268,6 +317,7 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
           questions,
           styling,
           thumbnail: thumbnail || null,
+          allowStaffSelection,
         }),
       });
       const data = await res.json();
@@ -1200,14 +1250,45 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
                           minute: '2-digit',
                         })}
                       </p>
+                      {b.assignedTo && (() => {
+                        const member = pageMembers.find(m => m.userId === b.assignedTo);
+                        return member ? (
+                          <p className="text-xs mt-0.5 flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: member.color || '#6b7280' }} />
+                            <span className="text-muted-foreground">{member.displayName || member.userName}</span>
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
-                    <button
-                      onClick={() => handleCancelBooking(b.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex-shrink-0"
-                    >
-                      <span className="material-icons text-sm">cancel</span>
-                      Cancel
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {pageMembers.length > 0 && (
+                        <select
+                          value={b.assignedTo || ''}
+                          onChange={async (e) => {
+                            const newAssignedTo = e.target.value ? parseInt(e.target.value) : null;
+                            await fetch(`/api/portal/tools/booking/${id}/bookings/${b.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ assignedTo: newAssignedTo }),
+                            });
+                            fetchBookings();
+                          }}
+                          className="px-2 py-1 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        >
+                          <option value="">Unassigned</option>
+                          {pageMembers.filter(m => m.active).map(m => (
+                            <option key={m.userId} value={m.userId}>{m.displayName || m.userName}</option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        onClick={() => handleCancelBooking(b.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <span className="material-icons text-sm">cancel</span>
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1261,6 +1342,190 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ═══════════════ Staff Tab ═══════════════ */}
+      {activeTab === 'staff' && (
+        <div className="bg-card border border-border rounded-xl p-5 space-y-6">
+          {/* Staff Selection Toggle */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">Allow Customer Staff Selection</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  When enabled, customers can choose a specific staff member when booking. When disabled, bookings are auto-assigned using round-robin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAllowStaffSelection(!allowStaffSelection)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  allowStaffSelection ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    allowStaffSelection ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+              <span className="material-icons text-lg">group</span>
+              Assigned Staff Members
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Add team members who handle bookings for this page. Each member can have a custom display name, color, and availability.
+            </p>
+
+            {/* Add member form */}
+            <div className="flex items-end gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Team Member</label>
+                <select
+                  value={addMemberUserId}
+                  onChange={e => {
+                    const uid = parseInt(e.target.value);
+                    setAddMemberUserId(uid || '');
+                    const tm = teamMembers.find(m => m.userId === uid);
+                    if (tm) setAddMemberName(tm.name);
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select a team member...</option>
+                  {teamMembers
+                    .filter(tm => !pageMembers.some(pm => pm.userId === tm.userId))
+                    .map(tm => (
+                      <option key={tm.userId} value={tm.userId}>{tm.name} ({tm.email})</option>
+                    ))
+                  }
+                </select>
+              </div>
+              <div className="w-36">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Display Name</label>
+                <input
+                  type="text"
+                  value={addMemberName}
+                  onChange={e => setAddMemberName(e.target.value)}
+                  placeholder="Optional"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="w-20">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Color</label>
+                <input
+                  type="color"
+                  value={addMemberColor}
+                  onChange={e => setAddMemberColor(e.target.value)}
+                  className="w-full h-[38px] bg-background border border-border rounded-lg cursor-pointer"
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!addMemberUserId) return;
+                  try {
+                    const res = await fetch(`/api/portal/tools/booking/${id}/members`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: addMemberUserId,
+                        displayName: addMemberName || null,
+                        color: addMemberColor,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      fetchMembers();
+                      setAddMemberUserId('');
+                      setAddMemberName('');
+                      setAddMemberColor('#2563eb');
+                    }
+                  } catch { /* ignore */ }
+                }}
+                disabled={!addMemberUserId}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                <span className="material-icons text-lg align-middle mr-1">person_add</span>
+                Add
+              </button>
+            </div>
+
+            {/* Members list */}
+            {staffLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <span className="material-icons animate-spin text-2xl text-muted-foreground">autorenew</span>
+              </div>
+            ) : pageMembers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <span className="material-icons text-4xl mb-2 block opacity-50">group_off</span>
+                <p className="text-sm">No staff members assigned yet.</p>
+                <p className="text-xs mt-1">Add team members above to enable staff assignment.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pageMembers.map(member => (
+                  <div key={member.id} className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg">
+                    <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: member.color || '#6b7280' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {member.displayName || member.userName}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{member.userEmail}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      member.active
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                    }`}>
+                      {member.active ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await fetch(`/api/portal/tools/booking/${id}/members`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ memberId: member.id, active: !member.active }),
+                        });
+                        fetchMembers();
+                      }}
+                      className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+                      title={member.active ? 'Deactivate' : 'Activate'}
+                    >
+                      <span className="material-icons text-lg text-muted-foreground">
+                        {member.active ? 'toggle_on' : 'toggle_off'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Remove ${member.displayName || member.userName} from this booking page?`)) return;
+                        await fetch(`/api/portal/tools/booking/${id}/members?memberId=${member.id}`, {
+                          method: 'DELETE',
+                        });
+                        fetchMembers();
+                      }}
+                      className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    >
+                      <span className="material-icons text-lg text-red-500">remove_circle</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {pageMembers.length > 0 && (
+            <div className="border-t border-border pt-5">
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <span className="material-icons text-sm">info</span>
+                Remember to click <strong>Save Changes</strong> above to persist the staff selection toggle.
+                Staff member additions and removals are saved immediately.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

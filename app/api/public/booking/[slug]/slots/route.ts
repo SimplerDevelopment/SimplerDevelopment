@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { bookingPages, bookings, bookingDateOverrides } from '@/lib/db/schema';
+import { bookingPages, bookings, bookingDateOverrides, bookingPageMembers } from '@/lib/db/schema';
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm';
 import type { BookingAvailabilitySlot } from '@/lib/db/schema';
 
@@ -8,6 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const { searchParams } = new URL(req.url);
   const dateStr = searchParams.get('date');
+  const staffId = searchParams.get('staffId');
 
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     return NextResponse.json({ success: false, message: 'Valid date parameter required (YYYY-MM-DD)' }, { status: 400 });
@@ -52,13 +53,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   type TimeWindow = { startTime: string; endTime: string };
   let timeWindows: TimeWindow[] = [];
 
+  // If a specific staff member is selected, check for their custom availability
+  let memberAvailability: BookingAvailabilitySlot[] | null = null;
+  if (staffId) {
+    const [member] = await db.select().from(bookingPageMembers)
+      .where(and(
+        eq(bookingPageMembers.bookingPageId, page.id),
+        eq(bookingPageMembers.userId, parseInt(staffId)),
+        eq(bookingPageMembers.active, true),
+      ))
+      .limit(1);
+    if (member?.availability) {
+      memberAvailability = member.availability as BookingAvailabilitySlot[];
+    }
+  }
+
   if (override?.type === 'available' && override.startTime && override.endTime) {
     // Use override times instead of day-of-week
     timeWindows = [{ startTime: override.startTime, endTime: override.endTime }];
   } else {
-    // Use standard day-of-week availability
+    // Use member-specific availability if set, otherwise page defaults
     const dayOfWeek = requestedDate.getDay();
-    const availability = (page.availability as BookingAvailabilitySlot[]) || [];
+    const availability = memberAvailability || (page.availability as BookingAvailabilitySlot[]) || [];
     timeWindows = availability
       .filter(s => s.day === dayOfWeek && s.enabled)
       .map(s => ({ startTime: s.startTime, endTime: s.endTime }));
@@ -72,17 +88,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const dayStart = new Date(dateStr + 'T00:00:00Z');
   const dayEnd = new Date(dateStr + 'T23:59:59Z');
 
+  // When filtering by staff, only check that staff member's bookings for conflicts
+  const bookingFilters = [
+    eq(bookings.bookingPageId, page.id),
+    ne(bookings.status, 'cancelled'),
+    gte(bookings.startTime, dayStart),
+    lte(bookings.startTime, dayEnd),
+  ];
+  if (staffId) {
+    bookingFilters.push(eq(bookings.assignedTo, parseInt(staffId)));
+  }
+
   const existingBookings = await db.select({
     startTime: bookings.startTime,
     endTime: bookings.endTime,
     groupSize: bookings.groupSize,
   }).from(bookings)
-    .where(and(
-      eq(bookings.bookingPageId, page.id),
-      ne(bookings.status, 'cancelled'),
-      gte(bookings.startTime, dayStart),
-      lte(bookings.startTime, dayEnd),
-    ));
+    .where(and(...bookingFilters));
 
   // Generate available time slots
   const slotDuration = page.duration;

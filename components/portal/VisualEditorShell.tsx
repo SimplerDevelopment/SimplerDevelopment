@@ -29,6 +29,7 @@ const noMovementStrategy = () => null;
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import { DynamicPropertyPanel } from './DynamicPropertyPanel';
 import { StyleSettings } from '@/components/blocks/visual/StyleSettings';
+import { TokenColorPicker } from '@/components/blocks/visual/TokenColorPicker';
 import { findBlockById, findBlockPath, updateBlockById, removeBlockById, insertBlockInContainer, insertBlockAfter, getAllBlocks } from '@/lib/utils/blockHelpers';
 import { IconPicker } from './IconPicker';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -1510,11 +1511,14 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       )}
       {block.type === 'section' && (
         <>
-          <Field label="Background Color" value={b.backgroundColor as string} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
+          <ColorField label="Background Color" value={(b.backgroundColor as string) || ''} onChange={(v) => onUpdate({ backgroundColor: v } as Partial<Block>)} />
           <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <Field label="Max Width" value={b.maxWidth as string} onChange={(v) => onUpdate({ maxWidth: v } as Partial<Block>)} />
-          <Field label="Text Color" value={b.color as string} onChange={(v) => onUpdate({ color: v } as Partial<Block>)} />
-          <Field label="Font Family" value={b.fontFamily as string} onChange={(v) => onUpdate({ fontFamily: v } as Partial<Block>)} />
+          <ColorField label="Text Color" value={(b.color as string) || ''} onChange={(v) => onUpdate({ color: v } as Partial<Block>)} />
+          <div>
+            <span className="text-xs font-medium text-muted-foreground">Font Family</span>
+            <GoogleFontPicker value={(b.fontFamily as string) || ''} onChange={(v) => onUpdate({ fontFamily: v } as Partial<Block>)} />
+          </div>
           <SelectField label="HTML Tag" value={(b.htmlTag as string) || 'section'} options={['section','div','article','aside','header','footer']} onChange={(v) => onUpdate({ htmlTag: v } as Partial<Block>)} />
           <p className="text-xs text-muted-foreground mt-2">Nested blocks: {block.blocks.length}. Edit via layers panel.</p>
         </>
@@ -1730,7 +1734,7 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
           <Field label="Button URL" value={b.buttonUrl as string} onChange={(v) => onUpdate({ buttonUrl: v } as Partial<Block>)} />
           <div><span className="text-xs font-medium text-muted-foreground">Background Image</span><MediaPicker value={b.backgroundImage as string} onChange={(v) => onUpdate({ backgroundImage: v } as Partial<Block>)} mimeTypeFilter="image" label="" apiEndpoint={mediaApi} /></div>
           <SelectField label="Background Style" value={(b.backgroundStyle as string) || 'gradient'} options={['gradient','solid','image']} onChange={(v) => onUpdate({ backgroundStyle: v } as Partial<Block>)} />
-          <Field label="Accent Color" value={b.accentColor as string} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
           <Field label="Countdown Date" value={b.countdownDate as string} onChange={(v) => onUpdate({ countdownDate: v } as Partial<Block>)} />
         </>
       )}
@@ -2098,23 +2102,7 @@ function Field({ label, value, onChange }: { label: string; value: string | unde
 }
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  // Extract a hex-ish value for the color picker from rgba/hex strings
-  const toHex = (c: string) => {
-    const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (m) return '#' + [m[1], m[2], m[3]].map(v => parseInt(v).toString(16).padStart(2, '0')).join('');
-    return c.startsWith('#') ? c.slice(0, 7) : '#ffffff';
-  };
-  return (
-    <label className="block">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2 mt-1">
-        <input type="color" value={toHex(value)} onChange={(e) => onChange(e.target.value)}
-          className="w-7 h-7 rounded border border-border cursor-pointer shrink-0 p-0" />
-        <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
-          className="flex-1 rounded border border-border px-2 py-1 text-xs font-mono focus:border-primary focus:ring-1 focus:ring-primary" />
-      </div>
-    </label>
-  );
+  return <TokenColorPicker label={label} value={value || ''} onChange={onChange} />;
 }
 
 function TextareaField({ label, value, onChange, rows = 3 }: { label: string; value: string | undefined; onChange: (v: string) => void; rows?: number }) {
@@ -2543,7 +2531,7 @@ function MarqueeEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (u
         <CheckboxField label="Gradient Edges" checked={(b.gradient as boolean) ?? false} onChange={(v) => onUpdate({ gradient: v } as Partial<Block>)} />
         {(b.gradient as boolean) && (
           <>
-            <Field label="Gradient Color" value={(b.gradientColor as string) || 'white'} onChange={(v) => onUpdate({ gradientColor: v } as Partial<Block>)} />
+            <ColorField label="Gradient Color" value={(b.gradientColor as string) || 'white'} onChange={(v) => onUpdate({ gradientColor: v } as Partial<Block>)} />
             <Field label="Gradient Width" value={String((b.gradientWidth as number) || 200)} onChange={(v) => onUpdate({ gradientWidth: Number(v) || 200 } as Partial<Block>)} />
           </>
         )}
@@ -2611,54 +2599,21 @@ function HeroSlideshowEditor({ block, onUpdate, siteId }: { block: Block; onUpda
           <Field label="Background Position" value={(slide.backgroundPosition as string) || 'center'} onChange={(v) => updateSlide(activeSlide, { backgroundPosition: v })} />
           <SelectField label="Background Repeat" value={(slide.backgroundRepeat as string) || 'no-repeat'} options={['no-repeat','repeat','repeat-x','repeat-y','space','round']} onChange={(v) => updateSlide(activeSlide, { backgroundRepeat: v })} />
           <Field label="Video URL" value={(slide.backgroundVideo as string) || ''} onChange={(v) => updateSlide(activeSlide, { backgroundVideo: v })} />
+          <ColorField label="Overlay Color" value={(slide.overlayColor as string) || 'rgba(0,0,0,0.45)'} onChange={(v) => updateSlide(activeSlide, { overlayColor: v })} />
           <div>
-            <span className="text-xs font-medium text-muted-foreground mb-1 block">Overlay</span>
-            <div className="flex gap-2 items-start">
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={(() => {
-                      const c = (slide.overlayColor as string) || 'rgba(0,0,0,0.45)';
-                      const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-                      if (m) return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
-                      return c.startsWith('#') ? c : '#000000';
-                    })()}
-                    onChange={(e) => {
-                      const hex = e.target.value;
-                      const r = parseInt(hex.slice(1,3),16);
-                      const g = parseInt(hex.slice(3,5),16);
-                      const b = parseInt(hex.slice(5,7),16);
-                      const opacity = (slide.overlayOpacity as number) ?? 0.45;
-                      updateSlide(activeSlide, { overlayColor: `rgba(${r},${g},${b},${opacity})` });
-                    }}
-                    className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
-                  />
-                  <input
-                    type="text"
-                    value={(slide.overlayColor as string) || 'rgba(0,0,0,0.45)'}
-                    onChange={(v) => updateSlide(activeSlide, { overlayColor: v.target.value })}
-                    className="flex-1 text-sm rounded border border-border bg-background px-2 py-1.5 text-foreground font-mono text-xs"
-                    placeholder="rgba(0,0,0,0.45)"
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] text-muted-foreground">Opacity</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">{Math.round(((slide.overlayOpacity as number) ?? 1) * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={(slide.overlayOpacity as number) ?? 1}
-                    onChange={(e) => updateSlide(activeSlide, { overlayOpacity: parseFloat(e.target.value) })}
-                    className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer accent-primary"
-                  />
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-xs font-medium text-muted-foreground">Overlay Opacity</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{Math.round(((slide.overlayOpacity as number) ?? 1) * 100)}%</span>
             </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={(slide.overlayOpacity as number) ?? 1}
+              onChange={(e) => updateSlide(activeSlide, { overlayOpacity: parseFloat(e.target.value) })}
+              className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer accent-primary"
+            />
           </div>
           <SelectField label="Text Alignment" value={(slide.textAlignment as string) || 'center'} options={['left','center','right']} onChange={(v) => updateSlide(activeSlide, { textAlignment: v })} />
         </>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { bookingPages } from '@/lib/db/schema';
+import { bookingPages, bookingPageMembers, users } from '@/lib/db/schema';
 import type { BookingPageStyling } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getBrandingByBookingPageSlug, brandingToCssVars } from '@/lib/branding';
@@ -31,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     requireWaiverBeforeBooking: bookingPages.requireWaiverBeforeBooking,
     waiverContent: bookingPages.waiverContent,
     checkinEnabled: bookingPages.checkinEnabled,
+    allowStaffSelection: bookingPages.allowStaffSelection,
   }).from(bookingPages)
     .where(and(eq(bookingPages.slug, slug), eq(bookingPages.active, true)))
     .limit(1);
@@ -60,6 +61,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
 
   const cssVars = branding ? brandingToCssVars(branding) : undefined;
 
+  // If staff selection is enabled, include available staff members
+  let staffMembers: { userId: number; name: string; color: string | null }[] = [];
+  if (page.allowStaffSelection) {
+    const members = await db
+      .select({
+        userId: bookingPageMembers.userId,
+        displayName: bookingPageMembers.displayName,
+        color: bookingPageMembers.color,
+        userName: users.name,
+      })
+      .from(bookingPageMembers)
+      .innerJoin(users, eq(users.id, bookingPageMembers.userId))
+      .where(and(
+        eq(bookingPageMembers.bookingPageId, page.id),
+        eq(bookingPageMembers.active, true),
+      ));
+    staffMembers = members.map(m => ({
+      userId: m.userId,
+      name: m.displayName || m.userName,
+      color: m.color,
+    }));
+  }
+
   return NextResponse.json({
     success: true,
     data: {
@@ -68,6 +92,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       branding: mergedBranding,
       cssVars,
       hideTitle: styling.hideTitle || false,
+      allowStaffSelection: page.allowStaffSelection,
+      staffMembers,
     },
   });
 }

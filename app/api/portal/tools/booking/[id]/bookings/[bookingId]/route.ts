@@ -30,7 +30,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   if (!booking) return NextResponse.json({ success: false, message: 'Booking not found' }, { status: 404 });
 
-  const { status, notes } = await req.json();
+  const { status, notes, assignedTo } = await req.json();
   const updates: Record<string, unknown> = { updatedAt: new Date() };
 
   if (status !== undefined) {
@@ -40,6 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
   if (notes !== undefined) updates.notes = notes;
+  if (assignedTo !== undefined) updates.assignedTo = assignedTo || null;
 
   const [updated] = await db.update(bookings)
     .set(updates)

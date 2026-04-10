@@ -37,6 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     addOns: selectedAddOns, // Array<{ addOnId: number; quantity: number }>
     discountCode: rawDiscountCode,
     giftCertificateCode: rawGiftCertCode,
+    staffId, // optional staff member ID when allowStaffSelection is enabled
   } = body;
 
   if (!name?.trim()) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
@@ -205,6 +206,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const checkinCode = page.checkinEnabled ? generateCheckinCode() : null;
   const needsPayment = total > 0;
 
+  // Resolve staff assignment
+  let assignedTo: number | null = null;
+  if (staffId && page.allowStaffSelection) {
+    assignedTo = parseInt(String(staffId)) || null;
+  } else if (!page.allowStaffSelection) {
+    // Auto-assign: round-robin among assigned members
+    const assignedMembers = (page.assignedMembers as number[]) || [];
+    if (assignedMembers.length === 1) {
+      assignedTo = assignedMembers[0];
+    } else if (assignedMembers.length > 1) {
+      // Pick the member with fewest upcoming bookings (simple load balancing)
+      const upcoming = await db.select({ assignedTo: bookings.assignedTo, count: sql`count(*)::int` })
+        .from(bookings)
+        .where(and(
+          eq(bookings.bookingPageId, page.id),
+          ne(bookings.status, 'cancelled'),
+          gte(bookings.startTime, new Date()),
+        ))
+        .groupBy(bookings.assignedTo);
+      const countMap = new Map(upcoming.map(r => [r.assignedTo, Number(r.count)]));
+      let minCount = Infinity;
+      for (const memberId of assignedMembers) {
+        const count = countMap.get(memberId) || 0;
+        if (count < minCount) { minCount = count; assignedTo = memberId; }
+      }
+    }
+  }
+
   const [booking] = await db.insert(bookings).values({
     bookingPageId: page.id,
     clientId: page.clientId,
@@ -224,6 +253,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     giftCertificateCode: appliedGiftCertCode,
     giftCertificateAmount: giftCertAmount,
     checkinCode,
+    assignedTo,
     paymentStatus: needsPayment ? 'pending' : 'free',
     status: needsPayment ? 'confirmed' : 'confirmed', // confirmed even while pending payment — cancelled if payment fails
   }).returning();

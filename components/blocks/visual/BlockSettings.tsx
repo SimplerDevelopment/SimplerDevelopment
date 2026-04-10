@@ -6,6 +6,7 @@ import { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { StyleSettings } from './StyleSettings';
+import { TokenColorPicker } from './TokenColorPicker';
 import { RichTextEditable } from './RichTextEditable';
 
 interface BlockSettingsProps {
@@ -897,22 +898,12 @@ function ColumnsBlockSettings({ block, onChange, currentViewport }: { block: Col
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Background</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="color"
-                        value={column.backgroundColor || '#ffffff'}
-                        onChange={(e) => updateColumn(column.id, { backgroundColor: e.target.value })}
-                        className="w-8 h-8 rounded border border-border cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        value={column.backgroundColor || ''}
-                        onChange={(e) => updateColumn(column.id, { backgroundColor: e.target.value || undefined })}
-                        placeholder="transparent"
-                        className="flex-1 text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                      />
-                    </div>
+                    <TokenColorPicker
+                      label="Background"
+                      value={column.backgroundColor || ''}
+                      onChange={(v) => updateColumn(column.id, { backgroundColor: v || undefined })}
+                      placeholder="transparent"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -2146,22 +2137,12 @@ function StoreBannerBlockSettings({ block, onChange }: { block: StoreBannerBlock
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Accent Color</label>
-        <div className="flex gap-2">
-          <input
-            type="color"
-            value={block.accentColor || '#6366f1'}
-            onChange={(e) => onChange({ accentColor: e.target.value })}
-            className="w-10 h-10 rounded border border-border cursor-pointer"
-          />
-          <input
-            type="text"
-            value={block.accentColor || ''}
-            onChange={(e) => onChange({ accentColor: e.target.value })}
-            className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-            placeholder="#6366f1"
-          />
-        </div>
+        <TokenColorPicker
+          label="Accent Color"
+          value={block.accentColor || ''}
+          onChange={(v) => onChange({ accentColor: v })}
+          placeholder="#6366f1"
+        />
       </div>
 
       {block.backgroundStyle === 'image' && (
@@ -2618,16 +2599,12 @@ function SurveyResultsBlockSettings({ block, onChange }: { block: SurveyResultsB
 
       {/* Accent Color */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
-        <div className="flex items-center gap-2">
-          <input type="color" value={block.accentColor || '#6366f1'}
-            onChange={(e) => onChange({ accentColor: e.target.value })}
-            className="w-8 h-8 rounded border border-border cursor-pointer" />
-          <input type="text" value={block.accentColor || ''}
-            onChange={(e) => onChange({ accentColor: e.target.value })}
-            placeholder="#6366f1"
-            className="flex-1 text-sm rounded border border-border bg-background px-3 py-2 text-foreground" />
-        </div>
+        <TokenColorPicker
+          label="Accent Color"
+          value={block.accentColor || ''}
+          onChange={(v) => onChange({ accentColor: v })}
+          placeholder="#6366f1"
+        />
       </div>
     </div>
   );
@@ -2779,11 +2756,12 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Overlay Color</label>
-              <div className="flex gap-2">
-                <input type="color" value={slide.overlayColor?.replace(/rgba?\(.*\)/, '#000000') || '#000000'} onChange={(e) => updateSlide(activeSlide, { overlayColor: e.target.value })} className="w-9 h-9 rounded border border-border cursor-pointer shrink-0" />
-                <input type="text" value={slide.overlayColor || ''} onChange={(e) => updateSlide(activeSlide, { overlayColor: e.target.value })} className={inputClass} placeholder="rgba(0,0,0,0.45)" />
-              </div>
+              <TokenColorPicker
+                label="Overlay Color"
+                value={slide.overlayColor || ''}
+                onChange={(v) => updateSlide(activeSlide, { overlayColor: v })}
+                placeholder="rgba(0,0,0,0.45)"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Text Alignment</label>

@@ -73,6 +73,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.conferenceType !== undefined) updates.conferenceType = body.conferenceType;
   if (body.styling !== undefined) updates.styling = body.styling;
   if (body.thumbnail !== undefined) updates.thumbnail = body.thumbnail || null;
+  if (body.allowStaffSelection !== undefined) updates.allowStaffSelection = body.allowStaffSelection;
+  if (body.assignedMembers !== undefined) updates.assignedMembers = body.assignedMembers;
 
   const [updated] = await db.update(bookingPages)
     .set(updates)

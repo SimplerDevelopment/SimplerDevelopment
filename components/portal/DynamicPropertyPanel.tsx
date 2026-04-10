@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PropSchema } from '@/types/visual-editor';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
+import { TokenColorPicker } from '@/components/blocks/visual/TokenColorPicker';
 
 interface DynamicPropertyPanelProps {
   inputs: PropSchema[];
@@ -117,24 +118,12 @@ function PropertyField({
 
     case 'color':
       return (
-        <label className="block">
-          <span className="text-sm font-medium text-foreground">{schema.label}</span>
-          <div className="mt-1 flex items-center gap-2">
-            <input
-              type="color"
-              value={(value as string) || '#000000'}
-              onChange={(e) => onChange(e.target.value)}
-              className="h-8 w-8 cursor-pointer rounded border border-border"
-            />
-            <input
-              type="text"
-              value={(value as string) || ''}
-              onChange={(e) => onChange(e.target.value)}
-              className="block flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-              placeholder="#000000"
-            />
-          </div>
-        </label>
+        <TokenColorPicker
+          label={schema.label}
+          value={(value as string) || ''}
+          onChange={(v) => onChange(v)}
+          placeholder="#000000"
+        />
       );
 
     case 'image':

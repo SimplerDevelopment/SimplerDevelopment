@@ -928,10 +928,27 @@ export const bookingPages = pgTable('booking_pages', {
   googleCalendarSync: boolean('google_calendar_sync').default(false).notNull(),
   conferenceType: varchar('conference_type', { length: 20 }).default('none').notNull(), // none, google_meet, zoom
   thumbnail: varchar('thumbnail', { length: 500 }), // preview image URL
+  // Staff assignment
+  allowStaffSelection: boolean('allow_staff_selection').default(false).notNull(), // let customers pick a staff member
+  assignedMembers: json('assigned_members').$type<number[]>().default([]), // user IDs of staff who handle this page
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Per-member availability overrides for booking pages
+export const bookingPageMembers = pgTable('booking_page_members', {
+  id: serial('id').primaryKey(),
+  bookingPageId: integer('booking_page_id').notNull().references(() => bookingPages.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  displayName: varchar('display_name', { length: 255 }), // public-facing name (falls back to users.name)
+  color: varchar('color', { length: 7 }), // calendar color for this member
+  availability: json('availability').$type<BookingAvailabilitySlot[]>(), // null = use page defaults
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('booking_page_members_page_user_idx').on(t.bookingPageId, t.userId),
+]);
 
 export const bookings = pgTable('bookings', {
   id: serial('id').primaryKey(),
@@ -950,6 +967,8 @@ export const bookings = pgTable('bookings', {
   meetingLink: varchar('meeting_link', { length: 500 }),
   cancelToken: varchar('cancel_token', { length: 64 }).notNull(),
   cancelledAt: timestamp('cancelled_at'),
+  // Staff assignment
+  assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   // Capacity
   groupSize: integer('group_size').default(1).notNull(),
   // Payment

@@ -354,14 +354,21 @@ export default function PortalSidebar() {
 
   return (
     <>
-      {/* Hamburger toggle — always visible when sidebar is closed */}
+      {/* Hamburger toggle + logo — always visible when sidebar is closed */}
       {!isOpen && (
-        <button
-          onClick={toggleOpen}
-          className="fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
-        >
-          <span className="material-icons text-xl">menu</span>
-        </button>
+        <div className="fixed top-4 left-4 z-50 flex items-center gap-2">
+          <button
+            onClick={toggleOpen}
+            className="p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
+          >
+            <span className="material-icons text-xl">menu</span>
+          </button>
+          <Link href="/portal" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/iconLogo.png" alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
+            <span className="text-sm text-foreground font-heading"><b>Simpler</b> Development</span>
+          </Link>
+        </div>
       )}
 
       {/* Sidebar */}

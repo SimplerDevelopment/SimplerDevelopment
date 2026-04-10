@@ -4,6 +4,7 @@ import {
   storeSettings, carts, cartItems, products, productVariants,
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
+  giftCertificates, giftCertificateRedemptions,
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
 
@@ -45,7 +46,7 @@ export async function POST(
     const {
       sessionId, customerEmail, customerName, customerPhone,
       shippingAddress, billingAddress, shippingRateId,
-      discountCode, customerNote,
+      discountCode, customerNote, giftCertificateCode,
     } = body;
 
     if (!sessionId || !customerEmail || !customerName) {
@@ -217,6 +218,7 @@ export async function POST(
           eq(discountCodes.websiteId, websiteId),
           eq(discountCodes.code, discountCode),
           eq(discountCodes.active, true),
+          sql`${discountCodes.applicableTo} IN ('store', 'both')`,
         ))
         .limit(1);
 
@@ -253,13 +255,35 @@ export async function POST(
       }
     }
 
+    // 4b. Apply gift certificate
+    let giftCertAmount = 0;
+    let appliedGiftCertCode: string | null = null;
+    let appliedGiftCertId: number | null = null;
+
+    if (giftCertificateCode) {
+      const [cert] = await db.select().from(giftCertificates)
+        .where(and(
+          eq(giftCertificates.code, giftCertificateCode.toUpperCase()),
+          eq(giftCertificates.status, 'active'),
+          sql`${giftCertificates.redeemableAt} IN ('store', 'both')`,
+        ))
+        .limit(1);
+
+      if (cert && cert.remainingAmount > 0) {
+        const afterDiscount = subtotal - discountTotal;
+        giftCertAmount = Math.min(cert.remainingAmount, afterDiscount);
+        appliedGiftCertCode = cert.code;
+        appliedGiftCertId = cert.id;
+      }
+    }
+
     // 5. Calculate tax
-    const taxableAmount = subtotal - discountTotal;
+    const taxableAmount = subtotal - discountTotal - giftCertAmount;
     const taxRate = store.taxRate ? parseFloat(store.taxRate) : 0;
-    const taxTotal = store.taxInclusive ? 0 : Math.round(taxableAmount * taxRate);
+    const taxTotal = store.taxInclusive ? 0 : Math.round(Math.max(0, taxableAmount) * taxRate);
 
     // 6. Calculate total
-    const total = subtotal - discountTotal + shippingTotal + taxTotal;
+    const total = subtotal - discountTotal - giftCertAmount + shippingTotal + taxTotal;
 
     if (total <= 0) {
       return NextResponse.json({ success: false, message: 'Order total must be greater than zero' }, { status: 400 });
@@ -341,6 +365,30 @@ export async function POST(
       status: 'pending',
       note: 'Order created, awaiting payment',
     });
+
+    // Redeem gift certificate if used
+    if (appliedGiftCertId && appliedGiftCertCode && giftCertAmount > 0) {
+      const [cert] = await db.select().from(giftCertificates)
+        .where(eq(giftCertificates.id, appliedGiftCertId)).limit(1);
+      if (cert) {
+        const newRemaining = cert.remainingAmount - giftCertAmount;
+        await db.update(giftCertificates)
+          .set({
+            remainingAmount: newRemaining,
+            status: newRemaining <= 0 ? 'fully_redeemed' : 'active',
+            updatedAt: new Date(),
+          })
+          .where(eq(giftCertificates.id, cert.id));
+
+        await db.insert(giftCertificateRedemptions).values({
+          giftCertificateId: cert.id,
+          amount: giftCertAmount,
+          context: 'store',
+          referenceId: order.id,
+          referenceType: 'order',
+        });
+      }
+    }
 
     // Update PaymentIntent metadata with orderId
     await stripe.paymentIntents.update(paymentIntent.id, {

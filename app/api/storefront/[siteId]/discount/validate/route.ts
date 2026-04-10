@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { storeSettings, discountCodes } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function POST(
   req: Request,
@@ -35,6 +35,7 @@ export async function POST(
         eq(discountCodes.websiteId, websiteId),
         eq(discountCodes.code, code),
         eq(discountCodes.active, true),
+        sql`${discountCodes.applicableTo} IN ('store', 'both')`,
       ))
       .limit(1);
 
