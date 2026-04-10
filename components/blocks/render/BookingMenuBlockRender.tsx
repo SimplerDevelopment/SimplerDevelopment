@@ -65,10 +65,10 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
   const accentColor = pages[0]?.color || '#2563eb';
 
   return (
-    <div ref={ref} className="py-12 px-4">
+    <div ref={ref} className="py-8 sm:py-12 px-4">
       {block.title && (
         <h2
-          className="text-3xl font-bold text-center mb-3"
+          className="text-2xl sm:text-3xl font-bold text-center mb-3"
           style={{ color: 'var(--foreground, #1b1b1b)', ...getElementCSS(block.elementStyles, 'title') }}
           data-editable-field="title"
         >
@@ -85,8 +85,11 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
         </p>
       )}
       <div
-        className="grid gap-5 max-w-5xl mx-auto"
-        style={{ gridTemplateColumns: `repeat(${Math.min(cols, pages.length)}, minmax(0, 1fr))` }}
+        className={`grid gap-4 sm:gap-5 max-w-5xl mx-auto grid-cols-1 ${
+          cols >= 2 ? 'sm:grid-cols-2' : ''
+        } ${
+          cols >= 3 ? 'lg:grid-cols-3' : ''
+        }`}
       >
         {pages.map((page) => (
           <a
@@ -108,7 +111,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
             }}
           >
             {page.thumbnail ? (
-              <div className="relative overflow-hidden" style={{ height: '160px' }}>
+              <div className="relative overflow-hidden h-36 sm:h-40">
                 <img
                   src={page.thumbnail}
                   alt={page.title}
@@ -119,7 +122,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
             ) : (
               <div className="h-1" style={{ backgroundColor: accentColor }} />
             )}
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <h3 className="text-base font-semibold transition-colors" style={{ color: '#1b1b1b' }}>
                   {page.title}
@@ -136,7 +139,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
                   {page.description}
                 </p>
               )}
-              <div className="flex items-center gap-4 text-xs" style={{ color: '#888' }}>
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs" style={{ color: '#888' }}>
                 <span className="flex items-center gap-1">
                   <span className="material-icons text-sm">schedule</span>
                   {page.duration} min
