@@ -88,6 +88,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
 
   // Interactive blocks
   booking: CalendarCheck,
+  'booking-menu': CalendarCheck,
   survey: ClipboardList,
   'survey-results': BarChart3,
 
@@ -113,6 +114,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'site-footer': Layers,
   'deck-next-slide': ArrowRight,
   'deck-jump-to': CornerDownRight,
+  'survey-input': TextCursorInput,
 };
 
 /**

@@ -560,6 +560,13 @@ export interface StoreBannerBlock extends BaseBlock {
   countdownDate?: string;
 }
 
+export interface BookingMenuBlock extends BaseBlock {
+  type: 'booking-menu';
+  title?: string;
+  description?: string;
+  columns?: 2 | 3 | 4;
+}
+
 export interface BookingBlock extends BaseBlock {
   type: 'booking';
   slug: string;
@@ -800,6 +807,19 @@ export interface DeckJumpToBlock extends BaseBlock {
   iconPosition?: 'left' | 'right';
 }
 
+// ─── Survey Input Preview Block (for pitch deck slide editor) ────────────────
+
+export interface SurveyInputBlock extends BaseBlock {
+  type: 'survey-input';
+  fieldType: string; // text, textarea, email, phone, url, number, date, select, radio, checkbox, toggle, rating, slider, heading
+  fieldLabel: string;
+  placeholder?: string;
+  options?: string[]; // For select, radio, checkbox
+  min?: number; // For slider
+  max?: number; // For slider
+  step?: number; // For slider
+}
+
 export type Block =
   | TextBlock
   | HeadingBlock
@@ -841,6 +861,7 @@ export type Block =
   | StoreBannerBlock
   | ProductDetailBlock
   | BookingBlock
+  | BookingMenuBlock
   | SurveyBlock
   | SurveyResultsBlock
   | SocialLinksBlock
@@ -851,7 +872,8 @@ export type Block =
   | BentoGridBlock
   | SiteFooterBlock
   | DeckNextSlideBlock
-  | DeckJumpToBlock;
+  | DeckJumpToBlock
+  | SurveyInputBlock;
 
 export type BlockType = Block['type'];
 

@@ -41,6 +41,7 @@ import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from './StoreBannerBlockRender';
 import { ProductDetailBlockRender } from './ProductDetailBlockRender';
 import { BookingBlockRender } from './BookingBlockRender';
+import { BookingMenuBlockRender } from './BookingMenuBlockRender';
 import { SurveyBlockRender } from './SurveyBlockRender';
 import { SurveyResultsBlockRender } from './SurveyResultsBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
@@ -198,6 +199,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <ProductDetailBlockRender block={block} siteId={siteId} />;
     case 'booking':
       return <BookingBlockRender block={block} />;
+    case 'booking-menu':
+      return <BookingMenuBlockRender block={block} siteId={siteId} />;
     case 'survey':
       return <SurveyBlockRender block={block} />;
     case 'survey-results':

@@ -50,6 +50,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'store-banner': 'Store Banner',
   'product-detail': 'Product Detail',
   booking: 'Booking',
+  'booking-menu': 'Booking Menu',
   survey: 'Survey',
   'survey-results': 'Survey Results',
   'social-links': 'Social Links',
@@ -61,6 +62,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'site-footer': 'Site Footer',
   'deck-next-slide': 'Next Slide',
   'deck-jump-to': 'Jump To Slide',
+  'survey-input': 'Survey Input',
 };
 
 function SettingsPopupContent() {
