@@ -57,6 +57,10 @@ export function BookingBlockPreview({ block, isSelected, onChange }: BookingBloc
               <span className="material-icons text-base">videocam</span>
               Video call
             </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+              <span className="material-icons text-base">payments</span>
+              Pricing & add-ons
+            </div>
           </div>
 
           {/* Right: calendar + times */}

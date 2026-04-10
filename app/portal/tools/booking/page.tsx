@@ -151,6 +151,26 @@ export default async function BookingPagesListPage() {
         )}
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { href: '/portal/tools/booking/analytics', icon: 'bar_chart', label: 'Analytics', desc: 'Revenue & insights' },
+          { href: '/portal/tools/booking/checkin', icon: 'qr_code_scanner', label: 'Check-in', desc: 'Scan & manage' },
+          { href: '/portal/tools/booking/quotes', icon: 'request_quote', label: 'Quotes', desc: 'Custom pricing' },
+          { href: '/portal/tools/gift-certificates', icon: 'card_giftcard', label: 'Gift Certs', desc: 'Manage certificates' },
+        ].map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="bg-card border border-border rounded-xl p-3 hover:border-primary/50 hover:shadow-sm transition-all group text-center"
+          >
+            <span className="material-icons text-xl text-muted-foreground group-hover:text-primary transition-colors">{action.icon}</span>
+            <p className="text-sm font-medium text-foreground mt-1">{action.label}</p>
+            <p className="text-xs text-muted-foreground">{action.desc}</p>
+          </Link>
+        ))}
+      </div>
+
       {/* Booking Pages List */}
       {pages.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">

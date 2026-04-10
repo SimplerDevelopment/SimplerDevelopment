@@ -57,10 +57,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.questions !== undefined) updates.questions = body.questions;
   if (body.color !== undefined) updates.color = body.color;
   if (body.brandingProfileId !== undefined) updates.brandingProfileId = body.brandingProfileId || null;
+  if (body.price !== undefined) updates.price = body.price;
+  if (body.priceLabel !== undefined) updates.priceLabel = body.priceLabel || null;
+  if (body.maxGuests !== undefined) updates.maxGuests = body.maxGuests || null;
+  if (body.websiteId !== undefined) updates.websiteId = body.websiteId || null;
+  if (body.enableAddOns !== undefined) updates.enableAddOns = body.enableAddOns;
+  if (body.enableGiftCertificates !== undefined) updates.enableGiftCertificates = body.enableGiftCertificates;
+  if (body.enableDiscountCodes !== undefined) updates.enableDiscountCodes = body.enableDiscountCodes;
+  if (body.enableWaivers !== undefined) updates.enableWaivers = body.enableWaivers;
+  if (body.waiverContent !== undefined) updates.waiverContent = body.waiverContent || null;
+  if (body.requireWaiverBeforeBooking !== undefined) updates.requireWaiverBeforeBooking = body.requireWaiverBeforeBooking;
+  if (body.checkinEnabled !== undefined) updates.checkinEnabled = body.checkinEnabled;
   if (body.active !== undefined) updates.active = body.active;
   if (body.googleCalendarSync !== undefined) updates.googleCalendarSync = body.googleCalendarSync;
   if (body.conferenceType !== undefined) updates.conferenceType = body.conferenceType;
   if (body.styling !== undefined) updates.styling = body.styling;
+  if (body.thumbnail !== undefined) updates.thumbnail = body.thumbnail || null;
 
   const [updated] = await db.update(bookingPages)
     .set(updates)

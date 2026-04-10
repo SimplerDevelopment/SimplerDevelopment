@@ -21,6 +21,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     styling: bookingPages.styling,
     maxAdvanceDays: bookingPages.maxAdvanceDays,
     minNoticeMins: bookingPages.minNoticeMins,
+    price: bookingPages.price,
+    priceLabel: bookingPages.priceLabel,
+    maxGuests: bookingPages.maxGuests,
+    enableAddOns: bookingPages.enableAddOns,
+    enableGiftCertificates: bookingPages.enableGiftCertificates,
+    enableDiscountCodes: bookingPages.enableDiscountCodes,
+    enableWaivers: bookingPages.enableWaivers,
+    requireWaiverBeforeBooking: bookingPages.requireWaiverBeforeBooking,
+    waiverContent: bookingPages.waiverContent,
+    checkinEnabled: bookingPages.checkinEnabled,
   }).from(bookingPages)
     .where(and(eq(bookingPages.slug, slug), eq(bookingPages.active, true)))
     .limit(1);

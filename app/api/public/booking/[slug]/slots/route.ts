@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { bookingPages, bookings } from '@/lib/db/schema';
-import { eq, and, gte, lte, ne } from 'drizzle-orm';
+import { bookingPages, bookings, bookingDateOverrides } from '@/lib/db/schema';
+import { eq, and, gte, lte, ne, sql } from 'drizzle-orm';
 import type { BookingAvailabilitySlot } from '@/lib/db/schema';
 
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -35,12 +35,36 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     return NextResponse.json({ success: true, data: [] });
   }
 
-  // Get availability for this day of week
-  const dayOfWeek = requestedDate.getDay();
-  const availability = (page.availability as BookingAvailabilitySlot[]) || [];
-  const daySlots = availability.filter(s => s.day === dayOfWeek && s.enabled);
+  // Check for date overrides first
+  const [override] = await db.select().from(bookingDateOverrides)
+    .where(and(
+      eq(bookingDateOverrides.bookingPageId, page.id),
+      eq(bookingDateOverrides.date, dateStr),
+    ))
+    .limit(1);
 
-  if (daySlots.length === 0) {
+  // If date is blocked, return no slots
+  if (override?.type === 'blocked') {
+    return NextResponse.json({ success: true, data: [] });
+  }
+
+  // Determine time windows for this date
+  type TimeWindow = { startTime: string; endTime: string };
+  let timeWindows: TimeWindow[] = [];
+
+  if (override?.type === 'available' && override.startTime && override.endTime) {
+    // Use override times instead of day-of-week
+    timeWindows = [{ startTime: override.startTime, endTime: override.endTime }];
+  } else {
+    // Use standard day-of-week availability
+    const dayOfWeek = requestedDate.getDay();
+    const availability = (page.availability as BookingAvailabilitySlot[]) || [];
+    timeWindows = availability
+      .filter(s => s.day === dayOfWeek && s.enabled)
+      .map(s => ({ startTime: s.startTime, endTime: s.endTime }));
+  }
+
+  if (timeWindows.length === 0) {
     return NextResponse.json({ success: true, data: [] });
   }
 
@@ -51,6 +75,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const existingBookings = await db.select({
     startTime: bookings.startTime,
     endTime: bookings.endTime,
+    groupSize: bookings.groupSize,
   }).from(bookings)
     .where(and(
       eq(bookings.bookingPageId, page.id),
@@ -60,14 +85,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     ));
 
   // Generate available time slots
-  const slots: string[] = [];
   const slotDuration = page.duration;
   const bufferBefore = page.bufferBefore;
   const bufferAfter = page.bufferAfter;
+  const hasCapacity = page.maxGuests != null && page.maxGuests > 0;
 
-  for (const daySlot of daySlots) {
-    const [startHour, startMin] = daySlot.startTime.split(':').map(Number);
-    const [endHour, endMin] = daySlot.endTime.split(':').map(Number);
+  const slots: { time: string; remainingCapacity: number | null }[] = [];
+
+  for (const window of timeWindows) {
+    const [startHour, startMin] = window.startTime.split(':').map(Number);
+    const [endHour, endMin] = window.endTime.split(':').map(Number);
 
     const windowStart = startHour * 60 + startMin;
     const windowEnd = endHour * 60 + endMin;
@@ -82,18 +109,33 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       const minNoticeTime = new Date(now.getTime() + page.minNoticeMins * 60 * 1000);
       if (slotStart < minNoticeTime) continue;
 
-      // Check for conflicts (including buffer)
-      const bufferedStart = new Date(slotStart.getTime() - bufferBefore * 60 * 1000);
-      const bufferedEnd = new Date(slotEnd.getTime() + bufferAfter * 60 * 1000);
+      if (hasCapacity) {
+        // Capacity mode: count total group size for this slot
+        const booked = existingBookings
+          .filter(b => {
+            const bStart = new Date(b.startTime);
+            return bStart.getTime() === slotStart.getTime();
+          })
+          .reduce((sum, b) => sum + (b.groupSize ?? 1), 0);
 
-      const hasConflict = existingBookings.some(b => {
-        const bStart = new Date(b.startTime);
-        const bEnd = new Date(b.endTime);
-        return bufferedStart < bEnd && bufferedEnd > bStart;
-      });
+        const remaining = page.maxGuests! - booked;
+        if (remaining > 0) {
+          slots.push({ time: slotStart.toISOString(), remainingCapacity: remaining });
+        }
+      } else {
+        // 1:1 mode: check for conflicts (including buffer)
+        const bufferedStart = new Date(slotStart.getTime() - bufferBefore * 60 * 1000);
+        const bufferedEnd = new Date(slotEnd.getTime() + bufferAfter * 60 * 1000);
 
-      if (!hasConflict) {
-        slots.push(slotStart.toISOString());
+        const hasConflict = existingBookings.some(b => {
+          const bStart = new Date(b.startTime);
+          const bEnd = new Date(b.endTime);
+          return bufferedStart < bEnd && bufferedEnd > bStart;
+        });
+
+        if (!hasConflict) {
+          slots.push({ time: slotStart.toISOString(), remainingCapacity: null });
+        }
       }
     }
   }
