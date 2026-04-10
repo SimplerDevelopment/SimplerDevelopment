@@ -122,7 +122,12 @@ export default function NavigationEditorPage() {
       if (statusRes?.success) {
         const s = statusRes.data;
         const domain = s.vercelDomain || (s.subdomain ? `${s.subdomain}.simplerdevelopment.com` : null);
-        const url = domain ? `/sites/${domain}` : null;
+        // If the portal is being accessed ON the tenant's own host, use a
+        // same-origin path — middleware will rewrite /nav-preview to
+        // /sites/{host}/nav-preview. Otherwise (portal on the main app host),
+        // hit the /sites/{domain}/... renderer directly.
+        const onTenantHost = !!domain && typeof window !== 'undefined' && window.location.host === domain;
+        const url = onTenantHost ? '' : (domain ? `/sites/${domain}` : null);
         setSitePreviewUrl(url);
       }
     }).finally(() => setLoading(false));
@@ -150,7 +155,7 @@ export default function NavigationEditorPage() {
     }, '*');
   }, [items, branding, iframeReady]);
 
-  const previewUrl = useLocalhost ? `http://localhost:${localPort}/nav-preview` : sitePreviewUrl ? `${sitePreviewUrl}/nav-preview` : null;
+  const previewUrl = useLocalhost ? `http://localhost:${localPort}/nav-preview` : sitePreviewUrl !== null ? `${sitePreviewUrl}/nav-preview` : null;
 
   // Save all
   const save = useCallback(async () => {
