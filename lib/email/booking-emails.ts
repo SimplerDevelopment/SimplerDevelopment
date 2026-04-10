@@ -168,7 +168,7 @@ export async function sendGuestConfirmation(data: BookingEmailData): Promise<voi
         {
           filename: 'invite.ics',
           content: Buffer.from(icsContent).toString('base64'),
-          content_type: 'text/calendar; method=REQUEST',
+          contentType: 'text/calendar; method=REQUEST',
         },
       ],
     });
@@ -236,7 +236,7 @@ export async function sendHostNotification(
         {
           filename: 'invite.ics',
           content: Buffer.from(icsContent).toString('base64'),
-          content_type: 'text/calendar; method=REQUEST',
+          contentType: 'text/calendar; method=REQUEST',
         },
       ],
     });
