@@ -33,6 +33,7 @@ import { ProductCategoriesBlockRender } from '@/components/blocks/render/Product
 import { ShoppingCartBlockRender } from '@/components/blocks/render/ShoppingCartBlockRender';
 import { StoreBannerBlockRender } from '@/components/blocks/render/StoreBannerBlockRender';
 import { BookingBlockRender } from '@/components/blocks/render/BookingBlockRender';
+import { BookingMenuBlockRender } from '@/components/blocks/render/BookingMenuBlockRender';
 import { SurveyBlockRender } from '@/components/blocks/render/SurveyBlockRender';
 import { SocialLinksBlockRender } from '@/components/blocks/render/SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from '@/components/blocks/render/EmailHeaderBlockRender';
@@ -52,6 +53,7 @@ import { TeamShowcaseBlockRender } from '@/components/blocks/render/TeamShowcase
 import { BentoGridBlockRender } from '@/components/blocks/render/BentoGridBlockRender';
 import { SiteFooterBlockRender } from '@/components/blocks/render/SiteFooterBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from '@/components/blocks/render/DeckNavBlockRender';
+import { SurveyInputBlockRender } from '@/components/blocks/render/SurveyInputBlockRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -93,6 +95,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'shopping-cart': ShoppingCartBlockRender,
   'store-banner': StoreBannerBlockRender,
   booking: BookingBlockRender,
+  'booking-menu': BookingMenuBlockRender,
   survey: SurveyBlockRender,
   'social-links': SocialLinksBlockRender,
   'email-header': EmailHeaderBlockRender,
@@ -113,6 +116,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'site-footer': SiteFooterBlockRender,
   'deck-next-slide': DeckNextSlideBlockRender,
   'deck-jump-to': DeckJumpToBlockRender,
+  'survey-input': SurveyInputBlockRender,
 };
 
 let _registry: BlockRegistry | null = null;
