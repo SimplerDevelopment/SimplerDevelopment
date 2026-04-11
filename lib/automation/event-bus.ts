@@ -90,6 +90,9 @@ export const AUTOMATION_EVENTS = {
   'form.submitted': 'A website form is submitted',
   'page.published': 'A website page is published',
 
+  // Surveys
+  'survey.response_submitted': 'A survey response is submitted',
+
   // Store / Orders
   'order.placed': 'A new order is placed',
   'order.paid': 'An order payment is received',
