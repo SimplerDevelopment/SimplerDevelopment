@@ -475,8 +475,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               error={surveyErrors[currentVS.field.id]}
               surveyTitle={currentVS.surveyTitle}
               onNext={next}
-              onBack={current > 0 ? prev : undefined}
-              showBack={current > 0}
+              onBack={prev}
+              showBack
               isLastQuestion={isLastQuestionBeforeSubmit()}
               isSubmitting={submitting}
             />

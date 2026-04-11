@@ -8,6 +8,7 @@ import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
+import { SurveySlideRenderer, type SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import MediaPicker from '@/components/admin/MediaPicker';
 import {
   DndContext,
@@ -1495,7 +1496,6 @@ useEffect(() => {
               editingSurveyFieldId ? (
                 /* ── Survey sub-slide editor ── */
                 (() => {
-                  const surveyFieldBlocks = getSurveyFieldBlocksForEditing(activeSlide, editingSurveyFieldId);
                   const surveyFields = getSurveyFields(currentSlide.surveyId);
                   const editingField = surveyFields.find(f => f.id === editingSurveyFieldId);
                   return (
@@ -1553,58 +1553,55 @@ useEffect(() => {
                           <span className="material-icons text-sm">chevron_right</span>
                         </button>
                       </div>
-                      <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-220px)]" style={{ minHeight: '600px' }}>
-                        <VisualEditorShell
-                          key={`survey-field-${activeSlide}-${editingSurveyFieldId}`}
-                          blocks={surveyFieldBlocks}
-                          selectedBlockId={null}
-                          viewport={iframeViewport}
-                          previewMode={editorMode === 'preview'}
-                          initialZoom={60}
-                          leftCollapsed={editorLeftCollapsed}
-                          rightCollapsed={editorRightCollapsed}
-                          onLeftCollapsedChange={setEditorLeftCollapsed}
-                          onRightCollapsedChange={setEditorRightCollapsed}
-                          iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}`}
-                          onBlocksChange={(blocks: Block[]) => updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, blocks)}
-                          onSelectBlock={() => {}}
-                          onAddBlock={(type: string) => {
-                            const uid = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                            const newBlock = {
-                              id: uid,
-                              type: type as BlockType,
-                              order: surveyFieldBlocks.length + 1,
-                              ...(type === 'text' && { content: 'New text...' }),
-                              ...(type === 'heading' && { content: 'New heading', level: 2 }),
-                              ...(type === 'columns' && { columns: [
-                                { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
-                                { id: `col-${Date.now()}-2`, width: 50, blocks: [] },
-                              ], gap: 'md' }),
-                            } as Block;
-                            updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, [...surveyFieldBlocks, newBlock]);
+                      {/* Live-parity survey field preview.
+                          Renders the exact same SurveySlideRenderer the public
+                          tenant-subdomain view uses, so the editor and the
+                          live deck never drift. Field properties are edited
+                          in the right-hand SurveyFieldPropertiesPanel, which
+                          writes back to the survey record (source of truth). */}
+                      <div className="flex gap-4" style={{ minHeight: '600px' }}>
+                        <div
+                          className="flex-1 rounded-xl overflow-auto border border-border relative"
+                          style={{
+                            backgroundColor: currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor,
+                            color: deck.theme.textColor,
+                            fontFamily: `"${deck.theme.bodyFont}", sans-serif`,
+                            maxHeight: 'calc(100vh - 220px)',
                           }}
-                          onDeleteBlock={(blockId: string) => {
-                            const block = surveyFieldBlocks.find(b => b.id === blockId);
-                            if (block?.required) return;
-                            updateSurveyFieldBlocks(activeSlide, editingSurveyFieldId, surveyFieldBlocks.filter(b => b.id !== blockId));
-                          }}
-                          onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
-                            updateSurveyFieldBlocks(
-                              activeSlide,
-                              editingSurveyFieldId,
-                              surveyFieldBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b),
-                            );
-                          }}
-                          siteId={undefined}
-                          allowIframeScroll
-                          noSelectionPanel={editingField && currentSlide.surveyId ? (
+                        >
+                          <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+                          {editingField ? (
+                            <SurveySlideRenderer
+                              field={editingField as unknown as SurveySlideField}
+                              questionNumber={surveyFields.findIndex(f => f.id === editingSurveyFieldId) + 1}
+                              totalQuestions={surveyFields.length}
+                              answers={{}}
+                              onAnswer={() => {}}
+                              theme={deck.theme}
+                              surveyTitle={currentSlide.label || 'Survey'}
+                              onNext={() => {
+                                const idx = surveyFields.findIndex(f => f.id === editingSurveyFieldId);
+                                if (idx < surveyFields.length - 1) setEditingSurveyFieldId(surveyFields[idx + 1].id);
+                              }}
+                              onBack={() => {
+                                const idx = surveyFields.findIndex(f => f.id === editingSurveyFieldId);
+                                if (idx > 0) setEditingSurveyFieldId(surveyFields[idx - 1].id);
+                              }}
+                              showBack
+                              isLastQuestion={false}
+                              isSubmitting={false}
+                            />
+                          ) : null}
+                        </div>
+                        <div className="w-80 shrink-0 bg-card border border-border rounded-xl p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                          {editingField && currentSlide.surveyId ? (
                             <SurveyFieldPropertiesPanel
                               field={editingField as SurveyFieldForPanel}
                               surveyId={currentSlide.surveyId}
                               onUpdate={(updates) => updateSurveyField(currentSlide.surveyId!, editingSurveyFieldId, updates)}
                             />
-                          ) : undefined}
-                        />
+                          ) : null}
+                        </div>
                       </div>
                     </>
                   );
