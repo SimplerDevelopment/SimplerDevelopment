@@ -2,7 +2,15 @@
 
 import { db } from '@/lib/db';
 import { posts, categories, tags, postCategories, postTags } from '@/lib/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, isNull } from 'drizzle-orm';
+
+// These helpers back main-domain blog routes (app/(pages)/blog/*) and must
+// ONLY return SimplerDevelopment's own "global" blog posts — rows where
+// posts.websiteId IS NULL per the schema convention. Tenant blog posts
+// live in rows with a non-null websiteId and are served through
+// /sites/[domain]/[[...slug]] on the owning tenant's subdomain. Without
+// the isNull filter, any tenant's published blog post could be rendered
+// on the SimplerDevelopment marketing blog by guessing its slug.
 
 export interface BlogPostWithRelations {
   id: number;
@@ -44,7 +52,11 @@ export async function getAllBlogPosts(): Promise<BlogPostWithRelations[]> {
     const publishedPosts = await db
       .select()
       .from(posts)
-      .where(and(eq(posts.published, true), eq(posts.postType, 'blog')))
+      .where(and(
+        eq(posts.published, true),
+        eq(posts.postType, 'blog'),
+        isNull(posts.websiteId),
+      ))
       .orderBy(desc(posts.publishedAt));
 
     // Fetch related data for each post
@@ -98,7 +110,12 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPostWithRelat
     const post = await db
       .select()
       .from(posts)
-      .where(and(eq(posts.slug, slug), eq(posts.published, true), eq(posts.postType, 'blog')))
+      .where(and(
+        eq(posts.slug, slug),
+        eq(posts.published, true),
+        eq(posts.postType, 'blog'),
+        isNull(posts.websiteId),
+      ))
       .limit(1);
 
     if (!post || post.length === 0) {
@@ -180,7 +197,8 @@ export async function getBlogPostsByCategory(categorySlug: string): Promise<Blog
         and(
           eq(postCategories.categoryId, categoryId),
           eq(posts.published, true),
-          eq(posts.postType, 'blog')
+          eq(posts.postType, 'blog'),
+          isNull(posts.websiteId),
         )
       )
       .orderBy(desc(posts.publishedAt));
