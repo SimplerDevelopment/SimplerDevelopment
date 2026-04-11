@@ -785,6 +785,309 @@ useEffect(() => {
 
   const currentSlide = deck.slides[activeSlide];
 
+  // Shared slide-level settings panel JSX. Used both as the noSelectionPanel
+  // for regular block slides inside VisualEditorShell, and appended to the
+  // right-hand panel on survey slide previews so tenants can set the same
+  // background / text color / label on a survey slide that they can on any
+  // other slide. Closes over deck / setDeck / activeSlide / setHasUnsavedChanges
+  // and re-evaluates on every render, matching the previous inline behavior.
+  const slideSettingsPanel = (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 pb-2 border-b border-border">
+        <span className="material-icons text-base text-muted-foreground">tune</span>
+        <span className="text-sm font-semibold text-foreground">Slide Settings</span>
+      </div>
+
+      {/* Background Color */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Background Color</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor}
+            onChange={(e) => {
+              const newSlides = [...deck.slides];
+              newSlides[activeSlide] = {
+                ...newSlides[activeSlide],
+                pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundColor: e.target.value },
+              };
+              setDeck({ ...deck, slides: newSlides });
+              setHasUnsavedChanges(true);
+            }}
+            className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
+          />
+          <input
+            type="text"
+            value={currentSlide.pageSettings?.backgroundColor || ''}
+            onChange={(e) => {
+              const newSlides = [...deck.slides];
+              newSlides[activeSlide] = {
+                ...newSlides[activeSlide],
+                pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundColor: e.target.value },
+              };
+              setDeck({ ...deck, slides: newSlides });
+              setHasUnsavedChanges(true);
+            }}
+            placeholder={deck.theme.backgroundColor}
+            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          {currentSlide.pageSettings?.backgroundColor && (
+            <button
+              onClick={() => {
+                const newSlides = [...deck.slides];
+                const ps = { ...newSlides[activeSlide].pageSettings };
+                delete ps.backgroundColor;
+                newSlides[activeSlide] = { ...newSlides[activeSlide], pageSettings: ps };
+                setDeck({ ...deck, slides: newSlides });
+                setHasUnsavedChanges(true);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+              title="Reset to theme default"
+            >
+              <span className="material-icons text-sm">restart_alt</span>
+            </button>
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1">Overrides the deck theme for this slide</p>
+      </div>
+
+      {/* Background Image */}
+      <div>
+        <span className="text-xs font-medium text-muted-foreground">Background Image</span>
+        <MediaPicker
+          value={currentSlide.pageSettings?.backgroundImage || ''}
+          onChange={(v) => {
+            const newSlides = [...deck.slides];
+            newSlides[activeSlide] = {
+              ...newSlides[activeSlide],
+              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundImage: v },
+            };
+            setDeck({ ...deck, slides: newSlides });
+            setHasUnsavedChanges(true);
+          }}
+          mimeTypeFilter="image"
+          label=""
+          apiEndpoint="/api/media"
+        />
+      </div>
+
+      {/* Background Image Controls (when image is set) */}
+      {currentSlide.pageSettings?.backgroundImage && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
+              <select
+                value={['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') ? (currentSlide.pageSettings?.backgroundSize || 'cover') : 'custom'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'custom') {
+                    const newSlides = [...deck.slides];
+                    newSlides[activeSlide] = {
+                      ...newSlides[activeSlide],
+                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: '200px' as 'cover' },
+                    };
+                    setDeck({ ...deck, slides: newSlides });
+                    setHasUnsavedChanges(true);
+                    return;
+                  }
+                  const newSlides = [...deck.slides];
+                  newSlides[activeSlide] = {
+                    ...newSlides[activeSlide],
+                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: val as 'cover' | 'contain' | 'auto' },
+                  };
+                  setDeck({ ...deck, slides: newSlides });
+                  setHasUnsavedChanges(true);
+                }}
+                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="cover">Cover</option>
+                <option value="contain">Contain</option>
+                <option value="auto">Auto</option>
+                <option value="custom">Custom</option>
+              </select>
+              {!['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') && (
+                <input
+                  type="text"
+                  value={currentSlide.pageSettings?.backgroundSize || ''}
+                  onChange={(e) => {
+                    const newSlides = [...deck.slides];
+                    newSlides[activeSlide] = {
+                      ...newSlides[activeSlide],
+                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' },
+                    };
+                    setDeck({ ...deck, slides: newSlides });
+                    setHasUnsavedChanges(true);
+                  }}
+                  placeholder="e.g. 200px, 50%, 100px auto"
+                  className="mt-1 w-full px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Repeat</label>
+              <select
+                value={currentSlide.pageSettings?.backgroundRepeat || 'no-repeat'}
+                onChange={(e) => {
+                  const newSlides = [...deck.slides];
+                  newSlides[activeSlide] = {
+                    ...newSlides[activeSlide],
+                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundRepeat: e.target.value as 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y' },
+                  };
+                  setDeck({ ...deck, slides: newSlides });
+                  setHasUnsavedChanges(true);
+                }}
+                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="no-repeat">No Repeat</option>
+                <option value="repeat">Repeat</option>
+                <option value="repeat-x">Repeat X</option>
+                <option value="repeat-y">Repeat Y</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Position</label>
+            <select
+              value={currentSlide.pageSettings?.backgroundPosition || 'center'}
+              onChange={(e) => {
+                const newSlides = [...deck.slides];
+                newSlides[activeSlide] = {
+                  ...newSlides[activeSlide],
+                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundPosition: e.target.value },
+                };
+                setDeck({ ...deck, slides: newSlides });
+                setHasUnsavedChanges(true);
+              }}
+              className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="center">Center</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="top left">Top Left</option>
+              <option value="top right">Top Right</option>
+              <option value="bottom left">Bottom Left</option>
+              <option value="bottom right">Bottom Right</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Opacity: {Math.round((currentSlide.pageSettings?.backgroundOpacity ?? 1) * 100)}%
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={currentSlide.pageSettings?.backgroundOpacity ?? 1}
+              onChange={(e) => {
+                const newSlides = [...deck.slides];
+                newSlides[activeSlide] = {
+                  ...newSlides[activeSlide],
+                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundOpacity: parseFloat(e.target.value) },
+                };
+                setDeck({ ...deck, slides: newSlides });
+                setHasUnsavedChanges(true);
+              }}
+              className="w-full accent-primary"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Background Video */}
+      <div>
+        <span className="text-xs font-medium text-muted-foreground">Background Video</span>
+        <MediaPicker
+          value={currentSlide.pageSettings?.backgroundVideo || ''}
+          onChange={(v) => {
+            const newSlides = [...deck.slides];
+            newSlides[activeSlide] = {
+              ...newSlides[activeSlide],
+              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundVideo: v },
+            };
+            setDeck({ ...deck, slides: newSlides });
+            setHasUnsavedChanges(true);
+          }}
+          mimeTypeFilter="video"
+          label=""
+          apiEndpoint="/api/media"
+        />
+      </div>
+
+      {/* Text Color */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Text Color</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={currentSlide.pageSettings?.color || deck.theme.textColor}
+            onChange={(e) => {
+              const newSlides = [...deck.slides];
+              newSlides[activeSlide] = {
+                ...newSlides[activeSlide],
+                pageSettings: { ...newSlides[activeSlide].pageSettings, color: e.target.value },
+              };
+              setDeck({ ...deck, slides: newSlides });
+              setHasUnsavedChanges(true);
+            }}
+            className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
+          />
+          <input
+            type="text"
+            value={currentSlide.pageSettings?.color || ''}
+            onChange={(e) => {
+              const newSlides = [...deck.slides];
+              newSlides[activeSlide] = {
+                ...newSlides[activeSlide],
+                pageSettings: { ...newSlides[activeSlide].pageSettings, color: e.target.value },
+              };
+              setDeck({ ...deck, slides: newSlides });
+              setHasUnsavedChanges(true);
+            }}
+            placeholder={deck.theme.textColor}
+            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          {currentSlide.pageSettings?.color && (
+            <button
+              onClick={() => {
+                const newSlides = [...deck.slides];
+                const ps = { ...newSlides[activeSlide].pageSettings };
+                delete ps.color;
+                newSlides[activeSlide] = { ...newSlides[activeSlide], pageSettings: ps };
+                setDeck({ ...deck, slides: newSlides });
+                setHasUnsavedChanges(true);
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+              title="Reset to theme default"
+            >
+              <span className="material-icons text-sm">restart_alt</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Slide label */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Slide Label</label>
+        <input
+          type="text"
+          value={currentSlide.label || ''}
+          onChange={(e) => {
+            const newSlides = [...deck.slides];
+            newSlides[activeSlide] = { ...newSlides[activeSlide], label: e.target.value };
+            setDeck({ ...deck, slides: newSlides });
+            setHasUnsavedChanges(true);
+          }}
+          className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder="e.g. Cover, About, Pricing..."
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full space-y-4 px-2">
       {/* Header */}
@@ -1592,7 +1895,7 @@ useEffect(() => {
                             />
                           ) : null}
                         </div>
-                        <div className="w-80 shrink-0 bg-card border border-border rounded-xl p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                        <div className="w-80 shrink-0 bg-card border border-border rounded-xl p-4 overflow-y-auto space-y-6" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                           {editingField && currentSlide.surveyId ? (
                             <SurveyFieldPropertiesPanel
                               field={editingField as SurveyFieldForPanel}
@@ -1600,6 +1903,10 @@ useEffect(() => {
                               onUpdate={(updates) => updateSurveyField(currentSlide.surveyId!, editingSurveyFieldId, updates)}
                             />
                           ) : null}
+                          {/* Slide-level settings (background, text color, label)
+                              — same panel shown on block slides so tenants can
+                              theme a survey slide just like any other. */}
+                          {slideSettingsPanel}
                         </div>
                       </div>
                     </>
@@ -1888,302 +2195,7 @@ useEffect(() => {
                     { type: 'deck-jump-to', label: 'Jump To Slide', icon: 'shortcut', category: 'Pitch Deck', description: 'Button that jumps to a specific slide' },
                   ]}
                   allowIframeScroll
-                  noSelectionPanel={
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        <span className="material-icons text-base text-muted-foreground">tune</span>
-                        <span className="text-sm font-semibold text-foreground">Slide Settings</span>
-                      </div>
-
-                      {/* Background Color */}
-                      <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">Background Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor}
-                            onChange={(e) => {
-                              const newSlides = [...deck.slides];
-                              newSlides[activeSlide] = {
-                                ...newSlides[activeSlide],
-                                pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundColor: e.target.value },
-                              };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={currentSlide.pageSettings?.backgroundColor || ''}
-                            onChange={(e) => {
-                              const newSlides = [...deck.slides];
-                              newSlides[activeSlide] = {
-                                ...newSlides[activeSlide],
-                                pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundColor: e.target.value },
-                              };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder={deck.theme.backgroundColor}
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          />
-                          {currentSlide.pageSettings?.backgroundColor && (
-                            <button
-                              onClick={() => {
-                                const newSlides = [...deck.slides];
-                                const ps = { ...newSlides[activeSlide].pageSettings };
-                                delete ps.backgroundColor;
-                                newSlides[activeSlide] = { ...newSlides[activeSlide], pageSettings: ps };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                              title="Reset to theme default"
-                            >
-                              <span className="material-icons text-sm">restart_alt</span>
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">Overrides the deck theme for this slide</p>
-                      </div>
-
-                      {/* Background Image */}
-                      <div>
-                        <span className="text-xs font-medium text-muted-foreground">Background Image</span>
-                        <MediaPicker
-                          value={currentSlide.pageSettings?.backgroundImage || ''}
-                          onChange={(v) => {
-                            const newSlides = [...deck.slides];
-                            newSlides[activeSlide] = {
-                              ...newSlides[activeSlide],
-                              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundImage: v },
-                            };
-                            setDeck({ ...deck, slides: newSlides });
-                            setHasUnsavedChanges(true);
-                          }}
-                          mimeTypeFilter="image"
-                          label=""
-                          apiEndpoint="/api/media"
-                        />
-                      </div>
-
-                      {/* Background Image Controls (when image is set) */}
-                      {currentSlide.pageSettings?.backgroundImage && (
-                        <>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Size</label>
-                              <select
-                                value={['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') ? (currentSlide.pageSettings?.backgroundSize || 'cover') : 'custom'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === 'custom') {
-                                    const newSlides = [...deck.slides];
-                                    newSlides[activeSlide] = {
-                                      ...newSlides[activeSlide],
-                                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: '200px' as 'cover' },
-                                    };
-                                    setDeck({ ...deck, slides: newSlides });
-                                    setHasUnsavedChanges(true);
-                                    return;
-                                  }
-                                  const newSlides = [...deck.slides];
-                                  newSlides[activeSlide] = {
-                                    ...newSlides[activeSlide],
-                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: val as 'cover' | 'contain' | 'auto' },
-                                  };
-                                  setDeck({ ...deck, slides: newSlides });
-                                  setHasUnsavedChanges(true);
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              >
-                                <option value="cover">Cover</option>
-                                <option value="contain">Contain</option>
-                                <option value="auto">Auto</option>
-                                <option value="custom">Custom</option>
-                              </select>
-                              {!['cover', 'contain', 'auto'].includes(currentSlide.pageSettings?.backgroundSize || 'cover') && (
-                                <input
-                                  type="text"
-                                  value={currentSlide.pageSettings?.backgroundSize || ''}
-                                  onChange={(e) => {
-                                    const newSlides = [...deck.slides];
-                                    newSlides[activeSlide] = {
-                                      ...newSlides[activeSlide],
-                                      pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundSize: e.target.value as 'cover' },
-                                    };
-                                    setDeck({ ...deck, slides: newSlides });
-                                    setHasUnsavedChanges(true);
-                                  }}
-                                  placeholder="e.g. 200px, 50%, 100px auto"
-                                  className="mt-1 w-full px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Repeat</label>
-                              <select
-                                value={currentSlide.pageSettings?.backgroundRepeat || 'no-repeat'}
-                                onChange={(e) => {
-                                  const newSlides = [...deck.slides];
-                                  newSlides[activeSlide] = {
-                                    ...newSlides[activeSlide],
-                                    pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundRepeat: e.target.value as 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y' },
-                                  };
-                                  setDeck({ ...deck, slides: newSlides });
-                                  setHasUnsavedChanges(true);
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                              >
-                                <option value="no-repeat">No Repeat</option>
-                                <option value="repeat">Repeat</option>
-                                <option value="repeat-x">Repeat X</option>
-                                <option value="repeat-y">Repeat Y</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">Position</label>
-                            <select
-                              value={currentSlide.pageSettings?.backgroundPosition || 'center'}
-                              onChange={(e) => {
-                                const newSlides = [...deck.slides];
-                                newSlides[activeSlide] = {
-                                  ...newSlides[activeSlide],
-                                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundPosition: e.target.value },
-                                };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            >
-                              <option value="center">Center</option>
-                              <option value="top">Top</option>
-                              <option value="bottom">Bottom</option>
-                              <option value="left">Left</option>
-                              <option value="right">Right</option>
-                              <option value="top left">Top Left</option>
-                              <option value="top right">Top Right</option>
-                              <option value="bottom left">Bottom Left</option>
-                              <option value="bottom right">Bottom Right</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-muted-foreground mb-1">
-                              Opacity: {Math.round((currentSlide.pageSettings?.backgroundOpacity ?? 1) * 100)}%
-                            </label>
-                            <input
-                              type="range"
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              value={currentSlide.pageSettings?.backgroundOpacity ?? 1}
-                              onChange={(e) => {
-                                const newSlides = [...deck.slides];
-                                newSlides[activeSlide] = {
-                                  ...newSlides[activeSlide],
-                                  pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundOpacity: parseFloat(e.target.value) },
-                                };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              className="w-full accent-primary"
-                            />
-                          </div>
-                        </>
-                      )}
-
-                      {/* Background Video */}
-                      <div>
-                        <span className="text-xs font-medium text-muted-foreground">Background Video</span>
-                        <MediaPicker
-                          value={currentSlide.pageSettings?.backgroundVideo || ''}
-                          onChange={(v) => {
-                            const newSlides = [...deck.slides];
-                            newSlides[activeSlide] = {
-                              ...newSlides[activeSlide],
-                              pageSettings: { ...newSlides[activeSlide].pageSettings, backgroundVideo: v },
-                            };
-                            setDeck({ ...deck, slides: newSlides });
-                            setHasUnsavedChanges(true);
-                          }}
-                          mimeTypeFilter="video"
-                          label=""
-                          apiEndpoint="/api/media"
-                        />
-                      </div>
-
-                      {/* Text Color */}
-                      <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">Text Color</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={currentSlide.pageSettings?.color || deck.theme.textColor}
-                            onChange={(e) => {
-                              const newSlides = [...deck.slides];
-                              newSlides[activeSlide] = {
-                                ...newSlides[activeSlide],
-                                pageSettings: { ...newSlides[activeSlide].pageSettings, color: e.target.value },
-                              };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="w-8 h-8 rounded border border-border cursor-pointer shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={currentSlide.pageSettings?.color || ''}
-                            onChange={(e) => {
-                              const newSlides = [...deck.slides];
-                              newSlides[activeSlide] = {
-                                ...newSlides[activeSlide],
-                                pageSettings: { ...newSlides[activeSlide].pageSettings, color: e.target.value },
-                              };
-                              setDeck({ ...deck, slides: newSlides });
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder={deck.theme.textColor}
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          />
-                          {currentSlide.pageSettings?.color && (
-                            <button
-                              onClick={() => {
-                                const newSlides = [...deck.slides];
-                                const ps = { ...newSlides[activeSlide].pageSettings };
-                                delete ps.color;
-                                newSlides[activeSlide] = { ...newSlides[activeSlide], pageSettings: ps };
-                                setDeck({ ...deck, slides: newSlides });
-                                setHasUnsavedChanges(true);
-                              }}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                              title="Reset to theme default"
-                            >
-                              <span className="material-icons text-sm">restart_alt</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Slide label */}
-                      <div>
-                        <label className="block text-xs font-medium text-muted-foreground mb-1">Slide Label</label>
-                        <input
-                          type="text"
-                          value={currentSlide.label || ''}
-                          onChange={(e) => {
-                            const newSlides = [...deck.slides];
-                            newSlides[activeSlide] = { ...newSlides[activeSlide], label: e.target.value };
-                            setDeck({ ...deck, slides: newSlides });
-                            setHasUnsavedChanges(true);
-                          }}
-                          className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                          placeholder="e.g. Cover, About, Pricing..."
-                        />
-                      </div>
-                    </div>
-                  }
+                  noSelectionPanel={slideSettingsPanel}
                 />
               </div>
             </>
