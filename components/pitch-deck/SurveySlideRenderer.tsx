@@ -110,7 +110,7 @@ export function SurveySlideRenderer({
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center ${containerClassName}`}>
+    <div className={`w-full flex flex-col items-center justify-center ${containerClassName}`}>
       <div className="w-full max-w-3xl space-y-8">
         {/* Survey title badge */}
         {surveyTitle && (
