@@ -67,7 +67,7 @@ export function SurveySlideRenderer({
   if (field.type === 'heading') {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${containerClassName}`}>
-        <div className="w-full max-w-xl space-y-8">
+        <div className="w-full max-w-3xl space-y-8">
           <h2
             className="text-4xl md:text-5xl font-bold mb-4"
             style={{ fontFamily: theme.headingFont, color: theme.textColor }}
@@ -111,7 +111,7 @@ export function SurveySlideRenderer({
 
   return (
     <div className={`flex flex-col items-center justify-center ${containerClassName}`}>
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-3xl space-y-8">
         {/* Survey title badge */}
         {surveyTitle && (
           <div className="flex items-center gap-2 opacity-40">
