@@ -4,7 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites, websiteDomains } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { removeDomain } from '@/lib/vercel';
+import { removeDomain, resolveDomainProjectId } from '@/lib/vercel';
 
 /** DELETE - Remove a custom domain */
 export async function DELETE(
@@ -36,9 +36,13 @@ export async function DELETE(
   if (!domainRecord) return NextResponse.json({ success: false, message: 'Domain not found' }, { status: 404 });
 
   try {
-    // Remove from Vercel
-    if (site.vercelProjectId) {
-      await removeDomain(site.vercelProjectId, domainRecord.domain);
+    // Remove from Vercel (platform project for shared-hosted sites, dedicated project otherwise).
+    // Wrap in try/catch so a stale Vercel state doesn't block DB cleanup.
+    try {
+      const projectId = resolveDomainProjectId(site.vercelProjectId);
+      await removeDomain(projectId, domainRecord.domain);
+    } catch {
+      // Non-fatal — domain may already be gone or platform project unconfigured.
     }
 
     // Delete from our table

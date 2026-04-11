@@ -27,7 +27,10 @@ function isAppHostname(host: string): boolean {
   if (APP_HOSTNAMES.has(host)) return true;
   const appHost = getAppHostname();
   if (appHost && host === appHost) return true;
-  // Railway default domains
+  // Vercel preview/prod defaults (e.g. simplerdevelopment.vercel.app,
+  // simplerdevelopment-git-<branch>-<team>.vercel.app)
+  if (host.endsWith('.vercel.app')) return true;
+  // Legacy Railway default domains — kept for any lingering deployments
   if (host.endsWith('.up.railway.app')) return true;
   return false;
 }

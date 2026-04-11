@@ -1,11 +1,11 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation } from '@/lib/db/schema';
+import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains } from '@/lib/db/schema';
 import { eq, and, or, asc, isNull } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
-  // Try exact domain match first
+  // Try exact match on the legacy primary-domain column first
   const [site] = await db
     .select()
     .from(clientWebsites)
@@ -14,7 +14,18 @@ export async function getClientWebsiteByDomain(domain: string) {
 
   if (site) return site;
 
-  // Try subdomain match (e.g. sd-testing.simplerdevelopment.com → subdomain "sd-testing")
+  // Try the website_domains table, which stores every custom domain attached
+  // to a site (including secondary / non-primary ones used by shared hosting).
+  const [via] = await db
+    .select({ site: clientWebsites })
+    .from(websiteDomains)
+    .innerJoin(clientWebsites, eq(websiteDomains.websiteId, clientWebsites.id))
+    .where(and(eq(websiteDomains.domain, domain), eq(clientWebsites.active, true)))
+    .limit(1);
+
+  if (via?.site) return via.site;
+
+  // Fall back to subdomain match (e.g. sd-testing.simplerdevelopment.com → subdomain "sd-testing")
   const subdomainMatch = domain.match(/^([^.]+)\.simplerdevelopment\.com$/);
   if (subdomainMatch) {
     const [subSite] = await db

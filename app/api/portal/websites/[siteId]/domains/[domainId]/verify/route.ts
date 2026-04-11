@@ -4,7 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites, websiteDomains } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { verifyDomain } from '@/lib/vercel';
+import { verifyDomain, resolveDomainProjectId } from '@/lib/vercel';
 
 export async function POST(
   _req: Request,
@@ -25,7 +25,6 @@ export async function POST(
     .limit(1);
 
   if (!site) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
-  if (!site.vercelProjectId) return NextResponse.json({ success: false, message: 'Website must be provisioned first' }, { status: 400 });
 
   const [domainRecord] = await db
     .select()
@@ -36,7 +35,8 @@ export async function POST(
   if (!domainRecord) return NextResponse.json({ success: false, message: 'Domain not found' }, { status: 404 });
 
   try {
-    const result = await verifyDomain(site.vercelProjectId, domainRecord.domain);
+    const projectId = resolveDomainProjectId(site.vercelProjectId);
+    const result = await verifyDomain(projectId, domainRecord.domain);
 
     // Update domain status if verified
     if (result.verified && !result.misconfigured) {

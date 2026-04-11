@@ -15,6 +15,31 @@ function teamParam() {
 }
 
 /**
+ * The Vercel project ID of the main SimplerDevelopment platform app.
+ * Shared-hosted client sites attach their custom domains to this project
+ * (since they are rendered inside the main app via the /sites/[domain]/... route).
+ */
+export function getPlatformProjectId(): string {
+  const id = process.env.PLATFORM_VERCEL_PROJECT_ID;
+  if (!id) {
+    throw new Error(
+      'Missing PLATFORM_VERCEL_PROJECT_ID — set it to the Vercel project ID of the main platform app so shared-hosted sites can attach custom domains.',
+    );
+  }
+  return id;
+}
+
+/**
+ * Resolve the Vercel project that should own a site's domains.
+ * If the site has its own dedicated Vercel project, return it.
+ * Otherwise (shared hosting), return the platform project ID.
+ */
+export function resolveDomainProjectId(siteVercelProjectId: string | null | undefined): string {
+  if (siteVercelProjectId) return siteVercelProjectId;
+  return getPlatformProjectId();
+}
+
+/**
  * Create a Vercel project linked to a GitHub repo.
  */
 export async function createProject(

@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,

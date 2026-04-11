@@ -4,7 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { verifyDomain } from '@/lib/vercel';
+import { verifyDomain, resolveDomainProjectId } from '@/lib/vercel';
 
 export async function POST(
   _req: Request,
@@ -30,12 +30,9 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'No custom domain configured' }, { status: 400 });
   }
 
-  if (!site.vercelProjectId) {
-    return NextResponse.json({ success: false, message: 'Website must be provisioned first' }, { status: 400 });
-  }
-
   try {
-    const result = await verifyDomain(site.vercelProjectId, site.domain);
+    const projectId = resolveDomainProjectId(site.vercelProjectId);
+    const result = await verifyDomain(projectId, site.domain);
 
     return NextResponse.json({
       success: true,
