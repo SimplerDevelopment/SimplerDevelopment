@@ -331,22 +331,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     );
   }
 
-  // Survey question numbering
-  const surveyQuestionCounts: Record<number, { total: number; currentNum: number }> = {};
-  if (currentVS?.kind === 'survey-question') {
-    const sid = currentVS.surveyId;
-    let total = 0; let currentNum = 0; let foundCurrent = false;
-    for (const vi of visibleSlideIndices) {
-      const vs = virtualSlides[vi];
-      if (vs.kind === 'survey-question' && vs.surveyId === sid && vs.field.type !== 'heading') {
-        total++;
-        if (!foundCurrent) currentNum++;
-        if (vi === currentVirtualIdx) foundCurrent = true;
-      }
-    }
-    surveyQuestionCounts[sid] = { total, currentNum };
-  }
-
   const fontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600&display=swap`;
 
   return (
@@ -467,8 +451,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           {currentVS?.kind === 'survey-question' && (
             <SurveySlideRenderer
               field={currentVS.field}
-              questionNumber={surveyQuestionCounts[currentVS.surveyId]?.currentNum ?? 1}
-              totalQuestions={surveyQuestionCounts[currentVS.surveyId]?.total ?? 1}
               answers={surveyAnswers[currentVS.surveyId] || {}}
               onAnswer={(fieldId, value) => handleSurveyAnswer(currentVS.surveyId, fieldId, value)}
               theme={theme}

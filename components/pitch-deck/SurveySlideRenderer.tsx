@@ -22,8 +22,10 @@ export interface SurveySlideField {
 
 interface Props {
   field: SurveySlideField;
-  questionNumber: number;
-  totalQuestions: number;
+  /** @deprecated kept for API compat; progress is shown by the deck counter */
+  questionNumber?: number;
+  /** @deprecated kept for API compat; progress is shown by the deck counter */
+  totalQuestions?: number;
   answers: Record<string, unknown>;
   onAnswer: (fieldId: string, value: unknown) => void;
   theme: PitchDeckTheme;
@@ -34,6 +36,10 @@ interface Props {
   showBack?: boolean;
   isLastQuestion?: boolean;
   isSubmitting?: boolean;
+  /** Override the outer wrapper classes. Default: `min-h-screen px-8` which
+   *  centers a max-w-xl column in the viewport. Editor previews pass a
+   *  smaller min-height so the content fits inside a pane. */
+  containerClassName?: string;
 }
 
 /**
@@ -42,8 +48,6 @@ interface Props {
  */
 export function SurveySlideRenderer({
   field,
-  questionNumber,
-  totalQuestions,
   answers,
   onAnswer,
   theme,
@@ -54,6 +58,7 @@ export function SurveySlideRenderer({
   showBack,
   isLastQuestion,
   isSubmitting,
+  containerClassName = 'min-h-screen px-8',
 }: Props) {
   const label = resolvePiping(field.label, answers);
   const helpText = field.helpText ? resolvePiping(field.helpText, answers) : '';
@@ -61,7 +66,7 @@ export function SurveySlideRenderer({
   // Heading slides get a simple centered display with nav buttons
   if (field.type === 'heading') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-8 text-center">
+      <div className={`flex flex-col items-center justify-center text-center ${containerClassName}`}>
         <div className="w-full max-w-xl space-y-8">
           <h2
             className="text-4xl md:text-5xl font-bold mb-4"
@@ -105,7 +110,7 @@ export function SurveySlideRenderer({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-8">
+    <div className={`flex flex-col items-center justify-center ${containerClassName}`}>
       <div className="w-full max-w-xl space-y-8">
         {/* Survey title badge */}
         {surveyTitle && (
@@ -116,16 +121,6 @@ export function SurveySlideRenderer({
             </span>
           </div>
         )}
-
-        {/* Question number */}
-        <div className="flex items-center gap-3">
-          <span
-            className="text-sm font-medium opacity-50"
-            style={{ fontFamily: theme.bodyFont, color: theme.accentColor }}
-          >
-            {questionNumber} of {totalQuestions}
-          </span>
-        </div>
 
         {/* Question label */}
         <h2

@@ -1561,20 +1561,18 @@ useEffect(() => {
                           writes back to the survey record (source of truth). */}
                       <div className="flex gap-4" style={{ minHeight: '600px' }}>
                         <div
-                          className="flex-1 rounded-xl overflow-auto border border-border relative"
+                          className="flex-1 rounded-xl border border-border relative"
                           style={{
                             backgroundColor: currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor,
                             color: deck.theme.textColor,
                             fontFamily: `"${deck.theme.bodyFont}", sans-serif`,
-                            maxHeight: 'calc(100vh - 220px)',
+                            minHeight: 'calc(100vh - 220px)',
                           }}
                         >
                           <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
                           {editingField ? (
                             <SurveySlideRenderer
                               field={editingField as unknown as SurveySlideField}
-                              questionNumber={surveyFields.findIndex(f => f.id === editingSurveyFieldId) + 1}
-                              totalQuestions={surveyFields.length}
                               answers={{}}
                               onAnswer={() => {}}
                               theme={deck.theme}
@@ -1590,6 +1588,7 @@ useEffect(() => {
                               showBack
                               isLastQuestion={false}
                               isSubmitting={false}
+                              containerClassName="min-h-[calc(100vh-220px)] px-8 py-12"
                             />
                           ) : null}
                         </div>
