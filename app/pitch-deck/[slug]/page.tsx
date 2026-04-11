@@ -1,6 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { pitchDecks, surveys } from '@/lib/db/schema';
+import { pitchDecks, surveys, clientWebsites } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
@@ -78,13 +78,39 @@ async function getDeck(slug: string, allowDraft: boolean) {
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const { preview } = await searchParams;
-  const deck = await getDeck(slug, preview === '1');
+  // Only expose metadata in authenticated preview mode. Public access on the
+  // main app host is blocked — pitch decks must be viewed on the owning
+  // tenant's subdomain (routed via /sites/[domain]/pitch-deck/[slug]).
+  if (preview !== '1') return { title: 'Not Found', robots: { index: false } };
+  const deck = await getDeck(slug, true);
   if (!deck) return { title: 'Not Found' };
   return {
     title: deck.title,
     description: deck.description || `${deck.title} - Pitch Deck`,
-    robots: deck.status !== 'published' ? { index: false } : undefined,
+    robots: { index: false },
   };
+}
+
+/**
+ * Resolve the owning tenant's subdomain for a published deck.
+ * Prefers `clientWebsites.subdomain` (the slug used for <sub>.simplerdevelopment.com);
+ * falls back to `clientWebsites.domain` if a custom domain is configured.
+ * Returns null if the deck has no active website with a routable host.
+ */
+async function getTenantHostForDeck(clientId: number): Promise<string | null> {
+  const [site] = await db
+    .select({
+      subdomain: clientWebsites.subdomain,
+      domain: clientWebsites.domain,
+    })
+    .from(clientWebsites)
+    .where(and(eq(clientWebsites.clientId, clientId), eq(clientWebsites.active, true)))
+    .orderBy(clientWebsites.id)
+    .limit(1);
+  if (!site) return null;
+  if (site.subdomain) return `${site.subdomain}.simplerdevelopment.com`;
+  if (site.domain) return site.domain;
+  return null;
 }
 
 export default async function PublicPitchDeckPage({ params, searchParams }: PageProps) {
@@ -92,7 +118,9 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   const { preview } = await searchParams;
   const isPreview = preview === '1';
 
-  // If preview mode, verify the user is authenticated and owns this deck
+  // Authenticated preview path — used by the portal's "Preview" button for
+  // draft decks. Still scoped to the logged-in client so one tenant can't
+  // preview another tenant's deck.
   if (isPreview) {
     const session = await auth();
     if (!session?.user?.id) notFound();
@@ -108,11 +136,17 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} />;
   }
 
+  // Non-preview: the main-app host never renders published decks — it
+  // redirects to the owning tenant's subdomain so the tenant-scoped
+  // /sites/[domain]/pitch-deck/[slug] route handles rendering. Guessing a
+  // slug on the apex domain can never leak cross-tenant content — at worst
+  // it redirects to the correct tenant, which will only render if the
+  // deck belongs to that tenant (already enforced by getPitchDeckByDomainAndSlug).
   const deck = await getDeck(slug, false);
   if (!deck) notFound();
 
-  const theme = (deck.theme || {}) as PitchDeckTheme;
-  const slides = resolveSlides(deck.slides, theme);
-  const surveyData = await fetchSurveyData(slides);
-  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} />;
+  const host = await getTenantHostForDeck(deck.clientId);
+  if (!host) notFound();
+
+  redirect(`https://${host}/pitch-deck/${slug}`);
 }
