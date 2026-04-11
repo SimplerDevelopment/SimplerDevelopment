@@ -102,6 +102,9 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [savingVersion, setSavingVersion] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [slugDraft, setSlugDraft] = useState('');
+  const [slugError, setSlugError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('edit');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
@@ -681,6 +684,42 @@ useEffect(() => {
     setSaving(false);
   }
 
+  async function saveSlug() {
+    if (!deck) return;
+    const raw = slugDraft.trim();
+    // Same normalization as the server — preview feedback, server is source of truth.
+    const normalized = raw
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (!normalized) {
+      setSlugError('Slug must contain at least one letter or number.');
+      return;
+    }
+    if (normalized === deck.slug) {
+      setEditingSlug(false);
+      setSlugError(null);
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(`/api/portal/tools/pitch-decks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug: normalized }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok || !data.success) {
+      setSlugError(data.message || 'Failed to update slug.');
+      return;
+    }
+    setDeck({ ...deck, slug: data.data?.slug ?? normalized });
+    setEditingSlug(false);
+    setSlugError(null);
+  }
+
   async function loadVersions() {
     const res = await fetch(`/api/portal/tools/pitch-decks/${id}/versions`);
     const data = await res.json();
@@ -775,8 +814,40 @@ useEffect(() => {
                 {deck.title}
               </h1>
             )}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
               <span>{deck.slides.length} slides</span>
+              <span>·</span>
+              {editingSlug ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground/70">/pitch-deck/</span>
+                  <input
+                    autoFocus
+                    value={slugDraft}
+                    onChange={(e) => { setSlugDraft(e.target.value); setSlugError(null); }}
+                    onBlur={saveSlug}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveSlug();
+                      if (e.key === 'Escape') { setEditingSlug(false); setSlugError(null); }
+                    }}
+                    className="bg-transparent border-b border-primary outline-none text-foreground min-w-[8rem]"
+                    placeholder="deck-slug"
+                  />
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setEditingSlug(true); setSlugDraft(deck.slug); setSlugError(null); }}
+                  className="inline-flex items-center gap-1 hover:text-foreground transition-colors group"
+                  title="Click to edit slug"
+                >
+                  <span className="material-icons text-xs">link</span>
+                  <span className="font-mono">/pitch-deck/{deck.slug}</span>
+                  <span className="material-icons text-[0.875em] opacity-0 group-hover:opacity-60">edit</span>
+                </button>
+              )}
+              {slugError && (
+                <span className="text-red-600 dark:text-red-400">{slugError}</span>
+              )}
               <span>·</span>
               {deck.status === 'published' ? (
                 <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">

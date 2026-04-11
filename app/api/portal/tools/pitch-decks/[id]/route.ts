@@ -3,9 +3,20 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { pitchDecks } from '@/lib/db/schema';
 import type { PitchDeckSlide } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
+
+/** Normalize a user-entered slug to a URL-safe form. */
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 async function resolveDecks(deckId: number, userId: number) {
   const client = await getPortalClient(userId);
@@ -53,6 +64,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.slides !== undefined) { updates.slides = body.slides; updates.formatVersion = 2; }
   if (body.theme !== undefined) updates.theme = body.theme;
   if (body.sourceUrl !== undefined) updates.sourceUrl = body.sourceUrl?.trim() || null;
+
+  if (body.slug !== undefined) {
+    const normalized = slugify(String(body.slug ?? ''));
+    if (!normalized) {
+      return NextResponse.json(
+        { success: false, message: 'Slug must contain at least one letter or number.' },
+        { status: 400 },
+      );
+    }
+    if (normalized !== deck.slug) {
+      // Enforce per-client slug uniqueness. pitch_decks has no DB unique
+      // constraint on (client_id, slug) yet, so we check here.
+      const [collision] = await db.select({ id: pitchDecks.id })
+        .from(pitchDecks)
+        .where(and(
+          eq(pitchDecks.clientId, deck.clientId),
+          eq(pitchDecks.slug, normalized),
+          ne(pitchDecks.id, deck.id),
+        ))
+        .limit(1);
+      if (collision) {
+        return NextResponse.json(
+          { success: false, message: `The slug "${normalized}" is already used by another deck.` },
+          { status: 409 },
+        );
+      }
+      updates.slug = normalized;
+    }
+  }
 
   const [updated] = await db.update(pitchDecks)
     .set(updates)
