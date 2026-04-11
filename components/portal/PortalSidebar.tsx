@@ -354,9 +354,11 @@ export default function PortalSidebar() {
 
   return (
     <>
-      {/* Hamburger toggle + logo — always visible when sidebar is closed */}
+      {/* Hamburger toggle + logo — visible when sidebar is closed.
+          Positioned absolute so it scrolls with the document instead of
+          sticking to the viewport top. */}
       {!isOpen && (
-        <div className="fixed top-4 left-4 z-50 flex items-center gap-2">
+        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
           <button
             onClick={toggleOpen}
             className="p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
