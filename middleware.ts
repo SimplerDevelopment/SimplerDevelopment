@@ -65,6 +65,15 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
+    // Bypass rewrite for requests to files in /public/ (e.g. /iconLogo.png,
+    // /logo.png, /site.webmanifest). These live on the main app and must be
+    // served as-is on every host, not routed through the tenant sites
+    // renderer which would 404 them.
+    // Match any pathname whose last segment has a file extension.
+    if (/\.[a-z0-9]{2,5}(?:\?|$)/i.test(pathname)) {
+      return NextResponse.next();
+    }
+
     // Subdomain portal/booking access: let these through to the main app
     const subdomain = extractSubdomain(host);
     if (subdomain && (pathname.startsWith('/portal') || pathname.startsWith('/book'))) {
