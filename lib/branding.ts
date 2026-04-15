@@ -15,58 +15,14 @@ import { db } from '@/lib/db';
 import { siteBranding, clientWebsites, brandingProfiles, bookingPages, surveys } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (re-exported from pure module for backward compat)
 // ---------------------------------------------------------------------------
 
-/** Resolved branding — the superset used across the platform. */
-export interface ResolvedBranding {
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  textColor: string;
-  headingFont: string;
-  bodyFont: string;
-  logoUrl: string;
-  logoSquareUrl: string;
-  logoRectUrl: string;
-  logoIconUrl: string;
-  logoText: string;
-  logoAlt: string;
-  navTemplate: string;
-  navPosition: string;
-  navBackground: string;
-  navTextColor: string;
-  typography?: Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>;
-  darkMode?: {
-    primaryColor?: string; secondaryColor?: string; accentColor?: string;
-    backgroundColor?: string; textColor?: string;
-    navBackground?: string; navTextColor?: string;
-    logoUrl?: string; logoSquareUrl?: string; logoRectUrl?: string; logoIconUrl?: string;
-  };
-  borderRadius?: string;
-  linkColor?: string;
-  linkHoverColor?: string;
-  buttonStyle?: {
-    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
-    secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
-    borderRadius?: string; variant?: 'filled' | 'outline';
-  };
-  faviconUrl?: string;
-  ogImageUrl?: string;
-}
-
-/** Summary for dropdowns / selectors. */
-export interface BrandingProfileSummary {
-  id: number;
-  name: string;
-  isDefault: boolean;
-  primaryColor: string | null;
-  accentColor: string | null;
-  logoUrl: string | null;
-}
+export type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
+import type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
 
 const DEFAULTS: ResolvedBranding = {
   primaryColor: '#2563eb',
@@ -272,37 +228,7 @@ export function brandingToPitchDeckTheme(branding: ResolvedBranding): PitchDeckT
 }
 
 /** Generate CSS custom properties from branding for injection into page/iframe. */
-export function brandingToCssVars(branding: ResolvedBranding): Record<string, string> {
-  const vars: Record<string, string> = {
-    '--brand-primary': branding.primaryColor,
-    '--brand-secondary': branding.secondaryColor,
-    '--brand-accent': branding.accentColor,
-    '--brand-bg': branding.backgroundColor,
-    '--brand-text': branding.textColor,
-    '--brand-nav-bg': branding.navBackground,
-    '--brand-nav-text': branding.navTextColor,
-  };
-
-  if (branding.headingFont) vars['--brand-heading-font'] = branding.headingFont;
-  if (branding.bodyFont) vars['--brand-body-font'] = branding.bodyFont;
-  if (branding.borderRadius) vars['--brand-border-radius'] = branding.borderRadius;
-  if (branding.linkColor) vars['--brand-link-color'] = branding.linkColor;
-  if (branding.linkHoverColor) vars['--brand-link-hover-color'] = branding.linkHoverColor;
-
-  if (branding.buttonStyle) {
-    const bs = branding.buttonStyle;
-    if (bs.primaryBg) vars['--brand-btn-primary-bg'] = bs.primaryBg;
-    if (bs.primaryText) vars['--brand-btn-primary-text'] = bs.primaryText;
-    if (bs.primaryHoverBg) vars['--brand-btn-primary-hover-bg'] = bs.primaryHoverBg;
-    if (bs.secondaryBg) vars['--brand-btn-secondary-bg'] = bs.secondaryBg;
-    if (bs.secondaryText) vars['--brand-btn-secondary-text'] = bs.secondaryText;
-    if (bs.secondaryHoverBg) vars['--brand-btn-secondary-hover-bg'] = bs.secondaryHoverBg;
-    if (bs.borderRadius) vars['--brand-btn-border-radius'] = bs.borderRadius;
-    if (bs.variant) vars['--brand-btn-variant'] = bs.variant;
-  }
-
-  return vars;
-}
+export const brandingToCssVars = _brandingToCssVars;
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useDesignTokens } from '@/contexts/DesignTokensContext';
+import { isBrandSentinel, listSentinels, resolveBrandSentinel, getSentinelLabel } from '@/lib/branding/sentinel';
 
 interface TokenColorPickerProps {
   value: string;
@@ -45,13 +46,20 @@ function hex(n: number): string {
   return n.toString(16).padStart(2, '0');
 }
 
+const BRAND_COLOR_SENTINELS = listSentinels('color');
+
 export function TokenColorPicker({ value, onChange, label, placeholder = 'transparent' }: TokenColorPickerProps) {
   const { tokens } = useDesignTokens();
   const [showSwatches, setShowSwatches] = useState(false);
   const [showAlpha, setShowAlpha] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const parsed = parseColor(value);
+  const sentinelLabel = getSentinelLabel(value);
+  const isSentinel = sentinelLabel !== null;
+
+  // For parsing/rendering the picker: use the raw value if it's a real color,
+  // else fall back to white (the alpha panel is hidden when sentinel anyway).
+  const parsed = parseColor(isSentinel ? '#ffffff' : value);
   const alpha = parsed.a;
   const colorHex6 = `#${hex(parsed.r)}${hex(parsed.g)}${hex(parsed.b)}`;
 
@@ -81,11 +89,14 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
     onChange(e.target.value);
   }, [onChange]);
 
+  // Preview background — sentinel values resolve to CSS var, others render literal
+  const swatchBackground = isSentinel ? resolveBrandSentinel(value) : value || 'transparent';
+
   // Checkerboard background for transparency preview
   const checkerBg = 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%)';
 
   return (
-    <div ref={panelRef}>
+    <div ref={panelRef} data-testid="token-color-picker">
       {label && <label className="block text-xs text-muted-foreground mb-1.5">{label}</label>}
       <div className="flex gap-2">
         {/* Color swatch button — shows actual color with alpha over checkerboard */}
@@ -94,29 +105,51 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
           onClick={() => setShowAlpha(!showAlpha)}
           className="w-10 h-9 rounded border border-border cursor-pointer flex-shrink-0 relative overflow-hidden"
           title={`${value || 'transparent'} — click for opacity`}
+          data-testid="token-color-swatch"
         >
           <div
             className="absolute inset-0"
             style={{ background: checkerBg, backgroundSize: '8px 8px', backgroundPosition: '0 0, 4px 4px' }}
           />
-          <div className="absolute inset-0" style={{ backgroundColor: value || 'transparent' }} />
+          <div className="absolute inset-0" style={{ background: swatchBackground }} />
         </button>
 
-        <input
-          type="text"
-          value={value || ''}
-          onChange={handleTextChange}
-          className="flex-1 text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground font-mono"
-          placeholder={placeholder}
-          onFocus={() => setShowSwatches(true)}
-          onBlur={() => setTimeout(() => setShowSwatches(false), 200)}
-        />
+        {isSentinel ? (
+          // When current value is a brand sentinel, show a pill instead of the raw text input
+          <div
+            className="flex-1 flex items-center gap-2 text-sm rounded border border-primary/40 bg-primary/5 px-3 py-1.5"
+            data-testid="brand-sentinel-pill"
+            data-sentinel={value}
+          >
+            <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+            <span className="text-primary font-medium">{sentinelLabel}</span>
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="ml-auto text-muted-foreground hover:text-foreground text-xs"
+              title="Reset to default"
+              data-testid="brand-sentinel-reset"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={value || ''}
+            onChange={handleTextChange}
+            className="flex-1 text-sm rounded border border-border bg-background px-3 py-1.5 text-foreground font-mono"
+            placeholder={placeholder}
+            onFocus={() => setShowSwatches(true)}
+            onBlur={() => setTimeout(() => setShowSwatches(false), 200)}
+            data-testid="token-color-input"
+          />
+        )}
       </div>
 
-      {/* Alpha / Color panel */}
-      {showAlpha && (
+      {/* Alpha / Color panel — hidden when sentinel is active */}
+      {showAlpha && !isSentinel && (
         <div className="mt-2 p-3 border border-border rounded-lg bg-background shadow-lg space-y-3">
-          {/* Native color picker */}
           <div className="flex items-center gap-3">
             <input
               type="color"
@@ -130,24 +163,20 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
             </div>
           </div>
 
-          {/* Alpha slider */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Opacity</label>
               <span className="text-xs font-mono text-foreground">{Math.round(alpha * 100)}%</span>
             </div>
             <div className="relative h-6 rounded overflow-hidden border border-border">
-              {/* Checkerboard background */}
               <div
                 className="absolute inset-0"
                 style={{ background: checkerBg, backgroundSize: '8px 8px', backgroundPosition: '0 0, 4px 4px' }}
               />
-              {/* Gradient overlay showing opaque-to-transparent */}
               <div
                 className="absolute inset-0"
                 style={{ background: `linear-gradient(to right, transparent, ${colorHex6})` }}
               />
-              {/* Range input */}
               <input
                 type="range"
                 min={0}
@@ -156,7 +185,6 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
                 onChange={handleAlphaChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
-              {/* Thumb indicator */}
               <div
                 className="absolute top-0.5 bottom-0.5 w-3 rounded-sm border-2 border-white shadow pointer-events-none"
                 style={{ left: `calc(${alpha * 100}% - 6px)`, backgroundColor: value || 'transparent' }}
@@ -164,7 +192,6 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
             </div>
           </div>
 
-          {/* Quick presets */}
           <div className="flex gap-1">
             {[100, 75, 50, 25, 10, 0].map(pct => (
               <button
@@ -184,30 +211,56 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
         </div>
       )}
 
-      {/* Token Swatches */}
-      {showSwatches && tokens.colors.length > 0 && (
-        <div className="mt-2 p-2 border border-border rounded-lg bg-background shadow-sm">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5 px-0.5">Design Tokens</div>
-          <div className="flex flex-wrap gap-1">
-            {tokens.colors.map((token, i) => (
-              <button
-                key={i}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(token.value);
-                  setShowSwatches(false);
-                }}
-                className={`w-6 h-6 rounded border transition-all hover:scale-110 ${
-                  value === token.value
-                    ? 'border-primary ring-2 ring-primary/30'
-                    : 'border-border hover:border-foreground/30'
-                }`}
-                style={{ backgroundColor: token.value }}
-                title={`${token.name} (${token.value})`}
-              />
-            ))}
+      {/* Brand + Token Swatches popover */}
+      {showSwatches && !isSentinel && (
+        <div className="mt-2 p-2 border border-border rounded-lg bg-background shadow-sm space-y-2">
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5 px-0.5">
+              Brand Tokens
+            </div>
+            <div className="flex flex-wrap gap-1" data-testid="brand-sentinel-swatches">
+              {BRAND_COLOR_SENTINELS.map((def) => (
+                <button
+                  key={def.sentinel}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(def.sentinel);
+                    setShowSwatches(false);
+                  }}
+                  className="w-6 h-6 rounded border transition-all hover:scale-110 border-border hover:border-foreground/30 relative overflow-hidden"
+                  style={{ background: `var(${def.cssVar})` }}
+                  title={def.label}
+                  data-sentinel={def.sentinel}
+                />
+              ))}
+            </div>
           </div>
+          {tokens.colors.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5 px-0.5">Design Tokens</div>
+              <div className="flex flex-wrap gap-1">
+                {tokens.colors.map((token, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onChange(token.value);
+                      setShowSwatches(false);
+                    }}
+                    className={`w-6 h-6 rounded border transition-all hover:scale-110 ${
+                      value === token.value
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-border hover:border-foreground/30'
+                    }`}
+                    style={{ backgroundColor: token.value }}
+                    title={`${token.name} (${token.value})`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
