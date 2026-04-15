@@ -12,10 +12,11 @@
  */
 
 import { db } from '@/lib/db';
-import { siteBranding, clientWebsites, brandingProfiles, bookingPages, surveys } from '@/lib/db/schema';
+import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
+import { messagingRowToContext, type BrandDefaultsContext, type BrandMessagingContext } from './branding/block-defaults';
 
 // ---------------------------------------------------------------------------
 // Types (re-exported from pure module for backward compat)
@@ -229,6 +230,66 @@ export function brandingToPitchDeckTheme(branding: ResolvedBranding): PitchDeckT
 
 /** Generate CSS custom properties from branding for injection into page/iframe. */
 export const brandingToCssVars = _brandingToCssVars;
+
+// ---------------------------------------------------------------------------
+// Brand defaults loader — for "pre-fill new blocks with messaging" flows
+// ---------------------------------------------------------------------------
+
+/**
+ * Load messaging for a client (falling back to a specific branding profile's
+ * attached messaging row if present).
+ *
+ * Returns undefined when no messaging row exists — safe to pass straight into
+ * applyBrandDefaults, which short-circuits on undefined.
+ */
+export async function getBrandMessaging(
+  clientId: number,
+  brandingProfileId?: number | null,
+): Promise<BrandMessagingContext | undefined> {
+  // Prefer the profile-attached messaging row when a specific profile is named.
+  if (brandingProfileId) {
+    const [scoped] = await db
+      .select()
+      .from(brandingMessaging)
+      .where(and(
+        eq(brandingMessaging.clientId, clientId),
+        eq(brandingMessaging.brandingProfileId, brandingProfileId),
+      ))
+      .limit(1);
+    if (scoped) return messagingRowToContext(scoped);
+  }
+  // Otherwise return the client's first messaging row (the default voice).
+  const [first] = await db
+    .select()
+    .from(brandingMessaging)
+    .where(eq(brandingMessaging.clientId, clientId))
+    .orderBy(brandingMessaging.id)
+    .limit(1);
+  return messagingRowToContext(first);
+}
+
+/**
+ * Convenience: resolve brand defaults for any portal editor.
+ * Returns a BrandDefaultsContext ready to pass into applyBrandDefaults.
+ */
+export async function getBrandDefaults(params: {
+  clientId: number;
+  brandingProfileId?: number | null;
+  useSentinels?: boolean;
+}): Promise<BrandDefaultsContext> {
+  const { clientId, brandingProfileId, useSentinels = true } = params;
+  const messaging = await getBrandMessaging(clientId, brandingProfileId);
+  let logoUrl: string | undefined;
+  if (brandingProfileId) {
+    const [profile] = await db
+      .select({ logoUrl: brandingProfiles.logoUrl })
+      .from(brandingProfiles)
+      .where(eq(brandingProfiles.id, brandingProfileId))
+      .limit(1);
+    logoUrl = profile?.logoUrl ?? undefined;
+  }
+  return { messaging, logoUrl, useSentinels };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

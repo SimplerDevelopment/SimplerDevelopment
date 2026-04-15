@@ -5,6 +5,7 @@ import { Block, BlockType } from '@/types/blocks';
 import { VisualBlockPreview } from './visual/VisualBlockPreview';
 import { BlockSettings } from './visual/BlockSettings';
 import { BlockEditorProvider, useBlockEditor } from '@/contexts/BlockEditorContext';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import { Breakpoint } from '@/types/responsive';
 import { getViewportWidth } from '@/lib/utils/responsive';
@@ -47,6 +48,11 @@ interface VisualBlockEditorEnhancedProps {
   onChange: (blocks: Block[]) => void;
   initialViewport?: Breakpoint;
   onViewportChange?: (viewport: Breakpoint) => void;
+  /**
+   * Optional brand context — pre-fills newly created blocks with messaging
+   * and tags them with brand sentinels so they follow brand changes.
+   */
+  brandDefaults?: BrandDefaultsContext;
 }
 
 // Custom collision detection: prefer drop zones when pointer is inside them
@@ -335,9 +341,11 @@ function SortableBlock({
 export function EditorInner({
   onChange,
   blockTypes,
+  brandDefaults,
 }: {
   onChange: (blocks: Block[]) => void;
   blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
+  brandDefaults?: BrandDefaultsContext;
 }) {
   const {
     state,
@@ -620,7 +628,10 @@ export function EditorInner({
   };
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
-    const newBlock = createDefaultBlock(type, state.blocks.length);
+    let newBlock = createDefaultBlock(type, state.blocks.length);
+    if (brandDefaults) {
+      newBlock = applyBrandDefaults(newBlock, brandDefaults);
+    }
     let tempBlocks = [...state.blocks];
 
     if (afterBlockId) {
@@ -994,7 +1005,7 @@ export function EditorInner({
 }
 
 // Main export with provider
-export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, onViewportChange }: VisualBlockEditorEnhancedProps) {
+export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, onViewportChange, brandDefaults }: VisualBlockEditorEnhancedProps) {
   const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
     { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a title or heading' },
     { type: 'text', label: 'Paragraph', icon: '📄', category: 'Basic', description: 'Start with plain text' },
@@ -1030,7 +1041,7 @@ export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, o
       initialViewport={initialViewport}
       onViewportChange={onViewportChange}
     >
-      <EditorInner onChange={onChange} blockTypes={blockTypes} />
+      <EditorInner onChange={onChange} blockTypes={blockTypes} brandDefaults={brandDefaults} />
     </BlockEditorProvider>
   );
 }

@@ -10,18 +10,24 @@ import { HeroBlockEdit } from './edit/HeroBlockEdit';
 import { ServicesGridBlockEdit } from './edit/ServicesGridBlockEdit';
 import { CtaBlockEdit } from './edit/CtaBlockEdit';
 import { BLOCK_TYPES } from '@/lib/utils/blockIcons';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface BlockEditorProps {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
+  /** Optional brand context for pre-filling new blocks with messaging + sentinels. */
+  brandDefaults?: BrandDefaultsContext;
 }
 
-export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
+export function BlockEditor({ blocks, onChange, brandDefaults }: BlockEditorProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [showBlockPicker, setShowBlockPicker] = useState(false);
 
   const addBlock = (type: BlockType) => {
-    const newBlock = createDefaultBlock(type, blocks.length);
+    let newBlock = createDefaultBlock(type, blocks.length);
+    if (brandDefaults) {
+      newBlock = applyBrandDefaults(newBlock, brandDefaults);
+    }
     onChange([...blocks, newBlock]);
     setSelectedBlockId(newBlock.id);
     setShowBlockPicker(false);
