@@ -36,5 +36,20 @@ export function brandingToCssVars(branding: ResolvedBranding): Record<string, st
     if (bs.variant) vars['--brand-btn-variant'] = bs.variant;
   }
 
+  // Per-element typography — emits --brand-<el>-size, -weight, -line-height,
+  // -letter-spacing, -font. The base stylesheet (brand-typography.css) consumes
+  // these with fallbacks so partial configurations are safe.
+  if (branding.typography) {
+    for (const [el, t] of Object.entries(branding.typography)) {
+      if (!t) continue;
+      const prefix = `--brand-${el}`;
+      if (t.size) vars[`${prefix}-size`] = t.size;
+      if (t.weight) vars[`${prefix}-weight`] = t.weight;
+      if (t.lineHeight) vars[`${prefix}-line-height`] = t.lineHeight;
+      if (t.letterSpacing) vars[`${prefix}-letter-spacing`] = t.letterSpacing;
+      if (t.font) vars[`${prefix}-font`] = t.font;
+    }
+  }
+
   return vars;
 }

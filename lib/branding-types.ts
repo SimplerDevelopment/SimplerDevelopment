@@ -23,7 +23,7 @@ export interface ResolvedBranding {
   navPosition: string;
   navBackground: string;
   navTextColor: string;
-  typography?: Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>;
+  typography?: Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string; letterSpacing?: string }>;
   darkMode?: {
     primaryColor?: string; secondaryColor?: string; accentColor?: string;
     backgroundColor?: string; textColor?: string;

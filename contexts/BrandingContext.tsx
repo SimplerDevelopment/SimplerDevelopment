@@ -2,6 +2,8 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 import type { ResolvedBranding } from '@/lib/branding';
+import { brandingToCssVars } from '@/lib/branding/css-vars';
+import { brandingTypographyCss, BRANDING_SCOPE_CLASS } from '@/lib/branding/typography-css';
 
 const BrandingContext = createContext<ResolvedBranding | null>(null);
 
@@ -13,39 +15,19 @@ interface BrandingProviderProps {
 /**
  * Provides site branding to block renders and other components.
  * Wraps the page with CSS custom properties so blocks can reference
- * brand colors via var(--brand-primary), etc.
+ * brand colors via var(--brand-primary), per-element typography via
+ * var(--brand-h1-size) etc.
  */
 export function BrandingProvider({ branding, children }: BrandingProviderProps) {
-  const cssVars: Record<string, string> = {
-    '--brand-primary': branding.primaryColor,
-    '--brand-secondary': branding.secondaryColor,
-    '--brand-accent': branding.accentColor,
-    '--brand-bg': branding.backgroundColor,
-    '--brand-text': branding.textColor,
-    '--brand-nav-bg': branding.navBackground,
-    '--brand-nav-text': branding.navTextColor,
-  };
-
-  if (branding.headingFont) cssVars['--brand-heading-font'] = branding.headingFont;
-  if (branding.bodyFont) cssVars['--brand-body-font'] = branding.bodyFont;
-  if (branding.borderRadius) cssVars['--brand-border-radius'] = branding.borderRadius;
-  if (branding.linkColor) cssVars['--brand-link-color'] = branding.linkColor;
-  if (branding.linkHoverColor) cssVars['--brand-link-hover-color'] = branding.linkHoverColor;
-
-  if (branding.buttonStyle) {
-    const bs = branding.buttonStyle;
-    if (bs.primaryBg) cssVars['--brand-btn-primary-bg'] = bs.primaryBg;
-    if (bs.primaryText) cssVars['--brand-btn-primary-text'] = bs.primaryText;
-    if (bs.primaryHoverBg) cssVars['--brand-btn-primary-hover-bg'] = bs.primaryHoverBg;
-    if (bs.secondaryBg) cssVars['--brand-btn-secondary-bg'] = bs.secondaryBg;
-    if (bs.secondaryText) cssVars['--brand-btn-secondary-text'] = bs.secondaryText;
-    if (bs.secondaryHoverBg) cssVars['--brand-btn-secondary-hover-bg'] = bs.secondaryHoverBg;
-    if (bs.borderRadius) cssVars['--brand-btn-border-radius'] = bs.borderRadius;
-  }
+  const cssVars = brandingToCssVars(branding);
+  const typographyCss = brandingTypographyCss(branding);
 
   return (
     <BrandingContext.Provider value={branding}>
-      <div style={cssVars as React.CSSProperties}>
+      <div className={BRANDING_SCOPE_CLASS} style={cssVars as React.CSSProperties}>
+        {typographyCss && (
+          <style dangerouslySetInnerHTML={{ __html: typographyCss }} />
+        )}
         {children}
       </div>
     </BrandingContext.Provider>
