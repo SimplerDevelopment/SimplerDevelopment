@@ -6,6 +6,7 @@ import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
 import { ContrastMatrix } from '@/components/portal/ContrastMatrix';
+import { BrandAuditPanel } from '@/components/portal/BrandAuditPanel';
 
 interface ElementTypography {
   font?: string;
@@ -536,6 +537,11 @@ export default function BrandingProfileEditorPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Brand audit — visible above tabs so issues are always surfaced */}
+      <div className="border border-border rounded-lg bg-background p-4">
+        <BrandAuditPanel profileId={parseInt(profileId, 10)} />
       </div>
 
       {/* Tabs */}
