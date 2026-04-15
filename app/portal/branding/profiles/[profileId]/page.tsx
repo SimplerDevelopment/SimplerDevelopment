@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import { ContrastMatrix } from '@/components/portal/ContrastMatrix';
 
 interface ElementTypography {
   font?: string;
@@ -868,6 +869,9 @@ export default function BrandingProfileEditorPage() {
               This is what a link looks like
             </span>
             {' '}within body text.
+          </div>
+          <div className="mt-6">
+            <ContrastMatrix branding={profile} />
           </div>
         </div>
       </div>
