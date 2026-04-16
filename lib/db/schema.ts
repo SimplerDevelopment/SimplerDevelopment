@@ -1682,6 +1682,15 @@ export const brandingMessaging = pgTable('branding_messaging', {
   certifications: text('certifications'),
   // Additional Context
   additionalContext: text('additional_context'), // anything else AI should know
+  // Structured tone axes — each value -1.0 to 1.0 along a named dimension
+  toneAxes: json('tone_axes').$type<{
+    formal?: number;        // -1 = casual, +1 = formal
+    playful?: number;       // -1 = serious, +1 = playful
+    traditional?: number;   // -1 = innovative, +1 = traditional
+    authoritative?: number; // -1 = friendly, +1 = authoritative
+  }>(),
+  // Voice sample library — short exemplars that show how the brand writes
+  voiceSamples: json('voice_samples').$type<Array<{ context: string; text: string }>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

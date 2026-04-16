@@ -11,6 +11,18 @@
 
 import type { Block } from '@/types/blocks';
 
+export interface ToneAxes {
+  formal?: number;        // -1 = casual, +1 = formal
+  playful?: number;       // -1 = serious, +1 = playful
+  traditional?: number;   // -1 = innovative, +1 = traditional
+  authoritative?: number; // -1 = friendly, +1 = authoritative
+}
+
+export interface VoiceSample {
+  context: string;
+  text: string;
+}
+
 export interface BrandMessagingContext {
   companyName?: string;
   tagline?: string;
@@ -21,6 +33,12 @@ export interface BrandMessagingContext {
   visionStatement?: string;
   keyDifferentiators?: string[];
   socialProof?: string;
+  toneOfVoice?: string;
+  brandPersonality?: string;
+  writingStyle?: string;
+  targetAudience?: string;
+  toneAxes?: ToneAxes;
+  voiceSamples?: VoiceSample[];
 }
 
 export interface BrandDefaultsContext {
@@ -172,6 +190,12 @@ export function messagingRowToContext(
         visionStatement?: string | null;
         keyDifferentiators?: string[] | null;
         socialProof?: string | null;
+        toneOfVoice?: string | null;
+        brandPersonality?: string | null;
+        writingStyle?: string | null;
+        targetAudience?: string | null;
+        toneAxes?: ToneAxes | null;
+        voiceSamples?: VoiceSample[] | null;
       }
     | null
     | undefined,
@@ -187,5 +211,11 @@ export function messagingRowToContext(
     visionStatement: row.visionStatement ?? undefined,
     keyDifferentiators: row.keyDifferentiators ?? undefined,
     socialProof: row.socialProof ?? undefined,
+    toneOfVoice: row.toneOfVoice ?? undefined,
+    brandPersonality: row.brandPersonality ?? undefined,
+    writingStyle: row.writingStyle ?? undefined,
+    targetAudience: row.targetAudience ?? undefined,
+    toneAxes: row.toneAxes ?? undefined,
+    voiceSamples: row.voiceSamples ?? undefined,
   };
 }

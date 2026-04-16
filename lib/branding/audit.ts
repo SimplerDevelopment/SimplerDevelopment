@@ -11,6 +11,7 @@
 
 import { analyzeContrast, defaultContrastPairs } from './contrast';
 import type { BrandMessagingContext } from './block-defaults';
+import { auditToneAxes } from './copy-prompt';
 
 export type AuditSeverity = 'error' | 'warn' | 'info';
 
@@ -181,6 +182,16 @@ export function auditBranding(input: AuditInput): AuditReport {
       issues.push(issue('no-differentiators', 'info', 'messaging', 'No key differentiators listed', {
         suggestion: 'List 3–5 concrete differentiators to feed into on-brand block copy and AI-generated content.',
         field: 'keyDifferentiators',
+      }));
+    }
+  }
+
+  // ─── Tone-axis consistency ────────────────────────────────────────────────
+  if (messaging?.toneAxes) {
+    for (const ti of auditToneAxes(messaging.toneAxes)) {
+      issues.push(issue(ti.id, 'warn', 'consistency', ti.message, {
+        suggestion: 'Revisit the tone axes under Messaging → Brand Voice.',
+        field: 'toneAxes',
       }));
     }
   }
