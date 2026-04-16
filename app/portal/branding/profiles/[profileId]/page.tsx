@@ -7,6 +7,7 @@ import MediaPicker from '@/components/admin/MediaPicker';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
 import { ContrastMatrix } from '@/components/portal/ContrastMatrix';
 import { BrandAuditPanel } from '@/components/portal/BrandAuditPanel';
+import { PaletteFromImage } from '@/components/portal/branding/PaletteFromImage';
 
 interface ElementTypography {
   font?: string;
@@ -720,6 +721,12 @@ export default function BrandingProfileEditorPage() {
           Colors
         </h2>
         <p className="text-sm text-muted-foreground mb-5">Define your brand color palette. These are used as defaults in blocks and navigation.</p>
+
+        <div className="mb-5">
+          <PaletteFromImage
+            onApply={(roles) => update(roles)}
+          />
+        </div>
 
         <div className="grid grid-cols-3 gap-4">
           {([
