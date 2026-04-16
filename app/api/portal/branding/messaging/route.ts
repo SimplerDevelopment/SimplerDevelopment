@@ -62,6 +62,8 @@ export async function PUT(req: Request) {
     keyClients: body.keyClients ?? null,
     certifications: body.certifications ?? null,
     additionalContext: body.additionalContext ?? null,
+    toneAxes: body.toneAxes ?? null,
+    voiceSamples: body.voiceSamples ?? null,
     updatedAt: new Date(),
   };
 

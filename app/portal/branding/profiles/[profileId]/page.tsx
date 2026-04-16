@@ -164,6 +164,8 @@ export default function BrandingProfileEditorPage() {
     elevatorPitch: '', boilerplate: '', keyDifferentiators: [] as string[], targetAudience: '',
     industry: '', yearFounded: '', companySize: '', headquarters: '', websiteUrl: '',
     socialProof: '', keyClients: '', certifications: '', additionalContext: '',
+    toneAxes: {} as { formal?: number; playful?: number; traditional?: number; authoritative?: number },
+    voiceSamples: [] as Array<{ context: string; text: string }>,
   });
   const [newDifferentiator, setNewDifferentiator] = useState('');
   const [messagingDirty, setMessagingDirty] = useState(false);
@@ -221,6 +223,8 @@ export default function BrandingProfileEditorPage() {
             ...prev,
             ...messagingRes.data,
             keyDifferentiators: messagingRes.data.keyDifferentiators ?? [],
+            toneAxes: messagingRes.data.toneAxes ?? {},
+            voiceSamples: messagingRes.data.voiceSamples ?? [],
           }));
         }
       })
@@ -1417,6 +1421,104 @@ export default function BrandingProfileEditorPage() {
           <div>
             <div className="flex items-center justify-between mb-1"><label className={`${labelClass} mb-0`}>Writing Style Guidelines</label><button type="button" onClick={() => openRewrite('writingStyle', 'Writing Style Guidelines')} className="p-0.5 rounded text-muted-foreground hover:text-primary transition-colors" title="Rewrite with AI"><span className="material-icons text-sm">auto_awesome</span></button></div>
             <textarea value={messaging.writingStyle} onChange={(e) => updateMessaging('writingStyle', e.target.value)} placeholder="Preferred language, formatting, and communication style" className={`${inputClass} min-h-[80px] resize-y`} />
+          </div>
+
+          {/* Tone Axes — structured signal that AI can reason about */}
+          <div className="pt-2 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <label className={`${labelClass} mb-0`}>Tone Axes</label>
+              <span className="text-[10px] text-muted-foreground">Drag toward one side — feeds AI copy generation</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { key: 'formal' as const, low: 'Casual', high: 'Formal' },
+                { key: 'playful' as const, low: 'Serious', high: 'Playful' },
+                { key: 'traditional' as const, low: 'Innovative', high: 'Traditional' },
+                { key: 'authoritative' as const, low: 'Friendly', high: 'Authoritative' },
+              ].map(({ key, low, high }) => {
+                const value = messaging.toneAxes[key] ?? 0;
+                return (
+                  <div key={key} data-testid={`tone-axis-${key}`}>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="text-muted-foreground">{low}</span>
+                      <span className="text-foreground font-medium">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                      <span className="text-muted-foreground">{high}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={-1}
+                      max={1}
+                      step={0.1}
+                      value={value}
+                      onChange={(e) => updateMessaging('toneAxes', { ...messaging.toneAxes, [key]: parseFloat(e.target.value) })}
+                      className="w-full accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground/70 font-mono">
+                      <span>−1</span>
+                      <span className={value === 0 ? 'text-muted-foreground' : 'text-primary'}>{value > 0 ? '+' : ''}{value.toFixed(1)}</span>
+                      <span>+1</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Voice Samples — short exemplars used as style anchors for AI */}
+          <div className="pt-2 border-t border-border">
+            <div className="flex items-center justify-between mb-2">
+              <label className={`${labelClass} mb-0`}>Voice Samples</label>
+              <span className="text-[10px] text-muted-foreground">3–5 examples ground AI in your actual voice</span>
+            </div>
+            <div className="space-y-2" data-testid="voice-samples-list">
+              {messaging.voiceSamples.map((sample, idx) => (
+                <div key={idx} className="flex gap-2 items-start" data-testid={`voice-sample-${idx}`}>
+                  <input
+                    type="text"
+                    value={sample.context}
+                    onChange={(e) => {
+                      const next = [...messaging.voiceSamples];
+                      next[idx] = { ...next[idx], context: e.target.value };
+                      updateMessaging('voiceSamples', next);
+                    }}
+                    placeholder="Context (e.g. tweet, email subject)"
+                    className={`${inputClass} w-44 flex-shrink-0`}
+                  />
+                  <textarea
+                    value={sample.text}
+                    onChange={(e) => {
+                      const next = [...messaging.voiceSamples];
+                      next[idx] = { ...next[idx], text: e.target.value };
+                      updateMessaging('voiceSamples', next);
+                    }}
+                    placeholder="Sample text written in your brand voice"
+                    rows={2}
+                    className={`${inputClass} flex-1 resize-y`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = messaging.voiceSamples.filter((_, i) => i !== idx);
+                      updateMessaging('voiceSamples', next);
+                    }}
+                    className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
+                    title="Remove sample"
+                    data-testid={`voice-sample-remove-${idx}`}
+                  >
+                    <span className="material-icons text-base">close</span>
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => updateMessaging('voiceSamples', [...messaging.voiceSamples, { context: '', text: '' }])}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+                data-testid="voice-sample-add"
+              >
+                <span className="material-icons text-sm">add</span>
+                Add sample
+              </button>
+            </div>
           </div>
         </div>
 
