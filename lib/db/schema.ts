@@ -2291,6 +2291,23 @@ export const crmScoringRules = pgTable('crm_scoring_rules', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Portal-user-scoped API keys for MCP server / programmatic access.
+// Distinct from `apiKeys` which is public/read-only and tied to a single website.
+export const portalApiKeys = pgTable('portal_api_keys', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  keyHash: varchar('key_hash', { length: 128 }).notNull().unique(),
+  keyPreview: varchar('key_preview', { length: 20 }).notNull(),
+  scopes: json('scopes').$type<string[]>().default([]).notNull(),
+  active: boolean('active').default(true).notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const crmSavedViews = pgTable('crm_saved_views', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
