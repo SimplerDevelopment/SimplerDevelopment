@@ -39,6 +39,7 @@ interface SelectableBlockProps {
   onResize?: (blockId: string, width: string | undefined, height: string | undefined) => void;
   onStyleUpdate?: (blockId: string, style: Record<string, string>) => void;
   currentStyle?: { padding?: string; margin?: string };
+  sizeStyle?: { width?: string; height?: string; maxWidth?: string; minWidth?: string; maxHeight?: string; minHeight?: string };
   dragListeners?: SyntheticListenerMap;
   columnsData?: { columns: ColumnData[]; gap?: 'sm' | 'md' | 'lg' };
   children: React.ReactNode;
@@ -55,6 +56,7 @@ export function SelectableBlock({
   onResize,
   onStyleUpdate,
   currentStyle,
+  sizeStyle,
   dragListeners,
   columnsData,
   children,
@@ -110,6 +112,12 @@ export function SelectableBlock({
         outlineOffset: '2px',
         borderRadius: '4px',
         transition: 'outline 0.15s ease',
+        ...(sizeStyle?.width ? { width: sizeStyle.width } : {}),
+        ...(sizeStyle?.height ? { height: sizeStyle.height } : {}),
+        ...(sizeStyle?.maxWidth ? { maxWidth: sizeStyle.maxWidth } : {}),
+        ...(sizeStyle?.minWidth ? { minWidth: sizeStyle.minWidth } : {}),
+        ...(sizeStyle?.maxHeight ? { maxHeight: sizeStyle.maxHeight } : {}),
+        ...(sizeStyle?.minHeight ? { minHeight: sizeStyle.minHeight } : {}),
       }}
     >
       {/* Top toolbar on hover/select — drag handle lives here */}

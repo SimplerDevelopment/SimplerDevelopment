@@ -531,6 +531,7 @@ function SortableBlock({
         onResize={onResize}
         onStyleUpdate={editor.onBlockStyleUpdated}
         currentStyle={liveBlock.style ? { padding: liveBlock.style.padding, margin: liveBlock.style.margin } : undefined}
+        sizeStyle={liveBlock.style ? { width: liveBlock.style.width, height: liveBlock.style.height, maxWidth: liveBlock.style.maxWidth, minWidth: liveBlock.style.minWidth, maxHeight: liveBlock.style.maxHeight, minHeight: liveBlock.style.minHeight } : undefined}
         dragListeners={listeners}
         columnsData={liveBlock.type === 'columns' && 'columns' in liveBlock ? { columns: (liveBlock as { columns: { id: string; width: number }[] }).columns, gap: (liveBlock as { gap?: 'sm' | 'md' | 'lg' }).gap } : undefined}
       >
@@ -599,6 +600,7 @@ function NestedSortableBlock({
         onResize={editor.onBlockResized}
         onStyleUpdate={editor.onBlockStyleUpdated}
         currentStyle={liveBlock.style ? { padding: liveBlock.style.padding, margin: liveBlock.style.margin } : undefined}
+        sizeStyle={liveBlock.style ? { width: liveBlock.style.width, height: liveBlock.style.height, maxWidth: liveBlock.style.maxWidth, minWidth: liveBlock.style.minWidth, maxHeight: liveBlock.style.maxHeight, minHeight: liveBlock.style.minHeight } : undefined}
         dragListeners={listeners}
         columnsData={liveBlock.type === 'columns' && 'columns' in liveBlock ? { columns: (liveBlock as { columns: { id: string; width: number }[] }).columns, gap: (liveBlock as { gap?: 'sm' | 'md' | 'lg' }).gap } : undefined}
       >

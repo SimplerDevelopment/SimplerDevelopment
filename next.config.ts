@@ -9,10 +9,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'cdn.builder.io',
-      },
-      {
         protocol: 'http',
         hostname: 'localhost',
       },
