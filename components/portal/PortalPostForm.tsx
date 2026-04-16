@@ -16,6 +16,7 @@ import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
+import type { BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface Post {
   id?: number;
@@ -50,6 +51,12 @@ interface PortalPostFormProps {
   publicUrl?: string | null;
   previewToken?: string;
   siteDomain?: string;
+  /**
+   * Optional brand context — pre-fills newly-created blocks with the client's
+   * messaging (tagline, value prop, etc.) and tags them with brand sentinels.
+   * Loaded server-side via getBrandDefaults().
+   */
+  brandDefaults?: BrandDefaultsContext;
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -149,7 +156,7 @@ function createDefaultBlock(type: string, order: number): Block {
   }
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain, brandDefaults }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -495,9 +502,10 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
               <EditorWithPreview
                 onChange={(newBlocks) => setBlocks(newBlocks)}
                 blockTypes={blockTypes}
+                brandDefaults={brandDefaults}
               />
             ) : (
-              <BlockEditor blocks={blocks} onChange={setBlocks} />
+              <BlockEditor blocks={blocks} onChange={setBlocks} brandDefaults={brandDefaults} />
             )}
           </div>
         </div>

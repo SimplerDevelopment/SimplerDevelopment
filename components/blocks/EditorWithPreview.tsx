@@ -31,13 +31,15 @@ import { SectionBlockRender } from './render/SectionBlockRender';
 import { GalleryBlockRender } from './render/GalleryBlockRender';
 import { BlockStyleWrapper } from './render/BlockStyleWrapper';
 import { getViewportWidth } from '@/lib/utils/responsive';
+import type { BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface EditorWithPreviewProps {
   onChange: (blocks: Block[]) => void;
   blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }>;
+  brandDefaults?: BrandDefaultsContext;
 }
 
-export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewProps) {
+export function EditorWithPreview({ onChange, blockTypes, brandDefaults }: EditorWithPreviewProps) {
   const { state, selectBlock, togglePreviewMode, currentViewport } = useBlockEditor();
 
   // Render block in preview mode using production render components
@@ -152,7 +154,7 @@ export function EditorWithPreview({ onChange, blockTypes }: EditorWithPreviewPro
           </div>
         </div>
       ) : (
-        <EditorInner onChange={onChange} blockTypes={blockTypes} />
+        <EditorInner onChange={onChange} blockTypes={blockTypes} brandDefaults={brandDefaults} />
       )}
     </div>
   );
