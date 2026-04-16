@@ -275,11 +275,11 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
         if (trigger !== 'autosave' && editorMode !== 'iframe') {
           router.push(`/portal/websites/${siteId}`);
         }
-        // Reload iframe to reflect saved content
-        setIframeSaveVersion(v => v + 1);
-        // Only refresh server data on manual save — autosave refresh
-        // causes remount which resets in-progress edits
+        // Only reload iframe + refresh server data on manual/publish save.
+        // Autosave syncs blocks via postMessage — reloading the iframe
+        // resets scroll position and disrupts editing.
         if (trigger !== 'autosave') {
+          setIframeSaveVersion(v => v + 1);
           router.refresh();
         }
       } else {
