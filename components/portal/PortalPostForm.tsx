@@ -16,7 +16,7 @@ import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
-import type { BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface Post {
   id?: number;
@@ -146,6 +146,17 @@ function createDefaultBlock(type: string, order: number): Block {
       { id: `card-${Date.now()}-1`, title: 'Card 1', description: 'Description' },
       { id: `card-${Date.now()}-2`, title: 'Card 2', description: 'Description' },
     ], columns: 3 } as Block;
+    case 'flip-card-grid': return { ...base, type: 'flip-card-grid', cards: [
+      { id: `flip-${Date.now()}-1`, frontTitle: 'Front Title', frontIcon: 'rocket_launch', backText: 'Hover or tap to reveal more details about this service.', backLinkText: 'Learn More' },
+      { id: `flip-${Date.now()}-2`, frontTitle: 'Second Card', frontIcon: 'insights', backText: 'Add your own description here — this text is revealed on flip.', backLinkText: 'Learn More' },
+      { id: `flip-${Date.now()}-3`, frontTitle: 'Third Card', frontIcon: 'workspace_premium', backText: 'Flip cards are great for condensing info behind an interactive reveal.', backLinkText: 'Learn More' },
+    ], columns: 3, flipTrigger: 'hover', flipAxis: 'horizontal', cardHeight: '280px', accentColor: '#004D80' } as Block;
+    case 'metric-cards': return { ...base, type: 'metric-cards', metrics: [
+      { id: `m-${Date.now()}-1`, value: '83%', label: 'Increase in Completions', institution: 'Example University', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-2`, value: '$965K+', label: 'Raised from 2,600+ Donors', institution: 'Loyola University', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-3`, value: '2 Days', label: 'Staff Time Saved', institution: 'VCU', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-4`, value: '5 Years', label: 'Historical Data Integrated', institution: 'Landmark College', linkText: 'Case Study' },
+    ], columns: 4, accentColor: '#004D80' } as Block;
     case 'gallery': return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3 } as Block;
     case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
     case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;
@@ -726,7 +737,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
                 onAddBlock={(type) => {
-                  const newBlock = createDefaultBlock(type, blocks.length);
+                  let newBlock = createDefaultBlock(type, blocks.length);
+                  if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
                   setBlocks([...blocks, newBlock]);
                 }}
                 onDeleteBlock={(blockId) => setBlocks(removeBlockById(blocks, blockId))}

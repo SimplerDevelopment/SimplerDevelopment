@@ -8,6 +8,7 @@ import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { findBlockById, removeBlockById } from '@/lib/utils/blockHelpers';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { SurveySlideRenderer, type SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -430,6 +431,18 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   }, [id]);
 
   useEffect(() => { fetchDeck(); }, [fetchDeck]);
+
+  // Brand defaults — fetched once per deck so newly-added blocks pre-fill from
+  // the client's messaging (tagline, value prop, etc.) and tag colors with sentinels.
+  const [brandDefaults, setBrandDefaults] = useState<BrandDefaultsContext | null>(null);
+  useEffect(() => {
+    if (!deck) return;
+    const profileQs = deck.brandingProfileId ? `?profileId=${deck.brandingProfileId}` : '';
+    fetch(`/api/portal/branding/defaults${profileQs}`)
+      .then(r => r.json())
+      .then(d => { if (d.success && d.data) setBrandDefaults(d.data); })
+      .catch(() => {});
+  }, [deck]);
 
 useEffect(() => {
     if (searchParams.get('genError') === '1') {
@@ -2157,7 +2170,7 @@ useEffect(() => {
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {
                     const uid = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                    const newBlock = {
+                    let newBlock = {
                       id: uid,
                       type: type as BlockType,
                       order: currentSlide.blocks.length + 1,
@@ -2180,6 +2193,7 @@ useEffect(() => {
                       ...(type === 'deck-next-slide' && { text: 'Next Slide', variant: 'primary', size: 'md', alignment: 'center' }),
                       ...(type === 'deck-jump-to' && { text: 'Jump To', targetSlide: 1, variant: 'secondary', size: 'md', alignment: 'center' }),
                     } as Block;
+                    if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
                   onDeleteBlock={(blockId: string) => {
