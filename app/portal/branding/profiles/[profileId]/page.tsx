@@ -464,14 +464,23 @@ export default function BrandingProfileEditorPage() {
             Set your brand identity. These styles apply as defaults across assigned sites.
           </p>
         </div>
-        <button
-          onClick={save}
-          disabled={(!dirty && !messagingDirty) || saving}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-        >
-          <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/portal/branding/profiles/${profileId}/guide`}
+            className="px-4 py-2 border border-border bg-background text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors flex items-center gap-2"
+          >
+            <span className="material-icons text-base">menu_book</span>
+            Brand Guide
+          </Link>
+          <button
+            onClick={save}
+            disabled={(!dirty && !messagingDirty) || saving}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            <span className="material-icons text-base">{saving ? 'refresh' : 'save'}</span>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
 
       {/* AI Generator */}
