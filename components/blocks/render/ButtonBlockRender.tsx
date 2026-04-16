@@ -50,7 +50,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   const variant = block.variant || 'primary';
   const bs = branding?.buttonStyle;
 
-  const variantClasses = {
+  const variantMap = {
     primary: {
       bg: hasCustomBg ? '' : 'bg-primary hover:bg-primary/90',
       text: hasCustomColor ? '' : 'text-primary-foreground',
@@ -63,7 +63,8 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
       bg: hasCustomBg ? '' : 'border border-primary hover:bg-primary/10',
       text: hasCustomColor ? '' : 'text-primary',
     },
-  }[variant];
+  } as const;
+  const variantClasses = variantMap[variant as keyof typeof variantMap] ?? variantMap.primary;
   const variantClass = `${variantClasses.bg} ${variantClasses.text}`.trim();
 
   const sizePadding = {
