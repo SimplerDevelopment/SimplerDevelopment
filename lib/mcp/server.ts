@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
@@ -56,6 +57,33 @@ function denied(scope: string) {
 
 function requireScope(ctx: PortalMcpContext, scope: string) {
   return hasScope(ctx.scopes, scope);
+}
+
+/**
+ * Invalidate Next.js cache for paths affected by an MCP write.
+ * Call after any DB mutation in a tool handler so the CMS (and public site,
+ * for post changes) reflects the change on the next request without waiting
+ * for the default revalidation interval.
+ *
+ * Scopes:
+ *   'portal'  → /portal/** (projects, kanban, tickets, CRM, email, media)
+ *   'posts'   → /portal/** + /sites/** (blocks render on public sites too)
+ *   'sites'   → /sites/** only
+ *
+ * Errors are swallowed — revalidation is best-effort; a failure shouldn't
+ * 500 the MCP tool response.
+ */
+function revalidateForWrite(scope: 'portal' | 'posts' | 'sites') {
+  try {
+    if (scope === 'portal' || scope === 'posts') {
+      revalidatePath('/portal', 'layout');
+    }
+    if (scope === 'sites' || scope === 'posts') {
+      revalidatePath('/sites', 'layout');
+    }
+  } catch (err) {
+    console.warn('[mcp] revalidatePath failed:', err);
+  }
 }
 
 // ─── server factory ───────────────────────────────────────────────────────
@@ -129,6 +157,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         isPrivate: true,
         createdBy: ctx.userId,
       }).returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -156,6 +185,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [row] = await db.update(projects).set(patch)
         .where(and(eq(projects.id, args.id), eq(projects.clientId, clientId)))
         .returning();
+      if (row) revalidateForWrite('portal');
       return json(row ?? { error: 'Not found' });
     }
   );
@@ -211,6 +241,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         dueDate: args.dueDate ? new Date(args.dueDate) : null,
         createdBy: ctx.userId,
       }).returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -238,6 +269,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         .set({ columnId, order: order ?? 0, updatedAt: new Date() })
         .where(eq(kanbanCards.id, cardId))
         .returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -314,6 +346,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         authorId: ctx.userId,
         body,
       });
+      revalidateForWrite('portal');
       return json(ticket);
     }
   );
@@ -336,6 +369,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         body,
       }).returning();
       await db.update(supportTickets).set({ updatedAt: new Date() }).where(eq(supportTickets.id, id));
+      revalidateForWrite('portal');
       return json(msg);
     }
   );
@@ -401,6 +435,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         notes: args.notes ?? null,
         ownerId: ctx.userId,
       }).returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -451,6 +486,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         phone: args.phone ?? null,
         notes: args.notes ?? null,
       }).returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -506,6 +542,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         notes: args.notes ?? null,
         ownerId: ctx.userId,
       }).returning();
+      revalidateForWrite('portal');
       return json(row);
     }
   );
@@ -532,6 +569,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [row] = await db.update(crmDeals).set(patch)
         .where(and(eq(crmDeals.id, id), eq(crmDeals.clientId, clientId)))
         .returning();
+      if (row) revalidateForWrite('portal');
       return json(row ?? { error: 'Not found' });
     }
   );
@@ -635,6 +673,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         published: args.published ?? false,
         publishedAt: args.published ? new Date() : null,
       }).returning();
+      revalidateForWrite('posts');
       return json(row);
     }
   );
@@ -676,6 +715,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         if (rest.published) patch.publishedAt = new Date();
       }
       const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning();
+      revalidateForWrite('posts');
       return json(row);
     }
   );
