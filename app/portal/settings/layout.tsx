@@ -8,6 +8,7 @@ const tabs = [
   { href: '/portal/settings/billing', label: 'Billing', icon: 'payments' },
   { href: '/portal/settings/team', label: 'Team', icon: 'group' },
   { href: '/portal/settings/ai', label: 'AI Assistant', icon: 'smart_toy' },
+  { href: '/portal/settings/api-keys', label: 'API Keys', icon: 'vpn_key' },
   { href: '/portal/settings/support', label: 'Support', icon: 'support_agent' },
 ];
 

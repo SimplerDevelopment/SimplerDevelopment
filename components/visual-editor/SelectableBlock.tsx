@@ -84,6 +84,19 @@ export function SelectableBlock({
           onClicked(blockId, modifiers);
         }
       }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = (e.currentTarget as HTMLElement).ownerDocument.documentElement.getBoundingClientRect();
+        sendToParent(IFRAME_MESSAGES.BLOCK_CONTEXT_MENU, {
+          blockId,
+          x: e.clientX,
+          y: e.clientY,
+          iframeWidth: rect.width,
+          iframeHeight: rect.height,
+          modifiers: { shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey },
+        });
+      }}
       onMouseEnter={() => onHovered(blockId)}
       onMouseLeave={() => onHovered(null)}
       className="relative"

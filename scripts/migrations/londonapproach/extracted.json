@@ -1,0 +1,120 @@
+{
+  "source": "https://londonapproach.com",
+  "brand": {
+    "name": "London Approach",
+    "tagline": "Modern Staffing Solutions",
+    "subtag": "Professional Search Firm",
+    "description": "Temporary Staffing Solutions - Direct-Hire Search - Passive Candidate Recruitment Conshohocken, PA",
+    "phone": "+1-610-590-4900",
+    "email": "info@londonapproach.com",
+    "offices": [
+      { "name": "Philadelphia Market", "address": "1100 E. Hector St.\nSuite 245\nConshohocken, PA 19428" },
+      { "name": "Tampa Market", "address": "3750 Gunn Highway\nSuite 306, #1030\nTampa, FL 33618" }
+    ],
+    "colors": {
+      "primary": "#124334",
+      "primaryDark": "#0d2f24",
+      "secondary": "#F0F4F4",
+      "bg": "#ffffff",
+      "text": "#0c0e13",
+      "accent": "#124334"
+    },
+    "fonts": {
+      "heading": "Montserrat",
+      "body": "Montserrat"
+    },
+    "assets": {
+      "favicon": "https://www.londonapproach.com/favicon.ico",
+      "heroVideo": "https://d3r1qy772m5kxh.cloudfront.net/video/home.mp4",
+      "heroBottomVideo": "https://d3r1qy772m5kxh.cloudfront.net/video/hero-bottom.mp4",
+      "womenOwnedLogo": "https://www.londonapproach.com/_next/static/media/women-owned.473d993e.png",
+      "whyLaGallery": [
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/1.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/2.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/3.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/4.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/5.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/6.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/7.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/8.jpg",
+        "https://d3r1qy772m5kxh.cloudfront.net/images/why-la-gallery/9.jpg"
+      ]
+    }
+  },
+  "home": {
+    "tagline": "Professional Search Firm",
+    "body": "We provide high impact talent for top organizations across North America. From a start-up to a Fortune 100, we are proud to partner with the most innovative clients, transforming their businesses while providing valuable insight to current market trends.",
+    "ctas": [
+      { "text": "Our Services", "href": "/services" },
+      { "text": "Reach Out", "href": "/reach-out" }
+    ],
+    "sectionMap": [
+      { "section": "hero", "bg": "#0c0e13 with dark gradient overlay", "video": "home.mp4", "textColor": "white", "notes": "Full-bleed hero video, overlay, LONDON APPROACH / MODERN STAFFING SOLUTIONS logo top-left, scroll arrow" },
+      { "section": "intro", "bg": "#124334 dark green overlapping card", "textColor": "white", "notes": "Body copy + OUR SERVICES arrow link" },
+      { "section": "intro-image", "bg": "image of woman on stairs", "notes": "Visual offset image, no text" },
+      { "section": "footer-cta", "bg": "#F0F4F4 light gray", "textColor": "dark", "notes": "REACH OUT arrow link" }
+    ]
+  },
+  "services": {
+    "hero": { "eyebrow": "LONDON APPROACH", "title": "SERVICES", "body": "We are a results-driven staffing firm that specializes in Temporary Solutions, Direct Hire Recruiting, Diversity Initiatives, and Retained Search." },
+    "categories": [
+      { "title": "Information Technology", "body": "What's your tech stack? Whether you have an implementation project or need a Director of IT, we are here to show you the hidden talent the market has to offer." },
+      { "title": "Accounting & Finance", "body": "We have an established network of experienced Accounting & Finance professionals. From a Senior Accountant to a Vice President of Finance, we source passive candidates and thoroughly vet them to determine culture and technical fit for your organization." },
+      { "title": "Human Resources", "body": "We have a solid cache of top tier HR talent with a range of expertise and specialties. From Talent Acquisition to DEI and HR Leadership professionals, we identify passive talent that will ensure your success as you grow." },
+      { "title": "Engineering & Supply Chain", "body": "Our staff augmentation and direct hire search team deploy engineering and supply chain talent to clientele ranging from mid-size engineering firms to big pharma. From a VP of Engineering to a temporary Project Manager, our technical recruitment specialists have developed relationships with the best and brightest." },
+      { "title": "Administration", "body": "We understand the importance of administrative support to keep your organization operating effectively. We have experience placing all levels of administration from an Executive Assistant to a Chief of Staff." },
+      { "title": "Construction & Real Estate", "body": "Our niche focus in Commercial Construction and Real Estate allows us to understand your hiring needs quickly and effectively. We speak your language and understand the nuances of project management, engineering, and asset management. Let us create a go-to-market strategy to recruit top construction talent that can impact your bottom line." }
+    ]
+  },
+  "whyLa": {
+    "title": "Why LA",
+    "subtitle": "Our proven 8-step approach",
+    "steps": [
+      { "n": 1, "title": "Intake Meeting", "tag": "#letszoom", "body": "We get to know the soft sells and hard facts about your organization and why this role is open. We develop a game plan for your search and provide consultative feedback on current market conditions." },
+      { "n": 2, "title": "Search Strategy", "tag": "#whatsyourpitch", "body": "We develop a branding strategy to highlight the career advantages of the opportunity and the impactful vision of the organization." },
+      { "n": 3, "title": "Saturate the Market", "tag": "#onthehunt", "body": "Our team engages with candidates across your region, uncovering and vetting passive talent while ensuring a diverse and inclusive candidate line up." },
+      { "n": 4, "title": "Candidate Submittal", "tag": "#startinglineup", "body": "After thoroughly vetting our candidates, we provide a debrief that includes a bio, LinkedIn profile, and a detailed resume." },
+      { "n": 5, "title": "Sync Up Meeting", "tag": "#stateoftheunion", "body": "Consult on candidate pipeline, providing additional market feedback including salary and bonus trends. Redirect search where needed and begin the interview process." },
+      { "n": 6, "title": "Interviews & Debriefs", "tag": "#checkyourcalendar", "body": "Relax, we got this! We coordinate the interview and ensure our candidates come to the meeting prepared. We conduct a post-interview debrief, providing valuable feedback to both parties." },
+      { "n": 7, "title": "Negotiate the Offer", "tag": "#letsmakeadeal", "body": "Expertise can make or break a deal. We understand the nuances of the offer stage, from sign on bonuses to counter offers, we build the rapport needed to navigate the difficult negotiations." },
+      { "n": 8, "title": "Pop the Champagne!", "tag": "#bringonthebubbly", "body": "Time to celebrate. From reference checks to onboarding, we are here to ensure a smooth hiring process!" }
+    ]
+  },
+  "team": {
+    "title": "Meet Our Team",
+    "members": [
+      { "name": "Emily Zagar", "title": "Founder-Managing Partner", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Em_Headshot_ryswDTP.jpg" },
+      { "name": "Keli Price", "title": "Founder-Managing Partner", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Keli_Headshots.jpg" },
+      { "name": "Amanda McSorley", "title": "Vice President, Professional Staffing", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/amanda_color.jpg" },
+      { "name": "Victoria DellaVecchia", "title": "HR & Office Operations Manager", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/tori_color_headshot.png" },
+      { "name": "Conor Cunningham", "title": "Manager of IT Recruiting", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Conor_Cunningham.jpeg" },
+      { "name": "Haley Gerritsen", "title": "Director, Construction Recruiting", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/haley_G_headshot.jpg" },
+      { "name": "Katherine Connelly", "title": "Director of Executive Search", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/IMG_1109.jpg" },
+      { "name": "Kamryn Short", "title": "Senior Business Development Manager, IT", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/kam_color_headshot.jpg" },
+      { "name": "Morgan DeSouza", "title": "Principal Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Morgan_DeSouza_Headshot.jpg" },
+      { "name": "Holly Anderson", "title": "Senior Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/IMG_2730.jpg" },
+      { "name": "Kristen Coghlan", "title": "Sales Operation Manager", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/kristen_color_headshot.png" },
+      { "name": "Eileen Coyne", "title": "Principal Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/DSC06380.jpg" },
+      { "name": "Ashley Mealey", "title": "Sales Manager", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Ashley_Mealey_Headshot.jpg" },
+      { "name": "Kelly Fay", "title": "Principal Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Kelly_Fay.jpg" },
+      { "name": "Grace Carson", "title": "Senior Business Development Manager", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/grace_color.jpg" },
+      { "name": "Haley ONeill", "title": "Senior Account Executive", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/haley_O_headshot.png" },
+      { "name": "Mackenzie Myers", "title": "Account Executive", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/mackenzie_m_color.jpg" },
+      { "name": "Hannah DiGiulio", "title": "Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/hannah_color.jpg" },
+      { "name": "Julia Righter", "title": "Senior Recruiter", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/julia_color.jpg" },
+      { "name": "Devon Centola", "title": "Recruiting Associate", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/devon_color_headshot.png" },
+      { "name": "Kelly Mejia", "title": "Construction Recruiting Associate", "photo": "https://d1wkqvy9x5wra7.cloudfront.net/media/profile_images/Kelly_M_headshot_2026.jpg" }
+    ]
+  },
+  "testimonials": [
+    { "quote": "London Approach is our go-to agency! They have helped us place many positions across our organization for the last 4.5 years from temp, temp-to-hire, and direct hire. They are responsive, professional, friendly, and send qualified candidates whenever we have a need. I have recommended them for other organizations as well as for those looking for a position and will continue to do so. I would highly recommend London Approach for anyone searching for the perfect candidate and a great working relationship!", "author": "Lindsey C", "category": "Client Reviews" },
+    { "quote": "I loved working with the London Approach team. Searching for a new job can be nerve-wracking and anxiety inducing but they made this process worry free. I constantly was reassured that my needs and wants came first, and they were here to help! They provided insight on the job market and connected me with countless opportunities as well as interview tips and advice during each step of the process. I would recommend this company to anyone and will definitely work with them again if I find myself on the job market.", "author": "Joe C", "category": "Candidate Reviews" }
+  ],
+  "reachOut": {
+    "heading": "How can we help?",
+    "subhead": "Let's talk",
+    "phone": "+1-610-590-4900",
+    "email": "info@londonapproach.com",
+    "bookingSlug": "london-approach-call"
+  }
+}
