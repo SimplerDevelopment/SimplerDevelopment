@@ -7,6 +7,7 @@ import { use } from 'react';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import { findBlockById, removeBlockById } from '@/lib/utils/blockHelpers';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { SurveySlideRenderer, type SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -15,6 +16,8 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -666,7 +669,8 @@ useEffect(() => {
   }
 
   const slideDndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -2179,9 +2183,9 @@ useEffect(() => {
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
                   onDeleteBlock={(blockId: string) => {
-                    const block = currentSlide.blocks.find(b => b.id === blockId);
+                    const block = findBlockById(currentSlide.blocks, blockId);
                     if (block?.required) return;
-                    handleSlideBlocksChange(activeSlide, currentSlide.blocks.filter(b => b.id !== blockId));
+                    handleSlideBlocksChange(activeSlide, removeBlockById(currentSlide.blocks, blockId));
                   }}
                   onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
                     handleSlideBlocksChange(
@@ -2623,6 +2627,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
       </div>
       <div className="flex items-center shrink-0 pr-2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
           className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
           title="Duplicate slide"
@@ -2630,6 +2635,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
           <span className="material-icons text-sm">content_copy</span>
         </button>
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           disabled={!canRemove}
           className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

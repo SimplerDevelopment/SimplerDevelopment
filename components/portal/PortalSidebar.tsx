@@ -61,7 +61,6 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
       { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
       { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
-      { href: '/portal/crm/proposals', label: 'Proposals & Decks', icon: 'description' },
       { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -91,6 +90,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle' },
     ],
   },
+  { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
   { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true },
   ...(activeSiteId
     ? [{

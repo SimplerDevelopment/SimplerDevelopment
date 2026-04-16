@@ -74,7 +74,7 @@ export function SiteNavClient({
               alt={logoAlt}
               className="h-10 w-auto transition-all duration-300"
               style={{
-                filter: showScrolled ? 'brightness(0)' : 'none',
+                filter: isTransparent && showScrolled ? 'brightness(0)' : 'none',
               }}
             />
           ) : (

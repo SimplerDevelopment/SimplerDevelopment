@@ -30,6 +30,7 @@ interface UseVisualEditorParentOptions {
   onColumnResized?: (blockId: string, columnWidths: number[]) => void;
   onGapChanged?: (blockId: string, gap: 'sm' | 'md' | 'lg') => void;
   onBlockContentUpdated?: (blockId: string, field: string, value: string) => void;
+  onBlockContextMenu?: (blockId: string, x: number, y: number, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
 }
 
 export function useVisualEditorParent({
@@ -45,6 +46,7 @@ export function useVisualEditorParent({
   onColumnResized,
   onGapChanged,
   onBlockContentUpdated,
+  onBlockContextMenu,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -64,6 +66,7 @@ export function useVisualEditorParent({
   const onColumnResizedRef = useRef(onColumnResized);
   const onGapChangedRef = useRef(onGapChanged);
   const onContentUpdatedRef = useRef(onBlockContentUpdated);
+  const onContextMenuRef = useRef(onBlockContextMenu);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -76,6 +79,7 @@ export function useVisualEditorParent({
   onColumnResizedRef.current = onColumnResized;
   onGapChangedRef.current = onGapChanged;
   onContentUpdatedRef.current = onBlockContentUpdated;
+  onContextMenuRef.current = onBlockContextMenu;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -161,6 +165,11 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.BLOCK_CONTENT_UPDATED: {
           const payload = event.data.payload as { blockId: string; field: string; value: string };
           onContentUpdatedRef.current?.(payload.blockId, payload.field, payload.value);
+          break;
+        }
+        case IFRAME_MESSAGES.BLOCK_CONTEXT_MENU: {
+          const payload = event.data.payload as { blockId: string; x: number; y: number; modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } };
+          onContextMenuRef.current?.(payload.blockId, payload.x, payload.y, payload.modifiers);
           break;
         }
       }

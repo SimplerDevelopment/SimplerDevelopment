@@ -145,6 +145,7 @@ export function VisualEditorShell({
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [leftTab, setLeftTab] = useState<'layers' | 'add'>('layers');
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
@@ -200,8 +201,13 @@ export function VisualEditorShell({
   const spaceDownRef = useRef(false);
 
   useEffect(() => {
+    const isEditableTarget = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLTextAreaElement ||
+      t instanceof HTMLSelectElement ||
+      (t instanceof HTMLElement && t.isContentEditable);
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement)) {
+      if (e.code === 'Space' && !e.repeat && !isEditableTarget(e.target)) {
         spaceDownRef.current = true;
         if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
       }
@@ -357,6 +363,19 @@ export function VisualEditorShell({
         handleUpdateBlock(blockId, { [field]: value } as Partial<Block>);
       }
     },
+    onBlockContextMenu: (blockId: string, x: number, y: number) => {
+      // Convert iframe-relative coords to parent screen coords (account for zoom + iframe position)
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      const rect = iframe.getBoundingClientRect();
+      const scale = zoomLevel / 100;
+      const screenX = rect.left + x * scale;
+      const screenY = rect.top + y * scale;
+      // If the right-clicked block isn't already in the selection, select just it
+      setSelectedBlockIds(prev => prev.includes(blockId) ? prev : [blockId]);
+      setInternalSelectedBlockId(blockId);
+      setContextMenu({ x: screenX, y: screenY });
+    },
   });
 
   useEffect(() => {
@@ -372,6 +391,25 @@ export function VisualEditorShell({
   useEffect(() => {
     onUndoRedoChange?.({ sendUndo, sendRedo, canUndo: undoRedoState.canUndo, canRedo: undoRedoState.canRedo });
   }, [undoRedoState, sendUndo, sendRedo, onUndoRedoChange]);
+
+  // Global Cmd/Ctrl+Z (undo) and Cmd/Ctrl+Shift+Z (redo) — ignored when typing
+  useEffect(() => {
+    const isEditableTarget = (t: EventTarget | null) =>
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLTextAreaElement ||
+      t instanceof HTMLSelectElement ||
+      (t instanceof HTMLElement && t.isContentEditable);
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() !== 'z') return;
+      if (isEditableTarget(e.target)) return;
+      e.preventDefault();
+      if (e.shiftKey) sendRedo();
+      else sendUndo();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [sendUndo, sendRedo]);
 
   // Bulk actions for multi-select
   const isMultiSelect = selectedBlockIds.length > 1;
@@ -737,6 +775,11 @@ export function VisualEditorShell({
                       onSelect={selectBlock}
                       onDelete={onDeleteBlock}
                       onUpdate={handleUpdateBlock}
+                      onContextMenu={(id, x, y) => {
+                        setSelectedBlockIds(prev => prev.includes(id) ? prev : [id]);
+                        setInternalSelectedBlockId(id);
+                        setContextMenu({ x, y });
+                      }}
                       showDropIndicator={!!draggedBlockId && layerOverId === block.id && draggedBlockId !== block.id}
                     />
                   ))}
@@ -1059,6 +1102,52 @@ export function VisualEditorShell({
         </div>
       </div>
       )}
+
+      {/* Block context menu (right-click) */}
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          />
+          <div
+            className="fixed z-50 min-w-[200px] rounded-md border border-border bg-card shadow-xl py-1 text-sm"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border mb-1">
+              {selectedBlockIds.length > 1 ? `${selectedBlockIds.length} blocks` : 'Block'}
+            </div>
+            <button
+              type="button"
+              onClick={() => { bulkDuplicate(); setContextMenu(null); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-left"
+            >
+              <span className="material-icons text-base text-muted-foreground">content_copy</span>
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={() => { bulkGroup(); setContextMenu(null); }}
+              disabled={selectedBlockIds.length < 2}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-left disabled:opacity-40 disabled:cursor-not-allowed"
+              title={selectedBlockIds.length < 2 ? 'Select 2 or more blocks to group' : ''}
+            >
+              <span className="material-icons text-base text-muted-foreground">crop_free</span>
+              Group into Section
+            </button>
+            <div className="border-t border-border my-1" />
+            <button
+              type="button"
+              onClick={() => { bulkDelete(); setContextMenu(null); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-destructive/10 text-destructive text-left"
+            >
+              <span className="material-icons text-base">delete</span>
+              Delete
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1073,6 +1162,7 @@ function LayerItem({
   onSelect,
   onDelete,
   onUpdate,
+  onContextMenu,
   showDropIndicator = false,
 }: {
   block: Block;
@@ -1082,6 +1172,7 @@ function LayerItem({
   onSelect: (id: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onDelete: (id: string) => void;
   onUpdate: (id: string, updates: Partial<Block>) => void;
+  onContextMenu?: (id: string, x: number, y: number) => void;
   showDropIndicator?: boolean;
 }) {
   const sortable = useSortable({ id: block.id, transition: null });
@@ -1128,6 +1219,12 @@ function LayerItem({
         }`}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
         onClick={(e) => onSelect(block.id, { shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey })}
+        onContextMenu={(e) => {
+          if (!onContextMenu) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu(block.id, e.clientX, e.clientY);
+        }}
       >
         {/* Drag handle */}
         <span {...sortable.attributes} {...sortable.listeners} className="material-icons text-xs shrink-0 text-muted-foreground/50 cursor-grab">drag_indicator</span>
@@ -1173,10 +1270,11 @@ function LayerItem({
         ) : (
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
-            className="material-icons text-xs text-muted-foreground/50 hover:text-destructive opacity-0 group-hover/layer:opacity-100 transition-opacity shrink-0"
+            className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground/30 hover:text-destructive opacity-0 group-hover/layer:opacity-100 transition-all shrink-0 relative z-10"
             title="Delete"
-          >close</button>
+          ><span className="material-icons text-xs">close</span></button>
         )}
       </div>
 
@@ -1187,7 +1285,7 @@ function LayerItem({
             {child.label}
           </div>
           {child.blocks.map((nested) => (
-            <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} selectedBlockIds={selectedBlockIds} onSelect={onSelect} onDelete={onDelete} onUpdate={onUpdate} />
+            <LayerItem key={nested.id} block={nested} depth={depth + 1} selectedBlockId={selectedBlockId} selectedBlockIds={selectedBlockIds} onSelect={onSelect} onDelete={onDelete} onUpdate={onUpdate} onContextMenu={onContextMenu} />
           ))}
           <ContainerDropZone containerId={block.id} slotIndex={ci} depth={depth + 1} />
         </div>
@@ -1944,8 +2042,9 @@ function SortableListItem({
         </span>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-          className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+          className="p-0.5 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors shrink-0"
           title="Remove"
         >
           <span className="material-icons text-sm">close</span>

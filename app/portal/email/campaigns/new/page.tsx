@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
+import { removeBlockById } from '@/lib/utils/blockHelpers';
 
 interface EmailList {
   id: number;
@@ -292,7 +293,7 @@ export default function NewPortalCampaignPage() {
                       handleBlocksChange([...blocks, newBlock]);
                     }}
                     onDeleteBlock={(blockId: string) => {
-                      handleBlocksChange(blocks.filter(b => b.id !== blockId));
+                      handleBlocksChange(removeBlockById(blocks, blockId));
                     }}
                     onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
                       handleBlocksChange(blocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b));

@@ -471,7 +471,7 @@ function ContainerSlotDropZone({ containerId, slotIndex, hasChildren }: { contai
             : 'border-gray-200 text-gray-400 py-4'
       }`}
     >
-      {isOver ? '+ Drop here' : hasChildren ? '' : 'Drop blocks here'}
+      {isOver ? '+ Drop here' : hasChildren ? '' : 'Drag a block here, or use the "Add Block" panel to insert one'}
     </div>
   );
 }
@@ -650,6 +650,14 @@ function ContainerBlockRenderer({
     );
   }
 
+  if (block.type === 'tabs') {
+    return (
+      <BlockStyleWrapper block={block}>
+        <TabsContainerEditor block={block} registry={registry} draggingId={draggingId} editor={editor} />
+      </BlockStyleWrapper>
+    );
+  }
+
   if (block.type === 'section') {
     const s = block.style;
     // Apply section-specific props — mirrors SectionBlockRender
@@ -729,6 +737,66 @@ function ContainerBlockRenderer({
     <BlockStyleWrapper block={block}>
       <Component block={block} />
     </BlockStyleWrapper>
+  );
+}
+
+// ─── Tabs container editor (tab headers + per-tab drop zone) ─────────────────
+
+function TabsContainerEditor({
+  block,
+  registry,
+  draggingId,
+  editor,
+}: {
+  block: Extract<Block, { type: 'tabs' }>;
+  registry: ReturnType<typeof getBlockRegistry>;
+  draggingId: string | null;
+  editor: ReturnType<typeof useEditorModeContext>;
+}) {
+  const tabs = block.tabs || [];
+  const [activeTabId, setActiveTabId] = useState(tabs[0]?.id);
+  const activeIndex = Math.max(0, tabs.findIndex(t => t.id === activeTabId));
+  const activeTab = tabs[activeIndex] || tabs[0];
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden my-4">
+      <div className="flex border-b border-border bg-muted/30">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTabId(tab.id);
+            }}
+            className={`px-4 py-3 font-medium transition-colors border-b-2 ${
+              activeTab?.id === tab.id
+                ? 'border-primary text-primary bg-background'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label || 'Tab'}
+          </button>
+        ))}
+      </div>
+      <div className="p-4 bg-card min-h-[120px]">
+        {activeTab && (activeTab.blocks || []).map((nested, ni) => (
+          <Fragment key={nested.id}>
+            <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
+            {ni === (activeTab.blocks || []).length - 1 && draggingId && (
+              <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
+            )}
+          </Fragment>
+        ))}
+        {activeTab && (
+          <ContainerSlotDropZone
+            containerId={block.id}
+            slotIndex={activeIndex}
+            hasChildren={(activeTab.blocks || []).length > 0}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

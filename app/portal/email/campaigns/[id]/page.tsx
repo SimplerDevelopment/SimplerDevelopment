@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
+import { removeBlockById } from '@/lib/utils/blockHelpers';
 
 interface Campaign {
   id: number;
@@ -266,7 +267,7 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
                           const newBlock = { id, type: type as BlockType, order: editBlocks.length + 1, content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined, level: type === 'heading' ? 2 : undefined } as Block;
                           setEditBlocks([...editBlocks, newBlock]);
                         }}
-                        onDeleteBlock={(blockId: string) => setEditBlocks(editBlocks.filter(b => b.id !== blockId))}
+                        onDeleteBlock={(blockId: string) => setEditBlocks(removeBlockById(editBlocks, blockId))}
                         onUpdateBlock={(blockId: string, updates: Partial<Block>) => setEditBlocks(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
                         siteId={undefined}
                       />

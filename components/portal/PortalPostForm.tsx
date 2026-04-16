@@ -15,6 +15,7 @@ import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { removeBlockById } from '@/lib/utils/blockHelpers';
 
 interface Post {
   id?: number;
@@ -720,7 +721,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   const newBlock = createDefaultBlock(type, blocks.length);
                   setBlocks([...blocks, newBlock]);
                 }}
-                onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+                onDeleteBlock={(blockId) => setBlocks(removeBlockById(blocks, blockId))}
                 onUndoRedoChange={setUndoRedo}
                 onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
                 siteId={siteId}
