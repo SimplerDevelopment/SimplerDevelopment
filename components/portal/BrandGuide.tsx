@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { createElement, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BlockRenderer } from '@/components/blocks/render/BlockRenderer';
 import { Button } from '@/components/ui/Button';
@@ -207,7 +207,14 @@ function LogoSection({ branding }: { branding: ResolvedBranding }) {
       {branding.logoText && (
         <div className="mt-6 border border-gray-200 rounded-xl p-8">
           <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Wordmark</div>
-          <div className="text-5xl font-bold" style={{ fontFamily: 'var(--brand-heading-font, sans-serif)' }}>
+          <div
+            className="text-5xl font-bold"
+            style={{
+              fontFamily: branding.typography?.logoText?.font
+                ? `"${branding.typography.logoText.font}", sans-serif`
+                : 'var(--brand-heading-font, sans-serif)',
+            }}
+          >
             {branding.logoText}
           </div>
           <div className="text-sm text-gray-600 mt-3">Typeset wordmark — use when an image logo is unavailable.</div>
@@ -353,8 +360,7 @@ function FontCard({ label, name, sample, font }: { label: string; name: string; 
 }
 
 function TypeSample({ tag, text }: { tag: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'blockquote' | 'small'; text: string }) {
-  const Tag = tag as keyof JSX.IntrinsicElements;
-  return <Tag className="m-0">{text}</Tag>;
+  return createElement(tag, { className: 'm-0' }, text);
 }
 
 function ButtonsSection() {

@@ -371,6 +371,11 @@ export default function BrandingProfileEditorPage() {
     });
   };
 
+  const resolveLogoTextFont = (p: ProfileData): string | undefined => {
+    const font = p.typography?.logoText?.font || p.headingFont;
+    return font ? `"${font}", sans-serif` : undefined;
+  };
+
   const resolveFont = (el: string): string => {
     if (!profile) return '';
     const t = getTypo(el);
@@ -629,9 +634,21 @@ export default function BrandingProfileEditorPage() {
               className={inputClass}
               placeholder="Your Brand Name"
             />
+            <div className="mt-2">
+              <label className="block text-[11px] text-muted-foreground mb-1">Font (falls back to heading font)</label>
+              <GoogleFontPicker
+                value={profile.typography?.logoText?.font ?? ''}
+                onChange={(font) => updateTypo('logoText', { font })}
+              />
+            </div>
             {profile.logoText && (
               <div className="mt-3 p-4 rounded-lg bg-muted/30 border border-border">
-                <span className="text-xl font-bold" style={{ fontFamily: profile.headingFont ? `"${profile.headingFont}", sans-serif` : undefined }}>
+                <span
+                  className="text-xl font-bold"
+                  style={{
+                    fontFamily: resolveLogoTextFont(profile),
+                  }}
+                >
                   {profile.logoText}
                 </span>
               </div>
