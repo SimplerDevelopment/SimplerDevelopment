@@ -132,6 +132,9 @@ export interface ButtonBlock extends BaseBlock {
   icon?: string; // Material Icon name
   iconPosition?: 'left' | 'right'; // default: 'left'
   hoverEffect?: 'none' | 'lift' | 'glow' | 'fill' | 'slide' | 'pulse';
+  /** Reference to a branded button preset (BrandButtonPreset.id). Preset
+   *  styles apply first; block.style overrides on top. */
+  presetId?: string;
 }
 
 export interface SpacerBlock extends BaseBlock {
@@ -275,8 +278,16 @@ export interface MarqueeBlock extends BaseBlock {
   loop?: number; // 0 = infinite
 }
 
+export interface ServiceBullet {
+  id: string;
+  /** Material Icon name for a small check/arrow/feature icon */
+  icon?: string;
+  text: string;
+}
+
 export interface ServicesGridBlock extends BaseBlock {
   type: 'services-grid';
+  overline?: string;
   title?: string;
   description?: string;
   services: Array<{
@@ -285,9 +296,15 @@ export interface ServicesGridBlock extends BaseBlock {
     description: string;
     icon?: string;
     link?: string;
+    /** Anchor text for the CTA link. Defaults to "Learn More". */
+    linkText?: string;
     image?: string;
+    /** Optional list of bullet benefits displayed beneath the description */
+    bullets?: ServiceBullet[];
   }>;
   columns?: 2 | 3 | 4;
+  /** Accent color for icons, bullets, and link arrow */
+  accentColor?: string;
 }
 
 export interface CtaBlock extends BaseBlock {
@@ -739,6 +756,88 @@ export interface BentoGridBlock extends BaseBlock {
   columns?: number;
 }
 
+export interface LogoStripLogo {
+  id: string;
+  imageUrl: string;
+  alt: string;
+  link?: string;
+}
+
+export interface LogoStripBlock extends BaseBlock {
+  type: 'logo-strip';
+  /** Overline/eyebrow text shown above the logos, e.g. "TRUSTED BY 100+ COLLEGES" */
+  overline?: string;
+  logos: LogoStripLogo[];
+  columns?: 3 | 4 | 5 | 6 | 7 | 8;
+  /** Show logos in grayscale (default) that return to full color on hover */
+  grayscale?: boolean;
+  /** Max height for each logo, any CSS unit. Defaults to '40px'. */
+  logoHeight?: string;
+  /** Gap between logos */
+  gap?: 'sm' | 'md' | 'lg';
+  /** Alignment on rows that don't fill all columns */
+  alignment?: 'left' | 'center' | 'right';
+}
+
+export interface FlipCard {
+  id: string;
+  /** Front face — what's visible before flip */
+  frontTitle: string;
+  frontSubtitle?: string;
+  /** Material Icon name (e.g. "trending_up") — takes priority over image */
+  frontIcon?: string;
+  /** Optional image shown on the front instead of/above the icon */
+  frontImage?: string;
+  /** Back face — revealed on hover/click */
+  backText: string;
+  backLink?: string;
+  backLinkText?: string;
+}
+
+export interface FlipCardGridBlock extends BaseBlock {
+  type: 'flip-card-grid';
+  overline?: string;
+  title?: string;
+  description?: string;
+  cards: FlipCard[];
+  columns?: 2 | 3 | 4;
+  /** 'hover' (default) flips on mouseover; 'click' requires tap */
+  flipTrigger?: 'hover' | 'click';
+  /** Flip along Y-axis (horizontal, default) or X-axis (vertical) */
+  flipAxis?: 'horizontal' | 'vertical';
+  /** Height of each card in px or CSS unit, default '280px' */
+  cardHeight?: string;
+  /** Accent color used for the front icon tint and back link */
+  accentColor?: string;
+}
+
+export interface MetricCard {
+  id: string;
+  /** Big display value e.g. "83%", "$965K+", "2 Days" */
+  value: string;
+  /** Small descriptive label beneath the value (uppercase-styled) */
+  label: string;
+  /** Optional institution/source line (appears small below label) */
+  institution?: string;
+  /** Optional institution logo/image */
+  institutionLogo?: string;
+  /** Optional CTA link */
+  link?: string;
+  /** CTA text — defaults to "Case Study" */
+  linkText?: string;
+}
+
+export interface MetricCardsBlock extends BaseBlock {
+  type: 'metric-cards';
+  overline?: string;
+  title?: string;
+  description?: string;
+  metrics: MetricCard[];
+  columns?: 2 | 3 | 4;
+  /** Accent color for the metric value + link arrow */
+  accentColor?: string;
+}
+
 export interface FooterLinkGroup {
   label: string;
   links: Array<{ label: string; href: string }>;
@@ -872,6 +971,9 @@ export type Block =
   | TimelineBlock
   | TeamShowcaseBlock
   | BentoGridBlock
+  | FlipCardGridBlock
+  | MetricCardsBlock
+  | LogoStripBlock
   | SiteFooterBlock
   | DeckNextSlideBlock
   | DeckJumpToBlock

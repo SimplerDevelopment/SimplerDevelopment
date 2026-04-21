@@ -5,6 +5,7 @@ import { Block } from '@/types/blocks';
 import { Breakpoint, BREAKPOINTS, SpacingSize, SpacingValue, ResponsiveSettings as ResponsiveSettingsType } from '@/types/responsive';
 import { TokenColorPicker } from './TokenColorPicker';
 import { GoogleFontPicker } from './GoogleFontPicker';
+import { GradientBuilder } from './GradientBuilder';
 import MediaPicker from '@/components/admin/MediaPicker';
 
 // Collapsible section — defined outside component to keep stable reference across renders
@@ -482,46 +483,28 @@ export function StyleSettings({ block, onChange, currentViewport }: StyleSetting
 
       {/* ── Background ──────────────────────────────────────────── */}
       <StyleSection title="Background">
-        <TokenColorPicker label="Background Color" value={style.backgroundColor || ''} onChange={(v) => updateStyle('backgroundColor', v)} placeholder="#ffffff" />
-
-        {/* Gradient */}
+        {/* Unified color/gradient control:
+            - 0 stops = no bg
+            - 1 stop  = solid (writes backgroundColor, clears backgroundGradient)
+            - 2+ stops = gradient (writes backgroundGradient, clears backgroundColor)
+           Keeping them mutually exclusive prevents the bgColor bleeding through
+           a gradient with translucent stops. */}
         <div>
-          <label className="block text-xs text-muted-foreground mb-1.5">Gradient</label>
-          <input
-            type="text"
-            value={style.backgroundGradient || ''}
-            onChange={(e) => updateStyle('backgroundGradient', e.target.value)}
-            placeholder="linear-gradient(135deg, #667eea, #764ba2)"
-            className={inputClass}
+          <label className="block text-xs text-muted-foreground mb-1.5">Colors</label>
+          <GradientBuilder
+            backgroundColor={style.backgroundColor || ''}
+            backgroundGradient={style.backgroundGradient || ''}
+            onChange={(patch) => {
+              const existingStyle = typeof block.style === 'object' ? block.style : {};
+              onChange({
+                style: {
+                  ...existingStyle,
+                  backgroundColor: patch.backgroundColor,
+                  backgroundGradient: patch.backgroundGradient,
+                },
+              });
+            }}
           />
-          {!style.backgroundGradient && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {[
-                { label: 'Sunset', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-                { label: 'Ocean', value: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-                { label: 'Forest', value: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' },
-                { label: 'Dark', value: 'linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%)' },
-                { label: 'Warm', value: 'linear-gradient(135deg, #f8b500 0%, #fceabb 100%)' },
-              ].map((g) => (
-                <button
-                  key={g.label}
-                  type="button"
-                  onClick={() => updateStyle('backgroundGradient', g.value)}
-                  className="h-6 w-10 rounded border border-border text-[8px] text-white font-medium"
-                  style={{ background: g.value }}
-                  title={g.label}
-                />
-              ))}
-            </div>
-          )}
-          {style.backgroundGradient && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <div className="h-6 flex-1 rounded border border-border" style={{ background: style.backgroundGradient }} />
-              <button type="button" onClick={() => updateStyle('backgroundGradient', '')} className="text-muted-foreground hover:text-destructive">
-                <span className="material-icons text-sm">close</span>
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Image */}

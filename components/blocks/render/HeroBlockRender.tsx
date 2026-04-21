@@ -34,23 +34,27 @@ export function HeroBlockRender({ block }: HeroBlockRenderProps) {
     : '';
 
   const hasBackground = !!block.backgroundImage;
+  // User has set any custom background on the block style? If so, BlockStyleWrapper
+  // already painted it on the wrapper div — don't render the default branded
+  // gradient overlay on top, or we'd cover the user's gradient with white.
+  const hasCustomBg = !!(style.backgroundColor || style.backgroundGradient || style.backgroundImage);
 
   return (
     <section className={`relative min-h-[60vh] flex items-center justify-center overflow-hidden ${responsiveClasses}`}>
-      {/* Background layer */}
+      {/* Background layer — only rendered when the user has NOT provided their own bg.
+          When hasCustomBg is true, the BlockStyleWrapper around us has already applied
+          backgroundColor + backgroundGradient + backgroundImage to the wrapping div. */}
       {hasBackground ? (
         <div
           className="absolute inset-0 z-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${block.backgroundImage})` }}
-        >
-          <div className="absolute inset-0 bg-black/50" />
-        </div>
-      ) : (
+        />
+      ) : !hasCustomBg ? (
         <div
           className={`absolute inset-0 z-0 ${!branding ? 'bg-gradient-to-b from-primary/10 via-background to-background' : ''}`}
           style={branding ? { background: `linear-gradient(to bottom, ${branding.primaryColor}1a, ${branding.backgroundColor}, ${branding.backgroundColor})` } : undefined}
         />
-      )}
+      ) : null}
 
       {/* Content layer */}
       <div className="relative z-10 container mx-auto px-4 py-20">

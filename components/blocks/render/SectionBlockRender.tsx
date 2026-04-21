@@ -54,18 +54,26 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
   const color = s?.color || block.color;
   const padding = s?.padding || `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`;
 
+  // Compose background-image from gradient + image (gradient layers on top, so it
+  // appears above any image). If only gradient is set, that's the entire background.
+  const bgLayers: string[] = [];
+  if (s?.backgroundGradient) bgLayers.push(s.backgroundGradient);
+  const resolvedBgImage = s?.backgroundImage || block.backgroundImage;
+  if (resolvedBgImage) bgLayers.push(`url(${resolvedBgImage})`);
+  const bgImageStyle = bgLayers.length
+    ? {
+        backgroundImage: bgLayers.join(', '),
+        backgroundSize: s?.backgroundSize || block.backgroundSize || 'cover',
+        backgroundPosition: s?.backgroundPosition || block.backgroundPosition || 'center',
+        ...(s?.backgroundRepeat ? { backgroundRepeat: s.backgroundRepeat } : {}),
+        ...(s?.backgroundAttachment ? { backgroundAttachment: s.backgroundAttachment as React.CSSProperties['backgroundAttachment'] } : {}),
+        ...(s?.backgroundBlendMode ? { backgroundBlendMode: s.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'] } : {}),
+      }
+    : {};
+
   const containerStyle: React.CSSProperties = {
     ...(bgColor ? { backgroundColor: bgColor } : {}),
-    ...(block.backgroundImage ? {
-      backgroundImage: `url(${block.backgroundImage})`,
-      backgroundSize: block.backgroundSize || 'cover',
-      backgroundPosition: block.backgroundPosition || 'center',
-    } : {}),
-    ...(s?.backgroundImage ? {
-      backgroundImage: `url(${s.backgroundImage})`,
-      backgroundSize: s.backgroundSize || 'cover',
-      backgroundPosition: s.backgroundPosition || 'center',
-    } : {}),
+    ...bgImageStyle,
     ...(color ? { color } : {}),
     padding,
     // Border

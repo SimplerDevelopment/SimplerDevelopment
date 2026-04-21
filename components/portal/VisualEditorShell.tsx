@@ -39,6 +39,8 @@ import type { ComponentManifestEntry } from '@/types/visual-editor';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import { SaveAsTemplateModal } from '@/components/blocks/SaveAsTemplateModal';
+import { TemplateLibrary } from '@/components/blocks/TemplateLibrary';
 
 // ─── Block type definitions for picker ───────────────────────────────────────
 
@@ -63,6 +65,9 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'marquee', label: 'Marquee', icon: 'text_rotation_none', category: 'Components', description: 'Scrolling text, images, or logos' },
   { type: 'cta', label: 'Call to Action', icon: 'campaign', category: 'Components', description: 'CTA section' },
   { type: 'card-grid', label: 'Card Grid', icon: 'grid_view', category: 'Components', description: 'Grid of cards' },
+  { type: 'flip-card-grid', label: 'Flip Cards', icon: 'flip', category: 'Components', description: 'Interactive 3D flip cards' },
+  { type: 'metric-cards', label: 'Metric Cards', icon: 'insights', category: 'Components', description: 'Case-study metric cards' },
+  { type: 'logo-strip', label: 'Logo Strip', icon: 'view_column', category: 'Components', description: 'Row of client/partner logos' },
   { type: 'stats', label: 'Statistics', icon: 'bar_chart', category: 'Components', description: 'Stats display' },
   { type: 'testimonial', label: 'Testimonial', icon: 'rate_review', category: 'Components', description: 'Customer quote' },
   { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
@@ -146,6 +151,8 @@ export function VisualEditorShell({
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [saveTemplateBlocks, setSaveTemplateBlocks] = useState<Block[] | null>(null);
+  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   const selectedBlockId = selectedBlockIdProp ?? internalSelectedBlockId;
   const [leftTab, setLeftTab] = useState<'layers' | 'add'>('layers');
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
@@ -684,6 +691,15 @@ export function VisualEditorShell({
         {leftTab === 'add' && (
           <div className="flex flex-col flex-1 min-h-0">
             <div className="px-3 pt-3 pb-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTemplateLibraryOpen(true)}
+                className="w-full flex items-center justify-center gap-1.5 rounded border border-border bg-primary/5 hover:bg-primary/10 text-primary px-2 py-2 mb-2 text-xs font-medium transition-colors"
+                title="Insert a saved template"
+              >
+                <span className="material-icons text-sm">bookmark</span>
+                Browse Templates
+              </button>
               <div className="flex items-center gap-1.5 rounded border border-border bg-background px-2 py-1.5 mb-2">
                 <span className="material-icons text-sm text-muted-foreground">search</span>
                 <input
@@ -1136,6 +1152,20 @@ export function VisualEditorShell({
               <span className="material-icons text-base text-muted-foreground">crop_free</span>
               Group into Section
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                const picked = selectedBlockIds
+                  .map(id => findBlockById(blocks, id))
+                  .filter((b): b is Block => !!b);
+                if (picked.length > 0) setSaveTemplateBlocks(picked);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-left"
+            >
+              <span className="material-icons text-base text-muted-foreground">bookmark_add</span>
+              Save as Template
+            </button>
             <div className="border-t border-border my-1" />
             <button
               type="button"
@@ -1147,6 +1177,46 @@ export function VisualEditorShell({
             </button>
           </div>
         </>
+      )}
+
+      {/* Save as Template modal */}
+      {saveTemplateBlocks && (
+        <SaveAsTemplateModal
+          blocks={saveTemplateBlocks}
+          onClose={() => setSaveTemplateBlocks(null)}
+        />
+      )}
+
+      {/* Template library — browse + insert saved templates */}
+      {templateLibraryOpen && (
+        <TemplateLibrary
+          onInsert={(newBlocks) => {
+            // Insert after the currently selected top-level block; otherwise append
+            const topLevelIndex = selectedBlockId
+              ? blocks.findIndex(b => b.id === selectedBlockId)
+              : -1;
+            let next: Block[];
+            if (topLevelIndex >= 0) {
+              next = [
+                ...blocks.slice(0, topLevelIndex + 1),
+                ...newBlocks,
+                ...blocks.slice(topLevelIndex + 1),
+              ];
+            } else {
+              next = [...blocks, ...newBlocks];
+            }
+            // Renumber order to keep the tree tidy
+            next = next.map((b, i) => ({ ...b, order: i + 1 }));
+            iframeOriginatedRef.current = true;
+            onBlocksChange(next);
+            // Select the first inserted block for immediate context
+            if (newBlocks[0]?.id) {
+              setInternalSelectedBlockId(newBlocks[0].id);
+              setSelectedBlockIds([newBlocks[0].id]);
+            }
+          }}
+          onClose={() => setTemplateLibraryOpen(false)}
+        />
       )}
     </div>
   );
@@ -1317,6 +1387,11 @@ function ContainerDropZone({ containerId, slotIndex, depth }: { containerId: str
 
 // ─── Element Style Editor (sub-tabs for multi-element blocks) ────────────────
 
+// ─── BLOCK_ELEMENTS ──────────────────────────────────────────────────────────
+// Source of truth for sub-element tabs in the style panel.
+// Every entry's `key` MUST match a `getElementCSS(block.elementStyles, '<key>')`
+// call in the block's render component. Missing keys = uneditable parts.
+// Audited 2026-04-16 against all render files.
 const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
   hero: [
     { key: '_block', label: 'Block' },
@@ -1324,6 +1399,7 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'subtitle', label: 'Subtitle' },
     { key: 'description', label: 'Description' },
     { key: 'cta', label: 'CTA Button' },
+    { key: 'secondaryCta', label: 'Secondary CTA' },
   ],
   'hero-slideshow': [
     { key: '_block', label: 'Block' },
@@ -1332,6 +1408,8 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'description', label: 'Slide Description' },
     { key: 'cta', label: 'Primary Button' },
     { key: 'secondaryCta', label: 'Secondary Button' },
+    { key: 'statValue', label: 'Stat Value' },
+    { key: 'statLabel', label: 'Stat Label' },
   ],
   marquee: [
     { key: '_block', label: 'Block' },
@@ -1353,6 +1431,38 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'card', label: 'Cards' },
     { key: 'cardTitle', label: 'Card Title' },
     { key: 'cardDescription', label: 'Card Text' },
+    { key: 'cardIcon', label: 'Card Icon' },
+    { key: 'cardImage', label: 'Card Image' },
+    { key: 'cardLink', label: 'Card Link' },
+  ],
+  'flip-card-grid': [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'frontCard', label: 'Front Card' },
+    { key: 'frontTitle', label: 'Front Title' },
+    { key: 'frontSubtitle', label: 'Front Subtitle' },
+    { key: 'frontIcon', label: 'Front Icon' },
+    { key: 'backCard', label: 'Back Card' },
+    { key: 'backText', label: 'Back Text' },
+    { key: 'backLink', label: 'Back Link' },
+  ],
+  'metric-cards': [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'card', label: 'Card' },
+    { key: 'value', label: 'Value' },
+    { key: 'label', label: 'Label' },
+    { key: 'institution', label: 'Institution' },
+    { key: 'link', label: 'Link' },
+  ],
+  'logo-strip': [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'logo', label: 'Logo' },
   ],
   stats: [
     { key: '_block', label: 'Block' },
@@ -1363,24 +1473,33 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
   testimonial: [
     { key: '_block', label: 'Block' },
     { key: 'quote', label: 'Quote' },
+    { key: 'quoteIcon', label: 'Quote Icon' },
     { key: 'author', label: 'Author' },
-    { key: 'role', label: 'Role' },
   ],
   'services-grid': [
     { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
-    { key: 'card', label: 'Cards' },
+    { key: 'card', label: 'Card' },
+    { key: 'serviceTitle', label: 'Service Title' },
+    { key: 'serviceDescription', label: 'Service Text' },
+    { key: 'serviceIcon', label: 'Service Icon' },
+    { key: 'serviceImage', label: 'Service Image' },
+    { key: 'bullet', label: 'Bullets' },
+    { key: 'serviceLink', label: 'Service Link' },
   ],
   'featured-content': [
     { key: '_block', label: 'Block' },
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
     { key: 'button', label: 'Button' },
-    { key: 'image', label: 'Image' },
+    { key: 'statValue', label: 'Stat Value' },
+    { key: 'statLabel', label: 'Stat Label' },
   ],
   accordion: [
     { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
     { key: 'itemTitle', label: 'Item Titles' },
     { key: 'itemContent', label: 'Item Content' },
   ],
@@ -1405,12 +1524,74 @@ const BLOCK_ELEMENTS: Record<string, { key: string; label: string }[]> = {
     { key: 'gallery', label: 'Gallery' },
   ],
   'booking': [
+    { key: '_block', label: 'Block' },
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
   ],
   'survey': [
+    { key: '_block', label: 'Block' },
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
+  ],
+  'blog-posts': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'postTitle', label: 'Post Title' },
+    { key: 'postExcerpt', label: 'Post Excerpt' },
+  ],
+  'bento-grid': [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'cardTitle', label: 'Card Title' },
+    { key: 'cardLead', label: 'Card Lead' },
+  ],
+  'booking-menu': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  'featured-products': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  gallery: [
+    { key: '_block', label: 'Block' },
+    { key: 'caption', label: 'Caption' },
+  ],
+  'product-grid': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+  ],
+  'store-banner': [
+    { key: '_block', label: 'Block' },
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'button', label: 'Button' },
+    { key: 'discountCode', label: 'Discount Code' },
+  ],
+  'team-showcase': [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'memberName', label: 'Member Name' },
+    { key: 'memberTitle', label: 'Member Title' },
+    { key: 'memberBio', label: 'Member Bio' },
+    { key: 'memberCredentials', label: 'Credentials' },
+    { key: 'specialtyTag', label: 'Specialty Tag' },
+  ],
+  timeline: [
+    { key: '_block', label: 'Block' },
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'stepTitle', label: 'Step Title' },
+    { key: 'stepDescription', label: 'Step Text' },
   ],
 };
 
@@ -1444,22 +1625,26 @@ function ElementStyleEditor({
 
   return (
     <div className="space-y-3">
-      {/* Element sub-tabs */}
-      <div className="flex flex-wrap gap-1">
-        {elements.map((el) => (
-          <button
-            key={el.key}
-            type="button"
-            onClick={() => setActiveElement(el.key)}
-            className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${
-              activeElement === el.key
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
-            }`}
-          >
-            {el.label}
-          </button>
-        ))}
+      {/* Element sub-tabs — sticky to top of the style panel scroll area.
+          Negative margins cancel the parent's p-4 so the sticky bar reaches
+          edge-to-edge when pinned; internal padding restores the visual inset. */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 px-4 pt-0 pb-2 bg-background border-b border-border">
+        <div className="flex flex-wrap gap-1">
+          {elements.map((el) => (
+            <button
+              key={el.key}
+              type="button"
+              onClick={() => setActiveElement(el.key)}
+              className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+                activeElement === el.key
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80'
+              }`}
+            >
+              {el.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isBlockLevel ? (
@@ -1664,6 +1849,89 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
         </>
       )}
 
+      {/* ── Flip Card Grid Block ── */}
+      {block.type === 'flip-card-grid' && (
+        <>
+          <RichTextField label="Overline" value={b.overline as string} onChange={(v) => onUpdate({ overline: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <SelectField label="Flip Trigger" value={(b.flipTrigger as string) || 'hover'} options={['hover','click']} onChange={(v) => onUpdate({ flipTrigger: v } as Partial<Block>)} />
+          <SelectField label="Flip Axis" value={(b.flipAxis as string) || 'horizontal'} options={['horizontal','vertical']} onChange={(v) => onUpdate({ flipAxis: v } as Partial<Block>)} />
+          <Field label="Card Height" value={(b.cardHeight as string) || '280px'} onChange={(v) => onUpdate({ cardHeight: v } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+          <ListEditor
+            label="Cards"
+            items={(block.cards || []).map(c => ({ id: c.id, fields: { frontTitle: c.frontTitle, frontSubtitle: c.frontSubtitle || '', frontIcon: c.frontIcon || '', frontImage: c.frontImage || '', backText: c.backText, backLink: c.backLink || '', backLinkText: c.backLinkText || '' } }))}
+            fieldDefs={[
+              { name: 'frontTitle', label: 'Front Title', placeholder: 'Card title' },
+              { name: 'frontSubtitle', label: 'Front Subtitle', placeholder: 'Optional subtitle' },
+              { name: 'frontIcon', label: 'Front Icon', type: 'icon' as const },
+              { name: 'frontImage', label: 'Front Image', type: 'image' as const },
+              { name: 'backText', label: 'Back Text', placeholder: 'Revealed when flipped', multiline: true },
+              { name: 'backLink', label: 'Back Link URL', placeholder: 'https://…' },
+              { name: 'backLinkText', label: 'Back Link Text', placeholder: 'Learn More' },
+            ]}
+            onAdd={() => onUpdate({ cards: [...(block.cards || []), { id: uid(), frontTitle: 'New Card', backText: 'Back side content' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ cards: block.cards.filter(c => c.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ cards: block.cards.map(c => c.id === id ? { ...c, [field]: value } : c) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ cards: ids.map(id => block.cards.find(c => c.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+        </>
+      )}
+
+      {/* ── Metric Cards Block — case-study-style ── */}
+      {block.type === 'metric-cards' && (
+        <>
+          <RichTextField label="Overline" value={b.overline as string} onChange={(v) => onUpdate({ overline: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
+          <SelectField label="Columns" value={String(b.columns || 4)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+          <ListEditor
+            label="Metrics"
+            items={(block.metrics || []).map(m => ({ id: m.id, fields: { value: m.value, label: m.label, institution: m.institution || '', institutionLogo: m.institutionLogo || '', link: m.link || '', linkText: m.linkText || '' } }))}
+            fieldDefs={[
+              { name: 'value', label: 'Metric Value', placeholder: '83%' },
+              { name: 'label', label: 'Label', placeholder: 'Increase in Readmit Completions', multiline: true },
+              { name: 'institution', label: 'Institution', placeholder: 'William Peace University' },
+              { name: 'institutionLogo', label: 'Institution Logo', type: 'image' as const },
+              { name: 'link', label: 'Link URL', placeholder: 'https://…' },
+              { name: 'linkText', label: 'Link Text', placeholder: 'Case Study' },
+            ]}
+            onAdd={() => onUpdate({ metrics: [...(block.metrics || []), { id: uid(), value: '100%', label: 'Metric Label' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ metrics: block.metrics.filter(m => m.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ metrics: block.metrics.map(m => m.id === id ? { ...m, [field]: value } : m) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ metrics: ids.map(id => block.metrics.find(m => m.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+        </>
+      )}
+
+      {/* ── Logo Strip Block ── */}
+      {block.type === 'logo-strip' && (
+        <>
+          <RichTextField label="Overline" value={b.overline as string} onChange={(v) => onUpdate({ overline: v } as Partial<Block>)} singleLine />
+          <SelectField label="Columns" value={String(b.columns || 6)} options={['3','4','5','6','7','8']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <Field label="Logo Height" value={(b.logoHeight as string) || '40px'} onChange={(v) => onUpdate({ logoHeight: v } as Partial<Block>)} />
+          <SelectField label="Gap" value={(b.gap as string) || 'lg'} options={['sm','md','lg']} onChange={(v) => onUpdate({ gap: v } as Partial<Block>)} />
+          <SelectField label="Alignment" value={(b.alignment as string) || 'center'} options={['left','center','right']} onChange={(v) => onUpdate({ alignment: v } as Partial<Block>)} />
+          <CheckboxField label="Grayscale (color on hover)" checked={b.grayscale as boolean ?? true} onChange={(v) => onUpdate({ grayscale: v } as Partial<Block>)} />
+          <ListEditor
+            label="Logos"
+            items={(block.logos || []).map(l => ({ id: l.id, fields: { imageUrl: l.imageUrl, alt: l.alt, link: l.link || '' } }))}
+            fieldDefs={[
+              { name: 'imageUrl', label: 'Logo Image', type: 'image' as const },
+              { name: 'alt', label: 'Alt Text', placeholder: 'Company name' },
+              { name: 'link', label: 'Link URL', placeholder: 'https://…' },
+            ]}
+            onAdd={() => onUpdate({ logos: [...(block.logos || []), { id: uid(), imageUrl: '', alt: '' }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ logos: block.logos.filter(l => l.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ logos: block.logos.map(l => l.id === id ? { ...l, [field]: value } : l) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ logos: ids.map(id => block.logos.find(l => l.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+        </>
+      )}
+
       {/* ── Gallery Block — with image editor ── */}
       {block.type === 'gallery' && (
         <>
@@ -1689,23 +1957,50 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
       {/* ── Services Grid Block — with service editor ── */}
       {block.type === 'services-grid' && (
         <>
+          <RichTextField label="Overline" value={b.overline as string} onChange={(v) => onUpdate({ overline: v } as Partial<Block>)} singleLine />
           <RichTextField label="Title" value={b.title as string} onChange={(v) => onUpdate({ title: v } as Partial<Block>)} singleLine />
           <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 3)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
+          <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
           <ListEditor
             label="Services"
-            items={(block.services || []).map(s => ({ id: s.id, fields: { title: s.title, description: s.description, icon: s.icon || '', link: s.link || '' } }))}
+            items={(block.services || []).map(s => ({ id: s.id, fields: { title: s.title, description: s.description, icon: s.icon || '', link: s.link || '', linkText: s.linkText || '' } }))}
             fieldDefs={[
               { name: 'title', label: 'Title', placeholder: 'Service name' },
               { name: 'description', label: 'Description', placeholder: 'Service description', multiline: true },
               { name: 'icon', label: 'Icon', type: 'icon' as const },
-              { name: 'link', label: 'Link', placeholder: 'https://...' },
+              { name: 'link', label: 'Link URL', placeholder: 'https://...' },
+              { name: 'linkText', label: 'Link Text', placeholder: 'Learn More' },
             ]}
-            onAdd={() => onUpdate({ services: [...(block.services || []), { id: uid(), title: 'New service', description: '' }] } as Partial<Block>)}
+            onAdd={() => onUpdate({ services: [...(block.services || []), { id: uid(), title: 'New service', description: '', bullets: [] }] } as Partial<Block>)}
             onRemove={(id) => onUpdate({ services: block.services.filter(s => s.id !== id) } as Partial<Block>)}
             onItemChange={(id, field, value) => onUpdate({ services: block.services.map(s => s.id === id ? { ...s, [field]: value } : s) } as Partial<Block>)}
             onReorder={(ids) => onUpdate({ services: ids.map(id => block.services.find(s => s.id === id)!).filter(Boolean) } as Partial<Block>)}
           />
+          {/* Per-service bullets editor — one ListEditor per service since bullets
+              are nested arrays and the generic ListEditor doesn't handle nested lists. */}
+          {(block.services || []).length > 0 && (
+            <div className="space-y-3 border border-border rounded p-2">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Bullets per service</div>
+              {(block.services || []).map((service) => (
+                <div key={`bullets-${service.id}`} className="space-y-1.5">
+                  <div className="text-[11px] font-medium text-foreground">{service.title || 'Untitled service'}</div>
+                  <ListEditor
+                    label="Bullets"
+                    items={(service.bullets || []).map(bl => ({ id: bl.id, fields: { text: bl.text, icon: bl.icon || '' } }))}
+                    fieldDefs={[
+                      { name: 'text', label: 'Text', placeholder: 'Benefit or feature' },
+                      { name: 'icon', label: 'Icon', type: 'icon' as const },
+                    ]}
+                    onAdd={() => onUpdate({ services: block.services.map(s => s.id === service.id ? { ...s, bullets: [...(s.bullets || []), { id: uid(), text: 'New bullet', icon: 'check_circle' }] } : s) } as Partial<Block>)}
+                    onRemove={(bid) => onUpdate({ services: block.services.map(s => s.id === service.id ? { ...s, bullets: (s.bullets || []).filter(bl => bl.id !== bid) } : s) } as Partial<Block>)}
+                    onItemChange={(bid, field, value) => onUpdate({ services: block.services.map(s => s.id === service.id ? { ...s, bullets: (s.bullets || []).map(bl => bl.id === bid ? { ...bl, [field]: value } : bl) } : s) } as Partial<Block>)}
+                    onReorder={(bids) => onUpdate({ services: block.services.map(s => s.id === service.id ? { ...s, bullets: bids.map(bid => (s.bullets || []).find(bl => bl.id === bid)!).filter(Boolean) } : s) } as Partial<Block>)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 

@@ -100,10 +100,16 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.textDecoration) customStyles.textDecoration = style.textDecoration;
   if (style.textTransform) customStyles.textTransform = style.textTransform;
 
-  if (style.backgroundImage) customStyles.backgroundImage = `url(${style.backgroundImage})`;
+  // Compose background-image from gradient + image (gradient layers on top)
+  const bgLayers: string[] = [];
+  if (style.backgroundGradient) bgLayers.push(style.backgroundGradient);
+  if (style.backgroundImage) bgLayers.push(`url(${style.backgroundImage})`);
+  if (bgLayers.length > 0) customStyles.backgroundImage = bgLayers.join(', ');
   if (style.backgroundSize) customStyles.backgroundSize = style.backgroundSize;
   if (style.backgroundPosition) customStyles.backgroundPosition = style.backgroundPosition;
   if (style.backgroundRepeat) customStyles.backgroundRepeat = style.backgroundRepeat;
+  if (style.backgroundAttachment) customStyles.backgroundAttachment = style.backgroundAttachment as React.CSSProperties['backgroundAttachment'];
+  if (style.backgroundBlendMode) customStyles.backgroundBlendMode = style.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'];
 
   if (style.transition) customStyles.transition = style.transition;
 
