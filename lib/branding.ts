@@ -74,6 +74,7 @@ function rowToBranding(row: Record<string, unknown>): ResolvedBranding {
     linkColor: (row.linkColor as string) ?? undefined,
     linkHoverColor: (row.linkHoverColor as string) ?? undefined,
     buttonStyle: (row.buttonStyle as ResolvedBranding['buttonStyle']) ?? undefined,
+    buttonPresets: (row.buttonPresets as ResolvedBranding['buttonPresets']) ?? undefined,
     faviconUrl: (row.faviconUrl as string) ?? undefined,
     ogImageUrl: (row.ogImageUrl as string) ?? undefined,
   };

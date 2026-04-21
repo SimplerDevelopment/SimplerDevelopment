@@ -81,6 +81,7 @@ export async function PUT(
     linkColor: body.linkColor !== undefined ? body.linkColor : existing.linkColor,
     linkHoverColor: body.linkHoverColor !== undefined ? body.linkHoverColor : existing.linkHoverColor,
     buttonStyle: body.buttonStyle !== undefined ? body.buttonStyle : existing.buttonStyle,
+    buttonPresets: body.buttonPresets !== undefined ? body.buttonPresets : existing.buttonPresets,
     faviconUrl: body.faviconUrl !== undefined ? body.faviconUrl : existing.faviconUrl,
     ogImageUrl: body.ogImageUrl !== undefined ? body.ogImageUrl : existing.ogImageUrl,
     updatedAt: new Date(),

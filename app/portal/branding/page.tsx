@@ -34,9 +34,22 @@ export default function PortalBrandingPage() {
   const [activeTab, setActiveTab] = useState<Tab>('profiles');
 
   const fetchData = useCallback(async () => {
+    const safeJson = async (url: string) => {
+      try {
+        const r = await fetch(url);
+        const text = await r.text();
+        if (!text) return { success: false, data: [] };
+        const parsed = JSON.parse(text);
+        if (!r.ok) return { success: false, data: [], message: parsed?.message };
+        return parsed;
+      } catch (err) {
+        console.error(`Failed to load ${url}:`, err);
+        return { success: false, data: [] };
+      }
+    };
     const [profileRes, siteRes] = await Promise.all([
-      fetch('/api/portal/branding/profiles').then((r) => r.json()),
-      fetch('/api/portal/branding').then((r) => r.json()),
+      safeJson('/api/portal/branding/profiles'),
+      safeJson('/api/portal/branding'),
     ]);
     if (profileRes.success) setProfiles(profileRes.data);
     if (siteRes.success) setWebsites(siteRes.data);

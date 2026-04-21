@@ -1636,6 +1636,25 @@ export const brandingProfiles = pgTable('branding_profiles', {
     secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
     borderRadius?: string; variant?: 'filled' | 'outline';
   }>(),
+  /** Named button presets — clients define N named styles referenced by ButtonBlock.presetId. */
+  buttonPresets: json('button_presets').$type<Array<{
+    id: string;
+    name: string;
+    backgroundColor?: string;
+    color?: string;
+    hoverBackgroundColor?: string;
+    hoverColor?: string;
+    borderColor?: string;
+    borderWidth?: string;
+    borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
+    borderRadius?: string;
+    fontWeight?: string;
+    textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+    letterSpacing?: string;
+    paddingX?: string;
+    paddingY?: string;
+    description?: string;
+  }>>(),
   faviconUrl: varchar('favicon_url', { length: 500 }),
   ogImageUrl: varchar('og_image_url', { length: 500 }),
   // Dark mode overrides
@@ -1649,7 +1668,7 @@ export const brandingProfiles = pgTable('branding_profiles', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// ─── Branding Messaging ────────────────────────────────────────────────────
+// ─── Branding Messaging────────────────────────────────────────────────────
 
 export const brandingMessaging = pgTable('branding_messaging', {
   id: serial('id').primaryKey(),
