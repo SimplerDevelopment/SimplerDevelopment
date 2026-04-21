@@ -3,5 +3,11 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "npm install",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "crons": [
+    {
+      "path": "/api/cron/expire-mcp-pendings",
+      "schedule": "17 3 * * *"
+    }
+  ]
 }
