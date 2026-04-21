@@ -50,6 +50,7 @@ interface NavService {
 // Static nav structure with collapsible children
 const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
   { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
   {
     href: '/portal/crm',
@@ -134,6 +135,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
   { href: '/portal/media', label: 'Media', icon: 'perm_media' },
   { href: '/portal/branding', label: 'Branding', icon: 'palette' },
   { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
+  { href: '/portal/approvals', label: 'Approvals', icon: 'fact_check' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -164,6 +166,7 @@ export default function PortalSidebar() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [navServices, setNavServices] = useState<NavService[]>([]);
   const [activeSiteName, setActiveSiteName] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   // Detect CMS context
   const cmsMatch = pathname.match(/^\/portal\/websites\/(\d+)(\/|$)/);
@@ -203,6 +206,20 @@ export default function PortalSidebar() {
       .then(r => r.json())
       .then(res => { if (res.success) setNavServices(res.data); })
       .catch(() => {});
+  }, [pathname]);
+
+  // Poll pending MCP-approvals count (every 60s)
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCount = () => {
+      fetch('/api/portal/approvals?count=true')
+        .then(r => r.json())
+        .then(res => { if (!cancelled && res.success) setPendingCount(res.data.count ?? 0); })
+        .catch(() => {});
+    };
+    fetchCount();
+    const t = setInterval(fetchCount, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, [pathname]);
 
   // Auto-expand sections based on active route
@@ -321,6 +338,8 @@ export default function PortalSidebar() {
       );
     }
 
+    const badgeCount = item.href === '/portal/approvals' ? pendingCount : 0;
+
     return (
       <Link
         href={item.href}
@@ -328,8 +347,20 @@ export default function PortalSidebar() {
         className={linkClass}
         title={isCollapsed ? item.label : ''}
       >
-        <span className="material-icons text-xl shrink-0">{item.icon}</span>
+        <span className="material-icons text-xl shrink-0 relative">
+          {item.icon}
+          {isCollapsed && badgeCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+              {badgeCount > 9 ? '9+' : badgeCount}
+            </span>
+          )}
+        </span>
         {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+        {!isCollapsed && badgeCount > 0 && (
+          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
+        )}
         {tooltip}
       </Link>
     );
@@ -355,22 +386,21 @@ export default function PortalSidebar() {
   return (
     <>
       {/* Hamburger toggle + logo — visible when sidebar is closed.
-          Positioned absolute so it scrolls with the document instead of
-          sticking to the viewport top. */}
+          Toggle sticks to viewport top on desktop; logo scrolls with the page. */}
       {!isOpen && (
-        <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+        <>
           <button
             onClick={toggleOpen}
-            className="p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
+            className="absolute md:fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border hover:bg-accent transition-colors"
           >
             <span className="material-icons text-xl">menu</span>
           </button>
-          <Link href="/portal" className="flex items-center">
+          <Link href="/portal" className="absolute top-4 left-16 z-50 flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/iconLogo.png" alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
             <span className="text-sm text-foreground font-heading"><b>Simpler</b> Development</span>
           </Link>
-        </div>
+        </>
       )}
 
       {/* Sidebar */}

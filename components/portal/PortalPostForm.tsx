@@ -157,6 +157,14 @@ function createDefaultBlock(type: string, order: number): Block {
       { id: `m-${Date.now()}-3`, value: '2 Days', label: 'Staff Time Saved', institution: 'VCU', linkText: 'Case Study' },
       { id: `m-${Date.now()}-4`, value: '5 Years', label: 'Historical Data Integrated', institution: 'Landmark College', linkText: 'Case Study' },
     ], columns: 4, accentColor: '#004D80' } as Block;
+    case 'logo-strip': return { ...base, type: 'logo-strip', overline: 'TRUSTED BY LEADING COMPANIES', logos: [
+      { id: `l-${Date.now()}-1`, imageUrl: '', alt: 'Logo 1' },
+      { id: `l-${Date.now()}-2`, imageUrl: '', alt: 'Logo 2' },
+      { id: `l-${Date.now()}-3`, imageUrl: '', alt: 'Logo 3' },
+      { id: `l-${Date.now()}-4`, imageUrl: '', alt: 'Logo 4' },
+      { id: `l-${Date.now()}-5`, imageUrl: '', alt: 'Logo 5' },
+      { id: `l-${Date.now()}-6`, imageUrl: '', alt: 'Logo 6' },
+    ], columns: 6, grayscale: true, logoHeight: '40px', gap: 'lg', alignment: 'center' } as Block;
     case 'gallery': return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3 } as Block;
     case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
     case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;

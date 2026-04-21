@@ -1,11 +1,14 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, projects, kanbanColumns, kanbanCards, kanbanCardFiles, sprints } from '@/lib/db/schema';
+import { clients, projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardDependencies, users, sprints } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import KanbanBoard from '@/components/portal/KanbanBoard';
 import ProjectFilesTab from '@/components/portal/ProjectFilesTab';
+import ProjectDescription from '@/components/portal/ProjectDescription';
+import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
+import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SprintPlanning from '@/components/portal/SprintPlanning';
 import { isPortalStaff } from '@/lib/portal';
 
@@ -15,7 +18,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
 
   const { id } = await params;
   const { tab } = await searchParams;
-  const activeTab = tab === 'files' ? 'files' : tab === 'sprints' ? 'sprints' : 'board';
+  const activeTab = tab === 'files' ? 'files' : tab === 'sprints' ? 'sprints' : tab === 'settings' ? 'settings' : 'board';
   const projectId = parseInt(id, 10);
   const [staff, userId] = [await isPortalStaff(), parseInt(session.user.id, 10)];
 
@@ -55,20 +58,85 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     return acc;
   }, {});
 
+  const cardLabels = cardIds.length > 0
+    ? await db
+        .select({
+          cardId: kanbanCardLabels.cardId,
+          id: kanbanLabels.id,
+          name: kanbanLabels.name,
+          color: kanbanLabels.color,
+        })
+        .from(kanbanCardLabels)
+        .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+        .where(inArray(kanbanCardLabels.cardId, cardIds))
+    : [];
+
+  const labelsByCard = cardLabels.reduce<Record<number, { id: number; name: string; color: string }[]>>((acc, l) => {
+    (acc[l.cardId] ??= []).push({ id: l.id, name: l.name, color: l.color });
+    return acc;
+  }, {});
+
+  const checklistItems = cardIds.length > 0
+    ? await db.select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
+        .from(kanbanCardChecklistItems)
+        .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
+    : [];
+
+  const checklistByCard = checklistItems.reduce<Record<number, { total: number; done: number }>>((acc, i) => {
+    const r = (acc[i.cardId] ??= { total: 0, done: 0 });
+    r.total += 1;
+    if (i.completed) r.done += 1;
+    return acc;
+  }, {});
+
+  const assigneeRows = cardIds.length > 0
+    ? await db
+        .select({
+          cardId: kanbanCardAssignees.cardId,
+          id: users.id,
+          name: users.name,
+        })
+        .from(kanbanCardAssignees)
+        .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+        .where(inArray(kanbanCardAssignees.cardId, cardIds))
+    : [];
+
+  const assigneesByCard = assigneeRows.reduce<Record<number, { id: number; name: string }[]>>((acc, a) => {
+    (acc[a.cardId] ??= []).push({ id: a.id, name: a.name });
+    return acc;
+  }, {});
+
+  // Active blockers (the blocker card is NOT in a "done" column)
+  const blockerRows = cardIds.length > 0
+    ? await db
+        .select({
+          blockedCardId: kanbanCardDependencies.blockedCardId,
+          blockerIsDone: kanbanColumns.isDone,
+        })
+        .from(kanbanCardDependencies)
+        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+        .where(inArray(kanbanCardDependencies.blockedCardId, cardIds))
+    : [];
+
+  const blockedCountByCard = blockerRows.reduce<Record<number, number>>((acc, r) => {
+    if (!r.blockerIsDone) acc[r.blockedCardId] = (acc[r.blockedCardId] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const columnsWithCards = columns.map((col) => ({
     ...col,
     cards: cards.filter((c) => c.columnId === col.id).map(c => ({
       ...c,
+      key: project.projectKey && c.number != null ? `${project.projectKey}-${c.number}` : null,
       attachments: filesByCard[c.id] ?? [],
+      labels: labelsByCard[c.id] ?? [],
+      checklist: checklistByCard[c.id] ?? null,
+      assignees: assigneesByCard[c.id] ?? [],
+      blockedCount: blockedCountByCard[c.id] ?? 0,
     })),
   }));
 
-  const statusColor: Record<string, string> = {
-    active: 'text-green-600',
-    paused: 'text-yellow-600',
-    completed: 'text-blue-600',
-    archived: 'text-gray-500',
-  };
 
   return (
     <div className="space-y-6">
@@ -81,15 +149,21 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
             <span className="text-foreground">{project.name}</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
-          {project.description && (
-            <p className="mt-1 text-muted-foreground">{project.description}</p>
+          {(project.description || staff || project.isPrivate) && (
+            <ProjectDescription
+              projectId={projectId}
+              title={project.name}
+              description={project.description ?? ''}
+              canEdit={staff || project.isPrivate}
+            />
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className={`flex items-center gap-1 text-sm font-medium ${statusColor[project.status] ?? 'text-muted-foreground'}`}>
-            <span className="material-icons text-base">circle</span>
-            {project.status}
-          </span>
+          <ProjectStatusControl
+            projectId={projectId}
+            status={project.status}
+            canEdit={staff || project.isPrivate}
+          />
           {project.dueDate && (
             <span className="text-sm text-muted-foreground flex items-center gap-1">
               <span className="material-icons text-base">event</span>
@@ -102,9 +176,10 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">
         {([
-          { key: 'board',   href: `/portal/projects/${projectId}`,                label: 'Board',   icon: 'view_kanban' },
-          { key: 'sprints', href: `/portal/projects/${projectId}?tab=sprints`,    label: 'Sprints', icon: 'sprint' },
-          { key: 'files',   href: `/portal/projects/${projectId}?tab=files`,      label: 'Files',   icon: 'folder' },
+          { key: 'board',    href: `/portal/projects/${projectId}`,                 label: 'Board',    icon: 'view_kanban' },
+          { key: 'sprints',  href: `/portal/projects/${projectId}?tab=sprints`,     label: 'Sprints',  icon: 'sprint' },
+          { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files',    icon: 'folder' },
+          { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
         ] as const).map(t => (
           <Link key={t.key} href={t.href}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -117,7 +192,11 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       {activeTab === 'files' ? (
         <ProjectFilesTab projectId={projectId} />
       ) : activeTab === 'sprints' ? (
-        <SprintPlanning projectId={projectId} isStaff={staff} />
+        <SprintPlanning projectId={projectId} canEdit={staff || project.isPrivate} />
+      ) : activeTab === 'settings' ? (
+        <div className="space-y-4 max-w-3xl">
+          <ProjectWebhooksPanel projectId={projectId} canEdit={staff || project.isPrivate} />
+        </div>
       ) : columnsWithCards.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
@@ -129,6 +208,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           projectId={projectId}
           initialColumns={columnsWithCards}
           isStaff={staff}
+          canEdit={staff || project.isPrivate}
           currentUserId={userId}
           sprints={projectSprints}
         />

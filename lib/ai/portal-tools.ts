@@ -2,7 +2,7 @@ import { db } from '@/lib/db';
 import {
   projects, kanbanColumns, kanbanCards, sprints,
   invoices, invoiceItems, supportTickets, ticketMessages,
-  kanbanCardFiles, kanbanCardComments, clients, users,
+  kanbanCardFiles, kanbanCardComments, kanbanCardAssignees, clients, users,
   services, clientServices, clientWebsites, posts, postRevisions,
   categories, tags, media, hostedSites,
   emailCampaigns, emailLists, emailSubscribers,
@@ -1080,13 +1080,31 @@ export async function executePortalTool(
         columnId: kanbanCards.columnId,
         priority: kanbanCards.priority,
         dueDate: kanbanCards.dueDate,
-        assignedTo: kanbanCards.assignedTo,
         order: kanbanCards.order,
       }).from(kanbanCards).where(eq(kanbanCards.projectId, projectId)).orderBy(kanbanCards.order);
+
+      const cardIds = cards.map(c => c.id);
+      const assigneeRows = cardIds.length
+        ? await db.select({
+            cardId: kanbanCardAssignees.cardId,
+            userId: users.id,
+            userName: users.name,
+          })
+          .from(kanbanCardAssignees)
+          .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+          .where(inArray(kanbanCardAssignees.cardId, cardIds))
+        : [];
+      const assigneesByCard = new Map<number, Array<{ id: number; name: string | null }>>();
+      for (const r of assigneeRows) {
+        const arr = assigneesByCard.get(r.cardId) ?? [];
+        arr.push({ id: r.userId, name: r.userName });
+        assigneesByCard.set(r.cardId, arr);
+      }
 
       return cards.map(c => ({
         ...c,
         column: columnMap[c.columnId] ?? 'Unknown',
+        assignees: assigneesByCard.get(c.id) ?? [],
       }));
     }
 

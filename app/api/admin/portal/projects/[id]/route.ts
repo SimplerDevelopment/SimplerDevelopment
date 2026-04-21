@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { projects, kanbanColumns, kanbanCards } from '@/lib/db/schema';
+import { projects, kanbanColumns, kanbanCards, kanbanCardAssignees, kanbanCardWatchers } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function requireStaff() {
@@ -61,9 +61,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     description: body.description ?? null,
     priority: body.priority ?? 'medium',
     dueDate: body.dueDate ? new Date(body.dueDate) : null,
-    assignedTo: body.assignedTo ?? null,
     order: existing.length,
   }).returning();
+
+  if (typeof body.assignedTo === 'number') {
+    await db.insert(kanbanCardAssignees).values({ cardId: card.id, userId: body.assignedTo }).onConflictDoNothing();
+    await db.insert(kanbanCardWatchers).values({ cardId: card.id, userId: body.assignedTo }).onConflictDoNothing();
+  }
 
   return NextResponse.json({ success: true, data: card });
 }

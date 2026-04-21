@@ -43,14 +43,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         title: kanbanCards.title,
         priority: kanbanCards.priority,
         sprintId: kanbanCards.sprintId,
+        sprintOrder: kanbanCards.sprintOrder,
         columnId: kanbanCards.columnId,
         columnName: kanbanColumns.name,
+        columnIsDone: kanbanColumns.isDone,
         order: kanbanCards.order,
       })
       .from(kanbanCards)
       .leftJoin(kanbanColumns, eq(kanbanCards.columnId, kanbanColumns.id))
       .where(eq(kanbanCards.projectId, projectId))
-      .orderBy(kanbanCards.order);
+      .orderBy(kanbanCards.sprintOrder, kanbanCards.order);
 
     const cardsBySprintId = cards.reduce<Record<string, typeof cards>>((acc, c) => {
       const key = c.sprintId != null ? String(c.sprintId) : 'backlog';
@@ -78,14 +80,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-    const staff = await isPortalStaff();
-    if (!staff) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-
     const { id } = await params;
     const projectId = parseInt(id, 10);
 
-    const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+    const project = await authorizeProject(projectId, session);
     if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+    const staff = await isPortalStaff();
+    if (!staff && !project.isPrivate) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
     const { name, goal, startDate, endDate } = await req.json();
     if (!name?.trim()) return NextResponse.json({ success: false, message: 'name is required' }, { status: 400 });

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { logCardActivity } from '@/lib/pm-activity';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -30,16 +31,25 @@ export async function POST(req: Request) {
 
   const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards).where(eq(kanbanCards.columnId, columnId));
 
+  const [{ max }] = await db
+    .select({ max: sql<number | null>`MAX(${kanbanCards.number})` })
+    .from(kanbanCards)
+    .where(eq(kanbanCards.projectId, col.projectId));
+  const nextNumber = (max ?? 0) + 1;
+
   const [card] = await db.insert(kanbanCards).values({
     columnId,
     projectId: col.projectId,
+    number: nextNumber,
     title: title.trim(),
     description: description ?? null,
     priority: priority ?? 'medium',
     dueDate: dueDate ? new Date(dueDate) : null,
     order: existing.length,
-    createdBy: parseInt(session.user.id, 10),
+    createdBy: userId,
   }).returning();
+
+  await logCardActivity(card.id, userId, 'card.created', { title: card.title });
 
   return NextResponse.json({ success: true, data: card });
 }

@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex, numeric, primaryKey } from 'drizzle-orm/pg-core';
 
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
@@ -247,6 +247,7 @@ export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
+  projectKey: varchar('project_key', { length: 10 }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
   isPrivate: boolean('is_private').default(false).notNull(), // false = agency project, true = client-managed
@@ -276,6 +277,8 @@ export const kanbanColumns = pgTable('kanban_columns', {
   name: varchar('name', { length: 100 }).notNull(),
   order: integer('order').default(0).notNull(),
   color: varchar('color', { length: 7 }),
+  isDone: boolean('is_done').default(false).notNull(),
+  wipLimit: integer('wip_limit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -283,13 +286,14 @@ export const kanbanCards = pgTable('kanban_cards', {
   id: serial('id').primaryKey(),
   columnId: integer('column_id').notNull().references(() => kanbanColumns.id, { onDelete: 'cascade' }),
   projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  number: integer('number'),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
-  assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   dueDate: timestamp('due_date'),
   priority: varchar('priority', { length: 20 }).default('medium'), // low, medium, high, urgent
   order: integer('order').default(0).notNull(),
   sprintId: integer('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
+  sprintOrder: integer('sprint_order'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -477,6 +481,83 @@ export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
   minutes: integer('minutes').notNull(),
   note: text('note'),
   loggedAt: timestamp('logged_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanLabels = pgTable('kanban_labels', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 50 }).notNull(),
+  color: varchar('color', { length: 7 }).default('#6366f1').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardLabels = pgTable('kanban_card_labels', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  labelId: integer('label_id').notNull().references(() => kanbanLabels.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.labelId] }) }));
+
+export const kanbanCardActivities = pgTable('kanban_card_activities', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  type: varchar('type', { length: 50 }).notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  text: varchar('text', { length: 500 }).notNull(),
+  completed: boolean('completed').default(false).notNull(),
+  order: integer('order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  completedBy: integer('completed_by').references(() => users.id, { onDelete: 'set null' }),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardAssignees = pgTable('kanban_card_assignees', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.userId] }) }));
+
+export const kanbanCardWatchers = pgTable('kanban_card_watchers', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.userId] }) }));
+
+export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
+  blockedCardId: integer('blocked_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  blockerCardId: integer('blocker_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }) }));
+
+export const projectWebhooks = pgTable('project_webhooks', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  secret: varchar('secret', { length: 64 }).notNull(),
+  events: jsonb('events').$type<string[]>().default([]).notNull(),
+  active: boolean('active').default(true).notNull(),
+  lastFiredAt: timestamp('last_fired_at'),
+  lastStatus: integer('last_status'),
+  failureCount: integer('failure_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
+  id: serial('id').primaryKey(),
+  webhookId: integer('webhook_id').notNull().references(() => projectWebhooks.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 50 }).notNull(),
+  status: integer('status'),
+  error: text('error'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
