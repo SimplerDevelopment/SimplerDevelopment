@@ -49,6 +49,23 @@ export function orderStatusColor(status: string): string {
   return map[status] ?? 'bg-muted text-muted-foreground';
 }
 
+export function stripMarkdown(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/\n{2,}/g, ' ')
+    .trim();
+}
+
 export function paymentStatusColor(status: string): string {
   const map: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-700',

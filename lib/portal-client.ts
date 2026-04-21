@@ -66,6 +66,23 @@ export async function getPortalClients(userId: number) {
 }
 
 /**
+ * Returns the user's role on a specific client, or null if the user has no
+ * access. 'owner' is returned for legacy direct-owned rows (clients.userId)
+ * even when no clientMembers record exists.
+ */
+export async function getPortalRole(userId: number, clientId: number): Promise<'owner' | 'admin' | 'member' | 'viewer' | null> {
+  const [client] = await db.select({ userId: clients.userId }).from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (client && client.userId === userId) return 'owner';
+  const [member] = await db
+    .select({ role: clientMembers.role })
+    .from(clientMembers)
+    .where(and(eq(clientMembers.clientId, clientId), eq(clientMembers.userId, userId)))
+    .limit(1);
+  if (!member) return null;
+  return (member.role as 'owner' | 'admin' | 'member' | 'viewer') ?? null;
+}
+
+/**
  * Returns all clients with the user's role for each (used by the switcher API).
  */
 export async function getPortalClientsWithRoles(userId: number) {

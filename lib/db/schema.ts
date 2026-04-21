@@ -2321,9 +2321,34 @@ export const portalApiKeys = pgTable('portal_api_keys', {
   keyPreview: varchar('key_preview', { length: 20 }).notNull(),
   scopes: json('scopes').$type<string[]>().default([]).notNull(),
   active: boolean('active').default(true).notNull(),
+  /** When true, CMS-write MCP tools stage to mcp_pending_changes instead of
+   * applying directly. Recommended for autonomous AI agent keys. */
+  requireCmsApproval: boolean('require_cms_approval').default(false).notNull(),
   lastUsedAt: timestamp('last_used_at'),
   expiresAt: timestamp('expires_at'),
   revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+/** Staging table for CMS writes originating from MCP keys flagged with
+ * requireCmsApproval. Staff approve/reject via approvals_* tools or portal UI. */
+export const mcpPendingChanges = pgTable('mcp_pending_changes', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  keyId: integer('key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: integer('entity_id'),
+  operation: varchar('operation', { length: 20 }).notNull(),
+  summary: varchar('summary', { length: 500 }),
+  payload: json('payload').notNull(),
+  originalSnapshot: json('original_snapshot'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  reviewerId: integer('reviewer_id').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewNote: text('review_note'),
+  appliedAt: timestamp('applied_at'),
+  errorMessage: text('error_message'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

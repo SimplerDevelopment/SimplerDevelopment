@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { crmNotifications, clientMembers } from '@/lib/db/schema';
-import { eq, and, ne } from 'drizzle-orm';
+import { crmNotifications, clientMembers, clients } from '@/lib/db/schema';
+import { eq, and, ne, or } from 'drizzle-orm';
 
 export async function createCrmNotification(params: {
   clientId: number;
@@ -68,4 +68,55 @@ export async function notifyAllClientUsers(params: {
     .returning();
 
   return notifications;
+}
+
+/**
+ * Notify only users with approver roles (owner/admin) on a client. Used by the
+ * MCP approval workflow so pending-change alerts don't flood members who can't
+ * act on them anyway.
+ *
+ * Legacy direct-owner (clients.userId) is included even without a clientMembers
+ * row. The submitter, if provided, is excluded.
+ */
+export async function notifyApprovers(params: {
+  clientId: number;
+  excludeUserId?: number;
+  type: string;
+  title: string;
+  body?: string;
+  entityType?: string;
+  entityId?: number;
+}) {
+  const [client] = await db
+    .select({ userId: clients.userId })
+    .from(clients)
+    .where(eq(clients.id, params.clientId))
+    .limit(1);
+
+  const adminMembers = await db
+    .select({ userId: clientMembers.userId })
+    .from(clientMembers)
+    .where(
+      and(
+        eq(clientMembers.clientId, params.clientId),
+        or(eq(clientMembers.role, 'owner'), eq(clientMembers.role, 'admin'))!,
+      ),
+    );
+
+  const recipientIds = new Set<number>(adminMembers.map((m) => m.userId));
+  if (client) recipientIds.add(client.userId);
+  if (params.excludeUserId) recipientIds.delete(params.excludeUserId);
+  if (recipientIds.size === 0) return [];
+
+  const values = Array.from(recipientIds).map((userId) => ({
+    clientId: params.clientId,
+    userId,
+    type: params.type,
+    title: params.title,
+    body: params.body ?? null,
+    entityType: params.entityType ?? null,
+    entityId: params.entityId ?? null,
+  }));
+
+  return db.insert(crmNotifications).values(values).returning();
 }
