@@ -54,3 +54,6 @@ next-env.d.ts
 
 # claude code local state
 /.claude/scheduled_tasks.lock
+
+# DB backup dumps (large, sensitive)
+/.migration-backup/
