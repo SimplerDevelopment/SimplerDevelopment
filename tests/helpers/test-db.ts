@@ -25,17 +25,55 @@ function connection() {
   return url;
 }
 
-// Single pooled client for schema admin — one per worker.
+// Single pooled client for schema admin — one per worker. keep_alive pings
+// the server to survive Railway's idle-connection drops mid-migration.
 let _sql: ReturnType<typeof postgres> | null = null;
 function getSql() {
-  if (!_sql) _sql = postgres(connection(), { max: 1, onnotice: () => {} });
+  if (!_sql) {
+    _sql = postgres(connection(), {
+      max: 1,
+      onnotice: () => {},
+      idle_timeout: 0,
+      connect_timeout: 30,
+      // Match the route-side connection (test-bootstrap pins TimeZone=UTC on
+      // DATABASE_URL). Without this, inserts through test helpers would use
+      // the server-default TZ (e.g. America/New_York on a dev macOS) and
+      // later WHERE comparisons in route code drift by the local offset.
+      connection: { TimeZone: 'UTC' },
+    });
+  }
   return _sql;
+}
+
+function resetSql() {
+  if (_sql) {
+    _sql.end({ timeout: 1 }).catch(() => {});
+    _sql = null;
+  }
 }
 
 /** Rewrites schema-qualified identifiers so migration SQL lands in the test schema. */
 function rewriteForTestSchema(raw: string): string {
   // Replace `"public".` with `"<schema>".` — migrations use double-quoted identifiers.
   return raw.replace(/"public"\./g, `"${TEST_SCHEMA}".`);
+}
+
+/** Retry a DB op when the underlying TCP connection drops mid-statement. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastErr: Error | undefined;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = (err as Error).message;
+      const transient = /ECONNRESET|CONNECTION_ENDED|CONNECTION_CLOSED|connection.*(terminated|reset|closed)/i.test(msg);
+      if (!transient || i === attempts - 1) throw err;
+      resetSql();     // force a fresh connection
+      await new Promise(r => setTimeout(r, 250 * (i + 1)));
+      lastErr = err as Error;
+    }
+  }
+  throw lastErr;
 }
 
 export async function applyTestSchema(): Promise<void> {
@@ -54,9 +92,9 @@ export async function applyTestSchema(): Promise<void> {
     return;
   }
 
-  await sql.unsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`);
-  await sql.unsafe(`CREATE SCHEMA "${TEST_SCHEMA}"`);
-  await sql.unsafe(`SET search_path TO "${TEST_SCHEMA}", public`);
+  await withRetry(() => getSql().unsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`));
+  await withRetry(() => getSql().unsafe(`CREATE SCHEMA "${TEST_SCHEMA}"`));
+  await withRetry(() => getSql().unsafe(`SET search_path TO "${TEST_SCHEMA}", public`));
 
   const dir = path.resolve(__dirname, '../../drizzle');
   const files = fs.readdirSync(dir)
@@ -69,7 +107,7 @@ export async function applyTestSchema(): Promise<void> {
     const statements = rewritten.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
     for (const stmt of statements) {
       try {
-        await sql.unsafe(stmt);
+        await withRetry(() => getSql().unsafe(stmt));
       } catch (err) {
         const msg = (err as Error).message;
         if (/already exists|does not exist/i.test(msg)) continue;

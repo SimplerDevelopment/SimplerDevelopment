@@ -15,6 +15,12 @@ if (!orig) throw new Error('DATABASE_URL_TEST or DATABASE_URL must be set for in
 
 const u = new URL(orig);
 const existing = u.searchParams.get('options') ?? '';
-const addition = `-c search_path=${TEST_SCHEMA},public`;
+// search_path isolates this worker's data; TimeZone=UTC makes JS Date ↔
+// `timestamp` round-trips stable regardless of the server's default TZ.
+// A developer's local Postgres often defaults to America/New_York (or
+// whatever their macOS tz is); without this, JS Dates drift by the local
+// offset when stored in `timestamp` (no-tz) columns and comparisons like
+// `expires > NOW()` start failing unpredictably.
+const addition = `-c search_path=${TEST_SCHEMA},public -c TimeZone=UTC`;
 u.searchParams.set('options', existing ? `${existing} ${addition}` : addition);
 process.env.DATABASE_URL = u.toString();
