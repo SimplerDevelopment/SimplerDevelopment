@@ -36,8 +36,9 @@ describe('Keyboard Shortcuts Integration', () => {
       />
     );
 
-    // Editor should render
-    expect(screen.getByText('First paragraph')).toBeInTheDocument();
+    // Editor should render the block content (appears in the editable body
+    // plus preview/layers mirrors — use getAllByText to tolerate duplicates).
+    expect(screen.getAllByText('First paragraph').length).toBeGreaterThan(0);
   });
 
   it('includes keyboard shortcuts reference component', () => {
@@ -51,15 +52,16 @@ describe('Keyboard Shortcuts Integration', () => {
     expect(container.querySelector('[data-block-editor]')).toBeInTheDocument();
   });
 
-  it('has undo and redo shortcuts registered', () => {
+  // Undo/redo no longer have toolbar buttons — they're registered via
+  // useKeyboardShortcuts (Cmd+Z / Cmd+Shift+Z) only. Behavioral coverage of
+  // the shortcuts themselves lives in keyboardShortcutsEnhanced.test.tsx.
+  it.skip('has undo and redo shortcuts registered', () => {
     const onChange = vi.fn();
 
     render(
       <VisualBlockEditorComplete blocks={initialBlocks} onChange={onChange} />
     );
 
-    // The shortcuts are registered (we can't easily test actual keyboard events in jsdom)
-    // But we can verify the editor renders without errors
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /redo/i })).toBeInTheDocument();
   });
