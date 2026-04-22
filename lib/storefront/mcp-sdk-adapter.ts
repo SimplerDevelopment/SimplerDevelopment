@@ -62,7 +62,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   }
 
   // ── PRODUCTS ───────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_products_list',
     {
       title: 'List store products',
@@ -95,7 +95,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_products_get',
     {
       title: 'Get store product with images + variants',
@@ -115,7 +115,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_products_create',
     {
       title: 'Create store product',
@@ -171,7 +171,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_products_update',
     {
       title: 'Update store product',
@@ -208,7 +208,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_products_delete',
     {
       title: 'Delete store product',
@@ -227,7 +227,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_products_adjust_inventory',
     {
       title: 'Adjust product inventory',
@@ -263,7 +263,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     return !!(await requireSite(row.websiteId));
   }
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_product_options_create',
     {
       title: 'Create product option',
@@ -290,7 +290,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_product_option_values_create',
     {
       title: 'Add product option value',
@@ -323,7 +323,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_product_variants_create',
     {
       title: 'Create product variant',
@@ -361,7 +361,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_product_variants_update',
     {
       title: 'Update product variant',
@@ -395,7 +395,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── PRODUCT CATEGORIES ─────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_categories_list',
     {
       title: 'List product categories',
@@ -412,7 +412,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_categories_create',
     {
       title: 'Create product category',
@@ -449,7 +449,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── ORDERS ─────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_orders_list',
     {
       title: 'List store orders',
@@ -478,7 +478,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_orders_get',
     {
       title: 'Get order with items + status history',
@@ -498,7 +498,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_orders_update_status',
     {
       title: 'Update order status',
@@ -536,7 +536,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_orders_add_note',
     {
       title: 'Add internal note to order',
@@ -564,7 +564,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── CUSTOMERS ──────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_customers_list',
     {
       title: 'List store customers',
@@ -606,7 +606,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_customers_get',
     {
       title: 'Get store customer with order count',
@@ -650,7 +650,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── DISCOUNTS ──────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_discounts_list',
     {
       title: 'List discount codes',
@@ -672,7 +672,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_discounts_create',
     {
       title: 'Create discount code',
@@ -715,7 +715,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_discounts_toggle',
     {
       title: 'Enable / disable discount code',
@@ -739,7 +739,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_discounts_delete',
     {
       title: 'Delete discount code',
@@ -759,7 +759,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── REVIEWS ────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_reviews_list',
     {
       title: 'List product reviews',
@@ -784,7 +784,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_reviews_moderate',
     {
       title: 'Moderate product review',
@@ -809,7 +809,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── CUSTOMER MESSAGES ──────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_customer_messages_list',
     {
       title: 'List customer-support messages',
@@ -832,7 +832,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:write') && server.registerTool(
     'store_customer_messages_reply',
     {
       title: 'Reply to customer support message',
@@ -863,7 +863,7 @@ export function registerStoreToolsOnSdk(server: McpServer, ctx: PortalMcpContext
   );
 
   // ── STORE SETTINGS ─────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'store:read') && server.registerTool(
     'store_settings_get',
     {
       title: 'Get store settings',

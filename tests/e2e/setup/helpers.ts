@@ -81,6 +81,24 @@ export class McpTestClient {
     return this;
   }
 
+  async listTools(): Promise<{ tools: Array<{ name: string; description?: string }> }> {
+    const res = await this.ctx.post('/api/mcp', {
+      headers: {
+        Authorization: `Bearer ${this.bearer}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: Math.floor(Math.random() * 1000000),
+        method: 'tools/list',
+        params: {},
+      },
+    });
+    const body = await res.json();
+    return body?.result ?? { tools: [] };
+  }
+
   async callTool(name: string, args: Record<string, unknown>) {
     const res = await this.ctx.post('/api/mcp', {
       headers: {

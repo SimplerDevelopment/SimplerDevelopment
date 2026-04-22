@@ -154,7 +154,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── PROJECTS ───────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'projects_list',
     {
       title: 'List projects',
@@ -174,7 +174,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'projects_create',
     {
       title: 'Create project',
@@ -199,7 +199,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'projects_update',
     {
       title: 'Update project',
@@ -228,7 +228,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN CARDS ───────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_list_board',
     {
       title: 'Get kanban board',
@@ -250,7 +250,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_create_column',
     {
       title: 'Create kanban column',
@@ -280,7 +280,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_create_card',
     {
       title: 'Create kanban card',
@@ -313,7 +313,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_move_card',
     {
       title: 'Move kanban card',
@@ -341,7 +341,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_update_card',
     {
       title: 'Update kanban card',
@@ -406,7 +406,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_delete_card',
     {
       title: 'Delete kanban card',
@@ -427,7 +427,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_update_column',
     {
       title: 'Update kanban column',
@@ -458,7 +458,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_delete_column',
     {
       title: 'Delete kanban column',
@@ -480,7 +480,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── SUPPORT TICKETS ────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'tickets:read') && server.registerTool(
     'tickets_list',
     {
       title: 'List support tickets',
@@ -502,7 +502,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'tickets:read') && server.registerTool(
     'tickets_get',
     {
       title: 'Get ticket with messages',
@@ -521,7 +521,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'tickets:write') && server.registerTool(
     'tickets_create',
     {
       title: 'Create support ticket',
@@ -556,7 +556,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'tickets:write') && server.registerTool(
     'tickets_reply',
     {
       title: 'Reply to ticket',
@@ -579,7 +579,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'tickets:write') && server.registerTool(
     'tickets_update',
     {
       title: 'Update support ticket',
@@ -616,7 +616,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── CRM ────────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_contacts_search',
     {
       title: 'Search CRM contacts',
@@ -646,7 +646,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_contacts_create',
     {
       title: 'Create CRM contact',
@@ -681,7 +681,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_contacts_update',
     {
       title: 'Update CRM contact',
@@ -715,7 +715,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_companies_search',
     {
       title: 'Search CRM companies',
@@ -736,7 +736,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_companies_create',
     {
       title: 'Create CRM company',
@@ -766,7 +766,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_companies_update',
     {
       title: 'Update CRM company',
@@ -797,7 +797,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_deals_list',
     {
       title: 'List CRM deals',
@@ -818,7 +818,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_deals_create',
     {
       title: 'Create CRM deal',
@@ -853,7 +853,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_deals_move_stage',
     {
       title: 'Move deal to stage',
@@ -880,7 +880,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_deals_update',
     {
       title: 'Update CRM deal',
@@ -917,7 +917,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_pipelines_list',
     {
       title: 'List pipelines',
@@ -937,7 +937,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_pipelines_create',
     {
       title: 'Create CRM pipeline',
@@ -978,7 +978,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_pipelines_update',
     {
       title: 'Update CRM pipeline',
@@ -1009,7 +1009,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_pipelines_add_stage',
     {
       title: 'Add stage to CRM pipeline',
@@ -1041,7 +1041,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_pipelines_update_stage',
     {
       title: 'Update CRM pipeline stage',
@@ -1072,7 +1072,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── WEBSITES / POSTS ───────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'sites_list',
     {
       title: 'List websites',
@@ -1088,7 +1088,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'posts_list',
     {
       title: 'List posts',
@@ -1118,7 +1118,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'posts_create',
     {
       title: 'Create post',
@@ -1167,7 +1167,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'posts_update',
     {
       title: 'Update post',
@@ -1222,7 +1222,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'posts_delete',
     {
       title: 'Delete post',
@@ -1260,7 +1260,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── MEDIA ──────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'media:read') && server.registerTool(
     'media_list',
     {
       title: 'List media assets',
@@ -1276,7 +1276,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'media:write') && server.registerTool(
     'media_upload_from_url',
     {
       title: 'Upload media from URL',
@@ -1330,7 +1330,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'media:write') && server.registerTool(
     'media_delete',
     {
       title: 'Delete media asset',
@@ -1351,7 +1351,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── EMAIL ──────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_lists',
     {
       title: 'List email lists',
@@ -1367,7 +1367,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_campaigns_list',
     {
       title: 'List email campaigns',
@@ -1387,7 +1387,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_campaigns_create',
     {
       title: 'Create email campaign (draft)',
@@ -1448,7 +1448,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:send') && server.registerTool(
     'email_campaigns_send',
     {
       title: 'Send email campaign NOW',
@@ -1509,7 +1509,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // Email lists CRUD
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_lists_create',
     {
       title: 'Create email list',
@@ -1532,7 +1532,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_lists_update',
     {
       title: 'Update email list',
@@ -1558,7 +1558,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_lists_delete',
     {
       title: 'Delete email list',
@@ -1581,7 +1581,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // Email subscribers CRUD
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_subscribers_list',
     {
       title: 'List email subscribers',
@@ -1613,7 +1613,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_subscribers_add',
     {
       title: 'Add email subscriber',
@@ -1660,7 +1660,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_subscribers_update',
     {
       title: 'Update email subscriber',
@@ -1695,7 +1695,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_subscribers_remove',
     {
       title: 'Remove email subscriber',
@@ -1731,7 +1731,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   // ── PITCH DECKS ────────────────────────────────────────────────────────
   // Keywords for tool-search discovery: pitch deck, presentation, slideshow,
   // slides, pptx, sales deck, proposal, investor deck.
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:read') && server.registerTool(
     'decks_list',
     {
       title: 'List pitch decks / presentations',
@@ -1762,7 +1762,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:read') && server.registerTool(
     'decks_get',
     {
       title: 'Get pitch deck with slides',
@@ -1779,7 +1779,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_create',
     {
       title: 'Create pitch deck / presentation',
@@ -1844,7 +1844,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_update',
     {
       title: 'Update pitch deck metadata / theme',
@@ -1897,7 +1897,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_replace_slides',
     {
       title: 'Replace all deck slides',
@@ -1940,7 +1940,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_add_slide',
     {
       title: 'Append a slide to a deck',
@@ -1987,7 +1987,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_delete',
     {
       title: 'Delete pitch deck',
@@ -2020,7 +2020,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
 
   // ── SURVEYS / FORMS ────────────────────────────────────────────────────
   // Keywords: survey, form, intake, questionnaire, poll, feedback, NPS.
-  server.registerTool(
+  hasScope(ctx.scopes, 'surveys:read') && server.registerTool(
     'surveys_list',
     {
       title: 'List surveys / forms',
@@ -2050,7 +2050,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'surveys:read') && server.registerTool(
     'surveys_get',
     {
       title: 'Get survey with fields',
@@ -2066,7 +2066,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'surveys:read') && server.registerTool(
     'surveys_list_responses',
     {
       title: 'List survey responses',
@@ -2092,7 +2092,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'surveys:write') && server.registerTool(
     'surveys_create',
     {
       title: 'Create survey / form',
@@ -2129,7 +2129,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'surveys:write') && server.registerTool(
     'surveys_update',
     {
       title: 'Update survey',
@@ -2164,7 +2164,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
 
   // ── BOOKINGS / APPOINTMENTS ────────────────────────────────────────────
   // Keywords: booking, appointment, calendar, schedule, meeting, reservation.
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'booking_pages_list',
     {
       title: 'List booking pages',
@@ -2194,7 +2194,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'booking_pages_get',
     {
       title: 'Get booking page',
@@ -2210,7 +2210,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'bookings_list',
     {
       title: 'List appointments / bookings',
@@ -2238,7 +2238,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'bookings_get',
     {
       title: 'Get booking',
@@ -2254,7 +2254,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:write') && server.registerTool(
     'bookings_cancel',
     {
       title: 'Cancel booking / appointment',
@@ -2287,7 +2287,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:write') && server.registerTool(
     'bookings_update',
     {
       title: 'Update booking',
@@ -2326,7 +2326,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── SPRINTS ────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'sprints_list',
     {
       title: 'List project sprints',
@@ -2350,7 +2350,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'sprints_create',
     {
       title: 'Create sprint',
@@ -2386,7 +2386,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'sprints_update',
     {
       title: 'Update sprint',
@@ -2420,7 +2420,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'sprints_delete',
     {
       title: 'Delete sprint',
@@ -2457,7 +2457,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     return !!row;
   }
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_labels_list',
     {
       title: 'List project labels',
@@ -2474,7 +2474,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_labels_create',
     {
       title: 'Create label',
@@ -2498,7 +2498,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_labels_update',
     {
       title: 'Update label',
@@ -2525,7 +2525,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_labels_delete',
     {
       title: 'Delete label',
@@ -2546,7 +2546,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_attach_label',
     {
       title: 'Attach label to card',
@@ -2566,7 +2566,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_detach_label',
     {
       title: 'Detach label from card',
@@ -2587,7 +2587,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN CHECKLIST ───────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_checklist_list',
     {
       title: 'List checklist items',
@@ -2604,7 +2604,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_checklist_add',
     {
       title: 'Add checklist item',
@@ -2629,7 +2629,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_checklist_update',
     {
       title: 'Update checklist item',
@@ -2671,7 +2671,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_checklist_delete',
     {
       title: 'Delete checklist item',
@@ -2695,7 +2695,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN ASSIGNEES ───────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_card_assignees_list',
     {
       title: 'List card assignees',
@@ -2715,7 +2715,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_assign',
     {
       title: 'Assign user to card',
@@ -2736,7 +2736,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_unassign',
     {
       title: 'Unassign user from card',
@@ -2756,7 +2756,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN DEPENDENCIES ────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_card_dependencies_list',
     {
       title: 'List card dependencies',
@@ -2780,7 +2780,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_add_blocker',
     {
       title: 'Add blocker',
@@ -2808,7 +2808,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_remove_blocker',
     {
       title: 'Remove blocker',
@@ -2829,7 +2829,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── CRM ACTIVITIES ─────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_activities_list',
     {
       title: 'List CRM activities / notes',
@@ -2857,7 +2857,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_activities_create',
     {
       title: 'Log CRM activity / note',
@@ -2897,7 +2897,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── CATEGORIES / TAGS ──────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'taxonomies_list',
     {
       title: 'List categories and tags',
@@ -2917,7 +2917,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'taxonomies_create_category',
     {
       title: 'Create post category',
@@ -2952,7 +2952,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'taxonomies_create_tag',
     {
       title: 'Create post tag',
@@ -2983,7 +2983,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'posts_set_taxonomies',
     {
       title: 'Set post categories and tags',
@@ -3030,7 +3030,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── SITES WRITE ────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'sites_update',
     {
       title: 'Update website settings',
@@ -3061,7 +3061,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── AUTOMATIONS ────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'automations:read') && server.registerTool(
     'automations_list',
     {
       title: 'List automation rules',
@@ -3083,7 +3083,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'automations:write') && server.registerTool(
     'automations_toggle',
     {
       title: 'Enable / disable automation rule',
@@ -3107,7 +3107,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── TEAM ───────────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'team:read') && server.registerTool(
     'team_list_members',
     {
       title: 'List team members',
@@ -3133,7 +3133,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'team:write') && server.registerTool(
     'team_update_role',
     {
       title: 'Change team member role',
@@ -3156,7 +3156,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'team:write') && server.registerTool(
     'team_remove_member',
     {
       title: 'Remove team member',
@@ -3176,7 +3176,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
 
   // ── CRM PROPOSALS ──────────────────────────────────────────────────────
   // Keywords: proposal, quote, estimate, SOW, statement of work, bid.
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'proposals_list',
     {
       title: 'List CRM proposals / quotes',
@@ -3212,7 +3212,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'proposals_get',
     {
       title: 'Get CRM proposal',
@@ -3228,7 +3228,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'proposals_create',
     {
       title: 'Create CRM proposal',
@@ -3289,7 +3289,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'proposals_update',
     {
       title: 'Update CRM proposal',
@@ -3350,7 +3350,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'proposals_send',
     {
       title: 'Mark proposal as sent',
@@ -3388,7 +3388,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
 
   // ── CRM CONTRACTS ──────────────────────────────────────────────────────
   // Keywords: contract, agreement, MSA, e-signature, signature, sign.
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'contracts_list',
     {
       title: 'List CRM contracts',
@@ -3422,7 +3422,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'contracts_get',
     {
       title: 'Get CRM contract with signers',
@@ -3441,7 +3441,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'contracts_create',
     {
       title: 'Create CRM contract',
@@ -3506,7 +3506,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'contracts_void',
     {
       title: 'Void contract',
@@ -3533,7 +3533,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── INVOICES / BILLING ─────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'billing:read') && server.registerTool(
     'invoices_list',
     {
       title: 'List invoices',
@@ -3554,7 +3554,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'billing:read') && server.registerTool(
     'invoices_get',
     {
       title: 'Get invoice with line items',
@@ -3572,7 +3572,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── SERVICE REQUESTS / SUGGESTED PROJECTS ──────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'services:read') && server.registerTool(
     'service_requests_list',
     {
       title: 'List service requests',
@@ -3598,7 +3598,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'services:write') && server.registerTool(
     'service_requests_create',
     {
       title: 'Request a service',
@@ -3627,7 +3627,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'services:read') && server.registerTool(
     'service_catalog_list',
     {
       title: 'List available services',
@@ -3652,7 +3652,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'services:read') && server.registerTool(
     'suggested_projects_list',
     {
       title: 'List suggested projects',
@@ -3681,7 +3681,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'services:write') && server.registerTool(
     'suggested_project_requests_create',
     {
       title: 'Request a suggested project',
@@ -3710,7 +3710,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── AI CONVERSATIONS ───────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'ai:read') && server.registerTool(
     'ai_conversations_list',
     {
       title: 'List AI conversations',
@@ -3731,7 +3731,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'ai:read') && server.registerTool(
     'ai_conversations_get',
     {
       title: 'Get AI conversation with messages',
@@ -3751,7 +3751,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN SOCIAL ──────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
     'kanban_card_list_comments',
     {
       title: 'List card comments',
@@ -3773,7 +3773,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_add_comment',
     {
       title: 'Comment on kanban card',
@@ -3803,7 +3803,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_log_time',
     {
       title: 'Log time on kanban card',
@@ -3836,7 +3836,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── SITE NAVIGATION ────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'nav_list',
     {
       title: 'List website navigation items',
@@ -3855,7 +3855,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'nav_create',
     {
       title: 'Create navigation item',
@@ -3895,7 +3895,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'nav_delete',
     {
       title: 'Delete navigation item',
@@ -3917,7 +3917,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── POST REVISIONS ─────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'posts_list_revisions',
     {
       title: 'List post revisions',
@@ -3947,7 +3947,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── BLOCK TEMPLATES ────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'block_templates_list',
     {
       title: 'List block templates',
@@ -3980,7 +3980,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'block_templates_get',
     {
       title: 'Get block template with blocks',
@@ -3996,7 +3996,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── EMAIL TEMPLATES ────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_templates_list',
     {
       title: 'List email templates',
@@ -4025,7 +4025,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_templates_create',
     {
       title: 'Create email template',
@@ -4064,7 +4064,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── EMAIL SEGMENTS ─────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_segments_list',
     {
       title: 'List email segments',
@@ -4080,7 +4080,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_segments_create',
     {
       title: 'Create email segment',
@@ -4112,7 +4112,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── EMAIL CAMPAIGN SCHEDULE ────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_campaigns_schedule',
     {
       title: 'Schedule email campaign',
@@ -4151,7 +4151,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_campaigns_update',
     {
       title: 'Update draft email campaign',
@@ -4207,7 +4207,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
     'email_campaigns_delete',
     {
       title: 'Delete email campaign',
@@ -4242,7 +4242,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── GIFT CERTIFICATES ──────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'gift_certificates_list',
     {
       title: 'List gift certificates',
@@ -4265,7 +4265,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'bookings:write') && server.registerTool(
     'gift_certificates_issue',
     {
       title: 'Issue gift certificate',
@@ -4303,7 +4303,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── CRM CUSTOM FIELDS / SAVED VIEWS / SCORING ──────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_custom_fields_list',
     {
       title: 'List CRM custom fields',
@@ -4323,7 +4323,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
     'crm_custom_fields_create',
     {
       title: 'Create CRM custom field',
@@ -4353,7 +4353,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_saved_views_list',
     {
       title: 'List CRM saved views',
@@ -4373,7 +4373,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_scoring_rules_list',
     {
       title: 'List CRM scoring rules',
@@ -4396,7 +4396,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     return site ?? null;
   }
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'website_domains_list',
     {
       title: 'List website custom domains',
@@ -4412,7 +4412,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'website_domains_add',
     {
       title: 'Attach domain to website',
@@ -4442,7 +4442,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'website_domains_remove',
     {
       title: 'Detach domain from website',
@@ -4463,7 +4463,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
     'website_env_vars_list',
     {
       title: 'List website environment variables',
@@ -4487,7 +4487,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'website_env_vars_set',
     {
       title: 'Set website environment variable',
@@ -4525,7 +4525,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'website_env_vars_delete',
     {
       title: 'Delete website environment variable',
@@ -4548,7 +4548,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── CLIENT SELF-SERVICE ────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'team:read') && server.registerTool(
     'client_get',
     {
       title: 'Get authenticated client record',
@@ -4562,7 +4562,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'team:write') && server.registerTool(
     'client_update',
     {
       title: 'Update client profile',
@@ -4588,7 +4588,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── KANBAN CARD FILE ATTACHMENTS ───────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
     'kanban_card_attach_file_from_url',
     {
       title: 'Attach file to kanban card from URL',
@@ -4638,7 +4638,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── AI CREDITS ─────────────────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'billing:read') && server.registerTool(
     'ai_credits_balance',
     {
       title: 'Get AI credits balance',
@@ -4653,7 +4653,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'billing:read') && server.registerTool(
     'ai_credits_ledger',
     {
       title: 'List AI credit ledger entries',
@@ -4675,7 +4675,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   );
 
   // ── AUTOMATION RULES CRUD ──────────────────────────────────────────────
-  server.registerTool(
+  hasScope(ctx.scopes, 'automations:write') && server.registerTool(
     'automations_create',
     {
       title: 'Create automation rule',
@@ -4711,7 +4711,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'automations:write') && server.registerTool(
     'automations_update',
     {
       title: 'Update automation rule',
@@ -4740,7 +4740,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'automations:write') && server.registerTool(
     'automations_delete',
     {
       title: 'Delete automation rule',

@@ -935,7 +935,11 @@ test.describe('MCP-side approvals_* tools @mcp @approvals', () => {
     cleanups.push(() => limitedMcp.dispose());
 
     const res = await limitedMcp.callTool('approvals_approve', { id: pendingId });
+    // approvals_approve isn't advertised to keys without approvals:manage
+    // after the scope-filter refactor, so the SDK surfaces a "tool not found"
+    // error. Prior handler-level denial ("approvals:manage" scope) is also
+    // still accepted for parity with clients that bypass the advertised list.
     expect(res.isError).toBe(true);
-    expect(res.text).toContain('approvals:manage');
+    expect(res.text ?? '').toMatch(/not found|approvals:manage/i);
   });
 });

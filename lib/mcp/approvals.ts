@@ -335,7 +335,7 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
   const readGate = () => (hasScope(ctx.scopes, 'approvals:read') ? null : denied('approvals:read'));
   const manageGate = () => (hasScope(ctx.scopes, 'approvals:manage') ? null : denied('approvals:manage'));
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'approvals:read') && server.registerTool(
     'approvals_list',
     {
       title: 'List pending MCP changes',
@@ -372,7 +372,7 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'approvals:read') && server.registerTool(
     'approvals_get',
     {
       title: 'Get pending change with payload + diff',
@@ -388,7 +388,7 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'approvals:manage') && server.registerTool(
     'approvals_approve',
     {
       title: 'Approve & apply pending MCP change',
@@ -434,7 +434,7 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'approvals:manage') && server.registerTool(
     'approvals_reject',
     {
       title: 'Reject pending MCP change',

@@ -39,7 +39,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
   const clientId = ctx.client.id;
   const gate = () => (hasScope(ctx.scopes, 'branding:read') ? null : denied('branding:read'));
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:read') && server.registerTool(
     'branding_list_profiles',
     {
       title: 'List branding profiles',
@@ -53,7 +53,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:read') && server.registerTool(
     'branding_get_profile',
     {
       title: 'Get branding profile',
@@ -69,7 +69,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:read') && server.registerTool(
     'branding_get_messaging',
     {
       title: 'Get brand messaging',
@@ -85,7 +85,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:read') && server.registerTool(
     'branding_audit',
     {
       title: 'Audit branding profile',
@@ -101,7 +101,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:read') && server.registerTool(
     'branding_check_contrast',
     {
       title: 'Check WCAG contrast',
@@ -122,7 +122,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
   const writeGate = () => (hasScope(ctx.scopes, 'branding:write') ? null : denied('branding:write'));
   const revalidate = () => { try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ } };
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:write') && server.registerTool(
     'branding_create_profile',
     {
       title: 'Create branding profile',
@@ -177,7 +177,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:write') && server.registerTool(
     'branding_update_profile',
     {
       title: 'Update branding profile',
@@ -226,7 +226,7 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
     },
   );
 
-  server.registerTool(
+  hasScope(ctx.scopes, 'branding:write') && server.registerTool(
     'branding_update_messaging',
     {
       title: 'Update brand messaging',
