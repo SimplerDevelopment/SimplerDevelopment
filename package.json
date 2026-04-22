@@ -10,6 +10,7 @@
     "test": "scripts/test.sh --layer=unit --no-coverage",
     "test:unit": "scripts/test.sh --layer=unit --no-coverage",
     "test:integration": "scripts/test.sh --layer=integration --no-coverage",
+    "test:integration:local": "./scripts/start-local-db.sh && DATABASE_URL='postgresql://'$USER'@localhost:5432/simplerdev_test' DATABASE_URL_TEST='postgresql://'$USER'@localhost:5432/simplerdev_test' scripts/test.sh --layer=integration --no-coverage",
     "test:e2e": "scripts/test.sh --layer=e2e --no-coverage",
     "test:all": "scripts/test.sh",
     "test:coverage": "scripts/test.sh",
