@@ -34,10 +34,24 @@ function isPrivateIPv6(ip: string): boolean {
   if (lower.startsWith('fe80:') || lower.startsWith('fe80::')) return true; // link-local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true;        // unique-local fc00::/7
   if (lower.startsWith('ff')) return true;                       // multicast
-  // IPv4-mapped (::ffff:a.b.c.d)
+  // IPv4-mapped (::ffff:a.b.c.d OR normalised ::ffff:hhhh:hhhh)
   if (lower.startsWith('::ffff:')) {
     const tail = lower.slice(7);
+    // Dotted-quad form — easiest
     if (isIP(tail) === 4) return isPrivateIPv4(tail);
+    // Hex form (what new URL() produces after normalisation, e.g. ::ffff:7f00:1)
+    const hexMatch = tail.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hexMatch) {
+      const hi = parseInt(hexMatch[1], 16);
+      const lo = parseInt(hexMatch[2], 16);
+      if (!Number.isNaN(hi) && !Number.isNaN(lo)) {
+        const a = (hi >> 8) & 0xff;
+        const b = hi & 0xff;
+        const c = (lo >> 8) & 0xff;
+        const d = lo & 0xff;
+        return isPrivateIPv4(`${a}.${b}.${c}.${d}`);
+      }
+    }
   }
   return false;
 }
