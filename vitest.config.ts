@@ -65,8 +65,16 @@ export default defineConfig({
           environment: 'node',
           include: ['tests/integration/api/**/*.test.ts'],
           setupFiles: ['./tests/setup-api.ts'],
+          // Runs exactly once before any worker — sweeps orphan test_e2e_*
+          // schemas left by prior crashed runs so disk usage stays bounded.
+          globalSetup: ['./tests/helpers/global-setup.ts'],
           pool: 'forks',
-          hookTimeout: 120_000,       // applyTestSchema replays ~55 migrations per worker
+          // Parallel forks (one per spec file) — each worker gets an isolated
+          // test_e2e_<id> schema. setup-api.ts drops that schema in afterAll, so
+          // a crash-free run cleans itself up. If a run is killed, use
+          //   npx tsx scripts/cleanup-test-schemas.ts
+          // to sweep stragglers.
+          hookTimeout: 120_000,
           testTimeout: 15_000,
         },
       },
