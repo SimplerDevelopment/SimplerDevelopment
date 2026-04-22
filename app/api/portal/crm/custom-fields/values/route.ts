@@ -2,8 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmCustomFields, crmCustomFieldValues } from '@/lib/db/schema';
+import { crmCustomFields, crmCustomFieldValues, crmContacts, crmCompanies, crmDeals } from '@/lib/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+
+async function entityBelongsToClient(
+  entityType: string,
+  entityId: number,
+  clientId: number,
+): Promise<boolean> {
+  if (entityType === 'contact') {
+    const [row] = await db.select({ id: crmContacts.id }).from(crmContacts)
+      .where(and(eq(crmContacts.id, entityId), eq(crmContacts.clientId, clientId))).limit(1);
+    return !!row;
+  }
+  if (entityType === 'company') {
+    const [row] = await db.select({ id: crmCompanies.id }).from(crmCompanies)
+      .where(and(eq(crmCompanies.id, entityId), eq(crmCompanies.clientId, clientId))).limit(1);
+    return !!row;
+  }
+  if (entityType === 'deal') {
+    const [row] = await db.select({ id: crmDeals.id }).from(crmDeals)
+      .where(and(eq(crmDeals.id, entityId), eq(crmDeals.clientId, clientId))).limit(1);
+    return !!row;
+  }
+  return false;
+}
 
 async function getAuthedClient() {
   const session = await auth();
@@ -29,6 +52,10 @@ export async function GET(req: NextRequest) {
   }
   if (!entityId || isNaN(parseInt(entityId, 10))) {
     return NextResponse.json({ success: false, message: 'Invalid entity ID' }, { status: 400 });
+  }
+
+  if (!(await entityBelongsToClient(entityType, parseInt(entityId, 10), client.id))) {
+    return NextResponse.json({ success: false, message: 'Entity not found' }, { status: 404 });
   }
 
   const values = await db
@@ -79,6 +106,10 @@ export async function PUT(req: NextRequest) {
 
   if (fieldIds.length === 0) {
     return NextResponse.json({ success: true, data: [] });
+  }
+
+  if (!(await entityBelongsToClient(entityType, entityId, client.id))) {
+    return NextResponse.json({ success: false, message: 'Entity not found' }, { status: 404 });
   }
 
   // Verify all field IDs belong to this client
