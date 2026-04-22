@@ -4,7 +4,7 @@ import { projectWebhooks, projectWebhookDeliveries } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 
-function signPayload(secret: string, body: string): string {
+export function signPayload(secret: string, body: string): string {
   return createHmac('sha256', secret).update(body).digest('hex');
 }
 
