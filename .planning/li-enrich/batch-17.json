@@ -1,0 +1,402 @@
+[
+  {
+    "id": 839,
+    "firstName": "Joy",
+    "lastName": "Moore",
+    "email": null,
+    "title": "President",
+    "companyName": "Northern Baptist Theological Seminary"
+  },
+  {
+    "id": 840,
+    "firstName": "Lisa",
+    "lastName": "Freeman",
+    "email": null,
+    "title": "President",
+    "companyName": "Northern Illinois University"
+  },
+  {
+    "id": 841,
+    "firstName": "Michael",
+    "lastName": "H. Schill",
+    "email": null,
+    "title": "President",
+    "companyName": "Northwestern University"
+  },
+  {
+    "id": 842,
+    "firstName": "Gregg",
+    "lastName": "A. Chenoweth",
+    "email": null,
+    "title": "President",
+    "companyName": "Olivet Nazarene University"
+  },
+  {
+    "id": 843,
+    "firstName": "David",
+    "lastName": "Frech",
+    "email": null,
+    "title": "Campus Director",
+    "companyName": "Pacific College of Health and Science"
+  },
+  {
+    "id": 844,
+    "firstName": "Daniel",
+    "lastName": "Norton",
+    "email": null,
+    "title": "College President",
+    "companyName": "Principia College"
+  },
+  {
+    "id": 845,
+    "firstName": "Brian",
+    "lastName": "McGee",
+    "email": null,
+    "title": "President",
+    "companyName": "Quincy University"
+  },
+  {
+    "id": 846,
+    "firstName": "Patricia",
+    "lastName": "Lynott",
+    "email": null,
+    "title": "President",
+    "companyName": "Rockford University"
+  },
+  {
+    "id": 847,
+    "firstName": "Ali",
+    "lastName": "R. Malekzadeh",
+    "email": null,
+    "title": "President",
+    "companyName": "Roosevelt University"
+  },
+  {
+    "id": 848,
+    "firstName": "Wendy",
+    "lastName": "Rheault",
+    "email": null,
+    "title": "President & Chief Executive Officer",
+    "companyName": "Rosalind Franklin University of Medicine and Science"
+  },
+  {
+    "id": 849,
+    "firstName": "Robert",
+    "lastName": "Higgins",
+    "email": null,
+    "title": "President",
+    "companyName": "Rush University"
+  },
+  {
+    "id": 850,
+    "firstName": "Charlene",
+    "lastName": "Aaron",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Anthony College of Nursing"
+  },
+  {
+    "id": 851,
+    "firstName": "Charlene",
+    "lastName": "Aaron",
+    "email": null,
+    "title": "President of OSF Saint Francis Medical Center",
+    "companyName": "Saint Francis Medical Center College of Nursing"
+  },
+  {
+    "id": 852,
+    "firstName": "Keith",
+    "lastName": "Elder",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Xavier University"
+  },
+  {
+    "id": 853,
+    "firstName": "Jiseon",
+    "lastName": "Lee Isbara",
+    "email": null,
+    "title": "President",
+    "companyName": "School of the Art Institute of Chicago"
+  },
+  {
+    "id": 854,
+    "firstName": "James",
+    "lastName": "T. Minor",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Southern Illinois University Edwardsville"
+  },
+  {
+    "id": 855,
+    "firstName": "Austin",
+    "lastName": "A. Lane",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Southern Illinois University-Carbondale"
+  },
+  {
+    "id": 856,
+    "firstName": "Daniel",
+    "lastName": "F. Mahony",
+    "email": null,
+    "title": "President",
+    "companyName": "Southern Illinois University-System Office"
+  },
+  {
+    "id": 857,
+    "firstName": "Dean",
+    "lastName": "P. Bell",
+    "email": null,
+    "title": "President and CEO",
+    "companyName": "Spertus College"
+  },
+  {
+    "id": 858,
+    "firstName": "David",
+    "lastName": "J. Livingston",
+    "email": null,
+    "title": "President",
+    "companyName": "St. Augustine College"
+  },
+  {
+    "id": 859,
+    "firstName": "Traci",
+    "lastName": "Krause",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "St. John's College-Department of Nursing"
+  },
+  {
+    "id": 860,
+    "firstName": "Rabbi",
+    "lastName": "Yitzchok Z. Levin",
+    "email": null,
+    "title": "President",
+    "companyName": "Telshe Yeshiva-Chicago"
+  },
+  {
+    "id": 861,
+    "firstName": "Michele",
+    "lastName": "Nealon",
+    "email": null,
+    "title": "President",
+    "companyName": "The Chicago School at Chicago"
+  },
+  {
+    "id": 862,
+    "firstName": "Jessica",
+    "lastName": "Johnston",
+    "email": null,
+    "title": "Chief Financial Officer",
+    "companyName": "Toyota Technological Institute at Chicago"
+  },
+  {
+    "id": 863,
+    "firstName": "Aaron",
+    "lastName": "Kuecker",
+    "email": null,
+    "title": "President",
+    "companyName": "Trinity Christian College"
+  },
+  {
+    "id": 864,
+    "firstName": "Tracy",
+    "lastName": "Poelvoorde MS, RN, PhD",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Trinity College of Nursing & Health Sciences"
+  },
+  {
+    "id": 865,
+    "firstName": "Kevin",
+    "lastName": "Kompelien",
+    "email": null,
+    "title": "President",
+    "companyName": "Trinity International University-Illinois"
+  },
+  {
+    "id": 866,
+    "firstName": "Paul",
+    "lastName": "Alivisatos",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Chicago"
+  },
+  {
+    "id": 867,
+    "firstName": "Marie",
+    "lastName": "Lynn Miranda",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Illinois Chicago"
+  },
+  {
+    "id": 868,
+    "firstName": "Janet",
+    "lastName": "Gooch",
+    "email": null,
+    "title": "Chancellor and Vice President",
+    "companyName": "University of Illinois Springfield"
+  },
+  {
+    "id": 869,
+    "firstName": "Timothy",
+    "lastName": "L. Killeen",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Illinois System Offices"
+  },
+  {
+    "id": 870,
+    "firstName": "Robert",
+    "lastName": "Jones",
+    "email": null,
+    "title": "Vice President and Chancellor",
+    "companyName": "University of Illinois Urbana-Champaign"
+  },
+  {
+    "id": 871,
+    "firstName": "Reverend",
+    "lastName": "John Kartje",
+    "email": null,
+    "title": "Rector/President",
+    "companyName": "University of Saint Mary of the Lake"
+  },
+  {
+    "id": 872,
+    "firstName": "Arvid",
+    "lastName": "C. Johnson",
+    "email": null,
+    "title": "President",
+    "companyName": "University of St Francis"
+  },
+  {
+    "id": 873,
+    "firstName": "Kimberly",
+    "lastName": "Farris",
+    "email": null,
+    "title": "President",
+    "companyName": "VanderCook College of Music"
+  },
+  {
+    "id": 874,
+    "firstName": "Kristi",
+    "lastName": "Mindrup",
+    "email": null,
+    "title": "President",
+    "companyName": "Western Illinois University"
+  },
+  {
+    "id": 875,
+    "firstName": "Philip",
+    "lastName": "Ryken",
+    "email": null,
+    "title": "President",
+    "companyName": "Wheaton College"
+  },
+  {
+    "id": 876,
+    "firstName": "Geordie",
+    "lastName": "Hyland",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "American College of Education"
+  },
+  {
+    "id": 877,
+    "firstName": "David",
+    "lastName": "Boshart",
+    "email": null,
+    "title": "President",
+    "companyName": "Anabaptist Mennonite Biblical Seminary"
+  },
+  {
+    "id": 878,
+    "firstName": "John",
+    "lastName": "Pistole",
+    "email": null,
+    "title": "President",
+    "companyName": "Anderson University"
+  },
+  {
+    "id": 879,
+    "firstName": "Geoffrey",
+    "lastName": "S. Mearns",
+    "email": null,
+    "title": "President",
+    "companyName": "Ball State University"
+  },
+  {
+    "id": 880,
+    "firstName": "Jeffrey",
+    "lastName": "W. Carter",
+    "email": null,
+    "title": "President",
+    "companyName": "Bethany Theological Seminary"
+  },
+  {
+    "id": 881,
+    "firstName": "Barbara",
+    "lastName": "K. Bellefeuille",
+    "email": null,
+    "title": "President",
+    "companyName": "Bethel University"
+  },
+  {
+    "id": 882,
+    "firstName": "James",
+    "lastName": "Danko",
+    "email": null,
+    "title": "President",
+    "companyName": "Butler University"
+  },
+  {
+    "id": 883,
+    "firstName": "Amy",
+    "lastName": "McCormack",
+    "email": null,
+    "title": "President",
+    "companyName": "Calumet College of Saint Joseph"
+  },
+  {
+    "id": 884,
+    "firstName": "Karen",
+    "lastName": "Cox",
+    "email": null,
+    "title": "President",
+    "companyName": "Chamberlain University-Indiana"
+  },
+  {
+    "id": 885,
+    "firstName": "David",
+    "lastName": "M. Mellott",
+    "email": null,
+    "title": "President",
+    "companyName": "Christian Theological Seminary"
+  },
+  {
+    "id": 886,
+    "firstName": "Jon",
+    "lastName": "S. Bruss",
+    "email": null,
+    "title": "President",
+    "companyName": "Concordia Theological Seminary"
+  },
+  {
+    "id": 887,
+    "firstName": "Lori",
+    "lastName": "S. White",
+    "email": null,
+    "title": "President",
+    "companyName": "DePauw University"
+  },
+  {
+    "id": 888,
+    "firstName": "Paul",
+    "lastName": "Sniegowski",
+    "email": null,
+    "title": "President",
+    "companyName": "Earlham College"
+  }
+]

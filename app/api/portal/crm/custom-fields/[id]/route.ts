@@ -42,6 +42,10 @@ export async function PUT(
   if (body.options !== undefined) updateData.options = body.options;
   if (body.required !== undefined) updateData.required = body.required;
   if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
+  if (body.category !== undefined) {
+    const trimmed = typeof body.category === 'string' ? body.category.trim() : '';
+    updateData.category = trimmed.length > 0 ? trimmed : null;
+  }
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ success: false, message: 'No fields to update' }, { status: 400 });

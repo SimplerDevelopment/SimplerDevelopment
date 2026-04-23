@@ -44,6 +44,7 @@ export async function GET(
       lastName: crmContacts.lastName,
       email: crmContacts.email,
       phone: crmContacts.phone,
+      linkedinUrl: crmContacts.linkedinUrl,
       title: crmContacts.title,
       source: crmContacts.source,
       status: crmContacts.status,
@@ -153,6 +154,7 @@ export async function PUT(
   if (body.lastName !== undefined) updateData.lastName = body.lastName?.trim() || null;
   if (body.email !== undefined) updateData.email = body.email?.trim() || null;
   if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
+  if (body.linkedinUrl !== undefined) updateData.linkedinUrl = body.linkedinUrl?.trim() || null;
   if (body.title !== undefined) updateData.title = body.title?.trim() || null;
   if (body.source !== undefined) updateData.source = body.source?.trim() || null;
   if (body.status !== undefined) updateData.status = body.status;

@@ -873,6 +873,18 @@ export interface PitchDeckSlideV2 {
   surveyId?: number;
   /** Per-field block overrides for survey sub-slide editing. Key is the field ID. */
   surveyFieldBlocks?: Record<string, import('@/types/blocks').Block[]>;
+  /**
+   * Optional dynamic recommendation rendered after the survey thank-you.
+   * Computes a primary offering from the respondent's answers and renders a
+   * narrative + offering card stack with a book CTA.
+   */
+  surveyRecommendation?: SurveyRecommendationConfig;
+  /**
+   * Per-slide custom CSS. Auto-scoped to this slide via [data-slide-id="<slide.id>"]
+   * — write rules without a prefix and they only apply to this slide.
+   * Use `:root` or `.deck-root` selectors to escape the scope when needed.
+   */
+  customCss?: string;
   // Path groups — slides with a pathGroup belong to that branch, not the main sequence
   pathGroup?: string;
   // Decision slides — force the viewer to choose a path
@@ -888,6 +900,58 @@ export interface PitchDeckDecisionOption {
   pathGroup: string; // which path group this choice leads to
 }
 
+export interface SurveyRecommendationOffering {
+  key: string;
+  name: string;
+  tagline: string;
+  youGet: string;
+  price: string;
+  duration: string;
+}
+
+export interface SurveyRecommendationQuestion {
+  /** Field ID in the survey (e.g. 'q1') */
+  fieldId: string;
+  /** One narrative phrase per option text (used to build the "you're X" sentence) */
+  context?: Record<string, string>;
+  /** Map option text → offering key for vote tally */
+  optionToOffering: Record<string, string>;
+}
+
+export interface SurveyRecommendationHybridRule {
+  /** Map of fieldId → required option text. All must match for hybrid to fire. */
+  whenAnswers: Record<string, string>;
+  /** Title for the hybrid card (e.g. "A Snapshot into a Roadmap.") */
+  title: string;
+  /** Body copy explaining the sequence */
+  body: string;
+  /** Ordered offerings shown in the hybrid card */
+  offeringKeys: string[];
+}
+
+export interface SurveyRecommendationConfig {
+  offerings: SurveyRecommendationOffering[];
+  /** Per-question voting config. Order matters for narrative phrasing. */
+  questions: SurveyRecommendationQuestion[];
+  /**
+   * Override rule — if any answer matches, force this offering as primary
+   * (e.g. q3=D OR q2=D → advisory). First match wins.
+   */
+  overrides?: {
+    whenAnyAnswer: { fieldId: string; values: string[] }[];
+    forceOfferingKey: string;
+  }[];
+  hybrid?: SurveyRecommendationHybridRule;
+  /** Always-shown bottom card (e.g. "advisory" as a backstop suggestion) */
+  alwaysAlsoOfferingKey?: string;
+  /** Book-call URL for the primary CTA */
+  bookUrl: string;
+  /** Header label for the result screen */
+  eyebrow?: string;
+  /** Lead-in narrative template — supports {{primary}} and {{q1Context}}/{{q2Context}}/{{q3Context}} */
+  narrativeTemplate?: string;
+}
+
 export interface PitchDeckTheme {
   primaryColor: string;
   accentColor: string;
@@ -896,6 +960,12 @@ export interface PitchDeckTheme {
   headingFont: string;
   bodyFont: string;
   logo?: string;
+  /**
+   * Deck-global custom CSS injected once at the top of the presentation.
+   * Use this for fonts, base typography, repeating background patterns,
+   * and rules that need to span every slide.
+   */
+  customCss?: string;
 }
 
 export const pitchDecks = pgTable('pitch_decks', {
@@ -1807,7 +1877,11 @@ export const crmCompanies = pgTable('crm_companies', {
   phone: varchar('phone', { length: 50 }),
   address: text('address'),
   website: varchar('website', { length: 500 }),
+  logoUrl: varchar('logo_url', { length: 1000 }),
   notes: text('notes'),
+  // GPS coordinates (WGS84). 7 decimal places ≈ 1cm precision.
+  latitude: numeric('latitude', { precision: 10, scale: 7 }),
+  longitude: numeric('longitude', { precision: 10, scale: 7 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1820,6 +1894,7 @@ export const crmContacts = pgTable('crm_contacts', {
   lastName: varchar('last_name', { length: 100 }),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
   title: varchar('title', { length: 150 }), // job title
   source: varchar('source', { length: 100 }), // web, referral, cold-call, event, etc.
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, inactive, lead, customer
@@ -2367,6 +2442,8 @@ export const crmCustomFields = pgTable('crm_custom_fields', {
   fieldType: varchar('field_type', { length: 20 }).notNull(), // 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'url' | 'email' | 'phone' | 'boolean'
   options: json('options').$type<string[]>(), // for select/multiselect types
   required: boolean('required').default(false).notNull(),
+  filterable: boolean('filterable').default(false).notNull(), // shown as a filter dropdown on list pages
+  category: varchar('category', { length: 100 }), // groups fields into tabs in the record view (null → "General")
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

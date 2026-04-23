@@ -1,0 +1,402 @@
+[
+  {
+    "id": 1339,
+    "firstName": "Jason",
+    "lastName": "K. Allen",
+    "email": null,
+    "title": "President",
+    "companyName": "Midwestern Baptist Theological Seminary"
+  },
+  {
+    "id": 1340,
+    "firstName": "Mark",
+    "lastName": "Milioni",
+    "email": null,
+    "title": "President",
+    "companyName": "Mission University"
+  },
+  {
+    "id": 1341,
+    "firstName": "Keith",
+    "lastName": "Ross",
+    "email": null,
+    "title": "President",
+    "companyName": "Missouri Baptist University"
+  },
+  {
+    "id": 1342,
+    "firstName": "Dean",
+    "lastName": "Van Galen",
+    "email": null,
+    "title": "President",
+    "companyName": "Missouri Southern State University"
+  },
+  {
+    "id": 1343,
+    "firstName": "Richard",
+    "lastName": "B. Williams",
+    "email": null,
+    "title": "President",
+    "companyName": "Missouri State University-Springfield"
+  },
+  {
+    "id": 1344,
+    "firstName": "Mohammad",
+    "lastName": "Dehghani",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Missouri University of Science and Technology"
+  },
+  {
+    "id": 1345,
+    "firstName": "Joseph",
+    "lastName": "Parisi",
+    "email": null,
+    "title": "President",
+    "companyName": "Missouri Valley College"
+  },
+  {
+    "id": 1346,
+    "firstName": "Elizabeth",
+    "lastName": "Kennedy",
+    "email": null,
+    "title": "President",
+    "companyName": "Missouri Western State University"
+  },
+  {
+    "id": 1347,
+    "firstName": "Sarah",
+    "lastName": "Coleson-Derck",
+    "email": null,
+    "title": "Dean of the Faculty",
+    "companyName": "Nazarene Theological Seminary"
+  },
+  {
+    "id": 1348,
+    "firstName": "Lance",
+    "lastName": "Tatum",
+    "email": null,
+    "title": "President",
+    "companyName": "Northwest Missouri State University"
+  },
+  {
+    "id": 1349,
+    "firstName": "Matthew",
+    "lastName": "Proctor",
+    "email": null,
+    "title": "President",
+    "companyName": "Ozark Christian College"
+  },
+  {
+    "id": 1350,
+    "firstName": "Hal",
+    "lastName": "Higdon",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Ozarks Technical Community College"
+  },
+  {
+    "id": 1351,
+    "firstName": "Shane",
+    "lastName": "Smeed",
+    "email": null,
+    "title": "President",
+    "companyName": "Park University"
+  },
+  {
+    "id": 1352,
+    "firstName": "Gino",
+    "lastName": "Natalicchio",
+    "email": null,
+    "title": "President",
+    "companyName": "Ponce Health Sciences University-St Louis"
+  },
+  {
+    "id": 1353,
+    "firstName": "Don",
+    "lastName": "Pohl",
+    "email": null,
+    "title": "President",
+    "companyName": "Ranken Technical College"
+  },
+  {
+    "id": 1354,
+    "firstName": "Nancy",
+    "lastName": "DeBasio",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Research College of Nursing"
+  },
+  {
+    "id": 1355,
+    "firstName": "Sandra",
+    "lastName": "Cassady, Ph.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "Rockhurst University"
+  },
+  {
+    "id": 1356,
+    "firstName": "Jeff",
+    "lastName": "L. Pittman",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Saint Louis Community College"
+  },
+  {
+    "id": 1357,
+    "firstName": "Fred",
+    "lastName": "Pestello",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Louis University"
+  },
+  {
+    "id": 1358,
+    "firstName": "Steven",
+    "lastName": "Langdon",
+    "email": null,
+    "title": "President",
+    "companyName": "Southeast Missouri Hospital College of Nursing and Health Sciences"
+  },
+  {
+    "id": 1359,
+    "firstName": "Carlos",
+    "lastName": "Vargas-Aburto",
+    "email": null,
+    "title": "President",
+    "companyName": "Southeast Missouri State University"
+  },
+  {
+    "id": 1360,
+    "firstName": "Richard",
+    "lastName": "J. Melson",
+    "email": null,
+    "title": "President",
+    "companyName": "Southwest Baptist University"
+  },
+  {
+    "id": 1361,
+    "firstName": "Steven",
+    "lastName": "Barsam",
+    "email": null,
+    "title": "Co-Owner",
+    "companyName": "St Louis College of Health Careers-Fenton"
+  },
+  {
+    "id": 1362,
+    "firstName": "Dianne",
+    "lastName": "Lynch",
+    "email": null,
+    "title": "President",
+    "companyName": "Stephens College"
+  },
+  {
+    "id": 1363,
+    "firstName": "Cynthia",
+    "lastName": "A. Musterman",
+    "email": null,
+    "title": "President",
+    "companyName": "Stevens-The Institute of Business & Arts"
+  },
+  {
+    "id": 1364,
+    "firstName": "Susan",
+    "lastName": "Thomas",
+    "email": null,
+    "title": "President",
+    "companyName": "Truman State University"
+  },
+  {
+    "id": 1365,
+    "firstName": "Roger",
+    "lastName": "Best",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Central Missouri"
+  },
+  {
+    "id": 1366,
+    "firstName": "Brian",
+    "lastName": "Seiz",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Health Sciences and Pharmacy in St. Louis"
+  },
+  {
+    "id": 1367,
+    "firstName": "Mun",
+    "lastName": "Y. Choi",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Missouri-Columbia"
+  },
+  {
+    "id": 1368,
+    "firstName": "C.",
+    "lastName": "Mauli Agrawal",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Missouri-Kansas City"
+  },
+  {
+    "id": 1369,
+    "firstName": "Kristin",
+    "lastName": "Sobolik",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Missouri-St Louis"
+  },
+  {
+    "id": 1370,
+    "firstName": "Mun",
+    "lastName": "Y. Choi",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Missouri-System Office"
+  },
+  {
+    "id": 1371,
+    "firstName": "Jennie",
+    "lastName": "Russell",
+    "email": null,
+    "title": "Executive Vice President",
+    "companyName": "Urshan Graduate School of Theology"
+  },
+  {
+    "id": 1372,
+    "firstName": "Jennie",
+    "lastName": "Russell",
+    "email": null,
+    "title": "Executive Vice President",
+    "companyName": "Urshan University"
+  },
+  {
+    "id": 1373,
+    "firstName": "Andrew",
+    "lastName": "D. Martin",
+    "email": null,
+    "title": "H E Bridge Chancellor of Washington University",
+    "companyName": "Washington University in St Louis"
+  },
+  {
+    "id": 1374,
+    "firstName": "Timothy",
+    "lastName": "Keane",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Webster University"
+  },
+  {
+    "id": 1375,
+    "firstName": "Don",
+    "lastName": "Lofe",
+    "email": null,
+    "title": "President",
+    "companyName": "Westminster College"
+  },
+  {
+    "id": 1376,
+    "firstName": "Susan",
+    "lastName": "Chambers",
+    "email": null,
+    "title": "President",
+    "companyName": "William Jewell College"
+  },
+  {
+    "id": 1377,
+    "firstName": "Jeremy",
+    "lastName": "Moreland",
+    "email": null,
+    "title": "President",
+    "companyName": "William Woods University"
+  },
+  {
+    "id": 1378,
+    "firstName": "Galvin",
+    "lastName": "Deleon Guerrero",
+    "email": null,
+    "title": "President",
+    "companyName": "Northern Marianas College"
+  },
+  {
+    "id": 1379,
+    "firstName": "Tracy",
+    "lastName": "M. Cook",
+    "email": null,
+    "title": "President",
+    "companyName": "Alcorn State University"
+  },
+  {
+    "id": 1380,
+    "firstName": "Roger",
+    "lastName": "Parrott",
+    "email": null,
+    "title": "President",
+    "companyName": "Belhaven University"
+  },
+  {
+    "id": 1381,
+    "firstName": "Barbara",
+    "lastName": "C. McMillin",
+    "email": null,
+    "title": "President",
+    "companyName": "Blue Mountain Christian University"
+  },
+  {
+    "id": 1382,
+    "firstName": "Alfred",
+    "lastName": "Rankins, Jr.",
+    "email": null,
+    "title": "Commissioner of Higher Education",
+    "companyName": "Board of Trustees-Mississippi State Institutions of Higher Learning"
+  },
+  {
+    "id": 1383,
+    "firstName": "Daniel",
+    "lastName": "J. Ennis",
+    "email": null,
+    "title": "President",
+    "companyName": "Delta State University"
+  },
+  {
+    "id": 1384,
+    "firstName": "Marcus",
+    "lastName": "L. Thompson",
+    "email": null,
+    "title": "President",
+    "companyName": "Jackson State University"
+  },
+  {
+    "id": 1385,
+    "firstName": "Frank",
+    "lastName": "Neville",
+    "email": null,
+    "title": "President",
+    "companyName": "Millsaps College"
+  },
+  {
+    "id": 1386,
+    "firstName": "Blake",
+    "lastName": "Thompson",
+    "email": null,
+    "title": "President",
+    "companyName": "Mississippi College"
+  },
+  {
+    "id": 1387,
+    "firstName": "Mark",
+    "lastName": "Keenum",
+    "email": null,
+    "title": "President",
+    "companyName": "Mississippi State University"
+  },
+  {
+    "id": 1388,
+    "firstName": "Nora",
+    "lastName": "Miller",
+    "email": null,
+    "title": "President",
+    "companyName": "Mississippi University for Women"
+  }
+]

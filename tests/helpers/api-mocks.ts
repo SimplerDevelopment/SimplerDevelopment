@@ -7,7 +7,16 @@
  * (e.g. a local webhook sink). Unhandled requests are treated as test failures
  * (see `onUnhandledRequest: 'error'` in tests/setup-api.ts).
  */
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, passthrough } from 'msw';
+
+// ── Loopback pass-through ───────────────────────────────────────────────
+// Tests that spin up a local HTTP sink (e.g. webhook-sink) POST to 127.0.0.1.
+// Those calls must reach the real sink, not be intercepted by MSW.
+// Regex is used because MSW path-to-regexp doesn't parse `:*` port wildcards.
+const loopbackPassthrough = [
+  http.all(/^http:\/\/127\.0\.0\.1:\d+\//, () => passthrough()),
+  http.all(/^http:\/\/localhost:\d+\//, () => passthrough()),
+];
 
 // ── Stripe ───────────────────────────────────────────────────────────────
 const stripeHandlers = [
@@ -76,6 +85,7 @@ const llmHandlers = [
 ];
 
 export const apiMocks = [
+  ...loopbackPassthrough,   // must come before matchers that could shadow
   ...stripeHandlers,
   ...resendHandlers,
   ...googleHandlers,

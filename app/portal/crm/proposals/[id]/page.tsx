@@ -176,7 +176,7 @@ export default function ProposalEditorPage() {
     loadProposal();
     Promise.all([
       fetch('/api/portal/crm/contacts?limit=1000').then(r => r.json()),
-      fetch('/api/portal/crm/companies').then(r => r.json()),
+      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()),
       fetch('/api/portal/crm/deals?status=open').then(r => r.json()),
     ]).then(([c, co, d]) => {
       setContacts(c.data?.contacts ?? c.data ?? []);

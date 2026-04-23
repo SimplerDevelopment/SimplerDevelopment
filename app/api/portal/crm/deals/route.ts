@@ -11,6 +11,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, desc, asc, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
+import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -46,6 +47,10 @@ export async function GET(req: NextRequest) {
   const ownerId = url.searchParams.get('ownerId') || '';
   if (ownerId) {
     conditions.push(eq(crmDeals.ownerId, parseInt(ownerId, 10)));
+  }
+
+  for (const cf of buildCustomFieldFilters(url.searchParams, crmDeals.id, 'deal')) {
+    conditions.push(cf);
   }
 
   const deals = await db

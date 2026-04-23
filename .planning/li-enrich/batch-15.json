@@ -1,0 +1,402 @@
+[
+  {
+    "id": 739,
+    "firstName": "Thomas",
+    "lastName": "J. Ascheman",
+    "email": null,
+    "title": "President",
+    "companyName": "Divine Word College"
+  },
+  {
+    "id": 740,
+    "firstName": "Erik",
+    "lastName": "Hoekstra",
+    "email": null,
+    "title": "President",
+    "companyName": "Dordt University"
+  },
+  {
+    "id": 741,
+    "firstName": "Earl",
+    "lastName": "\"Marty\" Martin",
+    "email": null,
+    "title": "President",
+    "companyName": "Drake University"
+  },
+  {
+    "id": 742,
+    "firstName": "Philip",
+    "lastName": "Boom",
+    "email": null,
+    "title": "President",
+    "companyName": "Emmaus Bible College"
+  },
+  {
+    "id": 743,
+    "firstName": "James",
+    "lastName": "R. Tillotson",
+    "email": null,
+    "title": "President",
+    "companyName": "Faith Baptist Bible College and Theological Seminary"
+  },
+  {
+    "id": 744,
+    "firstName": "Joel",
+    "lastName": "D. Shrock, PhD",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Graceland University-Lamoni"
+  },
+  {
+    "id": 745,
+    "firstName": "Rachelle",
+    "lastName": "Keck",
+    "email": null,
+    "title": "President",
+    "companyName": "Grand View University"
+  },
+  {
+    "id": 746,
+    "firstName": "Anne",
+    "lastName": "Harris",
+    "email": null,
+    "title": "President",
+    "companyName": "Grinnell College"
+  },
+  {
+    "id": 747,
+    "firstName": "Wendy",
+    "lastName": "Wintersteen",
+    "email": null,
+    "title": "President",
+    "companyName": "Iowa State University"
+  },
+  {
+    "id": 748,
+    "firstName": "James",
+    "lastName": "E. Collins",
+    "email": null,
+    "title": "President",
+    "companyName": "Loras College"
+  },
+  {
+    "id": 749,
+    "firstName": "Bradley",
+    "lastName": "Chamberlain",
+    "email": null,
+    "title": "President",
+    "companyName": "Luther College"
+  },
+  {
+    "id": 750,
+    "firstName": "John",
+    "lastName": "Hagelin",
+    "email": null,
+    "title": "President",
+    "companyName": "Maharishi International University"
+  },
+  {
+    "id": 751,
+    "firstName": "Adreain",
+    "lastName": "Henry",
+    "email": null,
+    "title": "President",
+    "companyName": "Mercy College of Health Sciences"
+  },
+  {
+    "id": 752,
+    "firstName": "Albert",
+    "lastName": "D. Mosley",
+    "email": null,
+    "title": "President",
+    "companyName": "Morningside University"
+  },
+  {
+    "id": 753,
+    "firstName": "Todd",
+    "lastName": "A. Olson",
+    "email": null,
+    "title": "President",
+    "companyName": "Mount Mercy University"
+  },
+  {
+    "id": 754,
+    "firstName": "Gregory",
+    "lastName": "Christy",
+    "email": null,
+    "title": "President",
+    "companyName": "Northwestern College"
+  },
+  {
+    "id": 755,
+    "firstName": "Troy",
+    "lastName": "Harris",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Orion Technical College"
+  },
+  {
+    "id": 756,
+    "firstName": "Dennis",
+    "lastName": "Marchiori",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Palmer College of Chiropractic"
+  },
+  {
+    "id": 757,
+    "firstName": "Amy",
+    "lastName": "Novak",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Ambrose University"
+  },
+  {
+    "id": 758,
+    "firstName": "Jay",
+    "lastName": "Byers",
+    "email": null,
+    "title": "President",
+    "companyName": "Simpson College"
+  },
+  {
+    "id": 759,
+    "firstName": "Kendra",
+    "lastName": "Ericson",
+    "email": null,
+    "title": "President",
+    "companyName": "St Luke's College"
+  },
+  {
+    "id": 760,
+    "firstName": "Travis",
+    "lastName": "Frampton",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Dubuque"
+  },
+  {
+    "id": 761,
+    "firstName": "Barbara",
+    "lastName": "J Wilson",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Iowa"
+  },
+  {
+    "id": 762,
+    "firstName": "Mark",
+    "lastName": "Nook",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Northern Iowa"
+  },
+  {
+    "id": 763,
+    "firstName": "Kathy",
+    "lastName": "Franken",
+    "email": null,
+    "title": "President",
+    "companyName": "Upper Iowa University"
+  },
+  {
+    "id": 764,
+    "firstName": "Robert",
+    "lastName": "A. Alsop",
+    "email": null,
+    "title": "President",
+    "companyName": "Waldorf University"
+  },
+  {
+    "id": 765,
+    "firstName": "Rebecca",
+    "lastName": "Ehretsman",
+    "email": null,
+    "title": "President",
+    "companyName": "Wartburg College"
+  },
+  {
+    "id": 766,
+    "firstName": "Kristin",
+    "lastName": "Largen",
+    "email": null,
+    "title": "President",
+    "companyName": "Wartburg Theological Seminary"
+  },
+  {
+    "id": 767,
+    "firstName": "John",
+    "lastName": "Ottosson",
+    "email": null,
+    "title": "President",
+    "companyName": "William Penn University"
+  },
+  {
+    "id": 768,
+    "firstName": "Scott",
+    "lastName": "Lerwick",
+    "email": null,
+    "title": "President",
+    "companyName": "Boise Bible College"
+  },
+  {
+    "id": 769,
+    "firstName": "Marlene",
+    "lastName": "Tromp",
+    "email": null,
+    "title": "President",
+    "companyName": "Boise State University"
+  },
+  {
+    "id": 770,
+    "firstName": "Alvin",
+    "lastName": "Meredith",
+    "email": null,
+    "title": "President",
+    "companyName": "Brigham Young University-Idaho"
+  },
+  {
+    "id": 771,
+    "firstName": "L.",
+    "lastName": "Dean Fisher",
+    "email": null,
+    "title": "President",
+    "companyName": "College of Southern Idaho"
+  },
+  {
+    "id": 772,
+    "firstName": "Don",
+    "lastName": "Corvin",
+    "email": null,
+    "title": "Sr. Vice President of Compliance",
+    "companyName": "Eagle Gate College-Boise Campus"
+  },
+  {
+    "id": 773,
+    "firstName": "Tracy",
+    "lastName": "Farnsworth",
+    "email": null,
+    "title": "President and Chief Executive Officer",
+    "companyName": "Idaho College of Osteopathic Medicine"
+  },
+  {
+    "id": 774,
+    "firstName": "Robert",
+    "lastName": "Wagner",
+    "email": null,
+    "title": "President",
+    "companyName": "Idaho State University"
+  },
+  {
+    "id": 775,
+    "firstName": "Cynthia",
+    "lastName": "Pemberton",
+    "email": null,
+    "title": "President",
+    "companyName": "Lewis-Clark State College"
+  },
+  {
+    "id": 776,
+    "firstName": "Benjamin",
+    "lastName": "Merkle",
+    "email": null,
+    "title": "President",
+    "companyName": "New Saint Andrews College"
+  },
+  {
+    "id": 777,
+    "firstName": "Joel",
+    "lastName": "Pearsall",
+    "email": null,
+    "title": "President",
+    "companyName": "Northwest Nazarene University"
+  },
+  {
+    "id": 778,
+    "firstName": "Don",
+    "lastName": "Corvin",
+    "email": null,
+    "title": "Sr. Vice President of Compliance",
+    "companyName": "Provo College-Idaho Falls Campus"
+  },
+  {
+    "id": 779,
+    "firstName": "Doug",
+    "lastName": "Brigham",
+    "email": null,
+    "title": "President",
+    "companyName": "The College of Idaho"
+  },
+  {
+    "id": 780,
+    "firstName": "Scott",
+    "lastName": "Green",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Idaho"
+  },
+  {
+    "id": 781,
+    "firstName": "Lisa",
+    "lastName": "Coleman",
+    "email": null,
+    "title": "President",
+    "companyName": "Adler University"
+  },
+  {
+    "id": 782,
+    "firstName": "Gene",
+    "lastName": "Crume",
+    "email": null,
+    "title": "President",
+    "companyName": "Ambria College of Nursing"
+  },
+  {
+    "id": 783,
+    "firstName": "Timothy",
+    "lastName": "J. Gianotti",
+    "email": null,
+    "title": "PRESIDENT",
+    "companyName": "American Islamic College"
+  },
+  {
+    "id": 784,
+    "firstName": "Andrea",
+    "lastName": "Talentino",
+    "email": null,
+    "title": "President",
+    "companyName": "Augustana College"
+  },
+  {
+    "id": 785,
+    "firstName": "Susana",
+    "lastName": "Rivera-Mills",
+    "email": null,
+    "title": "President",
+    "companyName": "Aurora University"
+  },
+  {
+    "id": 786,
+    "firstName": "Joseph",
+    "lastName": "Foy PhD",
+    "email": null,
+    "title": "President",
+    "companyName": "Benedictine University"
+  },
+  {
+    "id": 787,
+    "firstName": "Micah",
+    "lastName": "Jackson",
+    "email": null,
+    "title": "President",
+    "companyName": "Bexley Hall Seabury Western Theological Seminary Federation, Inc."
+  },
+  {
+    "id": 788,
+    "firstName": "Larry",
+    "lastName": "K. Lee",
+    "email": null,
+    "title": "President",
+    "companyName": "Blackburn College"
+  }
+]

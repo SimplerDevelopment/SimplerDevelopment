@@ -69,11 +69,14 @@ export default defineConfig({
           // schemas left by prior crashed runs so disk usage stays bounded.
           globalSetup: ['./tests/helpers/global-setup.ts'],
           pool: 'forks',
-          // Parallel forks (one per spec file) — each worker gets an isolated
-          // test_e2e_<id> schema. setup-api.ts drops that schema in afterAll, so
-          // a crash-free run cleans itself up. If a run is killed, use
-          //   npx tsx scripts/cleanup-test-schemas.ts
-          // to sweep stragglers.
+          // Parallel forks, BUT capped at 2 concurrent workers. Each worker
+          // owns a test_e2e_<id> schema with ~55 tables; the test DB's disk
+          // quota can't host all 16 spec files' schemas at once.
+          //   setup-api.ts drops the worker's schema in afterAll.
+          //   global-setup drops orphans from crashed runs at startup.
+          //   scripts/cleanup-test-schemas.ts sweeps manually.
+          maxWorkers: 2,
+          minWorkers: 1,
           hookTimeout: 120_000,
           testTimeout: 15_000,
         },

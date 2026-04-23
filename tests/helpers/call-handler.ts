@@ -55,10 +55,17 @@ export async function callHandler<T = unknown>(
     headers.set('cookie', cookie);
   }
 
+  // If body is already a string, pass through verbatim (critical for HMAC-signed
+  // payloads where the exact byte sequence matters). Otherwise JSON-stringify.
+  const bodyInit =
+    opts.body === undefined ? undefined
+      : typeof opts.body === 'string' ? opts.body
+      : JSON.stringify(opts.body);
+
   const req = new NextRequest(url, {
     method,
     headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: bodyInit,
   });
 
   const ctx = { params: Promise.resolve(opts.params ?? {}) };

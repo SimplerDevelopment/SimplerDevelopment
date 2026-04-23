@@ -1,0 +1,402 @@
+[
+  {
+    "id": 1639,
+    "firstName": "Cinnamon",
+    "lastName": "P. Carlarne",
+    "email": null,
+    "title": "President and Dean",
+    "companyName": "Albany Law School"
+  },
+  {
+    "id": 1640,
+    "firstName": "Alan",
+    "lastName": "Boulos",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Albany Medical College"
+  },
+  {
+    "id": 1641,
+    "firstName": "Gordon",
+    "lastName": "Tomaselli",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Albert Einstein College of Medicine"
+  },
+  {
+    "id": 1642,
+    "firstName": "Mark",
+    "lastName": "Zupan",
+    "email": null,
+    "title": "President",
+    "companyName": "Alfred University"
+  },
+  {
+    "id": 1643,
+    "firstName": "Jan",
+    "lastName": "Rugger Martin",
+    "email": null,
+    "title": "Executive Director",
+    "companyName": "American Musical and Dramatic Academy"
+  },
+  {
+    "id": 1644,
+    "firstName": "Rabbi",
+    "lastName": "Sholom Goldstein",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Associated Beth Rivkah Schools"
+  },
+  {
+    "id": 1645,
+    "firstName": "Rabbi",
+    "lastName": "Yeruchom Zeilberger",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Bais Binyomin Academy"
+  },
+  {
+    "id": 1646,
+    "firstName": "Rabbi",
+    "lastName": "Israel Falk",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Bais Medrash Elyon"
+  },
+  {
+    "id": 1647,
+    "firstName": "Rabbi",
+    "lastName": "Paul Z Koschitzki",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Bais Medrash of Dexter Park"
+  },
+  {
+    "id": 1648,
+    "firstName": "Shael",
+    "lastName": "Polakow-Suransky",
+    "email": null,
+    "title": "President",
+    "companyName": "Bank Street College of Education"
+  },
+  {
+    "id": 1649,
+    "firstName": "Leon",
+    "lastName": "Botstein",
+    "email": null,
+    "title": "President",
+    "companyName": "Bard College"
+  },
+  {
+    "id": 1650,
+    "firstName": "Laura",
+    "lastName": "Rosenbury",
+    "email": null,
+    "title": "President",
+    "companyName": "Barnard College"
+  },
+  {
+    "id": 1651,
+    "firstName": "Jacob",
+    "lastName": "Unger",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Be'er Yaakov Talmudic Seminary"
+  },
+  {
+    "id": 1652,
+    "firstName": "Rabbi",
+    "lastName": "Yaakov Bender",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Beis Medrash Heichal Dovid"
+  },
+  {
+    "id": 1653,
+    "firstName": "Diane",
+    "lastName": "Recinos",
+    "email": null,
+    "title": "President",
+    "companyName": "Berkeley College-New York"
+  },
+  {
+    "id": 1654,
+    "firstName": "Rabbi",
+    "lastName": "Baraka",
+    "email": null,
+    "title": "Financial Aid Administrator",
+    "companyName": "Bet Medrash Gadol Ateret Torah"
+  },
+  {
+    "id": 1655,
+    "firstName": "Pinches",
+    "lastName": "Kaff",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Beth Hamedrash Shaarei Yosher Institute"
+  },
+  {
+    "id": 1656,
+    "firstName": "Rabbi",
+    "lastName": "Mendel Huss",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Beth Medrash Meor Yitzchok"
+  },
+  {
+    "id": 1657,
+    "firstName": "Harvey",
+    "lastName": "G. Stenger, Jr.",
+    "email": null,
+    "title": "President",
+    "companyName": "Binghamton University"
+  },
+  {
+    "id": 1658,
+    "firstName": "Victor",
+    "lastName": "G. Alicea",
+    "email": null,
+    "title": "President",
+    "companyName": "Boricua College"
+  },
+  {
+    "id": 1659,
+    "firstName": "David",
+    "lastName": "Myer",
+    "email": null,
+    "title": "Dean and President",
+    "companyName": "Brooklyn Law School"
+  },
+  {
+    "id": 1660,
+    "firstName": "Walsh,",
+    "lastName": "Michael",
+    "email": null,
+    "title": "Albany Campus Director",
+    "companyName": "Bryant & Stratton College-Albany"
+  },
+  {
+    "id": 1661,
+    "firstName": "Jeff",
+    "lastName": "Tredo",
+    "email": null,
+    "title": "WNY Campus Director",
+    "companyName": "Bryant & Stratton College-Buffalo"
+  },
+  {
+    "id": 1662,
+    "firstName": "Michael",
+    "lastName": "Mariani",
+    "email": null,
+    "title": "Rochester Campus Director",
+    "companyName": "Bryant & Stratton College-Greece"
+  },
+  {
+    "id": 1663,
+    "firstName": "Scott",
+    "lastName": "Traylor",
+    "email": null,
+    "title": "Vice President",
+    "companyName": "Bryant & Stratton College-Online"
+  },
+  {
+    "id": 1664,
+    "firstName": "Mary",
+    "lastName": "Hawkins",
+    "email": null,
+    "title": "Campus Director",
+    "companyName": "Bryant & Stratton College-Syracuse North"
+  },
+  {
+    "id": 1665,
+    "firstName": "S.",
+    "lastName": "David Wu",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Bernard M Baruch College"
+  },
+  {
+    "id": 1666,
+    "firstName": "Michelle",
+    "lastName": "J. Anderson",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Brooklyn College"
+  },
+  {
+    "id": 1667,
+    "firstName": "Vincent",
+    "lastName": "Boudreau",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY City College"
+  },
+  {
+    "id": 1668,
+    "firstName": "Joshua",
+    "lastName": "Brumberg",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Graduate School and University Center"
+  },
+  {
+    "id": 1669,
+    "firstName": "Nancy",
+    "lastName": "Cantor",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Hunter College"
+  },
+  {
+    "id": 1670,
+    "firstName": "Karol",
+    "lastName": "V. Mason",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY John Jay College of Criminal Justice"
+  },
+  {
+    "id": 1671,
+    "firstName": "Fernando",
+    "lastName": "Delgado",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Lehman College"
+  },
+  {
+    "id": 1672,
+    "firstName": "Patricia",
+    "lastName": "Ramsey",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Medgar Evers College"
+  },
+  {
+    "id": 1673,
+    "firstName": "Russell",
+    "lastName": "K. Hotzler",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY New York City College of Technology"
+  },
+  {
+    "id": 1674,
+    "firstName": "Frank",
+    "lastName": "H. Wu",
+    "email": null,
+    "title": "President",
+    "companyName": "CUNY Queens College"
+  },
+  {
+    "id": 1675,
+    "firstName": "Sudha",
+    "lastName": "Setty",
+    "email": null,
+    "title": "Law School Dean",
+    "companyName": "CUNY School of Law"
+  },
+  {
+    "id": 1676,
+    "firstName": "Félix",
+    "lastName": "Matos Rodríguez",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "CUNY System Office"
+  },
+  {
+    "id": 1677,
+    "firstName": "Claudia",
+    "lastName": "V. Schrader",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "CUNY York College"
+  },
+  {
+    "id": 1678,
+    "firstName": "Steve",
+    "lastName": "K. Stoute",
+    "email": null,
+    "title": "President",
+    "companyName": "Canisius University"
+  },
+  {
+    "id": 1679,
+    "firstName": "Moshe",
+    "lastName": "Jofen",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Central Yeshiva Beth Joseph"
+  },
+  {
+    "id": 1680,
+    "firstName": "Rabbi",
+    "lastName": "Moshe M. Gluckowsky",
+    "email": null,
+    "title": "FAA",
+    "companyName": "Central Yeshiva Tomchei Tmimim Lubavitz"
+  },
+  {
+    "id": 1681,
+    "firstName": "David",
+    "lastName": "Heacock",
+    "email": null,
+    "title": "Acting President and Trustee",
+    "companyName": "Clarkson University"
+  },
+  {
+    "id": 1682,
+    "firstName": "Angela",
+    "lastName": "D. Sims",
+    "email": null,
+    "title": "President",
+    "companyName": "Colgate Rochester Crozer Divinity School"
+  },
+  {
+    "id": 1683,
+    "firstName": "Brian",
+    "lastName": "W. Casey",
+    "email": null,
+    "title": "President",
+    "companyName": "Colgate University"
+  },
+  {
+    "id": 1684,
+    "firstName": "Timothy",
+    "lastName": "G. Lynch",
+    "email": null,
+    "title": "President",
+    "companyName": "College of Staten Island CUNY"
+  },
+  {
+    "id": 1685,
+    "firstName": "Katrina",
+    "lastName": "Armstrong",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Columbia University in the City of New York"
+  },
+  {
+    "id": 1686,
+    "firstName": "Yaakov",
+    "lastName": "Singer",
+    "email": null,
+    "title": "Ceo",
+    "companyName": "Congregation Talmidei Mesivta Tiferes Shmiel Aleksander"
+  },
+  {
+    "id": 1687,
+    "firstName": "Michael",
+    "lastName": "Kotlikoff",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Cornell University"
+  },
+  {
+    "id": 1688,
+    "firstName": "Michiel",
+    "lastName": "Bakker",
+    "email": null,
+    "title": "President",
+    "companyName": "Culinary Institute of America"
+  }
+]

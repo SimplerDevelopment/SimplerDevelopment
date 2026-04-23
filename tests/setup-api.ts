@@ -10,13 +10,13 @@ import './helpers/test-bootstrap';
 import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { apiMocks } from './helpers/api-mocks';
-import { applyTestSchema, truncateTestData } from './helpers/test-db';
+import { applyTestSchema, truncateTestData, dropTestSchema } from './helpers/test-db';
 
 export const server = setupServer(...apiMocks);
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
-  await applyTestSchema();   // idempotent — fast path if schema already migrated
+  await applyTestSchema();   // idempotent — skipped if this worker's schema was reused
 });
 
 beforeEach(async () => {
@@ -26,7 +26,8 @@ beforeEach(async () => {
 
 afterAll(async () => {
   server.close();
-  // Intentionally do NOT drop the schema — it persists across test files + runs
-  // so subsequent applyTestSchema() takes the fast path. Use reset-e2e-db.ts to
-  // force a full rebuild when migration state drifts.
+  // Drop this worker's schema on teardown so we don't accumulate across runs.
+  // If Vitest is configured with singleFork (preferred), this drops exactly
+  // once per integration-api run — the migration replay cost is paid once.
+  await dropTestSchema();
 });

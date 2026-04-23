@@ -1,0 +1,402 @@
+[
+  {
+    "id": 939,
+    "firstName": "Steven",
+    "lastName": "Eckman",
+    "email": null,
+    "title": "President",
+    "companyName": "Bethany College"
+  },
+  {
+    "id": 940,
+    "firstName": "Jon",
+    "lastName": "Gering",
+    "email": null,
+    "title": "President",
+    "companyName": "Bethel College-North Newton"
+  },
+  {
+    "id": 941,
+    "firstName": "Leonard",
+    "lastName": "Favara",
+    "email": null,
+    "title": "President",
+    "companyName": "Central Christian College of Kansas"
+  },
+  {
+    "id": 942,
+    "firstName": "Carl",
+    "lastName": "S Cleveland III",
+    "email": null,
+    "title": "President",
+    "companyName": "Cleveland University-Kansas City"
+  },
+  {
+    "id": 943,
+    "firstName": "Msgr.",
+    "lastName": "Stuart Swetland",
+    "email": null,
+    "title": "President",
+    "companyName": "Donnelly College"
+  },
+  {
+    "id": 944,
+    "firstName": "Ken",
+    "lastName": "Hush",
+    "email": null,
+    "title": "President",
+    "companyName": "Emporia State University"
+  },
+  {
+    "id": 945,
+    "firstName": "Tisa",
+    "lastName": "Mason",
+    "email": null,
+    "title": "President",
+    "companyName": "Fort Hays State University"
+  },
+  {
+    "id": 946,
+    "firstName": "Amy",
+    "lastName": "Bragg Carey",
+    "email": null,
+    "title": "President",
+    "companyName": "Friends University"
+  },
+  {
+    "id": 947,
+    "firstName": "Francis",
+    "lastName": "Arpan",
+    "email": null,
+    "title": "President",
+    "companyName": "Haskell Indian Nations University"
+  },
+  {
+    "id": 948,
+    "firstName": "Ross",
+    "lastName": "Peterson-Veatch",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Hesston College"
+  },
+  {
+    "id": 949,
+    "firstName": "Chad",
+    "lastName": "Pollard",
+    "email": null,
+    "title": "President",
+    "companyName": "Kansas Christian College"
+  },
+  {
+    "id": 950,
+    "firstName": "Tiffany",
+    "lastName": "Masson",
+    "email": null,
+    "title": "Chief Executive Officer of KHS",
+    "companyName": "Kansas Health Science University"
+  },
+  {
+    "id": 951,
+    "firstName": "Richard",
+    "lastName": "Linton",
+    "email": null,
+    "title": "President",
+    "companyName": "Kansas State University"
+  },
+  {
+    "id": 952,
+    "firstName": "Matt",
+    "lastName": "Thompson",
+    "email": null,
+    "title": "President and CEO",
+    "companyName": "Kansas Wesleyan University"
+  },
+  {
+    "id": 953,
+    "firstName": "Kevin",
+    "lastName": "Ingram",
+    "email": null,
+    "title": "President",
+    "companyName": "Manhattan Christian College"
+  },
+  {
+    "id": 954,
+    "firstName": "Michael",
+    "lastName": "Schneider",
+    "email": null,
+    "title": "President",
+    "companyName": "McPherson College"
+  },
+  {
+    "id": 955,
+    "firstName": "David",
+    "lastName": "J. Spittal",
+    "email": null,
+    "title": "President",
+    "companyName": "MidAmerica Nazarene University"
+  },
+  {
+    "id": 956,
+    "firstName": "Kathleen",
+    "lastName": "S. Jagger",
+    "email": null,
+    "title": "President",
+    "companyName": "Newman University"
+  },
+  {
+    "id": 957,
+    "firstName": "Bill",
+    "lastName": "Tsutsui",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Ottawa University-Kansas City"
+  },
+  {
+    "id": 958,
+    "firstName": "Bill",
+    "lastName": "Tsutsui",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Ottawa University-Online"
+  },
+  {
+    "id": 959,
+    "firstName": "Bambi",
+    "lastName": "Burgard",
+    "email": null,
+    "title": "Interim Campus President",
+    "companyName": "Ottawa University-Ottawa"
+  },
+  {
+    "id": 960,
+    "firstName": "Dan",
+    "lastName": "Shipp",
+    "email": null,
+    "title": "President",
+    "companyName": "Pittsburg State University"
+  },
+  {
+    "id": 961,
+    "firstName": "Paula",
+    "lastName": "Singer",
+    "email": null,
+    "title": "President & Chief Academic Officer",
+    "companyName": "Rasmussen University-Kansas"
+  },
+  {
+    "id": 962,
+    "firstName": "Jay",
+    "lastName": "Simmons",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Paul School of Theology"
+  },
+  {
+    "id": 963,
+    "firstName": "Liz",
+    "lastName": "Frombgen",
+    "email": null,
+    "title": "President",
+    "companyName": "Southwestern College"
+  },
+  {
+    "id": 964,
+    "firstName": "Scott",
+    "lastName": "Rich",
+    "email": null,
+    "title": "President",
+    "companyName": "Sterling College"
+  },
+  {
+    "id": 965,
+    "firstName": "David",
+    "lastName": "Janzen",
+    "email": null,
+    "title": "President",
+    "companyName": "Tabor College"
+  },
+  {
+    "id": 966,
+    "firstName": "Douglas",
+    "lastName": "A. Girod",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Kansas"
+  },
+  {
+    "id": 967,
+    "firstName": "Diane",
+    "lastName": "Steele, SCL, Ph.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Saint Mary"
+  },
+  {
+    "id": 968,
+    "firstName": "JuliAnn",
+    "lastName": "Mazachek",
+    "email": null,
+    "title": "President",
+    "companyName": "Washburn University"
+  },
+  {
+    "id": 969,
+    "firstName": "Richard",
+    "lastName": "Muma",
+    "email": null,
+    "title": "President",
+    "companyName": "Wichita State University"
+  },
+  {
+    "id": 970,
+    "firstName": "Jim",
+    "lastName": "Stepp",
+    "email": null,
+    "title": "President",
+    "companyName": "Alice Lloyd College"
+  },
+  {
+    "id": 971,
+    "firstName": "Frank",
+    "lastName": "Longaker",
+    "email": null,
+    "title": "President",
+    "companyName": "American National University-Pikeville"
+  },
+  {
+    "id": 972,
+    "firstName": "David",
+    "lastName": "Gyertson",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Asbury Theological Seminary"
+  },
+  {
+    "id": 973,
+    "firstName": "Kevin",
+    "lastName": "J. Brown",
+    "email": null,
+    "title": "President",
+    "companyName": "Asbury University"
+  },
+  {
+    "id": 974,
+    "firstName": "Diana",
+    "lastName": "Lawrence",
+    "email": null,
+    "title": "President",
+    "companyName": "Beckfield College-Florence"
+  },
+  {
+    "id": 975,
+    "firstName": "Susan",
+    "lastName": "M. Donovan",
+    "email": null,
+    "title": "President",
+    "companyName": "Bellarmine University"
+  },
+  {
+    "id": 976,
+    "firstName": "Cheryl",
+    "lastName": "Nixon",
+    "email": null,
+    "title": "President",
+    "companyName": "Berea College"
+  },
+  {
+    "id": 977,
+    "firstName": "Larry",
+    "lastName": "Hostetter, S.T.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "Brescia University"
+  },
+  {
+    "id": 978,
+    "firstName": "Joseph",
+    "lastName": "Hopkins",
+    "email": null,
+    "title": "President",
+    "companyName": "Campbellsville University"
+  },
+  {
+    "id": 979,
+    "firstName": "Milton",
+    "lastName": "C. Moreland",
+    "email": null,
+    "title": "President",
+    "companyName": "Centre College"
+  },
+  {
+    "id": 980,
+    "firstName": "Charles",
+    "lastName": "R. Goodman",
+    "email": null,
+    "title": "President",
+    "companyName": "Clear Creek Baptist Bible College"
+  },
+  {
+    "id": 981,
+    "firstName": "David",
+    "lastName": "McFaddin",
+    "email": null,
+    "title": "President",
+    "companyName": "Eastern Kentucky University"
+  },
+  {
+    "id": 982,
+    "firstName": "Brooke",
+    "lastName": "A. Flinders, DNP, RN, APRN-CNM, FACNM",
+    "email": null,
+    "title": "President",
+    "companyName": "Frontier Nursing University"
+  },
+  {
+    "id": 983,
+    "firstName": "Lisa",
+    "lastName": "Peak",
+    "email": null,
+    "title": "Regional Dean",
+    "companyName": "Galen College of Nursing-Louisville"
+  },
+  {
+    "id": 984,
+    "firstName": "Rosemary",
+    "lastName": "Allen",
+    "email": null,
+    "title": "President",
+    "companyName": "Georgetown College"
+  },
+  {
+    "id": 985,
+    "firstName": "Terry",
+    "lastName": "L. Allcorn",
+    "email": null,
+    "title": "President",
+    "companyName": "Kentucky Christian University"
+  },
+  {
+    "id": 986,
+    "firstName": "Robert",
+    "lastName": "Pocai",
+    "email": null,
+    "title": "President",
+    "companyName": "Kentucky Mountain Bible College"
+  },
+  {
+    "id": 987,
+    "firstName": "Koffi",
+    "lastName": "Akakpo",
+    "email": null,
+    "title": "President",
+    "companyName": "Kentucky State University"
+  },
+  {
+    "id": 988,
+    "firstName": "James",
+    "lastName": "Cousins",
+    "email": null,
+    "title": "President",
+    "companyName": "Kentucky Wesleyan College"
+  }
+]

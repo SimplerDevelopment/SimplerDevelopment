@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   projects,
@@ -54,7 +54,7 @@ import {
   siteNavigation, postRevisions, blockTemplates,
   emailTemplates, emailSegments,
   giftCertificates,
-  crmCustomFields, crmSavedViews, crmScoringRules,
+  crmCustomFields, crmCustomFieldValues, crmSavedViews, crmScoringRules,
   websiteDomains, websiteEnvironments, websiteEnvVars,
   clients, aiCreditBalances, aiCreditLedger,
 } from '@/lib/db/schema';
@@ -656,6 +656,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         lastName: z.string().optional(),
         email: z.string().email().optional(),
         phone: z.string().optional(),
+        linkedinUrl: z.string().url().optional(),
         title: z.string().optional(),
         companyId: z.number().optional(),
         status: z.enum(['active', 'inactive', 'lead', 'customer']).optional(),
@@ -670,6 +671,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         lastName: args.lastName ?? null,
         email: args.email ?? null,
         phone: args.phone ?? null,
+        linkedinUrl: args.linkedinUrl ?? null,
         title: args.title ?? null,
         companyId: args.companyId ?? null,
         status: args.status ?? 'active',
@@ -692,6 +694,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         lastName: z.string().nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().nullable().optional(),
+        linkedinUrl: z.string().url().nullable().optional(),
         title: z.string().nullable().optional(),
         companyId: z.number().nullable().optional(),
         status: z.enum(['active', 'inactive', 'lead', 'customer']).optional(),
@@ -4334,10 +4337,11 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         fieldType: z.enum(['text', 'number', 'date', 'select', 'multiselect', 'url', 'email', 'phone', 'boolean']),
         options: z.array(z.string()).optional(),
         required: z.boolean().optional(),
+        filterable: z.boolean().optional(),
         sortOrder: z.number().optional(),
       },
     },
-    async ({ entityType, fieldName, fieldType, options, required, sortOrder }) => {
+    async ({ entityType, fieldName, fieldType, options, required, filterable, sortOrder }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
       const [row] = await db.insert(crmCustomFields).values({
         clientId,
@@ -4346,10 +4350,171 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         fieldType,
         options: options ?? null,
         required: required ?? false,
+        filterable: filterable ?? false,
         sortOrder: sortOrder ?? 0,
       }).returning();
       revalidateForWrite('portal');
       return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_custom_fields_update',
+    {
+      title: 'Update CRM custom field',
+      description: 'Rename, toggle required, reorder, or update options on an existing custom field definition.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        fieldName: z.string().min(1).optional(),
+        options: z.array(z.string()).nullable().optional(),
+        required: z.boolean().optional(),
+        filterable: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      },
+    },
+    async ({ id, fieldName, options, required, filterable, sortOrder }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [existing] = await db.select({ id: crmCustomFields.id }).from(crmCustomFields)
+        .where(and(eq(crmCustomFields.id, id), eq(crmCustomFields.clientId, clientId))).limit(1);
+      if (!existing) return json({ error: 'Custom field not found' });
+      const patch: Record<string, unknown> = {};
+      if (fieldName !== undefined) patch.fieldName = fieldName.trim();
+      if (options !== undefined) patch.options = options;
+      if (required !== undefined) patch.required = required;
+      if (filterable !== undefined) patch.filterable = filterable;
+      if (sortOrder !== undefined) patch.sortOrder = sortOrder;
+      if (Object.keys(patch).length === 0) return json({ error: 'No fields to update' });
+      const [row] = await db.update(crmCustomFields).set(patch)
+        .where(eq(crmCustomFields.id, id)).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_custom_fields_delete',
+    {
+      title: 'Delete CRM custom field',
+      description: 'Remove a custom field definition. All stored values for this field are cascaded.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [row] = await db.delete(crmCustomFields)
+        .where(and(eq(crmCustomFields.id, id), eq(crmCustomFields.clientId, clientId)))
+        .returning();
+      if (!row) return json({ error: 'Custom field not found' });
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
+    'crm_custom_field_values_get',
+    {
+      title: 'Read CRM custom field values',
+      description: 'Fetch custom field values (joined with their definitions) for a given contact, company, or deal.',
+      inputSchema: {
+        entityType: z.enum(['contact', 'company', 'deal']),
+        entityId: z.number().int().positive(),
+      },
+    },
+    async ({ entityType, entityId }) => {
+      if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
+      let entityOk = false;
+      if (entityType === 'contact') {
+        const [row] = await db.select({ id: crmContacts.id }).from(crmContacts)
+          .where(and(eq(crmContacts.id, entityId), eq(crmContacts.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      } else if (entityType === 'company') {
+        const [row] = await db.select({ id: crmCompanies.id }).from(crmCompanies)
+          .where(and(eq(crmCompanies.id, entityId), eq(crmCompanies.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      } else {
+        const [row] = await db.select({ id: crmDeals.id }).from(crmDeals)
+          .where(and(eq(crmDeals.id, entityId), eq(crmDeals.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      }
+      if (!entityOk) return json({ error: 'Entity not found' });
+      const rows = await db.select({
+        id: crmCustomFieldValues.id,
+        customFieldId: crmCustomFieldValues.customFieldId,
+        entityId: crmCustomFieldValues.entityId,
+        entityType: crmCustomFieldValues.entityType,
+        value: crmCustomFieldValues.value,
+        fieldName: crmCustomFields.fieldName,
+        fieldType: crmCustomFields.fieldType,
+        options: crmCustomFields.options,
+        required: crmCustomFields.required,
+      })
+        .from(crmCustomFieldValues)
+        .innerJoin(crmCustomFields, eq(crmCustomFieldValues.customFieldId, crmCustomFields.id))
+        .where(and(
+          eq(crmCustomFieldValues.entityType, entityType),
+          eq(crmCustomFieldValues.entityId, entityId),
+          eq(crmCustomFields.clientId, clientId),
+        ));
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_custom_field_values_set',
+    {
+      title: 'Upsert CRM custom field values',
+      description: 'Set (insert or update) custom field values on a contact/company/deal. Pass values as { [fieldId]: stringValue }. Pass empty string or null to clear.',
+      inputSchema: {
+        entityType: z.enum(['contact', 'company', 'deal']),
+        entityId: z.number().int().positive(),
+        values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+      },
+    },
+    async ({ entityType, entityId, values }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      let entityOk = false;
+      if (entityType === 'contact') {
+        const [row] = await db.select({ id: crmContacts.id }).from(crmContacts)
+          .where(and(eq(crmContacts.id, entityId), eq(crmContacts.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      } else if (entityType === 'company') {
+        const [row] = await db.select({ id: crmCompanies.id }).from(crmCompanies)
+          .where(and(eq(crmCompanies.id, entityId), eq(crmCompanies.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      } else {
+        const [row] = await db.select({ id: crmDeals.id }).from(crmDeals)
+          .where(and(eq(crmDeals.id, entityId), eq(crmDeals.clientId, clientId))).limit(1);
+        entityOk = !!row;
+      }
+      if (!entityOk) return json({ error: 'Entity not found' });
+
+      const fieldIds = Object.keys(values).map(k => parseInt(k, 10)).filter(n => !isNaN(n));
+      if (fieldIds.length === 0) return json([]);
+
+      const validFields = await db.select({ id: crmCustomFields.id }).from(crmCustomFields)
+        .where(and(eq(crmCustomFields.clientId, clientId), inArray(crmCustomFields.id, fieldIds)));
+      const validFieldIds = new Set(validFields.map(f => f.id));
+
+      const results = [];
+      for (const [fieldIdStr, raw] of Object.entries(values)) {
+        const fieldId = parseInt(fieldIdStr, 10);
+        if (!validFieldIds.has(fieldId)) continue;
+        const stringValue = raw === null || raw === undefined ? null : String(raw);
+        const [row] = await db.insert(crmCustomFieldValues).values({
+          customFieldId: fieldId,
+          entityId,
+          entityType,
+          value: stringValue,
+          updatedAt: new Date(),
+        }).onConflictDoUpdate({
+          target: [crmCustomFieldValues.customFieldId, crmCustomFieldValues.entityId, crmCustomFieldValues.entityType],
+          set: { value: stringValue, updatedAt: new Date() },
+        }).returning();
+        results.push(row);
+      }
+      revalidateForWrite('portal');
+      return json(results);
     }
   );
 

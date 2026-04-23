@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import type { AutomationPreset } from '@/components/portal/ProductAutomationSettings';
+import CrmCustomFieldsAdmin from '@/components/portal/CrmCustomFieldsAdmin';
 
 const CRM_AUTOMATION_PRESETS: AutomationPreset[] = [
   {
@@ -87,7 +88,17 @@ const defaultColors = [
   '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316',
 ];
 
+type SettingsTab = 'pipelines' | 'tags' | 'custom-fields' | 'automations';
+
+const SETTINGS_TABS: { value: SettingsTab; label: string; icon: string }[] = [
+  { value: 'pipelines', label: 'Pipelines', icon: 'view_column' },
+  { value: 'tags', label: 'Tags', icon: 'sell' },
+  { value: 'custom-fields', label: 'Custom Fields', icon: 'tune' },
+  { value: 'automations', label: 'Automations', icon: 'bolt' },
+];
+
 export default function CrmSettingsPage() {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('pipelines');
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -261,8 +272,27 @@ export default function CrmSettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-6 max-w-4xl">
+      {/* Tab nav */}
+      <div className="flex border-b border-border overflow-x-auto">
+        {SETTINGS_TABS.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors shrink-0 ${
+              activeTab === tab.value
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="material-icons text-base">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Pipelines */}
+      {activeTab === 'pipelines' && (
       <div className="bg-card border border-border rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-semibold text-foreground text-lg">Pipelines</h3>
@@ -442,8 +472,10 @@ export default function CrmSettingsPage() {
           </button>
         </form>
       </div>
+      )}
 
       {/* Tags */}
+      {activeTab === 'tags' && (
       <div className="bg-card border border-border rounded-xl p-6 space-y-6">
         <div>
           <h3 className="font-semibold text-foreground text-lg">Tags</h3>
@@ -520,8 +552,17 @@ export default function CrmSettingsPage() {
           </button>
         </form>
       </div>
+      )}
+
+      {/* Custom Fields */}
+      {activeTab === 'custom-fields' && (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <CrmCustomFieldsAdmin />
+      </div>
+      )}
 
       {/* ─── Automations ───────────────────────────────────────────────── */}
+      {activeTab === 'automations' && (
       <div className="bg-card border border-border rounded-xl p-6">
         <ProductAutomationSettings
           productScope="crm"
@@ -530,6 +571,7 @@ export default function CrmSettingsPage() {
           description="Automate follow-ups, notifications, and workflows for your deals and contacts"
         />
       </div>
+      )}
     </div>
   );
 }

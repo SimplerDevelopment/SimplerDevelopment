@@ -32,6 +32,15 @@ if (PROD_MARKERS.some(re => re.test(URL_STR))) {
 async function run() {
   const sql = postgres(URL_STR!, { max: 1, onnotice: () => {} });
   try {
+    console.log('>> sweeping stale test_e2e_% schemas');
+    const staleSchemas = await sql<{ nspname: string }[]>`
+      SELECT nspname FROM pg_namespace WHERE nspname LIKE 'test_e2e_%'
+    `;
+    for (const s of staleSchemas) {
+      await sql.unsafe(`DROP SCHEMA IF EXISTS "${s.nspname}" CASCADE`);
+    }
+    if (staleSchemas.length > 0) console.log(`   dropped ${staleSchemas.length} stale schema(s)`);
+
     console.log('>> dropping public schema');
     await sql.unsafe('DROP SCHEMA IF EXISTS public CASCADE');
     await sql.unsafe('CREATE SCHEMA public');

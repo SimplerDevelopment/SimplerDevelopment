@@ -1,0 +1,402 @@
+[
+  {
+    "id": 1489,
+    "firstName": "David",
+    "lastName": "Cook",
+    "email": null,
+    "title": "President",
+    "companyName": "North Dakota State University-Main Campus"
+  },
+  {
+    "id": 1490,
+    "firstName": "Twyla",
+    "lastName": "Baker",
+    "email": null,
+    "title": "President",
+    "companyName": "Nueta Hidatsa Sahnish College"
+  },
+  {
+    "id": 1491,
+    "firstName": "Paula",
+    "lastName": "Singer",
+    "email": null,
+    "title": "President & Chief Academic Officer",
+    "companyName": "Rasmussen University-North Dakota"
+  },
+  {
+    "id": 1492,
+    "firstName": "Tomi",
+    "lastName": "Kay Phillips",
+    "email": null,
+    "title": "President",
+    "companyName": "Sitting Bull College"
+  },
+  {
+    "id": 1493,
+    "firstName": "Paul",
+    "lastName": "R. Alexander",
+    "email": null,
+    "title": "President",
+    "companyName": "Trinity Bible College and Graduate School"
+  },
+  {
+    "id": 1494,
+    "firstName": "Donna",
+    "lastName": "Brown",
+    "email": null,
+    "title": "President",
+    "companyName": "Turtle Mountain Community College"
+  },
+  {
+    "id": 1495,
+    "firstName": "Leander",
+    "lastName": "McDonald",
+    "email": null,
+    "title": "President",
+    "companyName": "United Tribes Technical College"
+  },
+  {
+    "id": 1496,
+    "firstName": "Polly",
+    "lastName": "Peterson",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Jamestown"
+  },
+  {
+    "id": 1497,
+    "firstName": "Monsignor",
+    "lastName": "James P. Shea",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Mary"
+  },
+  {
+    "id": 1498,
+    "firstName": "Andrew",
+    "lastName": "Armacost",
+    "email": null,
+    "title": "President",
+    "companyName": "University of North Dakota"
+  },
+  {
+    "id": 1499,
+    "firstName": "Alan",
+    "lastName": "LaFave",
+    "email": null,
+    "title": "President",
+    "companyName": "Valley City State University"
+  },
+  {
+    "id": 1500,
+    "firstName": "Mary",
+    "lastName": "Hawkins",
+    "email": null,
+    "title": "President",
+    "companyName": "Bellevue University"
+  },
+  {
+    "id": 1501,
+    "firstName": "Kelsi",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "President",
+    "companyName": "Bryan College of Health Sciences"
+  },
+  {
+    "id": 1502,
+    "firstName": "Tim",
+    "lastName": "Bricker",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "CHI Health School of Radiologic Technology"
+  },
+  {
+    "id": 1503,
+    "firstName": "Ron",
+    "lastName": "Patterson",
+    "email": null,
+    "title": "President",
+    "companyName": "Chadron State College"
+  },
+  {
+    "id": 1504,
+    "firstName": "Andreia",
+    "lastName": "Nebel",
+    "email": null,
+    "title": "President",
+    "companyName": "Clarkson College"
+  },
+  {
+    "id": 1505,
+    "firstName": "Heather",
+    "lastName": "A. Smith, MBA",
+    "email": null,
+    "title": "President",
+    "companyName": "College of Saint Mary"
+  },
+  {
+    "id": 1506,
+    "firstName": "Bernard",
+    "lastName": "Bull",
+    "email": null,
+    "title": "President",
+    "companyName": "Concordia University-Nebraska"
+  },
+  {
+    "id": 1507,
+    "firstName": "Daniel",
+    "lastName": "S. Hendrickson",
+    "email": null,
+    "title": "President",
+    "companyName": "Creighton University"
+  },
+  {
+    "id": 1508,
+    "firstName": "Roger",
+    "lastName": "Hughes",
+    "email": null,
+    "title": "President",
+    "companyName": "Doane University"
+  },
+  {
+    "id": 1509,
+    "firstName": "Rich",
+    "lastName": "Lloyd",
+    "email": null,
+    "title": "President",
+    "companyName": "Hastings College"
+  },
+  {
+    "id": 1510,
+    "firstName": "Jody",
+    "lastName": "Horner",
+    "email": null,
+    "title": "President",
+    "companyName": "Midland University"
+  },
+  {
+    "id": 1511,
+    "firstName": "Michael",
+    "lastName": "Oltrogge",
+    "email": null,
+    "title": "President",
+    "companyName": "Nebraska Indian Community College"
+  },
+  {
+    "id": 1512,
+    "firstName": "Deb",
+    "lastName": "Carlson",
+    "email": null,
+    "title": "President & CEO",
+    "companyName": "Nebraska Methodist College of Nursing & Allied Health"
+  },
+  {
+    "id": 1513,
+    "firstName": "Darrin",
+    "lastName": "Good",
+    "email": null,
+    "title": "President",
+    "companyName": "Nebraska Wesleyan University"
+  },
+  {
+    "id": 1514,
+    "firstName": "Michael",
+    "lastName": "Evans",
+    "email": null,
+    "title": "President",
+    "companyName": "Peru State College"
+  },
+  {
+    "id": 1515,
+    "firstName": "Raymond",
+    "lastName": "Ravaglia",
+    "email": null,
+    "title": "Chief Academic Officer / Provost",
+    "companyName": "Ricketts Great Books College"
+  },
+  {
+    "id": 1516,
+    "firstName": "David",
+    "lastName": "K Parrish",
+    "email": null,
+    "title": "President",
+    "companyName": "Summit Christian College"
+  },
+  {
+    "id": 1517,
+    "firstName": "Yami",
+    "lastName": "Bazan",
+    "email": null,
+    "title": "President",
+    "companyName": "Union Adventist University"
+  },
+  {
+    "id": 1518,
+    "firstName": "H.",
+    "lastName": "Dele Davies",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Nebraska Medical Center"
+  },
+  {
+    "id": 1519,
+    "firstName": "Charles",
+    "lastName": "Bicak",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Nebraska at Kearney"
+  },
+  {
+    "id": 1520,
+    "firstName": "Joanne",
+    "lastName": "Li",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Nebraska at Omaha"
+  },
+  {
+    "id": 1521,
+    "firstName": "Jeffrey",
+    "lastName": "P. Gold",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Nebraska-Central Administration System Office"
+  },
+  {
+    "id": 1522,
+    "firstName": "Rodney",
+    "lastName": "D. Bennett",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Nebraska-Lincoln"
+  },
+  {
+    "id": 1523,
+    "firstName": "Marysz",
+    "lastName": "Rames",
+    "email": null,
+    "title": "President",
+    "companyName": "Wayne State College"
+  },
+  {
+    "id": 1524,
+    "firstName": "Jared",
+    "lastName": "Stark",
+    "email": null,
+    "title": "President",
+    "companyName": "York University"
+  },
+  {
+    "id": 1525,
+    "firstName": "Chester",
+    "lastName": "Haskell",
+    "email": null,
+    "title": "Vice Chancellor for Academic Affairs",
+    "companyName": "Antioch University-New England"
+  },
+  {
+    "id": 1526,
+    "firstName": "Laura",
+    "lastName": "Sykes",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Colby-Sawyer College"
+  },
+  {
+    "id": 1527,
+    "firstName": "Sian",
+    "lastName": "Leah Beilock",
+    "email": null,
+    "title": "President",
+    "companyName": "Dartmouth College"
+  },
+  {
+    "id": 1528,
+    "firstName": "Peter",
+    "lastName": "Eden",
+    "email": null,
+    "title": "President",
+    "companyName": "Franklin Pierce University"
+  },
+  {
+    "id": 1529,
+    "firstName": "Melinda",
+    "lastName": "Treadwell",
+    "email": null,
+    "title": "President",
+    "companyName": "Keene State College"
+  },
+  {
+    "id": 1530,
+    "firstName": "Wayne",
+    "lastName": "F. Lesperance, Jr.",
+    "email": null,
+    "title": "President",
+    "companyName": "New England College"
+  },
+  {
+    "id": 1531,
+    "firstName": "Donald",
+    "lastName": "Birx",
+    "email": null,
+    "title": "President",
+    "companyName": "Plymouth State University"
+  },
+  {
+    "id": 1532,
+    "firstName": "Sister",
+    "lastName": "Paula Marie Buley, IHM",
+    "email": null,
+    "title": "President",
+    "companyName": "Rivier University"
+  },
+  {
+    "id": 1533,
+    "firstName": "Joseph",
+    "lastName": "A. Favazza",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Anselm College"
+  },
+  {
+    "id": 1534,
+    "firstName": "Lisa",
+    "lastName": "Ryerson",
+    "email": null,
+    "title": "President",
+    "companyName": "Southern New Hampshire University"
+  },
+  {
+    "id": 1535,
+    "firstName": "William",
+    "lastName": "E. Fahey",
+    "email": null,
+    "title": "President",
+    "companyName": "Thomas More College of Liberal Arts"
+  },
+  {
+    "id": 1536,
+    "firstName": "Catherine",
+    "lastName": "Provencher",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University System of New Hampshire System Office"
+  },
+  {
+    "id": 1537,
+    "firstName": "Michael",
+    "lastName": "P. Decelle",
+    "email": null,
+    "title": "Dean",
+    "companyName": "University of New Hampshire College of Professional Studies Online"
+  },
+  {
+    "id": 1538,
+    "firstName": "Michael",
+    "lastName": "P. Decelle",
+    "email": null,
+    "title": "Dean",
+    "companyName": "University of New Hampshire at Manchester"
+  }
+]

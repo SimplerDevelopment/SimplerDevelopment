@@ -1,0 +1,44 @@
+category,tech_id,tech_name,company_count,share_pct
+higher-ed-crm,slate,Slate (Technolutions),676,25.0
+higher-ed-crm,element451,Element451,23,0.9
+higher-ed-crm,enrollmentrx,EnrollmentRx,0,0.0
+higher-ed-crm,targetx,TargetX,1,0.0
+higher-ed-crm,liaison,Liaison / SlideRoom,3,0.1
+higher-ed-crm,sf-edu,Salesforce Education Cloud,39,1.4
+cms,wordpress,WordPress,1193,44.1
+cms,drupal,Drupal,471,17.4
+cms,squarespace,Squarespace,25,0.9
+cms,wix,Wix,42,1.6
+cms,webflow,Webflow,24,0.9
+cms,shopify,Shopify,2,0.1
+cms,ghost,Ghost,0,0.0
+cms,omniupdate,Modern Campus (OmniUpdate),254,9.4
+cms,finalsite,Finalsite,14,0.5
+cms,cascade,Hannon Hill Cascade,9,0.3
+cms,hubspot-cms,HubSpot CMS,14,0.5
+framework,nextjs,Next.js,19,0.7
+framework,gatsby,Gatsby,5,0.2
+framework,nuxt,Nuxt,6,0.2
+framework,react,React,113,4.2
+framework,vue,Vue,13,0.5
+framework,angular,Angular,9,0.3
+marketing,hubspot,HubSpot,74,2.7
+marketing,marketo,Marketo,13,0.5
+marketing,pardot,Salesforce Pardot,35,1.3
+marketing,mailchimp,Mailchimp,59,2.2
+marketing,mailgun,Mailgun,0,0.0
+analytics,gtm,Google Tag Manager,2102,77.8
+analytics,ga,Google Analytics,1155,42.7
+analytics,meta-pixel,Meta Pixel,437,16.2
+analytics,hotjar,Hotjar,114,4.2
+analytics,segment,Segment,0,0.0
+chat,intercom,Intercom,3,0.1
+chat,drift,Drift,1,0.0
+chat,zendesk,Zendesk,13,0.5
+chat,tawk,Tawk.to,19,0.7
+hosting,cloudflare,Cloudflare,799,29.6
+hosting,vercel,Vercel,14,0.5
+hosting,netlify,Netlify,4,0.1
+hosting,cloudfront,AWS CloudFront,102,3.8
+hosting,akamai,Akamai,5,0.2
+hosting,fastly,Fastly,440,16.3

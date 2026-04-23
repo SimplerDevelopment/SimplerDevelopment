@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import CrmDuplicateWarning from '@/components/portal/CrmDuplicateWarning';
 import CrmImportExport from '@/components/portal/CrmImportExport';
+import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
+import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 
 interface Contact {
   id: number;
@@ -24,7 +26,7 @@ interface Contact {
 interface SavedView {
   id: number;
   name: string;
-  filters: { search?: string; status?: string; companyId?: string };
+  filters: { search?: string; status?: string; companyId?: string; title?: string };
   entityType: string;
   isDefault: boolean;
 }
@@ -71,6 +73,9 @@ export default function CrmContactsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
+  const [titleFilter, setTitleFilter] = useState<string[]>([]);
+  const [availableTitles, setAvailableTitles] = useState<string[]>([]);
+  const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
   const [page, setPage] = useState(1);
 
   // Saved views
@@ -88,6 +93,7 @@ export default function CrmContactsPage() {
     lastName: '',
     email: '',
     phone: '',
+    linkedinUrl: '',
     title: '',
     companyId: '',
     source: '',
@@ -101,23 +107,37 @@ export default function CrmContactsPage() {
     if (search) params.set('search', search);
     if (statusFilter) params.set('status', statusFilter);
     if (companyFilter) params.set('companyId', companyFilter);
+    if (titleFilter.length > 0) params.set('title', titleFilter.join(','));
+    for (const [fid, val] of Object.entries(customFilters)) {
+      if (val) params.append('cf', `${fid}:${val}`);
+    }
 
     const res = await fetch(`/api/portal/crm/contacts?${params}`);
     const d = await res.json();
     setContacts(d.data?.contacts ?? d.data ?? []);
     setTotal(d.data?.total ?? 0);
     setLoading(false);
-  }, [page, search, statusFilter, companyFilter]);
+  }, [page, search, statusFilter, companyFilter, titleFilter, customFilters]);
 
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
   useEffect(() => {
-    fetch('/api/portal/crm/companies')
+    fetch('/api/portal/crm/companies?limit=5000')
       .then(r => r.json())
       .then(d => setCompanies(d.data?.companies ?? d.data ?? []));
   }, []);
+
+  const fetchTitles = useCallback(async () => {
+    const res = await fetch('/api/portal/crm/contacts/titles');
+    const d = await res.json();
+    if (d.success) setAvailableTitles(d.data ?? []);
+  }, []);
+
+  useEffect(() => {
+    fetchTitles();
+  }, [fetchTitles]);
 
   // Debounced search
   const [searchInput, setSearchInput] = useState('');
@@ -147,6 +167,7 @@ export default function CrmContactsPage() {
       setSearch('');
       setStatusFilter('');
       setCompanyFilter('');
+      setTitleFilter([]);
       setPage(1);
       return;
     }
@@ -155,6 +176,11 @@ export default function CrmContactsPage() {
     setSearch(view.filters.search ?? '');
     setStatusFilter(view.filters.status ?? '');
     setCompanyFilter(view.filters.companyId ?? '');
+    setTitleFilter(
+      view.filters.title
+        ? view.filters.title.split(',').map((t) => t.trim()).filter(Boolean)
+        : []
+    );
     setPage(1);
   }
 
@@ -166,6 +192,7 @@ export default function CrmContactsPage() {
     if (search) filters.search = search;
     if (statusFilter) filters.status = statusFilter;
     if (companyFilter) filters.companyId = companyFilter;
+    if (titleFilter.length > 0) filters.title = titleFilter.join(',');
     await fetch('/api/portal/crm/saved-views', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -183,7 +210,7 @@ export default function CrmContactsPage() {
     fetchSavedViews();
   }
 
-  const hasActiveFilters = !!(search || statusFilter || companyFilter);
+  const hasActiveFilters = !!(search || statusFilter || companyFilter || titleFilter.length > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -205,8 +232,9 @@ export default function CrmContactsPage() {
       return;
     }
     setShowForm(false);
-    setForm({ firstName: '', lastName: '', email: '', phone: '', title: '', companyId: '', source: '', status: 'lead', notes: '' });
+    setForm({ firstName: '', lastName: '', email: '', phone: '', linkedinUrl: '', title: '', companyId: '', source: '', status: 'lead', notes: '' });
     fetchContacts();
+    fetchTitles();
   }
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
@@ -221,7 +249,7 @@ export default function CrmContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter }} onImportComplete={fetchContacts} />
+          <CrmImportExport entityType="contact" currentFilters={{ search, status: statusFilter, companyId: companyFilter, title: titleFilter.join(',') }} onImportComplete={fetchContacts} />
           <button
             onClick={() => setShowForm(f => !f)}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
@@ -276,6 +304,16 @@ export default function CrmContactsPage() {
               <input
                 value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">LinkedIn URL</label>
+              <input
+                type="url"
+                value={form.linkedinUrl}
+                onChange={e => setForm(f => ({ ...f, linkedinUrl: e.target.value }))}
+                placeholder="https://linkedin.com/in/..."
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
@@ -443,6 +481,16 @@ export default function CrmContactsPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          <PositionMultiSelect
+            options={availableTitles}
+            selected={titleFilter}
+            onChange={v => { setTitleFilter(v); setPage(1); }}
+          />
+          <CrmCustomFieldFilters
+            entityType="contact"
+            values={customFilters}
+            onChange={v => { setCustomFilters(v); setPage(1); }}
+          />
         </div>
       </div>
 
