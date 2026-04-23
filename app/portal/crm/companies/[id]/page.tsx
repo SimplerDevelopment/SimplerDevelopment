@@ -13,6 +13,8 @@ interface Company {
   phone: string | null;
   website: string | null;
   address: string | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
   notes: string | null;
   createdAt: string;
 }
@@ -77,6 +79,8 @@ export default function CrmCompanyDetailPage() {
     phone: '',
     website: '',
     address: '',
+    latitude: '',
+    longitude: '',
     notes: '',
   });
 
@@ -105,6 +109,8 @@ export default function CrmCompanyDetailPage() {
       phone: company.phone ?? '',
       website: company.website ?? '',
       address: company.address ?? '',
+      latitude: company.latitude !== null && company.latitude !== undefined ? String(company.latitude) : '',
+      longitude: company.longitude !== null && company.longitude !== undefined ? String(company.longitude) : '',
       notes: company.notes ?? '',
     });
     setEditing(true);
@@ -113,10 +119,25 @@ export default function CrmCompanyDetailPage() {
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const payload: Record<string, unknown> = {
+      name: editForm.name,
+      domain: editForm.domain,
+      industry: editForm.industry,
+      size: editForm.size,
+      phone: editForm.phone,
+      website: editForm.website,
+      address: editForm.address,
+      notes: editForm.notes,
+    };
+    // Only forward lat/lng if the user typed something. An empty string means
+    // "leave unset and let the server auto-derive from the address".
+    if (editForm.latitude.trim() !== '') payload.latitude = editForm.latitude.trim();
+    if (editForm.longitude.trim() !== '') payload.longitude = editForm.longitude.trim();
+
     const res = await fetch(`/api/portal/crm/companies/${companyId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
     const d = await res.json();
     setSaving(false);
@@ -264,13 +285,44 @@ export default function CrmCompanyDetailPage() {
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div className="sm:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-              <input
+              <textarea
                 value={editForm.address}
                 onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                rows={2}
+                placeholder="123 Main St, City, State"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
               />
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    value={editForm.latitude}
+                    onChange={e => setEditForm(f => ({ ...f, latitude: e.target.value }))}
+                    placeholder="e.g. 40.7128"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    value={editForm.longitude}
+                    onChange={e => setEditForm(f => ({ ...f, longitude: e.target.value }))}
+                    placeholder="e.g. -74.0060"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Auto-derived from address on save if left blank.</p>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>

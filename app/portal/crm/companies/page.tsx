@@ -12,6 +12,8 @@ interface Company {
   phone: string | null;
   website: string | null;
   address: string | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
   notes: string | null;
   contactCount: number;
   totalDealValue: number;
@@ -49,6 +51,8 @@ export default function CrmCompaniesPage() {
     phone: '',
     website: '',
     address: '',
+    latitude: '',
+    longitude: '',
     notes: '',
   });
 
@@ -73,10 +77,23 @@ export default function CrmCompaniesPage() {
     e.preventDefault();
     setSaving(true);
     setError('');
+    const payload: Record<string, unknown> = {
+      name: form.name,
+      domain: form.domain,
+      industry: form.industry,
+      size: form.size,
+      phone: form.phone,
+      website: form.website,
+      address: form.address,
+      notes: form.notes,
+    };
+    if (form.latitude.trim() !== '') payload.latitude = form.latitude.trim();
+    if (form.longitude.trim() !== '') payload.longitude = form.longitude.trim();
+
     const res = await fetch('/api/portal/crm/companies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const d = await res.json();
     setSaving(false);
@@ -85,7 +102,18 @@ export default function CrmCompaniesPage() {
       return;
     }
     setShowForm(false);
-    setForm({ name: '', domain: '', industry: '', size: '', phone: '', website: '', address: '', notes: '' });
+    setForm({
+      name: '',
+      domain: '',
+      industry: '',
+      size: '',
+      phone: '',
+      website: '',
+      address: '',
+      latitude: '',
+      longitude: '',
+      notes: '',
+    });
     // Re-fetch
     const refreshed = await fetch(`/api/portal/crm/companies${search ? `?search=${search}` : ''}`).then(r => r.json());
     setCompanies(refreshed.data?.companies ?? refreshed.data ?? []);
@@ -174,21 +202,52 @@ export default function CrmCompaniesPage() {
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Address</label>
-              <input
+              <textarea
                 value={form.address}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                rows={2}
+                placeholder="123 Main St, City, State"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
               />
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    value={form.latitude}
+                    onChange={e => setForm(f => ({ ...f, latitude: e.target.value }))}
+                    placeholder="e.g. 40.7128"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    value={form.longitude}
+                    onChange={e => setForm(f => ({ ...f, longitude: e.target.value }))}
+                    placeholder="e.g. -74.0060"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Auto-derived from address on save if left blank.</p>
             </div>
-            <div className="sm:col-span-2 lg:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
               <textarea
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 rows={2}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
               />
             </div>
           </div>

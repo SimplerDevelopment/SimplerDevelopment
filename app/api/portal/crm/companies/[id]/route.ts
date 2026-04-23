@@ -3,7 +3,34 @@ import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { crmCompanies, crmContacts, crmDeals, crmPipelineStages, crmCustomFields, crmCustomFieldValues } from '@/lib/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
+import { geocodeAddress } from '@/lib/geocode';
+
+function parseCoordinate(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+  return Number.isFinite(n) ? n : null;
+}
+
+interface CompanyCoords {
+  latitude: string | null;
+  longitude: string | null;
+}
+
+async function loadCompanyCoords(companyId: number): Promise<CompanyCoords> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT latitude::text AS latitude, longitude::text AS longitude
+      FROM crm_companies
+      WHERE id = ${companyId}
+      LIMIT 1
+    `);
+    const first = (rows as unknown as CompanyCoords[])[0];
+    return first ?? { latitude: null, longitude: null };
+  } catch {
+    return { latitude: null, longitude: null };
+  }
+}
 
 async function getAuthedClient() {
   const session = await auth();
@@ -34,6 +61,14 @@ export async function GET(
 
   if (!company)
     return NextResponse.json({ success: false, message: 'Company not found' }, { status: 404 });
+
+  // Load lat/lng via raw SQL (columns not mirrored in Drizzle schema).
+  const coords = await loadCompanyCoords(companyId);
+  const companyWithCoords = {
+    ...company,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+  };
 
   // Get contacts for this company
   const contacts = await db
@@ -110,7 +145,7 @@ export async function GET(
   return NextResponse.json({
     success: true,
     data: {
-      company,
+      company: companyWithCoords,
       contacts,
       deals: dealsFormatted,
       customFields,
@@ -132,7 +167,7 @@ export async function PUT(
     return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
   const [existing] = await db
-    .select({ id: crmCompanies.id })
+    .select({ id: crmCompanies.id, address: crmCompanies.address })
     .from(crmCompanies)
     .where(and(eq(crmCompanies.id, companyId), eq(crmCompanies.clientId, client.id)));
 
@@ -142,14 +177,25 @@ export async function PUT(
   const body = await req.json();
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  let nextAddress: string | null = existing.address;
+  let addressChanged = false;
   if (body.name !== undefined) updateData.name = body.name.trim();
   if (body.domain !== undefined) updateData.domain = body.domain?.trim() || null;
   if (body.industry !== undefined) updateData.industry = body.industry?.trim() || null;
   if (body.size !== undefined) updateData.size = body.size || null;
   if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
-  if (body.address !== undefined) updateData.address = body.address?.trim() || null;
+  if (body.address !== undefined) {
+    nextAddress = body.address?.trim() || null;
+    addressChanged = nextAddress !== existing.address;
+    updateData.address = nextAddress;
+  }
   if (body.website !== undefined) updateData.website = body.website?.trim() || null;
   if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
+
+  const explicitLatProvided = body.latitude !== undefined;
+  const explicitLngProvided = body.longitude !== undefined;
+  const explicitLat = explicitLatProvided ? parseCoordinate(body.latitude) : null;
+  const explicitLng = explicitLngProvided ? parseCoordinate(body.longitude) : null;
 
   const [updated] = await db
     .update(crmCompanies)
@@ -157,7 +203,60 @@ export async function PUT(
     .where(eq(crmCompanies.id, companyId))
     .returning();
 
-  return NextResponse.json({ success: true, data: updated });
+  // Determine final coordinates.
+  // 1. If the user supplied explicit lat/lng, honor them (treat the pair as a
+  //    unit; both must be provided to override).
+  // 2. Otherwise, if the address changed and is non-empty, re-geocode.
+  // 3. Otherwise, leave whatever is already in the DB alone.
+  let finalLat: number | null = null;
+  let finalLng: number | null = null;
+  let shouldPersistCoords = false;
+
+  if (explicitLatProvided && explicitLngProvided) {
+    finalLat = explicitLat;
+    finalLng = explicitLng;
+    shouldPersistCoords = true;
+  } else if (addressChanged && nextAddress) {
+    try {
+      const coords = await geocodeAddress(nextAddress);
+      if (coords) {
+        finalLat = coords.latitude;
+        finalLng = coords.longitude;
+        shouldPersistCoords = true;
+      } else {
+        // Address changed but geocoding produced no result — clear stale coords.
+        finalLat = null;
+        finalLng = null;
+        shouldPersistCoords = true;
+      }
+    } catch (err) {
+      console.error('[crm/companies] geocode failed:', err);
+    }
+  } else if (addressChanged && !nextAddress) {
+    // Address cleared — clear coords too.
+    shouldPersistCoords = true;
+  }
+
+  if (shouldPersistCoords) {
+    try {
+      await db.execute(sql`
+        UPDATE crm_companies
+        SET latitude = ${finalLat}, longitude = ${finalLng}
+        WHERE id = ${companyId}
+      `);
+    } catch (err) {
+      console.error('[crm/companies] failed to persist coordinates:', err);
+    }
+  }
+
+  const finalCoords = shouldPersistCoords
+    ? { latitude: finalLat, longitude: finalLng }
+    : await loadCompanyCoords(companyId);
+
+  return NextResponse.json({
+    success: true,
+    data: updated ? { ...updated, ...finalCoords } : updated,
+  });
 }
 
 export async function DELETE(
