@@ -2259,6 +2259,7 @@ export const crmCustomFields = pgTable('crm_custom_fields', {
   options: json('options').$type<string[]>(), // for select/multiselect types
   required: boolean('required').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  category: varchar('category', { length: 100 }), // free-text grouping label, e.g. 'Tech', 'Location'; null/empty => "General"
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
