@@ -360,21 +360,6 @@ export default function CrmCompaniesPage() {
                   <span className="material-icons text-base text-muted-foreground shrink-0">chevron_right</span>
                 </div>
 
-                <div className="mt-4 space-y-2">
-                  {c.industry && (
-                    <div className="flex items-center gap-2">
-                      <span className="material-icons text-sm text-muted-foreground">category</span>
-                      <span className="text-xs text-muted-foreground">{c.industry}</span>
-                    </div>
-                  )}
-                  {c.size && (
-                    <div className="flex items-center gap-2">
-                      <span className="material-icons text-sm text-muted-foreground">groups</span>
-                      <span className="text-xs text-muted-foreground">{c.size}</span>
-                    </div>
-                  )}
-                </div>
-
                 <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <span className="material-icons text-sm">person</span>

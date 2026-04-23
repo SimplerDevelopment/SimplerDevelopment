@@ -511,6 +511,14 @@ export default function CrmCompanyDetailPage() {
               />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
+              <MediaPicker
+                value={editForm.logoUrl}
+                onChange={(url) => setEditForm(f => ({ ...f, logoUrl: url }))}
+                label="Logo"
+                mimeTypeFilter="image"
+              />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
               <textarea
                 value={editForm.notes}
