@@ -142,5 +142,26 @@ export async function POST(req: Request) {
     })
     .returning();
 
-  return NextResponse.json({ success: true, data: company }, { status: 201 });
+  // The crm_companies table has latitude/longitude columns that are not
+  // currently mirrored in the typed Drizzle schema; write to them via raw SQL
+  // so we don't have to touch lib/db/schema.ts.
+  if (company && (latitude !== null || longitude !== null)) {
+    try {
+      await db.execute(sql`
+        UPDATE crm_companies
+        SET latitude = ${latitude}, longitude = ${longitude}
+        WHERE id = ${company.id}
+      `);
+    } catch (err) {
+      console.error('[crm/companies] failed to persist coordinates:', err);
+    }
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      data: company ? { ...company, latitude, longitude } : company,
+    },
+    { status: 201 }
+  );
 }
