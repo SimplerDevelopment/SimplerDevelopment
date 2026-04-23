@@ -1698,6 +1698,7 @@ export const crmCompanies = pgTable('crm_companies', {
   phone: varchar('phone', { length: 50 }),
   address: text('address'),
   website: varchar('website', { length: 500 }),
+  logoUrl: varchar('logo_url', { length: 1000 }),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -149,6 +149,7 @@ export async function PUT(
   if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
   if (body.address !== undefined) updateData.address = body.address?.trim() || null;
   if (body.website !== undefined) updateData.website = body.website?.trim() || null;
+  if (body.logoUrl !== undefined) updateData.logoUrl = body.logoUrl?.trim() || null;
   if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
 
   const [updated] = await db

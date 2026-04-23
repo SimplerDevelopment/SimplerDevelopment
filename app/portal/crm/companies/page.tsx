@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import MediaPicker from '@/components/admin/MediaPicker';
 
 interface Company {
   id: number;
@@ -12,6 +13,7 @@ interface Company {
   phone: string | null;
   website: string | null;
   address: string | null;
+  logoUrl: string | null;
   notes: string | null;
   contactCount: number;
   totalDealValue: number;
@@ -49,6 +51,7 @@ export default function CrmCompaniesPage() {
     phone: '',
     website: '',
     address: '',
+    logoUrl: '',
     notes: '',
   });
 
@@ -85,7 +88,7 @@ export default function CrmCompaniesPage() {
       return;
     }
     setShowForm(false);
-    setForm({ name: '', domain: '', industry: '', size: '', phone: '', website: '', address: '', notes: '' });
+    setForm({ name: '', domain: '', industry: '', size: '', phone: '', website: '', address: '', logoUrl: '', notes: '' });
     // Re-fetch
     const refreshed = await fetch(`/api/portal/crm/companies${search ? `?search=${search}` : ''}`).then(r => r.json());
     setCompanies(refreshed.data?.companies ?? refreshed.data ?? []);
@@ -182,7 +185,15 @@ export default function CrmCompaniesPage() {
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div className="sm:col-span-2 lg:col-span-2">
+            <div className="sm:col-span-2 lg:col-span-3">
+              <MediaPicker
+                value={form.logoUrl}
+                onChange={(url) => setForm(f => ({ ...f, logoUrl: url }))}
+                label="Logo"
+                mimeTypeFilter="image"
+              />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
               <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
               <textarea
                 value={form.notes}
@@ -241,11 +252,24 @@ export default function CrmCompaniesPage() {
               className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-colors cursor-pointer group"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</h3>
-                  {c.domain && (
-                    <p className="text-xs text-muted-foreground truncate">{c.domain}</p>
+                <div className="flex items-start gap-3 min-w-0">
+                  {c.logoUrl ? (
+                    <img
+                      src={c.logoUrl}
+                      alt={`${c.name} logo`}
+                      className="w-10 h-10 rounded-lg object-contain bg-background border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center shrink-0">
+                      <span className="material-icons text-base text-muted-foreground">business</span>
+                    </div>
                   )}
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{c.name}</h3>
+                    {c.domain && (
+                      <p className="text-xs text-muted-foreground truncate">{c.domain}</p>
+                    )}
+                  </div>
                 </div>
                 <span className="material-icons text-base text-muted-foreground shrink-0">chevron_right</span>
               </div>

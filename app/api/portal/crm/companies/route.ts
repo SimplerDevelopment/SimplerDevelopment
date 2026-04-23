@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       phone: crmCompanies.phone,
       website: crmCompanies.website,
       address: crmCompanies.address,
+      logoUrl: crmCompanies.logoUrl,
       notes: crmCompanies.notes,
       createdAt: crmCompanies.createdAt,
       contactCount: sql<number>`(SELECT COUNT(*) FROM crm_contacts WHERE company_id = ${crmCompanies.id})`.as('contact_count'),
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
       phone: body.phone?.trim() || null,
       address: body.address?.trim() || null,
       website: body.website?.trim() || null,
+      logoUrl: body.logoUrl?.trim() || null,
       notes: body.notes?.trim() || null,
     })
     .returning();
