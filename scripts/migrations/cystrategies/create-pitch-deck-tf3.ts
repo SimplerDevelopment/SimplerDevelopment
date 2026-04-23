@@ -203,440 +203,471 @@ const DECK_GLOBAL_CSS = `
 `;
 
 function buildCoverSlide() {
-  const html = `
-<div class="cy-slide cover">
-  <div class="cy-content cover-grid">
-    <div class="cover-left">
-      <div class="cy-wordmark cover-wm">CY Strategies</div>
-      <div class="cy-eyebrow cover-eb">Marketing Strategy Consultant</div>
-      <h1 class="cover-headline">Most companies don't have a marketing problem.</h1>
-      <h2 class="cover-punchline">They have a decision problem.</h2>
-      <div class="cy-rule"></div>
-      <div class="cover-intro">Hi, I'm Cody.</div>
-      <p class="cover-body">I figure out what's actually driving growth, what isn't, and what to do about it. So your team stops guessing and starts building the right things.</p>
-      <div class="cover-about">
-        <p>Most companies don't need more marketing. They need to make better decisions about what's worth doing in the first place.</p>
-        <p>This is a quick look at how I think and whether working together would make sense.</p>
-      </div>
-      <div class="cover-time">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
-        About 5 minutes
-      </div>
-    </div>
-    <div class="cover-right">
-      <div class="headshot-card"><img src="${HEADSHOT_URL}" alt="Cody York, CY Strategies"></div>
-    </div>
-  </div>
-</div>`.trim();
-
   const css = `
-.cover { background: var(--dark-teal); }
-.cover .cy-content { max-width: 1020px; }
-.cover-grid { display: grid; grid-template-columns: 1fr 280px; gap: 52px; align-items: center; }
-.cover .cy-wordmark { color: rgba(255,255,255,0.95); margin-bottom: 28px; }
-.cover .cy-eyebrow { color: var(--soft-teal); margin-bottom: 12px; }
-.cover-headline { font-family: 'Roboto', sans-serif; font-size: 40px; font-weight: 900; line-height: 1.08; letter-spacing: -0.5px; color: var(--off-white); margin: 0 0 6px; }
-.cover-punchline { font-family: 'Roboto', sans-serif; font-size: 40px; font-weight: 300; line-height: 1.08; letter-spacing: -0.5px; color: var(--light-teal); margin: 0; }
-.cover .cy-rule { margin: 20px 0 16px; }
-.cover-intro { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: var(--soft-teal); margin-bottom: 12px; text-transform: none; }
-.cover-body { font-size: 16px; color: var(--light-teal); line-height: 1.65; max-width: 460px; margin: 0 0 20px; }
-.cover-about { font-size: 14px; color: var(--soft-teal); line-height: 1.8; max-width: 460px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 18px; margin-top: 4px; }
-.cover-about p { margin: 0 0 8px; }
-.cover-about p:last-child { margin-bottom: 0; }
-.cover-time { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--soft-teal); background: rgba(255,255,255,0.07); padding: 7px 14px; border-radius: 20px; margin-top: 14px; }
-.cover-time svg { opacity: 0.7; }
-.headshot-card { width: 280px; height: 348px; border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.45); margin: 0 auto; }
-.headshot-card img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+[data-slide-id="slide-cover"] .block-content { max-width: 1020px; margin: 0 auto; }
+/* Two-column layout — columns block renders as grid by default */
+[data-block-id="cover-columns"] > div { grid-template-columns: 1fr 280px !important; gap: 52px !important; align-items: center !important; }
+/* Wordmark with rust dot via ::before */
+[data-block-id="cover-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; }
+[data-block-id="cover-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+/* Headline + punchline */
+[data-block-id="cover-headline"] h1 { margin: 0 0 6px !important; }
+[data-block-id="cover-punchline"] h2 { margin: 0 0 20px !important; }
+/* Rust rule */
+[data-block-id="cover-rule"] hr { border: none; background: var(--rust); height: 3px; width: 44px; max-width: 44px; margin: 0 0 16px; border-radius: 2px; }
+/* Body + about block */
+[data-block-id="cover-about"] [data-editable-field="content"] { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 18px; margin-top: 4px; }
+[data-block-id="cover-about"] [data-editable-field="content"] br + br { display: block; content: ''; margin-top: 8px; }
+/* "About 5 minutes" pill */
+[data-block-id="cover-time"] [data-editable-field="content"] { display: inline-block; background: rgba(255,255,255,0.07); padding: 7px 14px; border-radius: 20px; margin-top: 14px; }
+/* Headshot with shadow */
+[data-block-id="cover-photo"] img { border-radius: 16px !important; box-shadow: 0 24px 60px rgba(0,0,0,0.45); width: 280px; height: 348px; object-fit: cover; object-position: center top; }
 `.trim();
 
   return {
     id: 'slide-cover',
     label: 'Cover',
-    blocks: [{ id: 'cover-html', type: 'text', order: 1, content: html, style: {} }],
     customCss: css,
     pageSettings: { backgroundColor: C.darkTeal, color: C.white, fontFamily: 'Roboto' },
+    blocks: [
+      {
+        id: 'cover-columns',
+        type: 'columns',
+        order: 1,
+        gap: 'xl',
+        stackOnMobile: true,
+        columns: [
+          {
+            id: 'cover-text-col',
+            width: '60%',
+            verticalAlign: 'middle',
+            padding: 'none',
+            blocks: [
+              { id: 'cover-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+                style: { color: 'rgba(255,255,255,0.95)', fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+              { id: 'cover-eyebrow', type: 'text', order: 2, content: 'MARKETING STRATEGY CONSULTANT',
+                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+              { id: 'cover-headline', type: 'heading', order: 3, level: 1,
+                content: "Most companies don't have a marketing problem.",
+                style: { color: C.offWhite, fontFamily: 'Roboto', fontSize: '40px', fontWeight: '900', lineHeight: '1.08', letterSpacing: '-0.5px' } },
+              { id: 'cover-punchline', type: 'heading', order: 4, level: 2,
+                content: 'They have a decision problem.',
+                style: { color: C.lightTeal, fontFamily: 'Roboto', fontSize: '40px', fontWeight: '300', lineHeight: '1.08', letterSpacing: '-0.5px' } },
+              { id: 'cover-rule', type: 'divider', order: 5, style: { borderColor: C.rust } },
+              { id: 'cover-intro', type: 'text', order: 6, content: "Hi, I'm Cody.",
+                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '13px', fontWeight: '700', letterSpacing: '1.5px', margin: '0 0 12px' } },
+              { id: 'cover-body', type: 'text', order: 7,
+                content: "I figure out what's actually driving growth, what isn't, and what to do about it. So your team stops guessing and starts building the right things.",
+                style: { color: C.lightTeal, fontFamily: 'Roboto', fontSize: '16px', lineHeight: '1.65', maxWidth: '460px', margin: '0 0 20px' } },
+              { id: 'cover-about', type: 'text', order: 8,
+                content: "Most companies don't need more marketing. They need to make better decisions about what's worth doing in the first place.<br/><br/>This is a quick look at how I think and whether working together would make sense.",
+                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.8', maxWidth: '460px' } },
+              { id: 'cover-time', type: 'text', order: 9, content: '⏱  ABOUT 5 MINUTES',
+                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '2px' } },
+            ],
+          },
+          {
+            id: 'cover-photo-col',
+            width: '40%',
+            verticalAlign: 'middle',
+            padding: 'none',
+            blocks: [
+              { id: 'cover-photo', type: 'image', order: 1, url: HEADSHOT_URL, alt: 'Cody York, CY Strategies', width: 'full', alignment: 'center' },
+            ],
+          },
+        ],
+      },
+    ],
   };
 }
 
 function buildHowIThinkSlide() {
-  const html = `
-<div class="cy-slide think">
-  <div class="cy-content">
-    <div class="cy-wordmark">CY Strategies</div>
-    <div class="cy-eyebrow">How I Think About This</div>
-    <h2 class="cy-headline">The gap isn't in execution. It's in understanding the actual problem.</h2>
-    <div class="cy-rule"></div>
-    <div class="think-paras">
-      <p>Most companies know where they want to go.</p>
-      <p>Very few know what's actually going to get them there.</p>
-    </div>
-    <div class="quote-block">
-      <div class="quote-text">Take a website.</div>
-      <div class="quote-text qb-mt">When someone says "it's not working," that usually means one of three things:</div>
-      <ul class="quote-list">
-        <li>Not enough people are finding it</li>
-        <li>People find it but don't take action</li>
-        <li>People don't understand what you offer or why it matters</li>
-      </ul>
-      <div class="quote-closing">Three different problems. Three completely different solutions. Most teams pick one and start spending. Strategy tells you which one you actually have. Before the spending starts. That applies to messaging, campaigns, audiences, and channels.</div>
-    </div>
-  </div>
-</div>`.trim();
-
   const css = `
-.think { background: var(--off-white); }
-.think .cy-wordmark { color: var(--dark-teal); }
-.think .cy-eyebrow { color: var(--dark-teal); }
-.think .cy-headline { color: var(--dark-black); font-size: 36px; }
-.think-paras { max-width: 680px; }
-.think-paras p { font-size: 18px; color: #3a4a49; line-height: 1.7; margin: 0; }
-.think-paras p + p { margin-top: 12px; }
-.quote-block { margin-top: 22px; padding: 22px 26px; border-left: 4px solid var(--dark-teal); border-radius: 0 10px 10px 0; background: rgba(0,86,82,0.05); }
-.quote-text { font-size: 17px; line-height: 1.7; color: var(--dark-black); }
-.quote-text.qb-mt { margin-top: 8px; }
-.quote-list { margin: 10px 0 12px; padding: 0; list-style: none; }
-.quote-list li { font-size: 16px; line-height: 1.65; padding: 3px 0 3px 20px; position: relative; color: #3a4a49; }
-.quote-list li::before { content: '•'; position: absolute; left: 4px; color: var(--dark-teal); font-weight: 700; }
-.quote-closing { font-size: 16px; font-weight: 500; color: var(--dark-black); margin-top: 6px; line-height: 1.5; }
+[data-slide-id="slide-how-i-think"] .block-content { max-width: 900px; margin: 0 auto; }
+[data-block-id="think-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 36px; }
+[data-block-id="think-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+[data-block-id="think-heading"] h2 { margin: 0 0 14px !important; }
+[data-block-id="think-rule"] hr { border: none; background: var(--rust); height: 3px; width: 44px; max-width: 44px; margin: 20px 0; border-radius: 2px; }
+[data-block-id="think-quote"] { margin-top: 22px; padding: 22px 26px; border-left: 4px solid var(--dark-teal); border-radius: 0 10px 10px 0; background: rgba(0,86,82,0.05); }
+[data-block-id="think-quote"] [data-editable-field="content"] { margin: 0; }
+[data-block-id="think-bullet-1"] [data-editable-field="content"],
+[data-block-id="think-bullet-2"] [data-editable-field="content"],
+[data-block-id="think-bullet-3"] [data-editable-field="content"] { padding-left: 20px; position: relative; }
+[data-block-id="think-bullet-1"] [data-editable-field="content"]::before,
+[data-block-id="think-bullet-2"] [data-editable-field="content"]::before,
+[data-block-id="think-bullet-3"] [data-editable-field="content"]::before { content: '•'; position: absolute; left: 4px; color: var(--dark-teal); font-weight: 700; }
 `.trim();
 
   return {
     id: 'slide-how-i-think',
     label: 'How I Think',
-    blocks: [{ id: 'think-html', type: 'text', order: 1, content: html, style: {} }],
     customCss: css,
     pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
+    blocks: [
+      { id: 'think-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+      { id: 'think-eyebrow', type: 'text', order: 2, content: 'HOW I THINK ABOUT THIS',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+      { id: 'think-heading', type: 'heading', order: 3, level: 2,
+        content: "The gap isn't in execution. It's in understanding the actual problem.",
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
+      { id: 'think-rule', type: 'divider', order: 4, style: { borderColor: C.rust } },
+      { id: 'think-body-1', type: 'text', order: 5, content: 'Most companies know where they want to go.',
+        style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '18px', lineHeight: '1.7', margin: '0 0 12px' } },
+      { id: 'think-body-2', type: 'text', order: 6, content: "Very few know what's actually going to get them there.",
+        style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '18px', lineHeight: '1.7' } },
+      {
+        id: 'think-quote',
+        type: 'section',
+        order: 7,
+        paddingTop: '0',
+        paddingBottom: '0',
+        paddingLeft: '0',
+        paddingRight: '0',
+        blocks: [
+          { id: 'think-quote-1', type: 'text', order: 1, content: 'Take a website.',
+            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '17px', lineHeight: '1.7', margin: '0 0 8px' } },
+          { id: 'think-quote-2', type: 'text', order: 2,
+            content: 'When someone says "it\'s not working," that usually means one of three things:',
+            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '17px', lineHeight: '1.7', margin: '0 0 10px' } },
+          { id: 'think-bullet-1', type: 'text', order: 3, content: 'Not enough people are finding it',
+            style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '16px', lineHeight: '1.65', margin: '3px 0' } },
+          { id: 'think-bullet-2', type: 'text', order: 4, content: "People find it but don't take action",
+            style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '16px', lineHeight: '1.65', margin: '3px 0' } },
+          { id: 'think-bullet-3', type: 'text', order: 5, content: "People don't understand what you offer or why it matters",
+            style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '16px', lineHeight: '1.65', margin: '3px 0 12px' } },
+          { id: 'think-close', type: 'text', order: 6,
+            content: 'Three different problems. Three completely different solutions. Most teams pick one and start spending. Strategy tells you which one you actually have. Before the spending starts. That applies to messaging, campaigns, audiences, and channels.',
+            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '16px', fontWeight: '500', lineHeight: '1.5' } },
+        ],
+      },
+    ],
   };
 }
 
 function buildStrategySlide() {
+  const css = `
+[data-slide-id="slide-strategy"] .block-content { max-width: 900px; margin: 0 auto; }
+[data-block-id="strategy-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 36px; }
+[data-block-id="strategy-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+[data-block-id="strategy-heading"] h2 { margin: 0 0 14px !important; }
+[data-block-id="strategy-rule"] hr { border: none; background: var(--rust); height: 3px; width: 44px; max-width: 44px; margin: 20px 0; border-radius: 2px; }
+`.trim();
+
   return {
     id: 'slide-strategy',
     label: 'What Good Strategy Is',
-    blocks: [
-      {
-        id: 'strategy-section',
-        type: 'section',
-        order: 1,
-        backgroundColor: C.lightTeal,
-        paddingTop: '0px',
-        paddingBottom: '0px',
-        paddingLeft: '0px',
-        paddingRight: '0px',
-        maxWidth: '900px',
-        blocks: [
-          { id: 'strategy-brand', type: 'text', order: 1, content: '●&nbsp;&nbsp;CY STRATEGIES',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 36px 0' } },
-          { id: 'strategy-eyebrow', type: 'text', order: 2, content: 'WHAT STRATEGY ACTUALLY DOES',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.2em', margin: '0 0 14px 0' } },
-          { id: 'strategy-heading', type: 'heading', order: 3, level: 2,
-            content: "A strategy isn't a plan. It's a set of decisions that make a plan worth following.",
-            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '2.25rem', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px', margin: '0 0 14px 0' } },
-          { id: 'strategy-rule', type: 'divider', order: 4,
-            style: { borderColor: C.rust, borderWidth: '3px', maxWidth: '44px', margin: '20px 0' } },
-          { id: 'strategy-p1', type: 'text', order: 5,
-            content: "Most teams can tell you what they're going to do. Very few can tell you why those things and not something else.",
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '1.125rem', lineHeight: '1.72', margin: '0 0 16px 0' } },
-          { id: 'strategy-p2', type: 'text', order: 6,
-            content: 'Good strategy answers the questions most teams skip. Who exactly are we trying to reach? What has to be true before they act? Which message, which channel, at which moment?',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '1.125rem', lineHeight: '1.72', margin: '0 0 16px 0' } },
-          { id: 'strategy-p3', type: 'text', order: 7,
-            content: 'Without those answers, a plan is just activity. Strategy is the thinking that makes the activity matter.',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '1.125rem', lineHeight: '1.72' } },
-        ],
-      },
-    ],
+    customCss: css,
     pageSettings: { backgroundColor: C.lightTeal, color: C.darkBlack, fontFamily: 'Roboto' },
+    blocks: [
+      { id: 'strategy-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+      { id: 'strategy-eyebrow', type: 'text', order: 2, content: 'WHAT STRATEGY ACTUALLY DOES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+      { id: 'strategy-heading', type: 'heading', order: 3, level: 2,
+        content: "A strategy isn't a plan. It's a set of decisions that make a plan worth following.",
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
+      { id: 'strategy-rule', type: 'divider', order: 4, style: { borderColor: C.rust } },
+      { id: 'strategy-p-1', type: 'text', order: 5,
+        content: "Most teams can tell you what they're going to do. Very few can tell you why those things and not something else.",
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '18px', lineHeight: '1.72', margin: '0 0 16px' } },
+      { id: 'strategy-p-2', type: 'text', order: 6,
+        content: 'Good strategy answers the questions most teams skip. Who exactly are we trying to reach? What has to be true before they act? Which message, which channel, at which moment?',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '18px', lineHeight: '1.72', margin: '0 0 16px' } },
+      { id: 'strategy-p-3', type: 'text', order: 7,
+        content: 'Without those answers, a plan is just activity. Strategy is the thinking that makes the activity matter.',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '18px', lineHeight: '1.72' } },
+    ],
   };
 }
 
-function buildOfferingCard(
-  num: string,
-  label: string,
-  title: string,
-  desc: string,
-  youGet: string,
-  idPrefix: string,
-) {
+// SVG icons (inline) for each offering — matches TF1 v8 stroke-based Feather-style
+const SNAPSHOT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+const ROADMAP_ICON  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>';
+const BLUEPRINT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+const ADVISORY_ICON  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+
+function offeringCardBlock(idPrefix: string, num: string, label: string, title: string, desc: string, youGet: string, iconSvg: string) {
   return {
-    id: `${idPrefix}-card`,
+    id: idPrefix,
     type: 'section',
     order: 1,
-    backgroundColor: C.white,
     paddingTop: '22px',
     paddingBottom: '22px',
     paddingLeft: '24px',
     paddingRight: '24px',
-    style: { borderLeft: `4px solid ${C.darkTeal}`, borderRadius: '0 12px 12px 0', border: `1px solid rgba(0,86,82,0.12)`, boxShadow: '0 2px 10px rgba(0,86,82,0.06)' },
+    backgroundColor: '#ffffff',
     blocks: [
-      { id: `${idPrefix}-bgnum`, type: 'text', order: 1, content: num, alignment: 'right',
-        style: { color: C.lightTeal, fontFamily: 'Roboto', fontSize: '2.375rem', fontWeight: '900', lineHeight: '1', margin: '0 0 -28px 0' } },
-      { id: `${idPrefix}-label`, type: 'text', order: 2, content: label,
-        style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '0.625rem', fontWeight: '700', letterSpacing: '0.2em', margin: '0 0 6px 0' } },
-      { id: `${idPrefix}-title`, type: 'heading', order: 3, level: 4, content: title,
-        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '0.9375rem', fontWeight: '700', lineHeight: '1.2', margin: '0 0 8px 0' } },
-      { id: `${idPrefix}-desc`, type: 'text', order: 4, content: desc,
-        style: { color: '#4a5c5a', fontFamily: 'Roboto', fontSize: '0.78125rem', lineHeight: '1.55', margin: '0 0 10px 0' } },
-      { id: `${idPrefix}-get`, type: 'text', order: 5, content: `You get: ${youGet}`,
-        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.71875rem', fontWeight: '500', backgroundColor: C.lightTeal, padding: '5px 10px', borderRadius: '5px', display: 'inline-block', lineHeight: '1.4' } },
+      { id: `${idPrefix}-bgnum`, type: 'text', order: 1, content: num,
+        style: { color: C.lightTeal, fontFamily: 'Roboto', fontSize: '38px', fontWeight: '900', lineHeight: '1' } },
+      { id: `${idPrefix}-icon`, type: 'text', order: 2, content: iconSvg,
+        style: { color: C.darkTeal } },
+      { id: `${idPrefix}-num`, type: 'text', order: 3, content: label,
+        style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '10px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', margin: '6px 0 4px' } },
+      { id: `${idPrefix}-title`, type: 'heading', order: 4, level: 4, content: title,
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '15px', fontWeight: '700', lineHeight: '1.2' } },
+      { id: `${idPrefix}-desc`, type: 'text', order: 5, content: desc,
+        style: { color: '#4a5c5a', fontFamily: 'Roboto', fontSize: '12.5px', lineHeight: '1.55' } },
+      { id: `${idPrefix}-get`, type: 'text', order: 6, content: `You get: ${youGet}`,
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11.5px', fontWeight: '500' } },
     ],
   };
 }
 
 function buildFourOfferingsSlide() {
+  const css = `
+[data-slide-id="slide-offerings"] .block-content { max-width: 1000px; margin: 0 auto; }
+[data-block-id="offerings-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; }
+[data-block-id="offerings-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+[data-block-id="offerings-heading"] h2 { margin: 0 0 18px !important; }
+/* Columns wrapper — kill the block renderer's default py-8 my-8 spacing */
+[data-block-id="offerings-grid"] .py-8 { padding: 0 !important; }
+[data-block-id="offerings-grid"] .my-8 { margin: 0 !important; }
+/* Grid — tighten to 2-col with minimal gap; spacer blocks add vertical gap */
+[data-block-id="offerings-grid"] .flex.flex-row { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
+/* Section inside each column — kill the inner top margin from the block wrapper */
+[data-block-id="offerings-grid"] [data-block-id^="off-0"] { margin: 0 !important; }
+[data-block-id="offerings-grid"] [data-col-stacks-never] { width: auto !important; flex: 1 1 auto !important; }
+/* Each offering card */
+[data-block-id^="off-0"][data-block-type="section"] section { border: 1px solid rgba(0,86,82,0.12) !important; border-left: 4px solid var(--dark-teal) !important; border-radius: 0 12px 12px 0 !important; box-shadow: 0 2px 10px rgba(0,86,82,0.06); position: relative !important; overflow: hidden !important; }
+/* Big background number positioned absolute in the card's top-right */
+[data-block-id$="-bgnum"] { position: absolute !important; top: 6px; right: 14px; z-index: 0; pointer-events: none; user-select: none; margin: 0 !important; }
+/* Inline SVG icon */
+[data-block-id$="-icon"] [data-editable-field="content"] svg { display: block; }
+/* Title — need room for bgnum on right */
+[data-block-id$="-title"] h4 { margin: 0 !important; padding-right: 40px; }
+/* "You get" pill — inline display so it wraps as a single row */
+[data-block-id$="-get"] [data-editable-field="content"] { background: var(--light-teal); padding: 6px 10px; border-radius: 5px; display: inline-block; line-height: 1.4; margin-top: 4px; }
+`.trim();
+
   return {
     id: 'slide-offerings',
     label: 'Four Offerings',
+    customCss: css,
+    pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
     blocks: [
+      { id: 'offerings-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+      { id: 'offerings-eyebrow', type: 'text', order: 2, content: 'FOUR WAYS TO WORK TOGETHER',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+      { id: 'offerings-heading', type: 'heading', order: 3, level: 2, content: "Here's what that looks like in practice.",
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
       {
-        id: 'offerings-section',
-        type: 'section',
-        order: 1,
-        backgroundColor: C.offWhite,
-        paddingTop: '0px',
-        paddingBottom: '0px',
-        paddingLeft: '0px',
-        paddingRight: '0px',
-        maxWidth: '1000px',
-        blocks: [
-          { id: 'offerings-brand', type: 'text', order: 1, content: '●&nbsp;&nbsp;CY STRATEGIES',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 36px 0' } },
-          { id: 'offerings-eyebrow', type: 'text', order: 2, content: 'FOUR WAYS TO WORK TOGETHER',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.2em', margin: '0 0 14px 0' } },
-          { id: 'offerings-heading', type: 'heading', order: 3, level: 2,
-            content: "Here's what that looks like in practice.",
-            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '2.25rem', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px', margin: '0 0 22px 0' } },
+        id: 'offerings-grid',
+        type: 'columns',
+        order: 4,
+        gap: 'md',
+        stackOnMobile: true,
+        columns: [
           {
-            id: 'offerings-grid',
-            type: 'columns',
-            order: 4,
-            gap: 'md',
-            stackOnMobile: true,
-            columns: [
-              {
-                id: 'offerings-col-left',
-                width: '50%',
-                verticalAlign: 'top',
-                padding: 'sm',
-                blocks: [
-                  buildOfferingCard('01', '01 / SNAPSHOT', 'Strategy Snapshot: 90-Day Priorities',
-                    "When things feel off but it's not clear why. Identifies what's driving results, what's wasting time, and the few moves that actually matter next.",
-                    'A focused 90-day plan with clear priorities your team can act on immediately',
-                    'off-01'),
-                  { id: 'off-spacer-1', type: 'spacer', order: 2, height: 'sm' },
-                  buildOfferingCard('03', '03 / BLUEPRINT', 'Campaign Blueprint',
-                    'For when you need one specific thing to work. Designs the campaign around the right audience, message, and channels. Built for your team to execute without guessing.',
-                    'A complete campaign structure ready to build and launch',
-                    'off-03'),
-                ],
-              },
-              {
-                id: 'offerings-col-right',
-                width: '50%',
-                verticalAlign: 'top',
-                padding: 'sm',
-                blocks: [
-                  buildOfferingCard('02', '02 / ROADMAP', 'Marketing Roadmap',
-                    "Before you invest in execution, we make the decisions most teams avoid. What actually matters, what doesn't, what gets built first.",
-                    'A sequenced roadmap your team or partners can execute with confidence',
-                    'off-02'),
-                  { id: 'off-spacer-2', type: 'spacer', order: 2, height: 'sm' },
-                  buildOfferingCard('04', '04 / ADVISORY', 'Fractional Marketing Advisory',
-                    'Ongoing strategic input as priorities shift. Keeps decisions tight and execution pointed in the right direction. Strategy only.',
-                    'Consistent guidance that keeps marketing aligned with what actually matters',
-                    'off-04'),
-                ],
-              },
+            id: 'offerings-col-left', width: '50%', verticalAlign: 'top', padding: 'none',
+            blocks: [
+              offeringCardBlock('off-01', '01', '01 / SNAPSHOT', 'Strategy Snapshot: 90-Day Priorities',
+                "When things feel off but it's not clear why. Identifies what's driving results, what's wasting time, and the few moves that actually matter next.",
+                'A focused 90-day plan with clear priorities your team can act on immediately',
+                SNAPSHOT_ICON),
+              { id: 'off-spacer-left', type: 'spacer', order: 2, height: 'xs' },
+              offeringCardBlock('off-03', '03', '03 / BLUEPRINT', 'Campaign Blueprint',
+                'For when you need one specific thing to work. Designs the campaign around the right audience, message, and channels. Built for your team to execute without guessing.',
+                'A complete campaign structure ready to build and launch',
+                BLUEPRINT_ICON),
+            ],
+          },
+          {
+            id: 'offerings-col-right', width: '50%', verticalAlign: 'top', padding: 'none',
+            blocks: [
+              offeringCardBlock('off-02', '02', '02 / ROADMAP', 'Marketing Roadmap',
+                "Before you invest in execution, we make the decisions most teams avoid. What actually matters, what doesn't, what gets built first.",
+                'A sequenced roadmap your team or partners can execute with confidence',
+                ROADMAP_ICON),
+              { id: 'off-spacer-right', type: 'spacer', order: 2, height: 'xs' },
+              offeringCardBlock('off-04', '04', '04 / ADVISORY', 'Fractional Marketing Advisory',
+                'Ongoing strategic input as priorities shift. Keeps decisions tight and execution pointed in the right direction. Strategy only.',
+                'Consistent guidance that keeps marketing aligned with what actually matters',
+                ADVISORY_ICON),
             ],
           },
         ],
       },
     ],
-    pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
   };
 }
 
-function buildClientCard(initials: string, name: string, story: string, proof: string, idPrefix: string) {
+function clientCardBlock(idPrefix: string, initials: string, name: string, story: string, proof: string) {
+  return {
+    id: idPrefix,
+    type: 'columns',
+    order: 1,
+    gap: 'sm',
+    stackOnMobile: false,
+    columns: [
+      {
+        id: `${idPrefix}-badge-col`, width: '40px', verticalAlign: 'top', padding: 'none',
+        blocks: [
+          { id: `${idPrefix}-badge`, type: 'text', order: 1, content: initials,
+            style: { color: C.offWhite, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '900', letterSpacing: '1px' } },
+        ],
+      },
+      {
+        id: `${idPrefix}-body-col`, width: 'auto', verticalAlign: 'top', padding: 'none',
+        blocks: [
+          { id: `${idPrefix}-name`, type: 'text', order: 1, content: name.toUpperCase(),
+            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '12px', fontWeight: '700', letterSpacing: '2px', margin: '0 0 4px' } },
+          { id: `${idPrefix}-story`, type: 'text', order: 2, content: story,
+            style: { color: '#3a4a49', fontFamily: 'Roboto', fontSize: '14.5px', lineHeight: '1.65' } },
+          { id: `${idPrefix}-proof`, type: 'text', order: 3, content: proof,
+            style: { color: C.rust, fontFamily: 'Roboto', fontSize: '12px', fontWeight: '500' } },
+        ],
+      },
+    ],
+  };
+}
+
+function clientCardSection(idPrefix: string, initials: string, name: string, story: string, proof: string) {
   return {
     id: `${idPrefix}-card`,
     type: 'section',
     order: 1,
-    backgroundColor: C.white,
-    paddingTop: '16px',
-    paddingBottom: '16px',
-    paddingLeft: '20px',
+    paddingTop: '14px',
+    paddingBottom: '14px',
+    paddingLeft: '18px',
     paddingRight: '20px',
-    style: { borderLeft: `4px solid ${C.darkTeal}`, borderRadius: '0 12px 12px 0', border: '1px solid rgba(0,86,82,0.1)', boxShadow: '0 2px 10px rgba(0,86,82,0.06)' },
-    blocks: [
-      {
-        id: `${idPrefix}-row`,
-        type: 'columns',
-        order: 1,
-        gap: 'sm',
-        stackOnMobile: false,
-        columns: [
-          {
-            id: `${idPrefix}-badge-col`,
-            width: '48px',
-            verticalAlign: 'top',
-            padding: 'none',
-            blocks: [
-              { id: `${idPrefix}-badge`, type: 'text', order: 1, content: initials, alignment: 'center',
-                style: { backgroundColor: C.darkTeal, color: C.offWhite, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '900', letterSpacing: '0.0625em', width: '36px', height: '36px', lineHeight: '36px', borderRadius: '8px', textAlign: 'center' } },
-            ],
-          },
-          {
-            id: `${idPrefix}-text-col`,
-            width: 'auto',
-            verticalAlign: 'top',
-            padding: 'none',
-            blocks: [
-              { id: `${idPrefix}-name`, type: 'text', order: 1, content: name,
-                style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.75rem', fontWeight: '700', letterSpacing: '0.15em', margin: '0 0 4px 0' } },
-              { id: `${idPrefix}-story`, type: 'text', order: 2, content: story,
-                style: { color: C.bodyText, fontFamily: 'Roboto', fontSize: '0.90625rem', lineHeight: '1.65', margin: '0 0 8px 0' } },
-              { id: `${idPrefix}-proof`, type: 'text', order: 3, content: proof,
-                style: { color: C.rust, fontFamily: 'Roboto', fontSize: '0.75rem', fontWeight: '500', backgroundColor: 'rgba(196,106,61,0.08)', border: '1px solid rgba(196,106,61,0.2)', padding: '3px 10px', borderRadius: '5px', display: 'inline-block' } },
-            ],
-          },
-        ],
-      },
-    ],
+    backgroundColor: '#ffffff',
+    blocks: [clientCardBlock(idPrefix, initials, name, story, proof)],
   };
 }
 
 function buildRecentWorkSlide() {
+  const css = `
+[data-slide-id="slide-work"] .block-content { max-width: 900px; margin: 0 auto; }
+[data-block-id="work-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; }
+[data-block-id="work-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+[data-block-id="work-heading"] h2 { margin: 0 0 14px !important; }
+/* Client cards */
+[data-block-id$="-card"][data-block-type="section"] section { border: 1px solid rgba(0,86,82,0.1) !important; border-left: 4px solid var(--dark-teal) !important; border-radius: 0 12px 12px 0 !important; box-shadow: 0 2px 10px rgba(0,86,82,0.06); }
+/* Tighten spacing between cards */
+[data-block-id$="-card"][data-block-type="section"] { margin-top: 8px !important; }
+[data-block-id$="-card"][data-block-type="section"]:first-of-type { margin-top: 0 !important; }
+/* Columns wrapper — kill the block renderer's default py-8 my-8 spacing */
+[data-block-id$="-card"] [data-block-type="columns"] .py-8 { padding: 0 !important; }
+[data-block-id$="-card"] [data-block-type="columns"] .my-8 { margin: 0 !important; }
+/* Force narrow badge column (width='40px' on the column def gets coerced to 40%) */
+[data-block-id$="-card"] [data-col-stacks-never]:first-child { flex: 0 0 36px !important; width: 36px !important; }
+[data-block-id$="-card"] [data-col-stacks-never]:last-child { flex: 1 1 auto !important; width: auto !important; }
+/* Initials badge */
+[data-block-id$="-badge"] [data-editable-field="content"] { width: 36px; height: 36px; border-radius: 8px; background: var(--dark-teal); display: flex !important; align-items: center; justify-content: center; margin: 0 !important; }
+/* Proof tag */
+[data-block-id$="-proof"] [data-editable-field="content"] { display: inline-block; margin-top: 6px; background: rgba(196,106,61,0.08); border: 1px solid rgba(196,106,61,0.2); padding: 3px 10px; border-radius: 5px; }
+/* Story text — constrain so badge+story row reads naturally */
+[data-block-id$="-story"] [data-editable-field="content"] { margin: 0; }
+[data-block-id$="-name"] [data-editable-field="content"] { margin: 0 0 4px; }
+`.trim();
+
   return {
     id: 'slide-work',
     label: 'Recent Work',
-    blocks: [
-      {
-        id: 'work-section',
-        type: 'section',
-        order: 1,
-        backgroundColor: C.offWhite,
-        paddingTop: '0px',
-        paddingBottom: '0px',
-        paddingLeft: '0px',
-        paddingRight: '0px',
-        maxWidth: '900px',
-        blocks: [
-          { id: 'work-brand', type: 'text', order: 1, content: '●&nbsp;&nbsp;CY STRATEGIES',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 36px 0' } },
-          { id: 'work-eyebrow', type: 'text', order: 2, content: 'RECENT WORK',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.2em', margin: '0 0 14px 0' } },
-          { id: 'work-heading', type: 'heading', order: 3, level: 2, content: 'A few examples.',
-            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '2.25rem', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px', margin: '0 0 18px 0' } },
-          buildClientCard('PC', 'POST CAPTAIN CONSULTING',
-            'A niche B2B firm that had grown on reputation and needed a foundation to grow intentionally. Work started with positioning and story, led to a full website rebuild, and established a clearer model for generating business beyond referrals.',
-            'Clear positioning and a foundation built for intentional growth',
-            'pc'),
-          { id: 'work-spacer-1', type: 'spacer', order: 5, height: 'xs' },
-          buildClientCard('CC', 'CROSSOVER CAPITAL',
-            'A financial advisory firm targeting a specific audience with a message that needed to land exactly right. Narrowed the target, rebuilt the positioning, and structured the campaign and outreach around what would actually resonate. An attorney who said he never clicks ads reached out after clicking this one.',
-            'Right strategy, right message, right audience',
-            'cc'),
-          { id: 'work-spacer-2', type: 'spacer', order: 7, height: 'xs' },
-          buildClientCard('JM', 'JM LAW GROUP',
-            'A franchise attorney without a consistent system for reaching the right referral sources. Built a LinkedIn strategy and outreach process targeting brokers and franchisors, with content and templates to make it consistent and repeatable.',
-            'Focused outreach, better relationships, more consistency',
-            'jm'),
-        ],
-      },
-    ],
+    customCss: css,
     pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
+    blocks: [
+      { id: 'work-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+      { id: 'work-eyebrow', type: 'text', order: 2, content: 'RECENT WORK',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+      { id: 'work-heading', type: 'heading', order: 3, level: 2, content: 'A few examples.',
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
+      clientCardSection('pc', 'PC', 'Post Captain Consulting',
+        'A niche B2B firm that had grown on reputation and needed a foundation to grow intentionally. Work started with positioning and story, led to a full website rebuild, and established a clearer model for generating business beyond referrals.',
+        'Clear positioning and a foundation built for intentional growth'),
+      clientCardSection('cc', 'CC', 'Crossover Capital',
+        'A financial advisory firm targeting a specific audience with a message that needed to land exactly right. Narrowed the target, rebuilt the positioning, and structured the campaign and outreach around what would actually resonate. An attorney who said he never clicks ads reached out after clicking this one.',
+        'Right strategy, right message, right audience'),
+      clientCardSection('jm', 'JM', 'JM Law Group',
+        'A franchise attorney without a consistent system for reaching the right referral sources. Built a LinkedIn strategy and outreach process targeting brokers and franchisors, with content and templates to make it consistent and repeatable.',
+        'Focused outreach, better relationships, more consistency'),
+    ],
   };
 }
 
 function buildCtaSlide(targetVisibleSlide: number) {
+  const css = `
+[data-slide-id="slide-cta"] .block-content { max-width: 720px; margin: 0 auto; }
+[data-block-id="cta-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; }
+[data-block-id="cta-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+[data-block-id="cta-heading"] h2 { margin: 0 0 14px !important; }
+[data-block-id="cta-rule"] hr { border: none; background: var(--rust); height: 3px; width: 44px; max-width: 44px; margin: 20px 0; border-radius: 2px; }
+
+/* Primary label — matches button background, sits flush on top as a header cap */
+[data-block-id="cta-primary-label"] { margin: 0 !important; }
+[data-block-id="cta-primary-label"] [data-editable-field="content"] {
+  font-size: 9px !important; font-weight: 700 !important; letter-spacing: 2.5px !important;
+  text-transform: uppercase; color: var(--soft-teal) !important;
+  background: var(--dark-teal); padding: 14px 24px 0; border-radius: 12px 12px 0 0;
+  margin: 0 !important;
+}
+[data-block-id="cta-primary-btn"] button, [data-block-id="cta-primary-btn"] > div > button {
+  background: var(--dark-teal) !important; color: var(--off-white) !important;
+  padding: 4px 24px 16px !important; border-radius: 0 0 12px 12px !important; border: none !important;
+  font-family: 'Roboto', sans-serif !important; font-size: 17px !important; font-weight: 700 !important;
+  width: 100% !important; display: flex !important; align-items: center !important;
+  justify-content: space-between !important; text-align: left !important; margin-top: 0 !important;
+}
+[data-block-id="cta-primary-btn"] > div { margin-top: 0 !important; }
+
+/* Secondary label — transparent background with dark-teal border, top cap */
+[data-block-id="cta-secondary-label"] { margin: 0 !important; }
+[data-block-id="cta-secondary-label"] [data-editable-field="content"] {
+  font-size: 9px !important; font-weight: 700 !important; letter-spacing: 2.5px !important;
+  text-transform: uppercase; color: var(--soft-teal) !important;
+  background: transparent; padding: 14px 22px 0;
+  border: 2px solid var(--dark-teal); border-bottom: none; border-radius: 12px 12px 0 0;
+  margin: 0 !important;
+}
+[data-block-id="cta-secondary-btn"] a, [data-block-id="cta-secondary-btn"] > div > a {
+  background: transparent !important; color: var(--dark-teal) !important;
+  padding: 4px 22px 16px !important;
+  border: 2px solid var(--dark-teal) !important; border-top: none !important;
+  border-radius: 0 0 12px 12px !important;
+  font-family: 'Roboto', sans-serif !important; font-size: 17px !important; font-weight: 700 !important;
+  width: 100% !important; display: flex !important; align-items: center !important;
+  justify-content: space-between !important; text-align: left !important; text-decoration: none !important;
+  margin-top: 0 !important;
+}
+[data-block-id="cta-secondary-btn"] > div { margin-top: 0 !important; }
+`.trim();
+
   return {
     id: 'slide-cta',
     label: "What's Next",
-    blocks: [
-      {
-        id: 'cta-section',
-        type: 'section',
-        order: 1,
-        backgroundColor: C.lightTeal,
-        paddingTop: '0px',
-        paddingBottom: '0px',
-        paddingLeft: '0px',
-        paddingRight: '0px',
-        maxWidth: '760px',
-        blocks: [
-          { id: 'cta-brand', type: 'text', order: 1, content: '●&nbsp;&nbsp;CY STRATEGIES',
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 36px 0' } },
-          { id: 'cta-eyebrow', type: 'text', order: 2, content: "WHAT'S NEXT",
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.6875rem', fontWeight: '700', letterSpacing: '0.2em', margin: '0 0 14px 0' } },
-          { id: 'cta-heading', type: 'heading', order: 3, level: 2, content: 'Two ways to move forward.',
-            style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '2.25rem', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px', margin: '0 0 14px 0' } },
-          { id: 'cta-rule', type: 'divider', order: 4,
-            style: { borderColor: C.rust, borderWidth: '3px', maxWidth: '44px', margin: '20px 0' } },
-          { id: 'cta-body', type: 'text', order: 5,
-            content: "If you want a clearer picture of which offering fits before we talk, walk through the three questions. If you'd rather just have a conversation, that works too.",
-            style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '1.125rem', fontWeight: '300', lineHeight: '1.55', margin: '0 0 28px 0', maxWidth: '560px' } },
-          {
-            id: 'cta-primary-wrap',
-            type: 'section',
-            order: 6,
-            backgroundColor: 'transparent',
-            paddingTop: '0px',
-            paddingBottom: '0px',
-            paddingLeft: '0px',
-            paddingRight: '0px',
-            blocks: [
-              { id: 'cta-primary-label', type: 'text', order: 1, content: 'GET CLARITY FIRST',
-                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '0.5625rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 6px 0' } },
-              {
-                id: 'cta-primary-btn',
-                type: 'deck-jump-to',
-                order: 2,
-                text: 'Walk me through it  →',
-                targetSlide: targetVisibleSlide,
-                variant: 'primary',
-                alignment: 'left',
-                size: 'lg',
-                style: { backgroundColor: C.darkTeal, color: C.offWhite, fontFamily: 'Roboto', fontSize: '1.0625rem', fontWeight: '700', padding: '18px 24px', borderRadius: '12px' },
-              },
-              { id: 'cta-primary-support', type: 'text', order: 3,
-                content: 'A few questions that help identify which offering fits your situation and what getting started would look like.',
-                style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.875rem', lineHeight: '1.6', opacity: '0.72', padding: '10px 14px 0', maxWidth: '480px' } },
-            ],
-          },
-          { id: 'cta-stack-spacer', type: 'spacer', order: 7, height: 'sm' },
-          {
-            id: 'cta-secondary-wrap',
-            type: 'section',
-            order: 8,
-            backgroundColor: 'transparent',
-            paddingTop: '0px',
-            paddingBottom: '0px',
-            paddingLeft: '0px',
-            paddingRight: '0px',
-            blocks: [
-              { id: 'cta-secondary-label', type: 'text', order: 1, content: 'START WITH A CONVERSATION',
-                style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '0.5625rem', fontWeight: '700', letterSpacing: '0.25em', margin: '0 0 6px 0' } },
-              {
-                id: 'cta-secondary-btn',
-                type: 'button',
-                order: 2,
-                text: 'Book a 30-minute call  →',
-                url: CALENDLY,
-                variant: 'secondary',
-                alignment: 'left',
-                size: 'lg',
-                openInNewTab: true,
-                style: { backgroundColor: 'transparent', color: C.darkTeal, border: `2px solid ${C.darkTeal}`, fontFamily: 'Roboto', fontSize: '1.0625rem', fontWeight: '700', padding: '18px 24px', borderRadius: '12px' },
-              },
-              { id: 'cta-secondary-support', type: 'text', order: 3,
-                content: 'If you already have context and want to talk it through, we can start there and figure out fit together.',
-                style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '0.875rem', lineHeight: '1.6', opacity: '0.72', padding: '10px 14px 0', maxWidth: '480px' } },
-            ],
-          },
-        ],
-      },
-    ],
+    customCss: css,
     pageSettings: { backgroundColor: C.lightTeal, color: C.darkBlack, fontFamily: 'Roboto' },
+    blocks: [
+      { id: 'cta-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
+      { id: 'cta-eyebrow', type: 'text', order: 2, content: "WHAT'S NEXT",
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
+      { id: 'cta-heading', type: 'heading', order: 3, level: 2, content: 'Two ways to move forward.',
+        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
+      { id: 'cta-rule', type: 'divider', order: 4, style: { borderColor: C.rust } },
+      { id: 'cta-body', type: 'text', order: 5,
+        content: "If you want a clearer picture of which offering fits before we talk, walk through the three questions. If you'd rather just have a conversation, that works too.",
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '18px', fontWeight: '300', lineHeight: '1.55', maxWidth: '560px', margin: '0 0 28px' } },
+      { id: 'cta-primary-label', type: 'text', order: 6, content: 'GET CLARITY FIRST',
+        style: { color: C.softTeal } },
+      { id: 'cta-primary-btn', type: 'deck-jump-to', order: 7,
+        text: 'Walk me through it  →', targetSlide: targetVisibleSlide,
+        variant: 'primary', alignment: 'left', size: 'lg' },
+      { id: 'cta-primary-support', type: 'text', order: 8,
+        content: 'A few questions that help identify which offering fits your situation and what getting started would look like.',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', opacity: '0.72', maxWidth: '480px', margin: '10px 0 20px' } },
+      { id: 'cta-secondary-label', type: 'text', order: 9, content: 'START WITH A CONVERSATION',
+        style: { color: C.softTeal } },
+      { id: 'cta-secondary-btn', type: 'button', order: 10,
+        text: 'Book a 30-minute call  →', url: CALENDLY,
+        variant: 'secondary', alignment: 'left', size: 'lg', openInNewTab: true },
+      { id: 'cta-secondary-support', type: 'text', order: 11,
+        content: 'If you already have context and want to talk it through, we can start there and figure out fit together.',
+        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', opacity: '0.72', maxWidth: '480px', margin: '10px 0 0' } },
+    ],
   };
 }
 
@@ -863,6 +894,7 @@ async function main() {
     textColor: C.darkBlack,
     headingFont: 'Roboto',
     bodyFont: 'Roboto',
+    customCss: DECK_GLOBAL_CSS,
   };
   const title = 'CY Strategies — Figure Out Your Fit';
   const description = 'Marketing strategy pitch with an integrated qualifier survey.';

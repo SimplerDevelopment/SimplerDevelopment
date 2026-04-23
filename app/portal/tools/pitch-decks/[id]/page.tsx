@@ -1102,6 +1102,29 @@ useEffect(() => {
           placeholder="e.g. Cover, About, Pricing..."
         />
       </div>
+
+      {/* Per-slide Custom CSS */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">
+          Custom CSS <span className="opacity-60">(active only while this slide is in view)</span>
+        </label>
+        <textarea
+          value={currentSlide.customCss || ''}
+          onChange={(e) => {
+            const newSlides = [...deck.slides];
+            newSlides[activeSlide] = { ...newSlides[activeSlide], customCss: e.target.value };
+            setDeck({ ...deck, slides: newSlides });
+            setHasUnsavedChanges(true);
+          }}
+          rows={10}
+          spellCheck={false}
+          className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder={`/* Target rendered blocks via [data-block-id="..."] */\n[data-block-id="cover-rule"] hr { background: var(--rust); height: 3px; }`}
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Injected unscoped while this slide is active. Block wrappers expose <code>data-block-id</code> and <code>data-block-type</code> for targeting. The slide stage carries <code>data-slide-id</code>.
+        </p>
+      </div>
     </div>
   );
 
@@ -1369,6 +1392,20 @@ useEffect(() => {
                 onChange={(font) => handleThemeUpdate({ bodyFont: font })}
               />
             </div>
+          </div>
+          {/* Deck-global custom CSS */}
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">
+              Deck CSS <span className="opacity-60">(injected once, applies to all slides)</span>
+            </label>
+            <textarea
+              value={deck.theme.customCss || ''}
+              onChange={(e) => handleThemeUpdate({ customCss: e.target.value })}
+              rows={8}
+              spellCheck={false}
+              className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder={`/* Define CSS vars, resets, and deck-wide patterns */\n.deck-root { --brand: #005652; }\n.deck-root .slide-stage p { margin: 0; }`}
+            />
           </div>
         </div>
       )}
@@ -2165,7 +2202,7 @@ useEffect(() => {
                   rightCollapsed={editorRightCollapsed}
                   onLeftCollapsedChange={setEditorLeftCollapsed}
                   onRightCollapsedChange={setEditorRightCollapsed}
-                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}`}
+                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}${deck.brandingProfileId ? `&profileId=${deck.brandingProfileId}` : ''}`}
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {

@@ -131,7 +131,7 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
       )}
       <div className="relative z-10" style={innerStyle}>
         {(block.blocks || []).map((nestedBlock) => (
-          <div key={nestedBlock.id}>
+          <div key={nestedBlock.id} data-block-id={nestedBlock.id} data-block-type={nestedBlock.type}>
             <BlockStyleWrapper block={nestedBlock}>
               {renderNestedBlock(nestedBlock)}
             </BlockStyleWrapper>

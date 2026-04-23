@@ -95,12 +95,18 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
 
   const rendered = (
     <div className={hasCustomLayout ? 'block-content' : 'block-content'} data-site-id={siteId || undefined}>
-      {blocks.map((block) => {
+      {blocks.map((block, idx) => {
         const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
+        // Fallback key for legacy data where block.id is missing (e.g. older
+        // LLM-authored pitch decks). Write paths now backfill ids, but we
+        // can't trust all on-disk content.
+        const key = block.id ?? `block-${idx}-${block.type}`;
         return (
           <div
-            key={block.id}
+            key={key}
             id={block.anchor || undefined}
+            data-block-id={block.id}
+            data-block-type={block.type}
             className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}
             style={block.anchor ? { scrollMarginTop: '80px' } : undefined}
           >
