@@ -1,11 +1,13 @@
 import { MetadataRoute } from 'next';
-import { getAllSolutions, getAllBlogPosts } from '@/lib/builder/api';
+import { db } from '@/lib/db';
+import { posts } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { getAllSolutions } from '@/lib/data/solutions';
 import { siteConfig } from '@/config/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.url;
 
-  // Static pages
   const staticPages = [
     {
       url: baseUrl,
@@ -39,31 +41,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Dynamic solution pages
-  let solutionPages: MetadataRoute.Sitemap = [];
-  try {
-    const solutions = await getAllSolutions();
-    solutionPages = solutions
-      .filter((solution) => solution.data?.slug)
-      .map((solution) => ({
-        url: `${baseUrl}/solutions/${solution.data!.slug}`,
-        lastModified: new Date(solution.lastUpdatedDate || solution.createdDate || Date.now()),
-        changeFrequency: 'weekly' as const,
-        priority: 0.8,
-      }));
-  } catch (error) {
-    console.error('Failed to fetch solutions for sitemap:', error);
-  }
+  const solutionPages = getAllSolutions().map((solution) => ({
+    url: `${baseUrl}/solutions/${solution.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
 
-  // Dynamic blog pages
   let blogPages: MetadataRoute.Sitemap = [];
   try {
-    const posts = await getAllBlogPosts();
-    blogPages = posts
-      .filter((post) => post.data?.slug)
+    const publishedPosts = await db
+      .select({ slug: posts.slug, updatedAt: posts.updatedAt })
+      .from(posts)
+      .where(eq(posts.published, true));
+
+    blogPages = publishedPosts
+      .filter((post) => post.slug)
       .map((post) => ({
-        url: `${baseUrl}/blog/${post.data!.slug}`,
-        lastModified: new Date(post.data!.publishedAt || post.lastUpdatedDate || post.createdDate || Date.now()),
+        url: `${baseUrl}/blog/${post.slug}`,
+        lastModified: post.updatedAt,
         changeFrequency: 'monthly' as const,
         priority: 0.7,
       }));

@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Select from 'react-select';
+import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
+import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
+import MarkdownView from '@/components/portal/MarkdownView';
 
 interface Artifact {
   id: number;
@@ -52,6 +56,19 @@ const ARTIFACT_LABELS: Record<string, string> = {
   survey: 'Survey',
   project: 'Project',
 };
+
+function artifactUrl(type: string, id: number): string | null {
+  switch (type) {
+    case 'website': return `/portal/websites/${id}`;
+    case 'email_campaign': return `/portal/email/campaigns/${id}`;
+    case 'pitch_deck': return `/portal/tools/pitch-decks/${id}`;
+    case 'proposal': return `/portal/crm/proposals/${id}`;
+    case 'booking': return `/portal/tools/booking/${id}`;
+    case 'survey': return `/portal/surveys/${id}`;
+    case 'project': return `/portal/projects/${id}`;
+    default: return null;
+  }
+}
 
 type PanelTab = 'details' | 'artifacts' | 'comments';
 
@@ -135,6 +152,7 @@ export default function CrmDealsPage() {
   const [loading, setLoading] = useState(true);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('open');
+  const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -150,6 +168,7 @@ export default function CrmDealsPage() {
     expectedCloseDate: '',
     notes: '',
   });
+  const [notesPreview, setNotesPreview] = useState(false);
 
   // Deal detail panel state
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
@@ -167,6 +186,7 @@ export default function CrmDealsPage() {
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editNotesPreview, setEditNotesPreview] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Drag and drop state
@@ -276,12 +296,45 @@ export default function CrmDealsPage() {
     return filtered.length > 0 ? filtered : contacts;
   }
 
+  // Options for the Add Deal contact select — strictly limited to the selected
+  // company (no fallback to "all contacts"), and empty when no company is set
+  // so the react-select can be disabled until a company is chosen.
+  const addDealContactOptions = useMemo(() => {
+    if (!form.companyId) return [] as { value: number; label: string }[];
+    const cid = Number(form.companyId);
+    return contacts
+      .filter(c => c.companyId === cid)
+      .map(c => ({ value: c.id, label: `${c.firstName} ${c.lastName}`.trim() || `Contact #${c.id}` }));
+  }, [contacts, form.companyId]);
+
+  const editDealContactOptions = useMemo(() => {
+    if (!editForm.companyId) return [] as { value: number; label: string }[];
+    const cid = Number(editForm.companyId);
+    return contacts
+      .filter(c => c.companyId === cid)
+      .map(c => ({ value: c.id, label: `${c.firstName} ${c.lastName}`.trim() || `Contact #${c.id}` }));
+  }, [contacts, editForm.companyId]);
+
+  // Shared react-select classNames so dropdowns match the app's design tokens.
+  const rsClassNames = {
+    control: (s: { isFocused: boolean; isDisabled: boolean }) =>
+      `!bg-background !border !border-border !rounded-lg !min-h-[38px] !text-sm ${s.isFocused ? '!ring-2 !ring-primary/50' : ''} ${s.isDisabled ? '!opacity-60 !cursor-not-allowed' : ''}`,
+    menu: () => '!bg-popover !border !border-border !text-foreground !rounded-lg !shadow-lg',
+    option: (s: { isFocused: boolean; isSelected: boolean }) =>
+      `!text-sm !px-3 !py-2 !cursor-pointer ${s.isSelected ? '!bg-primary !text-primary-foreground' : s.isFocused ? '!bg-accent !text-accent-foreground' : '!text-foreground'}`,
+    singleValue: () => '!text-foreground',
+    placeholder: () => '!text-muted-foreground',
+    input: () => '!text-foreground',
+    noOptionsMessage: () => '!text-muted-foreground !text-sm !py-2',
+    indicatorSeparator: () => '!bg-border',
+  };
+
   // Load pipelines, contacts, companies
   useEffect(() => {
     Promise.all([
       fetch('/api/portal/crm/pipelines').then(r => r.json()),
       fetch('/api/portal/crm/contacts?limit=1000').then(r => r.json()),
-      fetch('/api/portal/crm/companies').then(r => r.json()),
+      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()),
     ]).then(([p, c, co]) => {
       const pipelineData = p.data ?? [];
       setPipelines(pipelineData);
@@ -301,15 +354,18 @@ export default function CrmDealsPage() {
       pipelineId: String(selectedPipelineId),
       status: statusFilter,
     });
+    for (const [fid, val] of Object.entries(customFilters)) {
+      if (val) params.append('cf', `${fid}:${val}`);
+    }
     const res = await fetch(`/api/portal/crm/deals?${params}`);
     const d = await res.json();
     setDeals(d.data ?? []);
     setDealsLoading(false);
-  }, [selectedPipelineId, statusFilter]);
+  }, [selectedPipelineId, statusFilter, customFilters]);
 
   useEffect(() => {
     if (selectedPipelineId) fetchDeals();
-  }, [selectedPipelineId, statusFilter, fetchDeals]);
+  }, [selectedPipelineId, statusFilter, customFilters, fetchDeals]);
 
   const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId);
   const stages = selectedPipeline?.stages?.sort((a, b) => a.order - b.order) ?? [];
@@ -648,6 +704,11 @@ export default function CrmDealsPage() {
               </button>
             ))}
           </div>
+          <CrmCustomFieldFilters
+            entityType="deal"
+            values={customFilters}
+            onChange={setCustomFilters}
+          />
         </div>
         <button
           onClick={() => {
@@ -727,10 +788,17 @@ export default function CrmDealsPage() {
                   {form.companyId && <p className="text-[10px] text-muted-foreground">Will be assigned to {companies.find(c => c.id === Number(form.companyId))?.name}</p>}
                 </div>
               ) : (
-                <select value={form.contactId} onChange={e => setForm(f => ({ ...f, contactId: e.target.value }))} className={inputClass}>
-                  <option value="">None</option>
-                  {getFilteredContacts(form.companyId).map(c => (<option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>))}
-                </select>
+                <Select
+                  isClearable
+                  isDisabled={!form.companyId}
+                  options={addDealContactOptions}
+                  value={addDealContactOptions.find(o => String(o.value) === form.contactId) ?? null}
+                  onChange={v => setForm(f => ({ ...f, contactId: v ? String(v.value) : '' }))}
+                  placeholder={form.companyId ? 'Select contact…' : 'Select a company first'}
+                  noOptionsMessage={() => form.companyId ? 'No contacts at this company' : 'Select a company first'}
+                  classNames={rsClassNames}
+                  classNamePrefix="rs"
+                />
               )}
             </div>
             <div>
@@ -757,9 +825,41 @@ export default function CrmDealsPage() {
               <label className="block text-xs font-medium text-muted-foreground mb-1">Expected Close Date</label>
               <input type="date" value={form.expectedCloseDate} onChange={e => setForm(f => ({ ...f, expectedCloseDate: e.target.value }))} className={inputClass} />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
-              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={1} className={inputClass + ' resize-none'} />
+            <div className="sm:col-span-2 lg:col-span-3">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-muted-foreground">Notes <span className="text-muted-foreground/60">(markdown)</span></label>
+                <div className="flex gap-1 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setNotesPreview(false)}
+                    className={`px-2 py-0.5 rounded ${!notesPreview ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Write
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNotesPreview(true)}
+                    className={`px-2 py-0.5 rounded ${notesPreview ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
+              {notesPreview ? (
+                <div className="min-h-[100px] px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground">
+                  {form.notes.trim()
+                    ? <MarkdownView>{form.notes}</MarkdownView>
+                    : <span className="text-muted-foreground italic">Nothing to preview.</span>}
+                </div>
+              ) : (
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  rows={5}
+                  placeholder="**Bold**, _italic_, lists, links, `code`…"
+                  className={inputClass + ' font-mono resize-y'}
+                />
+              )}
             </div>
           </div>
           <div className="flex justify-end">
@@ -1026,10 +1126,17 @@ export default function CrmDealsPage() {
                         )}
                       </div>
                     ) : (
-                      <select value={editForm.contactId} onChange={e => setEditForm(f => ({ ...f, contactId: e.target.value }))} className={inputClass}>
-                        <option value="">None</option>
-                        {getFilteredContacts(editForm.companyId).map(c => (<option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>))}
-                      </select>
+                      <Select
+                        isClearable
+                        isDisabled={!editForm.companyId}
+                        options={editDealContactOptions}
+                        value={editDealContactOptions.find(o => String(o.value) === editForm.contactId) ?? null}
+                        onChange={v => setEditForm(f => ({ ...f, contactId: v ? String(v.value) : '' }))}
+                        placeholder={editForm.companyId ? 'Select contact…' : 'Select a company first'}
+                        noOptionsMessage={() => editForm.companyId ? 'No contacts at this company' : 'Select a company first'}
+                        classNames={rsClassNames}
+                        classNamePrefix="rs"
+                      />
                     )}
                   </div>
 
@@ -1049,8 +1156,40 @@ export default function CrmDealsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
-                    <textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={4} className={inputClass + ' resize-none'} />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-muted-foreground">Notes <span className="text-muted-foreground/60">(markdown)</span></label>
+                      <div className="flex gap-1 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setEditNotesPreview(false)}
+                          className={`px-2 py-0.5 rounded ${!editNotesPreview ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Write
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditNotesPreview(true)}
+                          className={`px-2 py-0.5 rounded ${editNotesPreview ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+                    {editNotesPreview ? (
+                      <div className="min-h-[100px] px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground">
+                        {editForm.notes.trim()
+                          ? <MarkdownView>{editForm.notes}</MarkdownView>
+                          : <span className="text-muted-foreground italic">Nothing to preview.</span>}
+                      </div>
+                    ) : (
+                      <textarea
+                        value={editForm.notes}
+                        onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                        rows={5}
+                        placeholder="**Bold**, _italic_, lists, links, `code`…"
+                        className={inputClass + ' font-mono resize-y'}
+                      />
+                    )}
                   </div>
 
                   {/* Pinned Artifacts Preview */}
@@ -1060,13 +1199,26 @@ export default function CrmDealsPage() {
                         <span className="material-icons text-xs">push_pin</span> Pinned Artifacts
                       </p>
                       <div className="space-y-1">
-                        {artifacts.filter(a => a.pinned).map(a => (
-                          <div key={a.id} className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5">
-                            <span className="material-icons text-sm text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
-                            <span className="truncate">{a.displayTitle}</span>
-                            <span className="text-muted-foreground ml-auto shrink-0">{ARTIFACT_LABELS[a.artifactType]}</span>
-                          </div>
-                        ))}
+                        {artifacts.filter(a => a.pinned).map(a => {
+                          const url = artifactUrl(a.artifactType, a.artifactId);
+                          const inner = (
+                            <>
+                              <span className="material-icons text-sm text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
+                              <span className="truncate">{a.displayTitle}</span>
+                              <span className="text-muted-foreground ml-auto shrink-0">{ARTIFACT_LABELS[a.artifactType]}</span>
+                              {url && <span className="material-icons text-xs text-muted-foreground shrink-0">open_in_new</span>}
+                            </>
+                          );
+                          return url ? (
+                            <a key={a.id} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors" title="Open artifact">
+                              {inner}
+                            </a>
+                          ) : (
+                            <div key={a.id} className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5">
+                              {inner}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1080,6 +1232,14 @@ export default function CrmDealsPage() {
                         Save Changes
                       </button>
                     </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border space-y-3">
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <span className="material-icons text-base text-muted-foreground">tune</span>
+                      Custom Fields
+                    </p>
+                    <CrmCustomFieldsPanel entityType="deal" entityId={editingDeal.id} />
                   </div>
                 </form>
               )}
@@ -1139,13 +1299,27 @@ export default function CrmDealsPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {artifacts.map(a => (
+                      {artifacts.map(a => {
+                        const url = artifactUrl(a.artifactType, a.artifactId);
+                        return (
                         <div key={a.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${a.pinned ? 'bg-primary/5 border-primary/20' : 'bg-card border-border'}`}>
                           <span className="material-icons text-lg text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{a.displayTitle}</p>
-                            <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
-                          </div>
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 group" title="Open artifact">
+                              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary group-hover:underline">{a.displayTitle}</p>
+                              <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
+                            </a>
+                          ) : (
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{a.displayTitle}</p>
+                              <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
+                            </div>
+                          )}
+                          {url && (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-accent transition-colors" title="Open in new tab">
+                              <span className="material-icons text-sm">open_in_new</span>
+                            </a>
+                          )}
                           <button onClick={() => togglePin(a.id, !a.pinned)} className={`p-1 rounded transition-colors ${a.pinned ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:bg-accent'}`} title={a.pinned ? 'Unpin' : 'Pin'}>
                             <span className="material-icons text-sm">{a.pinned ? 'push_pin' : 'push_pin'}</span>
                           </button>
@@ -1153,7 +1327,8 @@ export default function CrmDealsPage() {
                             <span className="material-icons text-sm">close</span>
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

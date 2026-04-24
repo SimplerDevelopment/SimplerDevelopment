@@ -74,6 +74,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const categoryRaw = typeof body.category === 'string' ? body.category.trim() : '';
+  const category = categoryRaw.length > 0 ? categoryRaw : null;
+
   const [field] = await db
     .insert(crmCustomFields)
     .values({
@@ -84,6 +87,7 @@ export async function POST(req: NextRequest) {
       options: body.options || null,
       required: body.required ?? false,
       sortOrder: body.sortOrder ?? 0,
+      category,
     })
     .returning();
 

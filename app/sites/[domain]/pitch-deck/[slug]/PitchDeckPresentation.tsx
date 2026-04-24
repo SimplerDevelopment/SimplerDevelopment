@@ -1,12 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { PitchDeckSlideV2, PitchDeckTheme, PitchDeckDecisionOption } from '@/lib/db/schema';
+import type {
+  PitchDeckSlideV2,
+  PitchDeckTheme,
+  PitchDeckDecisionOption,
+  SurveyRecommendationConfig,
+} from '@/lib/db/schema';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { SurveySlideRenderer } from '@/components/pitch-deck/SurveySlideRenderer';
 import { DecisionSlideRenderer } from '@/components/pitch-deck/DecisionSlideRenderer';
+import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
 import type { SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import { isFieldVisible as evalFieldVisible } from '@/lib/survey-logic';
+import { BrandingProvider } from '@/contexts/BrandingContext';
+import type { ResolvedBranding } from '@/lib/branding-types';
 
 /** Survey data passed from the server page */
 export interface SurveyDataForDeck {
@@ -27,7 +35,8 @@ type VirtualSlide =
   | { kind: 'block'; slide: PitchDeckSlideV2 }
   | { kind: 'decision'; slide: PitchDeckSlideV2; options: PitchDeckDecisionOption[] }
   | { kind: 'survey-question'; surveyId: number; field: SurveySlideField; surveyTitle: string }
-  | { kind: 'survey-thanks'; surveyId: number; thankYouTitle: string; thankYouMessage: string };
+  | { kind: 'survey-thanks'; surveyId: number; thankYouTitle: string; thankYouMessage: string }
+  | { kind: 'survey-recommendation'; surveyId: number; config: SurveyRecommendationConfig };
 
 interface Props {
   slides: PitchDeckSlideV2[];
@@ -35,6 +44,13 @@ interface Props {
   title: string;
   isDraft?: boolean;
   surveys?: Record<number, SurveyDataForDeck>;
+  /**
+   * Resolved branding for the deck's brandingProfileId (or client default).
+   * Wraps the slide tree in BrandingProvider so blocks that read useBranding()
+   * — Hero gradient, Button/CTA presets, FeaturedContent — pick up the deck's
+   * brand colors, fonts, and typography instead of Tailwind fallbacks.
+   */
+  branding?: ResolvedBranding | null;
 }
 
 /** Expand a slide (possibly a survey marker) into virtual slides */
@@ -72,12 +88,19 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
       thankYouTitle: survey.thankYouTitle || 'Thank you!',
       thankYouMessage: survey.thankYouMessage || '',
     });
+    if (slide.surveyRecommendation) {
+      result.push({
+        kind: 'survey-recommendation',
+        surveyId: survey.id,
+        config: slide.surveyRecommendation,
+      });
+    }
     return result;
   }
   return [{ kind: 'block', slide }];
 }
 
-export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {} }: Props) {
+export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {}, branding }: Props) {
   const [current, setCurrent] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const hash = parseInt(window.location.hash.replace('#', ''), 10);
@@ -142,6 +165,9 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         if (!evalFieldVisible(vs.field, answers)) continue;
       }
       if (vs.kind === 'survey-thanks') {
+        if (!surveySubmitted.has(vs.surveyId)) continue;
+      }
+      if (vs.kind === 'survey-recommendation') {
         if (!surveySubmitted.has(vs.surveyId)) continue;
       }
       indices.push(i);
@@ -333,7 +359,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   const fontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600&display=swap`;
 
-  return (
+  const presentation = (
     <>
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -341,8 +367,11 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
+      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
+
       <div
-        className="min-h-screen w-full overflow-hidden relative select-none"
+        className="min-h-screen w-full overflow-hidden relative select-none deck-root"
+        data-deck-id={title}
         style={{ backgroundColor: theme.backgroundColor, color: theme.textColor, fontFamily: theme.bodyFont }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -409,9 +438,17 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         </div>
 
 
+        {/* Per-slide custom CSS — only active for the current block slide.
+            Injected unscoped, so authors can write plain selectors that only
+            take effect while their slide is in view. */}
+        {currentVS?.kind === 'block' && currentVS.slide.customCss && (
+          <style dangerouslySetInnerHTML={{ __html: currentVS.slide.customCss }} />
+        )}
+
         {/* Slide content */}
         <div
-          className="min-h-screen flex items-center justify-center"
+          className="min-h-screen flex items-center justify-center slide-stage"
+          data-slide-id={currentVS?.kind === 'block' ? currentVS.slide.id : undefined}
           style={{
             animation: isAnimating
               ? `slideIn${direction === 'next' ? 'Left' : 'Right'} 0.4s ease-out`
@@ -481,6 +518,14 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               )}
             </div>
           )}
+
+          {currentVS?.kind === 'survey-recommendation' && (
+            <SurveyRecommendationRenderer
+              config={currentVS.config}
+              answers={surveyAnswers[currentVS.surveyId] || {}}
+              theme={theme}
+            />
+          )}
         </div>
       </div>
 
@@ -496,4 +541,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       `}</style>
     </>
   );
+
+  return branding
+    ? <BrandingProvider branding={branding}>{presentation}</BrandingProvider>
+    : presentation;
 }

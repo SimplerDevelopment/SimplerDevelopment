@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, users, projects } from '@/lib/db/schema';
+import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanColumns, users, projects } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, asc, desc } from 'drizzle-orm';
+import { logCardActivity } from '@/lib/pm-activity';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -11,12 +12,12 @@ function getRole(session: any): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function authorizeCard(cardId: number, session: any) {
+async function authorizeCard(cardId: number, session: any): Promise<{ card: typeof kanbanCards.$inferSelect; canEdit: boolean } | null> {
   const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
   if (!card) return null;
 
   const role = getRole(session);
-  if (role === 'admin' || role === 'employee') return card;
+  if (role === 'admin' || role === 'employee') return { card, canEdit: true };
 
   const s = session as unknown as { user?: { id: string } } | null;
   const userId = parseInt(s!.user!.id, 10);
@@ -26,7 +27,9 @@ async function authorizeCard(cardId: number, session: any) {
   const [proj] = await db.select().from(projects)
     .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id)))
     .limit(1);
-  return proj ? card : null;
+  if (!proj) return null;
+
+  return { card, canEdit: proj.isPrivate };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -37,8 +40,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const cardId = parseInt(id, 10);
 
-    const card = await authorizeCard(cardId, session);
-    if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    const result = await authorizeCard(cardId, session);
+    if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    const { card } = result;
 
     const comments = await db
       .select({
@@ -90,7 +94,87 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .where(eq(kanbanCardFiles.cardId, cardId))
       .orderBy(asc(kanbanCardFiles.createdAt));
 
-    return NextResponse.json({ success: true, data: { card, comments, timeLogs, files } });
+    const labels = await db
+      .select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
+      .from(kanbanCardLabels)
+      .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+      .where(eq(kanbanCardLabels.cardId, cardId))
+      .orderBy(asc(kanbanLabels.name));
+
+    const activities = await db
+      .select({
+        id: kanbanCardActivities.id,
+        type: kanbanCardActivities.type,
+        payload: kanbanCardActivities.payload,
+        createdAt: kanbanCardActivities.createdAt,
+        userId: kanbanCardActivities.userId,
+        userName: users.name,
+      })
+      .from(kanbanCardActivities)
+      .leftJoin(users, eq(users.id, kanbanCardActivities.userId))
+      .where(eq(kanbanCardActivities.cardId, cardId))
+      .orderBy(desc(kanbanCardActivities.createdAt))
+      .limit(200);
+
+    const [project] = await db.select({ projectKey: projects.projectKey }).from(projects).where(eq(projects.id, card.projectId)).limit(1);
+    const projectKey = project?.projectKey ?? null;
+    const key = projectKey && card.number != null ? `${projectKey}-${card.number}` : null;
+
+    const checklist = await db.select().from(kanbanCardChecklistItems)
+      .where(eq(kanbanCardChecklistItems.cardId, cardId))
+      .orderBy(asc(kanbanCardChecklistItems.order), asc(kanbanCardChecklistItems.id));
+
+    const assignees = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(kanbanCardAssignees)
+      .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+      .where(eq(kanbanCardAssignees.cardId, cardId))
+      .orderBy(asc(users.name));
+
+    const watcherRows = await db
+      .select({ userId: kanbanCardWatchers.userId })
+      .from(kanbanCardWatchers)
+      .where(eq(kanbanCardWatchers.cardId, cardId));
+    const watcherIds = watcherRows.map(w => w.userId);
+    const sessUserId = parseInt(session.user.id, 10);
+    const watching = watcherIds.includes(sessUserId);
+
+    const blockers = await db
+      .select({
+        id: kanbanCards.id,
+        title: kanbanCards.title,
+        number: kanbanCards.number,
+        columnIsDone: kanbanColumns.isDone,
+      })
+      .from(kanbanCardDependencies)
+      .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+      .where(eq(kanbanCardDependencies.blockedCardId, cardId));
+
+    const blocking = await db
+      .select({
+        id: kanbanCards.id,
+        title: kanbanCards.title,
+        number: kanbanCards.number,
+        columnIsDone: kanbanColumns.isDone,
+      })
+      .from(kanbanCardDependencies)
+      .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockedCardId))
+      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+      .where(eq(kanbanCardDependencies.blockerCardId, cardId));
+
+    const decorate = (list: typeof blockers) => list.map(r => ({
+      ...r,
+      key: projectKey && r.number != null ? `${projectKey}-${r.number}` : null,
+    }));
+
+    return NextResponse.json({ success: true, data: {
+      card: { ...card, key, projectKey },
+      comments, timeLogs, files, labels, activities, checklist, assignees,
+      watcherIds, watching,
+      blockers: decorate(blockers),
+      blocking: decorate(blocking),
+    } });
   } catch (err) {
     console.error('[GET /api/portal/cards/[id]]', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
@@ -101,39 +185,93 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const role = getRole(session);
-  if (role !== 'admin' && role !== 'employee') {
-    return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-  }
-
   const { id } = await params;
   const cardId = parseInt(id, 10);
-  const body = await req.json();
 
+  const result = await authorizeCard(cardId, session);
+  if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+
+  const body = await req.json();
+  const before = result.card;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (body.title !== undefined) updates.title = body.title;
   if (body.description !== undefined) updates.description = body.description;
   if (body.priority !== undefined) updates.priority = body.priority;
   if (body.dueDate !== undefined) updates.dueDate = body.dueDate ? new Date(body.dueDate) : null;
-  if (body.assignedTo !== undefined) updates.assignedTo = body.assignedTo;
   if (body.sprintId !== undefined) updates.sprintId = body.sprintId ?? null;
 
   const [card] = await db.update(kanbanCards).set(updates).where(eq(kanbanCards.id, cardId)).returning();
   if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
+  const actorId = parseInt(session.user.id, 10);
+  if (body.title !== undefined && body.title !== before.title) {
+    await logCardActivity(cardId, actorId, 'card.title_changed', { from: before.title, to: card.title });
+  }
+  if (body.description !== undefined && body.description !== before.description) {
+    await logCardActivity(cardId, actorId, 'card.description_changed', {});
+  }
+  if (body.priority !== undefined && body.priority !== before.priority) {
+    await logCardActivity(cardId, actorId, 'card.priority_changed', { from: before.priority, to: card.priority });
+  }
+  if (body.dueDate !== undefined) {
+    const fromIso = before.dueDate ? new Date(before.dueDate).toISOString() : null;
+    const toIso = card.dueDate ? new Date(card.dueDate).toISOString() : null;
+    if (fromIso !== toIso) {
+      await logCardActivity(cardId, actorId, 'card.due_date_changed', { from: fromIso, to: toIso });
+    }
+  }
+  if (body.assignedTo !== undefined) {
+    await replaceCardAssignees(cardId, actorId, body.assignedTo);
+  }
+  if (body.sprintId !== undefined && (body.sprintId ?? null) !== before.sprintId) {
+    await logCardActivity(cardId, actorId, 'card.sprint_changed', { from: before.sprintId, to: card.sprintId });
+  }
+
   return NextResponse.json({ success: true, data: card });
+}
+
+/**
+ * Replace the assignee set for a card with a single user (or clear it).
+ * Diffs the junction, inserts/deletes as needed, auto-watches additions,
+ * and emits card.assignee_added / card.assignee_removed events for each diff.
+ */
+async function replaceCardAssignees(cardId: number, actorId: number | null, next: number | null): Promise<void> {
+  const current = await db
+    .select({ userId: kanbanCardAssignees.userId })
+    .from(kanbanCardAssignees)
+    .where(eq(kanbanCardAssignees.cardId, cardId));
+  const currentSet = new Set(current.map(r => r.userId));
+  const nextSet = new Set<number>(typeof next === 'number' ? [next] : []);
+
+  const toAdd = [...nextSet].filter(id => !currentSet.has(id));
+  const toRemove = [...currentSet].filter(id => !nextSet.has(id));
+
+  for (const userId of toRemove) {
+    await db.delete(kanbanCardAssignees)
+      .where(and(eq(kanbanCardAssignees.cardId, cardId), eq(kanbanCardAssignees.userId, userId)));
+    const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
+    await logCardActivity(cardId, actorId, 'card.assignee_removed', { userId, name: u?.name ?? null });
+  }
+  for (const userId of toAdd) {
+    await db.insert(kanbanCardAssignees).values({ cardId, userId }).onConflictDoNothing();
+    await db.insert(kanbanCardWatchers).values({ cardId, userId }).onConflictDoNothing();
+    const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
+    await logCardActivity(cardId, actorId, 'card.assignee_added', { userId, name: u?.name ?? null });
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const role = getRole(session);
-  if (role !== 'admin' && role !== 'employee') {
-    return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-  }
-
   const { id } = await params;
-  await db.delete(kanbanCards).where(eq(kanbanCards.id, parseInt(id, 10)));
+  const cardId = parseInt(id, 10);
+
+  const result = await authorizeCard(cardId, session);
+  if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+  if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+
+  await db.delete(kanbanCards).where(eq(kanbanCards.id, cardId));
   return NextResponse.json({ success: true });
 }

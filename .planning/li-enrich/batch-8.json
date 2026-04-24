@@ -1,0 +1,402 @@
+[
+  {
+    "id": 389,
+    "firstName": "Carol",
+    "lastName": "Folt",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Southern California"
+  },
+  {
+    "id": 390,
+    "firstName": "Vivian",
+    "lastName": "Sanchez",
+    "email": null,
+    "title": "Chancellor & Chief Executive Officer",
+    "companyName": "University of St. Augustine for Health Sciences"
+  },
+  {
+    "id": 391,
+    "firstName": "Jay",
+    "lastName": "Frykberg",
+    "email": null,
+    "title": "ALO - Provost",
+    "companyName": "University of West Los Angeles"
+  },
+  {
+    "id": 392,
+    "firstName": "Christopher",
+    "lastName": "Callahan",
+    "email": null,
+    "title": "President",
+    "companyName": "University of the Pacific"
+  },
+  {
+    "id": 393,
+    "firstName": "Asaf",
+    "lastName": "Wolff",
+    "email": null,
+    "title": "Speacial Assitant to the President",
+    "companyName": "University of the People"
+  },
+  {
+    "id": 394,
+    "firstName": "Minh-Hoa",
+    "lastName": "Ta",
+    "email": null,
+    "title": "President",
+    "companyName": "University of the West"
+  },
+  {
+    "id": 395,
+    "firstName": "Michael",
+    "lastName": "Beals",
+    "email": null,
+    "title": "President",
+    "companyName": "Vanguard University of Southern California"
+  },
+  {
+    "id": 396,
+    "firstName": "Jeb",
+    "lastName": "Egbert",
+    "email": null,
+    "title": "Co-President, Academics",
+    "companyName": "West Coast University-Center for Graduate Studies"
+  },
+  {
+    "id": 397,
+    "firstName": "Jeb",
+    "lastName": "Egbert",
+    "email": null,
+    "title": "Co-President, Academics",
+    "companyName": "West Coast University-Los Angeles"
+  },
+  {
+    "id": 398,
+    "firstName": "Jeb",
+    "lastName": "Egbert",
+    "email": null,
+    "title": "Co-President, Academics",
+    "companyName": "West Coast University-Ontario"
+  },
+  {
+    "id": 399,
+    "firstName": "Jeb",
+    "lastName": "Egbert",
+    "email": null,
+    "title": "Co-President, Academics",
+    "companyName": "West Coast University-Orange County"
+  },
+  {
+    "id": 400,
+    "firstName": "James",
+    "lastName": "M. Limbaugh",
+    "email": null,
+    "title": "President",
+    "companyName": "West Los Angeles College"
+  },
+  {
+    "id": 401,
+    "firstName": "Anthony",
+    "lastName": "Lee",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Westcliff University"
+  },
+  {
+    "id": 402,
+    "firstName": "Robin",
+    "lastName": "Farias-Eisner",
+    "email": null,
+    "title": "President",
+    "companyName": "Western University of Health Sciences"
+  },
+  {
+    "id": 403,
+    "firstName": "Joel",
+    "lastName": "E. Kim",
+    "email": null,
+    "title": "President",
+    "companyName": "Westminster Theological Seminary in California"
+  },
+  {
+    "id": 404,
+    "firstName": "Gayle",
+    "lastName": "D. Beebe",
+    "email": null,
+    "title": "President",
+    "companyName": "Westmont College"
+  },
+  {
+    "id": 405,
+    "firstName": "Kristine",
+    "lastName": "Dillon",
+    "email": null,
+    "title": "President",
+    "companyName": "Whittier College"
+  },
+  {
+    "id": 406,
+    "firstName": "John",
+    "lastName": "Jackson",
+    "email": null,
+    "title": "President",
+    "companyName": "William Jessup University"
+  },
+  {
+    "id": 407,
+    "firstName": "Jeffrey",
+    "lastName": "Bellantoni",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Woodbury University"
+  },
+  {
+    "id": 408,
+    "firstName": "Paul",
+    "lastName": "Sungjin Lim",
+    "email": null,
+    "title": "President",
+    "companyName": "World Mission University"
+  },
+  {
+    "id": 409,
+    "firstName": "Rabbi",
+    "lastName": "Ezra Schochet",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Yeshiva Ohr Elchonon Chabad West Coast Talmudical Seminary"
+  },
+  {
+    "id": 410,
+    "firstName": "Robert",
+    "lastName": "Hoffman",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "Yo San University of Traditional Chinese Medicine"
+  },
+  {
+    "id": 411,
+    "firstName": "Henry",
+    "lastName": "C. V. Yong",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Yosemite Community College District Office"
+  },
+  {
+    "id": 412,
+    "firstName": "David",
+    "lastName": "Tandberg",
+    "email": null,
+    "title": "President",
+    "companyName": "Adams State University"
+  },
+  {
+    "id": 413,
+    "firstName": "Leah",
+    "lastName": "L. Bornstein",
+    "email": null,
+    "title": "President",
+    "companyName": "Aims Community College"
+  },
+  {
+    "id": 414,
+    "firstName": "Stephanie",
+    "lastName": "Fujii",
+    "email": null,
+    "title": "President",
+    "companyName": "Arapahoe Community College"
+  },
+  {
+    "id": 415,
+    "firstName": "Jason",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Arizona College of Nursing-Aurora"
+  },
+  {
+    "id": 416,
+    "firstName": "Yanyun",
+    "lastName": "Wang",
+    "email": null,
+    "title": "Financial Administrator",
+    "companyName": "Colorado Chinese Medicine University"
+  },
+  {
+    "id": 417,
+    "firstName": "Eric",
+    "lastName": "Hogue",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado Christian University"
+  },
+  {
+    "id": 418,
+    "firstName": "Manya",
+    "lastName": "Whitaker",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Colorado College"
+  },
+  {
+    "id": 419,
+    "firstName": "John",
+    "lastName": "Marshall",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado Mesa University"
+  },
+  {
+    "id": 420,
+    "firstName": "Matthew",
+    "lastName": "Gianneschi",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado Mountain College"
+  },
+  {
+    "id": 421,
+    "firstName": "Lisa",
+    "lastName": "Jones",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado Northwestern Community College"
+  },
+  {
+    "id": 422,
+    "firstName": "Paul",
+    "lastName": "C. Johnson",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado School of Mines"
+  },
+  {
+    "id": 423,
+    "firstName": "Becky",
+    "lastName": "Takeda-Tinker",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado State University Global"
+  },
+  {
+    "id": 424,
+    "firstName": "Armando",
+    "lastName": "Valdez",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado State University Pueblo"
+  },
+  {
+    "id": 425,
+    "firstName": "Amy",
+    "lastName": "Parsons",
+    "email": null,
+    "title": "President",
+    "companyName": "Colorado State University-Fort Collins"
+  },
+  {
+    "id": 426,
+    "firstName": "Anthony",
+    "lastName": "A. Frank",
+    "email": null,
+    "title": "Chancellor of the CSU System, President of CSU",
+    "companyName": "Colorado State University-System Office"
+  },
+  {
+    "id": 427,
+    "firstName": "Elise",
+    "lastName": "Baskel",
+    "email": null,
+    "title": "University President",
+    "companyName": "Colorado Technical University-Colorado Springs"
+  },
+  {
+    "id": 428,
+    "firstName": "Marielena",
+    "lastName": "DeSanctis",
+    "email": null,
+    "title": "President",
+    "companyName": "Community College of Denver"
+  },
+  {
+    "id": 429,
+    "firstName": "Thomas",
+    "lastName": "Wicke",
+    "email": null,
+    "title": "Campus President",
+    "companyName": "Concorde Career College-Aurora"
+  },
+  {
+    "id": 430,
+    "firstName": "Mikal",
+    "lastName": "Powers",
+    "email": null,
+    "title": "College President",
+    "companyName": "Denver College of Nursing"
+  },
+  {
+    "id": 431,
+    "firstName": "Don",
+    "lastName": "Payne",
+    "email": null,
+    "title": "Vice President of Academic Affairs / Academic Dean",
+    "companyName": "Denver Seminary"
+  },
+  {
+    "id": 432,
+    "firstName": "Steve",
+    "lastName": "Schwartz",
+    "email": null,
+    "title": "President",
+    "companyName": "Fort Lewis College"
+  },
+  {
+    "id": 433,
+    "firstName": "Colleen",
+    "lastName": "Simpson",
+    "email": null,
+    "title": "President",
+    "companyName": "Front Range Community College"
+  },
+  {
+    "id": 434,
+    "firstName": "Dr.",
+    "lastName": "Lee H. Butler, Jr.",
+    "email": null,
+    "title": "President and Chief Executive Officer",
+    "companyName": "Iliff School of Theology"
+  },
+  {
+    "id": 435,
+    "firstName": "Brittany",
+    "lastName": "Sanelli",
+    "email": null,
+    "title": "President",
+    "companyName": "Institute of Taoist Education and Acupuncture"
+  },
+  {
+    "id": 436,
+    "firstName": "Janine",
+    "lastName": "Davidson",
+    "email": null,
+    "title": "President",
+    "companyName": "Metropolitan State University of Denver"
+  },
+  {
+    "id": 437,
+    "firstName": "Curt",
+    "lastName": "Freed",
+    "email": null,
+    "title": "President",
+    "companyName": "Morgan Community College"
+  },
+  {
+    "id": 438,
+    "firstName": "Charles",
+    "lastName": "G. Lief",
+    "email": null,
+    "title": "President",
+    "companyName": "Naropa University"
+  }
+]

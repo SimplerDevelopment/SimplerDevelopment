@@ -28,7 +28,9 @@ describe('Rich Paste Integration', () => {
       <VisualBlockEditorComplete blocks={initialBlocks} onChange={onChange} />
     );
 
-    expect(screen.getByText('Existing content')).toBeInTheDocument();
+    // Block content renders in the editable body plus the preview/layers
+    // mirrors — getAllByText tolerates the duplication that getByText rejects.
+    expect(screen.getAllByText('Existing content').length).toBeGreaterThan(0);
     expect(container.querySelector('[data-block-editor]')).toBeInTheDocument();
   });
 

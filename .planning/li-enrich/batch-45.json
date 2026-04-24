@@ -1,0 +1,402 @@
+[
+  {
+    "id": 2239,
+    "firstName": "Rafael",
+    "lastName": "Canales",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Inter American University of Puerto Rico-Fajardo"
+  },
+  {
+    "id": 2240,
+    "firstName": "Dra.",
+    "lastName": "José M. Romero Vázquez",
+    "email": null,
+    "title": "Acting Chancellor",
+    "companyName": "Inter American University of Puerto Rico-Guayama"
+  },
+  {
+    "id": 2241,
+    "firstName": "Marilina",
+    "lastName": "Lucca-Wayland",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Inter American University of Puerto Rico-Metro"
+  },
+  {
+    "id": 2242,
+    "firstName": "Dra.",
+    "lastName": "Vilma E. Colon-Acosta",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Inter American University of Puerto Rico-Ponce"
+  },
+  {
+    "id": 2243,
+    "firstName": "Vilma",
+    "lastName": "Martínez Toro",
+    "email": null,
+    "title": "Acting Chancellor",
+    "companyName": "Inter American University of Puerto Rico-San German"
+  },
+  {
+    "id": 2244,
+    "firstName": "Lic.",
+    "lastName": "Julio Fontanet-Maldonado",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Inter American University of Puerto Rico-School of Law"
+  },
+  {
+    "id": 2245,
+    "firstName": "Andres",
+    "lastName": "Pagan-Figueroa",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Inter American University of Puerto Rico-School of Optometry"
+  },
+  {
+    "id": 2246,
+    "firstName": "Michael",
+    "lastName": "Bannett",
+    "email": null,
+    "title": "CEO",
+    "companyName": "NUC University"
+  },
+  {
+    "id": 2247,
+    "firstName": "Gino",
+    "lastName": "Natalicchio",
+    "email": null,
+    "title": "President",
+    "companyName": "Ponce Health Sciences University"
+  },
+  {
+    "id": 2248,
+    "firstName": "Gino",
+    "lastName": "Natalicchio",
+    "email": null,
+    "title": "President",
+    "companyName": "Ponce Health Sciences University-Centro Universitario de San Juan"
+  },
+  {
+    "id": 2249,
+    "firstName": "Gino",
+    "lastName": "Natalicchio",
+    "email": null,
+    "title": "President",
+    "companyName": "Ponce Health Sciences University-East"
+  },
+  {
+    "id": 2250,
+    "firstName": "Edwin",
+    "lastName": "Hernandez Vera",
+    "email": null,
+    "title": "Rector",
+    "companyName": "Pontifical Catholic University of Puerto Rico-Arecibo"
+  },
+  {
+    "id": 2251,
+    "firstName": "Yaira",
+    "lastName": "S. Ortiz Medina",
+    "email": null,
+    "title": "Rector",
+    "companyName": "Pontifical Catholic University of Puerto Rico-Mayaguez"
+  },
+  {
+    "id": 2252,
+    "firstName": "Jose",
+    "lastName": "A, Frontera Agenjo",
+    "email": null,
+    "title": "President",
+    "companyName": "Pontifical Catholic University of Puerto Rico-Ponce"
+  },
+  {
+    "id": 2253,
+    "firstName": "Carlos",
+    "lastName": "Borrero-Rios",
+    "email": null,
+    "title": "President & CEO",
+    "companyName": "Professional University Dr. Carlos J. Borrero Rios"
+  },
+  {
+    "id": 2254,
+    "firstName": "Orlando",
+    "lastName": "M. Calzada",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Puerto Rico Conservatory of Music"
+  },
+  {
+    "id": 2255,
+    "firstName": "Yocasta",
+    "lastName": "Brugal, MD",
+    "email": null,
+    "title": "President/Dean",
+    "companyName": "San Juan Bautista School of Medicine"
+  },
+  {
+    "id": 2256,
+    "firstName": "Juan",
+    "lastName": "R. Mejias-Ortiz",
+    "email": null,
+    "title": "President",
+    "companyName": "Seminario Evangelico de Puerto Rico"
+  },
+  {
+    "id": 2257,
+    "firstName": "Jose",
+    "lastName": "F. Méndez Méndez",
+    "email": null,
+    "title": "President",
+    "companyName": "Sistema Universitario Ana G. Mendez"
+  },
+  {
+    "id": 2258,
+    "firstName": "Keila",
+    "lastName": "López Rivera",
+    "email": null,
+    "title": "Executive President",
+    "companyName": "Universal Technology College of Puerto Rico"
+  },
+  {
+    "id": 2259,
+    "firstName": "Edwin",
+    "lastName": "Hernandez",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad Adventista de las Antillas"
+  },
+  {
+    "id": 2260,
+    "firstName": "Evelyza",
+    "lastName": "Crespo Rivera",
+    "email": null,
+    "title": "Interim Chancellor",
+    "companyName": "Universidad Ana G. Mendez-Carolina Campus"
+  },
+  {
+    "id": 2261,
+    "firstName": "Jose",
+    "lastName": "E Berrios Lugo",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Universidad Ana G. Mendez-Cupey Campus"
+  },
+  {
+    "id": 2262,
+    "firstName": "Zoraida",
+    "lastName": "Ortiz Munoz",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Universidad Ana G. Mendez-Gurabo Campus"
+  },
+  {
+    "id": 2263,
+    "firstName": "Dra.",
+    "lastName": "Waleska Crespo Rivera",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad Central Del Caribe"
+  },
+  {
+    "id": 2264,
+    "firstName": "Fray",
+    "lastName": "Oscar Morales Cruz, O.P.",
+    "email": null,
+    "title": "President Intern",
+    "companyName": "Universidad Central de Bayamon"
+  },
+  {
+    "id": 2265,
+    "firstName": "Eliezer",
+    "lastName": "González Torres",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad Pentecostal Mizpa"
+  },
+  {
+    "id": 2266,
+    "firstName": "Ernesto",
+    "lastName": "Vazquez-Martinez",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad Politecnica de Puerto Rico"
+  },
+  {
+    "id": 2267,
+    "firstName": "Francisco",
+    "lastName": "Ortiz",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad Teologica del Caribe"
+  },
+  {
+    "id": 2268,
+    "firstName": "Gilberto",
+    "lastName": "J Marxuach Torrós",
+    "email": null,
+    "title": "President",
+    "companyName": "Universidad del Sagrado Corazon"
+  },
+  {
+    "id": 2269,
+    "firstName": "Carmen",
+    "lastName": "Quiroga",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico at Cayey"
+  },
+  {
+    "id": 2270,
+    "firstName": "Tessie",
+    "lastName": "Cruz",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico at Ponce"
+  },
+  {
+    "id": 2271,
+    "firstName": "Sonia",
+    "lastName": "Rivera",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Aguadilla"
+  },
+  {
+    "id": 2272,
+    "firstName": "Yeidi",
+    "lastName": "Altieri Sotomayor",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Arecibo"
+  },
+  {
+    "id": 2273,
+    "firstName": "Miguel",
+    "lastName": "Velez-Rubio",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Bayamon"
+  },
+  {
+    "id": 2274,
+    "firstName": "José",
+    "lastName": "Meza-Pereira",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Carolina"
+  },
+  {
+    "id": 2275,
+    "firstName": "Luis",
+    "lastName": "A. Ferrao Delgado",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Puerto Rico-Central Administration"
+  },
+  {
+    "id": 2276,
+    "firstName": "Carlos",
+    "lastName": "Galiano Quiñones",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Humacao"
+  },
+  {
+    "id": 2277,
+    "firstName": "Agustin",
+    "lastName": "Rullan Toro",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Mayaguez"
+  },
+  {
+    "id": 2278,
+    "firstName": "Myrna",
+    "lastName": "Quiñones Feliciano",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Medical Sciences"
+  },
+  {
+    "id": 2279,
+    "firstName": "Dra.",
+    "lastName": "Angélica Varela Llavona",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Rio Piedras"
+  },
+  {
+    "id": 2280,
+    "firstName": "Luis",
+    "lastName": "Tapia Maldonado",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Puerto Rico-Utuado"
+  },
+  {
+    "id": 2281,
+    "firstName": "Christina",
+    "lastName": "Paxson",
+    "email": null,
+    "title": "President",
+    "companyName": "Brown University"
+  },
+  {
+    "id": 2282,
+    "firstName": "Ross",
+    "lastName": "Gittell",
+    "email": null,
+    "title": "President",
+    "companyName": "Bryant University"
+  },
+  {
+    "id": 2283,
+    "firstName": "Adam",
+    "lastName": "Bush",
+    "email": null,
+    "title": "President",
+    "companyName": "College Unbound"
+  },
+  {
+    "id": 2284,
+    "firstName": "Marie",
+    "lastName": "Bernardo-Sousa, LP.D.",
+    "email": null,
+    "title": "President- Providence Campus",
+    "companyName": "Johnson & Wales University-Online"
+  },
+  {
+    "id": 2285,
+    "firstName": "Marie",
+    "lastName": "Bernardo-Sousa, LP.D.",
+    "email": null,
+    "title": "President-Providence Campus",
+    "companyName": "Johnson & Wales University-Providence"
+  },
+  {
+    "id": 2286,
+    "firstName": "Richard",
+    "lastName": "Gouse",
+    "email": null,
+    "title": "President",
+    "companyName": "New England Institute of Technology"
+  },
+  {
+    "id": 2287,
+    "firstName": "Kenneth",
+    "lastName": "R. Sicard, O.P.",
+    "email": null,
+    "title": "President",
+    "companyName": "Providence College"
+  },
+  {
+    "id": 2288,
+    "firstName": "Jack",
+    "lastName": "Warner",
+    "email": null,
+    "title": "President",
+    "companyName": "Rhode Island College"
+  }
+]

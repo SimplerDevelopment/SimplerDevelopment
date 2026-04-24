@@ -38,6 +38,7 @@ function entityUrl(entityType: string | null, entityId: number | null): string |
     case 'deal': return `${base}/deals/${entityId}`;
     case 'company': return `${base}/companies/${entityId}`;
     case 'proposal': return `${base}/deals/${entityId}`;
+    case 'mcp_approval': return `/portal/approvals?id=${entityId}`;
     default: return null;
   }
 }
@@ -49,6 +50,7 @@ function typeIcon(type: string): string {
     case 'mention': return 'alternate_email';
     case 'deal_assigned': return 'assignment_ind';
     case 'contact_created': return 'person_add';
+    case 'mcp_pending_change': return 'fact_check';
     default: return 'info';
   }
 }

@@ -1,0 +1,402 @@
+[
+  {
+    "id": 2139,
+    "firstName": "Neeli",
+    "lastName": "Bendapudi",
+    "email": null,
+    "title": "President",
+    "companyName": "Pennsylvania State University-Main Campus"
+  },
+  {
+    "id": 2140,
+    "firstName": "Gary",
+    "lastName": "Liguori",
+    "email": null,
+    "title": "Chancellor and Dean",
+    "companyName": "Pennsylvania State University-Penn State Abington"
+  },
+  {
+    "id": 2141,
+    "firstName": "Ron",
+    "lastName": "Darbeau",
+    "email": null,
+    "title": "Chancellor and Dean",
+    "companyName": "Pennsylvania State University-Penn State Altoona"
+  },
+  {
+    "id": 2142,
+    "firstName": "Carey",
+    "lastName": "McDougall",
+    "email": null,
+    "title": "Regional Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Beaver"
+  },
+  {
+    "id": 2143,
+    "firstName": "Radha",
+    "lastName": "Pyati",
+    "email": null,
+    "title": "Chancellor and Dean",
+    "companyName": "Pennsylvania State University-Penn State Berks"
+  },
+  {
+    "id": 2144,
+    "firstName": "Marilyn",
+    "lastName": "J. Wells",
+    "email": null,
+    "title": "Regional Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Brandywine"
+  },
+  {
+    "id": 2145,
+    "firstName": "Jungwoo",
+    "lastName": "Ryoo",
+    "email": null,
+    "title": "Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State DuBois"
+  },
+  {
+    "id": 2146,
+    "firstName": "Ralph",
+    "lastName": "M. Ford",
+    "email": null,
+    "title": "Chancellor and Dean",
+    "companyName": "Pennsylvania State University-Penn State Erie-Behrend College"
+  },
+  {
+    "id": 2147,
+    "firstName": "Lindsey",
+    "lastName": "Simon-Jones",
+    "email": null,
+    "title": "Interim Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Fayette- Eberly"
+  },
+  {
+    "id": 2148,
+    "firstName": "Colin",
+    "lastName": "Neill",
+    "email": null,
+    "title": "Chancellor, Dean and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Great Valley"
+  },
+  {
+    "id": 2149,
+    "firstName": "Megan",
+    "lastName": "Nagel",
+    "email": null,
+    "title": "Regional Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Greater Allegheny"
+  },
+  {
+    "id": 2150,
+    "firstName": "David",
+    "lastName": "M. Callejo Pérez",
+    "email": null,
+    "title": "Chancellor and Dean",
+    "companyName": "Pennsylvania State University-Penn State Harrisburg"
+  },
+  {
+    "id": 2151,
+    "firstName": "Elizabeth",
+    "lastName": "J. Wright",
+    "email": null,
+    "title": "Regional Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Hazleton"
+  },
+  {
+    "id": 2152,
+    "firstName": "Tina",
+    "lastName": "Q. Richardson",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Lehigh Valley"
+  },
+  {
+    "id": 2153,
+    "firstName": "Marilyn",
+    "lastName": "Wells",
+    "email": null,
+    "title": "Regional Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Mont Alto"
+  },
+  {
+    "id": 2154,
+    "firstName": "Kevin",
+    "lastName": "J.G. Snider",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Pennsylvania State University-Penn State New Kensington"
+  },
+  {
+    "id": 2155,
+    "firstName": "Cory",
+    "lastName": "Scherer",
+    "email": null,
+    "title": "Interim Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Schuylkill"
+  },
+  {
+    "id": 2156,
+    "firstName": "Elizabeth",
+    "lastName": "Wright",
+    "email": null,
+    "title": "Regional Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Scranton"
+  },
+  {
+    "id": 2157,
+    "firstName": "Carey",
+    "lastName": "McDougall",
+    "email": null,
+    "title": "Regional Chancellor and Chief Academic Officer",
+    "companyName": "Pennsylvania State University-Penn State Shenango"
+  },
+  {
+    "id": 2158,
+    "firstName": "Lynda",
+    "lastName": "Goldstein",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Pennsylvania State University-Penn State Wilkes-Barre"
+  },
+  {
+    "id": 2159,
+    "firstName": "Marilyn",
+    "lastName": "Wells",
+    "email": null,
+    "title": "Regional Chancellor",
+    "companyName": "Pennsylvania State University-Penn State York"
+  },
+  {
+    "id": 2160,
+    "firstName": "Renata",
+    "lastName": "S. Engel",
+    "email": null,
+    "title": "Vice Provost for Online Education",
+    "companyName": "Pennsylvania State University-World Campus"
+  },
+  {
+    "id": 2161,
+    "firstName": "Jon",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "President",
+    "companyName": "Pennsylvania Western University"
+  },
+  {
+    "id": 2162,
+    "firstName": "Jay",
+    "lastName": "S. Felstein, D.O.",
+    "email": null,
+    "title": "President and Chief Executive Officer",
+    "companyName": "Philadelphia College of Osteopathic Medicine"
+  },
+  {
+    "id": 2163,
+    "firstName": "Asa",
+    "lastName": "J. Lee",
+    "email": null,
+    "title": "President",
+    "companyName": "Pittsburgh Theological Seminary"
+  },
+  {
+    "id": 2164,
+    "firstName": "Chris",
+    "lastName": "Brussalis",
+    "email": null,
+    "title": "President",
+    "companyName": "Point Park University"
+  },
+  {
+    "id": 2165,
+    "firstName": "Deborah",
+    "lastName": "Waxman",
+    "email": null,
+    "title": "CEO/President",
+    "companyName": "Reconstructionist Rabbinical College"
+  },
+  {
+    "id": 2166,
+    "firstName": "Michelle",
+    "lastName": "Patrick",
+    "email": null,
+    "title": "President",
+    "companyName": "Robert Morris University"
+  },
+  {
+    "id": 2167,
+    "firstName": "Jim",
+    "lastName": "Cawley",
+    "email": null,
+    "title": "President",
+    "companyName": "Rosemont College"
+  },
+  {
+    "id": 2168,
+    "firstName": "Keith",
+    "lastName": "J. Chylinski",
+    "email": null,
+    "title": "Rector President",
+    "companyName": "Saint Charles Borromeo Seminary-Overbrook"
+  },
+  {
+    "id": 2169,
+    "firstName": "Malachi",
+    "lastName": "Van Tassell, T.O.R.",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Francis University"
+  },
+  {
+    "id": 2170,
+    "firstName": "Cheryl",
+    "lastName": "A. McConnell, PhD",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Joseph's University - Lancaster"
+  },
+  {
+    "id": 2171,
+    "firstName": "Cheryl",
+    "lastName": "A. McConnell, PhD",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Joseph's University - Philadelphia"
+  },
+  {
+    "id": 2172,
+    "firstName": "Paul",
+    "lastName": "Taylor, Ph.D., O.S.B.",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Vincent College"
+  },
+  {
+    "id": 2173,
+    "firstName": "Very",
+    "lastName": "Rev. Edward Mazich, O.S.B.",
+    "email": null,
+    "title": "Rector",
+    "companyName": "Saint Vincent Seminary"
+  },
+  {
+    "id": 2174,
+    "firstName": "Michael",
+    "lastName": "H. Mittelman",
+    "email": null,
+    "title": "President",
+    "companyName": "Salus University"
+  },
+  {
+    "id": 2175,
+    "firstName": "Mary",
+    "lastName": "Finger",
+    "email": null,
+    "title": "President",
+    "companyName": "Seton Hill University"
+  },
+  {
+    "id": 2176,
+    "firstName": "Charles",
+    "lastName": "Patterson",
+    "email": null,
+    "title": "President",
+    "companyName": "Shippensburg University of Pennsylvania"
+  },
+  {
+    "id": 2177,
+    "firstName": "Karen",
+    "lastName": "Riley",
+    "email": null,
+    "title": "President",
+    "companyName": "Slippery Rock University of Pennsylvania"
+  },
+  {
+    "id": 2178,
+    "firstName": "Antoinette",
+    "lastName": "Farmer-Thompson",
+    "email": null,
+    "title": "President",
+    "companyName": "Strayer University-Pennsylvania"
+  },
+  {
+    "id": 2179,
+    "firstName": "Jonathan",
+    "lastName": "D. Green",
+    "email": null,
+    "title": "President",
+    "companyName": "Susquehanna University"
+  },
+  {
+    "id": 2180,
+    "firstName": "Valerie",
+    "lastName": "Smith",
+    "email": null,
+    "title": "President",
+    "companyName": "Swarthmore College"
+  },
+  {
+    "id": 2181,
+    "firstName": "Rabbi",
+    "lastName": "Shmuel Kamenetsky",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Talmudical Yeshiva of Philadelphia"
+  },
+  {
+    "id": 2182,
+    "firstName": "Richard",
+    "lastName": "Englert",
+    "email": null,
+    "title": "President",
+    "companyName": "Temple University"
+  },
+  {
+    "id": 2183,
+    "firstName": "Matthew",
+    "lastName": "P. Harrington",
+    "email": null,
+    "title": "President",
+    "companyName": "Theological Seminary of the Reformed Episcopal Church"
+  },
+  {
+    "id": 2184,
+    "firstName": "Susan",
+    "lastName": "Traverso, Ph. D.",
+    "email": null,
+    "title": "President",
+    "companyName": "Thiel College"
+  },
+  {
+    "id": 2185,
+    "firstName": "Susan",
+    "lastName": "Aldridge",
+    "email": null,
+    "title": "President",
+    "companyName": "Thomas Jefferson University"
+  },
+  {
+    "id": 2186,
+    "firstName": "Bryan",
+    "lastName": "Hollon",
+    "email": null,
+    "title": "Dean President",
+    "companyName": "Trinity Anglican Seminary"
+  },
+  {
+    "id": 2187,
+    "firstName": "R.",
+    "lastName": "Guy Erwin",
+    "email": null,
+    "title": "President",
+    "companyName": "United Lutheran Seminary"
+  },
+  {
+    "id": 2188,
+    "firstName": "J.",
+    "lastName": "Larry Jameson",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "University of Pennsylvania"
+  }
+]

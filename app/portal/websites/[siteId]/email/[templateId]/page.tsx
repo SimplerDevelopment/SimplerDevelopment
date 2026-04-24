@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import { removeBlockById } from '@/lib/utils/blockHelpers';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
 import type { EmailTemplateVariable } from '@/lib/db/schema';
@@ -199,7 +200,7 @@ export default function WebsiteEmailTemplatePage({ params }: { params: Promise<{
               const newBlock = createEmailBlock(type as BlockType, blocks.length + 1);
               setBlocks([...blocks, newBlock]);
             }}
-            onDeleteBlock={(blockId: string) => setBlocks(blocks.filter(b => b.id !== blockId))}
+            onDeleteBlock={(blockId: string) => setBlocks(removeBlockById(blocks, blockId))}
             onUpdateBlock={(blockId: string, updates: Partial<Block>) => setBlocks(blocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
             siteId={undefined}
           />

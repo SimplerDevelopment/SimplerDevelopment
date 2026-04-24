@@ -38,6 +38,10 @@ export async function POST(req: Request) {
 
   if (!name) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
 
+  // Derive a short project key from the name (alnum-stripped, first 4 chars, uppercase).
+  // Actual uniqueness-per-client is enforced below by suffixing with the new project's id.
+  const basePrefix = (name as string).replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'PRJ';
+
   const [project] = await db.insert(projects).values({
     name,
     description: description || null,
@@ -46,6 +50,12 @@ export async function POST(req: Request) {
     isPrivate: true,
     createdBy: parseInt(session.user.id, 10),
   }).returning();
+
+  // Now that we have the id, write a guaranteed-unique project_key
+  await db.update(projects)
+    .set({ projectKey: `${basePrefix}${project.id}` })
+    .where(eq(projects.id, project.id));
+  project.projectKey = `${basePrefix}${project.id}`;
 
   emitEvent('project.created', client.id, userId, { id: project.id, name: project.name, status: project.status });
 

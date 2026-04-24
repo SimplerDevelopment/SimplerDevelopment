@@ -36,6 +36,10 @@ import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
+import { TeamFlipGridBlockRender } from './TeamFlipGridBlockRender';
+import { MetricCardsBlockRender } from './MetricCardsBlockRender';
+import { LogoStripBlockRender } from './LogoStripBlockRender';
+import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
@@ -54,18 +58,26 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
   const color = s?.color || block.color;
   const padding = s?.padding || `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`;
 
+  // Compose background-image from gradient + image (gradient layers on top, so it
+  // appears above any image). If only gradient is set, that's the entire background.
+  const bgLayers: string[] = [];
+  if (s?.backgroundGradient) bgLayers.push(s.backgroundGradient);
+  const resolvedBgImage = s?.backgroundImage || block.backgroundImage;
+  if (resolvedBgImage) bgLayers.push(`url(${resolvedBgImage})`);
+  const bgImageStyle = bgLayers.length
+    ? {
+        backgroundImage: bgLayers.join(', '),
+        backgroundSize: s?.backgroundSize || block.backgroundSize || 'cover',
+        backgroundPosition: s?.backgroundPosition || block.backgroundPosition || 'center',
+        ...(s?.backgroundRepeat ? { backgroundRepeat: s.backgroundRepeat } : {}),
+        ...(s?.backgroundAttachment ? { backgroundAttachment: s.backgroundAttachment as React.CSSProperties['backgroundAttachment'] } : {}),
+        ...(s?.backgroundBlendMode ? { backgroundBlendMode: s.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'] } : {}),
+      }
+    : {};
+
   const containerStyle: React.CSSProperties = {
     ...(bgColor ? { backgroundColor: bgColor } : {}),
-    ...(block.backgroundImage ? {
-      backgroundImage: `url(${block.backgroundImage})`,
-      backgroundSize: block.backgroundSize || 'cover',
-      backgroundPosition: block.backgroundPosition || 'center',
-    } : {}),
-    ...(s?.backgroundImage ? {
-      backgroundImage: `url(${s.backgroundImage})`,
-      backgroundSize: s.backgroundSize || 'cover',
-      backgroundPosition: s.backgroundPosition || 'center',
-    } : {}),
+    ...bgImageStyle,
     ...(color ? { color } : {}),
     padding,
     // Border
@@ -123,7 +135,7 @@ export function SectionBlockRender({ block }: SectionBlockRenderProps) {
       )}
       <div className="relative z-10" style={innerStyle}>
         {(block.blocks || []).map((nestedBlock) => (
-          <div key={nestedBlock.id}>
+          <div key={nestedBlock.id} data-block-id={nestedBlock.id} data-block-type={nestedBlock.type}>
             <BlockStyleWrapper block={nestedBlock}>
               {renderNestedBlock(nestedBlock)}
             </BlockStyleWrapper>
@@ -172,7 +184,11 @@ function renderNestedBlock(block: Block) {
     case 'store-banner': return <StoreBannerBlockRender block={block} />;
     case 'timeline': return <TimelineBlockRender block={block} />;
     case 'team-showcase': return <TeamShowcaseBlockRender block={block} />;
+    case 'team-flip-grid': return <TeamFlipGridBlockRender block={block} />;
     case 'bento-grid': return <BentoGridBlockRender block={block} />;
+    case 'metric-cards': return <MetricCardsBlockRender block={block} />;
+    case 'logo-strip': return <LogoStripBlockRender block={block} />;
+    case 'flip-card-grid': return <FlipCardGridBlockRender block={block} />;
     case 'deck-next-slide': return <DeckNextSlideBlockRender block={block} />;
     case 'deck-jump-to': return <DeckJumpToBlockRender block={block} />;
     default: return null;

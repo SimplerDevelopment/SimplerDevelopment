@@ -5,10 +5,50 @@ import { useSearchParams } from 'next/navigation';
 import { EditorModeProvider, useEditorModeContext } from '@/components/visual-editor/EditorModeProvider';
 import { EditableBlockRenderer } from '@/components/blocks/render/EditableBlockRenderer';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
+import { BrandingProvider } from '@/contexts/BrandingContext';
 import { isVisualEditorMessage, sendToParent } from '@/lib/visual-editor/protocol';
 import { PARENT_MESSAGES } from '@/types/visual-editor';
 import type { Block } from '@/types/blocks';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
+import type { ResolvedBranding } from '@/lib/branding-types';
+
+/**
+ * Coerce a raw `branding_profiles` DB row (as returned by
+ * /api/portal/branding/profiles/:id) into the ResolvedBranding shape expected
+ * by BrandingProvider. DB nullables are filled with sensible fallbacks so
+ * brand-aware blocks never reach a var(--brand-*) with no value.
+ */
+function profileRowToResolvedBranding(raw: Record<string, unknown>): ResolvedBranding {
+  const s = (v: unknown, fallback = '') => (typeof v === 'string' && v ? v : fallback);
+  return {
+    primaryColor: s(raw.primaryColor, '#2563eb'),
+    secondaryColor: s(raw.secondaryColor, '#1e40af'),
+    accentColor: s(raw.accentColor, '#f59e0b'),
+    backgroundColor: s(raw.backgroundColor, '#ffffff'),
+    textColor: s(raw.textColor, '#111827'),
+    headingFont: s(raw.headingFont, 'Inter'),
+    bodyFont: s(raw.bodyFont, 'Inter'),
+    logoUrl: s(raw.logoUrl),
+    logoSquareUrl: s(raw.logoSquareUrl),
+    logoRectUrl: s(raw.logoRectUrl),
+    logoIconUrl: s(raw.logoIconUrl),
+    logoText: s(raw.logoText),
+    logoAlt: s(raw.logoAlt),
+    navTemplate: s(raw.navTemplate, 'classic'),
+    navPosition: s(raw.navPosition, 'top'),
+    navBackground: s(raw.navBackground, '#ffffff'),
+    navTextColor: s(raw.navTextColor, '#111827'),
+    typography: (raw.typography as ResolvedBranding['typography']) ?? undefined,
+    darkMode: (raw.darkMode as ResolvedBranding['darkMode']) ?? undefined,
+    borderRadius: s(raw.borderRadius) || undefined,
+    linkColor: s(raw.linkColor) || undefined,
+    linkHoverColor: s(raw.linkHoverColor) || undefined,
+    buttonStyle: (raw.buttonStyle as ResolvedBranding['buttonStyle']) ?? undefined,
+    buttonPresets: (raw.buttonPresets as ResolvedBranding['buttonPresets']) ?? undefined,
+    faviconUrl: s(raw.faviconUrl) || undefined,
+    ogImageUrl: s(raw.ogImageUrl) || undefined,
+  };
+}
 
 export default function SlidePreviewPage() {
   return (
@@ -25,6 +65,7 @@ function SlidePreviewInner() {
   const isEditMode = searchParams.get('_edit') === 'true';
   const editor = useEditorModeContext();
   const [previewBlocks, setPreviewBlocks] = useState<Block[]>([]);
+  const [branding, setBranding] = useState<ResolvedBranding | null>(null);
 
   const theme: PitchDeckTheme = {
     primaryColor: searchParams.get('pc') || '#2563eb',
@@ -34,6 +75,24 @@ function SlidePreviewInner() {
     headingFont: searchParams.get('hf') || 'Inter',
     bodyFont: searchParams.get('bf') || 'Inter',
   };
+
+  // Fetch the deck's branding profile so BrandingProvider can expose
+  // --brand-primary / --brand-accent / button presets / etc. to blocks that
+  // use useBranding() (ButtonBlock, CtaBlock, etc.). Without this wrapper,
+  // those blocks fall back to Tailwind defaults and look "under styled".
+  const profileId = searchParams.get('profileId');
+  useEffect(() => {
+    if (!profileId) { setBranding(null); return; }
+    let cancelled = false;
+    fetch(`/api/portal/branding/profiles/${profileId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        if (d?.success && d.data) setBranding(profileRowToResolvedBranding(d.data));
+      })
+      .catch(() => { if (!cancelled) setBranding(null); });
+    return () => { cancelled = true; };
+  }, [profileId]);
 
   // In preview mode, listen for blocks from parent since useEditorMode is inactive
   useEffect(() => {
@@ -158,7 +217,13 @@ function SlidePreviewInner() {
             }}
           >
             <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
-              <EditableBlockRenderer content={content} />
+              {branding ? (
+                <BrandingProvider branding={branding}>
+                  <EditableBlockRenderer content={content} />
+                </BrandingProvider>
+              ) : (
+                <EditableBlockRenderer content={content} />
+              )}
             </div>
           </div>
         </div>
@@ -167,14 +232,17 @@ function SlidePreviewInner() {
   }
 
   // Preview mode: use the actual SlideBlockWrapper for pixel-perfect match with live view
+  const previewBody = (
+    <SlideBlockWrapper
+      slide={virtualSlide}
+      theme={theme}
+      className="min-h-screen w-full flex items-center justify-center"
+    />
+  );
   return (
     <>
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-      <SlideBlockWrapper
-        slide={virtualSlide}
-        theme={theme}
-        className="min-h-screen w-full flex items-center justify-center"
-      />
+      {branding ? <BrandingProvider branding={branding}>{previewBody}</BrandingProvider> : previewBody}
     </>
   );
 }

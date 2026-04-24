@@ -50,7 +50,11 @@ import { ProductDetailBlockRender } from '@/components/blocks/render/ProductDeta
 import { SurveyResultsBlockRender } from '@/components/blocks/render/SurveyResultsBlockRender';
 import { TimelineBlockRender } from '@/components/blocks/render/TimelineBlockRender';
 import { TeamShowcaseBlockRender } from '@/components/blocks/render/TeamShowcaseBlockRender';
+import { TeamFlipGridBlockRender } from '@/components/blocks/render/TeamFlipGridBlockRender';
 import { BentoGridBlockRender } from '@/components/blocks/render/BentoGridBlockRender';
+import { FlipCardGridBlockRender } from '@/components/blocks/render/FlipCardGridBlockRender';
+import { MetricCardsBlockRender } from '@/components/blocks/render/MetricCardsBlockRender';
+import { LogoStripBlockRender } from '@/components/blocks/render/LogoStripBlockRender';
 import { SiteFooterBlockRender } from '@/components/blocks/render/SiteFooterBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from '@/components/blocks/render/DeckNavBlockRender';
 import { SurveyInputBlockRender } from '@/components/blocks/render/SurveyInputBlockRender';
@@ -112,7 +116,11 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'survey-results': SurveyResultsBlockRender,
   timeline: TimelineBlockRender,
   'team-showcase': TeamShowcaseBlockRender,
+  'team-flip-grid': TeamFlipGridBlockRender,
   'bento-grid': BentoGridBlockRender,
+  'flip-card-grid': FlipCardGridBlockRender,
+  'metric-cards': MetricCardsBlockRender,
+  'logo-strip': LogoStripBlockRender,
   'site-footer': SiteFooterBlockRender,
   'deck-next-slide': DeckNextSlideBlockRender,
   'deck-jump-to': DeckJumpToBlockRender,

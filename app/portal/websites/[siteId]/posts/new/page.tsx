@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation';
 import { getPortalClient } from '@/lib/portal-client';
 import PortalPostForm from '@/components/portal/PortalPostForm';
 import { generatePreviewToken } from '@/lib/preview-token';
+import { getBrandDefaults } from '@/lib/branding';
 
 export default async function PortalNewPostPage({
   params,
@@ -47,6 +48,13 @@ export default async function PortalNewPostPage({
     ? `${appUrl}/sites/${fullDomain}`
     : null;
 
+  // Load brand context so newly-created blocks pre-fill with the client's
+  // messaging + reference brand sentinels for colors/fonts.
+  const brandDefaults = await getBrandDefaults({
+    clientId: client.id,
+    brandingProfileId: site.brandingProfileId,
+  });
+
   return (
     <PortalPostForm
       siteId={site.id}
@@ -55,6 +63,7 @@ export default async function PortalNewPostPage({
       previewToken={previewToken}
       siteUrl={siteUrl}
       siteDomain={site.domain || subdomain || undefined}
+      brandDefaults={brandDefaults}
     />
   );
 }

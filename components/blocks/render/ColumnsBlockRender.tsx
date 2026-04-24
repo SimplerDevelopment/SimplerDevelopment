@@ -143,7 +143,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
               }}
             >
               {column.blocks.map((nestedBlock) => (
-                <div key={nestedBlock.id}>
+                <div key={nestedBlock.id} data-block-id={nestedBlock.id} data-block-type={nestedBlock.type}>
                   <BlockStyleWrapper block={nestedBlock}>
                     {renderNestedBlock(nestedBlock)}
                   </BlockStyleWrapper>

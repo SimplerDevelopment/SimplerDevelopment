@@ -7,6 +7,8 @@ import { use } from 'react';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import { findBlockById, removeBlockById } from '@/lib/utils/blockHelpers';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
 import { SurveySlideRenderer, type SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import MediaPicker from '@/components/admin/MediaPicker';
@@ -15,6 +17,8 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -52,6 +56,46 @@ function isColorDark(hex: string): boolean {
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
+}
+
+// Older AI-generated decks wrote block payloads without `id` fields. The
+// visual editor selects blocks by id, so id-less blocks are unclickable and
+// dnd-kit logs sortable-id warnings. Walk the block tree on load and assign
+// stable ids to anything missing one.
+function backfillBlockIds<T extends { id?: string; type?: string }>(blocks: T[] | undefined, seedPath = 'b'): T[] {
+  if (!Array.isArray(blocks)) return [];
+  return blocks.map((b, i) => {
+    const next: Record<string, unknown> = { ...b };
+    if (!next.id) next.id = `${seedPath}-${i}-${Math.random().toString(36).slice(2, 8)}`;
+    const nodeId = String(next.id);
+    if (Array.isArray((next as { columns?: unknown }).columns)) {
+      next.columns = ((next as { columns: Array<{ blocks?: unknown[] }> }).columns).map((c, ci) => ({
+        ...c,
+        blocks: backfillBlockIds((c.blocks as T[]) ?? [], `${nodeId}-c${ci}`),
+      }));
+    }
+    if (Array.isArray((next as { tabs?: unknown }).tabs)) {
+      next.tabs = ((next as { tabs: Array<{ blocks?: unknown[] }> }).tabs).map((t, ti) => ({
+        ...t,
+        blocks: backfillBlockIds((t.blocks as T[]) ?? [], `${nodeId}-t${ti}`),
+      }));
+    }
+    if (next.type === 'section' && Array.isArray((next as { blocks?: unknown }).blocks)) {
+      next.blocks = backfillBlockIds((next as { blocks: T[] }).blocks, `${nodeId}-s`);
+    }
+    return next as T;
+  });
+}
+
+function normalizeDeckBlockIds<D extends { slides?: Array<{ blocks?: unknown[] }> }>(deck: D): D {
+  if (!deck?.slides) return deck;
+  return {
+    ...deck,
+    slides: deck.slides.map((s, si) => ({
+      ...s,
+      blocks: backfillBlockIds((s.blocks as Array<{ id?: string; type?: string }>) ?? [], `slide${si}`),
+    })),
+  } as D;
 }
 
 
@@ -418,7 +462,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
         return;
       }
       const data = await res.json();
-      if (data.success) setDeck(data.data);
+      if (data.success) setDeck(normalizeDeckBlockIds(data.data));
       else setError(data.message || 'Failed to load deck');
     } catch {
       setError('Failed to connect to server. Please refresh the page.');
@@ -427,6 +471,18 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   }, [id]);
 
   useEffect(() => { fetchDeck(); }, [fetchDeck]);
+
+  // Brand defaults — fetched once per deck so newly-added blocks pre-fill from
+  // the client's messaging (tagline, value prop, etc.) and tag colors with sentinels.
+  const [brandDefaults, setBrandDefaults] = useState<BrandDefaultsContext | null>(null);
+  useEffect(() => {
+    if (!deck) return;
+    const profileQs = deck.brandingProfileId ? `?profileId=${deck.brandingProfileId}` : '';
+    fetch(`/api/portal/branding/defaults${profileQs}`)
+      .then(r => r.json())
+      .then(d => { if (d.success && d.data) setBrandDefaults(d.data); })
+      .catch(() => {});
+  }, [deck]);
 
 useEffect(() => {
     if (searchParams.get('genError') === '1') {
@@ -456,7 +512,7 @@ useEffect(() => {
     const data = await res.json();
     setSlideGenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setSlidePrompt('');
       setHasUnsavedChanges(false);
       // Append to conversation history for multi-turn refinement
@@ -489,7 +545,7 @@ useEffect(() => {
     const data = await res.json();
     setBatchGenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setBatchPrompt('');
       setSelectedSlides(new Set());
       setHasUnsavedChanges(false);
@@ -521,7 +577,7 @@ useEffect(() => {
     const data = await res.json();
     setRegenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setRegeneratePrompt('');
       setShowRegenerate(false);
       setActiveSlide(0);
@@ -571,7 +627,7 @@ useEffect(() => {
       body: JSON.stringify({ status: newStatus }),
     });
     const data = await res.json();
-    if (data.success) setDeck(data.data);
+    if (data.success) setDeck(normalizeDeckBlockIds(data.data));
     setPublishing(false);
   }
 
@@ -666,7 +722,8 @@ useEffect(() => {
   }
 
   const slideDndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -754,7 +811,7 @@ useEffect(() => {
     const data = await res.json();
     setRestoring(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setActiveSlide(0);
       setShowHistory(false);
       loadVersions();
@@ -1085,6 +1142,29 @@ useEffect(() => {
           placeholder="e.g. Cover, About, Pricing..."
         />
       </div>
+
+      {/* Per-slide Custom CSS */}
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">
+          Custom CSS <span className="opacity-60">(active only while this slide is in view)</span>
+        </label>
+        <textarea
+          value={currentSlide.customCss || ''}
+          onChange={(e) => {
+            const newSlides = [...deck.slides];
+            newSlides[activeSlide] = { ...newSlides[activeSlide], customCss: e.target.value };
+            setDeck({ ...deck, slides: newSlides });
+            setHasUnsavedChanges(true);
+          }}
+          rows={10}
+          spellCheck={false}
+          className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder={`/* Target rendered blocks via [data-block-id="..."] */\n[data-block-id="cover-rule"] hr { background: var(--rust); height: 3px; }`}
+        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Injected unscoped while this slide is active. Block wrappers expose <code>data-block-id</code> and <code>data-block-type</code> for targeting. The slide stage carries <code>data-slide-id</code>.
+        </p>
+      </div>
     </div>
   );
 
@@ -1352,6 +1432,20 @@ useEffect(() => {
                 onChange={(font) => handleThemeUpdate({ bodyFont: font })}
               />
             </div>
+          </div>
+          {/* Deck-global custom CSS */}
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">
+              Deck CSS <span className="opacity-60">(injected once, applies to all slides)</span>
+            </label>
+            <textarea
+              value={deck.theme.customCss || ''}
+              onChange={(e) => handleThemeUpdate({ customCss: e.target.value })}
+              rows={8}
+              spellCheck={false}
+              className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder={`/* Define CSS vars, resets, and deck-wide patterns */\n.deck-root { --brand: #005652; }\n.deck-root .slide-stage p { margin: 0; }`}
+            />
           </div>
         </div>
       )}
@@ -2148,12 +2242,12 @@ useEffect(() => {
                   rightCollapsed={editorRightCollapsed}
                   onLeftCollapsedChange={setEditorLeftCollapsed}
                   onRightCollapsedChange={setEditorRightCollapsed}
-                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}`}
+                  iframeSrc={`/portal/tools/pitch-decks/${id}/slide-preview?${editorMode === 'edit' ? '_edit=true&' : ''}pc=${encodeURIComponent(deck.theme.primaryColor)}&ac=${encodeURIComponent(deck.theme.accentColor)}&bg=${encodeURIComponent(currentSlide.pageSettings?.backgroundColor || deck.theme.backgroundColor)}&text=${encodeURIComponent(currentSlide.pageSettings?.color || deck.theme.textColor)}&hf=${encodeURIComponent(deck.theme.headingFont)}&bf=${encodeURIComponent(deck.theme.bodyFont)}&ps=${encodeURIComponent(JSON.stringify(currentSlide.pageSettings || {}))}${deck.brandingProfileId ? `&profileId=${deck.brandingProfileId}` : ''}`}
                   onBlocksChange={(blocks: Block[]) => handleSlideBlocksChange(activeSlide, blocks)}
                   onSelectBlock={() => {}}
                   onAddBlock={(type: string) => {
                     const uid = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-                    const newBlock = {
+                    let newBlock = {
                       id: uid,
                       type: type as BlockType,
                       order: currentSlide.blocks.length + 1,
@@ -2176,12 +2270,13 @@ useEffect(() => {
                       ...(type === 'deck-next-slide' && { text: 'Next Slide', variant: 'primary', size: 'md', alignment: 'center' }),
                       ...(type === 'deck-jump-to' && { text: 'Jump To', targetSlide: 1, variant: 'secondary', size: 'md', alignment: 'center' }),
                     } as Block;
+                    if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
                     handleSlideBlocksChange(activeSlide, [...currentSlide.blocks, newBlock]);
                   }}
                   onDeleteBlock={(blockId: string) => {
-                    const block = currentSlide.blocks.find(b => b.id === blockId);
+                    const block = findBlockById(currentSlide.blocks, blockId);
                     if (block?.required) return;
-                    handleSlideBlocksChange(activeSlide, currentSlide.blocks.filter(b => b.id !== blockId));
+                    handleSlideBlocksChange(activeSlide, removeBlockById(currentSlide.blocks, blockId));
                   }}
                   onUpdateBlock={(blockId: string, updates: Partial<Block>) => {
                     handleSlideBlocksChange(
@@ -2623,6 +2718,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
       </div>
       <div className="flex items-center shrink-0 pr-2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDuplicate(); }}
           className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
           title="Duplicate slide"
@@ -2630,6 +2726,7 @@ function SortableSlideItem({ slide, index, isActive, isSelected, onClick, onRena
           <span className="material-icons text-sm">content_copy</span>
         </button>
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           disabled={!canRemove}
           className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

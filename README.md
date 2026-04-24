@@ -1,6 +1,6 @@
 # SimplerDevelopment.com
 
-A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automation Agency. Built with Next.js 16, React 19, Three.js, and powered by Builder.io CMS.
+A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automation Agency. Built with Next.js 16, React 19, Three.js, and a custom block-based content editor.
 
 ## Features
 
@@ -8,7 +8,7 @@ A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automa
 - Smooth scroll animations with Framer Motion
 - Dark/Light mode with system preference detection
 - SEO optimized with sitemap, robots.txt, and structured data
-- Content management with Builder.io
+- Custom block-based content editor
 - Responsive design with Tailwind CSS 4
 - Type-safe with TypeScript 5
 - Contact form with validation (React Hook Form + Zod)
@@ -21,7 +21,7 @@ A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automa
 - **Styling**: Tailwind CSS 4
 - **3D Graphics**: Three.js, React Three Fiber, React Three Drei
 - **Animations**: Framer Motion
-- **CMS**: Builder.io
+- **CMS**: Custom block editor (Drizzle + visual editor)
 - **Form Handling**: React Hook Form + Zod
 - **Email**: Resend (planned)
 
@@ -53,7 +53,7 @@ cp .env.example .env.local
 ```
 
 Edit `.env.local` and add your configuration:
-- `NEXT_PUBLIC_BUILDER_API_KEY`: Your Builder.io API key
+- `DATABASE_URL`: Your Postgres connection string
 - `RESEND_API_KEY`: Your Resend API key (optional, for contact form)
 - `NEXT_PUBLIC_SITE_URL`: Your site URL
 
@@ -125,45 +125,6 @@ bun start
 - **Blog** (`/blog`) - Blog posts index
 - **Blog Post** (`/blog/[slug]`) - Individual blog posts
 - **Contact** (`/contact`) - Contact form
-
-## Builder.io Setup
-
-1. Create a Builder.io account at https://builder.io
-2. Create the following models in your Builder.io space:
-   - `solution` - For service pages
-   - `blog-post` - For blog posts
-3. Add your API key to `.env.local`
-
-### Solution Model Fields
-
-- title (Text)
-- slug (Text)
-- description (Text)
-- image (File)
-- content (Rich Text)
-- benefits (List of Text)
-- featured (Boolean)
-- metaTitle (Text)
-- metaDescription (Text)
-- ogImage (File)
-
-### Blog Post Model Fields
-
-- title (Text)
-- slug (Text)
-- excerpt (Text)
-- author (Text)
-- authorImage (File)
-- coverImage (File)
-- content (Rich Text)
-- category (Text)
-- tags (List of Objects with 'tag' field)
-- readTime (Number)
-- featured (Boolean)
-- publishedAt (Date)
-- metaTitle (Text)
-- metaDescription (Text)
-- ogImage (File)
 
 ## SEO
 

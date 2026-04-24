@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation';
 import { getPortalClient } from '@/lib/portal-client';
 import PortalPostForm from '@/components/portal/PortalPostForm';
 import { generatePreviewToken } from '@/lib/preview-token';
+import { getBrandDefaults } from '@/lib/branding';
 
 export default async function PortalEditPostPage({
   params,
@@ -63,6 +64,11 @@ export default async function PortalEditPostPage({
     ? `${appUrl}/sites/${fullDomain}`
     : null;
 
+  const brandDefaults = await getBrandDefaults({
+    clientId: client.id,
+    brandingProfileId: site.brandingProfileId,
+  });
+
   return (
     <PortalPostForm
       siteId={site.id}
@@ -71,6 +77,7 @@ export default async function PortalEditPostPage({
       publicUrl={publicUrl}
       previewToken={previewToken}
       siteDomain={site.domain || subdomain || undefined}
+      brandDefaults={brandDefaults}
       post={{
         id: post.id,
         title: post.title,
@@ -86,6 +93,8 @@ export default async function PortalEditPostPage({
         ogImage: post.ogImage || '',
         noIndex: post.noIndex,
         canonicalUrl: post.canonicalUrl || '',
+        customCss: post.customCss || '',
+        customJs: post.customJs || '',
         categoryIds: cats.map(c => c.categoryId),
         tagIds: tgs.map(t => t.tagId),
       }}

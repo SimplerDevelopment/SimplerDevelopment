@@ -1,0 +1,402 @@
+[
+  {
+    "id": 2439,
+    "firstName": "Barry",
+    "lastName": "Creamer",
+    "email": null,
+    "title": "President",
+    "companyName": "Criswell College"
+  },
+  {
+    "id": 2440,
+    "firstName": "Adam",
+    "lastName": "Wright",
+    "email": null,
+    "title": "President",
+    "companyName": "Dallas Baptist University"
+  },
+  {
+    "id": 2441,
+    "firstName": "Brian",
+    "lastName": "D. Smith",
+    "email": null,
+    "title": "President",
+    "companyName": "Dallas Christian College"
+  },
+  {
+    "id": 2442,
+    "firstName": "Justin",
+    "lastName": "Lonon",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Dallas College"
+  },
+  {
+    "id": 2443,
+    "firstName": "Mark",
+    "lastName": "M. Yarbrough",
+    "email": null,
+    "title": "President",
+    "companyName": "Dallas Theological Seminary"
+  },
+  {
+    "id": 2444,
+    "firstName": "Melissa",
+    "lastName": "Guster",
+    "email": null,
+    "title": "Director, Admissions II",
+    "companyName": "DeVry University-Texas"
+  },
+  {
+    "id": 2445,
+    "firstName": "Mark",
+    "lastName": "Escamilla, Ph.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "Del Mar College"
+  },
+  {
+    "id": 2446,
+    "firstName": "Chad",
+    "lastName": "Muse",
+    "email": null,
+    "title": "Campus President",
+    "companyName": "Denver College of Nursing-Houston"
+  },
+  {
+    "id": 2447,
+    "firstName": "Mark",
+    "lastName": "Rudin",
+    "email": null,
+    "title": "President & CEO",
+    "companyName": "East Texas A&M University"
+  },
+  {
+    "id": 2448,
+    "firstName": "J.",
+    "lastName": "Blair Blackburn",
+    "email": null,
+    "title": "President",
+    "companyName": "East Texas Baptist University"
+  },
+  {
+    "id": 2449,
+    "firstName": "Scott",
+    "lastName": "Bader-Saye",
+    "email": null,
+    "title": "Dean and President",
+    "companyName": "Episcopal Theological Seminary of the Southwest"
+  },
+  {
+    "id": 2450,
+    "firstName": "Terry",
+    "lastName": "Douglas",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Galen College of Nursing-San Antonio"
+  },
+  {
+    "id": 2451,
+    "firstName": "Anna",
+    "lastName": "Jessup",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Galen Health Institutes-Austin Campus"
+  },
+  {
+    "id": 2452,
+    "firstName": "Brittany",
+    "lastName": "Wall",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Galen Health Institutes-Dallas"
+  },
+  {
+    "id": 2453,
+    "firstName": "Victoria",
+    "lastName": "Coyle",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Galen Health Institutes-Houston"
+  },
+  {
+    "id": 2454,
+    "firstName": "W.",
+    "lastName": "Myles Shelton",
+    "email": null,
+    "title": "President",
+    "companyName": "Galveston College"
+  },
+  {
+    "id": 2455,
+    "firstName": "Dave",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "Grace School of Theology"
+  },
+  {
+    "id": 2456,
+    "firstName": "Jeremy",
+    "lastName": "McMillen",
+    "email": null,
+    "title": "President",
+    "companyName": "Grayson College"
+  },
+  {
+    "id": 2457,
+    "firstName": "Joe",
+    "lastName": "Fisher",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "Hallmark University"
+  },
+  {
+    "id": 2458,
+    "firstName": "Chris",
+    "lastName": "McNair",
+    "email": null,
+    "title": "Provost and Chief Academic Officer",
+    "companyName": "Hardin-Simmons University"
+  },
+  {
+    "id": 2459,
+    "firstName": "Robert",
+    "lastName": "B. Sloan, Jr.",
+    "email": null,
+    "title": "President",
+    "companyName": "Houston Christian University"
+  },
+  {
+    "id": 2460,
+    "firstName": "Margaret",
+    "lastName": "Ford Fisher",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Houston Community College"
+  },
+  {
+    "id": 2461,
+    "firstName": "Cory",
+    "lastName": "Hines",
+    "email": null,
+    "title": "President",
+    "companyName": "Howard Payne University"
+  },
+  {
+    "id": 2462,
+    "firstName": "Melva",
+    "lastName": "K. Wallace",
+    "email": null,
+    "title": "President & CEO",
+    "companyName": "Huston-Tillotson University"
+  },
+  {
+    "id": 2463,
+    "firstName": "Glenell",
+    "lastName": "Lee-Pruitt",
+    "email": null,
+    "title": "President",
+    "companyName": "Jarvis Christian University"
+  },
+  {
+    "id": 2464,
+    "firstName": "Jaime",
+    "lastName": "Taylor",
+    "email": null,
+    "title": "President",
+    "companyName": "Lamar University"
+  },
+  {
+    "id": 2465,
+    "firstName": "Minita",
+    "lastName": "Ramirez",
+    "email": null,
+    "title": "President",
+    "companyName": "Laredo College"
+  },
+  {
+    "id": 2466,
+    "firstName": "Steven",
+    "lastName": "D. Mason, Ph.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "LeTourneau University"
+  },
+  {
+    "id": 2467,
+    "firstName": "Mario",
+    "lastName": "Castillo",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Lone Star College System"
+  },
+  {
+    "id": 2468,
+    "firstName": "Scott",
+    "lastName": "McDowell",
+    "email": null,
+    "title": "President",
+    "companyName": "Lubbock Christian University"
+  },
+  {
+    "id": 2469,
+    "firstName": "Lynne",
+    "lastName": "Murray",
+    "email": null,
+    "title": "President",
+    "companyName": "McMurry University"
+  },
+  {
+    "id": 2470,
+    "firstName": "James",
+    "lastName": "E Rayburn",
+    "email": null,
+    "title": "President",
+    "companyName": "Messenger College"
+  },
+  {
+    "id": 2471,
+    "firstName": "Damon",
+    "lastName": "Kennedy",
+    "email": null,
+    "title": "President",
+    "companyName": "Midland College"
+  },
+  {
+    "id": 2472,
+    "firstName": "Stacia",
+    "lastName": "Haynie",
+    "email": null,
+    "title": "President",
+    "companyName": "Midwestern State University"
+  },
+  {
+    "id": 2473,
+    "firstName": "Kevin",
+    "lastName": "Fegan",
+    "email": null,
+    "title": "District President",
+    "companyName": "Navarro College"
+  },
+  {
+    "id": 2474,
+    "firstName": "Kermit",
+    "lastName": "Bridges",
+    "email": null,
+    "title": "President",
+    "companyName": "Nelson University"
+  },
+  {
+    "id": 2475,
+    "firstName": "Faruk",
+    "lastName": "Taban",
+    "email": null,
+    "title": "President",
+    "companyName": "North American University"
+  },
+  {
+    "id": 2476,
+    "firstName": "Amy",
+    "lastName": "Bosley",
+    "email": null,
+    "title": "President",
+    "companyName": "Northwest Vista College"
+  },
+  {
+    "id": 2477,
+    "firstName": "Fr.",
+    "lastName": "Louis Studer, OMI",
+    "email": null,
+    "title": "President",
+    "companyName": "Oblate School of Theology"
+  },
+  {
+    "id": 2478,
+    "firstName": "Gregory",
+    "lastName": "D. Williams",
+    "email": null,
+    "title": "President",
+    "companyName": "Odessa College"
+  },
+  {
+    "id": 2479,
+    "firstName": "Abel",
+    "lastName": "Chávez",
+    "email": null,
+    "title": "President",
+    "companyName": "Our Lady of the Lake University"
+  },
+  {
+    "id": 2480,
+    "firstName": "Robert",
+    "lastName": "Garza",
+    "email": null,
+    "title": "President",
+    "companyName": "Palo Alto College"
+  },
+  {
+    "id": 2481,
+    "firstName": "Bill",
+    "lastName": "Morgan",
+    "email": null,
+    "title": "President",
+    "companyName": "Parker University"
+  },
+  {
+    "id": 2482,
+    "firstName": "Michael",
+    "lastName": "J. Sorrell",
+    "email": null,
+    "title": "President",
+    "companyName": "Paul Quinn College"
+  },
+  {
+    "id": 2483,
+    "firstName": "Tomikia",
+    "lastName": "P. LeGrande",
+    "email": null,
+    "title": "President",
+    "companyName": "Prairie View A & M University"
+  },
+  {
+    "id": 2484,
+    "firstName": "Olushola",
+    "lastName": "Awobajo",
+    "email": null,
+    "title": "President",
+    "companyName": "Redeemers University North America"
+  },
+  {
+    "id": 2485,
+    "firstName": "Todd",
+    "lastName": "Zvaigzne",
+    "email": null,
+    "title": "Campus President",
+    "companyName": "Remington College-Online Dallas"
+  },
+  {
+    "id": 2486,
+    "firstName": "Reginald",
+    "lastName": "DesRoches",
+    "email": null,
+    "title": "President",
+    "companyName": "Rice University"
+  },
+  {
+    "id": 2487,
+    "firstName": "Montserrat",
+    "lastName": "Fuentes",
+    "email": null,
+    "title": "President",
+    "companyName": "Saint Edward's University"
+  },
+  {
+    "id": 2488,
+    "firstName": "Alisa",
+    "lastName": "White",
+    "email": null,
+    "title": "President",
+    "companyName": "Sam Houston State University"
+  }
+]

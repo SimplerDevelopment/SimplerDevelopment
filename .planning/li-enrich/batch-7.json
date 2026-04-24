@@ -1,0 +1,402 @@
+[
+  {
+    "id": 339,
+    "firstName": "Kellie",
+    "lastName": "Sims Butler",
+    "email": null,
+    "title": "Superintendent-President",
+    "companyName": "Solano Community College"
+  },
+  {
+    "id": 340,
+    "firstName": "Emily",
+    "lastName": "Cutrer",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Sonoma State University"
+  },
+  {
+    "id": 341,
+    "firstName": "Jason",
+    "lastName": "Shin",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "South Baylo University"
+  },
+  {
+    "id": 342,
+    "firstName": "Paul",
+    "lastName": "Holliday",
+    "email": null,
+    "title": "Director of Academic Affairs",
+    "companyName": "Southern California Institute of Architecture"
+  },
+  {
+    "id": 343,
+    "firstName": "Parviz",
+    "lastName": "Shams",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Southern California Institute of Technology"
+  },
+  {
+    "id": 344,
+    "firstName": "Gino",
+    "lastName": "Pasquariello",
+    "email": null,
+    "title": "Provost",
+    "companyName": "Southern California Seminary"
+  },
+  {
+    "id": 345,
+    "firstName": "John",
+    "lastName": "Scaringe",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "Southern California University of Health Sciences"
+  },
+  {
+    "id": 346,
+    "firstName": "Darby",
+    "lastName": "Dickerson",
+    "email": null,
+    "title": "President and Dean",
+    "companyName": "Southwestern Law School"
+  },
+  {
+    "id": 347,
+    "firstName": "Yasith",
+    "lastName": "Weerasuriya",
+    "email": null,
+    "title": "Director of Training/CEO",
+    "companyName": "Stanbridge University"
+  },
+  {
+    "id": 348,
+    "firstName": "Jonathan",
+    "lastName": "Levin",
+    "email": null,
+    "title": "President",
+    "companyName": "Stanford University"
+  },
+  {
+    "id": 349,
+    "firstName": "Rosemary",
+    "lastName": "Bray McNatt",
+    "email": null,
+    "title": "President",
+    "companyName": "Starr King School for the Ministry"
+  },
+  {
+    "id": 350,
+    "firstName": "Carole",
+    "lastName": "Goldsmith",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "State Center Community College District"
+  },
+  {
+    "id": 351,
+    "firstName": "Leslie",
+    "lastName": "Minor",
+    "email": null,
+    "title": "Interim Superintendent/President",
+    "companyName": "Taft College"
+  },
+  {
+    "id": 352,
+    "firstName": "Girlie",
+    "lastName": "Hale",
+    "email": null,
+    "title": "President",
+    "companyName": "Teachers College of San Joaquin"
+  },
+  {
+    "id": 353,
+    "firstName": "Michele",
+    "lastName": "Nealon",
+    "email": null,
+    "title": "University President",
+    "companyName": "The Chicago School at Anaheim"
+  },
+  {
+    "id": 354,
+    "firstName": "Michele",
+    "lastName": "Nealon",
+    "email": null,
+    "title": "President",
+    "companyName": "The Chicago School at Los Angeles"
+  },
+  {
+    "id": 355,
+    "firstName": "Michele",
+    "lastName": "Nealon",
+    "email": null,
+    "title": "President",
+    "companyName": "The Chicago School at San Diego"
+  },
+  {
+    "id": 356,
+    "firstName": "Matthew",
+    "lastName": "Nehmer",
+    "email": null,
+    "title": "Executive Director",
+    "companyName": "The Colleges of Law at Santa Barbara"
+  },
+  {
+    "id": 357,
+    "firstName": "Matthew",
+    "lastName": "Nehmer",
+    "email": null,
+    "title": "Executive Director",
+    "companyName": "The Colleges of Law at Ventura"
+  },
+  {
+    "id": 358,
+    "firstName": "Mitch",
+    "lastName": "Hopewell",
+    "email": null,
+    "title": "Provost",
+    "companyName": "The Master's University and Seminary"
+  },
+  {
+    "id": 359,
+    "firstName": "Marshall",
+    "lastName": "Warneke",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "The University of America"
+  },
+  {
+    "id": 360,
+    "firstName": "Peter",
+    "lastName": "Dybwad",
+    "email": null,
+    "title": "President",
+    "companyName": "The Wright Institute"
+  },
+  {
+    "id": 361,
+    "firstName": "Paul",
+    "lastName": "O'Reilly",
+    "email": null,
+    "title": "President",
+    "companyName": "Thomas Aquinas College"
+  },
+  {
+    "id": 362,
+    "firstName": "Karin",
+    "lastName": "Sherr",
+    "email": null,
+    "title": "Vice President",
+    "companyName": "Thomas Jefferson School of Law"
+  },
+  {
+    "id": 363,
+    "firstName": "Tami",
+    "lastName": "Hendriksz",
+    "email": null,
+    "title": "Interim Chief Academic Officer",
+    "companyName": "Touro University California"
+  },
+  {
+    "id": 364,
+    "firstName": "Roy",
+    "lastName": "Finaly",
+    "email": null,
+    "title": "CEO",
+    "companyName": "Touro University Worldwide"
+  },
+  {
+    "id": 365,
+    "firstName": "Mike",
+    "lastName": null,
+    "email": null,
+    "title": "Peterson",
+    "companyName": "Trinity Law School"
+  },
+  {
+    "id": 366,
+    "firstName": "Scott",
+    "lastName": "Burrus",
+    "email": null,
+    "title": "President",
+    "companyName": "United States University"
+  },
+  {
+    "id": 367,
+    "firstName": "Don",
+    "lastName": "Corvin",
+    "email": null,
+    "title": "Sr. Vice President of Compliance",
+    "companyName": "Unitek College"
+  },
+  {
+    "id": 368,
+    "firstName": "David",
+    "lastName": "Faigman",
+    "email": null,
+    "title": "Chancellor & Dean",
+    "companyName": "University of California College of the Law-San Francisco"
+  },
+  {
+    "id": 369,
+    "firstName": "Rich",
+    "lastName": "Lyons",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Berkeley"
+  },
+  {
+    "id": 370,
+    "firstName": "Gary",
+    "lastName": "S. May",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Davis"
+  },
+  {
+    "id": 371,
+    "firstName": "Howard",
+    "lastName": "Gillman",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Irvine"
+  },
+  {
+    "id": 372,
+    "firstName": "Julio",
+    "lastName": "Frenk",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Los Angeles"
+  },
+  {
+    "id": 373,
+    "firstName": "Juan",
+    "lastName": "Sánchez Muñoz",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Merced"
+  },
+  {
+    "id": 374,
+    "firstName": "Kim",
+    "lastName": "A. Wilcox",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Riverside"
+  },
+  {
+    "id": 375,
+    "firstName": "Pradeep",
+    "lastName": "Khosla",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-San Diego"
+  },
+  {
+    "id": 376,
+    "firstName": "Sam",
+    "lastName": "Hawgood",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-San Francisco"
+  },
+  {
+    "id": 377,
+    "firstName": "Henry",
+    "lastName": "T Yang",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Santa Barbara"
+  },
+  {
+    "id": 378,
+    "firstName": "Cynthia",
+    "lastName": "Larive",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of California-Santa Cruz"
+  },
+  {
+    "id": 379,
+    "firstName": "Michael",
+    "lastName": "V. Drake",
+    "email": null,
+    "title": "President",
+    "companyName": "University of California-System Administration Central Office"
+  },
+  {
+    "id": 380,
+    "firstName": "Ying",
+    "lastName": "Qiu Wang",
+    "email": null,
+    "title": "President",
+    "companyName": "University of East-West Medicine"
+  },
+  {
+    "id": 381,
+    "firstName": "Risa",
+    "lastName": "Dickson",
+    "email": null,
+    "title": "President",
+    "companyName": "University of La Verne"
+  },
+  {
+    "id": 382,
+    "firstName": "David",
+    "lastName": "Andrews",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Massachusetts Global"
+  },
+  {
+    "id": 383,
+    "firstName": "Chris",
+    "lastName": "Lynne",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Phoenix-California"
+  },
+  {
+    "id": 384,
+    "firstName": "Krista",
+    "lastName": "L. Newkirk, J.D.",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Redlands"
+  },
+  {
+    "id": 385,
+    "firstName": "James",
+    "lastName": "T. Harris III, D.Ed.",
+    "email": null,
+    "title": "President",
+    "companyName": "University of San Diego"
+  },
+  {
+    "id": 386,
+    "firstName": "Paul",
+    "lastName": "J. Fitzgerald, S.J.",
+    "email": null,
+    "title": "President",
+    "companyName": "University of San Francisco"
+  },
+  {
+    "id": 387,
+    "firstName": "Anand",
+    "lastName": "Kuchibhotla",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Silicon Andhra"
+  },
+  {
+    "id": 388,
+    "firstName": "Christopher",
+    "lastName": "Spohn",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Silicon Valley"
+  }
+]

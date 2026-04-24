@@ -43,8 +43,9 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-        {(block.stats || []).map((stat) => (
-          <div key={stat.id} className="text-center">
+        {(block.stats || []).map((stat, i) => (
+          // LLM-authored decks often omit stat ids; backfill a stable key.
+          <div key={stat.id ?? `stat-${i}`} className="text-center">
             <div className={`${hasCustomFontSize ? '' : 'text-4xl md:text-5xl'} ${hasCustomFontWeight ? '' : 'font-bold'} ${hasCustomColor ? '' : 'text-primary'} mb-2`} style={getElementCSS(block.elementStyles, 'statValue')}>
               {stat.value}
             </div>

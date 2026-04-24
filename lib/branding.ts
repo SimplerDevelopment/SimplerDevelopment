@@ -12,61 +12,18 @@
  */
 
 import { db } from '@/lib/db';
-import { siteBranding, clientWebsites, brandingProfiles, bookingPages, surveys } from '@/lib/db/schema';
+import { siteBranding, clientWebsites, brandingProfiles, brandingMessaging, bookingPages, surveys } from '@/lib/db/schema';
 import type { PitchDeckTheme } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { brandingToCssVars as _brandingToCssVars } from './branding/css-vars';
+import { messagingRowToContext, type BrandDefaultsContext, type BrandMessagingContext } from './branding/block-defaults';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (re-exported from pure module for backward compat)
 // ---------------------------------------------------------------------------
 
-/** Resolved branding — the superset used across the platform. */
-export interface ResolvedBranding {
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  textColor: string;
-  headingFont: string;
-  bodyFont: string;
-  logoUrl: string;
-  logoSquareUrl: string;
-  logoRectUrl: string;
-  logoIconUrl: string;
-  logoText: string;
-  logoAlt: string;
-  navTemplate: string;
-  navPosition: string;
-  navBackground: string;
-  navTextColor: string;
-  typography?: Record<string, { font?: string; size?: string; weight?: string; lineHeight?: string }>;
-  darkMode?: {
-    primaryColor?: string; secondaryColor?: string; accentColor?: string;
-    backgroundColor?: string; textColor?: string;
-    navBackground?: string; navTextColor?: string;
-    logoUrl?: string; logoSquareUrl?: string; logoRectUrl?: string; logoIconUrl?: string;
-  };
-  borderRadius?: string;
-  linkColor?: string;
-  linkHoverColor?: string;
-  buttonStyle?: {
-    primaryBg?: string; primaryText?: string; primaryHoverBg?: string;
-    secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
-    borderRadius?: string; variant?: 'filled' | 'outline';
-  };
-  faviconUrl?: string;
-  ogImageUrl?: string;
-}
-
-/** Summary for dropdowns / selectors. */
-export interface BrandingProfileSummary {
-  id: number;
-  name: string;
-  isDefault: boolean;
-  primaryColor: string | null;
-  accentColor: string | null;
-  logoUrl: string | null;
-}
+export type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
+import type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
 
 const DEFAULTS: ResolvedBranding = {
   primaryColor: '#2563eb',
@@ -117,6 +74,7 @@ function rowToBranding(row: Record<string, unknown>): ResolvedBranding {
     linkColor: (row.linkColor as string) ?? undefined,
     linkHoverColor: (row.linkHoverColor as string) ?? undefined,
     buttonStyle: (row.buttonStyle as ResolvedBranding['buttonStyle']) ?? undefined,
+    buttonPresets: (row.buttonPresets as ResolvedBranding['buttonPresets']) ?? undefined,
     faviconUrl: (row.faviconUrl as string) ?? undefined,
     ogImageUrl: (row.ogImageUrl as string) ?? undefined,
   };
@@ -272,36 +230,66 @@ export function brandingToPitchDeckTheme(branding: ResolvedBranding): PitchDeckT
 }
 
 /** Generate CSS custom properties from branding for injection into page/iframe. */
-export function brandingToCssVars(branding: ResolvedBranding): Record<string, string> {
-  const vars: Record<string, string> = {
-    '--brand-primary': branding.primaryColor,
-    '--brand-secondary': branding.secondaryColor,
-    '--brand-accent': branding.accentColor,
-    '--brand-bg': branding.backgroundColor,
-    '--brand-text': branding.textColor,
-    '--brand-nav-bg': branding.navBackground,
-    '--brand-nav-text': branding.navTextColor,
-  };
+export const brandingToCssVars = _brandingToCssVars;
 
-  if (branding.headingFont) vars['--brand-heading-font'] = branding.headingFont;
-  if (branding.bodyFont) vars['--brand-body-font'] = branding.bodyFont;
-  if (branding.borderRadius) vars['--brand-border-radius'] = branding.borderRadius;
-  if (branding.linkColor) vars['--brand-link-color'] = branding.linkColor;
-  if (branding.linkHoverColor) vars['--brand-link-hover-color'] = branding.linkHoverColor;
+// ---------------------------------------------------------------------------
+// Brand defaults loader — for "pre-fill new blocks with messaging" flows
+// ---------------------------------------------------------------------------
 
-  if (branding.buttonStyle) {
-    const bs = branding.buttonStyle;
-    if (bs.primaryBg) vars['--brand-btn-primary-bg'] = bs.primaryBg;
-    if (bs.primaryText) vars['--brand-btn-primary-text'] = bs.primaryText;
-    if (bs.primaryHoverBg) vars['--brand-btn-primary-hover-bg'] = bs.primaryHoverBg;
-    if (bs.secondaryBg) vars['--brand-btn-secondary-bg'] = bs.secondaryBg;
-    if (bs.secondaryText) vars['--brand-btn-secondary-text'] = bs.secondaryText;
-    if (bs.secondaryHoverBg) vars['--brand-btn-secondary-hover-bg'] = bs.secondaryHoverBg;
-    if (bs.borderRadius) vars['--brand-btn-border-radius'] = bs.borderRadius;
-    if (bs.variant) vars['--brand-btn-variant'] = bs.variant;
+/**
+ * Load messaging for a client (falling back to a specific branding profile's
+ * attached messaging row if present).
+ *
+ * Returns undefined when no messaging row exists — safe to pass straight into
+ * applyBrandDefaults, which short-circuits on undefined.
+ */
+export async function getBrandMessaging(
+  clientId: number,
+  brandingProfileId?: number | null,
+): Promise<BrandMessagingContext | undefined> {
+  // Prefer the profile-attached messaging row when a specific profile is named.
+  if (brandingProfileId) {
+    const [scoped] = await db
+      .select()
+      .from(brandingMessaging)
+      .where(and(
+        eq(brandingMessaging.clientId, clientId),
+        eq(brandingMessaging.brandingProfileId, brandingProfileId),
+      ))
+      .limit(1);
+    if (scoped) return messagingRowToContext(scoped);
   }
+  // Otherwise return the client's first messaging row (the default voice).
+  const [first] = await db
+    .select()
+    .from(brandingMessaging)
+    .where(eq(brandingMessaging.clientId, clientId))
+    .orderBy(brandingMessaging.id)
+    .limit(1);
+  return messagingRowToContext(first);
+}
 
-  return vars;
+/**
+ * Convenience: resolve brand defaults for any portal editor.
+ * Returns a BrandDefaultsContext ready to pass into applyBrandDefaults.
+ */
+export async function getBrandDefaults(params: {
+  clientId: number;
+  brandingProfileId?: number | null;
+  useSentinels?: boolean;
+}): Promise<BrandDefaultsContext> {
+  const { clientId, brandingProfileId, useSentinels = true } = params;
+  const messaging = await getBrandMessaging(clientId, brandingProfileId);
+  let logoUrl: string | undefined;
+  if (brandingProfileId) {
+    const [profile] = await db
+      .select({ logoUrl: brandingProfiles.logoUrl })
+      .from(brandingProfiles)
+      .where(eq(brandingProfiles.id, brandingProfileId))
+      .limit(1);
+    logoUrl = profile?.logoUrl ?? undefined;
+  }
+  return { messaging, logoUrl, useSentinels };
 }
 
 // ---------------------------------------------------------------------------

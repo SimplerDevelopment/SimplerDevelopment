@@ -77,10 +77,17 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'Valid artifactType and artifactId required' }, { status: 400 });
   }
 
-  // Look up the display title from the source table
+  // Look up the display title from the source table; enforce tenant ownership
+  // so a caller can't attach another client's artifact to their deal.
   const config = ARTIFACT_TABLES[artifactType];
-  const [source] = await db.select({ title: config.table[config.titleField] }).from(config.table).where(eq(config.table.id, artifactId));
-  const displayTitle = source?.title || body.displayTitle || 'Untitled';
+  const [source] = await db
+    .select({ title: config.table[config.titleField] })
+    .from(config.table)
+    .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, result.client.id)));
+  if (!source) {
+    return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
+  }
+  const displayTitle = source.title || body.displayTitle || 'Untitled';
 
   const [artifact] = await db
     .insert(crmDealArtifacts)

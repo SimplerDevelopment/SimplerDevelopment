@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -8,8 +8,6 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
-  MouseSensor,
-  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -21,12 +19,18 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { priorityColor } from '@/lib/portal-utils';
+import { priorityColor, stripMarkdown } from '@/lib/portal-utils';
 import CardDetailModal from './CardDetailModal';
 
 interface CardAttachment {
   url: string;
   mimeType: string;
+}
+
+interface CardLabel {
+  id: number;
+  name: string;
+  color: string;
 }
 
 interface Card {
@@ -38,7 +42,12 @@ interface Card {
   dueDate: string | Date | null;
   order: number;
   sprintId?: number | null;
+  key?: string | null;
   attachments?: CardAttachment[];
+  labels?: CardLabel[];
+  checklist?: { total: number; done: number } | null;
+  assignees?: { id: number; name: string }[];
+  blockedCount?: number;
 }
 
 interface Column {
@@ -46,6 +55,8 @@ interface Column {
   name: string;
   color: string | null;
   order: number;
+  isDone?: boolean;
+  wipLimit?: number | null;
   cards: Card[];
 }
 
@@ -59,6 +70,7 @@ interface Props {
   projectId: number;
   initialColumns: Column[];
   isStaff: boolean;
+  canEdit: boolean;
   currentUserId: number;
   sprints?: SprintOption[];
 }
@@ -135,9 +147,25 @@ function KanbanCard({
           )}
         </div>
       )}
+      {card.labels && card.labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5 pr-6">
+          {card.labels.map(l => (
+            <span
+              key={l.id}
+              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{ backgroundColor: `${l.color}22`, color: l.color }}
+            >
+              {l.name}
+            </span>
+          ))}
+        </div>
+      )}
+      {card.key && (
+        <p className="text-[10px] font-mono text-muted-foreground mb-0.5">{card.key}</p>
+      )}
       <p className="text-sm font-medium text-foreground pr-6">{card.title}</p>
       {card.description && (
-        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{card.description}</p>
+        <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{stripMarkdown(card.description)}</p>
       )}
       {imageThumbs.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5">
@@ -164,7 +192,7 @@ function KanbanCard({
           {totalCount}
         </div>
       )}
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
         {card.priority && (
           <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityColor(card.priority)}`}>
             {card.priority}
@@ -175,6 +203,35 @@ function KanbanCard({
             <span className="material-icons text-xs">event</span>
             {new Date(card.dueDate).toLocaleDateString()}
           </span>
+        )}
+        {card.checklist && card.checklist.total > 0 && (
+          <span className={`text-xs flex items-center gap-0.5 ${card.checklist.done === card.checklist.total ? 'text-green-600' : 'text-muted-foreground'}`}>
+            <span className="material-icons text-xs">check_box</span>
+            {card.checklist.done}/{card.checklist.total}
+          </span>
+        )}
+        {card.blockedCount !== undefined && card.blockedCount > 0 && (
+          <span className="text-xs flex items-center gap-0.5 text-destructive font-medium"
+            title={`Blocked by ${card.blockedCount} card${card.blockedCount === 1 ? '' : 's'}`}>
+            <span className="material-icons text-xs">block</span>
+            {card.blockedCount}
+          </span>
+        )}
+        {card.assignees && card.assignees.length > 0 && (
+          <div className="flex -space-x-1 ml-auto">
+            {card.assignees.slice(0, 3).map(a => (
+              <span key={a.id}
+                title={a.name}
+                className="w-5 h-5 rounded-full bg-primary/10 border border-card flex items-center justify-center text-[10px] font-semibold text-primary">
+                {(a.name ?? '?').trim().charAt(0).toUpperCase()}
+              </span>
+            ))}
+            {card.assignees.length > 3 && (
+              <span className="w-5 h-5 rounded-full bg-muted border border-card flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
+                +{card.assignees.length - 3}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -195,6 +252,8 @@ function KanbanColumn({
   onMoveToColumn,
   onMoveColumn,
   onDeleteColumn,
+  onToggleDone,
+  onSetWipLimit,
   isFirst,
   isLast,
 }: {
@@ -211,6 +270,8 @@ function KanbanColumn({
   onMoveToColumn: (cardId: number, columnId: number) => void;
   onMoveColumn: (columnId: number, direction: 'left' | 'right') => void;
   onDeleteColumn: (columnId: number) => void;
+  onToggleDone: (columnId: number, isDone: boolean) => void;
+  onSetWipLimit: (columnId: number, limit: number) => void;
   isFirst: boolean;
   isLast: boolean;
 }) {
@@ -227,11 +288,49 @@ function KanbanColumn({
             <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
           )}
           <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
-          <span className="text-xs text-muted-foreground bg-muted rounded-full px-1.5 py-0.5 shrink-0">
-            {column.cards.length}
-          </span>
+          {(() => {
+            const over = column.wipLimit != null && column.wipLimit > 0 && column.cards.length > column.wipLimit;
+            return (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium ${over ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}`}
+                title={column.wipLimit ? `WIP limit: ${column.wipLimit}${over ? ' (over limit)' : ''}` : undefined}>
+                {column.cards.length}{column.wipLimit ? `/${column.wipLimit}` : ''}
+              </span>
+            );
+          })()}
+          {column.isDone && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium shrink-0" title="Marked as Done column">
+              Done
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity shrink-0">
+          {isStaff && (
+            <button
+              type="button"
+              onClick={() => onToggleDone(column.id, !column.isDone)}
+              className={`p-0.5 rounded transition-colors ${column.isDone ? 'text-green-600' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+              title={column.isDone ? 'Remove as Done column' : 'Mark as Done column (for sprint reports)'}
+            >
+              <span className="material-icons text-sm">{column.isDone ? 'check_circle' : 'check_circle_outline'}</span>
+            </button>
+          )}
+          {isStaff && (
+            <button
+              type="button"
+              onClick={() => {
+                const current = column.wipLimit ?? '';
+                const input = window.prompt('Set WIP limit for this column (leave empty to remove):', String(current));
+                if (input === null) return;
+                const n = input.trim() === '' ? 0 : parseInt(input, 10);
+                if (Number.isNaN(n) || n < 0) return;
+                onSetWipLimit(column.id, n);
+              }}
+              className={`p-0.5 rounded transition-colors ${column.wipLimit ? 'text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+              title={column.wipLimit ? `WIP limit: ${column.wipLimit}` : 'Set WIP limit'}
+            >
+              <span className="material-icons text-sm">speed</span>
+            </button>
+          )}
           {!isFirst && (
             <button
               type="button"
@@ -326,10 +425,14 @@ function KanbanColumn({
   );
 }
 
-export default function KanbanBoard({ projectId, initialColumns, isStaff, currentUserId, sprints = [] }: Props) {
+export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdit, currentUserId, sprints = [] }: Props) {
   const [columns, setColumns] = useState(initialColumns);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [filterSprintId, setFilterSprintId] = useState<number | 'backlog' | null>(null);
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterPriority, setFilterPriority] = useState<Set<string>>(new Set());
+  const [filterAssignees, setFilterAssignees] = useState<Set<number>>(new Set());
+  const [filterLabels, setFilterLabels] = useState<Set<number>>(new Set());
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<number | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
@@ -337,27 +440,73 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
   const [newColumnName, setNewColumnName] = useState('');
   const [newColumnColor, setNewColumnColor] = useState('#6366f1');
 
+  const allAssignees: { id: number; name: string }[] = (() => {
+    const map = new Map<number, { id: number; name: string }>();
+    for (const col of columns) for (const c of col.cards) for (const a of c.assignees ?? []) map.set(a.id, a);
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
+  const allLabels: CardLabel[] = (() => {
+    const map = new Map<number, CardLabel>();
+    for (const col of columns) for (const c of col.cards) for (const l of c.labels ?? []) map.set(l.id, l);
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
+  const activeFilterCount =
+    (filterSearch.trim() ? 1 : 0)
+    + filterPriority.size
+    + filterAssignees.size
+    + filterLabels.size
+    + (filterSprintId !== null ? 1 : 0);
+
+  function toggleSetValue<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return next;
+    });
+  }
+  function clearFilters() {
+    setFilterSearch(''); setFilterPriority(new Set()); setFilterAssignees(new Set());
+    setFilterLabels(new Set()); setFilterSprintId(null);
+  }
+
+  // PointerSensor handles both mouse + touch. Adding MouseSensor alongside
+  // causes drag events to race and can silently cancel drops in some browsers.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Custom collision detection: prefer cards (closestCorners) but fall back to columns (pointerWithin)
+  // Custom collision detection:
+  // 1. pointerWithin first — gives unambiguous "cursor is directly over this column".
+  //    If the cursor is over a column, prefer the card inside that column closest to
+  //    the pointer. This makes cross-column drags reliable regardless of the
+  //    active card's rect size.
+  // 2. Fall back to closestCenter over cards if the pointer isn't over any column
+  //    (e.g. at column edges / between columns).
   const collisionDetection: CollisionDetection = (args) => {
-    // First check for card-level collisions
-    const cornerCollisions = closestCorners(args);
-    const firstCardCollision = cornerCollisions.find(c => String(c.id).startsWith('card-'));
-    if (firstCardCollision) return [firstCardCollision];
-
-    // Fall back to column-level (droppable zones) — critical for empty columns
     const pointerCollisions = pointerWithin(args);
-    const firstColCollision = pointerCollisions.find(c => String(c.id).startsWith('col-'));
-    if (firstColCollision) return [firstColCollision];
-
-    // Last resort: any collision
-    return cornerCollisions.length > 0 ? cornerCollisions : pointerCollisions;
+    const overCol = pointerCollisions.find(c => String(c.id).startsWith('col-'));
+    if (overCol) {
+      // Prefer the closest card inside that column so ordering works
+      const colId = String(overCol.id);
+      const projectedColId = parseInt(colId.replace('col-', ''), 10);
+      const cardCollisions = closestCorners({
+        ...args,
+        droppableContainers: args.droppableContainers.filter(c => {
+          const id = String(c.id);
+          if (!id.startsWith('card-')) return false;
+          const cardId = parseInt(id.replace('card-', ''), 10);
+          return columns.find(col => col.id === projectedColId)?.cards.some(cc => cc.id === cardId) ?? false;
+        }),
+      });
+      if (cardCollisions.length > 0) return [cardCollisions[0]];
+      return [overCol];
+    }
+    // Fallback: card-level proximity anywhere on screen
+    const corners = closestCorners(args);
+    const firstCard = corners.find(c => String(c.id).startsWith('card-'));
+    if (firstCard) return [firstCard];
+    return corners;
   };
 
   function onDragStart(event: DragStartEvent) {
@@ -561,6 +710,65 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
     }
   }
 
+  async function handleToggleDone(columnId: number, isDone: boolean) {
+    setColumns(prev => prev.map(c =>
+      c.id === columnId ? { ...c, isDone }
+        : isDone ? { ...c, isDone: false } : c,
+    ));
+    await fetch(`/api/portal/projects/${projectId}/columns/${columnId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isDone }),
+    });
+  }
+
+  async function handleSetWipLimit(columnId: number, limit: number) {
+    setColumns(prev => prev.map(c => c.id === columnId ? { ...c, wipLimit: limit > 0 ? limit : null } : c));
+    await fetch(`/api/portal/projects/${projectId}/columns/${columnId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wipLimit: limit }),
+    });
+  }
+
+  // Deep-link: open ?card=<id> when present
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const cardParam = new URLSearchParams(window.location.search).get('card');
+    if (cardParam) {
+      const id = parseInt(cardParam, 10);
+      if (Number.isFinite(id)) setSelectedCardId(id);
+    }
+  }, []);
+
+  // Keyboard shortcuts: "/" focuses filter search, "c" starts adding a card to the first column.
+  // Use refs for values to avoid re-registering the listener on every state change.
+  const shortcutStateRef = useRef({ canEdit, columns, selectedCardId });
+  shortcutStateRef.current = { canEdit, columns, selectedCardId };
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const s = shortcutStateRef.current;
+      if (s.selectedCardId !== null) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        const el = document.querySelector<HTMLInputElement>('input[placeholder="Filter cards…"]');
+        el?.focus();
+      } else if (e.key === 'c' && s.canEdit && s.columns.length > 0) {
+        e.preventDefault();
+        setAddingToColumn(s.columns[0].id);
+      } else if (e.key === 'Escape') {
+        setAddingToColumn(null);
+        setAddingColumn(false);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Move card to a specific column (used by the "Move to" dropdown on cards)
   async function moveCardToColumn(cardId: number, targetColId: number) {
     setColumns(cols => {
@@ -585,45 +793,100 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
 
   const allColumnsMeta = columns.map(c => ({ id: c.id, name: c.name, color: c.color }));
 
-  const filteredColumns = filterSprintId === null
-    ? columns
-    : columns.map(col => ({
-        ...col,
-        cards: col.cards.filter(c =>
-          filterSprintId === 'backlog'
-            ? c.sprintId == null
-            : c.sprintId === filterSprintId
-        ),
-      }));
+  const needle = filterSearch.trim().toLowerCase();
+  const filteredColumns = columns.map(col => ({
+    ...col,
+    cards: col.cards.filter(c => {
+      if (filterSprintId === 'backlog' && c.sprintId != null) return false;
+      if (typeof filterSprintId === 'number' && c.sprintId !== filterSprintId) return false;
+      if (filterPriority.size > 0 && !filterPriority.has(c.priority ?? 'medium')) return false;
+      if (filterAssignees.size > 0 && !(c.assignees ?? []).some(a => filterAssignees.has(a.id))) return false;
+      if (filterLabels.size > 0 && !(c.labels ?? []).some(l => filterLabels.has(l.id))) return false;
+      if (needle) {
+        const hay = `${c.title} ${c.description ?? ''} ${c.key ?? ''}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    }),
+  }));
 
   return (
     <>
-      {sprints.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          <span className="text-xs font-medium text-muted-foreground">Sprint:</span>
-          <button
-            onClick={() => setFilterSprintId(null)}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterSprintId === null ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
-          >
-            All
-          </button>
-          {sprints.map(s => (
+      <div className="space-y-2 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <span className="material-icons text-sm text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2">search</span>
+            <input
+              type="text"
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+              placeholder="Filter cards…"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          {(['low','medium','high','urgent']).map(p => (
             <button
-              key={s.id}
-              onClick={() => setFilterSprintId(s.id)}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterSprintId === s.id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+              key={p}
+              onClick={() => toggleSetValue(setFilterPriority, p)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterPriority.has(p) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
             >
-              {s.name}
+              {p}
             </button>
           ))}
-          <button
-            onClick={() => setFilterSprintId('backlog')}
-            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterSprintId === 'backlog' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
-          >
-            Backlog
-          </button>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="text-xs px-2.5 py-1 rounded-full text-muted-foreground hover:text-destructive ml-auto">
+              Clear filters ({activeFilterCount})
+            </button>
+          )}
         </div>
-      )}
+        {(sprints.length > 0 || allAssignees.length > 0 || allLabels.length > 0) && (
+          <div className="flex items-center gap-3 flex-wrap text-xs">
+            {sprints.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-muted-foreground">Sprint:</span>
+                <button onClick={() => setFilterSprintId(null)}
+                  className={`px-2 py-0.5 rounded-full border ${filterSprintId === null ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>All</button>
+                {sprints.map(s => (
+                  <button key={s.id} onClick={() => setFilterSprintId(s.id)}
+                    className={`px-2 py-0.5 rounded-full border ${filterSprintId === s.id ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>{s.name}</button>
+                ))}
+                <button onClick={() => setFilterSprintId('backlog')}
+                  className={`px-2 py-0.5 rounded-full border ${filterSprintId === 'backlog' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>Backlog</button>
+              </div>
+            )}
+            {allAssignees.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-muted-foreground">Assignee:</span>
+                {allAssignees.map(a => (
+                  <button key={a.id} onClick={() => toggleSetValue(setFilterAssignees, a.id)}
+                    className={`px-2 py-0.5 rounded-full border ${filterAssignees.has(a.id) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {allLabels.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-muted-foreground">Label:</span>
+                {allLabels.map(l => {
+                  const on = filterLabels.has(l.id);
+                  return (
+                    <button key={l.id} onClick={() => toggleSetValue(setFilterLabels, l.id)}
+                      className="px-2 py-0.5 rounded-full border transition-colors"
+                      style={{
+                        backgroundColor: on ? l.color : 'transparent',
+                        color: on ? '#fff' : l.color,
+                        borderColor: l.color,
+                      }}>
+                      {l.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -648,6 +911,8 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
                 onMoveToColumn={moveCardToColumn}
                 onMoveColumn={handleMoveColumn}
                 onDeleteColumn={handleDeleteColumn}
+                onToggleDone={handleToggleDone}
+                onSetWipLimit={handleSetWipLimit}
                 isFirst={idx === 0}
                 isLast={idx === filteredColumns.length - 1}
               />
@@ -718,6 +983,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, curren
         <CardDetailModal
           cardId={selectedCardId}
           isStaff={isStaff}
+          canEdit={canEdit}
           currentUserId={currentUserId}
           onClose={() => setSelectedCardId(null)}
           onDeleted={handleCardDeleted}

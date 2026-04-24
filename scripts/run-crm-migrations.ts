@@ -97,6 +97,16 @@ async function run() {
   await db.execute(sql`ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(20)`);
   console.log('  recurring revenue: done');
 
+  // 6a. Contact LinkedIn URL
+  await db.execute(sql`ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS linkedin_url VARCHAR(500)`);
+  console.log('  contact linkedin url: done');
+
+  // 6b. Custom field "filterable" toggle
+  await db.execute(sql`ALTER TABLE crm_custom_fields ADD COLUMN IF NOT EXISTS filterable BOOLEAN NOT NULL DEFAULT false`);
+  // Existing enum-like fields default to filterable so current UI doesn't regress
+  await db.execute(sql`UPDATE crm_custom_fields SET filterable = true WHERE field_type IN ('select','multiselect','boolean') AND filterable = false`);
+  console.log('  custom field filterable: done');
+
   // 7. Deal artifacts & comments
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS crm_deal_artifacts (

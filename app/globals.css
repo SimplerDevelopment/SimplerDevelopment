@@ -164,7 +164,10 @@ body {
 }
 
 html,body {
-  overflow-x: hidden;
+  /* `clip` (vs `hidden`) prevents these from becoming scroll containers, so
+     position: sticky inside the document works against the real viewport
+     instead of pinning to a never-scrolling body. */
+  overflow-x: clip;
   scroll-behavior: smooth;
 }
 

@@ -1,1 +1,0 @@
-ALTER TABLE "posts" ADD COLUMN "post_type" varchar(50) DEFAULT 'blog' NOT NULL;

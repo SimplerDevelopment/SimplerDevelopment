@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
 
 interface Contact {
   id: number;
@@ -10,6 +11,7 @@ interface Contact {
   lastName: string;
   email: string | null;
   phone: string | null;
+  linkedinUrl: string | null;
   title: string | null;
   companyId: number | null;
   companyName: string | null;
@@ -115,6 +117,7 @@ export default function CrmContactDetailPage() {
     lastName: '',
     email: '',
     phone: '',
+    linkedinUrl: '',
     title: '',
     companyId: '',
     status: '',
@@ -156,7 +159,7 @@ export default function CrmContactDetailPage() {
     Promise.all([
       fetchContact(),
       fetchActivities(),
-      fetch('/api/portal/crm/companies').then(r => r.json()).then(d => setCompanies(d.data?.companies ?? d.data ?? [])),
+      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()).then(d => setCompanies(d.data?.companies ?? d.data ?? [])),
     ]).then(() => setLoading(false));
   }, [fetchContact, fetchActivities]);
 
@@ -167,6 +170,7 @@ export default function CrmContactDetailPage() {
       lastName: contact.lastName,
       email: contact.email ?? '',
       phone: contact.phone ?? '',
+      linkedinUrl: contact.linkedinUrl ?? '',
       title: contact.title ?? '',
       companyId: contact.companyId ? String(contact.companyId) : '',
       status: contact.status,
@@ -403,6 +407,16 @@ export default function CrmContactDetailPage() {
               />
             </div>
             <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">LinkedIn URL</label>
+              <input
+                type="url"
+                value={editForm.linkedinUrl}
+                onChange={e => setEditForm(f => ({ ...f, linkedinUrl: e.target.value }))}
+                placeholder="https://linkedin.com/in/..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Title</label>
               <input
                 value={editForm.title}
@@ -558,6 +572,16 @@ export default function CrmContactDetailPage() {
                 <span className="text-sm text-foreground">{contact.phone ?? 'No phone'}</span>
               </div>
               <div className="flex items-center gap-3">
+                <span className="material-icons text-base text-muted-foreground">link</span>
+                {contact.linkedinUrl ? (
+                  <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
+                    {contact.linkedinUrl.replace(/^https?:\/\/(www\.)?/i, '')}
+                  </a>
+                ) : (
+                  <span className="text-sm text-foreground">No LinkedIn</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
                 <span className="material-icons text-base text-muted-foreground">location_on</span>
                 <span className="text-sm text-foreground">{contact.address ?? 'No address'}</span>
               </div>
@@ -620,6 +644,12 @@ export default function CrmContactDetailPage() {
               placeholder="Add notes about this contact..."
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
             />
+          </div>
+
+          {/* Custom Fields */}
+          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+            <h3 className="font-semibold text-foreground">Custom Fields</h3>
+            <CrmCustomFieldsPanel entityType="contact" entityId={Number(contactId)} />
           </div>
         </div>
 

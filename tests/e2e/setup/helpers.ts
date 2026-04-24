@@ -1,4 +1,5 @@
 import { ApiClient } from './api-client';
+import { request, APIRequestContext } from '@playwright/test';
 
 /** Run cleanup functions in reverse order, ignoring errors */
 export async function runCleanups(cleanups: Array<() => Promise<void>>) {
@@ -6,6 +7,129 @@ export async function runCleanups(cleanups: Array<() => Promise<void>>) {
     try {
       await fn();
     } catch {}
+  }
+}
+
+// ── MCP approval workflow helpers ──────────────────────────────────────────
+
+/** Invite a fresh team member (always a new email). Returns an authed ApiClient
+ *  for the member plus the member record. Use `role` to promote via MCP if
+ *  the test needs owner/admin privileges. */
+export async function createTestTeamMember(
+  ownerApi: ApiClient,
+  overrides?: { role?: 'owner' | 'admin' | 'member' | 'viewer'; mcpKey?: string },
+) {
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const email = `member-${ts}-${rand}@example.com`;
+  const name = `Test Member ${ts}`;
+
+  const inviteRes = await ownerApi.post('/api/portal/settings/team', { name, email });
+  if (!inviteRes.data?.success) throw new Error(`Invite failed: ${inviteRes.data?.message}`);
+  const member = inviteRes.data.data as { memberId: number; tempPassword: string };
+  const memberId = member.memberId ?? (inviteRes.data.data as { id: number }).id;
+  const tempPassword = member.tempPassword;
+  if (!tempPassword) throw new Error('Expected tempPassword from invite response');
+
+  // Optionally promote via MCP (needs an MCP bearer with `*` or team:write scope).
+  if (overrides?.role && overrides.role !== 'member' && overrides.mcpKey) {
+    const mcp = await new McpTestClient(overrides.mcpKey).init();
+    try {
+      await mcp.callTool('team_update_role', { memberId, role: overrides.role });
+    } finally {
+      await mcp.dispose();
+    }
+  }
+
+  const memberApi = new ApiClient(email, tempPassword);
+  await memberApi.ensure();
+
+  const cleanup = async () => {
+    await memberApi.dispose().catch(() => {});
+    await ownerApi.delete(`/api/portal/settings/team/${memberId}`).catch(() => {});
+  };
+  return { memberApi, email, name, memberId, cleanup };
+}
+
+/** Create a portal API key and return the raw key string + metadata. Deletes on cleanup. */
+export async function createTestApiKey(
+  api: ApiClient,
+  overrides?: { scopes?: string[]; requireCmsApproval?: boolean; name?: string },
+) {
+  const ts = Date.now();
+  const res = await api.post('/api/portal/api-keys', {
+    name: overrides?.name ?? `Test MCP Key ${ts}`,
+    scopes: overrides?.scopes ?? ['*'],
+    requireCmsApproval: overrides?.requireCmsApproval ?? false,
+  });
+  if (!res.data?.success) throw new Error(`Failed to create API key: ${res.data?.message}`);
+  const keyRecord = res.data.data;
+  const cleanup = async () => {
+    await api.delete(`/api/portal/api-keys?id=${keyRecord.id}`).catch(() => {});
+  };
+  return { keyRecord, cleanup };
+}
+
+/** Lightweight MCP client for tests. Wraps raw Playwright request with bearer auth. */
+export class McpTestClient {
+  private ctx!: APIRequestContext;
+
+  constructor(private bearer: string, private baseUrl = process.env.BASE_URL || 'http://localhost:3000') {}
+
+  async init() {
+    this.ctx = await request.newContext({ baseURL: this.baseUrl });
+    return this;
+  }
+
+  async listTools(): Promise<{ tools: Array<{ name: string; description?: string }> }> {
+    const res = await this.ctx.post('/api/mcp', {
+      headers: {
+        Authorization: `Bearer ${this.bearer}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: Math.floor(Math.random() * 1000000),
+        method: 'tools/list',
+        params: {},
+      },
+    });
+    const body = await res.json();
+    return body?.result ?? { tools: [] };
+  }
+
+  async callTool(name: string, args: Record<string, unknown>) {
+    const res = await this.ctx.post('/api/mcp', {
+      headers: {
+        Authorization: `Bearer ${this.bearer}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      data: {
+        jsonrpc: '2.0',
+        id: Math.floor(Math.random() * 1000000),
+        method: 'tools/call',
+        params: { name, arguments: args },
+      },
+    });
+    const body = await res.json();
+    if (body?.error) {
+      return { status: res.status(), error: body.error, data: null, raw: body, isError: false, text: null as string | null };
+    }
+    // MCP tool results wrap payload in content[0].text — usually JSON, but
+    // permission denials and other tool-level errors surface as plain strings.
+    const text: string | null = body?.result?.content?.[0]?.text ?? null;
+    const isError = body?.result?.isError === true;
+    let parsed: unknown = null;
+    if (typeof text === 'string') {
+      try { parsed = JSON.parse(text); } catch { parsed = null; }
+    }
+    return { status: res.status(), data: parsed, raw: body, isError, text };
+  }
+
+  async dispose() {
+    await this.ctx?.dispose();
   }
 }
 
@@ -271,6 +395,69 @@ export async function createTestContentType(api: ApiClient, siteId: number, over
     await api.delete(`/api/portal/cms/websites/${siteId}/content-types/${contentType.id}`).catch(() => {});
   };
   return { contentType, cleanup };
+}
+
+// ── Project management / kanban helpers ──
+
+/**
+ * Create a private kanban project owned by the current client, with four columns
+ * matching the default workflow. Cleanup archives the project (no DELETE endpoint
+ * exists) and removes all created columns.
+ */
+export async function createTestKanbanProject(api: ApiClient, overrides?: Record<string, unknown>) {
+  const ts = Date.now();
+  const rand = Math.random().toString(36).slice(2, 6);
+  const name = `E2E PM Project ${ts}-${rand}`;
+  const res = await api.post('/api/portal/projects', {
+    name,
+    description: 'E2E PM test project',
+    ...overrides,
+  });
+  if (!res.data?.success) throw new Error(`Failed to create project: ${res.data?.message}`);
+  const project = res.data.data as { id: number; name: string; projectKey: string | null; status: string; isPrivate: boolean };
+
+  // Seed 4 columns
+  const columnNames = ['Backlog', 'In Progress', 'Review', 'Done'];
+  const columns: { id: number; name: string; order: number }[] = [];
+  for (const colName of columnNames) {
+    const colRes = await api.post(`/api/portal/projects/${project.id}/columns`, { name: colName });
+    if (!colRes.data?.success) throw new Error(`Failed to create column ${colName}: ${colRes.data?.message}`);
+    columns.push(colRes.data.data);
+  }
+
+  const cleanup = async () => {
+    // Delete empty columns, then archive the project (no project-delete endpoint)
+    for (const col of columns) {
+      await api.delete(`/api/portal/projects/${project.id}/columns/${col.id}`).catch(() => {});
+    }
+    await api.patch(`/api/portal/projects/${project.id}`, { status: 'archived', name: `[archived-e2e] ${project.name}` }).catch(() => {});
+  };
+  return { project, columns, cleanup };
+}
+
+/**
+ * Create a kanban card in a specific column. Returns the card (with its auto-assigned
+ * `number`) and a cleanup that deletes it.
+ */
+export async function createTestKanbanCard(
+  api: ApiClient,
+  columnId: number,
+  overrides?: Record<string, unknown>,
+) {
+  const ts = Date.now();
+  const res = await api.post('/api/portal/cards', {
+    columnId,
+    title: `E2E Card ${ts}`,
+    description: 'E2E test card',
+    priority: 'medium',
+    ...overrides,
+  });
+  if (!res.data?.success) throw new Error(`Failed to create card: ${res.data?.message}`);
+  const card = res.data.data as { id: number; number: number | null; title: string; columnId: number; projectId: number };
+  const cleanup = async () => {
+    await api.delete(`/api/portal/cards/${card.id}`).catch(() => {});
+  };
+  return { card, cleanup };
 }
 
 // ── Email helpers ──

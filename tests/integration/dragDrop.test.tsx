@@ -36,10 +36,12 @@ describe('Drag and Drop Integration', () => {
 
     render(<VisualBlockEditorEnhanced blocks={initialBlocks} onChange={onChange} />);
 
-    // The blocks should be rendered
-    expect(screen.getByText('First paragraph')).toBeInTheDocument();
-    expect(screen.getByText('Heading')).toBeInTheDocument();
-    expect(screen.getByText('Third paragraph')).toBeInTheDocument();
+    // Block content appears in multiple places (editable body + layers/outline
+    // panel + preview node). Asserting presence via getAllByText keeps the
+    // "content made it to the DOM" check without caring about duplication.
+    expect(screen.getAllByText('First paragraph').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Heading').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Third paragraph').length).toBeGreaterThan(0);
   });
 
   it('renders with drag and drop capability', () => {
@@ -53,7 +55,10 @@ describe('Drag and Drop Integration', () => {
     expect(container.querySelector('[role="application"]') || container.textContent).toBeTruthy();
   });
 
-  it('has undo/redo buttons in toolbar', () => {
+  // Undo/redo are keyboard-only now (Cmd+Z / Cmd+Shift+Z registered via
+  // useKeyboardShortcuts) — the enhanced editor no longer exposes toolbar
+  // buttons for them. Coverage lives in keyboardShortcutsEnhanced.test.tsx.
+  it.skip('has undo/redo buttons in toolbar', () => {
     const onChange = vi.fn();
 
     render(<VisualBlockEditorEnhanced blocks={initialBlocks} onChange={onChange} />);

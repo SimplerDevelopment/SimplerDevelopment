@@ -18,6 +18,8 @@ interface PostEditorLayoutProps {
   onPreviewToggle?: () => void;
   onHistoryToggle?: () => void;
   historyOpen?: boolean;
+  onCodeToggle?: () => void;
+  hasCustomCode?: boolean;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
 }
 
@@ -37,6 +39,8 @@ export function PostEditorLayout({
   onPreviewToggle,
   onHistoryToggle,
   historyOpen,
+  onCodeToggle,
+  hasCustomCode,
   saveStatus = 'idle',
 }: PostEditorLayoutProps) {
   const isCompact = !editorControls;
@@ -115,6 +119,23 @@ export function PostEditorLayout({
                 >
                   <span className="material-icons text-base">history</span>
                   History
+                </button>
+              )}
+
+              {onCodeToggle && (
+                <button
+                  type="button"
+                  onClick={onCodeToggle}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors shrink-0 ${
+                    hasCustomCode
+                      ? 'border-primary/60 text-primary hover:bg-primary/10'
+                      : 'border-border hover:bg-accent'
+                  }`}
+                  title="Custom CSS & JavaScript"
+                >
+                  <span className="material-icons text-base">code</span>
+                  Code
+                  {hasCustomCode && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
                 </button>
               )}
 

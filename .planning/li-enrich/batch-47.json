@@ -1,0 +1,402 @@
+[
+  {
+    "id": 2339,
+    "firstName": "Daniel",
+    "lastName": "R. Kittle",
+    "email": null,
+    "title": "President",
+    "companyName": "Dakota Wesleyan University"
+  },
+  {
+    "id": 2340,
+    "firstName": "Dennis",
+    "lastName": "Bielfeldt",
+    "email": null,
+    "title": "President",
+    "companyName": "Institute of Lutheran Theology"
+  },
+  {
+    "id": 2341,
+    "firstName": "Greg",
+    "lastName": "Henson",
+    "email": null,
+    "title": "President",
+    "companyName": "Kairos University"
+  },
+  {
+    "id": 2342,
+    "firstName": "Marcus",
+    "lastName": "Long",
+    "email": null,
+    "title": "President",
+    "companyName": "Mount Marty University"
+  },
+  {
+    "id": 2343,
+    "firstName": "Cindy",
+    "lastName": "Mathena",
+    "email": null,
+    "title": "President",
+    "companyName": "National American University-Rapid City"
+  },
+  {
+    "id": 2344,
+    "firstName": "Neal",
+    "lastName": "Schnoor",
+    "email": null,
+    "title": "President",
+    "companyName": "Northern State University"
+  },
+  {
+    "id": 2345,
+    "firstName": "Dawn",
+    "lastName": "Frank",
+    "email": null,
+    "title": "President",
+    "companyName": "Oglala Lakota College"
+  },
+  {
+    "id": 2346,
+    "firstName": "Colette",
+    "lastName": "Keith",
+    "email": null,
+    "title": "Acting President",
+    "companyName": "Sinte Gleska University"
+  },
+  {
+    "id": 2347,
+    "firstName": "Erica",
+    "lastName": "Holmes",
+    "email": null,
+    "title": "President",
+    "companyName": "Sisseton Wahpeton College"
+  },
+  {
+    "id": 2348,
+    "firstName": "Lance",
+    "lastName": "Roberts",
+    "email": null,
+    "title": "President",
+    "companyName": "South Dakota School of Mines and Technology"
+  },
+  {
+    "id": 2349,
+    "firstName": "Barry",
+    "lastName": "H. Dunn",
+    "email": null,
+    "title": "President",
+    "companyName": "South Dakota State University"
+  },
+  {
+    "id": 2350,
+    "firstName": "Brett",
+    "lastName": "Bradfield",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Sioux Falls"
+  },
+  {
+    "id": 2351,
+    "firstName": "Sheila",
+    "lastName": "Gestring",
+    "email": null,
+    "title": "President",
+    "companyName": "University of South Dakota"
+  },
+  {
+    "id": 2352,
+    "firstName": "Forrest",
+    "lastName": "E Harris Sr",
+    "email": null,
+    "title": "President",
+    "companyName": "American Baptist College"
+  },
+  {
+    "id": 2353,
+    "firstName": "Mike",
+    "lastName": "Licari",
+    "email": null,
+    "title": "President",
+    "companyName": "Austin Peay State University"
+  },
+  {
+    "id": 2354,
+    "firstName": "T.",
+    "lastName": "Hampton Hopkins, Ed.D",
+    "email": null,
+    "title": "President",
+    "companyName": "Baptist Health Sciences University"
+  },
+  {
+    "id": 2355,
+    "firstName": "L.",
+    "lastName": "Gregory Jones",
+    "email": null,
+    "title": "President",
+    "companyName": "Belmont University"
+  },
+  {
+    "id": 2356,
+    "firstName": "Perry",
+    "lastName": "Moulds",
+    "email": null,
+    "title": "President",
+    "companyName": "Bethel University"
+  },
+  {
+    "id": 2357,
+    "firstName": "Douglas",
+    "lastName": "F. Mann",
+    "email": null,
+    "title": "President",
+    "companyName": "Bryan College-Dayton"
+  },
+  {
+    "id": 2358,
+    "firstName": "Charles",
+    "lastName": "A. Fowler",
+    "email": null,
+    "title": "President",
+    "companyName": "Carson-Newman University"
+  },
+  {
+    "id": 2359,
+    "firstName": "William",
+    "lastName": "G Faour",
+    "email": null,
+    "title": "Director",
+    "companyName": "Chattanooga College Medical Dental and & Technical Careers"
+  },
+  {
+    "id": 2360,
+    "firstName": "David",
+    "lastName": "Archer",
+    "email": null,
+    "title": "President",
+    "companyName": "Christian Brothers University"
+  },
+  {
+    "id": 2361,
+    "firstName": "Paul",
+    "lastName": "C. Stumb",
+    "email": null,
+    "title": "President",
+    "companyName": "Cumberland University"
+  },
+  {
+    "id": 2362,
+    "firstName": "Brian",
+    "lastName": "Noland",
+    "email": null,
+    "title": "President",
+    "companyName": "East Tennessee State University"
+  },
+  {
+    "id": 2363,
+    "firstName": "Agenia",
+    "lastName": "Clark",
+    "email": null,
+    "title": "President",
+    "companyName": "Fisk University"
+  },
+  {
+    "id": 2364,
+    "firstName": "David",
+    "lastName": "Shannon",
+    "email": null,
+    "title": "President",
+    "companyName": "Freed-Hardeman University"
+  },
+  {
+    "id": 2365,
+    "firstName": "Carla",
+    "lastName": "McKenzie",
+    "email": null,
+    "title": "Dean",
+    "companyName": "Galen Health Institutes-Nashville Campus"
+  },
+  {
+    "id": 2366,
+    "firstName": "Sarah",
+    "lastName": "Higgins",
+    "email": null,
+    "title": "Regional Vice President",
+    "companyName": "Herzing University-Nashville"
+  },
+  {
+    "id": 2367,
+    "firstName": "Daniel",
+    "lastName": "Overdorf",
+    "email": null,
+    "title": "President",
+    "companyName": "Johnson University"
+  },
+  {
+    "id": 2368,
+    "firstName": "Andrew",
+    "lastName": "Tooley",
+    "email": null,
+    "title": "President",
+    "companyName": "King University"
+  },
+  {
+    "id": 2369,
+    "firstName": "Donald",
+    "lastName": "W. Comer",
+    "email": null,
+    "title": "President",
+    "companyName": "Lane College"
+  },
+  {
+    "id": 2370,
+    "firstName": "Christopher",
+    "lastName": "Davis",
+    "email": null,
+    "title": "President",
+    "companyName": "Le Moyne-Owen College"
+  },
+  {
+    "id": 2371,
+    "firstName": "Paul",
+    "lastName": "Conn",
+    "email": null,
+    "title": "President",
+    "companyName": "Lee University"
+  },
+  {
+    "id": 2372,
+    "firstName": "Jason",
+    "lastName": "McConnell",
+    "email": null,
+    "title": "President of the University",
+    "companyName": "Lincoln Memorial University"
+  },
+  {
+    "id": 2373,
+    "firstName": "Candice",
+    "lastName": "McQueen",
+    "email": null,
+    "title": "President",
+    "companyName": "Lipscomb University"
+  },
+  {
+    "id": 2374,
+    "firstName": "Bryan",
+    "lastName": "F. Coker",
+    "email": null,
+    "title": "President",
+    "companyName": "Maryville College"
+  },
+  {
+    "id": 2375,
+    "firstName": "James",
+    "lastName": "E.K. Hildreth",
+    "email": null,
+    "title": "President",
+    "companyName": "Meharry Medical College"
+  },
+  {
+    "id": 2376,
+    "firstName": "Dr.",
+    "lastName": "Jody Hill",
+    "email": null,
+    "title": "President",
+    "companyName": "Memphis Theological Seminary"
+  },
+  {
+    "id": 2377,
+    "firstName": "Nicolás",
+    "lastName": "Griffin",
+    "email": null,
+    "title": "President",
+    "companyName": "Mid-South Christian College"
+  },
+  {
+    "id": 2378,
+    "firstName": "Christopher",
+    "lastName": "P. Hulin",
+    "email": null,
+    "title": "President",
+    "companyName": "Middle Tennessee School of Anesthesia Inc"
+  },
+  {
+    "id": 2379,
+    "firstName": "Sidney",
+    "lastName": "A. McPhee",
+    "email": null,
+    "title": "President",
+    "companyName": "Middle Tennessee State University"
+  },
+  {
+    "id": 2380,
+    "firstName": "Kimberly",
+    "lastName": "Miller",
+    "email": null,
+    "title": "Executive Director",
+    "companyName": "Miller-Motte College-Chattanooga"
+  },
+  {
+    "id": 2381,
+    "firstName": "Stephen",
+    "lastName": "Waers",
+    "email": null,
+    "title": "President",
+    "companyName": "Milligan University"
+  },
+  {
+    "id": 2382,
+    "firstName": "Cyrus",
+    "lastName": "Vatandoost",
+    "email": null,
+    "title": "President",
+    "companyName": "Nossi College of Art and Design"
+  },
+  {
+    "id": 2383,
+    "firstName": "Joshua",
+    "lastName": "Reichard",
+    "email": null,
+    "title": "President CEO",
+    "companyName": "Omega Graduate School"
+  },
+  {
+    "id": 2384,
+    "firstName": "Michael",
+    "lastName": "L. Baker",
+    "email": null,
+    "title": "President",
+    "companyName": "Pentecostal Theological Seminary"
+  },
+  {
+    "id": 2385,
+    "firstName": "Jennifer",
+    "lastName": "Collins, JD",
+    "email": null,
+    "title": "President",
+    "companyName": "Rhodes College"
+  },
+  {
+    "id": 2386,
+    "firstName": "Tim",
+    "lastName": "Quinnan",
+    "email": null,
+    "title": "President",
+    "companyName": "Richmont Graduate University"
+  },
+  {
+    "id": 2387,
+    "firstName": "Jake",
+    "lastName": "Elsen",
+    "email": null,
+    "title": "General Manager and Chief Operating Officer",
+    "companyName": "SAE Institute of Technology-Nashville"
+  },
+  {
+    "id": 2388,
+    "firstName": "Stephen",
+    "lastName": "A. South",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "South College"
+  }
+]

@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useBranding } from '@/contexts/BrandingContext';
+import { Icon } from '@/components/ui/Icon';
 
 interface CardProps {
   title: string;
   description: string;
+  /** Optional secondary line between title and description (e.g. team-member role). */
+  subtitle?: string;
   image?: string;
   icon?: string;
   iconSize?: string;
@@ -14,6 +17,7 @@ interface CardProps {
   className?: string;
   cardStyle?: React.CSSProperties;
   titleStyle?: React.CSSProperties;
+  subtitleStyle?: React.CSSProperties;
   descriptionStyle?: React.CSSProperties;
   iconStyle?: React.CSSProperties;
   linkStyle?: React.CSSProperties;
@@ -23,6 +27,7 @@ interface CardProps {
 export function Card({
   title,
   description,
+  subtitle,
   image,
   icon,
   iconSize,
@@ -30,6 +35,7 @@ export function Card({
   className = '',
   cardStyle,
   titleStyle,
+  subtitleStyle,
   descriptionStyle,
   iconStyle,
   linkStyle,
@@ -57,12 +63,23 @@ export function Card({
       )}
 
       {icon && (
-        <span className="material-icons text-primary mb-4 block" style={{ fontSize: iconSize ? `${iconSize}px` : '3rem', ...iconStyle }}>{icon}</span>
+        <Icon
+          name={icon}
+          className="text-primary mb-4 block"
+          size={iconSize ? parseInt(iconSize, 10) : 48}
+          style={iconStyle}
+        />
       )}
 
       <h3 className="font-heading text-xl font-bold mb-2 text-foreground group-hover:text-primary transition-colors" style={titleStyle} dangerouslySetInnerHTML={{ __html: title }} />
 
-      <p className="text-muted-foreground mb-4" style={descriptionStyle} dangerouslySetInnerHTML={{ __html: description }} />
+      {subtitle && (
+        <p className="text-sm font-medium text-primary/80 mb-2 tracking-wide" style={subtitleStyle} dangerouslySetInnerHTML={{ __html: subtitle }} />
+      )}
+
+      {description && (
+        <p className="text-muted-foreground mb-4" style={descriptionStyle} dangerouslySetInnerHTML={{ __html: description }} />
+      )}
 
       {link && (
         <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all" style={linkStyle}>

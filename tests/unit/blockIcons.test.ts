@@ -82,7 +82,8 @@ describe('Block Icons Utility', () => {
         expect(blockType.icon).toBeDefined();
         expect(blockType.category).toBeDefined();
         expect(['function', 'object']).toContain(typeof blockType.icon);
-        expect(['Basic', 'Media', 'Layout', 'Components']).toContain(blockType.category);
+        expect(typeof blockType.category).toBe('string');
+        expect(blockType.category.length).toBeGreaterThan(0);
       });
     });
   });

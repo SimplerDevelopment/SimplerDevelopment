@@ -42,21 +42,53 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
       )
     : '';
 
-  const hasHtml = block.content.includes('<') || block.content.includes('&');
+  // Support two text-block shapes:
+  //   (a) canonical: { content: string }
+  //   (b) LLM-authored: { heading?: string, body?: string } — used by the
+  //       PostCaptain MCP template output and other AI-generated decks.
+  //       When `heading` is present we render it as a real <h2> above the
+  //       body so it has semantic weight + the theme's heading font; flat
+  //       concatenation loses visual hierarchy.
+  const raw = (block as unknown as { content?: unknown; heading?: unknown; body?: unknown });
+  const hasLegacyHeading = typeof raw.heading === 'string' && raw.heading.trim().length > 0;
+  const bodyContent = (() => {
+    if (typeof raw.content === 'string') return raw.content;
+    if (typeof raw.body === 'string') return raw.body;
+    return '';
+  })();
+  const bodyHasHtml = bodyContent.includes('<') || bodyContent.includes('&');
+  const headingContent = hasLegacyHeading ? (raw.heading as string) : '';
+  const headingHasHtml = headingContent.includes('<') || headingContent.includes('&');
 
   return (
     <div className={responsiveClasses}>
-      {hasHtml ? (
+      {hasLegacyHeading && (
+        headingHasHtml ? (
+          <h2
+            data-editable-field="heading"
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold mb-4 ${block.style?.color ? '' : 'text-foreground'}`}
+            dangerouslySetInnerHTML={{ __html: headingContent }}
+          />
+        ) : (
+          <h2
+            data-editable-field="heading"
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold mb-4 ${block.style?.color ? '' : 'text-foreground'}`}
+          >
+            {headingContent}
+          </h2>
+        )
+      )}
+      {bodyContent && (bodyHasHtml ? (
         <div
           data-editable-field="content"
           className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}
-          dangerouslySetInnerHTML={{ __html: block.content }}
+          dangerouslySetInnerHTML={{ __html: bodyContent }}
         />
       ) : (
         <p data-editable-field="content" className={`${alignmentClass} ${sizeClass} ${block.style?.color ? '' : 'text-foreground'} whitespace-pre-wrap`}>
-          {block.content}
+          {bodyContent}
         </p>
-      )}
+      ))}
     </div>
   );
 }

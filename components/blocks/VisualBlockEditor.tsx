@@ -5,13 +5,20 @@ import { Block, BlockType } from '@/types/blocks';
 import { Breakpoint } from '@/types/responsive';
 import { VisualBlockPreview } from './visual/VisualBlockPreview';
 import { BlockSettings } from './visual/BlockSettings';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface VisualBlockEditorProps {
   blocks: Block[];
   onChange: (blocks: Block[]) => void;
+  /**
+   * Optional brand context — when supplied, newly created blocks are pre-filled
+   * with messaging (tagline, value prop, etc.) and optionally tagged with brand
+   * sentinels so colors/fonts follow the brand. Safe to omit.
+   */
+  brandDefaults?: BrandDefaultsContext;
 }
 
-export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) {
+export function VisualBlockEditor({ blocks, onChange, brandDefaults }: VisualBlockEditorProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [showBlockInserter, setShowBlockInserter] = useState(false);
@@ -47,7 +54,10 @@ export function VisualBlockEditor({ blocks, onChange }: VisualBlockEditorProps) 
   ];
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
-    const newBlock = createDefaultBlock(type, blocks.length);
+    let newBlock = createDefaultBlock(type, blocks.length);
+    if (brandDefaults) {
+      newBlock = applyBrandDefaults(newBlock, brandDefaults);
+    }
 
     if (afterBlockId) {
       const index = blocks.findIndex(b => b.id === afterBlockId);

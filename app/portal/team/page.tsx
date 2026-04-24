@@ -1,5 +1,0 @@
-import { redirect } from 'next/navigation';
-
-export default function TeamRedirect() {
-  redirect('/portal/settings/team');
-}

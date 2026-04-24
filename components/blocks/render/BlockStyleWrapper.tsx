@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Block, BlockStyle } from '@/types/blocks';
+import { isBrandSentinel, resolveBrandSentinel } from '@/lib/branding/sentinel';
 
 interface BlockStyleWrapperProps {
   block: Block;
@@ -12,6 +13,10 @@ interface BlockStyleWrapperProps {
  * Wraps rendered blocks with their block.style inline styles and fontFamily class.
  * Used in preview and production renders to apply user-configured styling
  * (background, text color, font, border, shadow, opacity, static padding/margin).
+ *
+ * Any style value may be a brand sentinel (e.g. "brand.primary") which is
+ * resolved to `var(--brand-primary)` via resolveBrandSentinel. Unknown values
+ * pass through unchanged.
  */
 export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   const style = block.style;
@@ -19,63 +24,54 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     return <>{children}</>;
   }
 
-  // Check if any style property is set
   const hasAnyStyle = Object.values(style).some((v) => v !== undefined && v !== '');
-
   if (!hasAnyStyle) {
     return <>{children}</>;
   }
 
   const customStyles: React.CSSProperties = {};
+  const r = (v: string | undefined) => resolveBrandSentinel(v);
 
-  // Section blocks apply their own border/shadow/opacity on their <Tag> element,
-  // so skip those here to avoid double-applying on this wrapper div.
   const selfStyled = block.type === 'section';
 
-  if (style.backgroundColor) customStyles.backgroundColor = style.backgroundColor;
-  if (style.color) customStyles.color = style.color;
+  if (style.backgroundColor) customStyles.backgroundColor = r(style.backgroundColor);
+  if (style.color) customStyles.color = r(style.color);
   if (style.fontSize) customStyles.fontSize = style.fontSize;
   if (style.fontWeight) customStyles.fontWeight = style.fontWeight;
   if (style.lineHeight) customStyles.lineHeight = style.lineHeight;
   if (style.letterSpacing) customStyles.letterSpacing = style.letterSpacing;
   if (!selfStyled) {
     if (style.borderWidth) customStyles.borderWidth = style.borderWidth;
-    if (style.borderColor) customStyles.borderColor = style.borderColor;
+    if (style.borderColor) customStyles.borderColor = r(style.borderColor);
     if (style.borderStyle) customStyles.borderStyle = style.borderStyle;
-    if (style.borderRadius) customStyles.borderRadius = style.borderRadius;
-    // Per-side borders
+    if (style.borderRadius) customStyles.borderRadius = r(style.borderRadius);
     if (style.borderTopWidth) customStyles.borderTopWidth = style.borderTopWidth;
-    if (style.borderTopColor) customStyles.borderTopColor = style.borderTopColor;
+    if (style.borderTopColor) customStyles.borderTopColor = r(style.borderTopColor);
     if (style.borderTopStyle) customStyles.borderTopStyle = style.borderTopStyle as React.CSSProperties['borderTopStyle'];
     if (style.borderRightWidth) customStyles.borderRightWidth = style.borderRightWidth;
-    if (style.borderRightColor) customStyles.borderRightColor = style.borderRightColor;
+    if (style.borderRightColor) customStyles.borderRightColor = r(style.borderRightColor);
     if (style.borderRightStyle) customStyles.borderRightStyle = style.borderRightStyle as React.CSSProperties['borderRightStyle'];
     if (style.borderBottomWidth) customStyles.borderBottomWidth = style.borderBottomWidth;
-    if (style.borderBottomColor) customStyles.borderBottomColor = style.borderBottomColor;
+    if (style.borderBottomColor) customStyles.borderBottomColor = r(style.borderBottomColor);
     if (style.borderBottomStyle) customStyles.borderBottomStyle = style.borderBottomStyle as React.CSSProperties['borderBottomStyle'];
     if (style.borderLeftWidth) customStyles.borderLeftWidth = style.borderLeftWidth;
-    if (style.borderLeftColor) customStyles.borderLeftColor = style.borderLeftColor;
+    if (style.borderLeftColor) customStyles.borderLeftColor = r(style.borderLeftColor);
     if (style.borderLeftStyle) customStyles.borderLeftStyle = style.borderLeftStyle as React.CSSProperties['borderLeftStyle'];
-    // Per-corner radius
-    if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = style.borderTopLeftRadius;
-    if (style.borderTopRightRadius) customStyles.borderTopRightRadius = style.borderTopRightRadius;
-    if (style.borderBottomLeftRadius) customStyles.borderBottomLeftRadius = style.borderBottomLeftRadius;
-    if (style.borderBottomRightRadius) customStyles.borderBottomRightRadius = style.borderBottomRightRadius;
+    if (style.borderTopLeftRadius) customStyles.borderTopLeftRadius = r(style.borderTopLeftRadius);
+    if (style.borderTopRightRadius) customStyles.borderTopRightRadius = r(style.borderTopRightRadius);
+    if (style.borderBottomLeftRadius) customStyles.borderBottomLeftRadius = r(style.borderBottomLeftRadius);
+    if (style.borderBottomRightRadius) customStyles.borderBottomRightRadius = r(style.borderBottomRightRadius);
     if (style.boxShadow) customStyles.boxShadow = style.boxShadow;
     if (style.opacity) customStyles.opacity = style.opacity;
   }
 
-  // Only apply static padding/margin if no responsive equivalents are set.
-  // Responsive spacing uses Tailwind classes in render components; inline styles
-  // would override those classes and break per-breakpoint behavior.
-  const r = block.responsive;
-  const hasResponsivePadding = r?.paddingTop || r?.paddingBottom || r?.paddingLeft || r?.paddingRight;
-  const hasResponsiveMargin = r?.marginTop || r?.marginBottom || r?.marginLeft || r?.marginRight;
+  const resp = block.responsive;
+  const hasResponsivePadding = resp?.paddingTop || resp?.paddingBottom || resp?.paddingLeft || resp?.paddingRight;
+  const hasResponsiveMargin = resp?.marginTop || resp?.marginBottom || resp?.marginLeft || resp?.marginRight;
 
   if (style.padding && !hasResponsivePadding) customStyles.padding = style.padding;
   if (style.margin && !hasResponsiveMargin) customStyles.margin = style.margin;
 
-  // Flex layout
   if (style.display) customStyles.display = style.display;
   if (style.flexDirection) customStyles.flexDirection = style.flexDirection;
   if (style.justifyContent) customStyles.justifyContent = style.justifyContent;
@@ -84,7 +80,6 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.gap) customStyles.gap = style.gap;
   if (style.alignSelf) customStyles.alignSelf = style.alignSelf;
 
-  // Dimensions
   if (style.width) customStyles.width = style.width;
   if (style.height) customStyles.height = style.height;
   if (style.minWidth) customStyles.minWidth = style.minWidth;
@@ -92,10 +87,8 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.maxWidth) customStyles.maxWidth = style.maxWidth;
   if (style.maxHeight) customStyles.maxHeight = style.maxHeight;
 
-  // Overflow
   if (style.overflow) customStyles.overflow = style.overflow;
 
-  // Position
   if (style.position) customStyles.position = style.position;
   if (style.top) customStyles.top = style.top;
   if (style.right) customStyles.right = style.right;
@@ -103,54 +96,60 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
   if (style.left) customStyles.left = style.left;
   if (style.zIndex) customStyles.zIndex = style.zIndex;
 
-  // Text
   if (style.textAlign) customStyles.textAlign = style.textAlign;
   if (style.textDecoration) customStyles.textDecoration = style.textDecoration;
   if (style.textTransform) customStyles.textTransform = style.textTransform;
 
-  // Background image
-  if (style.backgroundImage) customStyles.backgroundImage = `url(${style.backgroundImage})`;
+  // Compose background-image from gradient + image (gradient layers on top)
+  const bgLayers: string[] = [];
+  if (style.backgroundGradient) bgLayers.push(style.backgroundGradient);
+  if (style.backgroundImage) bgLayers.push(`url(${style.backgroundImage})`);
+  if (bgLayers.length > 0) customStyles.backgroundImage = bgLayers.join(', ');
   if (style.backgroundSize) customStyles.backgroundSize = style.backgroundSize;
   if (style.backgroundPosition) customStyles.backgroundPosition = style.backgroundPosition;
   if (style.backgroundRepeat) customStyles.backgroundRepeat = style.backgroundRepeat;
+  if (style.backgroundAttachment) customStyles.backgroundAttachment = style.backgroundAttachment as React.CSSProperties['backgroundAttachment'];
+  if (style.backgroundBlendMode) customStyles.backgroundBlendMode = style.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'];
 
-  // Transition
   if (style.transition) customStyles.transition = style.transition;
 
-  // Grid layout
   if (style.gridTemplateColumns) customStyles.gridTemplateColumns = style.gridTemplateColumns;
   if (style.gridTemplateRows) customStyles.gridTemplateRows = style.gridTemplateRows;
   if (style.gridGap) customStyles.gap = style.gridGap;
 
-  // Cursor
   if (style.cursor) customStyles.cursor = style.cursor;
 
-  // Custom CSS - parse "key: value; key: value;" into CSSProperties
   if (style.customCSS) {
     style.customCSS.split(';').forEach((rule) => {
       const [prop, val] = rule.split(':').map((s) => s.trim());
       if (prop && val) {
-        // Convert kebab-case to camelCase
         const camelProp = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
         (customStyles as Record<string, string>)[camelProp] = val;
       }
     });
   }
 
-  // fontFamily: if it's a Tailwind class (starts with "font-"), apply as className.
-  // Otherwise it's a Google Font family name — apply as inline style and load the font.
-  const isTailwindFont = style.fontFamily?.startsWith('font-');
-  const fontFamilyClass = isTailwindFont ? style.fontFamily : '';
-  if (style.fontFamily && !isTailwindFont) {
-    customStyles.fontFamily = `"${style.fontFamily}", sans-serif`;
+  // fontFamily: supports Tailwind class ("font-*"), brand sentinel ("brand.headingFont"),
+  // or a Google Font name (which we auto-load via <link>).
+  const rawFont = style.fontFamily;
+  const isTailwindFont = rawFont?.startsWith('font-');
+  const isBrandFont = isBrandSentinel(rawFont);
+  const fontFamilyClass = isTailwindFont ? rawFont : '';
+
+  if (rawFont && !isTailwindFont) {
+    if (isBrandFont) {
+      customStyles.fontFamily = resolveBrandSentinel(rawFont);
+    } else {
+      customStyles.fontFamily = `"${rawFont}", sans-serif`;
+    }
   }
 
   return (
     <>
-      {style.fontFamily && !isTailwindFont && (
+      {rawFont && !isTailwindFont && !isBrandFont && (
         <link
           rel="stylesheet"
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(style.fontFamily)}&display=swap`}
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(rawFont)}&display=swap`}
         />
       )}
       <div className={fontFamilyClass || undefined} style={customStyles}>

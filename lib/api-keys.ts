@@ -51,3 +51,9 @@ export function checkRateLimit(keyId: number, limit: number): { allowed: boolean
     resetAt: new Date(window.resetAt),
   };
 }
+
+/** Reset per-key rate limit counters. Admin / test use — resets all if keyId omitted. */
+export function resetRateLimit(keyId?: number): void {
+  if (keyId === undefined) rateLimitWindows.clear();
+  else rateLimitWindows.delete(keyId);
+}

@@ -10,6 +10,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, desc, sql, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
+import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
   const search = url.searchParams.get('search') || '';
   const status = url.searchParams.get('status') || '';
   const companyId = url.searchParams.get('companyId') || '';
+  const title = url.searchParams.get('title') || '';
   const tagId = url.searchParams.get('tagId') || '';
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
   const limit = Math.min(
@@ -55,6 +57,18 @@ export async function GET(req: NextRequest) {
     conditions.push(eq(crmContacts.companyId, parseInt(companyId, 10)));
   }
 
+  if (title) {
+    const titles = title
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (titles.length === 1) {
+      conditions.push(eq(crmContacts.title, titles[0]));
+    } else if (titles.length > 1) {
+      conditions.push(inArray(crmContacts.title, titles));
+    }
+  }
+
   const ownerId = url.searchParams.get('ownerId') || '';
   if (ownerId) {
     conditions.push(eq(crmContacts.ownerId, parseInt(ownerId, 10)));
@@ -77,6 +91,10 @@ export async function GET(req: NextRequest) {
     conditions.push(inArray(crmContacts.id, tagContactIds));
   }
 
+  for (const cf of buildCustomFieldFilters(url.searchParams, crmContacts.id, 'contact')) {
+    conditions.push(cf);
+  }
+
   const where = and(...conditions);
 
   const [countResult] = await db
@@ -93,6 +111,7 @@ export async function GET(req: NextRequest) {
       lastName: crmContacts.lastName,
       email: crmContacts.email,
       phone: crmContacts.phone,
+      linkedinUrl: crmContacts.linkedinUrl,
       title: crmContacts.title,
       source: crmContacts.source,
       status: crmContacts.status,
@@ -183,6 +202,7 @@ export async function POST(req: Request) {
       lastName: body.lastName?.trim() || null,
       email: body.email?.trim() || null,
       phone: body.phone?.trim() || null,
+      linkedinUrl: body.linkedinUrl?.trim() || null,
       title: body.title?.trim() || null,
       source: body.source?.trim() || null,
       status: body.status || 'active',

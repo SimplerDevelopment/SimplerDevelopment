@@ -65,7 +65,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   // Remove padding on full-screen editor pages
-  const isEditorPage = /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname);
+  const isEditorPage =
+    /\/portal\/websites\/\d+\/(posts\/|navigation)/.test(pathname) ||
+    /\/portal\/branding\/profiles\/\d+\/guide/.test(pathname);
 
   return (
     <SessionProvider>

@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex, numeric, primaryKey } from 'drizzle-orm/pg-core';
 
 export const posts = pgTable('posts', {
   id: serial('id').primaryKey(),
@@ -16,6 +16,9 @@ export const posts = pgTable('posts', {
   ogImage: varchar('og_image', { length: 500 }),
   noIndex: boolean('no_index').default(false).notNull(),
   canonicalUrl: varchar('canonical_url', { length: 500 }),
+  // Per-post custom CSS/JS — injected at render time, scoped to the page.
+  customCss: text('custom_css'),
+  customJs: text('custom_js'),
   // null = agency website; non-null = client website
   websiteId: integer('website_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -247,6 +250,7 @@ export const projects = pgTable('projects', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
+  projectKey: varchar('project_key', { length: 10 }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
   isPrivate: boolean('is_private').default(false).notNull(), // false = agency project, true = client-managed
@@ -276,6 +280,8 @@ export const kanbanColumns = pgTable('kanban_columns', {
   name: varchar('name', { length: 100 }).notNull(),
   order: integer('order').default(0).notNull(),
   color: varchar('color', { length: 7 }),
+  isDone: boolean('is_done').default(false).notNull(),
+  wipLimit: integer('wip_limit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -283,13 +289,14 @@ export const kanbanCards = pgTable('kanban_cards', {
   id: serial('id').primaryKey(),
   columnId: integer('column_id').notNull().references(() => kanbanColumns.id, { onDelete: 'cascade' }),
   projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  number: integer('number'),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
-  assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   dueDate: timestamp('due_date'),
   priority: varchar('priority', { length: 20 }).default('medium'), // low, medium, high, urgent
   order: integer('order').default(0).notNull(),
   sprintId: integer('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
+  sprintOrder: integer('sprint_order'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -317,6 +324,7 @@ export const ticketMessages = pgTable('ticket_messages', {
   authorId: integer('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   body: text('body').notNull(),
   isInternal: boolean('is_internal').default(false).notNull(), // staff-only notes hidden from client
+  attachments: json('attachments').$type<{ url: string; filename: string; mimeType: string; fileSize: number }[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -477,6 +485,94 @@ export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
   minutes: integer('minutes').notNull(),
   note: text('note'),
   loggedAt: timestamp('logged_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanLabels = pgTable('kanban_labels', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 50 }).notNull(),
+  color: varchar('color', { length: 7 }).default('#6366f1').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardLabels = pgTable('kanban_card_labels', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  labelId: integer('label_id').notNull().references(() => kanbanLabels.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.labelId] }) }));
+
+export const kanbanCardActivities = pgTable('kanban_card_activities', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  type: varchar('type', { length: 50 }).notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  text: varchar('text', { length: 500 }).notNull(),
+  completed: boolean('completed').default(false).notNull(),
+  order: integer('order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  completedBy: integer('completed_by').references(() => users.id, { onDelete: 'set null' }),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const kanbanCardAssignees = pgTable('kanban_card_assignees', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.userId] }) }));
+
+export const kanbanCardWatchers = pgTable('kanban_card_watchers', {
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.cardId, t.userId] }) }));
+
+export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
+  blockedCardId: integer('blocked_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  blockerCardId: integer('blocker_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }) }));
+
+export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project
+  artifactId: integer('artifact_id').notNull(),
+  displayTitle: varchar('display_title', { length: 255 }).notNull(),
+  pinned: boolean('pinned').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const projectWebhooks = pgTable('project_webhooks', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  secret: varchar('secret', { length: 64 }).notNull(),
+  events: jsonb('events').$type<string[]>().default([]).notNull(),
+  active: boolean('active').default(true).notNull(),
+  lastFiredAt: timestamp('last_fired_at'),
+  lastStatus: integer('last_status'),
+  failureCount: integer('failure_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
+  id: serial('id').primaryKey(),
+  webhookId: integer('webhook_id').notNull().references(() => projectWebhooks.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 50 }).notNull(),
+  status: integer('status'),
+  error: text('error'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -792,6 +888,18 @@ export interface PitchDeckSlideV2 {
   surveyId?: number;
   /** Per-field block overrides for survey sub-slide editing. Key is the field ID. */
   surveyFieldBlocks?: Record<string, import('@/types/blocks').Block[]>;
+  /**
+   * Optional dynamic recommendation rendered after the survey thank-you.
+   * Computes a primary offering from the respondent's answers and renders a
+   * narrative + offering card stack with a book CTA.
+   */
+  surveyRecommendation?: SurveyRecommendationConfig;
+  /**
+   * Per-slide custom CSS. Auto-scoped to this slide via [data-slide-id="<slide.id>"]
+   * — write rules without a prefix and they only apply to this slide.
+   * Use `:root` or `.deck-root` selectors to escape the scope when needed.
+   */
+  customCss?: string;
   // Path groups — slides with a pathGroup belong to that branch, not the main sequence
   pathGroup?: string;
   // Decision slides — force the viewer to choose a path
@@ -807,6 +915,58 @@ export interface PitchDeckDecisionOption {
   pathGroup: string; // which path group this choice leads to
 }
 
+export interface SurveyRecommendationOffering {
+  key: string;
+  name: string;
+  tagline: string;
+  youGet: string;
+  price: string;
+  duration: string;
+}
+
+export interface SurveyRecommendationQuestion {
+  /** Field ID in the survey (e.g. 'q1') */
+  fieldId: string;
+  /** One narrative phrase per option text (used to build the "you're X" sentence) */
+  context?: Record<string, string>;
+  /** Map option text → offering key for vote tally */
+  optionToOffering: Record<string, string>;
+}
+
+export interface SurveyRecommendationHybridRule {
+  /** Map of fieldId → required option text. All must match for hybrid to fire. */
+  whenAnswers: Record<string, string>;
+  /** Title for the hybrid card (e.g. "A Snapshot into a Roadmap.") */
+  title: string;
+  /** Body copy explaining the sequence */
+  body: string;
+  /** Ordered offerings shown in the hybrid card */
+  offeringKeys: string[];
+}
+
+export interface SurveyRecommendationConfig {
+  offerings: SurveyRecommendationOffering[];
+  /** Per-question voting config. Order matters for narrative phrasing. */
+  questions: SurveyRecommendationQuestion[];
+  /**
+   * Override rule — if any answer matches, force this offering as primary
+   * (e.g. q3=D OR q2=D → advisory). First match wins.
+   */
+  overrides?: {
+    whenAnyAnswer: { fieldId: string; values: string[] }[];
+    forceOfferingKey: string;
+  }[];
+  hybrid?: SurveyRecommendationHybridRule;
+  /** Always-shown bottom card (e.g. "advisory" as a backstop suggestion) */
+  alwaysAlsoOfferingKey?: string;
+  /** Book-call URL for the primary CTA */
+  bookUrl: string;
+  /** Header label for the result screen */
+  eyebrow?: string;
+  /** Lead-in narrative template — supports {{primary}} and {{q1Context}}/{{q2Context}}/{{q3Context}} */
+  narrativeTemplate?: string;
+}
+
 export interface PitchDeckTheme {
   primaryColor: string;
   accentColor: string;
@@ -815,6 +975,12 @@ export interface PitchDeckTheme {
   headingFont: string;
   bodyFont: string;
   logo?: string;
+  /**
+   * Deck-global custom CSS injected once at the top of the presentation.
+   * Use this for fonts, base typography, repeating background patterns,
+   * and rules that need to span every slide.
+   */
+  customCss?: string;
 }
 
 export const pitchDecks = pgTable('pitch_decks', {
@@ -1636,6 +1802,25 @@ export const brandingProfiles = pgTable('branding_profiles', {
     secondaryBg?: string; secondaryText?: string; secondaryHoverBg?: string;
     borderRadius?: string; variant?: 'filled' | 'outline';
   }>(),
+  /** Named button presets — clients define N named styles referenced by ButtonBlock.presetId. */
+  buttonPresets: json('button_presets').$type<Array<{
+    id: string;
+    name: string;
+    backgroundColor?: string;
+    color?: string;
+    hoverBackgroundColor?: string;
+    hoverColor?: string;
+    borderColor?: string;
+    borderWidth?: string;
+    borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none';
+    borderRadius?: string;
+    fontWeight?: string;
+    textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+    letterSpacing?: string;
+    paddingX?: string;
+    paddingY?: string;
+    description?: string;
+  }>>(),
   faviconUrl: varchar('favicon_url', { length: 500 }),
   ogImageUrl: varchar('og_image_url', { length: 500 }),
   // Dark mode overrides
@@ -1649,7 +1834,7 @@ export const brandingProfiles = pgTable('branding_profiles', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// ─── Branding Messaging ────────────────────────────────────────────────────
+// ─── Branding Messaging────────────────────────────────────────────────────
 
 export const brandingMessaging = pgTable('branding_messaging', {
   id: serial('id').primaryKey(),
@@ -1682,6 +1867,15 @@ export const brandingMessaging = pgTable('branding_messaging', {
   certifications: text('certifications'),
   // Additional Context
   additionalContext: text('additional_context'), // anything else AI should know
+  // Structured tone axes — each value -1.0 to 1.0 along a named dimension
+  toneAxes: json('tone_axes').$type<{
+    formal?: number;        // -1 = casual, +1 = formal
+    playful?: number;       // -1 = serious, +1 = playful
+    traditional?: number;   // -1 = innovative, +1 = traditional
+    authoritative?: number; // -1 = friendly, +1 = authoritative
+  }>(),
+  // Voice sample library — short exemplars that show how the brand writes
+  voiceSamples: json('voice_samples').$type<Array<{ context: string; text: string }>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1698,7 +1892,18 @@ export const crmCompanies = pgTable('crm_companies', {
   phone: varchar('phone', { length: 50 }),
   address: text('address'),
   website: varchar('website', { length: 500 }),
+  logoUrl: varchar('logo_url', { length: 1000 }),
   notes: text('notes'),
+  // GPS coordinates (WGS84). 7 decimal places ≈ 1cm precision.
+  latitude: numeric('latitude', { precision: 10, scale: 7 }),
+  longitude: numeric('longitude', { precision: 10, scale: 7 }),
+  description: text('description'),
+  revenue: varchar('revenue', { length: 100 }),
+  employeeCount: integer('employee_count'),
+  foundedYear: integer('founded_year'),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
+  twitterUrl: varchar('twitter_url', { length: 500 }),
+  facebookUrl: varchar('facebook_url', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1711,6 +1916,7 @@ export const crmContacts = pgTable('crm_contacts', {
   lastName: varchar('last_name', { length: 100 }),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
+  linkedinUrl: varchar('linkedin_url', { length: 500 }),
   title: varchar('title', { length: 150 }), // job title
   source: varchar('source', { length: 100 }), // web, referral, cold-call, event, etc.
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, inactive, lead, customer
@@ -1720,6 +1926,8 @@ export const crmContacts = pgTable('crm_contacts', {
   lastContactedAt: timestamp('last_contacted_at'),
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
   score: integer('score').default(0).notNull(),
+  seniority: varchar('seniority', { length: 100 }),
+  department: varchar('department', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -2258,6 +2466,8 @@ export const crmCustomFields = pgTable('crm_custom_fields', {
   fieldType: varchar('field_type', { length: 20 }).notNull(), // 'text' | 'number' | 'date' | 'select' | 'multiselect' | 'url' | 'email' | 'phone' | 'boolean'
   options: json('options').$type<string[]>(), // for select/multiselect types
   required: boolean('required').default(false).notNull(),
+  filterable: boolean('filterable').default(false).notNull(), // shown as a filter dropdown on list pages
+  category: varchar('category', { length: 100 }), // groups fields into tabs in the record view (null → "General")
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -2282,6 +2492,48 @@ export const crmScoringRules = pgTable('crm_scoring_rules', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Portal-user-scoped API keys for MCP server / programmatic access.
+// Distinct from `apiKeys` which is public/read-only and tied to a single website.
+export const portalApiKeys = pgTable('portal_api_keys', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  keyHash: varchar('key_hash', { length: 128 }).notNull().unique(),
+  keyPreview: varchar('key_preview', { length: 20 }).notNull(),
+  scopes: json('scopes').$type<string[]>().default([]).notNull(),
+  active: boolean('active').default(true).notNull(),
+  /** When true, CMS-write MCP tools stage to mcp_pending_changes instead of
+   * applying directly. Recommended for autonomous AI agent keys. */
+  requireCmsApproval: boolean('require_cms_approval').default(false).notNull(),
+  lastUsedAt: timestamp('last_used_at'),
+  expiresAt: timestamp('expires_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+/** Staging table for CMS writes originating from MCP keys flagged with
+ * requireCmsApproval. Staff approve/reject via approvals_* tools or portal UI. */
+export const mcpPendingChanges = pgTable('mcp_pending_changes', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  keyId: integer('key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: integer('entity_id'),
+  operation: varchar('operation', { length: 20 }).notNull(),
+  summary: varchar('summary', { length: 500 }),
+  payload: json('payload').notNull(),
+  originalSnapshot: json('original_snapshot'),
+  status: varchar('status', { length: 20 }).default('pending').notNull(),
+  reviewerId: integer('reviewer_id').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewNote: text('review_note'),
+  appliedAt: timestamp('applied_at'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const crmSavedViews = pgTable('crm_saved_views', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -2290,5 +2542,29 @@ export const crmSavedViews = pgTable('crm_saved_views', {
   filters: json('filters').$type<Record<string, string>>().notNull(), // { status: 'lead', tag: '5', ownerId: '3', search: 'john' }
   isDefault: boolean('is_default').default(false).notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// --- CRM Enrichment ---------------------------------------------------------------
+
+export const crmEnrichmentConfig = pgTable('crm_enrichment_config', {
+  clientId: integer('client_id').primaryKey().references(() => clients.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').default(false).notNull(),
+  keySource: varchar('key_source', { length: 20 }).default('platform').notNull(), // 'platform' | 'own'
+  ownApiKey: varchar('own_api_key', { length: 500 }), // TODO: encrypt before storing in production
+  platformCreditBalance: integer('platform_credit_balance').default(0).notNull(),
+  costPerEnrichment: integer('cost_per_enrichment').default(1).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmEnrichmentLog = pgTable('crm_enrichment_log', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(), // 'contact' | 'company'
+  entityId: integer('entity_id').notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(), // 'scrape' | 'apollo'
+  fieldsPopulated: json('fields_populated').$type<string[]>().default([]),
+  fieldChanges: json('field_changes').$type<Record<string, { from: unknown; to: unknown }>>().default({}),
+  cost: integer('cost').default(0).notNull(), // credits consumed (0 for free scrape)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

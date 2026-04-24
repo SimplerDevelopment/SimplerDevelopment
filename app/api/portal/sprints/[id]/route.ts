@@ -1,22 +1,47 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { sprints } from '@/lib/db/schema';
+import { sprints, projects } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { isPortalStaff } from '@/lib/portal';
+import { getPortalClient } from '@/lib/portal-client';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getRole(session: any): string {
+  return (session as unknown as { user?: { role?: string } })?.user?.role ?? '';
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function authorizeSprint(sprintId: number, session: any): Promise<{ canEdit: boolean } | null> {
+  const [sprint] = await db.select().from(sprints).where(eq(sprints.id, sprintId)).limit(1);
+  if (!sprint) return null;
+
+  const role = getRole(session);
+  if (role === 'admin' || role === 'employee') return { canEdit: true };
+
+  const s = session as unknown as { user?: { id: string } } | null;
+  const userId = parseInt(s!.user!.id, 10);
+  const client = await getPortalClient(userId);
+  if (!client) return null;
+
+  const [project] = await db.select().from(projects).where(eq(projects.id, sprint.projectId)).limit(1);
+  if (!project || project.clientId !== client.id) return null;
+
+  return { canEdit: project.isPrivate };
+}
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-    const staff = await isPortalStaff();
-    if (!staff) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-
     const { id } = await params;
     const sprintId = parseInt(id, 10);
-    const body = await req.json();
 
+    const result = await authorizeSprint(sprintId, session);
+    if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+
+    const body = await req.json();
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (body.name !== undefined) updates.name = body.name;
     if (body.goal !== undefined) updates.goal = body.goal;
@@ -39,13 +64,14 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-    const staff = await isPortalStaff();
-    if (!staff) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-
     const { id } = await params;
-    const deleted = await db.delete(sprints).where(eq(sprints.id, parseInt(id, 10))).returning();
-    if (!deleted.length) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    const sprintId = parseInt(id, 10);
 
+    const result = await authorizeSprint(sprintId, session);
+    if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+
+    await db.delete(sprints).where(eq(sprints.id, sprintId));
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[DELETE /api/portal/sprints/[id]]', err);

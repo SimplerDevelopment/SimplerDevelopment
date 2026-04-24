@@ -130,13 +130,19 @@ function deepCloneBlock(block: Block): Block {
   return clone as Block;
 }
 
-function allBlockIds(blocks: Block[]): string[] {
+function allBlockIds(blocks: Block[] | undefined | null): string[] {
   const ids: string[] = [];
+  if (!Array.isArray(blocks)) return ids;
   for (const b of blocks) {
-    ids.push(b.id);
-    if (b.type === 'columns') b.columns.forEach(c => ids.push(...allBlockIds(c.blocks)));
-    if (b.type === 'tabs') b.tabs.forEach(t => ids.push(...allBlockIds(t.blocks)));
-    if (b.type === 'section') ids.push(...allBlockIds(b.blocks));
+    if (!b || typeof b !== 'object') continue;
+    if (b.id) ids.push(b.id);
+    if (b.type === 'columns' && Array.isArray(b.columns)) {
+      b.columns.forEach(c => { if (Array.isArray(c?.blocks)) ids.push(...allBlockIds(c.blocks)); });
+    }
+    if (b.type === 'tabs' && Array.isArray(b.tabs)) {
+      b.tabs.forEach(t => { if (Array.isArray(t?.blocks)) ids.push(...allBlockIds(t.blocks)); });
+    }
+    if (b.type === 'section' && Array.isArray(b.blocks)) ids.push(...allBlockIds(b.blocks));
   }
   return ids;
 }
@@ -378,18 +384,25 @@ function DraggableBlockList({
               editor.onBlockClicked('');
             }
           }}>
-          {blocks.map((block, i) => (
-            <div key={block.id}>
+          {blocks.map((block, i) => {
+            // Defensive key: legacy/LLM-authored blocks sometimes lack ids.
+            // Write paths backfill, but we can't trust all on-disk content.
+            const reactKey = block.id ?? `block-${i}-${block.type}`;
+            return (
+            <div key={reactKey}>
               {/* External drop indicator before this block */}
               {editor.externalDrag.active && externalDropIndex === i && (
                 <ExternalDropIndicator />
               )}
               {/* Drop zone before this block */}
-              <DropIndicator id={`between:${block.id}:before`} dragging={draggingId !== null} />
+              <DropIndicator id={`between:${block.id ?? reactKey}:before`} dragging={draggingId !== null} />
               <SortableBlock
                 block={block}
-                isSelected={editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id}
-                isHovered={editor.hoveredBlockId === block.id}
+                // Require a truthy block.id — otherwise `undefined === undefined`
+                // would light up every id-less block when another id-less block
+                // is selected (observed on LLM-authored pitch decks).
+                isSelected={!!block.id && (editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id)}
+                isHovered={!!block.id && editor.hoveredBlockId === block.id}
                 onClicked={editor.onBlockClicked}
                 onHovered={editor.onBlockHovered}
                 onAddAfter={editor.onAddBlockAfter}
@@ -401,14 +414,15 @@ function DraggableBlockList({
               {/* Drop zone after last block */}
               {i === blocks.length - 1 && (
                 <>
-                  <DropIndicator id={`between:${block.id}:after`} dragging={draggingId !== null} />
+                  <DropIndicator id={`between:${block.id ?? reactKey}:after`} dragging={draggingId !== null} />
                   {editor.externalDrag.active && externalDropIndex === blocks.length && (
                     <ExternalDropIndicator />
                   )}
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
           {/* Empty state: show indicator when no blocks exist */}
           {blocks.length === 0 && editor.externalDrag.active && (
             <ExternalDropIndicator />
@@ -471,7 +485,7 @@ function ContainerSlotDropZone({ containerId, slotIndex, hasChildren }: { contai
             : 'border-gray-200 text-gray-400 py-4'
       }`}
     >
-      {isOver ? '+ Drop here' : hasChildren ? '' : 'Drop blocks here'}
+      {isOver ? '+ Drop here' : hasChildren ? '' : 'Drag a block here, or use the "Add Block" panel to insert one'}
     </div>
   );
 }
@@ -531,6 +545,7 @@ function SortableBlock({
         onResize={onResize}
         onStyleUpdate={editor.onBlockStyleUpdated}
         currentStyle={liveBlock.style ? { padding: liveBlock.style.padding, margin: liveBlock.style.margin } : undefined}
+        sizeStyle={liveBlock.style ? { width: liveBlock.style.width, height: liveBlock.style.height, maxWidth: liveBlock.style.maxWidth, minWidth: liveBlock.style.minWidth, maxHeight: liveBlock.style.maxHeight, minHeight: liveBlock.style.minHeight } : undefined}
         dragListeners={listeners}
         columnsData={liveBlock.type === 'columns' && 'columns' in liveBlock ? { columns: (liveBlock as { columns: { id: string; width: number }[] }).columns, gap: (liveBlock as { gap?: 'sm' | 'md' | 'lg' }).gap } : undefined}
       >
@@ -599,6 +614,7 @@ function NestedSortableBlock({
         onResize={editor.onBlockResized}
         onStyleUpdate={editor.onBlockStyleUpdated}
         currentStyle={liveBlock.style ? { padding: liveBlock.style.padding, margin: liveBlock.style.margin } : undefined}
+        sizeStyle={liveBlock.style ? { width: liveBlock.style.width, height: liveBlock.style.height, maxWidth: liveBlock.style.maxWidth, minWidth: liveBlock.style.minWidth, maxHeight: liveBlock.style.maxHeight, minHeight: liveBlock.style.minHeight } : undefined}
         dragListeners={listeners}
         columnsData={liveBlock.type === 'columns' && 'columns' in liveBlock ? { columns: (liveBlock as { columns: { id: string; width: number }[] }).columns, gap: (liveBlock as { gap?: 'sm' | 'md' | 'lg' }).gap } : undefined}
       >
@@ -650,24 +666,38 @@ function ContainerBlockRenderer({
     );
   }
 
+  if (block.type === 'tabs') {
+    return (
+      <BlockStyleWrapper block={block}>
+        <TabsContainerEditor block={block} registry={registry} draggingId={draggingId} editor={editor} />
+      </BlockStyleWrapper>
+    );
+  }
+
   if (block.type === 'section') {
     const s = block.style;
     // Apply section-specific props — mirrors SectionBlockRender
     const bgColor = s?.backgroundColor || block.backgroundColor;
     const color = s?.color || block.color;
     const padding = s?.padding || `${block.paddingTop || '0'} ${block.paddingRight || '0'} ${block.paddingBottom || '0'} ${block.paddingLeft || '0'}`;
+    // Compose background-image from gradient + image — mirrors SectionBlockRender
+    const bgLayers: string[] = [];
+    if (s?.backgroundGradient) bgLayers.push(s.backgroundGradient);
+    const resolvedBgImage = s?.backgroundImage || block.backgroundImage;
+    if (resolvedBgImage) bgLayers.push(`url(${resolvedBgImage})`);
+    const bgImageStyle = bgLayers.length
+      ? {
+          backgroundImage: bgLayers.join(', '),
+          backgroundSize: s?.backgroundSize || block.backgroundSize || 'cover',
+          backgroundPosition: s?.backgroundPosition || block.backgroundPosition || 'center',
+          ...(s?.backgroundRepeat ? { backgroundRepeat: s.backgroundRepeat } : {}),
+          ...(s?.backgroundAttachment ? { backgroundAttachment: s.backgroundAttachment as React.CSSProperties['backgroundAttachment'] } : {}),
+          ...(s?.backgroundBlendMode ? { backgroundBlendMode: s.backgroundBlendMode as React.CSSProperties['backgroundBlendMode'] } : {}),
+        }
+      : {};
     const sectionOuterStyle: React.CSSProperties = {
       ...(bgColor ? { backgroundColor: bgColor } : {}),
-      ...(block.backgroundImage ? {
-        backgroundImage: `url(${block.backgroundImage})`,
-        backgroundSize: block.backgroundSize || 'cover',
-        backgroundPosition: block.backgroundPosition || 'center',
-      } : {}),
-      ...(s?.backgroundImage ? {
-        backgroundImage: `url(${s.backgroundImage})`,
-        backgroundSize: s.backgroundSize || 'cover',
-        backgroundPosition: s.backgroundPosition || 'center',
-      } : {}),
+      ...bgImageStyle,
       ...(color ? { color } : {}),
       padding,
       // Border
@@ -729,6 +759,66 @@ function ContainerBlockRenderer({
     <BlockStyleWrapper block={block}>
       <Component block={block} />
     </BlockStyleWrapper>
+  );
+}
+
+// ─── Tabs container editor (tab headers + per-tab drop zone) ─────────────────
+
+function TabsContainerEditor({
+  block,
+  registry,
+  draggingId,
+  editor,
+}: {
+  block: Extract<Block, { type: 'tabs' }>;
+  registry: ReturnType<typeof getBlockRegistry>;
+  draggingId: string | null;
+  editor: ReturnType<typeof useEditorModeContext>;
+}) {
+  const tabs = block.tabs || [];
+  const [activeTabId, setActiveTabId] = useState(tabs[0]?.id);
+  const activeIndex = Math.max(0, tabs.findIndex(t => t.id === activeTabId));
+  const activeTab = tabs[activeIndex] || tabs[0];
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden my-4">
+      <div className="flex border-b border-border bg-muted/30">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTabId(tab.id);
+            }}
+            className={`px-4 py-3 font-medium transition-colors border-b-2 ${
+              activeTab?.id === tab.id
+                ? 'border-primary text-primary bg-background'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label || 'Tab'}
+          </button>
+        ))}
+      </div>
+      <div className="p-4 bg-card min-h-[120px]">
+        {activeTab && (activeTab.blocks || []).map((nested, ni) => (
+          <Fragment key={nested.id}>
+            <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
+            {ni === (activeTab.blocks || []).length - 1 && draggingId && (
+              <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
+            )}
+          </Fragment>
+        ))}
+        {activeTab && (
+          <ContainerSlotDropZone
+            containerId={block.id}
+            slotIndex={activeIndex}
+            hasChildren={(activeTab.blocks || []).length > 0}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

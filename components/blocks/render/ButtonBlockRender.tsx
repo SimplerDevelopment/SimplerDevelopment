@@ -4,6 +4,8 @@ import { ButtonBlock } from '@/types/blocks';
 import Link from 'next/link';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { useBranding } from '@/contexts/BrandingContext';
+import { findPreset, presetToStyle } from '@/lib/branding/button-presets';
+import { Icon } from '@/components/ui/Icon';
 
 interface ButtonBlockRenderProps {
   block: ButtonBlock;
@@ -49,8 +51,9 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
 
   const variant = block.variant || 'primary';
   const bs = branding?.buttonStyle;
+  const preset = findPreset(branding?.buttonPresets, block.presetId);
 
-  const variantClasses = {
+  const variantMap = {
     primary: {
       bg: hasCustomBg ? '' : 'bg-primary hover:bg-primary/90',
       text: hasCustomColor ? '' : 'text-primary-foreground',
@@ -63,8 +66,11 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
       bg: hasCustomBg ? '' : 'border border-primary hover:bg-primary/10',
       text: hasCustomColor ? '' : 'text-primary',
     },
-  }[variant];
-  const variantClass = `${variantClasses.bg} ${variantClasses.text}`.trim();
+  } as const;
+  const variantClasses = variantMap[variant as keyof typeof variantMap] ?? variantMap.primary;
+  // When a preset is active, it fully owns bg/text/border — skip the Tailwind
+  // variant classes so they don't fight with preset inline styles.
+  const variantClass = preset ? '' : `${variantClasses.bg} ${variantClasses.text}`.trim();
 
   const sizePadding = {
     sm: 'px-3 py-1.5',
@@ -78,9 +84,13 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   }[block.size || 'md'];
   const sizeClass = `${sizePadding} ${sizeText}`.trim();
 
-  // Build inline styles from branding button settings
-  const inlineStyle: React.CSSProperties = {};
-  if (bs) {
+  // Build inline styles — preset (if any) is the base, legacy buttonStyle or
+  // block.style layer on top so per-block overrides always win.
+  let inlineStyle: React.CSSProperties = {};
+
+  if (preset) {
+    inlineStyle = { ...presetToStyle(preset) };
+  } else if (bs) {
     const btnRadius = bs.borderRadius || branding?.borderRadius;
     if (btnRadius) inlineStyle.borderRadius = btnRadius;
 
@@ -94,6 +104,20 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   } else if (branding?.borderRadius) {
     inlineStyle.borderRadius = branding.borderRadius;
   }
+
+  // block.style overrides — lets users tweak bg/color/border/etc. after
+  // applying a preset. BlockStyleWrapper paints the wrapper div separately;
+  // reading the same values here brings them to the Link so they're visible.
+  if (style.backgroundColor) inlineStyle.backgroundColor = style.backgroundColor;
+  if (style.color) inlineStyle.color = style.color;
+  if (style.borderColor) inlineStyle.borderColor = style.borderColor;
+  if (style.borderWidth) inlineStyle.borderWidth = style.borderWidth;
+  if (style.borderStyle) inlineStyle.borderStyle = style.borderStyle as React.CSSProperties['borderStyle'];
+  if (style.borderRadius) inlineStyle.borderRadius = style.borderRadius;
+  if (style.fontSize) inlineStyle.fontSize = style.fontSize;
+  if (style.fontWeight) inlineStyle.fontWeight = style.fontWeight;
+  if (style.letterSpacing) inlineStyle.letterSpacing = style.letterSpacing;
+  if (style.textTransform) inlineStyle.textTransform = style.textTransform;
 
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
@@ -129,7 +153,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   }
 
   const iconEl = block.icon ? (
-    <span className="btn-icon material-icons" aria-hidden="true">{block.icon}</span>
+    <Icon name={block.icon} className="btn-icon" />
   ) : null;
 
   const iconPos = block.iconPosition || 'left';

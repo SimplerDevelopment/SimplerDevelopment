@@ -1,0 +1,402 @@
+[
+  {
+    "id": 6,
+    "firstName": "Daniel",
+    "lastName": "M. White",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Alaska Fairbanks"
+  },
+  {
+    "id": 7,
+    "firstName": "Aparna",
+    "lastName": "Palmer",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Alaska Southeast"
+  },
+  {
+    "id": 10,
+    "firstName": "Richard",
+    "lastName": "Sutton",
+    "email": null,
+    "title": "President",
+    "companyName": "Alabama College of Osteopathic Medicine"
+  },
+  {
+    "id": 12,
+    "firstName": "Michael",
+    "lastName": "C.Turner",
+    "email": null,
+    "title": "President",
+    "companyName": "Amridge University"
+  },
+  {
+    "id": 17,
+    "firstName": "Mitch",
+    "lastName": "Henry",
+    "email": null,
+    "title": "President",
+    "companyName": "Faulkner University"
+  },
+  {
+    "id": 19,
+    "firstName": "Sarah",
+    "lastName": "Higgins",
+    "email": null,
+    "title": "Regional Vice President",
+    "companyName": "Herzing University-Birmingham"
+  },
+  {
+    "id": 21,
+    "firstName": "Lyle",
+    "lastName": "Lee",
+    "email": null,
+    "title": "President",
+    "companyName": "Huntsville Bible College"
+  },
+  {
+    "id": 23,
+    "firstName": "Bobbie",
+    "lastName": "Knight",
+    "email": null,
+    "title": "President",
+    "companyName": "Miles College"
+  },
+  {
+    "id": 35,
+    "firstName": "Steve",
+    "lastName": "Condon",
+    "email": null,
+    "title": "President/CEO",
+    "companyName": "United States Sports University"
+  },
+  {
+    "id": 39,
+    "firstName": "Charles",
+    "lastName": "Smith",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Mobile"
+  },
+  {
+    "id": 41,
+    "firstName": "Kenneth",
+    "lastName": "D. Kitts",
+    "email": null,
+    "title": "President",
+    "companyName": "University of North Alabama"
+  },
+  {
+    "id": 50,
+    "firstName": "Jeremy",
+    "lastName": "Horton",
+    "email": null,
+    "title": "Executive Vice President",
+    "companyName": "Champion Christian College"
+  },
+  {
+    "id": 51,
+    "firstName": "Richard",
+    "lastName": "Johnson",
+    "email": null,
+    "title": "President",
+    "companyName": "Crowley's Ridge College"
+  },
+  {
+    "id": 52,
+    "firstName": "Michael",
+    "lastName": "Novak",
+    "email": null,
+    "title": "President",
+    "companyName": "Ecclesia College"
+  },
+  {
+    "id": 53,
+    "firstName": "Mike",
+    "lastName": "Williams",
+    "email": null,
+    "title": "President",
+    "companyName": "Harding University"
+  },
+  {
+    "id": 54,
+    "firstName": "Conrid",
+    "lastName": "C Berry",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "Henderson State University"
+  },
+  {
+    "id": 55,
+    "firstName": "Karen",
+    "lastName": "Petersen",
+    "email": null,
+    "title": "President",
+    "companyName": "Hendrix College"
+  },
+  {
+    "id": 56,
+    "firstName": "Clarence",
+    "lastName": "Guy",
+    "email": null,
+    "title": "Interim President",
+    "companyName": "Jackson Theological Seminary"
+  },
+  {
+    "id": 57,
+    "firstName": "Charles",
+    "lastName": "W. Pollard",
+    "email": null,
+    "title": "President",
+    "companyName": "John Brown University"
+  },
+  {
+    "id": 58,
+    "firstName": "Melissa",
+    "lastName": "Taverner",
+    "email": null,
+    "title": "President",
+    "companyName": "Lyon College"
+  },
+  {
+    "id": 59,
+    "firstName": "Ben",
+    "lastName": "R. Sells",
+    "email": null,
+    "title": "President",
+    "companyName": "Ouachita Baptist University"
+  },
+  {
+    "id": 60,
+    "firstName": "Maurice",
+    "lastName": "D.Gipson",
+    "email": null,
+    "title": "Interim President and CEO",
+    "companyName": "Philander Smith University"
+  },
+  {
+    "id": 61,
+    "firstName": "Bruno",
+    "lastName": "Hicks",
+    "email": null,
+    "title": "President",
+    "companyName": "Southern Arkansas University Main Campus"
+  },
+  {
+    "id": 62,
+    "firstName": "Antoinette",
+    "lastName": "Farmer-Thompson",
+    "email": null,
+    "title": "President",
+    "companyName": "Strayer University-Arkansas"
+  },
+  {
+    "id": 63,
+    "firstName": "Charles",
+    "lastName": "F. Robinson",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas"
+  },
+  {
+    "id": 64,
+    "firstName": "Lindsay",
+    "lastName": "Bridgeman",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas Grantham"
+  },
+  {
+    "id": 65,
+    "firstName": "Donald",
+    "lastName": "R. Bobbitt",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Arkansas System Office"
+  },
+  {
+    "id": 66,
+    "firstName": "Christina",
+    "lastName": "Drale",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas at Little Rock"
+  },
+  {
+    "id": 67,
+    "firstName": "Peggy",
+    "lastName": "Doss",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas at Monticello"
+  },
+  {
+    "id": 68,
+    "firstName": "Andrea",
+    "lastName": "Stewart",
+    "email": null,
+    "title": "Interim Chancellor",
+    "companyName": "University of Arkansas at Pine Bluff"
+  },
+  {
+    "id": 69,
+    "firstName": "Cam",
+    "lastName": "Patterson, M.D., MBA",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas for Medical Sciences"
+  },
+  {
+    "id": 70,
+    "firstName": "Terisa",
+    "lastName": "Riley",
+    "email": null,
+    "title": "Chancellor",
+    "companyName": "University of Arkansas-Fort Smith"
+  },
+  {
+    "id": 71,
+    "firstName": "Houston",
+    "lastName": "Davis",
+    "email": null,
+    "title": "President",
+    "companyName": "University of Central Arkansas"
+  },
+  {
+    "id": 72,
+    "firstName": "Richard",
+    "lastName": "L. \"Rich\" Dunsworth",
+    "email": null,
+    "title": "President",
+    "companyName": "University of the Ozarks"
+  },
+  {
+    "id": 73,
+    "firstName": "Stan",
+    "lastName": "Norman",
+    "email": null,
+    "title": "President",
+    "companyName": "Williams Baptist University"
+  },
+  {
+    "id": 74,
+    "firstName": "Rosevonne",
+    "lastName": "Pato",
+    "email": null,
+    "title": "President",
+    "companyName": "American Samoa Community College"
+  },
+  {
+    "id": 75,
+    "firstName": "John",
+    "lastName": "Kline",
+    "email": null,
+    "title": "President",
+    "companyName": "American InterContinental University System"
+  },
+  {
+    "id": 76,
+    "firstName": "Chad",
+    "lastName": "Sampson",
+    "email": null,
+    "title": "Executive Director",
+    "companyName": "Arizona Board of Regents"
+  },
+  {
+    "id": 77,
+    "firstName": "Len",
+    "lastName": "Munsil",
+    "email": null,
+    "title": "President",
+    "companyName": "Arizona Christian University"
+  },
+  {
+    "id": 78,
+    "firstName": "Jason",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Arizona College of Nursing-Phoenix"
+  },
+  {
+    "id": 79,
+    "firstName": "Jason",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Arizona College of Nursing-Tempe"
+  },
+  {
+    "id": 80,
+    "firstName": "Jason",
+    "lastName": "Anderson",
+    "email": null,
+    "title": "Chief Executive Officer",
+    "companyName": "Arizona College of Nursing-Tucson"
+  },
+  {
+    "id": 81,
+    "firstName": "Susan",
+    "lastName": "Wagner",
+    "email": null,
+    "title": "Director of Federal Programs",
+    "companyName": "Arizona School of Acupuncture and Oriental Medicine"
+  },
+  {
+    "id": 82,
+    "firstName": "Michael",
+    "lastName": "M. Crow",
+    "email": null,
+    "title": "President",
+    "companyName": "Arizona State University Campus Immersion"
+  },
+  {
+    "id": 83,
+    "firstName": "Michael",
+    "lastName": "M. Crow",
+    "email": null,
+    "title": "President",
+    "companyName": "Arizona State University Digital Immersion"
+  },
+  {
+    "id": 84,
+    "firstName": "Cheri",
+    "lastName": "St. Arnauld, PhD",
+    "email": null,
+    "title": "Chief Academic Officer",
+    "companyName": "Aspen University"
+  },
+  {
+    "id": 85,
+    "firstName": "Don",
+    "lastName": "Corvin",
+    "email": null,
+    "title": "Sr. Vice President of Compliance",
+    "companyName": "Brookline College-Phoenix"
+  },
+  {
+    "id": 86,
+    "firstName": "Don",
+    "lastName": "Corvin",
+    "email": null,
+    "title": "Sr. Vice President of Compliance",
+    "companyName": "Brookline College-Tucson"
+  },
+  {
+    "id": 87,
+    "firstName": "Eric",
+    "lastName": "Evans",
+    "email": null,
+    "title": "President",
+    "companyName": "Bryan University"
+  },
+  {
+    "id": 88,
+    "firstName": "Karen",
+    "lastName": "Cox",
+    "email": null,
+    "title": "President",
+    "companyName": "Chamberlain University-Arizona"
+  }
+]

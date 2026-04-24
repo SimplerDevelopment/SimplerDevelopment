@@ -9,12 +9,15 @@ import { Block, BlockEditorData } from '@/types/blocks';
 import { Breakpoint } from '@/types/responsive';
 import { PostEditorLayout } from '@/components/admin/PostEditorLayout';
 import RevisionHistory from '@/components/portal/RevisionHistory';
+import { CustomCodeModal } from '@/components/portal/CustomCodeModal';
 import { ViewportSelector } from '@/components/blocks/ViewportSelector';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { removeBlockById } from '@/lib/utils/blockHelpers';
+import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 
 interface Post {
   id?: number;
@@ -33,6 +36,8 @@ interface Post {
   ogImage?: string;
   noIndex?: boolean;
   canonicalUrl?: string;
+  customCss?: string;
+  customJs?: string;
 }
 
 interface TaxonomyItem {
@@ -49,6 +54,12 @@ interface PortalPostFormProps {
   publicUrl?: string | null;
   previewToken?: string;
   siteDomain?: string;
+  /**
+   * Optional brand context — pre-fills newly-created blocks with the client's
+   * messaging (tagline, value prop, etc.) and tags them with brand sentinels.
+   * Loaded server-side via getBrandDefaults().
+   */
+  brandDefaults?: BrandDefaultsContext;
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -138,6 +149,25 @@ function createDefaultBlock(type: string, order: number): Block {
       { id: `card-${Date.now()}-1`, title: 'Card 1', description: 'Description' },
       { id: `card-${Date.now()}-2`, title: 'Card 2', description: 'Description' },
     ], columns: 3 } as Block;
+    case 'flip-card-grid': return { ...base, type: 'flip-card-grid', cards: [
+      { id: `flip-${Date.now()}-1`, frontTitle: 'Front Title', frontIcon: 'rocket_launch', backText: 'Hover or tap to reveal more details about this service.', backLinkText: 'Learn More' },
+      { id: `flip-${Date.now()}-2`, frontTitle: 'Second Card', frontIcon: 'insights', backText: 'Add your own description here — this text is revealed on flip.', backLinkText: 'Learn More' },
+      { id: `flip-${Date.now()}-3`, frontTitle: 'Third Card', frontIcon: 'workspace_premium', backText: 'Flip cards are great for condensing info behind an interactive reveal.', backLinkText: 'Learn More' },
+    ], columns: 3, flipTrigger: 'hover', flipAxis: 'horizontal', cardHeight: '280px', accentColor: '#004D80' } as Block;
+    case 'metric-cards': return { ...base, type: 'metric-cards', metrics: [
+      { id: `m-${Date.now()}-1`, value: '83%', label: 'Increase in Completions', institution: 'Example University', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-2`, value: '$965K+', label: 'Raised from 2,600+ Donors', institution: 'Loyola University', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-3`, value: '2 Days', label: 'Staff Time Saved', institution: 'VCU', linkText: 'Case Study' },
+      { id: `m-${Date.now()}-4`, value: '5 Years', label: 'Historical Data Integrated', institution: 'Landmark College', linkText: 'Case Study' },
+    ], columns: 4, accentColor: '#004D80' } as Block;
+    case 'logo-strip': return { ...base, type: 'logo-strip', overline: 'TRUSTED BY LEADING COMPANIES', logos: [
+      { id: `l-${Date.now()}-1`, imageUrl: '', alt: 'Logo 1' },
+      { id: `l-${Date.now()}-2`, imageUrl: '', alt: 'Logo 2' },
+      { id: `l-${Date.now()}-3`, imageUrl: '', alt: 'Logo 3' },
+      { id: `l-${Date.now()}-4`, imageUrl: '', alt: 'Logo 4' },
+      { id: `l-${Date.now()}-5`, imageUrl: '', alt: 'Logo 5' },
+      { id: `l-${Date.now()}-6`, imageUrl: '', alt: 'Logo 6' },
+    ], columns: 6, grayscale: true, logoHeight: '40px', gap: 'lg', alignment: 'center' } as Block;
     case 'gallery': return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3 } as Block;
     case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
     case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;
@@ -148,7 +178,7 @@ function createDefaultBlock(type: string, order: number): Block {
   }
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain, brandDefaults }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -162,6 +192,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
   const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [postSaveStatus, setPostSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [iframeSaveVersion, setIframeSaveVersion] = useState(0);
@@ -214,6 +245,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
     ogImage: post?.ogImage || '',
     noIndex: post?.noIndex || false,
     canonicalUrl: post?.canonicalUrl || '',
+    customCss: post?.customCss || '',
+    customJs: post?.customJs || '',
   });
 
   // Load available categories & tags for this website
@@ -274,11 +307,11 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
         if (trigger !== 'autosave' && editorMode !== 'iframe') {
           router.push(`/portal/websites/${siteId}`);
         }
-        // Reload iframe to reflect saved content
-        setIframeSaveVersion(v => v + 1);
-        // Only refresh server data on manual save — autosave refresh
-        // causes remount which resets in-progress edits
+        // Only reload iframe + refresh server data on manual/publish save.
+        // Autosave syncs blocks via postMessage — reloading the iframe
+        // resets scroll position and disrupts editing.
         if (trigger !== 'autosave') {
+          setIframeSaveVersion(v => v + 1);
           router.refresh();
         }
       } else {
@@ -494,9 +527,10 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
               <EditorWithPreview
                 onChange={(newBlocks) => setBlocks(newBlocks)}
                 blockTypes={blockTypes}
+                brandDefaults={brandDefaults}
               />
             ) : (
-              <BlockEditor blocks={blocks} onChange={setBlocks} />
+              <BlockEditor blocks={blocks} onChange={setBlocks} brandDefaults={brandDefaults} />
             )}
           </div>
         </div>
@@ -611,6 +645,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
           onPreviewToggle={editorMode === 'iframe' ? () => setPreviewMode(prev => !prev) : undefined}
           onHistoryToggle={editorMode === 'iframe' && mode === 'edit' ? () => setHistoryOpen(prev => !prev) : undefined}
           historyOpen={historyOpen}
+          onCodeToggle={editorMode === 'iframe' && mode === 'edit' ? () => setCodeModalOpen(prev => !prev) : undefined}
+          hasCustomCode={Boolean((formData.customCss && formData.customCss.trim()) || (formData.customJs && formData.customJs.trim()))}
           saveStatus={postSaveStatus}
           extraNavControls={editorMode === 'iframe' && undoRedo ? (
             <div className="flex items-center gap-0.5 ml-1">
@@ -717,10 +753,11 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
                 onAddBlock={(type) => {
-                  const newBlock = createDefaultBlock(type, blocks.length);
+                  let newBlock = createDefaultBlock(type, blocks.length);
+                  if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
                   setBlocks([...blocks, newBlock]);
                 }}
-                onDeleteBlock={(blockId) => setBlocks(blocks.filter(b => b.id !== blockId))}
+                onDeleteBlock={(blockId) => setBlocks(removeBlockById(blocks, blockId))}
                 onUndoRedoChange={setUndoRedo}
                 onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
                 siteId={siteId}
@@ -754,6 +791,21 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   }}
                 />
               )}
+
+              {/* Custom CSS/JS modal */}
+              <CustomCodeModal
+                open={codeModalOpen}
+                initialCss={formData.customCss || ''}
+                initialJs={formData.customJs || ''}
+                onClose={() => setCodeModalOpen(false)}
+                onApply={(css, js) => {
+                  setFormData(prev => ({ ...prev, customCss: css, customJs: js }));
+                  formDataRef.current = { ...formDataRef.current, customCss: css, customJs: js };
+                  // Trigger autosave quickly so iframe refresh picks up the new code
+                  if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+                  autosaveTimer.current = setTimeout(() => { savePost('manual'); }, 100);
+                }}
+              />
             </div>
           ) : (
             layoutContent

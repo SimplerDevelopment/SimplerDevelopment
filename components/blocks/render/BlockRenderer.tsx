@@ -49,6 +49,7 @@ import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
 import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
+import { TeamFlipGridBlockRender } from './TeamFlipGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { SiteFooterBlockRender } from './SiteFooterBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
@@ -95,12 +96,18 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
 
   const rendered = (
     <div className={hasCustomLayout ? 'block-content' : 'block-content'} data-site-id={siteId || undefined}>
-      {blocks.map((block) => {
+      {blocks.map((block, idx) => {
         const isFullWidth = FULL_WIDTH_TYPES.has(block.type);
+        // Fallback key for legacy data where block.id is missing (e.g. older
+        // LLM-authored pitch decks). Write paths now backfill ids, but we
+        // can't trust all on-disk content.
+        const key = block.id ?? `block-${idx}-${block.type}`;
         return (
           <div
-            key={block.id}
+            key={key}
             id={block.anchor || undefined}
+            data-block-id={block.id}
+            data-block-type={block.type}
             className={hasCustomLayout ? '' : isFullWidth ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}
             style={block.anchor ? { scrollMarginTop: '80px' } : undefined}
           >
@@ -122,113 +129,149 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
   return rendered;
 }
 
+// Legacy type aliases from LLM-authored content — normalized before the
+// dispatch switch so the renderers still receive canonical types.
+const TYPE_ALIASES: Record<string, Block['type']> = {
+  'stat-grid': 'stats',
+};
+
 function renderBlock(block: Block, siteId?: number) {
-  switch (block.type) {
+  const canonicalType = TYPE_ALIASES[block.type as string] ?? block.type;
+  const normalized = (canonicalType === block.type ? block : { ...block, type: canonicalType }) as Block;
+  switch (normalized.type) {
     case 'text':
-      return <TextBlockRender block={block} />;
+      return <TextBlockRender block={normalized} />;
     case 'heading':
-      return <HeadingBlockRender block={block} />;
+      return <HeadingBlockRender block={normalized} />;
     case 'image':
-      return <ImageBlockRender block={block} />;
+      return <ImageBlockRender block={normalized} />;
     case 'button':
-      return <ButtonBlockRender block={block} />;
+      return <ButtonBlockRender block={normalized} />;
     case 'spacer':
-      return <SpacerBlockRender block={block} />;
+      return <SpacerBlockRender block={normalized} />;
     case 'divider':
-      return <DividerBlockRender block={block} />;
+      return <DividerBlockRender block={normalized} />;
     case 'quote':
-      return <QuoteBlockRender block={block} />;
+      return <QuoteBlockRender block={normalized} />;
     case 'code':
-      return <CodeBlockRender block={block} />;
+      return <CodeBlockRender block={normalized} />;
     case 'video':
-      return <VideoBlockRender block={block} />;
+      return <VideoBlockRender block={normalized} />;
     case 'youtube':
-      return <YoutubeBlockRender block={block} />;
+      return <YoutubeBlockRender block={normalized} />;
     case 'columns':
-      return <ColumnsBlockRender block={block} />;
+      return <ColumnsBlockRender block={normalized} />;
     case 'tabs':
-      return <TabsBlockRender block={block} />;
+      return <TabsBlockRender block={normalized} />;
     case 'accordion':
-      return <AccordionBlockRender block={block} />;
+      return <AccordionBlockRender block={normalized} />;
     case 'hero':
-      return <HeroBlockRender block={block} />;
+      return <HeroBlockRender block={normalized} />;
     case 'hero-slideshow':
-      return <HeroSlideshowBlockRender block={block} />;
+      return <HeroSlideshowBlockRender block={normalized} />;
     case 'marquee':
-      return <MarqueeBlockRender block={block} />;
+      return <MarqueeBlockRender block={normalized} />;
     case 'services-grid':
-      return <ServicesGridBlockRender block={block} />;
+      return <ServicesGridBlockRender block={normalized} />;
     case 'cta':
-      return <CtaBlockRender block={block} />;
+      return <CtaBlockRender block={normalized} />;
     case 'testimonial':
-      return <TestimonialBlockRender block={block} />;
+      return <TestimonialBlockRender block={normalized} />;
     case 'stats':
-      return <StatsBlockRender block={block} />;
+      return <StatsBlockRender block={normalized} />;
     case 'blog-posts':
-      return <BlogPostsBlockRender block={block} />;
+      return <BlogPostsBlockRender block={normalized} />;
     case 'featured-content':
-      return <FeaturedContentBlockRender block={block} />;
+      return <FeaturedContentBlockRender block={normalized} />;
     case 'card-grid':
-      return <CardGridBlockRender block={block} />;
+      return <CardGridBlockRender block={normalized} />;
     case 'section':
-      return <SectionBlockRender block={block} />;
+      return <SectionBlockRender block={normalized} />;
     case 'gallery':
-      return <GalleryBlockRender block={block} />;
+      return <GalleryBlockRender block={normalized} />;
     case 'palizzi-nav':
-      return <PalizziNavBlockRender block={block} />;
+      return <PalizziNavBlockRender block={normalized} />;
     case 'palizzi-hero':
-      return <PalizziHeroBlockRender block={block} />;
+      return <PalizziHeroBlockRender block={normalized} />;
     case 'palizzi-welcome':
-      return <PalizziWelcomeBlockRender block={block} />;
+      return <PalizziWelcomeBlockRender block={normalized} />;
     case 'palizzi-history':
-      return <PalizziHistoryBlockRender block={block} />;
+      return <PalizziHistoryBlockRender block={normalized} />;
     case 'palizzi-menu':
-      return <PalizziMenuBlockRender block={block} />;
+      return <PalizziMenuBlockRender block={normalized} />;
     case 'palizzi-rules':
-      return <PalizziRulesBlockRender block={block} />;
+      return <PalizziRulesBlockRender block={normalized} />;
     case 'palizzi-membership':
-      return <PalizziMembershipBlockRender block={block} />;
+      return <PalizziMembershipBlockRender block={normalized} />;
     case 'palizzi-footer':
-      return <PalizziFooterBlockRender block={block} />;
+      return <PalizziFooterBlockRender block={normalized} />;
     case 'product-grid':
-      return <ProductGridBlockRender block={block} siteId={siteId} />;
+      return <ProductGridBlockRender block={normalized} siteId={siteId} />;
     case 'featured-products':
-      return <FeaturedProductsBlockRender block={block} siteId={siteId} />;
+      return <FeaturedProductsBlockRender block={normalized} siteId={siteId} />;
     case 'product-categories':
-      return <ProductCategoriesBlockRender block={block} siteId={siteId} />;
+      return <ProductCategoriesBlockRender block={normalized} siteId={siteId} />;
     case 'shopping-cart':
-      return <ShoppingCartBlockRender block={block} siteId={siteId} />;
+      return <ShoppingCartBlockRender block={normalized} siteId={siteId} />;
     case 'store-banner':
-      return <StoreBannerBlockRender block={block} />;
+      return <StoreBannerBlockRender block={normalized} />;
     case 'product-detail':
-      return <ProductDetailBlockRender block={block} siteId={siteId} />;
+      return <ProductDetailBlockRender block={normalized} siteId={siteId} />;
     case 'booking':
-      return <BookingBlockRender block={block} />;
+      return <BookingBlockRender block={normalized} />;
     case 'booking-menu':
-      return <BookingMenuBlockRender block={block} siteId={siteId} />;
+      return <BookingMenuBlockRender block={normalized} siteId={siteId} />;
     case 'survey':
-      return <SurveyBlockRender block={block} />;
+      return <SurveyBlockRender block={normalized} />;
     case 'survey-results':
-      return <SurveyResultsBlockRender block={block} />;
+      return <SurveyResultsBlockRender block={normalized} />;
     case 'social-links':
-      return <SocialLinksBlockRender block={block} />;
+      return <SocialLinksBlockRender block={normalized} />;
     case 'email-header':
-      return <EmailHeaderBlockRender block={block} />;
+      return <EmailHeaderBlockRender block={normalized} />;
     case 'email-footer':
-      return <EmailFooterBlockRender block={block} />;
+      return <EmailFooterBlockRender block={normalized} />;
     case 'timeline':
-      return <TimelineBlockRender block={block} />;
+      return <TimelineBlockRender block={normalized} />;
     case 'team-showcase':
-      return <TeamShowcaseBlockRender block={block} />;
+      return <TeamShowcaseBlockRender block={normalized} />;
+    case 'team-flip-grid':
+      return <TeamFlipGridBlockRender block={normalized} />;
     case 'bento-grid':
-      return <BentoGridBlockRender block={block} />;
+      return <BentoGridBlockRender block={normalized} />;
     case 'site-footer':
-      return <SiteFooterBlockRender block={block} />;
+      return <SiteFooterBlockRender block={normalized} />;
     case 'deck-next-slide':
-      return <DeckNextSlideBlockRender block={block} />;
+      return <DeckNextSlideBlockRender block={normalized} />;
     case 'deck-jump-to':
-      return <DeckJumpToBlockRender block={block} />;
+      return <DeckJumpToBlockRender block={normalized} />;
     default:
-      return null;
+      return <UnknownBlockFallback block={normalized} />;
   }
+}
+
+/**
+ * Rendered when a block has an unrecognized `type`. In development and for
+ * draft content it shows an inline warning so silent drift between the MCP
+ * schema and the renderer is visible. In production-published content we
+ * render nothing (preserves prior behavior — no user-visible breakage).
+ */
+function UnknownBlockFallback({ block }: { block: Block }) {
+  if (process.env.NODE_ENV !== 'development') return null;
+  const keys = Object.keys(block).filter(k => k !== 'type' && k !== 'id' && k !== 'order' && k !== 'style' && k !== 'elementStyles' && k !== 'anchor' && k !== 'responsive');
+  return (
+    <div
+      role="alert"
+      className="my-4 border border-dashed border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-200 rounded-md px-4 py-3 text-sm"
+      data-unknown-block-type={block.type}
+    >
+      <strong className="font-semibold">Unknown block type:</strong> <code className="font-mono">{block.type}</code>
+      {keys.length > 0 && (
+        <span className="opacity-70"> — authored fields: [{keys.join(', ')}]</span>
+      )}
+      <div className="opacity-70 mt-1 text-xs">
+        The renderer has no component registered for this type. Either add a case in <code>BlockRenderer.tsx</code> or update the MCP <code>blocks://schema</code> resource. Warning hidden in production.
+      </div>
+    </div>
+  );
 }
