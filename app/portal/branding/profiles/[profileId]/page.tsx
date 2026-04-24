@@ -360,6 +360,7 @@ export default function BrandingProfileEditorPage() {
         if (data.success) {
           const m = data.data;
           setMessaging(prev => ({
+            ...prev,
             companyName: m.companyName || prev.companyName,
             tagline: m.tagline || prev.tagline,
             missionStatement: m.missionStatement || prev.missionStatement,
@@ -448,7 +449,7 @@ export default function BrandingProfileEditorPage() {
     return profile.bodyFont || '';
   };
 
-  const updateMessaging = (field: string, value: string) => {
+  const updateMessaging = (field: string, value: unknown) => {
     setMessaging(prev => ({ ...prev, [field]: value }));
     setMessagingDirty(true);
   };

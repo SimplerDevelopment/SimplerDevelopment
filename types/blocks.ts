@@ -206,6 +206,8 @@ export interface HeroBlock extends BaseBlock {
   secondaryCtaLink?: string;
   backgroundImage?: string;
   backgroundVideo?: string;
+  /** Optional child blocks rendered at the bottom of the hero (e.g. trust bars, logo strips) */
+  blocks?: Block[];
 }
 
 export interface HeroSlideshowSlide {
@@ -726,6 +728,36 @@ export interface TeamShowcaseBlock extends BaseBlock {
   photoFilter?: string;
 }
 
+export interface TeamFlipMember {
+  id: string;
+  name: string;
+  title: string;
+  bio: string;
+  photo: string;
+  /** Question shown on the back of the card */
+  question: string;
+  /** Answer shown on the back of the card */
+  answer: string;
+}
+
+export interface TeamFlipGridBlock extends BaseBlock {
+  type: 'team-flip-grid';
+  title?: string;
+  subtitle?: string;
+  overline?: string;
+  members: TeamFlipMember[];
+  /** Number of columns (default 4) */
+  columns?: 2 | 3 | 4;
+  /** Background color on the back (flipped) side. Default #0A3A5C */
+  backBgColor?: string;
+  /** Text color on the back. Default #fff */
+  backTextColor?: string;
+  /** Name text color. Default #0A3A5C */
+  nameColor?: string;
+  /** Title text color. Default #1B6FA8 */
+  titleColor?: string;
+}
+
 export interface BentoCard {
   id: string;
   title: string;
@@ -970,6 +1002,7 @@ export type Block =
   | EmailFooterBlock
   | TimelineBlock
   | TeamShowcaseBlock
+  | TeamFlipGridBlock
   | BentoGridBlock
   | FlipCardGridBlock
   | MetricCardsBlock

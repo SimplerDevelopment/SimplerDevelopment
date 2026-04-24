@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MediaPicker from '@/components/admin/MediaPicker';
-import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
+import CrmCustomFieldsPanel, { type CrmCustomFieldsPanelHandle } from '@/components/portal/CrmCustomFieldsPanel';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
 
 interface Company {
@@ -92,7 +92,7 @@ export default function CrmCompanyDetailPage() {
   const [availableTitles, setAvailableTitles] = useState<string[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'contacts' | 'deals'>('contacts');
+  const [activeTab, setActiveTab] = useState<'info' | 'contacts' | 'deals'>('info');
 
   const [showContactForm, setShowContactForm] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
@@ -120,6 +120,7 @@ export default function CrmCompanyDetailPage() {
     notes: '',
   });
 
+  const customFieldsRef = useRef<CrmCustomFieldsPanelHandle>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -191,6 +192,7 @@ export default function CrmCompanyDetailPage() {
 
   function startEditing() {
     if (!company) return;
+    setActiveTab('info');
     setEditForm({
       name: company.name,
       domain: company.domain ?? '',
@@ -232,11 +234,20 @@ export default function CrmCompanyDetailPage() {
       body: JSON.stringify(payload),
     });
     const d = await res.json();
-    setSaving(false);
-    if (d.success) {
-      await fetchCompany();
-      setEditing(false);
+    if (!d.success) {
+      setSaving(false);
+      return;
     }
+    const cfOk = await (customFieldsRef.current?.save() ?? Promise.resolve(true));
+    setSaving(false);
+    if (!cfOk) return;
+    await fetchCompany();
+    setEditing(false);
+  }
+
+  function cancelEdit() {
+    customFieldsRef.current?.reload();
+    setEditing(false);
   }
 
   async function deleteCompany() {
@@ -531,7 +542,7 @@ export default function CrmCompanyDetailPage() {
           <div className="flex gap-2 justify-end">
             <button
               type="button"
-              onClick={() => setEditing(false)}
+              onClick={cancelEdit}
               className="px-4 py-2 border border-border rounded-lg text-sm font-medium text-foreground hover:bg-accent transition-colors"
             >
               Cancel
@@ -548,47 +559,20 @@ export default function CrmCompanyDetailPage() {
         </form>
       )}
 
-      {/* Company Info */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h3 className="font-semibold text-foreground mb-4">Company Information</h3>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="flex items-center gap-3">
-            <span className="material-icons text-base text-muted-foreground">phone</span>
-            <span className="text-sm text-foreground">{company.phone ?? 'No phone'}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="material-icons text-base text-muted-foreground">language</span>
-            {company.website ? (
-              <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                {company.website}
-              </a>
-            ) : (
-              <span className="text-sm text-foreground">No website</span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="material-icons text-base text-muted-foreground">location_on</span>
-            <span className="text-sm text-foreground">{company.address ?? 'No address'}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="material-icons text-base text-muted-foreground">calendar_today</span>
-            <span className="text-sm text-muted-foreground">Added {new Date(company.createdAt).toLocaleDateString()}</span>
-          </div>
-        </div>
-        {company.notes && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
-            <p className="text-sm text-foreground whitespace-pre-wrap">{company.notes}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Custom fields */}
-      <CrmCustomFieldsPanel entityType="company" entityId={Number(companyId)} />
-
-      {/* Tabs: Contacts / Deals */}
+      {/* Tabs: Info / Contacts / Deals */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex border-b border-border">
+          <button
+            onClick={() => setActiveTab('info')}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === 'info'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="material-icons text-base">info</span>
+            Info
+          </button>
           <button
             onClick={() => setActiveTab('contacts')}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -614,6 +598,53 @@ export default function CrmCompanyDetailPage() {
         </div>
 
         <div className="p-6">
+          {activeTab === 'info' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-foreground mb-4">Company Information</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="material-icons text-base text-muted-foreground">phone</span>
+                    <span className="text-sm text-foreground">{company.phone ?? 'No phone'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-icons text-base text-muted-foreground">language</span>
+                    {company.website ? (
+                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                        {company.website}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-foreground">No website</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-icons text-base text-muted-foreground">location_on</span>
+                    <span className="text-sm text-foreground">{company.address ?? 'No address'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="material-icons text-base text-muted-foreground">calendar_today</span>
+                    <span className="text-sm text-muted-foreground">Added {new Date(company.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                {company.notes && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{company.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <CrmCustomFieldsPanel
+                  ref={customFieldsRef}
+                  entityType="company"
+                  entityId={Number(companyId)}
+                  externalMode={editing ? 'edit' : 'view'}
+                />
+              </div>
+            </div>
+          )}
+
           {activeTab === 'contacts' && (() => {
             const totalPages = Math.max(1, Math.ceil(contactTotal / CONTACTS_PAGE_SIZE));
             return (

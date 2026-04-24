@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 type EntityType = 'contact' | 'company' | 'deal';
 type FieldType =
@@ -34,9 +41,17 @@ interface FieldValue {
   required: boolean;
 }
 
+export interface CrmCustomFieldsPanelHandle {
+  save: () => Promise<boolean>;
+  reload: () => Promise<void>;
+}
+
 interface Props {
   entityType: EntityType;
   entityId: number;
+  /** When provided, the panel uses this mode and hides its internal toggle + save buttons. */
+  externalMode?: 'view' | 'edit';
+  ref?: Ref<CrmCustomFieldsPanelHandle>;
 }
 
 const inputClass =
@@ -61,7 +76,12 @@ function formatDate(v: string): string {
   return d.toLocaleDateString();
 }
 
-export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
+export default function CrmCustomFieldsPanel({
+  entityType,
+  entityId,
+  externalMode,
+  ref,
+}: Props) {
   const [defs, setDefs] = useState<FieldDef[]>([]);
   const [values, setValues] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -70,7 +90,9 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [internalMode, setInternalMode] = useState<'view' | 'edit'>('view');
+  const mode = externalMode ?? internalMode;
+  const setMode = setInternalMode;
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -143,10 +165,10 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
       .map(d => d.fieldName);
   }, [defs, values]);
 
-  async function save() {
+  const save = useCallback(async (): Promise<boolean> => {
     if (missingRequired.length > 0) {
       setError(`Required: ${missingRequired.join(', ')}`);
-      return;
+      return false;
     }
     setError('');
     setSaving(true);
@@ -164,12 +186,18 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
     if (d.success) {
       setDirty(false);
       setSaved(true);
-      setMode('view');
+      if (externalMode === undefined) setMode('view');
       setTimeout(() => setSaved(false), 2500);
-    } else {
-      setError(d.message ?? 'Failed to save');
+      return true;
     }
-  }
+    setError(d.message ?? 'Failed to save');
+    return false;
+  }, [defs, entityId, entityType, externalMode, missingRequired, values]);
+
+  useImperativeHandle(ref, () => ({
+    save,
+    reload: load,
+  }), [save, load]);
 
   if (loading) {
     return (
@@ -269,29 +297,30 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Header: mode toggle */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="material-icons text-base">{mode === 'view' ? 'visibility' : 'edit'}</span>
-          {mode === 'view' ? 'View mode' : 'Edit mode'}
+      {/* Header: mode toggle (hidden when externally controlled) */}
+      {externalMode === undefined && (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="material-icons text-base">{mode === 'view' ? 'visibility' : 'edit'}</span>
+            {mode === 'view' ? 'View mode' : 'Edit mode'}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (mode === 'edit' && dirty) {
+                if (!confirm('Discard unsaved changes?')) return;
+                load();
+              }
+              setMode(prev => (prev === 'view' ? 'edit' : 'view'));
+              setError('');
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent transition-colors"
+          >
+            <span className="material-icons text-sm">{mode === 'view' ? 'edit' : 'visibility'}</span>
+            {mode === 'view' ? 'Edit' : 'View'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (mode === 'edit' && dirty) {
-              if (!confirm('Discard unsaved changes?')) return;
-              // Reload values from server to drop edits.
-              load();
-            }
-            setMode(prev => (prev === 'view' ? 'edit' : 'view'));
-            setError('');
-          }}
-          className="flex items-center gap-1.5 px-2.5 py-1 border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent transition-colors"
-        >
-          <span className="material-icons text-sm">{mode === 'view' ? 'edit' : 'visibility'}</span>
-          {mode === 'view' ? 'Edit' : 'View'}
-        </button>
-      </div>
+      )}
 
       {/* Category tabs */}
       {categories.length > 1 && (
@@ -431,7 +460,7 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
         </div>
       )}
 
-      {mode === 'edit' && (
+      {externalMode === undefined && mode === 'edit' && (
         <div className="flex items-center justify-end gap-2">
           {saved && (
             <span className="text-xs text-green-700 flex items-center gap-1">
@@ -441,7 +470,7 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
           )}
           <button
             type="button"
-            onClick={save}
+            onClick={() => { save(); }}
             disabled={!dirty || saving}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
@@ -451,7 +480,7 @@ export default function CrmCustomFieldsPanel({ entityType, entityId }: Props) {
         </div>
       )}
 
-      {mode === 'view' && saved && (
+      {externalMode === undefined && mode === 'view' && saved && (
         <div className="flex items-center justify-end">
           <span className="text-xs text-green-700 flex items-center gap-1">
             <span className="material-icons text-sm">check_circle</span>

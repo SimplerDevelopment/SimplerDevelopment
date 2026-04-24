@@ -13,6 +13,8 @@ import { DecisionSlideRenderer } from '@/components/pitch-deck/DecisionSlideRend
 import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
 import type { SurveySlideField } from '@/components/pitch-deck/SurveySlideRenderer';
 import { isFieldVisible as evalFieldVisible } from '@/lib/survey-logic';
+import { BrandingProvider } from '@/contexts/BrandingContext';
+import type { ResolvedBranding } from '@/lib/branding-types';
 
 /** Survey data passed from the server page */
 export interface SurveyDataForDeck {
@@ -42,6 +44,13 @@ interface Props {
   title: string;
   isDraft?: boolean;
   surveys?: Record<number, SurveyDataForDeck>;
+  /**
+   * Resolved branding for the deck's brandingProfileId (or client default).
+   * Wraps the slide tree in BrandingProvider so blocks that read useBranding()
+   * — Hero gradient, Button/CTA presets, FeaturedContent — pick up the deck's
+   * brand colors, fonts, and typography instead of Tailwind fallbacks.
+   */
+  branding?: ResolvedBranding | null;
 }
 
 /** Expand a slide (possibly a survey marker) into virtual slides */
@@ -91,7 +100,7 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
   return [{ kind: 'block', slide }];
 }
 
-export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {} }: Props) {
+export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {}, branding }: Props) {
   const [current, setCurrent] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const hash = parseInt(window.location.hash.replace('#', ''), 10);
@@ -350,7 +359,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   const fontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600&display=swap`;
 
-  return (
+  const presentation = (
     <>
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -532,4 +541,8 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       `}</style>
     </>
   );
+
+  return branding
+    ? <BrandingProvider branding={branding}>{presentation}</BrandingProvider>
+    : presentation;
 }

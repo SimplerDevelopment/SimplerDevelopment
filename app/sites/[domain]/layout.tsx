@@ -136,6 +136,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
           logoAlt={branding.logoAlt || site.name}
           buttonStyle={branding.buttonStyle}
           headingFont={branding.headingFont || undefined}
+          navTemplate={branding.navTemplate || undefined}
         />
 
         <main className="flex-1">{children}</main>

@@ -16,6 +16,10 @@
  *   --concurrency <n>     Parallel companies (default 4 — be polite)
  *   --max-candidates <n>  Try up to N directory candidates per site (default 2)
  *   --timeout <ms>        Per-request timeout (default 12000)
+ *   --max-existing-contacts <n>
+ *                         Only scrape companies that already have ≤ N contacts
+ *                         in crm_contacts for this client (useful for back-filling
+ *                         thin CSV-imported companies).
  *   --dry-run             Don't insert; print first per-company sample to stdout
  *   --insert              Required to actually write to the DB
  *   --verbose             Per-site detail logging
@@ -49,6 +53,9 @@ const LIMIT = argVal('--limit') ? parseInt(argVal('--limit')!, 10) : undefined;
 const CONCURRENCY = parseInt(argVal('--concurrency', '4')!, 10);
 const MAX_CANDIDATES = parseInt(argVal('--max-candidates', '2')!, 10);
 const TIMEOUT_MS = parseInt(argVal('--timeout', '12000')!, 10);
+const MAX_EXISTING_CONTACTS = argVal('--max-existing-contacts')
+  ? parseInt(argVal('--max-existing-contacts')!, 10)
+  : undefined;
 const OUT_ARG = argVal('--out');
 
 if (!DRY_RUN && !INSERT) {
@@ -143,9 +150,26 @@ async function run() {
       and(isNotNull(crmCompanies.website), ne(crmCompanies.website, '')),
       and(isNotNull(crmCompanies.domain), ne(crmCompanies.domain, '')),
     )));
-  const targets = rows
+  let targets = rows
     .map((r) => { const u = normalizeUrl(r.website) ?? normalizeUrl(r.domain); return u ? { row: r, url: u } : null; })
     .filter((t): t is { row: CompanyRow; url: string } => !!t);
+
+  // Optionally narrow to companies whose existing contact count is ≤ threshold.
+  // Useful for back-filling thin records (e.g. CSV-imported companies with 1 seat).
+  if (MAX_EXISTING_CONTACTS !== undefined) {
+    const { sql } = await import('drizzle-orm');
+    const before = targets.length;
+    const countRows = await db
+      .select({ companyId: crmContacts.companyId, n: sql<number>`count(*)::int` })
+      .from(crmContacts)
+      .where(eq(crmContacts.clientId, clientId))
+      .groupBy(crmContacts.companyId);
+    const countMap = new Map<number, number>();
+    for (const r of countRows) if (r.companyId != null) countMap.set(r.companyId, Number(r.n));
+    targets = targets.filter((t) => (countMap.get(t.row.id) ?? 0) <= MAX_EXISTING_CONTACTS);
+    console.log(`Filtered by --max-existing-contacts=${MAX_EXISTING_CONTACTS}: ${before} → ${targets.length} companies`);
+  }
+
   const pool = LIMIT ? targets.slice(0, LIMIT) : targets;
   console.log(`${pool.length} companies in scope (limit=${LIMIT ?? 'none'}). Scraping with concurrency=${CONCURRENCY}.`);
 

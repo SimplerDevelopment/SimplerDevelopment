@@ -80,6 +80,7 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'product-detail', label: 'Product Detail', icon: 'inventory_2', category: 'eCommerce', description: 'Single product page' },
   { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
   { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
+  { type: 'team-flip-grid', label: 'Team Flip Grid', icon: 'flip', category: 'Components', description: 'Team members with flip-to-reveal Q&A cards' },
 ];
 
 const BLOCK_ICON_MAP: Record<string, string> = {};
@@ -781,9 +782,9 @@ export function VisualEditorShell({
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleLayerDragOver} onDragEnd={handleDragEnd}>
               <SortableContext items={allBlockIds} strategy={noMovementStrategy}>
                 <div className="px-1 py-2">
-                  {blocks.map((block) => (
+                  {blocks.map((block, i) => (
                     <LayerItem
-                      key={block.id}
+                      key={block.id ?? `layer-${i}-${block.type}`}
                       block={block}
                       depth={0}
                       selectedBlockId={selectedBlockId}
@@ -1247,7 +1248,9 @@ function LayerItem({
 }) {
   const sortable = useSortable({ id: block.id, transition: null });
   const style = { opacity: sortable.isDragging ? 0.3 : 1, transition: 'opacity 200ms' } as React.CSSProperties;
-  const isSelected = selectedBlockIds.length > 1 ? selectedBlockIds.includes(block.id) : selectedBlockId === block.id;
+  // Require a truthy block.id before matching — otherwise `undefined ===
+  // undefined` would cause every id-less block to appear selected together.
+  const isSelected = !!block.id && (selectedBlockIds.length > 1 ? selectedBlockIds.includes(block.id) : selectedBlockId === block.id);
   const icon = BLOCK_ICON_MAP[block.type] || 'widgets';
   const [expanded, setExpanded] = useState(true);
   const [renaming, setRenaming] = useState(false);

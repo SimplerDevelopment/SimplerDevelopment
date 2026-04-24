@@ -20,6 +20,8 @@ interface SiteNavClientProps {
     borderRadius?: string;
   };
   headingFont?: string;
+  /** 'classic' (default), 'transparent', 'bold' — 'bold' = logo left, centered uppercase links, pill CTA right */
+  navTemplate?: string;
 }
 
 export function SiteNavClient({
@@ -34,6 +36,7 @@ export function SiteNavClient({
   logoAlt,
   buttonStyle,
   headingFont,
+  navTemplate,
 }: SiteNavClientProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,6 +59,23 @@ export function SiteNavClient({
   const regularItems = navItems.filter(item => !item.isButton);
   const buttonItems = navItems.filter(item => item.isButton);
 
+  // 'bold' template: logo left, centered uppercase links, pill CTA right, larger padding
+  const isBold = navTemplate === 'bold';
+  const linkClass = isBold
+    ? 'text-base font-medium uppercase tracking-[0.06em] transition-colors duration-300'
+    : 'text-sm tracking-wide transition-colors duration-300';
+  const linkColor = isBold ? currentText : `${currentText}b3`;
+  const containerClass = isBold
+    ? 'mx-auto max-w-[1440px] px-10 py-8 flex items-center gap-10'
+    : 'mx-auto max-w-7xl px-6 py-4 flex items-center justify-between';
+  const logoClass = isBold ? 'h-10 w-auto transition-all duration-300' : 'h-10 w-auto transition-all duration-300';
+  const regularGroupClass = isBold
+    ? 'hidden lg:flex flex-1 items-center justify-center gap-10'
+    : 'hidden lg:flex items-center gap-8';
+  const ctaClass = isBold
+    ? 'px-8 py-3 text-base font-bold uppercase tracking-[0.06em] rounded-full transition-colors duration-300 border-2'
+    : 'ml-2 px-5 py-2 text-sm font-medium transition-colors duration-300';
+
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
@@ -65,14 +85,14 @@ export function SiteNavClient({
         ...(showScrolled && isTransparent ? { backdropFilter: 'blur(12px)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' } : {}),
       }}
     >
-      <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+      <div className={containerClass}>
         {/* Logo / Site Name */}
         <Link href="/" className="flex items-center gap-3 group">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={logoAlt}
-              className="h-10 w-auto transition-all duration-300"
+              className={logoClass}
               style={{
                 filter: isTransparent && showScrolled ? 'brightness(0)' : 'none',
               }}
@@ -87,8 +107,8 @@ export function SiteNavClient({
           )}
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden lg:flex items-center gap-8">
+        {/* Desktop nav: regular links */}
+        <div className={regularGroupClass}>
           {regularItems.map((item) => (
             item.children && item.children.length > 0 ? (
               <div
@@ -99,10 +119,10 @@ export function SiteNavClient({
               >
                 <Link
                   href={item.href}
-                  className="text-sm tracking-wide transition-colors duration-300"
-                  style={{ color: `${currentText}b3` }}
+                  className={linkClass}
+                  style={{ color: linkColor }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = primaryColor; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = `${currentText}b3`; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = linkColor; }}
                 >
                   {item.label}
                 </Link>
@@ -137,27 +157,30 @@ export function SiteNavClient({
               <Link
                 key={item.id}
                 href={item.href}
-                className="text-sm tracking-wide transition-colors duration-300"
-                style={{ color: `${currentText}b3` }}
+                className={linkClass}
+                style={{ color: linkColor }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = primaryColor; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = `${currentText}b3`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = linkColor; }}
                 {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               >
                 {item.label}
               </Link>
             )
           ))}
+        </div>
 
-          {/* CTA button items */}
+        {/* CTA button items — right-aligned in bold template */}
+        <div className={isBold ? 'hidden lg:flex items-center' : 'hidden lg:flex items-center'}>
           {buttonItems.map((item) => (
             <Link
               key={item.id}
               href={item.href}
-              className="ml-2 px-5 py-2 text-sm font-medium transition-colors duration-300"
+              className={ctaClass}
               style={{
                 backgroundColor: buttonStyle?.primaryBg || primaryColor,
                 color: buttonStyle?.primaryText || secondaryColor,
-                borderRadius: buttonStyle?.borderRadius || '2px',
+                borderRadius: isBold ? '9999px' : (buttonStyle?.borderRadius || '2px'),
+                borderColor: buttonStyle?.primaryBg || primaryColor,
               }}
               {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
             >

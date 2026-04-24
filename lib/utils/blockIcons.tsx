@@ -113,6 +113,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   // New blocks
   timeline: Layers,
   'team-showcase': Layers,
+  'team-flip-grid': LayoutGrid,
   'bento-grid': LayoutGrid,
   'site-footer': Layers,
   'deck-next-slide': ArrowRight,

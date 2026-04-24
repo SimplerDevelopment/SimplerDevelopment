@@ -130,13 +130,19 @@ function deepCloneBlock(block: Block): Block {
   return clone as Block;
 }
 
-function allBlockIds(blocks: Block[]): string[] {
+function allBlockIds(blocks: Block[] | undefined | null): string[] {
   const ids: string[] = [];
+  if (!Array.isArray(blocks)) return ids;
   for (const b of blocks) {
-    ids.push(b.id);
-    if (b.type === 'columns') b.columns.forEach(c => ids.push(...allBlockIds(c.blocks)));
-    if (b.type === 'tabs') b.tabs.forEach(t => ids.push(...allBlockIds(t.blocks)));
-    if (b.type === 'section') ids.push(...allBlockIds(b.blocks));
+    if (!b || typeof b !== 'object') continue;
+    if (b.id) ids.push(b.id);
+    if (b.type === 'columns' && Array.isArray(b.columns)) {
+      b.columns.forEach(c => { if (Array.isArray(c?.blocks)) ids.push(...allBlockIds(c.blocks)); });
+    }
+    if (b.type === 'tabs' && Array.isArray(b.tabs)) {
+      b.tabs.forEach(t => { if (Array.isArray(t?.blocks)) ids.push(...allBlockIds(t.blocks)); });
+    }
+    if (b.type === 'section' && Array.isArray(b.blocks)) ids.push(...allBlockIds(b.blocks));
   }
   return ids;
 }
@@ -378,18 +384,25 @@ function DraggableBlockList({
               editor.onBlockClicked('');
             }
           }}>
-          {blocks.map((block, i) => (
-            <div key={block.id}>
+          {blocks.map((block, i) => {
+            // Defensive key: legacy/LLM-authored blocks sometimes lack ids.
+            // Write paths backfill, but we can't trust all on-disk content.
+            const reactKey = block.id ?? `block-${i}-${block.type}`;
+            return (
+            <div key={reactKey}>
               {/* External drop indicator before this block */}
               {editor.externalDrag.active && externalDropIndex === i && (
                 <ExternalDropIndicator />
               )}
               {/* Drop zone before this block */}
-              <DropIndicator id={`between:${block.id}:before`} dragging={draggingId !== null} />
+              <DropIndicator id={`between:${block.id ?? reactKey}:before`} dragging={draggingId !== null} />
               <SortableBlock
                 block={block}
-                isSelected={editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id}
-                isHovered={editor.hoveredBlockId === block.id}
+                // Require a truthy block.id — otherwise `undefined === undefined`
+                // would light up every id-less block when another id-less block
+                // is selected (observed on LLM-authored pitch decks).
+                isSelected={!!block.id && (editor.selectedBlockIds?.includes(block.id) || editor.selectedBlockId === block.id)}
+                isHovered={!!block.id && editor.hoveredBlockId === block.id}
                 onClicked={editor.onBlockClicked}
                 onHovered={editor.onBlockHovered}
                 onAddAfter={editor.onAddBlockAfter}
@@ -401,14 +414,15 @@ function DraggableBlockList({
               {/* Drop zone after last block */}
               {i === blocks.length - 1 && (
                 <>
-                  <DropIndicator id={`between:${block.id}:after`} dragging={draggingId !== null} />
+                  <DropIndicator id={`between:${block.id ?? reactKey}:after`} dragging={draggingId !== null} />
                   {editor.externalDrag.active && externalDropIndex === blocks.length && (
                     <ExternalDropIndicator />
                   )}
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
           {/* Empty state: show indicator when no blocks exist */}
           {blocks.length === 0 && editor.externalDrag.active && (
             <ExternalDropIndicator />

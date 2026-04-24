@@ -3,6 +3,7 @@
 import { MetricCardsBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { Icon } from '@/components/ui/Icon';
 
 interface MetricCardsBlockRenderProps {
   block: MetricCardsBlock;
@@ -118,9 +119,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
                     style={{ color: accentColor, ...linkStyle }}
                   >
                     {metric.linkText || 'Case Study'}
-                    <span className="material-icons transition-transform group-hover:translate-x-0.5" style={{ fontSize: '14px' }}>
-                      arrow_forward
-                    </span>
+                    <Icon name="arrow_forward" size={14} className="transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </div>
               )}

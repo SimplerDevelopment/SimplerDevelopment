@@ -16,6 +16,9 @@ export const posts = pgTable('posts', {
   ogImage: varchar('og_image', { length: 500 }),
   noIndex: boolean('no_index').default(false).notNull(),
   canonicalUrl: varchar('canonical_url', { length: 500 }),
+  // Per-post custom CSS/JS — injected at render time, scoped to the page.
+  customCss: text('custom_css'),
+  customJs: text('custom_js'),
   // null = agency website; non-null = client website
   websiteId: integer('website_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -321,6 +324,7 @@ export const ticketMessages = pgTable('ticket_messages', {
   authorId: integer('author_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   body: text('body').notNull(),
   isInternal: boolean('is_internal').default(false).notNull(), // staff-only notes hidden from client
+  attachments: json('attachments').$type<{ url: string; filename: string; mimeType: string; fileSize: number }[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -536,6 +540,17 @@ export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
   blockerCardId: integer('blocker_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({ pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }) }));
+
+export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project
+  artifactId: integer('artifact_id').notNull(),
+  displayTitle: varchar('display_title', { length: 255 }).notNull(),
+  pinned: boolean('pinned').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 export const projectWebhooks = pgTable('project_webhooks', {
   id: serial('id').primaryKey(),
@@ -1911,7 +1926,6 @@ export const crmContacts = pgTable('crm_contacts', {
   lastContactedAt: timestamp('last_contacted_at'),
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
   score: integer('score').default(0).notNull(),
-  linkedinUrl: varchar('linkedin_url', { length: 500 }),
   seniority: varchar('seniority', { length: 100 }),
   department: varchar('department', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -2455,7 +2469,6 @@ export const crmCustomFields = pgTable('crm_custom_fields', {
   filterable: boolean('filterable').default(false).notNull(), // shown as a filter dropdown on list pages
   category: varchar('category', { length: 100 }), // groups fields into tabs in the record view (null → "General")
   sortOrder: integer('sort_order').default(0).notNull(),
-  category: varchar('category', { length: 100 }), // free-text grouping label, e.g. 'Tech', 'Location'; null/empty => "General"
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

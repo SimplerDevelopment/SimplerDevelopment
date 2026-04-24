@@ -6,6 +6,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
+import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
 import type { SurveyDataForDeck } from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
@@ -133,7 +134,10 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     const theme = (deck.theme || {}) as PitchDeckTheme;
     const slides = resolveSlides(deck.slides, theme);
     const surveyData = await fetchSurveyData(slides);
-    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} />;
+    const branding = deck.brandingProfileId
+      ? await getBrandingByProfileId(deck.brandingProfileId)
+      : await getBrandingByClientId(deck.clientId);
+    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} branding={branding} />;
   }
 
   // Non-preview: the main-app host never renders published decks — it

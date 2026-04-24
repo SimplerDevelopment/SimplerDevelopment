@@ -101,7 +101,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       );
     }
 
-    return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} />;
+    return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} customCss={homePage.customCss} customJs={homePage.customJs} />;
   }
 
   // Shop listing
@@ -187,7 +187,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
             </time>
           )}
         </header>
-        <SiteBlockRenderer content={post.content} siteId={site.id} branding={branding} />
+        <SiteBlockRenderer content={post.content} siteId={site.id} branding={branding} customCss={post.customCss} customJs={post.customJs} />
       </article>
     );
   }
@@ -201,7 +201,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   return (
     <div>
-      <SiteBlockRenderer content={page.content} siteId={site.id} branding={branding} />
+      <SiteBlockRenderer content={page.content} siteId={site.id} branding={branding} customCss={page.customCss} customJs={page.customJs} />
     </div>
   );
 }

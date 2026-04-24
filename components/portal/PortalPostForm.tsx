@@ -9,6 +9,7 @@ import { Block, BlockEditorData } from '@/types/blocks';
 import { Breakpoint } from '@/types/responsive';
 import { PostEditorLayout } from '@/components/admin/PostEditorLayout';
 import RevisionHistory from '@/components/portal/RevisionHistory';
+import { CustomCodeModal } from '@/components/portal/CustomCodeModal';
 import { ViewportSelector } from '@/components/blocks/ViewportSelector';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
@@ -35,6 +36,8 @@ interface Post {
   ogImage?: string;
   noIndex?: boolean;
   canonicalUrl?: string;
+  customCss?: string;
+  customJs?: string;
 }
 
 interface TaxonomyItem {
@@ -189,6 +192,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
   const [undoRedo, setUndoRedo] = useState<{ sendUndo: () => void; sendRedo: () => void; canUndo: boolean; canRedo: boolean } | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
   const [postSaveStatus, setPostSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [iframeSaveVersion, setIframeSaveVersion] = useState(0);
@@ -241,6 +245,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
     ogImage: post?.ogImage || '',
     noIndex: post?.noIndex || false,
     canonicalUrl: post?.canonicalUrl || '',
+    customCss: post?.customCss || '',
+    customJs: post?.customJs || '',
   });
 
   // Load available categories & tags for this website
@@ -639,6 +645,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
           onPreviewToggle={editorMode === 'iframe' ? () => setPreviewMode(prev => !prev) : undefined}
           onHistoryToggle={editorMode === 'iframe' && mode === 'edit' ? () => setHistoryOpen(prev => !prev) : undefined}
           historyOpen={historyOpen}
+          onCodeToggle={editorMode === 'iframe' && mode === 'edit' ? () => setCodeModalOpen(prev => !prev) : undefined}
+          hasCustomCode={Boolean((formData.customCss && formData.customCss.trim()) || (formData.customJs && formData.customJs.trim()))}
           saveStatus={postSaveStatus}
           extraNavControls={editorMode === 'iframe' && undoRedo ? (
             <div className="flex items-center gap-0.5 ml-1">
@@ -783,6 +791,21 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   }}
                 />
               )}
+
+              {/* Custom CSS/JS modal */}
+              <CustomCodeModal
+                open={codeModalOpen}
+                initialCss={formData.customCss || ''}
+                initialJs={formData.customJs || ''}
+                onClose={() => setCodeModalOpen(false)}
+                onApply={(css, js) => {
+                  setFormData(prev => ({ ...prev, customCss: css, customJs: js }));
+                  formDataRef.current = { ...formDataRef.current, customCss: css, customJs: js };
+                  // Trigger autosave quickly so iframe refresh picks up the new code
+                  if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+                  autosaveTimer.current = setTimeout(() => { savePost('manual'); }, 100);
+                }}
+              />
             </div>
           ) : (
             layoutContent

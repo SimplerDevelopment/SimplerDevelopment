@@ -54,12 +54,19 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
         />
 
         <div className="space-y-0">
-          {(block.steps || []).map((step, i) => {
+          {(block.steps || []).map((rawStep, i) => {
+            // Alias support — LLM-authored decks often emit { label, body }
+            // instead of { title, description } and omit ids. Canonical
+            // fields win; fall back to aliases and backfill a stable key.
+            const step = rawStep as typeof rawStep & { label?: string; body?: string };
+            const stepTitle = step.title ?? step.label ?? '';
+            const stepDescription = step.description ?? step.body ?? '';
+            const stepKey = step.id ?? `step-${i}`;
             const isRight = layout === 'alternating' ? i % 2 === 1 : false;
             const num = step.number || String(i + 1).padStart(2, '0');
 
             return (
-              <div key={step.id} className="relative py-12 lg:py-16">
+              <div key={stepKey} className="relative py-12 lg:py-16">
                 {/* Large ghost number */}
                 <div
                   className={`hidden lg:block absolute top-6 font-serif text-7xl lg:text-8xl leading-none select-none ${
@@ -98,12 +105,12 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
                   <h3
                     className="text-2xl mb-3"
                     style={getElementCSS(block.elementStyles, 'stepTitle')}
-                    dangerouslySetInnerHTML={{ __html: step.title }}
+                    dangerouslySetInnerHTML={{ __html: stepTitle }}
                   />
                   <p
                     className="text-sm leading-relaxed"
                     style={getElementCSS(block.elementStyles, 'stepDescription')}
-                    dangerouslySetInnerHTML={{ __html: step.description }}
+                    dangerouslySetInnerHTML={{ __html: stepDescription }}
                   />
                 </div>
               </div>

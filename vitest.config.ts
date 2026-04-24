@@ -33,7 +33,6 @@ export default defineConfig({
         'app/**/not-found.tsx',
         'app/**/error.tsx',
       ],
-      all: true,
       thresholds: {
         lines: 0,
         functions: 0,
@@ -76,7 +75,6 @@ export default defineConfig({
           //   global-setup drops orphans from crashed runs at startup.
           //   scripts/cleanup-test-schemas.ts sweeps manually.
           maxWorkers: 2,
-          minWorkers: 1,
           hookTimeout: 120_000,
           testTimeout: 15_000,
         },

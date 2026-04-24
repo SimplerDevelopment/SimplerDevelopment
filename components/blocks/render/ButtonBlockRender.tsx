@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { useBranding } from '@/contexts/BrandingContext';
 import { findPreset, presetToStyle } from '@/lib/branding/button-presets';
+import { Icon } from '@/components/ui/Icon';
 
 interface ButtonBlockRenderProps {
   block: ButtonBlock;
@@ -152,7 +153,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
   }
 
   const iconEl = block.icon ? (
-    <span className="btn-icon material-icons" aria-hidden="true">{block.icon}</span>
+    <Icon name={block.icon} className="btn-icon" />
   ) : null;
 
   const iconPos = block.iconPosition || 'left';

@@ -61,6 +61,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'email-footer': 'Email Footer',
   timeline: 'Timeline',
   'team-showcase': 'Team Showcase',
+  'team-flip-grid': 'Team Flip Grid',
   'bento-grid': 'Bento Grid',
   'site-footer': 'Site Footer',
   'deck-next-slide': 'Next Slide',

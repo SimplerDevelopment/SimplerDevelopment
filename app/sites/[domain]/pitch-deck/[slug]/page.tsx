@@ -5,6 +5,7 @@ import { surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
+import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -78,5 +79,12 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
   const slides = resolveSlides(deck.slides);
   const surveyData = await fetchSurveyData(slides);
 
-  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} />;
+  // Prefer the deck's explicitly assigned branding profile, then fall back to
+  // the client's default profile. Without this, Hero / Button / CTA blocks that
+  // read useBranding() fall through to Tailwind defaults on the live deck.
+  const branding = deck.brandingProfileId
+    ? await getBrandingByProfileId(deck.brandingProfileId)
+    : await getBrandingByClientId(deck.clientId);
+
+  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
 }

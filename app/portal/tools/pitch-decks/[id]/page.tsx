@@ -58,6 +58,46 @@ function isColorDark(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
 
+// Older AI-generated decks wrote block payloads without `id` fields. The
+// visual editor selects blocks by id, so id-less blocks are unclickable and
+// dnd-kit logs sortable-id warnings. Walk the block tree on load and assign
+// stable ids to anything missing one.
+function backfillBlockIds<T extends { id?: string; type?: string }>(blocks: T[] | undefined, seedPath = 'b'): T[] {
+  if (!Array.isArray(blocks)) return [];
+  return blocks.map((b, i) => {
+    const next: Record<string, unknown> = { ...b };
+    if (!next.id) next.id = `${seedPath}-${i}-${Math.random().toString(36).slice(2, 8)}`;
+    const nodeId = String(next.id);
+    if (Array.isArray((next as { columns?: unknown }).columns)) {
+      next.columns = ((next as { columns: Array<{ blocks?: unknown[] }> }).columns).map((c, ci) => ({
+        ...c,
+        blocks: backfillBlockIds((c.blocks as T[]) ?? [], `${nodeId}-c${ci}`),
+      }));
+    }
+    if (Array.isArray((next as { tabs?: unknown }).tabs)) {
+      next.tabs = ((next as { tabs: Array<{ blocks?: unknown[] }> }).tabs).map((t, ti) => ({
+        ...t,
+        blocks: backfillBlockIds((t.blocks as T[]) ?? [], `${nodeId}-t${ti}`),
+      }));
+    }
+    if (next.type === 'section' && Array.isArray((next as { blocks?: unknown }).blocks)) {
+      next.blocks = backfillBlockIds((next as { blocks: T[] }).blocks, `${nodeId}-s`);
+    }
+    return next as T;
+  });
+}
+
+function normalizeDeckBlockIds<D extends { slides?: Array<{ blocks?: unknown[] }> }>(deck: D): D {
+  if (!deck?.slides) return deck;
+  return {
+    ...deck,
+    slides: deck.slides.map((s, si) => ({
+      ...s,
+      blocks: backfillBlockIds((s.blocks as Array<{ id?: string; type?: string }>) ?? [], `slide${si}`),
+    })),
+  } as D;
+}
+
 
 /** Extract a display title from a slide's blocks */
 function getSlideTitle(slide: PitchDeckSlideV2): string {
@@ -422,7 +462,7 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
         return;
       }
       const data = await res.json();
-      if (data.success) setDeck(data.data);
+      if (data.success) setDeck(normalizeDeckBlockIds(data.data));
       else setError(data.message || 'Failed to load deck');
     } catch {
       setError('Failed to connect to server. Please refresh the page.');
@@ -472,7 +512,7 @@ useEffect(() => {
     const data = await res.json();
     setSlideGenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setSlidePrompt('');
       setHasUnsavedChanges(false);
       // Append to conversation history for multi-turn refinement
@@ -505,7 +545,7 @@ useEffect(() => {
     const data = await res.json();
     setBatchGenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setBatchPrompt('');
       setSelectedSlides(new Set());
       setHasUnsavedChanges(false);
@@ -537,7 +577,7 @@ useEffect(() => {
     const data = await res.json();
     setRegenerating(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setRegeneratePrompt('');
       setShowRegenerate(false);
       setActiveSlide(0);
@@ -587,7 +627,7 @@ useEffect(() => {
       body: JSON.stringify({ status: newStatus }),
     });
     const data = await res.json();
-    if (data.success) setDeck(data.data);
+    if (data.success) setDeck(normalizeDeckBlockIds(data.data));
     setPublishing(false);
   }
 
@@ -771,7 +811,7 @@ useEffect(() => {
     const data = await res.json();
     setRestoring(false);
     if (data.success) {
-      setDeck(data.data);
+      setDeck(normalizeDeckBlockIds(data.data));
       setActiveSlide(0);
       setShowHistory(false);
       loadVersions();

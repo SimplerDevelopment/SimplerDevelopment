@@ -93,6 +93,8 @@ export default async function PortalEditPostPage({
         ogImage: post.ogImage || '',
         noIndex: post.noIndex,
         canonicalUrl: post.canonicalUrl || '',
+        customCss: post.customCss || '',
+        customJs: post.customJs || '',
         categoryIds: cats.map(c => c.categoryId),
         tagIds: tgs.map(t => t.tagId),
       }}

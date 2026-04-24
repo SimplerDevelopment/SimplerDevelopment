@@ -26,11 +26,13 @@ import {
   emailLists,
   emailCampaigns,
   pitchDecks,
+  brandingProfiles,
 } from '@/lib/db/schema';
 import { logCardActivity } from '@/lib/pm-activity';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
+import { hasServiceAccess } from '@/lib/portal-auth';
 import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from './blocks-schema';
 import { registerBrandingToolsOnSdk } from '@/lib/branding/mcp-sdk-adapter';
 import { registerStoreToolsOnSdk } from '@/lib/storefront/mcp-sdk-adapter';
@@ -50,7 +52,8 @@ import {
   invoices, invoiceItems,
   serviceRequests, suggestedProjectRequests, suggestedProjects, services,
   aiConversations, aiMessages,
-  kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles,
+  kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardArtifacts,
+  crmDealArtifacts,
   siteNavigation, postRevisions, blockTemplates,
   emailTemplates, emailSegments,
   giftCertificates,
@@ -92,8 +95,90 @@ function denied(scope: string) {
   };
 }
 
+/**
+ * `db.execute(sql\`...\`)` returns different shapes across Drizzle adapters:
+ * node-postgres yields a QueryResult with a `.rows` array, while some others
+ * return the array directly. Normalize so callers can treat both uniformly.
+ */
+function extractRows<T = Record<string, unknown>>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+  if (result && typeof result === 'object' && Array.isArray((result as { rows?: unknown }).rows)) {
+    return (result as { rows: T[] }).rows;
+  }
+  return [];
+}
+
+/**
+ * Surface the actual Postgres error message (code 42703 "column does not
+ * exist" and friends) in the MCP tool envelope. Drizzle wraps pg errors in
+ * DrizzleQueryError whose `.message` is the rendered SQL + params; the real
+ * server message lives on `.cause.message`. Returning only the SQL string
+ * hides the root cause and makes schema drift look like an opaque failure.
+ */
+function dbErrorEnvelope(err: unknown, tool: string) {
+  const e = err as {
+    message?: string;
+    cause?: { message?: string; code?: string; detail?: string };
+  };
+  const payload = {
+    error: `${tool} failed`,
+    pgMessage: e.cause?.message,
+    pgCode: e.cause?.code,
+    pgDetail: e.cause?.detail,
+    drizzleMessage: e.message,
+  };
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
+    isError: true,
+  };
+}
+
 function requireScope(ctx: PortalMcpContext, scope: string) {
   return hasScope(ctx.scopes, scope);
+}
+
+/**
+ * Return the HTTP-routes' "subscription required" error in the MCP tool
+ * envelope. Used to gate MCP write tools behind the same service-access
+ * rules that `authorizePortal({ requireService })` enforces on the REST
+ * surface — prevents the MCP from writing rows the portal UI can't read.
+ */
+function serviceDenied(category: string) {
+  return {
+    content: [{ type: 'text' as const, text: `This feature requires an active ${category} subscription for the authenticated client.` }],
+    isError: true,
+  };
+}
+
+async function requireService(clientId: number, category: string) {
+  return hasServiceAccess(clientId, category);
+}
+
+/**
+ * Ensure every block (and nested child blocks) has a stable string `id`.
+ * BlockRenderer keys off `block.id` — missing ids trigger React's "unique key"
+ * warning and break selection/drag in the visual editor. LLM-authored blocks
+ * routinely omit ids; we backfill them here.
+ */
+function assignBlockIds(blocks: unknown[]): unknown[] {
+  if (!Array.isArray(blocks)) return blocks as unknown[];
+  const seen = new Set<string>();
+  return blocks.map((b, idx) => {
+    if (!b || typeof b !== 'object') return b;
+    const block = b as Record<string, unknown>;
+    let id = typeof block.id === 'string' && block.id.trim() ? block.id : '';
+    if (!id || seen.has(id)) {
+      id = `block-${Date.now().toString(36)}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    seen.add(id);
+    const out: Record<string, unknown> = { ...block, id };
+    // Recurse into common child-block containers so columns / card-grid / etc.
+    // also get ids on their children.
+    for (const key of ['blocks', 'items', 'cards', 'columns', 'children']) {
+      if (Array.isArray(out[key])) out[key] = assignBlockIds(out[key] as unknown[]);
+    }
+    return out;
+  });
 }
 
 /**
@@ -284,14 +369,15 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     'kanban_create_card',
     {
       title: 'Create kanban card',
-      description: 'Add a card to a kanban column.',
+      description: 'Add a card to a kanban column. Pass sprintId to assign the card to a sprint at creation time; omit or pass null to leave it in the sprint dock.',
       inputSchema: {
-        projectId: z.number(),
-        columnId: z.number(),
+        projectId: z.coerce.number(),
+        columnId: z.coerce.number(),
         title: z.string().min(1),
         description: z.string().optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         dueDate: z.string().optional(),
+        sprintId: z.coerce.number().nullable().optional().describe('Assign the card to a sprint on create. Must belong to the same project.'),
       },
     },
     async (args) => {
@@ -299,6 +385,13 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, args.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Project not found' });
+      if (args.sprintId != null) {
+        const [sprint] = await db.select({ projectId: sprints.projectId })
+          .from(sprints).where(eq(sprints.id, args.sprintId)).limit(1);
+        if (!sprint || sprint.projectId !== args.projectId) {
+          return json({ error: 'Sprint not found in this project' });
+        }
+      }
       const [row] = await db.insert(kanbanCards).values({
         projectId: args.projectId,
         columnId: args.columnId,
@@ -306,6 +399,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         description: args.description ?? null,
         priority: args.priority ?? 'medium',
         dueDate: args.dueDate ? new Date(args.dueDate) : null,
+        sprintId: args.sprintId ?? null,
         createdBy: ctx.userId,
       }).returning();
       revalidateForWrite('portal');
@@ -319,9 +413,9 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       title: 'Move kanban card',
       description: 'Move a card to a different column and/or position.',
       inputSchema: {
-        cardId: z.number(),
-        columnId: z.number(),
-        order: z.number().optional(),
+        cardId: z.coerce.number(),
+        columnId: z.coerce.number(),
+        order: z.coerce.number().optional(),
       },
     },
     async ({ cardId, columnId, order }) => {
@@ -347,13 +441,13 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       title: 'Update kanban card',
       description: 'Update card fields (title, description, priority, due date, assignee, sprint). Use kanban_move_card to change column/order. Pass sprintId=null to send the card back to the sprint dock.',
       inputSchema: {
-        id: z.number(),
+        id: z.coerce.number(),
         title: z.string().min(1).optional(),
         description: z.string().nullable().optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         dueDate: z.string().nullable().optional().describe('ISO date, or null to clear.'),
-        assignedTo: z.number().nullable().optional(),
-        sprintId: z.number().nullable().optional().describe('Assign the card to a sprint; null removes the assignment.'),
+        assignedTo: z.coerce.number().nullable().optional(),
+        sprintId: z.coerce.number().nullable().optional().describe('Assign the card to a sprint; null removes the assignment.'),
       },
     },
     async ({ id, dueDate, sprintId, assignedTo, ...rest }) => {
@@ -615,6 +709,57 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
+  hasScope(ctx.scopes, 'tickets:write') && server.registerTool(
+    'tickets_attach_file_from_url',
+    {
+      title: 'Reply to ticket with a file attachment',
+      description:
+        'Download a remote file (http/https, 25 MB cap), upload it to S3, and post a new ticket message with the file attached. Optionally include a body.',
+      inputSchema: {
+        ticketId: z.number(),
+        url: z.string().url(),
+        body: z.string().optional().describe('Message body to accompany the file; defaults to a note referencing the filename.'),
+        filename: z.string().optional().describe('Override; defaults to URL basename.'),
+      },
+    },
+    async ({ ticketId, url, body, filename }) => {
+      if (!requireScope(ctx, 'tickets:write')) return denied('tickets:write');
+      const [ticket] = await db.select({ id: supportTickets.id }).from(supportTickets)
+        .where(and(eq(supportTickets.id, ticketId), eq(supportTickets.clientId, clientId))).limit(1);
+      if (!ticket) return json({ error: 'Ticket not found' });
+
+      let resp: Response;
+      try {
+        resp = await fetch(url);
+      } catch (err) {
+        return json({ error: `Fetch failed: ${(err as Error).message}` });
+      }
+      if (!resp.ok) return json({ error: `Fetch returned ${resp.status}` });
+      const buf = Buffer.from(await resp.arrayBuffer());
+      const MAX_BYTES = 25 * 1024 * 1024;
+      if (buf.length > MAX_BYTES) return json({ error: `File too large (${buf.length} bytes).` });
+      const mimeType = resp.headers.get('content-type')?.split(';')[0]?.trim() || 'application/octet-stream';
+      const derivedName = filename
+        ?? decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || 'upload');
+      const uploaded = await uploadToS3(buf, derivedName, mimeType);
+
+      const [msg] = await db.insert(ticketMessages).values({
+        ticketId,
+        authorId: ctx.userId,
+        body: body || `Attached: ${derivedName}`,
+        attachments: [{
+          url: uploaded.url,
+          filename: derivedName,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+        }],
+      }).returning();
+      await db.update(supportTickets).set({ updatedAt: new Date() }).where(eq(supportTickets.id, ticketId));
+      revalidateForWrite('portal');
+      return json(msg);
+    }
+  );
+
   // ── CRM ────────────────────────────────────────────────────────────────
   hasScope(ctx.scopes, 'crm:read') && server.registerTool(
     'crm_contacts_search',
@@ -629,20 +774,31 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ query, status, limit = 50 }) => {
       if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
-      const conds = [eq(crmContacts.clientId, clientId)];
-      if (status) conds.push(eq(crmContacts.status, status));
-      if (query) {
-        const q = `%${query}%`;
-        const fuzzy = or(
-          ilike(crmContacts.firstName, q),
-          ilike(crmContacts.lastName, q),
-          ilike(crmContacts.email, q)
-        );
-        if (fuzzy) conds.push(fuzzy);
+      // Raw `SELECT *` so Postgres returns whatever columns actually exist on
+      // the live table — avoids Drizzle expanding the SELECT list to every
+      // column declared in the TS schema, which has previously drifted ahead
+      // of the DB and broken this handler (pg 42703). Filters compose safely
+      // via Drizzle's sql`` template (parameterized).
+      const q = query ? `%${query}%` : null;
+      const statusFilter = status ? sql`AND status = ${status}` : sql``;
+      const searchFilter = q
+        ? sql`AND (first_name ILIKE ${q} OR last_name ILIKE ${q} OR email ILIKE ${q})`
+        : sql``;
+      try {
+        const result = await db.execute<Record<string, unknown>>(sql`
+          SELECT *
+          FROM crm_contacts
+          WHERE client_id = ${clientId}
+            ${statusFilter}
+            ${searchFilter}
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `);
+        const rows = extractRows(result);
+        return json(rows);
+      } catch (err) {
+        return dbErrorEnvelope(err, 'crm_contacts_search');
       }
-      const rows = await db.select().from(crmContacts).where(and(...conds))
-        .orderBy(desc(crmContacts.createdAt)).limit(limit);
-      return json(rows);
     }
   );
 
@@ -727,15 +883,26 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ query, limit = 50 }) => {
       if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
-      const conds = [eq(crmCompanies.clientId, clientId)];
-      if (query) {
-        const q = `%${query}%`;
-        const fuzzy = or(ilike(crmCompanies.name, q), ilike(crmCompanies.domain, q));
-        if (fuzzy) conds.push(fuzzy);
+      // See crm_contacts_search for rationale: raw SELECT * insulates this
+      // handler from TS/DB column drift and lets pg return exactly what exists.
+      const q = query ? `%${query}%` : null;
+      const searchFilter = q
+        ? sql`AND (name ILIKE ${q} OR domain ILIKE ${q})`
+        : sql``;
+      try {
+        const result = await db.execute<Record<string, unknown>>(sql`
+          SELECT *
+          FROM crm_companies
+          WHERE client_id = ${clientId}
+            ${searchFilter}
+          ORDER BY created_at DESC
+          LIMIT ${limit}
+        `);
+        const rows = extractRows(result);
+        return json(rows);
+      } catch (err) {
+        return dbErrorEnvelope(err, 'crm_companies_search');
       }
-      const rows = await db.select().from(crmCompanies).where(and(...conds))
-        .orderBy(desc(crmCompanies.createdAt)).limit(limit);
-      return json(rows);
     }
   );
 
@@ -915,6 +1082,117 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       }
       const [row] = await db.update(crmDeals).set(patch)
         .where(eq(crmDeals.id, id)).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  // ── CRM DEAL ARTIFACTS ─────────────────────────────────────────────────
+  const DEAL_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
+    website: { table: clientWebsites, titleField: 'name' },
+    email_campaign: { table: emailCampaigns, titleField: 'name' },
+    pitch_deck: { table: pitchDecks, titleField: 'title' },
+    proposal: { table: crmProposals, titleField: 'title' },
+    booking: { table: bookingPages, titleField: 'title' },
+    survey: { table: surveys, titleField: 'title' },
+    project: { table: projects, titleField: 'name' },
+  };
+
+  const ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project']);
+
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
+    'crm_deal_artifacts_list',
+    {
+      title: 'List artifacts linked to a deal',
+      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project) linked to a CRM deal.',
+      inputSchema: { dealId: z.number() },
+    },
+    async ({ dealId }) => {
+      if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+      const rows = await db.select().from(crmDealArtifacts)
+        .where(eq(crmDealArtifacts.dealId, dealId))
+        .orderBy(desc(crmDealArtifacts.pinned), desc(crmDealArtifacts.createdAt));
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deal_artifact_link',
+    {
+      title: 'Link an artifact to a deal',
+      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, or project to a CRM deal. The artifact must belong to this client.',
+      inputSchema: {
+        dealId: z.number(),
+        artifactType: ARTIFACT_TYPE_ENUM,
+        artifactId: z.number(),
+        pinned: z.boolean().optional(),
+      },
+    },
+    async ({ dealId, artifactType, artifactId, pinned }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+
+      const config = DEAL_ARTIFACT_TABLES[artifactType];
+      const [source] = await db.select({ title: config.table[config.titleField] })
+        .from(config.table)
+        .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, clientId)));
+      if (!source) return json({ error: 'Artifact not found or not owned by this client' });
+
+      const [row] = await db.insert(crmDealArtifacts).values({
+        dealId,
+        artifactType,
+        artifactId,
+        displayTitle: source.title || 'Untitled',
+        pinned: pinned ?? false,
+        createdBy: ctx.userId,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deal_artifact_toggle_pin',
+    {
+      title: 'Pin or unpin a deal artifact',
+      description: 'Update the pinned flag on a linked deal artifact.',
+      inputSchema: { dealId: z.number(), artifactDbId: z.number(), pinned: z.boolean() },
+    },
+    async ({ dealId, artifactDbId, pinned }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+      const [row] = await db.update(crmDealArtifacts).set({ pinned })
+        .where(and(eq(crmDealArtifacts.id, artifactDbId), eq(crmDealArtifacts.dealId, dealId)))
+        .returning();
+      if (!row) return json({ error: 'Artifact link not found' });
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deal_artifact_unlink',
+    {
+      title: 'Unlink an artifact from a deal',
+      description: 'Remove an artifact link from a deal. Deletes the link row; the underlying artifact is not touched.',
+      inputSchema: { dealId: z.number(), artifactDbId: z.number() },
+    },
+    async ({ dealId, artifactDbId }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+      const [row] = await db.delete(crmDealArtifacts)
+        .where(and(eq(crmDealArtifacts.id, artifactDbId), eq(crmDealArtifacts.dealId, dealId)))
+        .returning();
+      if (!row) return json({ error: 'Artifact link not found' });
       revalidateForWrite('portal');
       return json(row);
     }
@@ -1410,6 +1688,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [list] = await db.select({ id: emailLists.id }).from(emailLists)
         .where(and(eq(emailLists.id, args.listId), eq(emailLists.clientId, clientId))).limit(1);
       if (!list) return json({ error: 'List not found' });
@@ -1464,6 +1743,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, dryRun }) => {
       if (!requireScope(ctx, 'email:send')) return denied('email:send');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [campaign] = await db.select().from(emailCampaigns)
         .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).limit(1);
       if (!campaign) return json({ error: 'Campaign not found' });
@@ -1524,6 +1804,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ name, description }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [row] = await db.insert(emailLists).values({
         clientId,
         name: name.trim(),
@@ -1548,6 +1829,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, name, description }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [existing] = await db.select({ id: emailLists.id }).from(emailLists)
         .where(and(eq(emailLists.id, id), eq(emailLists.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'List not found' });
@@ -1570,6 +1852,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [existing] = await db.select({ id: emailLists.id }).from(emailLists)
         .where(and(eq(emailLists.id, id), eq(emailLists.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'List not found' });
@@ -1632,6 +1915,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ listId, email, name, metadata, status }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [list] = await db.select({ id: emailLists.id }).from(emailLists)
         .where(and(eq(emailLists.id, listId), eq(emailLists.clientId, clientId))).limit(1);
       if (!list) return json({ error: 'List not found' });
@@ -1677,6 +1961,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, name, status, metadata }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [sub] = await db
         .select({ id: emailSubscribers.id, listId: emailSubscribers.listId, status: emailSubscribers.status })
         .from(emailSubscribers)
@@ -1711,6 +1996,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, hardDelete }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [sub] = await db
         .select({ id: emailSubscribers.id })
         .from(emailSubscribers)
@@ -1787,12 +2073,12 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Create pitch deck / presentation',
       description:
-        'Create a new pitch deck (presentation, slideshow, sales deck, proposal). Starts empty — use decks_replace_slides or decks_add_slide to add content.',
+        'Create a new pitch deck (presentation, slideshow, sales deck, proposal). Starts empty — immediately follow with decks_replace_slides (preferred: one round-trip with all slides) or decks_add_slide. The deck inherits the client\'s default branding profile automatically; do NOT pass `theme` unless the user explicitly wants to override brand colors. When authoring slides, READ blocks://schema first — it documents block `style` / `elementStyles` fields, per-slide `customCss`, and includes a styled-slide example. Unstyled `text`+`heading` blocks will look bare; always add an eyebrow + styled heading + body pattern, and fully populate Hero blocks (title + subtitle + description + CTA).',
       inputSchema: {
         title: z.string().min(1),
         description: z.string().optional(),
         sourceUrl: z.string().url().optional().describe('Optional reference site used for branding inspiration.'),
-        brandingProfileId: z.number().optional().describe('Optional branding profile to inherit theme from.'),
+        brandingProfileId: z.number().optional().describe('Optional branding profile to inherit theme from. If omitted, the client\'s is_default branding profile is used automatically.'),
         theme: z.object({
           primaryColor: z.string().optional(),
           accentColor: z.string().optional(),
@@ -1806,6 +2092,24 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+      // Resolve branding profile:
+      //   1. Explicit brandingProfileId → must exist for this client
+      //   2. No ID passed → auto-pick the client's is_default profile
+      //   3. No default → no profile (fall back to theme args / hard defaults)
+      let profile: typeof brandingProfiles.$inferSelect | null = null;
+      if (args.brandingProfileId != null) {
+        const [row] = await db.select().from(brandingProfiles)
+          .where(and(eq(brandingProfiles.id, args.brandingProfileId), eq(brandingProfiles.clientId, clientId)))
+          .limit(1);
+        if (!row) return json({ error: 'Branding profile not found for this client' });
+        profile = row;
+      } else {
+        const [row] = await db.select().from(brandingProfiles)
+          .where(and(eq(brandingProfiles.clientId, clientId), eq(brandingProfiles.isDefault, true)))
+          .limit(1);
+        profile = row ?? null;
+      }
       const result = await stageOrApply({
         ctx,
         entityType: 'pitch_deck',
@@ -1816,24 +2120,35 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         apply: async () => {
           const baseSlug = args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
           const slug = `${baseSlug}-${Date.now().toString(36)}`;
+          // Precedence: explicit args.theme > branding profile > defaults.
+          const themeFromProfile = profile ? {
+            primaryColor: profile.primaryColor ?? undefined,
+            accentColor: profile.accentColor ?? undefined,
+            backgroundColor: profile.backgroundColor ?? undefined,
+            textColor: profile.textColor ?? undefined,
+            headingFont: profile.headingFont ?? undefined,
+            bodyFont: profile.bodyFont ?? undefined,
+            logo: profile.logoUrl ?? undefined,
+          } : {};
+          const theme = (args.theme || profile) ? {
+            primaryColor: args.theme?.primaryColor ?? themeFromProfile.primaryColor ?? '#2563eb',
+            accentColor: args.theme?.accentColor ?? themeFromProfile.accentColor ?? '#60a5fa',
+            backgroundColor: args.theme?.backgroundColor ?? themeFromProfile.backgroundColor ?? '#0f172a',
+            textColor: args.theme?.textColor ?? themeFromProfile.textColor ?? '#f8fafc',
+            headingFont: args.theme?.headingFont ?? themeFromProfile.headingFont ?? 'Inter',
+            bodyFont: args.theme?.bodyFont ?? themeFromProfile.bodyFont ?? 'Inter',
+            logo: args.theme?.logo ?? themeFromProfile.logo,
+          } : undefined;
           const [deck] = await db.insert(pitchDecks).values({
             clientId,
             title: args.title.trim(),
             slug,
             description: args.description?.trim() || null,
             sourceUrl: args.sourceUrl ?? null,
-            brandingProfileId: args.brandingProfileId ?? null,
-            theme: args.theme
-              ? {
-                  primaryColor: args.theme.primaryColor ?? '#2563eb',
-                  accentColor: args.theme.accentColor ?? '#60a5fa',
-                  backgroundColor: args.theme.backgroundColor ?? '#0f172a',
-                  textColor: args.theme.textColor ?? '#f8fafc',
-                  headingFont: args.theme.headingFont ?? 'Inter',
-                  bodyFont: args.theme.bodyFont ?? 'Inter',
-                  logo: args.theme.logo,
-                }
-              : undefined,
+            // Persist the resolved profile id (auto-default lookup included)
+            // so later reads can re-inherit from the same profile.
+            brandingProfileId: profile?.id ?? args.brandingProfileId ?? null,
+            theme,
             formatVersion: 2,
             slides: [],
             createdBy: ctx.userId,
@@ -1871,6 +2186,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, args.id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deck not found' });
@@ -1905,7 +2221,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Replace all deck slides',
       description:
-        'Replace the entire slide array of a deck with a new V2 slide list. Each slide = { id, label, blocks[], notes? }. Blocks follow the visual-editor schema (see blocks://schema).',
+        'Replace the entire slide array of a deck with a new V2 slide list. Each slide = { id, label, blocks[], notes?, pageSettings?, customCss? }. Blocks follow the visual-editor schema — you MUST read blocks://schema before calling this (it documents block `style`, `elementStyles`, and per-slide `customCss` used for polished slides). Rules: (1) use `heading` blocks with explicit `level` for titles — never a big `text` block; (2) pair every heading with a small uppercase eyebrow `text` block above it for branded feel; (3) if you use a hero block, populate title + subtitle + description + ctaText/ctaLink — a title-only hero looks broken; (4) apply `style` (color, fontSize, fontWeight, letterSpacing) to add visual hierarchy instead of relying on defaults.',
       inputSchema: {
         id: z.number(),
         slides: z.array(z.object({
@@ -1919,6 +2235,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, slides }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deck not found' });
@@ -1931,8 +2248,12 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         payload: { id, slides },
         originalSnapshot: { slides: existing.slides, formatVersion: existing.formatVersion },
         apply: async () => {
+          const normalizedSlides = slides.map((s) => ({
+            ...s,
+            blocks: assignBlockIds(s.blocks as unknown[]),
+          })) as PitchDeckSlideV2[];
           const [row] = await db.update(pitchDecks)
-            .set({ slides: slides as PitchDeckSlideV2[], formatVersion: 2, updatedAt: new Date() })
+            .set({ slides: normalizedSlides, formatVersion: 2, updatedAt: new Date() })
             .where(eq(pitchDecks.id, id)).returning();
           return row;
         },
@@ -1948,7 +2269,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Append a slide to a deck',
       description:
-        'Append a single V2 slide to the end of a deck. Slide = { label, blocks[], notes? }. An id will be generated if omitted. Blocks follow the visual-editor schema (see blocks://schema).',
+        'Append a single V2 slide to the end of a deck. Slide = { label, blocks[], notes?, pageSettings?, customCss? }. An id will be generated if omitted. Blocks follow the visual-editor schema — read blocks://schema for `style`/`elementStyles`/`customCss` docs and a styled-slide example. Same styling rules as decks_replace_slides: use `heading` blocks (not styled text) for titles, pair with uppercase eyebrows, populate all hero fields, apply `style` for hierarchy.',
       inputSchema: {
         deckId: z.number(),
         label: z.string().min(1).describe('Slide name shown in the sidebar (e.g. "Cover", "Problem", "Solution").'),
@@ -1959,6 +2280,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ deckId, label, blocks, notes, id }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deck not found' });
@@ -1974,7 +2296,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           const newSlide = {
             id: id ?? `slide-${Date.now().toString(36)}`,
             label,
-            blocks,
+            blocks: assignBlockIds(blocks),
             notes,
           };
           const nextSlides = [...currentSlides, newSlide] as PitchDeckSlideV2[];
@@ -1999,6 +2321,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deck not found' });
@@ -2113,6 +2436,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+      if (!(await requireService(clientId, 'surveys'))) return serviceDenied('surveys');
       const baseSlug = args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
       const [row] = await db.insert(surveys).values({
@@ -2151,6 +2475,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, closesAt, fields, ...rest }) => {
       if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+      if (!(await requireService(clientId, 'surveys'))) return serviceDenied('surveys');
       const [existing] = await db.select({ id: surveys.id }).from(surveys)
         .where(and(eq(surveys.id, id), eq(surveys.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Survey not found' });
@@ -2270,6 +2595,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, reason }) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      if (!(await requireService(clientId, 'booking'))) return serviceDenied('booking');
       const [existing] = await db.select().from(bookings)
         .where(and(eq(bookings.id, id), eq(bookings.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Booking not found' });
@@ -2310,6 +2636,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, startTime, endTime, ...rest }) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      if (!(await requireService(clientId, 'booking'))) return serviceDenied('booking');
       const [existing] = await db.select({ id: bookings.id, status: bookings.status })
         .from(bookings)
         .where(and(eq(bookings.id, id), eq(bookings.clientId, clientId))).limit(1);
@@ -4044,6 +4371,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       let finalHtml = args.htmlContent?.trim() ?? '';
       let blockContent: { blocks: unknown[] } | null = null;
       if (Array.isArray(args.blocks) && args.blocks.length > 0) {
@@ -4102,6 +4430,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ name, description, matchType, rules }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [row] = await db.insert(emailSegments).values({
         clientId,
         name: name.trim(),
@@ -4129,6 +4458,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, scheduledAt, unschedule }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [existing] = await db.select({ id: emailCampaigns.id, status: emailCampaigns.status })
         .from(emailCampaigns)
         .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).limit(1);
@@ -4175,6 +4505,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id, blocks, ...rest }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [existing] = await db.select().from(emailCampaigns)
         .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Campaign not found' });
@@ -4219,6 +4550,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
       const [existing] = await db.select().from(emailCampaigns)
         .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Campaign not found' });
@@ -4286,6 +4618,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     },
     async (args) => {
       if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      if (!(await requireService(clientId, 'booking'))) return serviceDenied('booking');
       const code = crypto.randomBytes(4).toString('hex').toUpperCase();
       const [row] = await db.insert(giftCertificates).values({
         clientId,
@@ -4797,6 +5130,117 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         fileSize: result.fileSize,
         url: result.url,
       }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  // ── KANBAN CARD ARTIFACTS ──────────────────────────────────────────────
+  const CARD_ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
+    website: { table: clientWebsites, titleField: 'name' },
+    email_campaign: { table: emailCampaigns, titleField: 'name' },
+    pitch_deck: { table: pitchDecks, titleField: 'title' },
+    proposal: { table: crmProposals, titleField: 'title' },
+    booking: { table: bookingPages, titleField: 'title' },
+    survey: { table: surveys, titleField: 'title' },
+    project: { table: projects, titleField: 'name' },
+  };
+  const CARD_ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project']);
+
+  async function authorizeCardForClient(cardId: number) {
+    const [card] = await db.select({ projectId: kanbanCards.projectId }).from(kanbanCards)
+      .where(eq(kanbanCards.id, cardId)).limit(1);
+    if (!card) return null;
+    const [proj] = await db.select({ id: projects.id }).from(projects)
+      .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
+    return proj ? card : null;
+  }
+
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'kanban_card_artifacts_list',
+    {
+      title: 'List artifacts linked to a kanban card',
+      description: 'List every artifact (website, email campaign, pitch deck, proposal, booking, survey, project) linked to a kanban card.',
+      inputSchema: { cardId: z.number() },
+    },
+    async ({ cardId }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
+      const rows = await db.select().from(kanbanCardArtifacts)
+        .where(eq(kanbanCardArtifacts.cardId, cardId))
+        .orderBy(desc(kanbanCardArtifacts.pinned), desc(kanbanCardArtifacts.createdAt));
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_card_artifact_link',
+    {
+      title: 'Link an artifact to a kanban card',
+      description: 'Attach a website, email campaign, pitch deck, proposal, booking, survey, or project to a kanban card. The artifact must belong to this client.',
+      inputSchema: {
+        cardId: z.number(),
+        artifactType: CARD_ARTIFACT_TYPE_ENUM,
+        artifactId: z.number(),
+        pinned: z.boolean().optional(),
+      },
+    },
+    async ({ cardId, artifactType, artifactId, pinned }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
+
+      const config = CARD_ARTIFACT_TABLES[artifactType];
+      const [source] = await db.select({ title: config.table[config.titleField] })
+        .from(config.table)
+        .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, clientId)));
+      if (!source) return json({ error: 'Artifact not found or not owned by this client' });
+
+      const [row] = await db.insert(kanbanCardArtifacts).values({
+        cardId,
+        artifactType,
+        artifactId,
+        displayTitle: source.title || 'Untitled',
+        pinned: pinned ?? false,
+        createdBy: ctx.userId,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_card_artifact_toggle_pin',
+    {
+      title: 'Pin or unpin a kanban card artifact',
+      description: 'Update the pinned flag on a linked card artifact.',
+      inputSchema: { cardId: z.number(), artifactDbId: z.number(), pinned: z.boolean() },
+    },
+    async ({ cardId, artifactDbId, pinned }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
+      const [row] = await db.update(kanbanCardArtifacts).set({ pinned })
+        .where(and(eq(kanbanCardArtifacts.id, artifactDbId), eq(kanbanCardArtifacts.cardId, cardId)))
+        .returning();
+      if (!row) return json({ error: 'Artifact link not found' });
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_card_artifact_unlink',
+    {
+      title: 'Unlink an artifact from a kanban card',
+      description: 'Remove an artifact link from a card. Deletes the link row; the underlying artifact is not touched.',
+      inputSchema: { cardId: z.number(), artifactDbId: z.number() },
+    },
+    async ({ cardId, artifactDbId }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      if (!(await authorizeCardForClient(cardId))) return json({ error: 'Card not found' });
+      const [row] = await db.delete(kanbanCardArtifacts)
+        .where(and(eq(kanbanCardArtifacts.id, artifactDbId), eq(kanbanCardArtifacts.cardId, cardId)))
+        .returning();
+      if (!row) return json({ error: 'Artifact link not found' });
       revalidateForWrite('portal');
       return json(row);
     }

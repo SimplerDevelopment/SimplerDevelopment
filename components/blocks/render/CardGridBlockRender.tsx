@@ -50,23 +50,33 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-8`}>
-        {(block.cards || []).map((card) => (
-          <Card
-            key={card.id}
-            title={card.title}
-            description={card.description}
-            image={card.image}
-            link={card.link}
-            icon={card.icon}
-            iconSize={block.iconSize}
-            cardStyle={getElementCSS(block.elementStyles, 'card')}
-            titleStyle={getElementCSS(block.elementStyles, 'cardTitle')}
-            descriptionStyle={getElementCSS(block.elementStyles, 'cardDescription')}
-            iconStyle={getElementCSS(block.elementStyles, 'cardIcon')}
-            linkStyle={getElementCSS(block.elementStyles, 'cardLink')}
-            imageStyle={getElementCSS(block.elementStyles, 'cardImage')}
-          />
-        ))}
+        {(block.cards || []).map((rawCard, i) => {
+          // Alias support for LLM-authored decks that use `body` instead of
+          // `description` and an optional `subtitle` between title and body.
+          // Canonical fields always win when present.
+          const card = rawCard as typeof rawCard & { body?: string; subtitle?: string };
+          const description = card.description ?? card.body ?? '';
+          const key = card.id ?? `card-${i}`;
+          return (
+            <Card
+              key={key}
+              title={card.title}
+              subtitle={card.subtitle}
+              description={description}
+              image={card.image}
+              link={card.link}
+              icon={card.icon}
+              iconSize={block.iconSize}
+              cardStyle={getElementCSS(block.elementStyles, 'card')}
+              titleStyle={getElementCSS(block.elementStyles, 'cardTitle')}
+              subtitleStyle={getElementCSS(block.elementStyles, 'cardSubtitle')}
+              descriptionStyle={getElementCSS(block.elementStyles, 'cardDescription')}
+              iconStyle={getElementCSS(block.elementStyles, 'cardIcon')}
+              linkStyle={getElementCSS(block.elementStyles, 'cardLink')}
+              imageStyle={getElementCSS(block.elementStyles, 'cardImage')}
+            />
+          );
+        })}
       </div>
     </section>
   );

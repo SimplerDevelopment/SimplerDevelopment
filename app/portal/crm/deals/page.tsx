@@ -57,6 +57,19 @@ const ARTIFACT_LABELS: Record<string, string> = {
   project: 'Project',
 };
 
+function artifactUrl(type: string, id: number): string | null {
+  switch (type) {
+    case 'website': return `/portal/websites/${id}`;
+    case 'email_campaign': return `/portal/email/campaigns/${id}`;
+    case 'pitch_deck': return `/portal/tools/pitch-decks/${id}`;
+    case 'proposal': return `/portal/crm/proposals/${id}`;
+    case 'booking': return `/portal/tools/booking/${id}`;
+    case 'survey': return `/portal/surveys/${id}`;
+    case 'project': return `/portal/projects/${id}`;
+    default: return null;
+  }
+}
+
 type PanelTab = 'details' | 'artifacts' | 'comments';
 
 interface Pipeline {
@@ -1186,13 +1199,26 @@ export default function CrmDealsPage() {
                         <span className="material-icons text-xs">push_pin</span> Pinned Artifacts
                       </p>
                       <div className="space-y-1">
-                        {artifacts.filter(a => a.pinned).map(a => (
-                          <div key={a.id} className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5">
-                            <span className="material-icons text-sm text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
-                            <span className="truncate">{a.displayTitle}</span>
-                            <span className="text-muted-foreground ml-auto shrink-0">{ARTIFACT_LABELS[a.artifactType]}</span>
-                          </div>
-                        ))}
+                        {artifacts.filter(a => a.pinned).map(a => {
+                          const url = artifactUrl(a.artifactType, a.artifactId);
+                          const inner = (
+                            <>
+                              <span className="material-icons text-sm text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
+                              <span className="truncate">{a.displayTitle}</span>
+                              <span className="text-muted-foreground ml-auto shrink-0">{ARTIFACT_LABELS[a.artifactType]}</span>
+                              {url && <span className="material-icons text-xs text-muted-foreground shrink-0">open_in_new</span>}
+                            </>
+                          );
+                          return url ? (
+                            <a key={a.id} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors" title="Open artifact">
+                              {inner}
+                            </a>
+                          ) : (
+                            <div key={a.id} className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-2 py-1.5">
+                              {inner}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1273,13 +1299,27 @@ export default function CrmDealsPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {artifacts.map(a => (
+                      {artifacts.map(a => {
+                        const url = artifactUrl(a.artifactType, a.artifactId);
+                        return (
                         <div key={a.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors ${a.pinned ? 'bg-primary/5 border-primary/20' : 'bg-card border-border'}`}>
                           <span className="material-icons text-lg text-muted-foreground">{ARTIFACT_ICONS[a.artifactType] || 'attachment'}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{a.displayTitle}</p>
-                            <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
-                          </div>
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 group" title="Open artifact">
+                              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary group-hover:underline">{a.displayTitle}</p>
+                              <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
+                            </a>
+                          ) : (
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{a.displayTitle}</p>
+                              <p className="text-[10px] text-muted-foreground">{ARTIFACT_LABELS[a.artifactType]}</p>
+                            </div>
+                          )}
+                          {url && (
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-accent transition-colors" title="Open in new tab">
+                              <span className="material-icons text-sm">open_in_new</span>
+                            </a>
+                          )}
                           <button onClick={() => togglePin(a.id, !a.pinned)} className={`p-1 rounded transition-colors ${a.pinned ? 'text-primary hover:bg-primary/10' : 'text-muted-foreground hover:bg-accent'}`} title={a.pinned ? 'Unpin' : 'Pin'}>
                             <span className="material-icons text-sm">{a.pinned ? 'push_pin' : 'push_pin'}</span>
                           </button>
@@ -1287,7 +1327,8 @@ export default function CrmDealsPage() {
                             <span className="material-icons text-sm">close</span>
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
