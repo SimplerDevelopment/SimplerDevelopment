@@ -30,7 +30,7 @@ export function ImageBlockPreview({ block, isSelected, onChange }: ImageBlockPre
     <div className="p-6">
       {!block.url ? (
         <div className="border-2 border-dashed border-border rounded-lg p-12 text-center">
-          <div className="text-6xl mb-4">🖼️</div>
+          <span className="material-icons text-7xl text-muted-foreground/20 mb-4">image</span>
           <p className="text-muted-foreground mb-4">No image selected</p>
           <button
             type="button"

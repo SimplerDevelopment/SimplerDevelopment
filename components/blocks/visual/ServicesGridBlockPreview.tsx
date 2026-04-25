@@ -22,7 +22,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
           id: `service-${Date.now()}`,
           title: 'New Service',
           description: 'Service description',
-          icon: '⭐',
+          icon: 'star',
         },
       ],
     });
@@ -134,7 +134,7 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
                     }}
                     className="w-full h-full flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
                   >
-                    <div className="text-5xl mb-2">🖼️</div>
+                    <span className="material-icons text-5xl text-muted-foreground/20 mb-2">image</span>
                     <span className="text-sm text-muted-foreground">Click to select image</span>
                   </button>
                 )}
@@ -142,16 +142,22 @@ export function ServicesGridBlockPreview({ block, isSelected, onChange }: Servic
             )}
 
             {!service.image && (
-              <div className="text-4xl mb-4 text-center">
-                <input
-                  type="text"
-                  value={service.icon || ''}
-                  onChange={(e) => updateService(service.id, { icon: e.target.value })}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-16 bg-transparent border-none focus:outline-none text-center"
-                  placeholder="🎯"
-                  maxLength={2}
-                />
+              <div className="mb-4 text-center">
+                {service.icon ? (
+                  <span className="material-icons text-4xl" style={{ color: 'inherit' }}>{service.icon}</span>
+                ) : (
+                  <span className="material-icons text-4xl text-muted-foreground/30">star</span>
+                )}
+                {isSelected && (
+                  <input
+                    type="text"
+                    value={service.icon || ''}
+                    onChange={(e) => updateService(service.id, { icon: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    className="block w-full mt-1 text-xs bg-transparent border-b border-border focus:outline-none text-center text-muted-foreground"
+                    placeholder="Material Icon name (e.g. star)"
+                  />
+                )}
               </div>
             )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock, SurveyResultsBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock, SurveyResultsBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, BookingMenuBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, SiteFooterBlock, MarqueeBlock, MarqueeItem, TabsBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
@@ -60,13 +60,16 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'author', label: 'Author Name' },
   ],
   'services-grid': [
+    { key: 'overline', label: 'Overline' },
     { key: 'title', label: 'Section Title' },
     { key: 'description', label: 'Section Description' },
+    { key: 'card', label: 'Service Card Container' },
     { key: 'serviceTitle', label: 'Service Title' },
     { key: 'serviceDescription', label: 'Service Description' },
     { key: 'serviceIcon', label: 'Service Icon' },
     { key: 'serviceLink', label: 'Service Link' },
     { key: 'serviceImage', label: 'Service Image' },
+    { key: 'bullet', label: 'Bullet Item' },
   ],
   'featured-content': [
     { key: 'title', label: 'Title' },
@@ -90,7 +93,15 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'itemTitle', label: 'Item Title' },
     { key: 'itemContent', label: 'Item Content' },
   ],
+  'tabs': [
+    { key: 'tab', label: 'Tab Button (default)' },
+    { key: 'activeTab', label: 'Tab Button (active)' },
+    { key: 'tabPanel', label: 'Tab Panel' },
+  ],
   'gallery': [
+    { key: 'caption', label: 'Image Caption' },
+  ],
+  'image': [
     { key: 'caption', label: 'Image Caption' },
   ],
   'store-banner': [
@@ -118,6 +129,86 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
   'survey-results': [
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
+  ],
+  'flip-card-grid': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+    { key: 'frontCard', label: 'Card Front' },
+    { key: 'frontTitle', label: 'Front Title' },
+    { key: 'frontSubtitle', label: 'Front Subtitle' },
+    { key: 'frontIcon', label: 'Front Icon' },
+    { key: 'backCard', label: 'Card Back' },
+    { key: 'backText', label: 'Back Text' },
+    { key: 'backLink', label: 'Back Link' },
+  ],
+  'metric-cards': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+    { key: 'card', label: 'Card Container' },
+    { key: 'value', label: 'Metric Value' },
+    { key: 'label', label: 'Metric Label' },
+    { key: 'institution', label: 'Institution' },
+    { key: 'link', label: 'CTA Link' },
+  ],
+  'logo-strip': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'logo', label: 'Logo Image' },
+  ],
+  'timeline': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Section Title' },
+    { key: 'subtitle', label: 'Section Subtitle' },
+    { key: 'stepTitle', label: 'Step Title' },
+    { key: 'stepDescription', label: 'Step Description' },
+  ],
+  'team-showcase': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Section Title' },
+    { key: 'subtitle', label: 'Section Subtitle' },
+    { key: 'memberName', label: 'Member Name' },
+    { key: 'memberTitle', label: 'Member Title' },
+    { key: 'memberCredentials', label: 'Member Credentials' },
+    { key: 'memberBio', label: 'Member Bio' },
+    { key: 'specialtyTag', label: 'Specialty Tag' },
+  ],
+  'bento-grid': [
+    { key: 'overline', label: 'Overline' },
+    { key: 'title', label: 'Section Title' },
+    { key: 'subtitle', label: 'Section Subtitle' },
+    { key: 'cardTitle', label: 'Card Title' },
+    { key: 'cardLead', label: 'Card Lead Text' },
+  ],
+  'team-flip-grid': [
+    { key: 'memberName', label: 'Member Name' },
+    { key: 'memberTitle', label: 'Member Title' },
+    { key: 'memberBio', label: 'Member Bio' },
+    { key: 'question', label: 'Back: Question' },
+    { key: 'answer', label: 'Back: Answer' },
+    { key: 'frontCard', label: 'Card Front' },
+    { key: 'backCard', label: 'Card Back' },
+  ],
+  'site-footer': [
+    { key: 'logo', label: 'Logo' },
+    { key: 'tagline', label: 'Tagline' },
+    { key: 'linkGroupLabel', label: 'Link Group Label' },
+    { key: 'link', label: 'Footer Link' },
+    { key: 'socialIcon', label: 'Social Link' },
+    { key: 'contactLine', label: 'Contact Line' },
+    { key: 'copyright', label: 'Copyright / Disclaimer' },
+  ],
+  'social-links': [
+    { key: 'icon', label: 'Container' },
+    { key: 'link', label: 'Link' },
+  ],
+  'booking-menu': [
+    { key: 'title', label: 'Title' },
+    { key: 'description', label: 'Description' },
+    { key: 'card', label: 'Card Container' },
+    { key: 'cardTitle', label: 'Card Title' },
+    { key: 'cardDescription', label: 'Card Description' },
+    { key: 'button', label: 'Card CTA / Arrow' },
   ],
 };
 
@@ -316,6 +407,36 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <SurveyBlockSettings block={block as SurveyBlock} onChange={onChange} />;
             case 'survey-results':
               return <SurveyResultsBlockSettings block={block as SurveyResultsBlock} onChange={onChange} />;
+            case 'social-links':
+              return <SocialLinksBlockSettings block={block as SocialLinksBlock} onChange={onChange} />;
+            case 'logo-strip':
+              return <LogoStripBlockSettings block={block as LogoStripBlock} onChange={onChange} />;
+            case 'metric-cards':
+              return <MetricCardsBlockSettings block={block as MetricCardsBlock} onChange={onChange} />;
+            case 'booking-menu':
+              return <BookingMenuBlockSettings block={block as BookingMenuBlock} onChange={onChange} />;
+            case 'flip-card-grid':
+              return <FlipCardGridBlockSettings block={block as FlipCardGridBlock} onChange={onChange} />;
+            case 'timeline':
+              return <TimelineBlockSettings block={block as TimelineBlock} onChange={onChange} />;
+            case 'team-showcase':
+              return <TeamShowcaseBlockSettings block={block as TeamShowcaseBlock} onChange={onChange} />;
+            case 'team-flip-grid':
+              return <TeamFlipGridBlockSettings block={block as TeamFlipGridBlock} onChange={onChange} />;
+            case 'bento-grid':
+              return <BentoGridBlockSettings block={block as BentoGridBlock} onChange={onChange} />;
+            case 'site-footer':
+              return <SiteFooterBlockSettings block={block as SiteFooterBlock} onChange={onChange} />;
+            case 'marquee':
+              return <MarqueeBlockSettings block={block as MarqueeBlock} onChange={onChange} />;
+            case 'tabs':
+              return <TabsBlockSettings block={block as TabsBlock} onChange={onChange} />;
+            case 'survey-input':
+              return <SurveyInputBlockSettings block={block as SurveyInputBlock} onChange={onChange} />;
+            case 'email-header':
+              return <EmailHeaderBlockSettings block={block as EmailHeaderBlock} onChange={onChange} />;
+            case 'email-footer':
+              return <EmailFooterBlockSettings block={block as EmailFooterBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -356,9 +477,9 @@ function TextBlockSettings({ block, onChange, currentViewport }: { block: TextBl
                   : 'bg-background border border-border text-foreground hover:bg-accent'
               }`}
             >
-              {align === 'left' && '⬅️ Left'}
-              {align === 'center' && '↔️ Center'}
-              {align === 'right' && '➡️ Right'}
+              {align === 'left' && <><span className="material-icons text-base align-middle">format_align_left</span>{' '}Left</>}
+              {align === 'center' && <><span className="material-icons text-base align-middle">format_align_center</span>{' '}Center</>}
+              {align === 'right' && <><span className="material-icons text-base align-middle">format_align_right</span>{' '}Right</>}
             </button>
           ))}
         </div>
@@ -401,9 +522,9 @@ function HeadingBlockSettings({ block, onChange, currentViewport }: { block: Hea
                   : 'bg-background border border-border text-foreground hover:bg-accent'
               }`}
             >
-              {align === 'left' && '⬅️'}
-              {align === 'center' && '↔️'}
-              {align === 'right' && '➡️'}
+              {align === 'left' && <span className="material-icons text-base">format_align_left</span>}
+              {align === 'center' && <span className="material-icons text-base">format_align_center</span>}
+              {align === 'right' && <span className="material-icons text-base">format_align_right</span>}
             </button>
           ))}
         </div>
@@ -450,7 +571,7 @@ function ImageBlockSettings({ block, onChange, currentViewport }: { block: Image
             onClick={() => setShowMediaPicker(true)}
             className="w-full p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-4xl mb-2">🖼️</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">image</span>
             <p className="text-sm text-muted-foreground">Click to select image</p>
           </button>
         )}
@@ -589,9 +710,9 @@ function ButtonBlockSettings({ block, onChange, currentViewport }: { block: Butt
                   : 'bg-background border border-border text-foreground hover:bg-accent'
               }`}
             >
-              {align === 'left' && '⬅️'}
-              {align === 'center' && '↔️'}
-              {align === 'right' && '➡️'}
+              {align === 'left' && <span className="material-icons text-base">format_align_left</span>}
+              {align === 'center' && <span className="material-icons text-base">format_align_center</span>}
+              {align === 'right' && <span className="material-icons text-base">format_align_right</span>}
             </button>
           ))}
         </div>
@@ -608,6 +729,63 @@ function ButtonBlockSettings({ block, onChange, currentViewport }: { block: Butt
         <label htmlFor="openInNewTab" className="ml-2 text-sm text-foreground">
           Open in new tab
         </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Icon (Material Icon name)</label>
+        <input
+          type="text"
+          value={block.icon || ''}
+          onChange={(e) => onChange({ icon: e.target.value || undefined })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. arrow_forward"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Browse names at <span className="font-mono">fonts.google.com/icons</span>
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Icon Position</label>
+        <select
+          value={block.iconPosition || 'left'}
+          onChange={(e) => onChange({ iconPosition: e.target.value as ButtonBlock['iconPosition'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          disabled={!block.icon}
+        >
+          <option value="left">Left of text</option>
+          <option value="right">Right of text</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Hover Effect</label>
+        <select
+          value={block.hoverEffect || 'none'}
+          onChange={(e) => onChange({ hoverEffect: e.target.value as ButtonBlock['hoverEffect'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="none">None</option>
+          <option value="lift">Lift (translate up)</option>
+          <option value="glow">Glow</option>
+          <option value="fill">Fill (subtle wash)</option>
+          <option value="slide">Slide (light sweep)</option>
+          <option value="pulse">Pulse</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Brand Preset (optional)</label>
+        <input
+          type="text"
+          value={block.presetId || ''}
+          onChange={(e) => onChange({ presetId: e.target.value || undefined })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Preset ID from brand presets"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Preset key from brand presets. Configure presets in the site Branding panel; preset styles apply first, this block&apos;s style overrides on top.
+        </p>
       </div>
 
     </div>
@@ -744,7 +922,7 @@ function VideoBlockSettings({ block, onChange, currentViewport }: { block: Video
             onClick={() => setShowMediaPicker(true)}
             className="w-full p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-4xl mb-2">🎬</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">movie</span>
             <p className="text-sm text-muted-foreground">Click to select video file</p>
           </button>
         )}
@@ -1076,7 +1254,7 @@ function HeroBlockSettings({ block, onChange, currentViewport }: { block: HeroBl
             onClick={() => setShowImagePicker(true)}
             className="w-full p-6 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-3xl mb-1">🖼️</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">image</span>
             <p className="text-sm text-muted-foreground">Click to select background image</p>
           </button>
         )}
@@ -1116,7 +1294,7 @@ function HeroBlockSettings({ block, onChange, currentViewport }: { block: HeroBl
             onClick={() => setShowVideoPicker(true)}
             className="w-full p-6 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-3xl mb-1">🎬</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">movie</span>
             <p className="text-sm text-muted-foreground">Click to select background video</p>
           </button>
         )}
@@ -1284,6 +1462,12 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.overline || ''} onChange={(html) => onChange({ overline: html || undefined })} singleLine placeholder="OUR SERVICES" className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
         <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
         <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
           <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
@@ -1308,6 +1492,15 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
           <option value="4">4 Columns</option>
         </select>
       </div>
+      </div>
+      <div>
+        <TokenColorPicker
+          label="Accent Color"
+          value={block.accentColor || ''}
+          onChange={(v) => onChange({ accentColor: v || undefined })}
+          placeholder="Brand primary"
+        />
+        <p className="text-xs text-muted-foreground mt-1">Used for icons, bullets, and the link arrow.</p>
       </div>
     </div>
   );
@@ -1443,7 +1636,7 @@ function TestimonialBlockSettings({ block, onChange, currentViewport }: { block:
             onClick={() => setShowMediaPicker(true)}
             className="w-full p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-4xl mb-2">👤</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">person</span>
             <p className="text-sm text-muted-foreground">Click to select avatar</p>
           </button>
         )}
@@ -1491,7 +1684,19 @@ function BlogPostsBlockSettings({ block, onChange, currentViewport }: { block: B
           className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
           placeholder="Leave empty for all posts"
         />
-        <p className="text-xs text-muted-foreground mt-1">Filter by post type (optional)</p>
+        <p className="text-xs text-muted-foreground mt-1">Filter by post type (optional). Set to <span className="font-mono">category</span> to enable category filtering below.</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Category Slug</label>
+        <input
+          type="text"
+          value={block.categorySlug || ''}
+          onChange={(e) => onChange({ categorySlug: e.target.value || undefined })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. company-news"
+        />
+        <p className="text-xs text-muted-foreground mt-1">Active when Post Type is <span className="font-mono">category</span>.</p>
       </div>
 
       <div>
@@ -1603,7 +1808,7 @@ function FeaturedContentBlockSettings({ block, onChange, currentViewport }: { bl
             onClick={() => setShowMediaPicker(true)}
             className="w-full p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-colors text-center"
           >
-            <div className="text-4xl mb-2">🖼️</div>
+            <span className="material-icons text-5xl text-muted-foreground/20 mb-2">image</span>
             <p className="text-sm text-muted-foreground">Click to select image</p>
           </button>
         )}
@@ -1717,6 +1922,32 @@ function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChan
           placeholder="e.g. rounded-lg shadow-md"
         />
       </div>
+      <div className="border-t border-border pt-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Diagonal Split (advanced)</label>
+        <p className="text-xs text-muted-foreground">
+          Optional second-color overlay rendered with a clip-path. Leave blank to disable.
+        </p>
+        <TokenColorPicker
+          label="Split Color"
+          value={block.splitColor || ''}
+          onChange={(v) => onChange({ splitColor: v || undefined })}
+          placeholder="transparent"
+        />
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Clip Path</label>
+          <input
+            type="text"
+            value={block.splitClipPath || ''}
+            onChange={(e) => onChange({ splitClipPath: e.target.value || undefined })}
+            placeholder="polygon(55% 0, 100% 0, 100% 100%, 45% 100%)"
+            className="w-full text-xs font-mono rounded border border-border bg-background px-2 py-1.5 text-foreground"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Defaults to a right-side diagonal when Split Color is set.
+          </p>
+        </div>
+      </div>
+
       <p className="text-xs text-muted-foreground">{block.blocks.length} nested block{block.blocks.length !== 1 ? 's' : ''}</p>
       <p className="text-xs text-muted-foreground italic">Use the Style tab for colors, padding, borders, and other visual properties.</p>
     </div>
@@ -1839,6 +2070,18 @@ function ProductGridBlockSettings({ block, onChange }: { block: ProductGridBlock
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Optional section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
         <label className="block text-sm font-medium text-foreground mb-2">Category Filter</label>
         <input
           type="text"
@@ -1922,6 +2165,29 @@ function FeaturedProductsBlockSettings({ block, onChange }: { block: FeaturedPro
   return (
     <div className="space-y-4">
       <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Optional section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
+        <select
+          value={block.layout || 'grid'}
+          onChange={(e) => onChange({ layout: e.target.value as FeaturedProductsBlock['layout'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="grid">Grid</option>
+          <option value="carousel">Carousel</option>
+        </select>
+      </div>
+      <div>
         <label className="block text-sm font-medium text-foreground mb-2">Number of Products</label>
         <input
           type="number"
@@ -1985,6 +2251,18 @@ function FeaturedProductsBlockSettings({ block, onChange }: { block: FeaturedPro
 function ProductCategoriesBlockSettings({ block, onChange }: { block: ProductCategoriesBlock; onChange: (updates: Partial<ProductCategoriesBlock>) => void }) {
   return (
     <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Optional section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
+        </div>
+      </div>
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
         <select
@@ -2347,6 +2625,125 @@ function BookingBlockSettings({ block, onChange }: { block: BookingBlock; onChan
           className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
         <label htmlFor="bookingShowPageTitle" className="ml-2 text-sm text-foreground">Show Booking Page Title</label>
       </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="bookingShowDescription" checked={block.showDescription !== false}
+          onChange={(e) => onChange({ showDescription: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="bookingShowDescription" className="ml-2 text-sm text-foreground">Show Description</label>
+      </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="bookingShowSteps" checked={block.showSteps !== false}
+          onChange={(e) => onChange({ showSteps: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="bookingShowSteps" className="ml-2 text-sm text-foreground">Show Step Indicators</label>
+      </div>
+
+      {/* Advanced styling overrides — take precedence over the booking page's branding */}
+      <details className="border border-border rounded">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground hover:bg-accent/40">
+          Advanced styling overrides
+        </summary>
+        <div className="px-3 pb-3 pt-2 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            These take precedence over the booking page&apos;s branding. Leave blank to use defaults.
+          </p>
+          {(() => {
+            const so = block.styleOverrides || {};
+            const update = (patch: Partial<NonNullable<BookingBlock['styleOverrides']>>) =>
+              onChange({ styleOverrides: { ...so, ...patch } });
+            const inputClass = 'w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground';
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker
+                    label="Primary Color"
+                    value={so.primaryColor || ''}
+                    onChange={(v) => update({ primaryColor: v || undefined })}
+                  />
+                  <TokenColorPicker
+                    label="Background"
+                    value={so.backgroundColor || ''}
+                    onChange={(v) => update({ backgroundColor: v || undefined })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker
+                    label="Text Color"
+                    value={so.textColor || ''}
+                    onChange={(v) => update({ textColor: v || undefined })}
+                  />
+                  <TokenColorPicker
+                    label="Form / Card Background"
+                    value={so.formBg || ''}
+                    onChange={(v) => update({ formBg: v || undefined })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker
+                    label="Input Background"
+                    value={so.inputBg || ''}
+                    onChange={(v) => update({ inputBg: v || undefined })}
+                  />
+                  <TokenColorPicker
+                    label="Button Background"
+                    value={so.buttonBg || ''}
+                    onChange={(v) => update({ buttonBg: v || undefined })}
+                  />
+                </div>
+                <TokenColorPicker
+                  label="Button Text"
+                  value={so.buttonText || ''}
+                  onChange={(v) => update({ buttonText: v || undefined })}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>
+                    <input
+                      type="text"
+                      value={so.headingFont || ''}
+                      onChange={(e) => update({ headingFont: e.target.value || undefined })}
+                      className={inputClass}
+                      placeholder="e.g. Inter, sans-serif"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Body Font</label>
+                    <input
+                      type="text"
+                      value={so.bodyFont || ''}
+                      onChange={(e) => update({ bodyFont: e.target.value || undefined })}
+                      className={inputClass}
+                      placeholder="e.g. system-ui, sans-serif"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Border Radius</label>
+                    <input
+                      type="text"
+                      value={so.borderRadius || ''}
+                      onChange={(e) => update({ borderRadius: e.target.value || undefined })}
+                      className={inputClass}
+                      placeholder="e.g. 8px"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Button Border Radius</label>
+                    <input
+                      type="text"
+                      value={so.buttonBorderRadius || ''}
+                      onChange={(e) => update({ buttonBorderRadius: e.target.value || undefined })}
+                      className={inputClass}
+                      placeholder="e.g. 6px"
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </details>
     </div>
   );
 }
@@ -2772,6 +3169,71 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
               </select>
             </div>
           </div>
+
+          {/* Per-slide Advanced */}
+          <details className="border border-border rounded">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground hover:bg-accent/40">
+              Advanced (background sizing & overlay opacity)
+            </summary>
+            <div className="px-3 pb-3 pt-2 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Background Size</label>
+                  <select
+                    value={slide.backgroundSize || 'cover'}
+                    onChange={(e) => updateSlide(activeSlide, { backgroundSize: e.target.value as HeroSlideshowSlide['backgroundSize'] })}
+                    className={selectClass}
+                  >
+                    <option value="cover">cover</option>
+                    <option value="contain">contain</option>
+                    <option value="auto">auto</option>
+                    <option value="50%">50%</option>
+                    <option value="100%">100%</option>
+                    <option value="150%">150%</option>
+                    <option value="200%">200%</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Background Repeat</label>
+                  <select
+                    value={slide.backgroundRepeat || 'no-repeat'}
+                    onChange={(e) => updateSlide(activeSlide, { backgroundRepeat: e.target.value as HeroSlideshowSlide['backgroundRepeat'] })}
+                    className={selectClass}
+                  >
+                    <option value="no-repeat">no-repeat</option>
+                    <option value="repeat">repeat</option>
+                    <option value="repeat-x">repeat-x</option>
+                    <option value="repeat-y">repeat-y</option>
+                    <option value="space">space</option>
+                    <option value="round">round</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Background Position</label>
+                <input
+                  type="text"
+                  value={slide.backgroundPosition || ''}
+                  onChange={(e) => updateSlide(activeSlide, { backgroundPosition: e.target.value || undefined })}
+                  className={inputClass}
+                  placeholder='e.g. "center", "top", "50% 30%"'
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Overlay Opacity</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={slide.overlayOpacity ?? 0.45}
+                  onChange={(e) => updateSlide(activeSlide, { overlayOpacity: parseFloat(e.target.value) })}
+                  className="w-full"
+                />
+                <span className="text-xs text-muted-foreground">{slide.overlayOpacity ?? 0.45}</span>
+              </div>
+            </div>
+          </details>
         </div>
       )}
 
@@ -2838,6 +3300,49 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
             </label>
           ))}
         </div>
+
+        {/* Deck-level Advanced (nav colors) */}
+        <details className="border border-border rounded">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground hover:bg-accent/40">
+            Advanced navigation colors
+          </summary>
+          <div className="px-3 pb-3 pt-2 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <TokenColorPicker
+                label="Arrow Color"
+                value={block.arrowColor || ''}
+                onChange={(v) => onChange({ arrowColor: v || undefined })}
+              />
+              <TokenColorPicker
+                label="Arrow Background"
+                value={block.arrowBackground || ''}
+                onChange={(v) => onChange({ arrowBackground: v || undefined })}
+              />
+            </div>
+            <TokenColorPicker
+              label="Arrow Border Color"
+              value={block.arrowBorderColor || ''}
+              onChange={(v) => onChange({ arrowBorderColor: v || undefined })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <TokenColorPicker
+                label="Dot Color"
+                value={block.dotColor || ''}
+                onChange={(v) => onChange({ dotColor: v || undefined })}
+              />
+              <TokenColorPicker
+                label="Dot Active Color"
+                value={block.dotActiveColor || ''}
+                onChange={(v) => onChange({ dotActiveColor: v || undefined })}
+              />
+            </div>
+            <TokenColorPicker
+              label="Progress Bar Color"
+              value={block.progressBarColor || ''}
+              onChange={(v) => onChange({ progressBarColor: v || undefined })}
+            />
+          </div>
+        </details>
       </div>
 
       {/* Stats Bar */}
@@ -2889,6 +3394,1867 @@ function HeroSlideshowBlockSettings({ block, onChange }: { block: HeroSlideshowB
           className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
         >
           + Add Stat
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Social Links ────────────────────────────────────────────────────────────
+function SocialLinksBlockSettings({ block, onChange }: { block: SocialLinksBlock; onChange: (updates: Partial<SocialLinksBlock>) => void }) {
+  const PLATFORMS: Array<SocialLinksBlock['links'][number]['platform']> = ['facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok'];
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Icon Size (px)</label>
+        <select
+          value={block.iconSize ?? 32}
+          onChange={(e) => onChange({ iconSize: Number(e.target.value) })}
+          className={inputClass}
+        >
+          <option value={24}>24</option>
+          <option value={32}>32</option>
+          <option value={40}>40</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Alignment</label>
+        <select
+          value={block.alignment ?? 'center'}
+          onChange={(e) => onChange({ alignment: e.target.value as SocialLinksBlock['alignment'] })}
+          className={inputClass}
+        >
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Links</label>
+        {(block.links || []).map((link, i) => (
+          <div key={i} className="flex gap-2 items-start">
+            <select
+              value={link.platform}
+              onChange={(e) => {
+                const next = [...(block.links || [])];
+                next[i] = { ...next[i], platform: e.target.value as SocialLinksBlock['links'][number]['platform'] };
+                onChange({ links: next });
+              }}
+              className="text-xs rounded border border-border bg-background px-2 py-2 text-foreground"
+            >
+              {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <input
+              type="url"
+              value={link.url}
+              onChange={(e) => {
+                const next = [...(block.links || [])];
+                next[i] = { ...next[i], url: e.target.value };
+                onChange({ links: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-2 text-foreground"
+              placeholder="https://"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ links: (block.links || []).filter((_, j) => j !== i) })}
+              className="px-2 py-2 text-xs rounded border border-border text-destructive hover:bg-destructive/10"
+              title="Remove link"
+            >
+              <span className="material-icons text-xs">delete</span>
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ links: [...(block.links || []), { platform: 'facebook', url: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Link
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Logo Strip ──────────────────────────────────────────────────────────────
+function LogoStripBlockSettings({ block, onChange }: { block: LogoStripBlock; onChange: (updates: Partial<LogoStripBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline (eyebrow text)</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. TRUSTED BY 100+ TEAMS"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+          <select
+            value={block.columns || 6}
+            onChange={(e) => onChange({ columns: Number(e.target.value) as LogoStripBlock['columns'] })}
+            className={inputClass}
+          >
+            {[3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Gap</label>
+          <select
+            value={block.gap || 'lg'}
+            onChange={(e) => onChange({ gap: e.target.value as LogoStripBlock['gap'] })}
+            className={inputClass}
+          >
+            <option value="sm">Small</option>
+            <option value="md">Medium</option>
+            <option value="lg">Large</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Alignment</label>
+          <select
+            value={block.alignment || 'center'}
+            onChange={(e) => onChange({ alignment: e.target.value as LogoStripBlock['alignment'] })}
+            className={inputClass}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo Height</label>
+          <input
+            type="text"
+            value={block.logoHeight || '40px'}
+            onChange={(e) => onChange({ logoHeight: e.target.value })}
+            className={inputClass}
+            placeholder="40px"
+          />
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={block.grayscale ?? true}
+          onChange={(e) => onChange({ grayscale: e.target.checked })}
+          className="rounded border-border"
+        />
+        Grayscale (color on hover)
+      </label>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Logos</label>
+        {(block.logos || []).map((logo, i) => (
+          <div key={logo.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="url"
+              value={logo.imageUrl}
+              onChange={(e) => {
+                const next = [...(block.logos || [])];
+                next[i] = { ...next[i], imageUrl: e.target.value };
+                onChange({ logos: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Image URL"
+            />
+            <input
+              type="text"
+              value={logo.alt}
+              onChange={(e) => {
+                const next = [...(block.logos || [])];
+                next[i] = { ...next[i], alt: e.target.value };
+                onChange({ logos: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Alt text"
+            />
+            <input
+              type="url"
+              value={logo.link || ''}
+              onChange={(e) => {
+                const next = [...(block.logos || [])];
+                next[i] = { ...next[i], link: e.target.value || undefined };
+                onChange({ logos: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link URL (optional)"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ logos: (block.logos || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ logos: [...(block.logos || []), { id: `logo-${Date.now()}`, imageUrl: '', alt: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Logo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Metric Cards ────────────────────────────────────────────────────────────
+function MetricCardsBlockSettings({ block, onChange }: { block: MetricCardsBlock; onChange: (updates: Partial<MetricCardsBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. PROOF POINTS"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+          <select
+            value={block.columns || 4}
+            onChange={(e) => onChange({ columns: Number(e.target.value) as MetricCardsBlock['columns'] })}
+            className={inputClass}
+          >
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+          <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Metrics</label>
+        {(block.metrics || []).map((metric, i) => (
+          <div key={metric.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={metric.value}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], value: e.target.value };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder='Big value e.g. "83%"'
+            />
+            <input
+              type="text"
+              value={metric.label}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], label: e.target.value };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Small label"
+            />
+            <input
+              type="text"
+              value={metric.institution || ''}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], institution: e.target.value || undefined };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Institution (optional)"
+            />
+            <input
+              type="url"
+              value={metric.institutionLogo || ''}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], institutionLogo: e.target.value || undefined };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Institution logo URL (optional)"
+            />
+            <input
+              type="url"
+              value={metric.link || ''}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], link: e.target.value || undefined };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link URL (optional)"
+            />
+            <input
+              type="text"
+              value={metric.linkText || ''}
+              onChange={(e) => {
+                const next = [...(block.metrics || [])];
+                next[i] = { ...next[i], linkText: e.target.value || undefined };
+                onChange({ metrics: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder='CTA text (default "Case Study")'
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ metrics: (block.metrics || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ metrics: [...(block.metrics || []), { id: `metric-${Date.now()}`, value: '', label: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Metric
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Booking Menu ────────────────────────────────────────────────────────────
+function BookingMenuBlockSettings({ block, onChange }: { block: BookingMenuBlock; onChange: (updates: Partial<BookingMenuBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Optional section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 3}
+          onChange={(e) => onChange({ columns: Number(e.target.value) as BookingMenuBlock['columns'] })}
+          className={inputClass}
+        >
+          <option value={2}>2 Columns</option>
+          <option value={3}>3 Columns</option>
+          <option value={4}>4 Columns</option>
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Booking pages are pulled live from this site's published bookings. Add booking pages from the Bookings admin to populate the grid.
+      </p>
+    </div>
+  );
+}
+
+// ─── Flip Card Grid ──────────────────────────────────────────────────────────
+function FlipCardGridBlockSettings({ block, onChange }: { block: FlipCardGridBlock; onChange: (updates: Partial<FlipCardGridBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. WHY WE'RE DIFFERENT"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+          <select
+            value={block.columns || 3}
+            onChange={(e) => onChange({ columns: Number(e.target.value) as FlipCardGridBlock['columns'] })}
+            className={inputClass}
+          >
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Card Height</label>
+          <input
+            type="text"
+            value={block.cardHeight || '280px'}
+            onChange={(e) => onChange({ cardHeight: e.target.value })}
+            className={inputClass}
+            placeholder="280px"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Flip Trigger</label>
+          <select
+            value={block.flipTrigger || 'hover'}
+            onChange={(e) => onChange({ flipTrigger: e.target.value as FlipCardGridBlock['flipTrigger'] })}
+            className={inputClass}
+          >
+            <option value="hover">Hover</option>
+            <option value="click">Click</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Flip Axis</label>
+          <select
+            value={block.flipAxis || 'horizontal'}
+            onChange={(e) => onChange({ flipAxis: e.target.value as FlipCardGridBlock['flipAxis'] })}
+            className={inputClass}
+          >
+            <option value="horizontal">Horizontal (Y-axis)</option>
+            <option value="vertical">Vertical (X-axis)</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+        <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Cards</label>
+        {(block.cards || []).map((card, i) => (
+          <div key={card.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={card.frontTitle}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], frontTitle: e.target.value };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Front title"
+            />
+            <input
+              type="text"
+              value={card.frontSubtitle || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], frontSubtitle: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Front subtitle (optional)"
+            />
+            <input
+              type="text"
+              value={card.frontIcon || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], frontIcon: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Material Icon name (e.g. trending_up)"
+            />
+            <input
+              type="url"
+              value={card.frontImage || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], frontImage: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Front image URL (optional)"
+            />
+            <textarea
+              value={card.backText}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], backText: e.target.value };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Back text"
+              rows={2}
+            />
+            <input
+              type="url"
+              value={card.backLink || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], backLink: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Back link URL (optional)"
+            />
+            <input
+              type="text"
+              value={card.backLinkText || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], backLinkText: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Back link text (optional)"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ cards: (block.cards || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ cards: [...(block.cards || []), { id: `flipcard-${Date.now()}`, frontTitle: '', backText: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Card
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Timeline ────────────────────────────────────────────────────────────────
+function TimelineBlockSettings({ block, onChange }: { block: TimelineBlock; onChange: (updates: Partial<TimelineBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. OUR PROCESS"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Subtitle..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
+        <select
+          value={block.layout || 'alternating'}
+          onChange={(e) => onChange({ layout: e.target.value as TimelineBlock['layout'] })}
+          className={inputClass}
+        >
+          <option value="alternating">Alternating (zigzag)</option>
+          <option value="left">Left-aligned</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Line Color</label>
+          <TokenColorPicker value={block.lineColor || ''} onChange={(color) => onChange({ lineColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Number Color</label>
+          <TokenColorPicker value={block.numberColor || ''} onChange={(color) => onChange({ numberColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Node Color</label>
+          <TokenColorPicker value={block.nodeColor || ''} onChange={(color) => onChange({ nodeColor: color || undefined })} />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Steps</label>
+        {(block.steps || []).map((step, i) => (
+          <div key={step.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={step.number || ''}
+              onChange={(e) => {
+                const next = [...(block.steps || [])];
+                next[i] = { ...next[i], number: e.target.value || undefined };
+                onChange({ steps: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Number (e.g. 01) — optional"
+            />
+            <input
+              type="text"
+              value={step.icon || ''}
+              onChange={(e) => {
+                const next = [...(block.steps || [])];
+                next[i] = { ...next[i], icon: e.target.value || undefined };
+                onChange({ steps: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Material Icon name (optional, alt to number)"
+            />
+            <input
+              type="text"
+              value={step.title}
+              onChange={(e) => {
+                const next = [...(block.steps || [])];
+                next[i] = { ...next[i], title: e.target.value };
+                onChange({ steps: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Step title"
+            />
+            <textarea
+              value={step.description}
+              onChange={(e) => {
+                const next = [...(block.steps || [])];
+                next[i] = { ...next[i], description: e.target.value };
+                onChange({ steps: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Step description"
+              rows={2}
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ steps: (block.steps || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ steps: [...(block.steps || []), { id: `step-${Date.now()}`, title: '', description: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Step
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Team Showcase ───────────────────────────────────────────────────────────
+function TeamShowcaseBlockSettings({ block, onChange }: { block: TeamShowcaseBlock; onChange: (updates: Partial<TeamShowcaseBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. OUR TEAM"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Subtitle..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Bio Panel Color</label>
+          <TokenColorPicker value={block.bioPanelColor || ''} onChange={(color) => onChange({ bioPanelColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+          <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Photo Filter (CSS)</label>
+        <input
+          type="text"
+          value={block.photoFilter || ''}
+          onChange={(e) => onChange({ photoFilter: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. sepia(0.08)"
+        />
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Members</label>
+        {(block.members || []).map((member, i) => (
+          <div key={member.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={member.name}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], name: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Name"
+            />
+            <input
+              type="text"
+              value={member.title}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], title: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Title"
+            />
+            <input
+              type="text"
+              value={member.credentials || ''}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], credentials: e.target.value || undefined };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Credentials (optional)"
+            />
+            <input
+              type="url"
+              value={member.photo}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], photo: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Photo URL"
+            />
+            <textarea
+              value={member.bio}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], bio: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Bio"
+              rows={3}
+            />
+            <input
+              type="text"
+              value={(member.specialties || []).join(', ')}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                const list = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                next[i] = { ...next[i], specialties: list.length ? list : undefined };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Specialties (comma-separated, optional)"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ members: (block.members || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ members: [...(block.members || []), { id: `member-${Date.now()}`, name: '', title: '', photo: '', bio: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Member
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Team Flip Grid ──────────────────────────────────────────────────────────
+function TeamFlipGridBlockSettings({ block, onChange }: { block: TeamFlipGridBlock; onChange: (updates: Partial<TeamFlipGridBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. MEET THE TEAM"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Subtitle..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 4}
+          onChange={(e) => onChange({ columns: Number(e.target.value) as TeamFlipGridBlock['columns'] })}
+          className={inputClass}
+        >
+          <option value={2}>2</option>
+          <option value={3}>3</option>
+          <option value={4}>4</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Back BG Color</label>
+          <TokenColorPicker value={block.backBgColor || ''} onChange={(color) => onChange({ backBgColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Back Text Color</label>
+          <TokenColorPicker value={block.backTextColor || ''} onChange={(color) => onChange({ backTextColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Name Color</label>
+          <TokenColorPicker value={block.nameColor || ''} onChange={(color) => onChange({ nameColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Title Color</label>
+          <TokenColorPicker value={block.titleColor || ''} onChange={(color) => onChange({ titleColor: color || undefined })} />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Members</label>
+        {(block.members || []).map((member, i) => (
+          <div key={member.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={member.name}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], name: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Name"
+            />
+            <input
+              type="text"
+              value={member.title}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], title: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Title"
+            />
+            <input
+              type="url"
+              value={member.photo}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], photo: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Photo URL"
+            />
+            <textarea
+              value={member.bio}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], bio: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Bio (front)"
+              rows={2}
+            />
+            <input
+              type="text"
+              value={member.question}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], question: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Question (back)"
+            />
+            <textarea
+              value={member.answer}
+              onChange={(e) => {
+                const next = [...(block.members || [])];
+                next[i] = { ...next[i], answer: e.target.value };
+                onChange({ members: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Answer (back)"
+              rows={2}
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ members: (block.members || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ members: [...(block.members || []), { id: `tmember-${Date.now()}`, name: '', title: '', bio: '', photo: '', question: '', answer: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Member
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bento Grid ──────────────────────────────────────────────────────────────
+function BentoGridBlockSettings({ block, onChange }: { block: BentoGridBlock; onChange: (updates: Partial<BentoGridBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="e.g. CAPABILITIES"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Subtitle</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.subtitle || ''} onChange={(html) => onChange({ subtitle: html || undefined })} singleLine placeholder="Subtitle..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+          <select
+            value={block.columns || 2}
+            onChange={(e) => onChange({ columns: Number(e.target.value) })}
+            className={inputClass}
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Dark BG</label>
+          <TokenColorPicker value={block.darkBg || ''} onChange={(color) => onChange({ darkBg: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Light Border</label>
+          <TokenColorPicker value={block.lightBorder || ''} onChange={(color) => onChange({ lightBorder: color || undefined })} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Accent Color</label>
+        <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Cards</label>
+        {(block.cards || []).map((card, i) => (
+          <div key={card.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={card.title}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], title: e.target.value };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Title"
+            />
+            <input
+              type="text"
+              value={card.lead || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], lead: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground italic"
+              placeholder="Lead/question (optional)"
+            />
+            <textarea
+              value={(card.items || []).join('\n')}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], items: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Bullet items (one per line)"
+              rows={3}
+            />
+            <input
+              type="url"
+              value={card.link || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], link: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link URL (optional)"
+            />
+            <input
+              type="text"
+              value={card.linkText || ''}
+              onChange={(e) => {
+                const next = [...(block.cards || [])];
+                next[i] = { ...next[i], linkText: e.target.value || undefined };
+                onChange({ cards: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link text (optional)"
+            />
+            <div className="flex gap-2">
+              <select
+                value={card.variant || 'dark'}
+                onChange={(e) => {
+                  const next = [...(block.cards || [])];
+                  next[i] = { ...next[i], variant: e.target.value as BentoCard['variant'] };
+                  onChange({ cards: next });
+                }}
+                className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              >
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={card.span ?? 6}
+                onChange={(e) => {
+                  const next = [...(block.cards || [])];
+                  next[i] = { ...next[i], span: Number(e.target.value) };
+                  onChange({ cards: next });
+                }}
+                className="w-20 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                placeholder="Span"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange({ cards: (block.cards || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ cards: [...(block.cards || []), { id: `bento-${Date.now()}`, title: '', items: [], variant: 'dark', span: 6 }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Card
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Site Footer ─────────────────────────────────────────────────────────────
+function SiteFooterBlockSettings({ block, onChange }: { block: SiteFooterBlock; onChange: (updates: Partial<SiteFooterBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo URL</label>
+          <input
+            type="url"
+            value={block.logoUrl || ''}
+            onChange={(e) => onChange({ logoUrl: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo Alt</label>
+          <input
+            type="text"
+            value={block.logoAlt || ''}
+            onChange={(e) => onChange({ logoAlt: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="Brand name"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Tagline</label>
+        <input
+          type="text"
+          value={block.tagline || ''}
+          onChange={(e) => onChange({ tagline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Short tagline shown under the logo"
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Background</label>
+          <TokenColorPicker value={block.backgroundColor || ''} onChange={(color) => onChange({ backgroundColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Text</label>
+          <TokenColorPicker value={block.textColor || ''} onChange={(color) => onChange({ textColor: color || undefined })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Accent</label>
+          <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Contact Info</label>
+        <input
+          type="text"
+          value={block.contactInfo?.address || ''}
+          onChange={(e) => onChange({ contactInfo: { ...(block.contactInfo || {}), address: e.target.value || undefined } })}
+          className={inputClass}
+          placeholder="Address"
+        />
+        <input
+          type="text"
+          value={block.contactInfo?.phone || ''}
+          onChange={(e) => onChange({ contactInfo: { ...(block.contactInfo || {}), phone: e.target.value || undefined } })}
+          className={inputClass}
+          placeholder="Phone"
+        />
+        <input
+          type="email"
+          value={block.contactInfo?.email || ''}
+          onChange={(e) => onChange({ contactInfo: { ...(block.contactInfo || {}), email: e.target.value || undefined } })}
+          className={inputClass}
+          placeholder="Email"
+        />
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Link Groups</label>
+        {(block.linkGroups || []).map((group, gi) => (
+          <div key={gi} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={group.label}
+              onChange={(e) => {
+                const next = [...(block.linkGroups || [])];
+                next[gi] = { ...next[gi], label: e.target.value };
+                onChange({ linkGroups: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Group label (e.g. PRODUCT)"
+            />
+            {(group.links || []).map((link, li) => (
+              <div key={li} className="flex gap-1">
+                <input
+                  type="text"
+                  value={link.label}
+                  onChange={(e) => {
+                    const groups = [...(block.linkGroups || [])];
+                    const links = [...(groups[gi].links || [])];
+                    links[li] = { ...links[li], label: e.target.value };
+                    groups[gi] = { ...groups[gi], links };
+                    onChange({ linkGroups: groups });
+                  }}
+                  className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                  placeholder="Link label"
+                />
+                <input
+                  type="text"
+                  value={link.href}
+                  onChange={(e) => {
+                    const groups = [...(block.linkGroups || [])];
+                    const links = [...(groups[gi].links || [])];
+                    links[li] = { ...links[li], href: e.target.value };
+                    groups[gi] = { ...groups[gi], links };
+                    onChange({ linkGroups: groups });
+                  }}
+                  className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                  placeholder="/path"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const groups = [...(block.linkGroups || [])];
+                    groups[gi] = { ...groups[gi], links: (groups[gi].links || []).filter((_, j) => j !== li) };
+                    onChange({ linkGroups: groups });
+                  }}
+                  className="px-2 text-xs text-destructive hover:underline"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const groups = [...(block.linkGroups || [])];
+                  groups[gi] = { ...groups[gi], links: [...(groups[gi].links || []), { label: '', href: '' }] };
+                  onChange({ linkGroups: groups });
+                }}
+                className="flex-1 text-xs text-muted-foreground hover:underline"
+              >
+                + Link
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ linkGroups: (block.linkGroups || []).filter((_, j) => j !== gi) })}
+                className="text-xs text-destructive hover:underline"
+              >
+                Remove group
+              </button>
+            </div>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ linkGroups: [...(block.linkGroups || []), { label: '', links: [] }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Group
+        </button>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Social Links</label>
+        {(block.socialLinks || []).map((link, i) => (
+          <div key={i} className="flex gap-1">
+            <input
+              type="text"
+              value={link.platform}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], platform: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="w-24 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="platform"
+            />
+            <input
+              type="url"
+              value={link.url}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], url: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="https://"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ socialLinks: (block.socialLinks || []).filter((_, j) => j !== i) })}
+              className="px-2 text-xs text-destructive hover:underline"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ socialLinks: [...(block.socialLinks || []), { platform: '', url: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Social Link
+        </button>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Copyright</label>
+          <input
+            type="text"
+            value={block.copyright || ''}
+            onChange={(e) => onChange({ copyright: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="© 2026 Your Company"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Disclaimer</label>
+          <textarea
+            value={block.disclaimer || ''}
+            onChange={(e) => onChange({ disclaimer: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="Optional fine-print disclaimer"
+            rows={2}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Marquee ─────────────────────────────────────────────────────────────────
+function MarqueeBlockSettings({ block, onChange }: { block: MarqueeBlock; onChange: (updates: Partial<MarqueeBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">Direction</label>
+          <select
+            value={block.direction || 'left'}
+            onChange={(e) => onChange({ direction: e.target.value as MarqueeBlock['direction'] })}
+            className={inputClass}
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="up">Up</option>
+            <option value="down">Down</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Speed (px/s)</label>
+          <input
+            type="number"
+            value={block.speed ?? 50}
+            onChange={(e) => onChange({ speed: Number(e.target.value) })}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Gap</label>
+          <input
+            type="text"
+            value={block.gap || '40px'}
+            onChange={(e) => onChange({ gap: e.target.value })}
+            className={inputClass}
+            placeholder="40px"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Height (vertical)</label>
+          <input
+            type="text"
+            value={block.height || ''}
+            onChange={(e) => onChange({ height: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="300px"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Loop Count</label>
+        <input
+          type="number"
+          min={0}
+          value={block.loop ?? 0}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onChange({ loop: Number.isNaN(n) ? undefined : n });
+          }}
+          className={inputClass}
+          placeholder="0"
+        />
+        <p className="text-xs text-muted-foreground mt-1">0 = infinite loop. Set a positive number to stop after N loops.</p>
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.pauseOnHover ?? true}
+            onChange={(e) => onChange({ pauseOnHover: e.target.checked })}
+            className="rounded border-border"
+          />
+          Pause on hover
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.pauseOnClick ?? false}
+            onChange={(e) => onChange({ pauseOnClick: e.target.checked })}
+            className="rounded border-border"
+          />
+          Pause on click
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.autoFill ?? true}
+            onChange={(e) => onChange({ autoFill: e.target.checked })}
+            className="rounded border-border"
+          />
+          Auto-fill (loop content)
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.gradient ?? false}
+            onChange={(e) => onChange({ gradient: e.target.checked })}
+            className="rounded border-border"
+          />
+          Edge gradient fade
+        </label>
+      </div>
+      {block.gradient && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Gradient Color</label>
+            <TokenColorPicker value={block.gradientColor || ''} onChange={(color) => onChange({ gradientColor: color || undefined })} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Gradient Width (px)</label>
+            <input
+              type="number"
+              value={block.gradientWidth ?? 200}
+              onChange={(e) => onChange({ gradientWidth: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      )}
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Items</label>
+        {(block.items || []).map((item, i) => (
+          <div key={item.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <select
+              value={item.type}
+              onChange={(e) => {
+                const next = [...(block.items || [])];
+                next[i] = { ...next[i], type: e.target.value as MarqueeItem['type'] };
+                onChange({ items: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+            >
+              <option value="text">Text</option>
+              <option value="image">Image</option>
+              <option value="icon">Icon</option>
+            </select>
+            {item.type === 'image' ? (
+              <>
+                <input
+                  type="url"
+                  value={item.imageUrl || ''}
+                  onChange={(e) => {
+                    const next = [...(block.items || [])];
+                    next[i] = { ...next[i], imageUrl: e.target.value || undefined };
+                    onChange({ items: next });
+                  }}
+                  className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                  placeholder="Image URL"
+                />
+                <input
+                  type="text"
+                  value={item.imageAlt || ''}
+                  onChange={(e) => {
+                    const next = [...(block.items || [])];
+                    next[i] = { ...next[i], imageAlt: e.target.value || undefined };
+                    onChange({ items: next });
+                  }}
+                  className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                  placeholder="Alt text"
+                />
+              </>
+            ) : (
+              <input
+                type="text"
+                value={item.content || ''}
+                onChange={(e) => {
+                  const next = [...(block.items || [])];
+                  next[i] = { ...next[i], content: e.target.value || undefined };
+                  onChange({ items: next });
+                }}
+                className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                placeholder={item.type === 'icon' ? 'Material Icon name' : 'Text content'}
+              />
+            )}
+            <input
+              type="url"
+              value={item.link || ''}
+              onChange={(e) => {
+                const next = [...(block.items || [])];
+                next[i] = { ...next[i], link: e.target.value || undefined };
+                onChange({ items: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link (optional)"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ items: (block.items || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ items: [...(block.items || []), { id: `marq-${Date.now()}`, type: 'text', content: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Item
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+function TabsBlockSettings({ block, onChange }: { block: TabsBlock; onChange: (updates: Partial<TabsBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Edit each tab's contents by selecting it in the canvas and using the inline editor. Add or remove tabs here.
+      </p>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Tabs</label>
+        {(block.tabs || []).map((tab, i) => (
+          <div key={tab.id ?? i} className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={tab.label}
+              onChange={(e) => {
+                const next = [...(block.tabs || [])];
+                next[i] = { ...next[i], label: e.target.value };
+                onChange({ tabs: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Tab label"
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ tabs: (block.tabs || []).filter((_, j) => j !== i) })}
+              className="px-2 py-1.5 text-xs rounded border border-border text-destructive hover:bg-destructive/10"
+              title="Remove tab"
+            >
+              <span className="material-icons text-xs">delete</span>
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ tabs: [...(block.tabs || []), { id: `tab-${Date.now()}`, label: 'New Tab', blocks: [] }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Tab
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Survey Input (pitch-deck preview) ───────────────────────────────────────
+function SurveyInputBlockSettings({ block, onChange }: { block: SurveyInputBlock; onChange: (updates: Partial<SurveyInputBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  const FIELD_TYPES = ['text', 'textarea', 'email', 'phone', 'url', 'number', 'date', 'select', 'radio', 'checkbox', 'toggle', 'rating', 'slider', 'heading'];
+  const showOptions = ['select', 'radio', 'checkbox'].includes(block.fieldType);
+  const showSliderConfig = block.fieldType === 'slider';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Field Type</label>
+        <select
+          value={block.fieldType}
+          onChange={(e) => onChange({ fieldType: e.target.value })}
+          className={inputClass}
+        >
+          {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Field Label</label>
+        <input
+          type="text"
+          value={block.fieldLabel}
+          onChange={(e) => onChange({ fieldLabel: e.target.value })}
+          className={inputClass}
+          placeholder="Question or label"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Placeholder</label>
+        <input
+          type="text"
+          value={block.placeholder || ''}
+          onChange={(e) => onChange({ placeholder: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Placeholder text (optional)"
+        />
+      </div>
+      {showOptions && (
+        <div className="border-t border-border pt-4 space-y-2">
+          <label className="block text-sm font-medium text-foreground">Options</label>
+          {(block.options || []).map((opt, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                type="text"
+                value={opt}
+                onChange={(e) => {
+                  const next = [...(block.options || [])];
+                  next[i] = e.target.value;
+                  onChange({ options: next });
+                }}
+                className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                placeholder="Option value"
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ options: (block.options || []).filter((_, j) => j !== i) })}
+                className="px-2 text-xs text-destructive hover:underline"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => onChange({ options: [...(block.options || []), ''] })}
+            className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+          >
+            + Add Option
+          </button>
+        </div>
+      )}
+      {showSliderConfig && (
+        <div className="grid grid-cols-3 gap-3 border-t border-border pt-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Min</label>
+            <input
+              type="number"
+              value={block.min ?? 0}
+              onChange={(e) => onChange({ min: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Max</label>
+            <input
+              type="number"
+              value={block.max ?? 100}
+              onChange={(e) => onChange({ max: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Step</label>
+            <input
+              type="number"
+              value={block.step ?? 1}
+              onChange={(e) => onChange({ step: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Email Header (email-only block) ─────────────────────────────────────────
+function EmailHeaderBlockSettings({ block, onChange }: { block: EmailHeaderBlock; onChange: (updates: Partial<EmailHeaderBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Logo URL</label>
+        <input
+          type="url"
+          value={block.logoUrl || ''}
+          onChange={(e) => onChange({ logoUrl: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo Width (px)</label>
+          <input
+            type="number"
+            value={block.logoWidth ?? 180}
+            onChange={(e) => onChange({ logoWidth: Number(e.target.value) || undefined })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Alignment</label>
+          <select
+            value={block.alignment || 'center'}
+            onChange={(e) => onChange({ alignment: e.target.value as EmailHeaderBlock['alignment'] })}
+            className={inputClass}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Tagline</label>
+        <input
+          type="text"
+          value={block.tagline || ''}
+          onChange={(e) => onChange({ tagline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Optional tagline below the logo"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Email Footer (email-only block) ─────────────────────────────────────────
+function EmailFooterBlockSettings({ block, onChange }: { block: EmailFooterBlock; onChange: (updates: Partial<EmailFooterBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Company Name</label>
+        <input
+          type="text"
+          value={block.companyName || ''}
+          onChange={(e) => onChange({ companyName: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Your Company"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Address</label>
+        <textarea
+          value={block.address || ''}
+          onChange={(e) => onChange({ address: e.target.value || undefined })}
+          className={`${inputClass} min-h-[60px] resize-y`}
+          placeholder="123 Main St, City, ST 00000"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.showUnsubscribe !== false}
+            onChange={(e) => onChange({ showUnsubscribe: e.target.checked })}
+            className="rounded border-border"
+          />
+          Show unsubscribe link
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.showViewInBrowser ?? false}
+            onChange={(e) => onChange({ showViewInBrowser: e.target.checked })}
+            className="rounded border-border"
+          />
+          Show "View in browser" link
+        </label>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Social Links</label>
+        {(block.socialLinks || []).map((link, i) => (
+          <div key={i} className="flex gap-1">
+            <input
+              type="text"
+              value={link.platform}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], platform: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Platform (e.g. linkedin)"
+            />
+            <input
+              type="url"
+              value={link.url}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], url: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="https://..."
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ socialLinks: (block.socialLinks || []).filter((_, j) => j !== i) })}
+              className="px-2 text-xs text-destructive hover:underline"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ socialLinks: [...(block.socialLinks || []), { platform: '', url: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Social Link
         </button>
       </div>
     </div>

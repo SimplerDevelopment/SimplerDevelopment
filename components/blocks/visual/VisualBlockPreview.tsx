@@ -42,6 +42,15 @@ import { SurveyInputBlockPreview } from './SurveyInputBlockPreview';
 import { SocialLinksBlockPreview } from './SocialLinksBlockPreview';
 import { EmailHeaderBlockPreview } from './EmailHeaderBlockPreview';
 import { EmailFooterBlockPreview } from './EmailFooterBlockPreview';
+import { FlipCardGridBlockPreview } from './FlipCardGridBlockPreview';
+import { MetricCardsBlockPreview } from './MetricCardsBlockPreview';
+import { LogoStripBlockPreview } from './LogoStripBlockPreview';
+import { TimelineBlockPreview } from './TimelineBlockPreview';
+import { TeamShowcaseBlockPreview } from './TeamShowcaseBlockPreview';
+import { TeamFlipGridBlockPreview } from './TeamFlipGridBlockPreview';
+import { BentoGridBlockPreview } from './BentoGridBlockPreview';
+import { SiteFooterBlockPreview } from './SiteFooterBlockPreview';
+import { BookingMenuBlockPreview } from './BookingMenuBlockPreview';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -206,6 +215,24 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <EmailHeaderBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'email-footer':
       return <EmailFooterBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'flip-card-grid':
+      return <FlipCardGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'metric-cards':
+      return <MetricCardsBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'logo-strip':
+      return <LogoStripBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'timeline':
+      return <TimelineBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'team-showcase':
+      return <TeamShowcaseBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'team-flip-grid':
+      return <TeamFlipGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'bento-grid':
+      return <BentoGridBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'site-footer':
+      return <SiteFooterBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'booking-menu':
+      return <BookingMenuBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

@@ -53,6 +53,10 @@ import { TeamFlipGridBlockRender } from './TeamFlipGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { SiteFooterBlockRender } from './SiteFooterBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
+import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
+import { MetricCardsBlockRender } from './MetricCardsBlockRender';
+import { LogoStripBlockRender } from './LogoStripBlockRender';
+import { SurveyInputBlockRender } from './SurveyInputBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -241,6 +245,14 @@ function renderBlock(block: Block, siteId?: number) {
       return <BentoGridBlockRender block={normalized} />;
     case 'site-footer':
       return <SiteFooterBlockRender block={normalized} />;
+    case 'flip-card-grid':
+      return <FlipCardGridBlockRender block={normalized} />;
+    case 'metric-cards':
+      return <MetricCardsBlockRender block={normalized} />;
+    case 'logo-strip':
+      return <LogoStripBlockRender block={normalized} />;
+    case 'survey-input':
+      return <SurveyInputBlockRender block={normalized} />;
     case 'deck-next-slide':
       return <DeckNextSlideBlockRender block={normalized} />;
     case 'deck-jump-to':

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { TeamFlipGridBlock } from '@/types/blocks';
 import { Icon } from '@/components/ui/Icon';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface Props {
   block: TeamFlipGridBlock;
@@ -73,7 +74,10 @@ export function TeamFlipGridBlockRender({ block }: Props) {
             >
               <div className="pc-flip-card__inner">
                 {/* Front */}
-                <div className="pc-flip-card__face pc-flip-card__front">
+                <div
+                  className="pc-flip-card__face pc-flip-card__front"
+                  style={getElementCSS(block.elementStyles, 'frontCard')}
+                >
                   <div className="pc-flip-card__photo">
                     {m.photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -86,7 +90,10 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                   </div>
                   <div className="pc-flip-card__info">
                     <div className="pc-flip-card__name-row">
-                      <h3 className="pc-flip-card__name" style={{ color: nameColor }}>
+                      <h3
+                        className="pc-flip-card__name"
+                        style={{ color: nameColor, ...getElementCSS(block.elementStyles, 'memberName') }}
+                      >
                         {m.name}
                       </h3>
                       <button
@@ -99,17 +106,27 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                         <Icon name="add" size={18} />
                       </button>
                     </div>
-                    <p className="pc-flip-card__title" style={{ color: titleColor }}>
+                    <p
+                      className="pc-flip-card__title"
+                      style={{ color: titleColor, ...getElementCSS(block.elementStyles, 'memberTitle') }}
+                    >
                       {m.title}
                     </p>
-                    {m.bio && <p className="pc-flip-card__bio">{m.bio}</p>}
+                    {m.bio && (
+                      <p
+                        className="pc-flip-card__bio"
+                        style={getElementCSS(block.elementStyles, 'memberBio')}
+                      >
+                        {m.bio}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Back */}
                 <div
                   className="pc-flip-card__face pc-flip-card__back"
-                  style={{ backgroundColor: backBg, color: backColor }}
+                  style={{ backgroundColor: backBg, color: backColor, ...getElementCSS(block.elementStyles, 'backCard') }}
                 >
                   <button
                     type="button"
@@ -121,8 +138,22 @@ export function TeamFlipGridBlockRender({ block }: Props) {
                     <Icon name="close" size={18} />
                   </button>
                   <div className="pc-flip-card__back-content">
-                    {m.question && <p className="pc-flip-card__question">{m.question}</p>}
-                    {m.answer && <p className="pc-flip-card__answer">{m.answer}</p>}
+                    {m.question && (
+                      <p
+                        className="pc-flip-card__question"
+                        style={getElementCSS(block.elementStyles, 'question')}
+                      >
+                        {m.question}
+                      </p>
+                    )}
+                    {m.answer && (
+                      <p
+                        className="pc-flip-card__answer"
+                        style={getElementCSS(block.elementStyles, 'answer')}
+                      >
+                        {m.answer}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

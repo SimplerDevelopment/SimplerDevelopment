@@ -100,6 +100,7 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
               backgroundColor: '#fff',
               border: '1px solid #e5e5e5',
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              ...getElementCSS(block.elementStyles, 'card'),
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
@@ -124,18 +125,18 @@ export function BookingMenuBlockRender({ block, siteId: siteIdProp }: { block: B
             )}
             <div className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3 mb-2">
-                <h3 className="text-base font-semibold transition-colors" style={{ color: '#1b1b1b' }}>
+                <h3 className="text-base font-semibold transition-colors" style={{ color: '#1b1b1b', ...getElementCSS(block.elementStyles, 'cardTitle') }}>
                   {page.title}
                 </h3>
                 <span
                   className="material-icons text-sm shrink-0 transition-colors"
-                  style={{ color: '#ccc' }}
+                  style={{ color: '#ccc', ...getElementCSS(block.elementStyles, 'button') }}
                 >
                   arrow_forward
                 </span>
               </div>
               {page.description && (
-                <p className="text-sm mb-4" style={{ color: '#5e5e5e', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                <p className="text-sm mb-4" style={{ color: '#5e5e5e', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', ...getElementCSS(block.elementStyles, 'cardDescription') }}>
                   {page.description}
                 </p>
               )}

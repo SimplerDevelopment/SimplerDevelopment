@@ -100,7 +100,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
       {/* Error State */}
       {error && !loading && (
         <div className="text-center py-12">
-          <div className="text-4xl mb-4">⚠️</div>
+          <span className="material-icons text-5xl text-muted-foreground/20 mb-4">warning</span>
           <p className="text-muted-foreground">{error}</p>
         </div>
       )}
@@ -108,7 +108,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
       {/* Empty State */}
       {!loading && !error && posts.length === 0 && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📝</div>
+          <span className="material-icons text-7xl text-muted-foreground/20 mb-4">article</span>
           <p className="text-xl text-muted-foreground mb-2">No blog posts found</p>
           <p className="text-sm text-muted-foreground">
             {block.postType === 'category' && block.categorySlug
@@ -136,7 +136,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
                 </div>
               ) : (
                 <div className="aspect-video bg-muted/30 flex items-center justify-center">
-                  <span className="text-4xl">📰</span>
+                  <span className="material-icons text-5xl text-muted-foreground/20">article</span>
                 </div>
               )}
 

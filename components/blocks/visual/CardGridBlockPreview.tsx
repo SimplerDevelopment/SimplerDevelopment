@@ -22,7 +22,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
           id: `card-${Date.now()}`,
           title: 'New Card',
           description: 'Card description',
-          icon: '✨',
+          icon: 'auto_awesome',
         },
       ],
     });
@@ -135,7 +135,7 @@ export function CardGridBlockPreview({ block, isSelected, onChange }: CardGridBl
                     }}
                     className="w-full h-full flex flex-col items-center justify-center hover:bg-muted/50 transition-colors"
                   >
-                    <div className="text-5xl mb-2">🖼️</div>
+                    <span className="material-icons text-5xl text-muted-foreground/20 mb-2">image</span>
                     <span className="text-sm text-muted-foreground">Click to select image</span>
                   </button>
                 )}

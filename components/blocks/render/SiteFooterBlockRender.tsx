@@ -25,12 +25,16 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                     src={block.logoUrl}
                     alt={block.logoAlt || ''}
                     className="h-10 w-auto"
+                    style={getElementCSS(block.elementStyles, 'logo')}
                   />
                 </a>
               </div>
             )}
             {block.tagline && (
-              <p className="text-xs leading-relaxed mt-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p
+                className="text-xs leading-relaxed mt-4"
+                style={{ color: 'rgba(255,255,255,0.4)', ...getElementCSS(block.elementStyles, 'tagline') }}
+              >
                 {block.tagline}
               </p>
             )}
@@ -41,7 +45,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
             <div key={i}>
               <h4
                 className="text-xs tracking-[0.2em] uppercase mb-5"
-                style={{ color: accent }}
+                style={{ color: accent, ...getElementCSS(block.elementStyles, 'linkGroupLabel') }}
               >
                 {group.label}
               </h4>
@@ -51,7 +55,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                     <a
                       href={link.href}
                       className="text-sm transition-colors duration-300"
-                      style={{ color: text }}
+                      style={{ color: text, ...getElementCSS(block.elementStyles, 'link') }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = text; }}
                     >
@@ -68,16 +72,20 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
             <div>
               <h4
                 className="text-xs tracking-[0.2em] uppercase mb-5"
-                style={{ color: accent }}
+                style={{ color: accent, ...getElementCSS(block.elementStyles, 'linkGroupLabel') }}
               >
                 Contact
               </h4>
               <div className="space-y-3 text-sm" style={{ color: text }}>
                 {block.contactInfo.address && (
-                  <p style={{ whiteSpace: 'pre-line' }}>{block.contactInfo.address}</p>
+                  <p style={{ whiteSpace: 'pre-line', ...getElementCSS(block.elementStyles, 'contactLine') }}>{block.contactInfo.address}</p>
                 )}
-                {block.contactInfo.phone && <p>{block.contactInfo.phone}</p>}
-                {block.contactInfo.email && <p>{block.contactInfo.email}</p>}
+                {block.contactInfo.phone && (
+                  <p style={getElementCSS(block.elementStyles, 'contactLine')}>{block.contactInfo.phone}</p>
+                )}
+                {block.contactInfo.email && (
+                  <p style={getElementCSS(block.elementStyles, 'contactLine')}>{block.contactInfo.email}</p>
+                )}
               </div>
 
               {/* Social links */}
@@ -88,7 +96,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                       key={i}
                       href={social.url}
                       className="inline-flex items-center gap-2 text-sm transition-colors"
-                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                      style={{ color: 'rgba(255,255,255,0.4)', ...getElementCSS(block.elementStyles, 'socialIcon') }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = accent; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}
                       target="_blank"
@@ -112,12 +120,18 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
           <div className="mt-16 pt-8" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               {block.copyright && (
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                <p
+                  className="text-xs"
+                  style={{ color: 'rgba(255,255,255,0.25)', ...getElementCSS(block.elementStyles, 'copyright') }}
+                >
                   {block.copyright}
                 </p>
               )}
               {block.disclaimer && (
-                <p className="text-[10px] leading-relaxed text-center sm:text-right max-w-xl" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                <p
+                  className="text-[10px] leading-relaxed text-center sm:text-right max-w-xl"
+                  style={{ color: 'rgba(255,255,255,0.2)', ...getElementCSS(block.elementStyles, 'copyright') }}
+                >
                   {block.disclaimer}
                 </p>
               )}

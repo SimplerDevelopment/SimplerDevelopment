@@ -130,7 +130,7 @@ export function TokenColorPicker({ value, onChange, label, placeholder = 'transp
               title="Reset to default"
               data-testid="brand-sentinel-reset"
             >
-              ✕
+              <span className="material-icons text-base">close</span>
             </button>
           </div>
         ) : (

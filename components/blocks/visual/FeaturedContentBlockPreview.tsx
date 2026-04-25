@@ -72,7 +72,7 @@ export function FeaturedContentBlockPreview({ block, isSelected, onChange }: Fea
             />
           ) : (
             <div className="aspect-square bg-muted/30 rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-              <span className="text-6xl">🖼️</span>
+              <span className="material-icons text-7xl text-muted-foreground/20">image</span>
             </div>
           )}
         </div>

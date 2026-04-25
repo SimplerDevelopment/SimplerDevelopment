@@ -13,25 +13,25 @@ interface SectionBlockPreviewProps {
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
-  { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a heading' },
-  { type: 'text', label: 'Paragraph', icon: '📄', category: 'Basic', description: 'Add text' },
-  { type: 'button', label: 'Button', icon: '🔘', category: 'Basic', description: 'Add a button' },
-  { type: 'quote', label: 'Quote', icon: '💬', category: 'Basic', description: 'Add a quote' },
-  { type: 'image', label: 'Image', icon: '🖼️', category: 'Media', description: 'Add an image' },
-  { type: 'youtube', label: 'YouTube', icon: '📺', category: 'Media', description: 'Embed YouTube' },
-  { type: 'video', label: 'Video', icon: '🎬', category: 'Media', description: 'Embed video' },
-  { type: 'code', label: 'Code', icon: '💻', category: 'Media', description: 'Code block' },
-  { type: 'spacer', label: 'Spacer', icon: '↕️', category: 'Layout', description: 'Vertical space' },
-  { type: 'divider', label: 'Divider', icon: '➖', category: 'Layout', description: 'Horizontal line' },
-  { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Multi-column' },
-  { type: 'section', label: 'Section', icon: '📦', category: 'Layout', description: 'Container wrapper' },
-  { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible' },
-  { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content' },
-  { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section' },
-  { type: 'cta', label: 'CTA', icon: '📢', category: 'Components', description: 'Call to action' },
-  { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Testimonial' },
-  { type: 'stats', label: 'Stats', icon: '📈', category: 'Components', description: 'Statistics' },
-  { type: 'card-grid', label: 'Card Grid', icon: '🎴', category: 'Components', description: 'Cards' },
+  { type: 'heading', label: 'Heading', icon: 'title', category: 'Basic', description: 'Add a heading' },
+  { type: 'text', label: 'Paragraph', icon: 'subject', category: 'Basic', description: 'Add text' },
+  { type: 'button', label: 'Button', icon: 'smart_button', category: 'Basic', description: 'Add a button' },
+  { type: 'quote', label: 'Quote', icon: 'format_quote', category: 'Basic', description: 'Add a quote' },
+  { type: 'image', label: 'Image', icon: 'image', category: 'Media', description: 'Add an image' },
+  { type: 'youtube', label: 'YouTube', icon: 'smart_display', category: 'Media', description: 'Embed YouTube' },
+  { type: 'video', label: 'Video', icon: 'movie', category: 'Media', description: 'Embed video' },
+  { type: 'code', label: 'Code', icon: 'code', category: 'Media', description: 'Code block' },
+  { type: 'spacer', label: 'Spacer', icon: 'space_bar', category: 'Layout', description: 'Vertical space' },
+  { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Horizontal line' },
+  { type: 'columns', label: 'Columns', icon: 'view_column', category: 'Layout', description: 'Multi-column' },
+  { type: 'section', label: 'Section', icon: 'crop_square', category: 'Layout', description: 'Container wrapper' },
+  { type: 'accordion', label: 'Accordion', icon: 'unfold_more', category: 'Layout', description: 'Collapsible' },
+  { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed content' },
+  { type: 'hero', label: 'Hero', icon: 'gps_fixed', category: 'Components', description: 'Hero section' },
+  { type: 'cta', label: 'CTA', icon: 'campaign', category: 'Components', description: 'Call to action' },
+  { type: 'testimonial', label: 'Testimonial', icon: 'star', category: 'Components', description: 'Testimonial' },
+  { type: 'stats', label: 'Stats', icon: 'trending_up', category: 'Components', description: 'Statistics' },
+  { type: 'card-grid', label: 'Card Grid', icon: 'dashboard', category: 'Components', description: 'Cards' },
 ];
 
 export function SectionBlockPreview({ block, isSelected, onChange, selectedBlockId, onSelectBlock }: SectionBlockPreviewProps) {
@@ -204,7 +204,7 @@ export function SectionBlockPreview({ block, isSelected, onChange, selectedBlock
                           className="p-3 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group"
                         >
                           <div className="flex flex-col items-center gap-2">
-                            <div className="text-2xl">{bt.icon}</div>
+                            <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary">{bt.icon}</span>
                             <div className="text-xs font-medium text-foreground group-hover:text-primary text-center">{bt.label}</div>
                           </div>
                         </button>

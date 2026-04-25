@@ -2,6 +2,7 @@
 
 import { ImageBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface ImageBlockRenderProps {
   block: ImageBlock;
@@ -49,7 +50,10 @@ export function ImageBlockRender({ block }: ImageBlockRenderProps) {
           className={`w-full h-auto ${style.borderRadius ? '' : 'rounded-lg'}`}
         />
         {block.caption && (
-          <figcaption className="text-center text-sm text-muted-foreground mt-2">
+          <figcaption
+            className="text-center text-sm text-muted-foreground mt-2"
+            style={getElementCSS(block.elementStyles, 'caption')}
+          >
             {block.caption}
           </figcaption>
         )}

@@ -17,27 +17,27 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
   const [showBlockInserter, setShowBlockInserter] = useState(false);
 
   const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
-    { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a title or heading' },
-    { type: 'text', label: 'Paragraph', icon: '📄', category: 'Basic', description: 'Start with plain text' },
-    { type: 'button', label: 'Button', icon: '🔘', category: 'Basic', description: 'Add a call-to-action button' },
-    { type: 'quote', label: 'Quote', icon: '💬', category: 'Basic', description: 'Add a quotation' },
-    { type: 'image', label: 'Image', icon: '🖼️', category: 'Media', description: 'Insert an image' },
-    { type: 'youtube', label: 'YouTube', icon: '📺', category: 'Media', description: 'Embed a YouTube video' },
-    { type: 'video', label: 'Video', icon: '🎬', category: 'Media', description: 'Embed a video file' },
-    { type: 'code', label: 'Code', icon: '💻', category: 'Media', description: 'Display code snippet' },
-    { type: 'spacer', label: 'Spacer', icon: '↕️', category: 'Layout', description: 'Add vertical space' },
-    { type: 'divider', label: 'Divider', icon: '➖', category: 'Layout', description: 'Add a horizontal line' },
-    { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Display content in columns' },
-    { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible content sections' },
-    { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
-    { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
-    { type: 'services-grid', label: 'Services', icon: '📦', category: 'Components', description: 'Grid of services' },
-    { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
-    { type: 'card-grid', label: 'Card Grid', icon: '🎴', category: 'Components', description: 'Grid of cards' },
-    { type: 'stats', label: 'Stats', icon: '📈', category: 'Components', description: 'Statistics display' },
-    { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Customer testimonial' },
-    { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
-    { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
+    { type: 'heading', label: 'Heading', icon: 'title', category: 'Basic', description: 'Add a title or heading' },
+    { type: 'text', label: 'Paragraph', icon: 'subject', category: 'Basic', description: 'Start with plain text' },
+    { type: 'button', label: 'Button', icon: 'smart_button', category: 'Basic', description: 'Add a call-to-action button' },
+    { type: 'quote', label: 'Quote', icon: 'format_quote', category: 'Basic', description: 'Add a quotation' },
+    { type: 'image', label: 'Image', icon: 'image', category: 'Media', description: 'Insert an image' },
+    { type: 'youtube', label: 'YouTube', icon: 'smart_display', category: 'Media', description: 'Embed a YouTube video' },
+    { type: 'video', label: 'Video', icon: 'movie', category: 'Media', description: 'Embed a video file' },
+    { type: 'code', label: 'Code', icon: 'code', category: 'Media', description: 'Display code snippet' },
+    { type: 'spacer', label: 'Spacer', icon: 'space_bar', category: 'Layout', description: 'Add vertical space' },
+    { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Add a horizontal line' },
+    { type: 'columns', label: 'Columns', icon: 'view_column', category: 'Layout', description: 'Display content in columns' },
+    { type: 'accordion', label: 'Accordion', icon: 'unfold_more', category: 'Layout', description: 'Collapsible content sections' },
+    { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed content sections' },
+    { type: 'hero', label: 'Hero', icon: 'gps_fixed', category: 'Components', description: 'Hero section with CTA' },
+    { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Grid of services' },
+    { type: 'cta', label: 'Call to Action', icon: 'campaign', category: 'Components', description: 'CTA section' },
+    { type: 'card-grid', label: 'Card Grid', icon: 'dashboard', category: 'Components', description: 'Grid of cards' },
+    { type: 'stats', label: 'Stats', icon: 'trending_up', category: 'Components', description: 'Statistics display' },
+    { type: 'testimonial', label: 'Testimonial', icon: 'star', category: 'Components', description: 'Customer testimonial' },
+    { type: 'featured-content', label: 'Featured Content', icon: 'auto_awesome', category: 'Components', description: 'Featured content with image' },
+    { type: 'blog-posts', label: 'Blog Posts', icon: 'article', category: 'Components', description: 'Display blog posts' },
   ];
 
   const addTab = () => {
@@ -293,7 +293,7 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
                           className="p-3 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group bg-white dark:bg-gray-900"
                         >
                           <div className="flex flex-col items-center gap-2">
-                            <div className="text-2xl">{blockType.icon}</div>
+                            <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary">{blockType.icon}</span>
                             <div className="text-xs font-medium text-foreground group-hover:text-primary text-center">
                               {blockType.label}
                             </div>

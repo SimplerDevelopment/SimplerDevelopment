@@ -3,6 +3,7 @@
 import { TabsBlock, Block } from '@/types/blocks';
 import { useState } from 'react';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 import { TextBlockRender } from './TextBlockRender';
 import { HeadingBlockRender } from './HeadingBlockRender';
 import { ImageBlockRender } from './ImageBlockRender';
@@ -67,23 +68,32 @@ export function TabsBlockRender({ block }: TabsBlockRenderProps) {
       <div className="border border-border rounded-lg overflow-hidden">
         {/* Tab Headers */}
         <div className="flex border-b border-border bg-muted/30">
-          {block.tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTabId(tab.id)}
-              className={`px-4 py-3 font-medium transition-colors border-b-2 ${
-                activeTabId === tab.id
-                  ? 'border-primary text-primary bg-background'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {block.tabs.map((tab) => {
+            const isActive = activeTabId === tab.id;
+            const baseStyle = getElementCSS(block.elementStyles, 'tab');
+            const activeStyle = isActive ? getElementCSS(block.elementStyles, 'activeTab') : undefined;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                className={`px-4 py-3 font-medium transition-colors border-b-2 ${
+                  isActive
+                    ? 'border-primary text-primary bg-background'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+                style={{ ...baseStyle, ...activeStyle }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 bg-card min-h-[200px]">
+        <div
+          className="p-6 bg-card min-h-[200px]"
+          style={getElementCSS(block.elementStyles, 'tabPanel')}
+        >
           {activeTab && activeTab.blocks.length > 0 ? (
             <div className="space-y-4">
               {activeTab.blocks.map((nestedBlock) => (

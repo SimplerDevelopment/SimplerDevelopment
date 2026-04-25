@@ -72,6 +72,13 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'testimonial', label: 'Testimonial', icon: 'rate_review', category: 'Components', description: 'Customer quote' },
   { type: 'featured-content', label: 'Featured', icon: 'star', category: 'Components', description: 'Featured content' },
   { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Services grid' },
+  { type: 'blog-posts', label: 'Blog Posts', icon: 'article', category: 'Components', description: 'Grid of recent blog posts' },
+  { type: 'timeline', label: 'Timeline', icon: 'timeline', category: 'Components', description: 'Process or chronology with steps' },
+  { type: 'team-showcase', label: 'Team Showcase', icon: 'groups', category: 'Components', description: 'Team members with bios' },
+  { type: 'team-flip-grid', label: 'Team Flip Grid', icon: 'flip', category: 'Components', description: 'Team members with flip-to-reveal Q&A cards' },
+  { type: 'bento-grid', label: 'Bento Grid', icon: 'view_quilt', category: 'Components', description: 'Asymmetric two-column card layout' },
+  { type: 'site-footer', label: 'Site Footer', icon: 'border_bottom', category: 'Components', description: 'Multi-column site footer with links' },
+  { type: 'social-links', label: 'Social Links', icon: 'share', category: 'Components', description: 'Row of social media icons' },
   { type: 'product-grid', label: 'Product Grid', icon: 'storefront', category: 'eCommerce', description: 'Product listing grid' },
   { type: 'featured-products', label: 'Featured Products', icon: 'loyalty', category: 'eCommerce', description: 'Featured product showcase' },
   { type: 'product-categories', label: 'Categories', icon: 'category', category: 'eCommerce', description: 'Product category listing' },
@@ -79,8 +86,9 @@ const BUILT_IN_BLOCK_TYPES: Array<{ type: BlockType; label: string; icon: string
   { type: 'store-banner', label: 'Store Banner', icon: 'sell', category: 'eCommerce', description: 'Promotional banner' },
   { type: 'product-detail', label: 'Product Detail', icon: 'inventory_2', category: 'eCommerce', description: 'Single product page' },
   { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
+  { type: 'booking-menu', label: 'Booking Menu', icon: 'event_available', category: 'Interactive', description: 'Grid of bookable services' },
   { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
-  { type: 'team-flip-grid', label: 'Team Flip Grid', icon: 'flip', category: 'Components', description: 'Team members with flip-to-reveal Q&A cards' },
+  { type: 'survey-results', label: 'Survey Results', icon: 'analytics', category: 'Interactive', description: 'Charts of survey responses' },
 ];
 
 const BLOCK_ICON_MAP: Record<string, string> = {};
