@@ -3,6 +3,7 @@
 import { CtaBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { RichTextEditable } from './RichTextEditable';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface CtaBlockPreviewProps {
   block: CtaBlock;
@@ -11,15 +12,27 @@ interface CtaBlockPreviewProps {
 }
 
 export function CtaBlockPreview({ block, isSelected, onChange }: CtaBlockPreviewProps) {
-  const backgroundStyles = {
-    gradient: 'bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20',
-    solid: 'bg-primary/10',
-    none: 'bg-transparent',
-  };
+  const branding = useBranding();
+  const bgStyle = block.backgroundStyle || 'gradient';
+
+  // Mirror CtaBlockRender: branded gradient when available, fallback CSS only
+  // when no branding context and no custom bg.
+  const backgroundClass = bgStyle === 'solid' ? 'bg-primary/10'
+    : bgStyle === 'none' ? 'bg-transparent'
+    : '';
+
+  const gradientStyle: React.CSSProperties = {};
+  if (bgStyle === 'gradient') {
+    if (branding) {
+      gradientStyle.background = `linear-gradient(to right, ${branding.primaryColor}20, ${branding.secondaryColor}20, ${branding.accentColor}20)`;
+    } else {
+      gradientStyle.background = 'linear-gradient(to right, hsl(var(--primary) / 0.2), rgb(168 85 247 / 0.2), rgb(236 72 153 / 0.2))';
+    }
+  }
 
   return (
     <div className="py-20 my-12 px-6">
-      <div className={`${backgroundStyles[block.backgroundStyle || 'gradient']} rounded-lg px-4 py-16 text-center relative overflow-hidden`}>
+      <div className={`${backgroundClass} rounded-lg px-4 py-16 text-center relative overflow-hidden`} style={gradientStyle}>
         <div className="container mx-auto relative z-10">
           <RichTextEditable
             html={block.title}

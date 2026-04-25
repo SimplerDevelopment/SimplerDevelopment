@@ -3,6 +3,7 @@
 import { HeroBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { RichTextEditable } from './RichTextEditable';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface HeroBlockPreviewProps {
   block: HeroBlock;
@@ -11,7 +12,12 @@ interface HeroBlockPreviewProps {
 }
 
 export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPreviewProps) {
+  const branding = useBranding();
   const hasBackground = !!block.backgroundImage;
+  const style = typeof block.style === 'object' ? block.style : {};
+  // Mirror HeroBlockRender: when block.style sets a custom background, the
+  // wrapper div has already painted it — don't lay our default gradient on top.
+  const hasCustomBg = !!(style.backgroundColor || style.backgroundGradient || style.backgroundImage);
 
   const bgStyle: React.CSSProperties = hasBackground
     ? {
@@ -19,12 +25,20 @@ export function HeroBlockPreview({ block, isSelected, onChange }: HeroBlockPrevi
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
-    : {};
+    : !hasCustomBg && branding
+      ? { background: `linear-gradient(to bottom, ${branding.primaryColor}1a, ${branding.backgroundColor}, ${branding.backgroundColor})` }
+      : {};
+
+  // Match the renderer: branded gradient when available, neutral fallback when
+  // not, and nothing when the user has set their own bg.
+  const fallbackGradientClass = !hasBackground && !hasCustomBg && !branding
+    ? 'bg-gradient-to-b from-primary/10 via-background to-background'
+    : '';
 
   return (
     <div className="py-8 my-8 px-6">
       <div
-        className={`${hasBackground ? '' : 'bg-gradient-to-r from-primary/20 to-purple-500/20'} rounded-lg py-20 px-4 text-center min-h-[60vh] flex items-center justify-center`}
+        className={`${fallbackGradientClass} rounded-lg py-20 px-4 text-center min-h-[60vh] flex items-center justify-center`}
         style={bgStyle}
       >
         <div className="max-w-4xl mx-auto">

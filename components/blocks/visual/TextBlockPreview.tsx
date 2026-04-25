@@ -11,11 +11,12 @@ interface TextBlockPreviewProps {
 }
 
 export function TextBlockPreview({ block, isSelected, onChange }: TextBlockPreviewProps) {
+  // Mirror TextBlockRender: base escalates to text-lg on md+ for consistency
   const sizeClasses = {
-    sm: 'text-sm',
-    base: 'text-base',
-    lg: 'text-lg',
-    xl: 'text-xl',
+    sm: 'text-sm leading-relaxed',
+    base: 'text-base md:text-lg leading-relaxed',
+    lg: 'text-lg leading-relaxed',
+    xl: 'text-xl leading-relaxed',
   };
 
   const alignmentClasses = {

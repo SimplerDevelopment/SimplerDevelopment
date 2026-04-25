@@ -3,6 +3,7 @@
 import { ImageBlock } from '@/types/blocks';
 import { useState } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface ImageBlockPreviewProps {
   block: ImageBlock;
@@ -48,10 +49,13 @@ export function ImageBlockPreview({ block, isSelected, onChange }: ImageBlockPre
           <img
             src={block.url}
             alt={block.alt}
-            className="w-full h-auto rounded-lg"
+            className={`w-full h-auto ${block.style?.borderRadius ? '' : 'rounded-lg'}`}
           />
           {block.caption && (
-            <figcaption className="text-center text-sm text-muted-foreground mt-2">
+            <figcaption
+              className="text-center text-sm text-muted-foreground mt-2"
+              style={getElementCSS(block.elementStyles, 'caption')}
+            >
               {block.caption}
             </figcaption>
           )}

@@ -274,4 +274,37 @@ text, heading, image, quote, code, spacer, divider, video, youtube, gallery, col
 6. ~~**Hero-slideshow advanced fields**~~ **RESOLVED 2026-04-25** — Per-slide `<details>` block "Advanced (background sizing & overlay opacity)" exposes `backgroundSize` (cover/contain/auto/50–200%), `backgroundPosition`, `backgroundRepeat`, `overlayOpacity` (0–1 slider). Deck-level `<details>` block "Advanced navigation colors" exposes `arrowColor`, `arrowBackground`, `arrowBorderColor`, `dotColor`, `dotActiveColor`, `progressBarColor`.
 7. ~~**Tabs ELEMENT_DEFINITIONS entry**~~ **RESOLVED 2026-04-25** — see item 4.
 
+---
+
+## Phase 4 — Per-block deep visual review
+
+Side-by-side audit comparing the editor preview, production renderer, and design intent for each user-pickable block. Going beyond "every field has a control" to "what the user sees in the canvas matches what the visitor sees on the live site."
+
+Legend: ✅ verified parity | 🔧 fixed this pass | 🚩 flagged for user
+
+### Visual-review batch tracker
+
+- [x] **Batch 1 — foundation:** hero, section, text, heading, image, button, cta *(complete 2026-04-25)*
+
+### Findings — Visual review batch 1
+
+| Block | Verdict | Notes |
+|---|---|---|
+| **text** | 🔧 | Preview only used `text-base` for `base` size; renderer uses `text-base md:text-lg`. Aligned size classes (incl. `leading-relaxed`) so preview/production typography match across breakpoints. Legacy `heading`/`body` shape (LLM-only) intentionally not surfaced in preview. |
+| **heading** | ✅ | Preview already mirrors renderer's level→class map exactly (incl. `md:` escalations). Single `<div className="p-6">` outer is editor-only chrome and OK. |
+| **image** | 🔧 | Preview always rendered `rounded-lg` even when `style.borderRadius` set; figcaption ignored `elementStyles['caption']`. Both fixed — preview now uses same `style.borderRadius ? '' : 'rounded-lg'` guard and `getElementCSS('caption')` as renderer. |
+| **button** | 🔧 | Major divergence — preview ignored `icon`, `iconPosition`, `hoverEffect`, `presetId`, `block.style` overrides (color/bg/border/font/etc.), and branding `buttonStyle`/`borderRadius`. Now mirrors renderer's preset→buttonStyle→block.style cascade and renders the icon (incl. position) plus `gap-2`. Hover-effect CSS classes intentionally not injected in preview (`btn-hover-*` lives in the renderer's `<style>` tag); the button still looks correct at rest. |
+| **hero** | 🔧 | Preview's hardcoded `bg-gradient-to-r from-primary/20 to-purple-500/20` showed purple accents that never appear in production. Replaced with the renderer's branded gradient (`linear-gradient(to bottom, primaryColor1a, backgroundColor, backgroundColor)`) when `BrandingProvider` is available, the `from-primary/10 via-background to-background` neutral fallback otherwise, and skips the overlay entirely when the user has set a custom bg via `block.style` (matches renderer's `hasCustomBg` guard). |
+| **cta** | 🔧 | Same purple/pink hardcoded gradient issue (`from-primary/20 via-purple-500/20 to-pink-500/20`). Replaced with branded `primaryColor20/secondaryColor20/accentColor20` gradient, with renderer's CSS-var fallback when no branding context. |
+| **section** | 🔧 | Preview ignored `style.backgroundGradient`, `borderColor/Width/Style/Radius`, `boxShadow`, `opacity`, and the `splitColor`/`splitClipPath` diagonal split overlay. Now layers gradient over image (matching renderer order), honors all border/shadow/opacity fields, and renders the diagonal split clip-path overlay when configured. |
+
+### Items flagged for user judgment — visual review batch 1
+
+8. **Section preview's inline block-inserter modal (`SectionBlockPreview.tsx` lines 15–35, 162–217)** — duplicates the main block picker with its own hardcoded 19-block list, its own categories, its own emoji-replaced icons, and its own `createDefaultBlock` factory (lines 223–274). Whenever a new block is added to the platform, this list silently goes stale. Same duplication exists in `ColumnsBlockPreview.tsx` and `TabsBlockPreview.tsx`. **Question for user:** should we (a) extract a shared `<NestedBlockInserter />` component all three reuse, (b) replace these with a "click + → opens the global block-picker modal scoped to nested context" flow, or (c) accept the drift as the cost of keeping nested blocks self-contained?
+
+9. **Section legacy direct-style fields (`backgroundColor`, `paddingTop/Right/Bottom/Left`, `color`, etc.) vs `block.style.*`** — the renderer treats `block.style.backgroundColor` as overriding `block.backgroundColor` (style wins). The preview now matches that behavior. The audit previously noted that the Section settings arm intentionally doesn't duplicate these in the panel because the Style tab covers them. **Question for user:** should the legacy direct-style fields be deprecated (typed as `@deprecated`, hidden from new blocks, migration script to move them into `block.style`)? Currently both shapes coexist, which is confusing.
+
+10. **Default `hero` block** (`PortalPostForm.createDefaultBlock` line 133): `{ title: 'Hero Title', ctaText: 'Learn More', ctaLink: '#' }`. No subtitle, no description, no background image, no secondary CTA. Renders fine but the dropped-in hero looks bare until the user fills it. **Question for user:** should we ship a richer default (e.g. include a placeholder subtitle/description so the structure is visually obvious) or leave it minimal so users can see what they're filling in?
+
+11. **`createDefaultBlock` factory is duplicated 6 times** across the codebase: `BlockEditor.tsx`, `VisualBlockEditor.tsx`, `VisualBlockEditorEnhanced.tsx`, `SectionBlockPreview.tsx`, `ColumnsBlockPreview.tsx`, `TabsBlockPreview.tsx`, `PortalPostForm.tsx`. They've drifted. **Question for user:** consolidate into a single `lib/blocks/defaults.ts` and have all consumers import it? (This would touch 7 files and isn't a "fix" so much as a refactor — explicitly flagging instead of doing.)
 
