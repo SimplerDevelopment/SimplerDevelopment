@@ -1,6 +1,7 @@
 'use client';
 
 import { YoutubeBlock } from '@/types/blocks';
+import { combineResponsiveClasses } from '@/lib/utils/responsive';
 
 interface YoutubeBlockPreviewProps {
   block: YoutubeBlock;
@@ -10,6 +11,7 @@ interface YoutubeBlockPreviewProps {
 
 export function YoutubeBlockPreview({ block, isSelected, onChange }: YoutubeBlockPreviewProps) {
   const getYoutubeEmbedUrl = (url: string) => {
+    if (!url) return '';
     if (url.includes('youtube.com/watch?v=')) {
       const videoId = url.split('v=')[1]?.split('&')[0];
       return `https://www.youtube.com/embed/${videoId}`;
@@ -26,30 +28,46 @@ export function YoutubeBlockPreview({ block, isSelected, onChange }: YoutubeBloc
     return `https://www.youtube.com/embed/${url}`;
   };
 
-  return (
-    <div className="p-6">
-      {!block.url ? (
-        <div className="border-2 border-dashed border-border rounded-lg p-12 text-center">
-          <span className="material-icons text-7xl text-muted-foreground/20 mb-4">smart_display</span>
-          <p className="text-muted-foreground mb-4">No YouTube URL provided</p>
-          <p className="text-xs text-muted-foreground">Configure video settings in the right sidebar</p>
-        </div>
-      ) : (
-        <div className="aspect-video bg-black rounded-lg overflow-hidden">
-          <iframe
-            src={getYoutubeEmbedUrl(block.url)}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      )}
+  const responsiveClasses = block.responsive
+    ? combineResponsiveClasses(
+        block.responsive.paddingTop,
+        block.responsive.paddingBottom,
+        block.responsive.paddingLeft,
+        block.responsive.paddingRight,
+        block.responsive.marginTop,
+        block.responsive.marginBottom,
+        block.responsive.marginLeft,
+        block.responsive.marginRight,
+        block.responsive.visibility
+      )
+    : '';
 
-      {block.caption && (
-        <p className="text-sm text-muted-foreground mt-2 text-center italic">
-          {block.caption}
-        </p>
-      )}
+  return (
+    <div className={`p-6 ${responsiveClasses}`}>
+      <div className="max-w-4xl mx-auto">
+        {!block.url ? (
+          <div className="border-2 border-dashed border-border rounded-lg p-12 text-center">
+            <span className="material-icons text-7xl text-muted-foreground/20 mb-4">smart_display</span>
+            <p className="text-muted-foreground mb-4">No YouTube URL provided</p>
+            <p className="text-xs text-muted-foreground">Configure video settings in the right sidebar</p>
+          </div>
+        ) : (
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <iframe
+              src={getYoutubeEmbedUrl(block.url)}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        )}
+
+        {block.caption && (
+          <p className="text-sm text-muted-foreground mt-2 text-center italic">
+            {block.caption}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

@@ -285,6 +285,7 @@ Legend: ✅ verified parity | 🔧 fixed this pass | 🚩 flagged for user
 ### Visual-review batch tracker
 
 - [x] **Batch 1 — foundation:** hero, section, text, heading, image, button, cta *(complete 2026-04-25)*
+- [x] **Batch 2 — basic + media:** quote, code, spacer, divider, video, youtube, gallery *(complete 2026-04-25)*
 
 ### Findings — Visual review batch 1
 
@@ -307,4 +308,23 @@ Legend: ✅ verified parity | 🔧 fixed this pass | 🚩 flagged for user
 10. **Default `hero` block** (`PortalPostForm.createDefaultBlock` line 133): `{ title: 'Hero Title', ctaText: 'Learn More', ctaLink: '#' }`. No subtitle, no description, no background image, no secondary CTA. Renders fine but the dropped-in hero looks bare until the user fills it. **Question for user:** should we ship a richer default (e.g. include a placeholder subtitle/description so the structure is visually obvious) or leave it minimal so users can see what they're filling in?
 
 11. **`createDefaultBlock` factory is duplicated 6 times** across the codebase: `BlockEditor.tsx`, `VisualBlockEditor.tsx`, `VisualBlockEditorEnhanced.tsx`, `SectionBlockPreview.tsx`, `ColumnsBlockPreview.tsx`, `TabsBlockPreview.tsx`, `PortalPostForm.tsx`. They've drifted. **Question for user:** consolidate into a single `lib/blocks/defaults.ts` and have all consumers import it? (This would touch 7 files and isn't a "fix" so much as a refactor — explicitly flagging instead of doing.)
+
+### Findings — Visual review batch 2
+
+| Block | Verdict | Notes |
+|---|---|---|
+| **quote** | 🔧 | Preview was missing the curly-quote characters that wrap the renderer's content (`“ ”`), ignored `getElementCSS('quoteText')` and `getElementCSS('author')` entirely, didn't apply the `hasCustomFontSize` guard, and skipped responsive class generation. Now wraps the contenteditable in a flex row with non-editable curly quote spans flanking it (so user edits stay clean), applies element CSS to both the quote container and the `<cite>`, mirrors the renderer's font-size guard, and threads `combineResponsiveClasses` through the outer wrapper. |
+| **code** | 🔧 | Preview hardcoded `bg-slate-900 dark:bg-slate-950` and `text-slate-100`, never honoring `block.style.backgroundColor` or `block.style.color` overrides. Also missing responsive classes. Now mirrors renderer's `style.backgroundColor ? '' : 'bg-slate-900...'` and `style.color ? '' : 'text-slate-100'` guards on container + textarea, and threads `combineResponsiveClasses`. |
+| **spacer** | 🔧 | Height map was wrong: preview used `sm:h-8 md:h-16 lg:h-24 xl:h-32` while renderer uses `sm:h-4 md:h-8 lg:h-16 xl:h-32` — preview was visually 2× the production spacer for sm/md/lg. Also missing responsive class threading. Aligned the height map to the renderer and added `combineResponsiveClasses`. The dashed-border placeholder + label are intentional editor chrome (spacer would be invisible otherwise). |
+| **divider** | 🔧 | Preview always rendered `border-border` regardless of `block.style.borderColor`. Also no responsive threading. Now mirrors renderer's `style.borderColor ? '' : 'border-border'` guard so a custom border color set in the Style tab actually appears in the canvas, and threads `combineResponsiveClasses`. |
+| **video** | 🔧 | Preview was missing the renderer's `max-w-4xl mx-auto` constraint, so a video block in the canvas could span wider than it does in production. Also no responsive threading. Wrapped both empty-state and player in `max-w-4xl mx-auto` and added `combineResponsiveClasses`. Empty-state placeholder kept simple per orchestrator note. |
+| **youtube** | 🔧 | Same `max-w-4xl mx-auto` gap as video; same responsive threading gap. Also added the renderer's `if (!url) return ''` guard to `getYoutubeEmbedUrl` for symmetry (call sites already gate on truthy `block.url`, so behaviorally equivalent — keeps preview/renderer one-to-one). Empty-state placeholder kept simple. |
+| **gallery** | 🔧 | Preview only handled the `grid` layout — `masonry` blocks fell through to grid silently. Grid columns hardcoded `grid-cols-N` with no responsive breakpoints, while renderer uses `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` etc. Caption was `text-xs ... truncate` instead of renderer's `text-sm` no-truncate. Now branches on `layout === 'masonry'` (using `columnCount` inline style + `break-inside-avoid mb-4` per item, matching renderer), uses the renderer's responsive grid-cols map for grid layout, and aligns caption typography. Per-image elementStyles surface (`caption`) kept distinct from image-block caption work per orchestrator heads-up. Empty-state placeholder kept simple. |
+
+### Items flagged for user judgment — visual review batch 2
+
+*No new user-decision items surfaced this batch. Two notes that are observations, not blockers:*
+
+- **Code preview's textarea vs renderer's `<pre><code>`** — by design (textarea is needed for in-canvas editing). Visual fidelity at rest matches now that style overrides are honored, so this isn't a divergence to fix.
+- **Video / YouTube empty-state placeholders** overlap conceptually with batch-1 question #3 (default hero content). Kept them simple per orchestrator guidance — flagging here only so the user is aware the same "should defaults be richer?" question applies if they ever revisit batch-1 item #3 broadly.
 

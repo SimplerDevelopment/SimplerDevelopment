@@ -11,6 +11,7 @@ interface GalleryBlockPreviewProps {
 
 export function GalleryBlockPreview({ block, isSelected, onChange }: GalleryBlockPreviewProps) {
   const columns = block.columns || 3;
+  const layout = block.layout || 'grid';
   const gap = block.gap || 'md';
   const gapClasses = { sm: 'gap-2', md: 'gap-4', lg: 'gap-6' };
 
@@ -23,19 +24,47 @@ export function GalleryBlockPreview({ block, isSelected, onChange }: GalleryBloc
     );
   }
 
-  const gridCols = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' };
+  // Match production renderer layout branching
+  if (layout === 'masonry') {
+    return (
+      <div
+        className={`${gapClasses[gap]} py-8`}
+        style={{ columnCount: columns }}
+      >
+        {block.images.map((image) => (
+          <div key={image.id} className="break-inside-avoid mb-4">
+            <img
+              src={image.url}
+              alt={image.alt}
+              className="w-full h-auto rounded-lg"
+            />
+            {image.caption && (
+              <p className="text-sm text-muted-foreground mt-1" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Grid layout — responsive cols matching renderer
+  const gridCols: Record<2 | 3 | 4, string> = {
+    2: 'grid-cols-1 sm:grid-cols-2',
+    3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+    4: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
+  };
 
   return (
-    <div className={`grid ${gridCols[columns]} ${gapClasses[gap]} py-4`}>
+    <div className={`grid ${gridCols[columns]} ${gapClasses[gap]} py-8`}>
       {block.images.map((image) => (
-        <div key={image.id} className="relative">
+        <div key={image.id}>
           <img
             src={image.url}
             alt={image.alt}
             className="w-full h-auto aspect-square object-cover rounded-lg"
           />
           {image.caption && (
-            <p className="text-xs text-muted-foreground mt-1 truncate" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
+            <p className="text-sm text-muted-foreground mt-1" style={getElementCSS(block.elementStyles, 'caption')}>{image.caption}</p>
           )}
         </div>
       ))}
