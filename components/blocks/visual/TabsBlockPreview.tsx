@@ -2,6 +2,8 @@
 
 import { TabsBlock, Block, BlockType } from '@/types/blocks';
 import { useState } from 'react';
+import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 import { VisualBlockPreview } from './VisualBlockPreview';
 
 interface TabsBlockPreviewProps {
@@ -105,12 +107,30 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
 
   const activeTab = block.tabs.find(tab => tab.id === activeTabId);
 
+  const responsiveClasses = block.responsive
+    ? combineResponsiveClasses(
+        block.responsive.paddingTop,
+        block.responsive.paddingBottom,
+        block.responsive.paddingLeft,
+        block.responsive.paddingRight,
+        block.responsive.marginTop,
+        block.responsive.marginBottom,
+        block.responsive.marginLeft,
+        block.responsive.marginRight,
+        block.responsive.visibility
+      )
+    : '';
+
   return (
-    <div className="p-6">
+    <div className={`py-8 my-8 px-6 ${responsiveClasses}`}>
       <div className="border border-border rounded-lg overflow-hidden">
         {/* Tab Headers */}
         <div className="flex border-b border-border bg-muted/30">
-          {block.tabs.map((tab) => (
+          {block.tabs.map((tab) => {
+            const isActive = activeTabId === tab.id;
+            const baseStyle = getElementCSS(block.elementStyles, 'tab');
+            const activeStyle = isActive ? getElementCSS(block.elementStyles, 'activeTab') : undefined;
+            return (
             <div key={tab.id} className="relative group">
               <button
                 type="button"
@@ -119,10 +139,11 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
                   setActiveTabId(tab.id);
                 }}
                 className={`px-4 py-3 font-medium transition-colors border-b-2 ${
-                  activeTabId === tab.id
+                  isActive
                     ? 'border-primary text-primary bg-background'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
+                style={{ ...baseStyle, ...activeStyle }}
               >
                 <input
                   type="text"
@@ -153,7 +174,8 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {isSelected && (
             <button
@@ -173,7 +195,10 @@ export function TabsBlockPreview({ block, isSelected, onChange, selectedBlockId,
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 bg-card min-h-[200px]">
+        <div
+          className="p-6 bg-card min-h-[200px]"
+          style={getElementCSS(block.elementStyles, 'tabPanel')}
+        >
           {activeTab && activeTab.blocks.length > 0 ? (
             <div className={isSelected ? "space-y-2" : "space-y-0"}>
               {activeTab.blocks.map((tabBlock) => {

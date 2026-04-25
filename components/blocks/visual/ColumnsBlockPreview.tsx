@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ColumnsBlock, Block, BlockType } from '@/types/blocks';
+import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { VisualBlockPreview } from './VisualBlockPreview';
 import { TokenColorPicker } from './TokenColorPicker';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
@@ -39,10 +40,13 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
   const [dropColumnTarget, setDropColumnTarget] = useState<{ columnId: string; position: 'left' | 'right' } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Gap sizing must match the production renderer's `gap-4 / gap-6 / gap-8` map
+  // (ColumnsBlockRender.tsx line 58–62). Keeping these aligned so the canvas spacing
+  // doesn't shift when the user previews vs publishes.
   const gapClasses = {
-    sm: 'gap-2',
-    md: 'gap-4',
-    lg: 'gap-6',
+    sm: 'gap-4',
+    md: 'gap-6',
+    lg: 'gap-8',
   };
 
   const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -431,8 +435,11 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     return gridClasses[count] || 'grid-cols-1';
   };
 
-  const gapValue = block.gap === 'sm' ? 8 : block.gap === 'lg' ? 24 : 16;
-  const effectiveGap = isSelected ? gapValue : 0;
+  // Gap pixel values mirror Tailwind's gap-4 / gap-6 / gap-8 used by the production
+  // renderer (16 / 24 / 32). The preview always honors the gap so unselected canvas
+  // matches the live page; resize handle math still uses gapValue/2 for offsetting.
+  const gapValue = block.gap === 'sm' ? 16 : block.gap === 'lg' ? 32 : 24;
+  const effectiveGap = gapValue;
 
   // Determine stacking based on editor viewport setting (not CSS media queries)
   const stackOnMobile = block.stackOnMobile !== false; // Default to true
@@ -447,8 +454,26 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     ? (reverseOnStack ? 'flex-col-reverse' : 'flex-col')
     : 'flex-row';
 
+  // Mirror the production renderer's outer wrapper: `py-8 my-8` plus any responsive
+  // padding/margin/visibility classes. The renderer reads `block.responsive.*`
+  // (ColumnsBlockRender.tsx line 92–105) — the preview must do the same so what the
+  // user sees in the canvas matches the live page sizing.
+  const responsiveClasses = block.responsive
+    ? combineResponsiveClasses(
+        block.responsive.paddingTop,
+        block.responsive.paddingBottom,
+        block.responsive.paddingLeft,
+        block.responsive.paddingRight,
+        block.responsive.marginTop,
+        block.responsive.marginBottom,
+        block.responsive.marginLeft,
+        block.responsive.marginRight,
+        block.responsive.visibility
+      )
+    : '';
+
   return (
-    <div className="p-6">
+    <div className={`py-8 my-8 px-6 ${responsiveClasses}`}>
       <div
         ref={containerRef}
         className={`flex relative ${stackingClasses}`}
@@ -477,9 +502,9 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
                 : <div className="w-1 bg-primary rounded-full self-stretch flex-shrink-0" />
             )}
             <div
-              className={`rounded-lg relative group flex flex-col ${verticalAlignClass} ${column.cssClass || ''} ${
+              className={`relative group flex flex-col ${verticalAlignClass} ${column.cssClass || ''} ${
                 isSelected
-                  ? `border-2 p-3 min-h-[200px] ${
+                  ? `rounded-lg border-2 p-3 min-h-[200px] ${
                       selectedColumnId === column.id
                         ? 'border-primary bg-primary/5'
                         : 'border-dashed border-border bg-muted/10'

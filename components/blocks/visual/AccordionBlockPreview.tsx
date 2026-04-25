@@ -3,6 +3,7 @@
 import { AccordionBlock } from '@/types/blocks';
 import { useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { RichTextEditable } from './RichTextEditable';
 
 interface AccordionBlockPreviewProps {
@@ -13,6 +14,26 @@ interface AccordionBlockPreviewProps {
 
 export function AccordionBlockPreview({ block, isSelected, onChange }: AccordionBlockPreviewProps) {
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+
+  const style = typeof block.style === 'object' ? block.style : {};
+  const hasCustomFontSize = !!style.fontSize;
+  const hasCustomFontWeight = !!style.fontWeight;
+  const hasCustomColor = !!style.color;
+
+  const responsiveClasses = block.responsive
+    ? combineResponsiveClasses(
+        block.responsive.paddingTop,
+        block.responsive.paddingBottom,
+        block.responsive.paddingLeft,
+        block.responsive.paddingRight,
+        block.responsive.marginTop,
+        block.responsive.marginBottom,
+        block.responsive.marginLeft,
+        block.responsive.marginRight,
+        block.responsive.visibility,
+        block.responsive.fontSize
+      )
+    : '';
 
   const toggleItem = (id: string) => {
     const newOpenItems = new Set(openItems);
@@ -50,11 +71,16 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
   };
 
   return (
-    <div className="p-6">
+    <div className={`py-8 my-8 px-6 ${responsiveClasses}`}>
       {block.title && (
-        <h3 className="text-2xl font-bold mb-6" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h3>
+        <h3
+          className={`${hasCustomFontSize ? '' : 'text-2xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6`}
+          style={getElementCSS(block.elementStyles, 'title')}
+        >
+          {block.title}
+        </h3>
       )}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {block.items.map((item) => (
           <div
             key={item.id}
@@ -82,19 +108,19 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
                 e.stopPropagation();
                 toggleItem(item.id);
               }}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-accent transition-colors"
+              className="w-full p-4 flex items-center justify-between text-left font-medium hover:bg-muted/50 transition-colors"
             >
               <RichTextEditable
                 html={item.title}
                 onChange={(html) => updateItem(item.id, { title: html })}
-                className="flex-1 text-left font-semibold bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
+                className="flex-1 text-left bg-transparent border-none focus:outline-none focus:border-b border-primary text-foreground"
                 placeholder="Item title"
                 singleLine={true}
                 toolbar={true}
                 style={getElementCSS(block.elementStyles, 'itemTitle')}
               />
               <svg
-                className={`w-5 h-5 text-muted-foreground transition-transform ${
+                className={`w-5 h-5 transition-transform ${
                   openItems.has(item.id) ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -106,11 +132,11 @@ export function AccordionBlockPreview({ block, isSelected, onChange }: Accordion
             </button>
 
             {openItems.has(item.id) && (
-              <div className="px-4 py-3 border-t border-border">
+              <div className={`p-4 pt-0 ${hasCustomColor ? '' : 'text-muted-foreground'}`}>
                 <RichTextEditable
                   html={item.content}
                   onChange={(html) => updateItem(item.id, { content: html })}
-                  className="w-full text-muted-foreground bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
+                  className="w-full bg-transparent border-none focus:outline-none focus:border border-border rounded resize-none"
                   placeholder="Item content..."
                   singleLine={false}
                   toolbar={true}
