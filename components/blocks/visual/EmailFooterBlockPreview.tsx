@@ -1,6 +1,7 @@
 'use client';
 
 import { EmailFooterBlock } from '@/types/blocks';
+import { SocialIcon } from '@/lib/icons/social-icons';
 
 interface EmailFooterBlockPreviewProps {
   block: EmailFooterBlock;
@@ -46,8 +47,8 @@ export function EmailFooterBlockPreview({ block, isSelected, onChange }: EmailFo
           {block.socialLinks && block.socialLinks.length > 0 && (
             <div className="flex justify-center gap-3 mt-2">
               {block.socialLinks.map((link, i) => (
-                <span key={i} className="text-xs text-muted-foreground">
-                  {link.platform}
+                <span key={i} className="text-muted-foreground" aria-label={link.platform}>
+                  <SocialIcon platform={link.platform} size={16} />
                 </span>
               ))}
             </div>

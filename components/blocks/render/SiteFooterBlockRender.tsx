@@ -2,6 +2,7 @@
 
 import { SiteFooterBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { SocialIcon } from '@/lib/icons/social-icons';
 
 interface SiteFooterBlockRenderProps {
   block: SiteFooterBlock;
@@ -103,9 +104,7 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                       rel="noopener noreferrer"
                       aria-label={social.label || social.platform}
                     >
-                      <span className="material-icons text-base">
-                        {social.platform === 'linkedin' ? 'open_in_new' : social.platform}
-                      </span>
+                      <SocialIcon platform={social.platform} size={16} />
                       <span>{social.label || 'Follow us'}</span>
                     </a>
                   ))}

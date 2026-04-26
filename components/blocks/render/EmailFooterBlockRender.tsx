@@ -1,6 +1,7 @@
 'use client';
 
 import { EmailFooterBlock } from '@/types/blocks';
+import { SocialIcon } from '@/lib/icons/social-icons';
 
 interface EmailFooterBlockRenderProps {
   block: EmailFooterBlock;
@@ -18,8 +19,15 @@ export function EmailFooterBlockRender({ block }: EmailFooterBlockRenderProps) {
       {block.socialLinks && block.socialLinks.length > 0 && (
         <div className="flex justify-center gap-3 mt-3">
           {block.socialLinks.map((link, i) => (
-            <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground">
-              {link.platform}
+            <a
+              key={i}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={link.platform}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <SocialIcon platform={link.platform} size={16} />
             </a>
           ))}
         </div>
