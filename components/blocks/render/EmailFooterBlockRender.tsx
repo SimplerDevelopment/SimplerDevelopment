@@ -24,9 +24,14 @@ export function EmailFooterBlockRender({ block }: EmailFooterBlockRenderProps) {
           ))}
         </div>
       )}
-      {block.showUnsubscribe !== false && (
-        <p className="text-xs text-muted-foreground/50 mt-3">
-          <span className="underline">Unsubscribe</span>
+      {(block.showUnsubscribe !== false || block.showViewInBrowser) && (
+        <p className="text-xs text-muted-foreground/50 mt-3 flex items-center justify-center gap-3">
+          {block.showUnsubscribe !== false && (
+            <span className="underline">Unsubscribe</span>
+          )}
+          {block.showViewInBrowser && (
+            <span className="underline">View in browser</span>
+          )}
         </p>
       )}
     </div>

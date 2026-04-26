@@ -43,12 +43,26 @@ export function EmailFooterBlockPreview({ block, isSelected, onChange }: EmailFo
           {block.address && (
             <p className="text-xs text-muted-foreground/70 mt-0.5">{block.address}</p>
           )}
-          <p className="text-xs text-muted-foreground/50 mt-2">
-            {block.showUnsubscribe !== false && (
-              <span className="underline cursor-default">Unsubscribe</span>
-            )}
-          </p>
-          {!block.companyName && !block.address && (
+          {block.socialLinks && block.socialLinks.length > 0 && (
+            <div className="flex justify-center gap-3 mt-2">
+              {block.socialLinks.map((link, i) => (
+                <span key={i} className="text-xs text-muted-foreground">
+                  {link.platform}
+                </span>
+              ))}
+            </div>
+          )}
+          {(block.showUnsubscribe !== false || block.showViewInBrowser) && (
+            <p className="text-xs text-muted-foreground/50 mt-2 flex items-center justify-center gap-3">
+              {block.showUnsubscribe !== false && (
+                <span className="underline cursor-default">Unsubscribe</span>
+              )}
+              {block.showViewInBrowser && (
+                <span className="underline cursor-default">View in browser</span>
+              )}
+            </p>
+          )}
+          {!block.companyName && !block.address && (!block.socialLinks || block.socialLinks.length === 0) && (
             <p className="text-xs text-muted-foreground/50">Email footer - click to edit</p>
           )}
         </>

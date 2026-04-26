@@ -9,11 +9,11 @@ interface Props {
 }
 
 const MOCK_BAR_DATA = [
-  { label: 'Very Satisfied', pct: 45, color: 'bg-emerald-500' },
-  { label: 'Satisfied', pct: 30, color: 'bg-sky-500' },
-  { label: 'Neutral', pct: 15, color: 'bg-amber-400' },
-  { label: 'Dissatisfied', pct: 7, color: 'bg-orange-500' },
-  { label: 'Very Dissatisfied', pct: 3, color: 'bg-rose-500' },
+  { label: 'Very Satisfied', pct: 45, color: '#10b981' },
+  { label: 'Satisfied', pct: 30, color: '#0ea5e9' },
+  { label: 'Neutral', pct: 15, color: '#f59e0b' },
+  { label: 'Dissatisfied', pct: 7, color: '#f97316' },
+  { label: 'Very Dissatisfied', pct: 3, color: '#f43f5e' },
 ];
 
 const MOCK_PIE_SEGMENTS = [
@@ -23,14 +23,17 @@ const MOCK_PIE_SEGMENTS = [
   { label: 'Other', pct: 12, color: '#94a3b8' },
 ];
 
-function MockBarChart() {
+function MockBarChart({ accentColor }: { accentColor?: string }) {
   return (
     <div className="space-y-3">
       {MOCK_BAR_DATA.map((d) => (
         <div key={d.label} className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground w-28 text-right shrink-0 truncate">{d.label}</span>
           <div className="flex-1 h-6 bg-muted/30 rounded-full overflow-hidden">
-            <div className={`h-full ${d.color} rounded-full transition-all`} style={{ width: `${d.pct}%` }} />
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${d.pct}%`, backgroundColor: accentColor || d.color }}
+            />
           </div>
           <span className="text-xs font-medium w-8 text-right">{d.pct}%</span>
         </div>
@@ -39,7 +42,7 @@ function MockBarChart() {
   );
 }
 
-function MockDonutChart() {
+function MockDonutChart({ accentColor }: { accentColor?: string }) {
   const total = MOCK_PIE_SEGMENTS.reduce((a, s) => a + s.pct, 0);
   let offset = 0;
   return (
@@ -51,7 +54,7 @@ function MockDonutChart() {
           offset += dash;
           return (
             <circle key={s.label} r="15.915" cx="18" cy="18" fill="none"
-              stroke={s.color} strokeWidth="5"
+              stroke={accentColor || s.color} strokeWidth="5"
               strokeDasharray={`${dash} ${100 - dash}`}
               strokeDashoffset={`${-thisOffset}`}
               className="transition-all" />
@@ -61,7 +64,7 @@ function MockDonutChart() {
       <div className="space-y-1.5">
         {MOCK_PIE_SEGMENTS.map((s) => (
           <div key={s.label} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: accentColor || s.color }} />
             <span className="text-xs">{s.label}</span>
             <span className="text-xs font-medium text-muted-foreground">{s.pct}%</span>
           </div>
@@ -143,7 +146,7 @@ export function SurveyResultsBlockPreview({ block, isSelected, onChange }: Props
             <span className="material-icons text-primary text-base">bar_chart</span>
             How satisfied are you with our service?
           </h4>
-          <MockBarChart />
+          <MockBarChart accentColor={block.accentColor} />
         </div>
 
         {/* Donut chart question */}
@@ -152,7 +155,7 @@ export function SurveyResultsBlockPreview({ block, isSelected, onChange }: Props
             <span className="material-icons text-primary text-base">donut_large</span>
             How did you hear about us?
           </h4>
-          <MockDonutChart />
+          <MockDonutChart accentColor={block.accentColor} />
         </div>
 
         {/* Number stats */}

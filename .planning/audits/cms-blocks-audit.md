@@ -290,6 +290,7 @@ Legend: ✅ verified parity | 🔧 fixed this pass | 🚩 flagged for user
 - [x] **Batch 4 — components:** services-grid, card-grid, stats, testimonial, featured-content, blog-posts, timeline *(complete 2026-04-25)*
 - [x] **Batch 5 — specialty / newer components:** hero-slideshow, marquee, bento-grid, team-flip-grid, team-showcase, flip-card-grid, metric-cards *(complete 2026-04-25)*
 - [x] **Batch 6 — specialty wrap-up + eCommerce start:** logo-strip, site-footer, social-links, product-grid, featured-products, product-categories, shopping-cart *(complete 2026-04-25)*
+- [x] **Batch 7 — final (forms + email + remaining ecommerce):** store-banner, product-detail, booking, booking-menu, survey, survey-results, email-header, email-footer *(complete 2026-04-25)*
 
 ### Findings — Visual review batch 1
 
@@ -404,4 +405,49 @@ Legend: ✅ verified parity | 🔧 fixed this pass | 🚩 flagged for user
 - **`SocialLinksBlock.iconSize` is a dead field** — the type defines `iconSize?: number` but neither renderer nor preview uses it. The renderer renders text labels (`PLATFORM_LABELS[link.platform]`), not icons. **Question for user:** the block is named "social-links" implying icons; should the renderer be updated to render Material Icons (which exist for facebook/twitter/instagram/linkedin/youtube/tiktok), with `iconSize` then driving the icon size — or should `iconSize` be removed from the type as dead?
 - **`FeaturedProductsBlock.layout` (`'grid' | 'carousel'`) is a dead field** — the type defines it but the renderer never reads it (only renders the grid layout). Either the carousel implementation was deferred or the field should be removed. Low priority.
 - **product-categories has no elementStyles surface** — title and description aren't styleable via elementStyles; the renderer doesn't use `getElementCSS` and BlockSettings has no entry for `'product-categories'`. Inconsistent with sibling product-grid + featured-products. Adding parity is a small renderer + BlockSettings change but expands scope beyond preview-only fix.
+
+### Findings — Visual review batch 7
+
+| Block | Verdict | Notes |
+|---|---|---|
+| **store-banner** | 🔧 | Preview wrapped in `<div className="py-8 my-8 px-6">` (no `container mx-auto px-4`); didn't honor `branding?.borderRadius` (renderer uses guarded `rounded-2xl` + inline `borderRadius` from branding); ignored `block.elementStyles.discountCode` and `.button` even though ELEMENT_DEFINITIONS exposes both keys; gradient/solid bg fell back to `hsl(var(--primary))` instead of consulting `branding?.primaryColor`. All four fixed — preview now mirrors the renderer's `<section>` + container shell, branded gradient/solid fallback chain (block.accent → branding.primary → CSS var), borderRadius cascade on the outer card and the CTA button, and applies `getElementCSS('discountCode')` + `getElementCSS('button')` to the discount chip and button placeholder. Countdown placeholder kept (renderer-side `useEffect` would drift in a static canvas). |
+| **product-detail** | 🔧 | **Major gap closed**: ELEMENT_DEFINITIONS had no `'product-detail'` entry at all, despite the renderer wiring 12 element-style keys (`breadcrumb`, `gallery`, `badge`, `productName`, `price`, `comparePrice`, `shortDescription`, `optionLabel`, `optionButton`, `addToCartButton`, `sku`, `sectionTitle`). Added all 12 to ELEMENT_DEFINITIONS so users can theme each piece from the Style→Elements panel. Preview wrapped in `<div className="py-12 my-4 px-6">` (no `<section>` + `container mx-auto px-4` — diverged from renderer); preview also missing the breadcrumb mock and didn't apply the new element CSS to its placeholders. Now wraps in `<section>` + container, renders a breadcrumb mock when `showBreadcrumb !== false`, and applies `getElementCSS` to the badge/gallery/productName/price/comparePrice/shortDescription/optionLabel/optionButton/addToCartButton/sku/sectionTitle placeholders. Product fetch is intentionally not done in the preview (renderer hits `/api/storefront/${siteId}/products/${slug}`). |
+| **booking** | ✅ | Preview is a static mock by design — production swaps in the live `BookingFormInline` widget that handles step navigation, payment, and time-slot fetching. Settings panel has all type fields (slug picker with autocomplete, title, description, height, three show-toggles, plus 11 styleOverrides under "Advanced styling overrides" disclosure). ELEMENT_DEFINITIONS keys (`title`, `description`) match the renderer's `<h2>`/`<p>` calls. Verdict: preview parity is intentionally a mock; settings + element coverage complete. |
+| **booking-menu** | ✅ | Already verified in Phase 2c. Preview shows a placeholder grid with the configured columns count + inline title/description inputs; production fetches real booking pages and renders cards with the full element-CSS cascade (`title`, `description`, `card`, `cardTitle`, `cardDescription`, `button`). All 6 element keys present in ELEMENT_DEFINITIONS and applied in renderer. Settings panel exposes title/description/columns + helper note. No drift. |
+| **survey** | ✅ | Preview is a static mock by design — production swaps in `SurveyFormInline` which renders the real survey form. Settings panel exposes slug picker, title, description, height, `showPageTitle` toggle. ELEMENT_DEFINITIONS keys (`title`, `description`) match. Verdict: preview parity is intentionally a mock; coverage complete. |
+| **survey-results** | 🔧 | Preview's `MockBarChart` and `MockDonutChart` were hardcoded to fixed Tailwind palette colors regardless of `block.accentColor` — meaning a user-set accent color silently disappeared from the canvas even though the renderer respects it. Now both mock charts accept an `accentColor` prop and pass it through to `backgroundColor`/`stroke`, falling back to the per-segment palette when no accent is set. Settings panel covers chart type, layout, title/description, response-count toggle, text-responses toggle, text-response limit, accent color. **Observation:** `block.fieldIds[]` (which questions to display, default = all) has no settings UI yet — currently only settable via JSON or AI. Flagged below. |
+| **email-header** | ✅ | Email blocks render in email clients (table-based layout) where elementStyles inline CSS would be flattened anyway, so a separate `'email-header'` ELEMENT_DEFINITIONS entry isn't needed. Settings panel exposes logoUrl, logoWidth, alignment, tagline. Preview matches renderer's structure (logo image with `text-center`/`text-left`/`text-right` alignment classes + tagline below); preview adds an inline edit affordance with logoUrl + tagline inputs when selected. No drift. |
+| **email-footer** | 🔧 | Two real fixes. (1) Preview's not-selected branch ignored `socialLinks` and `showViewInBrowser` entirely, even though the renderer renders both. Now renders socialLinks as a horizontal list of platform names (matching the renderer's anchor list — preview omits the `href` since clicks would navigate the editor) and renders the "View in browser" link alongside "Unsubscribe" when `showViewInBrowser` is true. (2) `EmailFooterBlockRender` had `showViewInBrowser` typed in the block but never rendered it. Added a "View in browser" link next to "Unsubscribe" in a single flex-row when either toggle is set. Settings panel exposes companyName, address, both link toggles, and a socialLinks array editor with platform/url + delete button. ELEMENT_DEFINITIONS entry intentionally not added (email-client renderers strip most CSS). |
+
+### Items flagged for user judgment — visual review batch 7
+
+*No NEW blocking decisions surfaced this batch.* Three observations:
+
+- **`SurveyResultsBlock.fieldIds`** is settable in the type (`fieldIds?: string[]` — empty/undefined means show all answerable fields) but the settings panel has no checkbox-list editor for picking which questions to display. Currently the settings arm fetches the list of surveys (with their `fields[]`) so the data is available — just needs UI. Lower priority since "show all" is the sensible default. Adding a multi-select would let users hide specific questions from a public results page (useful when only a subset is shareable).
+- **Booking + Survey previews are intentionally static mocks** — the production renderers swap in `BookingFormInline` / `SurveyFormInline` which handle step navigation, payment, and form submission. Trying to render the real form in the editor canvas would be confusing (the user might submit it accidentally) and slow (it fetches state on mount). Flagging only so future maintainers know the divergence is by design.
+- **Email-header / email-footer renderers don't use `getElementCSS`** — by design, since email clients (Gmail, Outlook, Apple Mail) flatten or strip most CSS and the email-block-types registry uses MJML-style table layouts at send time. Adding ELEMENT_DEFINITIONS entries would expose styling controls in the panel that wouldn't survive the email-rendering pipeline. Kept as-is.
+
+---
+
+## Phase 4 status
+
+**Per-block visual review complete (2026-04-25)** — all 47 user-pickable blocks reviewed across 7 batches.
+
+**Numbers:**
+- **47 user-pickable blocks reviewed** (every block in `BUILT_IN_BLOCK_TYPES` except pitch-deck-only and palizzi-* blocks, which are intentionally outside the universal picker)
+- **35 blocks fixed** (🔧) — mechanical drift between editor preview and production renderer was the dominant issue: missing `container mx-auto`, ignored elementStyles, hardcoded gradient colors, broken responsive class threading, missing branding.borderRadius cascade
+- **12 blocks verified clean** (✅) — heading, timeline, team-flip-grid, team-showcase, metric-cards, logo-strip, site-footer, booking, booking-menu, survey, email-header, plus a handful of others where the preview already mirrored the renderer
+- **7 cross-cutting fixes shipped** during the review (image caption elementStyles, tabs sub-element styling, marquee `loop`, metric-cards per-card fields, hero-slideshow advanced fields, booking styleOverrides, button presetId — all noted in "Mechanical fixes shipped" above)
+
+**Remaining queued user-decision items** (not blockers — flagged for user judgment):
+1. **Section legacy direct-style fields vs `block.style.*`** (batch 1, item 9) — both shapes coexist; should the legacy ones be `@deprecated`?
+2. **Default `hero` block content** (batch 1, item 10) — minimal default vs richer placeholder structure?
+3. **`SocialLinksBlock.iconSize` is dead** (batch 6) — switch renderer to Material Icons (sized by `iconSize`) or remove the field?
+4. **`FeaturedProductsBlock.layout` (`'grid' | 'carousel'`) is dead** (batch 6) — implement carousel or remove the field?
+5. **product-categories has no elementStyles surface** (batch 6) — add parity with product-grid + featured-products, or leave inconsistent?
+6. **`SurveyResultsBlock.fieldIds` has no settings UI** (batch 7) — add a question-picker checklist or leave to JSON/AI?
+
+**Drift-test status:** all 6 checks in `tests/unit/blocksRegistryCompleteness.test.ts` pass after every batch.
+
+**Typecheck status:** `npx tsc --noEmit` clean for all block files. Only pre-existing unrelated errors remain in `tests/e2e/portal-mcp-approvals.spec.ts`, `tests/integration/api/file-upload.test.ts`, and `tests/e2e/pitch-deck-columns.spec.ts`.
 
