@@ -1,6 +1,7 @@
 'use client';
 
 import { SocialLinksBlock } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface SocialLinksBlockPreviewProps {
   block: SocialLinksBlock;
@@ -41,38 +42,54 @@ export function SocialLinksBlockPreview({ block, isSelected, onChange }: SocialL
 
   const alignClass = alignment === 'center' ? 'justify-center' : alignment === 'right' ? 'justify-end' : 'justify-start';
 
+  if (!isSelected) {
+    return (
+      <div
+        className={`flex flex-wrap gap-3 ${alignClass} py-2`}
+        style={getElementCSS(block.elementStyles, 'icon')}
+      >
+        {links.map((link, i) => (
+          <span
+            key={i}
+            className="text-sm text-muted-foreground px-2 py-1"
+            style={getElementCSS(block.elementStyles, 'link')}
+          >
+            {PLATFORM_LABELS[link.platform] ?? link.platform}
+          </span>
+        ))}
+        {links.length === 0 && (
+          <p className="text-center text-muted-foreground text-xs py-2">Click to add social links</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 py-3">
       <div className={`flex flex-wrap gap-3 ${alignClass}`}>
         {links.map((link, i) => (
           <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-1.5 text-sm">
-            {isSelected ? (
-              <>
-                <select
-                  value={link.platform}
-                  onChange={(e) => updateLink(i, 'platform', e.target.value)}
-                  className="bg-transparent border-none text-xs font-medium focus:outline-none"
-                >
-                  {PLATFORMS.map(p => (
-                    <option key={p} value={p}>{PLATFORM_LABELS[p]}</option>
-                  ))}
-                </select>
-                <input
-                  value={link.url}
-                  onChange={(e) => updateLink(i, 'url', e.target.value)}
-                  placeholder="https://..."
-                  className="bg-transparent border-none text-xs w-32 focus:outline-none"
-                />
-                <button onClick={() => removeLink(i)} className="text-muted-foreground hover:text-destructive">
-                  <span className="material-icons text-sm">close</span>
-                </button>
-              </>
-            ) : (
-              <span className="text-muted-foreground text-xs">{PLATFORM_LABELS[link.platform]}</span>
-            )}
+            <select
+              value={link.platform}
+              onChange={(e) => updateLink(i, 'platform', e.target.value)}
+              className="bg-transparent border-none text-xs font-medium focus:outline-none"
+            >
+              {PLATFORMS.map(p => (
+                <option key={p} value={p}>{PLATFORM_LABELS[p]}</option>
+              ))}
+            </select>
+            <input
+              value={link.url}
+              onChange={(e) => updateLink(i, 'url', e.target.value)}
+              placeholder="https://..."
+              className="bg-transparent border-none text-xs w-32 focus:outline-none"
+            />
+            <button onClick={() => removeLink(i)} className="text-muted-foreground hover:text-destructive">
+              <span className="material-icons text-sm">close</span>
+            </button>
           </div>
         ))}
-        {isSelected && links.length < PLATFORMS.length && (
+        {links.length < PLATFORMS.length && (
           <button onClick={addLink} className="flex items-center gap-1 text-xs text-primary hover:underline">
             <span className="material-icons text-sm">add</span> Add
           </button>
