@@ -1,8 +1,27 @@
 # CMS Blocks Audit
 
 **Status:** ✅ FULLY CLOSED — audit complete; all 6 design items resolved 2026-04-26
-**Last updated:** 2026-04-26 (final design-judgment closeout: items 1, 2, 6)
+**Last updated:** 2026-04-26 (dual-editor architecture documented; iframe editor parity ported)
 **Scope:** every block type registered in `types/blocks.ts` Block union
+
+## ⚠️ READ FIRST — dual-editor architecture
+
+**There are TWO settings panels that must both be kept in sync.** The audit (and a follow-up E2E pass on 2026-04-26) confirmed that block-settings UI lives in two separate files, each rendering for a different editor surface:
+
+| File | Function | Reached by |
+|---|---|---|
+| `components/blocks/visual/BlockSettings.tsx` | `BlockSettings` (4000+ lines, one `*BlockSettings` function per block type) | Admin posts editor (`/admin/posts/[id]/edit`); Email block editor (`/portal/email/templates`); Settings popup window (`/block-editor/settings-popup`) |
+| `components/portal/VisualEditorShell.tsx` | `BlockContentEditor` (~lines 1647–end, single component with a chain of `{block.type === 'X' && <>...</>}` sections) | Portal posts editor in iframe mode (`/portal/websites/[siteId]/posts/[postId]/edit`) — i.e. **most production sites with a `siteUrl` set** |
+
+**Why both are reachable:** `PortalPostForm` defaults `editorMode` to `'iframe'` when the site has a `siteUrl`, but admin/email/popup routes have always used the `BlockSettings.tsx` chain via `EditorWithPreview` / `VisualBlockEditorEnhanced` / direct import. There's no UI path from iframe mode back to the legacy 'visual'/'classic' modes, but the legacy modes are still hit from other entry points.
+
+**What this means for future block work:**
+
+- New settings UI for a block must land in **both** files. Otherwise users on one of the four reachable editors won't see the field.
+- Field labels can differ between the two files (e.g. `BlockSettings.tsx` "Arrow Border Color" vs `BlockContentEditor` "Arrow Border") — but the underlying data field name must match.
+- Most existing audit work (Phases 2–4 in this doc) was applied to `BlockSettings.tsx`. Whether that work also reached `BlockContentEditor` was inconsistent — the 2026-04-26 port (commit `91a88be3`) closed the gap for the 10 blocks where it was missing (button, section, booking-menu, social-links, timeline, bento-grid, team-showcase, team-flip-grid, survey-results, site-footer).
+
+**Sanity-check before adding new fields:** grep both files for the field name. If only one file has it, the other needs the same change.
 
 ## Audit closeout summary (2026-04-25)
 
