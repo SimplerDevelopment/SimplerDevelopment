@@ -1,8 +1,55 @@
 # CMS Blocks Audit
 
-**Status:** living document — updated as gaps close
-**Last updated:** 2026-04-25 (Visual review batch 5 — specialty / newer components)
+**Status:** ✅ COMPLETE — all phases closed 2026-04-25
+**Last updated:** 2026-04-25 (Visual review batch 7 — final batch + closeout)
 **Scope:** every block type registered in `types/blocks.ts` Block union
+
+## Audit closeout summary (2026-04-25)
+
+The cms-blocks audit ran through 4 phases plus a per-block visual deep review across 7 batches. All mechanical work outlined in `cms-blocks-handoff.md` is complete; what remains is 6 design-judgment decisions that need user input rather than autonomous worker dispatch.
+
+**Phases completed:**
+
+| Phase | Scope | Outcome |
+|---|---|---|
+| 1 | Inventory + gap matrix | 47 user-pickable blocks catalogued |
+| 2a | Missing API metadata | section, gallery, etc. added to `/api/blocks` |
+| 2b | Missing renderer cases | flip-card-grid, metric-cards, logo-strip, survey-input wired into `BlockRenderer` |
+| 2c | Missing `getElementCSS` plumbing | SocialLinks, TeamFlipGrid, SiteFooter, BookingMenu renderers; matching `ELEMENT_DEFINITIONS` |
+| 3 | Lifecycle E2E | Tests grew 19 → 48 specs (content + ecommerce + forms + email families) |
+| 4 (mechanical) | Settings panel + sub-element coverage | All 47 blocks audited; deferred-gap closures for marquee, metric-cards, image, tabs, hero-slideshow, booking, button |
+| Emoji sweep | Material Icons everywhere | 12 files; nested-picker renderers updated to render Material Icons not literal text |
+| Refactor | Dedup nested inserter + `createDefaultBlock` | Shared `NestedBlockInserter` + canonical `lib/blocks/defaults.ts`; **25 block types** now reachable inside columns/tabs/sections that previously weren't |
+| 4 (visual) | Per-block preview-vs-renderer parity, 7 batches | 35 blocks 🔧 fixed, 12 ✅ verified clean, 47 total reviewed |
+
+**Commit chain:**
+1. `9fb1caac` — phases 1–4 mechanical + lifecycle E2E + emoji sweep (35 files, +4458/-140)
+2. `0624a780` — visual review batch 1 (foundation)
+3. `0c296025` — visual review batch 2 (basic + media)
+4. `d386284d` — visual review batch 3 (layout containers)
+5. `6af78f3e` — refactor: nested inserter + `createDefaultBlock` dedup
+6. `e1c1c98e` — visual review batch 4 (components)
+7. `ef65ddaa` — visual review batch 5 (specialty / newer components)
+8. `8fa7d129` — visual review batch 6 (specialty wrap-up + ecommerce start)
+9. `ef646319` — visual review batch 7 (final: store-banner, product-detail, booking, booking-menu, survey, survey-results, email-header, email-footer)
+
+**Quality gates (all green):**
+- `tests/unit/blocksRegistryCompleteness.test.ts` — 6/6 pass after every batch
+- `npx tsc --noEmit` — clean for all touched block files
+- Pre-existing unrelated TS errors in `tests/e2e/portal-mcp-approvals.spec.ts`, `tests/integration/api/file-upload.test.ts`, `tests/e2e/pitch-deck-columns.spec.ts` are unchanged
+
+**Outstanding (need user judgment, not blockers):**
+1. Section legacy direct-style fields (`backgroundColor`, etc.) vs `block.style.*` — deprecate the legacy shape?
+2. Default `hero` block content — minimal vs richer placeholder?
+3. `SocialLinksBlock.iconSize` is dead — switch renderer to Material Icons (sized by `iconSize`) or remove the field?
+4. `FeaturedProductsBlock.layout` (`'grid' | 'carousel'`) is dead — implement carousel or remove?
+5. product-categories has no elementStyles surface (siblings do) — add parity or accept inconsistency?
+6. `SurveyResultsBlock.fieldIds` has no settings UI — add a question-picker checklist or leave to JSON/AI?
+
+See "## Phase 4 status" near the end of this doc for the per-batch breakdown.
+
+---
+
 
 ## Wiring layers — what every "fully optimized" block needs
 
