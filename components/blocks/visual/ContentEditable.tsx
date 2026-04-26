@@ -8,6 +8,7 @@ interface ContentEditableProps {
   className?: string;
   placeholder?: string;
   tagName?: string;
+  style?: React.CSSProperties;
 }
 
 export function ContentEditable({
@@ -16,6 +17,7 @@ export function ContentEditable({
   className = '',
   placeholder = '',
   tagName = 'div',
+  style,
 }: ContentEditableProps) {
   const contentRef = useRef<HTMLElement>(null);
   const lastHtml = useRef(html);
@@ -52,6 +54,7 @@ export function ContentEditable({
       onPaste={handlePaste}
       className={`${className} ${!html || html === '' ? 'empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground' : ''}`}
       data-placeholder={placeholder}
+      style={style}
       suppressContentEditableWarning
     />
   );

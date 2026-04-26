@@ -56,6 +56,7 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'statLabel', label: 'Stat Label' },
   ],
   'testimonial': [
+    { key: 'quoteIcon', label: 'Decorative Quote Icon' },
     { key: 'quote', label: 'Quote Text' },
     { key: 'author', label: 'Author Name' },
   ],

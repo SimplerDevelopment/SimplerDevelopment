@@ -3,6 +3,7 @@
 import { BlogPostsBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getAllBlogPosts, getBlogPostsByCategory, type BlogPostWithRelations } from '@/lib/actions/blog';
+import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { RichTextEditable } from './RichTextEditable';
 
@@ -21,6 +22,21 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
     2: 'grid-cols-1 md:grid-cols-2',
     3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
   };
+
+  // Mirror renderer responsive class threading.
+  const responsiveClasses = block.responsive
+    ? combineResponsiveClasses(
+        block.responsive.paddingTop,
+        block.responsive.paddingBottom,
+        block.responsive.paddingLeft,
+        block.responsive.paddingRight,
+        block.responsive.marginTop,
+        block.responsive.marginBottom,
+        block.responsive.marginLeft,
+        block.responsive.marginRight,
+        block.responsive.visibility,
+      )
+    : '';
 
   useEffect(() => {
     async function fetchPosts() {
@@ -52,7 +68,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
   }, [block.postType, block.categorySlug, block.limit]);
 
   return (
-    <div className="py-16 my-8 px-6">
+    <section className={`py-16 px-6 ${responsiveClasses}`}>
       <div className="text-center mb-12">
         {(block.title || isSelected) && (
           <RichTextEditable
@@ -61,6 +77,7 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
             className="font-heading text-4xl md:text-5xl font-bold mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
             placeholder="Blog Posts Title"
             singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'title')}
           />
         )}
@@ -68,9 +85,10 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
           <RichTextEditable
             html={block.description || ''}
             onChange={(html) => onChange({ description: html })}
-            className="text-xl max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
+            className="text-xl text-muted-foreground max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center"
             placeholder="Description (optional)"
             singleLine={true}
+            toolbar={true}
             style={getElementCSS(block.elementStyles, 'description')}
           />
         )}
@@ -150,12 +168,18 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
                   </div>
                 )}
 
-                <h3 className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors line-clamp-2">
+                <h3
+                  className="text-2xl font-bold mb-3 group-hover:text-primary transition-colors line-clamp-2"
+                  style={getElementCSS(block.elementStyles, 'postTitle')}
+                >
                   {post.title}
                 </h3>
 
                 {block.showExcerpt && post.excerpt && (
-                  <p className="text-muted-foreground mb-4 line-clamp-3">
+                  <p
+                    className="text-muted-foreground mb-4 line-clamp-3"
+                    style={getElementCSS(block.elementStyles, 'postExcerpt')}
+                  >
                     {post.excerpt}
                   </p>
                 )}
@@ -190,9 +214,12 @@ export function BlogPostsBlockPreview({ block, isSelected, onChange }: BlogPosts
         </div>
       )}
 
-      <p className="text-center text-xs text-muted-foreground mt-6 italic">
-        Preview: Showing {posts.length} of {block.limit || 3} configured posts
-      </p>
-    </div>
+      {/* Editor-only chrome — never rendered in production */}
+      {!loading && !error && (
+        <p className="text-center text-xs text-muted-foreground mt-6 italic">
+          Preview: Showing {posts.length} of {block.limit || 3} configured posts
+        </p>
+      )}
+    </section>
   );
 }
