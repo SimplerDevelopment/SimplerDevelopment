@@ -2,6 +2,7 @@
 
 import { SocialLinksBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { SocialIcon } from '@/lib/icons/social-icons';
 
 interface SocialLinksBlockPreviewProps {
   block: SocialLinksBlock;
@@ -56,13 +57,7 @@ export function SocialLinksBlockPreview({ block, isSelected, onChange }: SocialL
             className="text-muted-foreground p-1 inline-flex items-center gap-1.5"
             style={getElementCSS(block.elementStyles, 'link')}
           >
-            <span
-              className="material-icons"
-              style={{ fontSize: iconSize }}
-              aria-hidden="true"
-            >
-              {link.platform}
-            </span>
+            <SocialIcon platform={link.platform} size={iconSize} />
             <span className="sr-only">{PLATFORM_LABELS[link.platform] ?? link.platform}</span>
           </span>
         ))}
