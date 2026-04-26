@@ -20,5 +20,24 @@ export function FlipCardGridBlockPreview({ block, isSelected }: FlipCardGridBloc
       </div>
     );
   }
-  return <FlipCardGridBlockRender block={block} />;
+  // In the editor we re-use the production renderer for pixel-perfect parity, but disable the
+  // hover-flip interaction (`group-hover:[transform:rotateY(180deg)]`) — it would fire while the user is
+  // hovering to select/resize a card and break the editing experience. Click-trigger mode is left intact.
+  // Production behavior (hover) is preserved on the live site via the renderer's own arbitrary class.
+  return (
+    <div className="pc-flipcard-editor-preview">
+      <style jsx>{`
+        .pc-flipcard-editor-preview :global(.group:hover) > div[style*='preserve-3d'] {
+          transform: none !important;
+        }
+      `}</style>
+      <FlipCardGridBlockRender block={block} />
+      {block.flipTrigger !== 'click' && (
+        <div className="text-center text-xs text-muted-foreground -mt-8 pb-4">
+          <span className="material-icons text-sm align-middle mr-1">touch_app</span>
+          Hover-flip preview disabled in editor — cards flip on hover in production.
+        </div>
+      )}
+    </div>
+  );
 }

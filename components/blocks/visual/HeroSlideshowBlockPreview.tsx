@@ -25,8 +25,11 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
 
   const hasBg = !!slide.backgroundImage;
   const overlayColor = slide.overlayColor || 'rgba(0,0,0,0.45)';
+  const overlayOpacity = slide.overlayOpacity ?? 1;
 
-  // Build background with image + overlay using gradient overlay trick
+  // Editor preview is intentionally compact (canvas) and STATIC — no autoplay, no Ken Burns, no transitions.
+  // Production HeroSlideshowBlockRender uses min-h: 90vh with autoplay/Ken Burns; preview swaps to a fixed canvas height
+  // with a slide indicator + dot navigation so the user can review each slide individually.
   const bgStyles: React.CSSProperties = {
     minHeight: '400px',
     borderRadius: '8px',
@@ -38,13 +41,23 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
     justifyContent: 'center',
     padding: '60px 32px',
     backgroundImage: hasBg
-      ? `linear-gradient(${overlayColor}, ${overlayColor}), url(${slide.backgroundImage})`
+      ? `url(${slide.backgroundImage})`
       : `linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)`,
     backgroundSize: slide.backgroundSize || 'cover',
     backgroundPosition: slide.backgroundPosition || 'center',
     backgroundRepeat: slide.backgroundRepeat || 'no-repeat',
     textAlign: (slide.textAlignment || 'center') as React.CSSProperties['textAlign'],
   };
+
+  // Deck-level nav colors (dots/arrows/progress) — mirror renderer defaults
+  const arrowColor = block.arrowColor || '#fff';
+  const arrowBackground = block.arrowBackground || 'rgba(255,255,255,0.12)';
+  const arrowBorderColor = block.arrowBorderColor || 'rgba(255,255,255,0.2)';
+  const dotColor = block.dotColor || 'rgba(255,255,255,0.4)';
+  const dotActiveColor = block.dotActiveColor || '#fff';
+
+  const goPrev = (e: React.MouseEvent) => { e.stopPropagation(); setActiveSlide((activeSlide - 1 + slides.length) % slides.length); };
+  const goNext = (e: React.MouseEvent) => { e.stopPropagation(); setActiveSlide((activeSlide + 1) % slides.length); };
 
   return (
     <div style={bgStyles}>
@@ -66,6 +79,10 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
             opacity: block.backgroundVideoOpacity ?? 1,
           }}
         />
+      )}
+      {/* Color overlay (separated from bg image so overlayOpacity is honored — matches renderer's SlideLayer) */}
+      {hasBg && (
+        <div style={{ position: 'absolute', inset: 0, background: overlayColor, opacity: overlayOpacity, zIndex: 1 }} />
       )}
       {/* Content */}
       <div style={{ maxWidth: '700px', width: '100%', position: 'relative', zIndex: 2 }}>
@@ -142,8 +159,38 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
         )}
       </div>
 
-      {/* Slide navigation dots */}
-      {slides.length > 1 && (
+      {/* Editor navigation arrows — let user click through slides for review (production also shows them when showArrows=true) */}
+      {slides.length > 1 && (block.showArrows !== false) && (
+        <>
+          <button
+            onClick={goPrev}
+            aria-label="Previous slide (preview)"
+            style={{
+              position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 10,
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: arrowBackground, color: arrowColor, border: `1px solid ${arrowBorderColor}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)',
+            }}
+          >
+            <span className="material-icons" style={{ fontSize: '18px' }}>chevron_left</span>
+          </button>
+          <button
+            onClick={goNext}
+            aria-label="Next slide (preview)"
+            style={{
+              position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 10,
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: arrowBackground, color: arrowColor, border: `1px solid ${arrowBorderColor}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)',
+            }}
+          >
+            <span className="material-icons" style={{ fontSize: '18px' }}>chevron_right</span>
+          </button>
+        </>
+      )}
+
+      {/* Slide navigation dots — honor deck-level dotColor / dotActiveColor */}
+      {slides.length > 1 && (block.showDots !== false) && (
         <div style={{
           position: 'absolute',
           bottom: '16px',
@@ -166,7 +213,7 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
                 width: i === activeSlide ? '24px' : '8px',
                 height: '8px',
                 borderRadius: '4px',
-                background: i === activeSlide ? '#fff' : 'rgba(255,255,255,0.4)',
+                background: i === activeSlide ? dotActiveColor : dotColor,
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
@@ -177,7 +224,7 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
         </div>
       )}
 
-      {/* Slide indicator */}
+      {/* Slide indicator (editor-only chrome — confirms autoplay won't fire in editor) */}
       <div style={{
         position: 'absolute',
         top: '12px',
@@ -190,8 +237,28 @@ export function HeroSlideshowBlockPreview({ block, isSelected, onChange }: HeroS
         padding: '4px 10px',
         borderRadius: '12px',
       }}>
-        Slide {activeSlide + 1}/{slides.length}
+        Slide {activeSlide + 1}/{slides.length} (autoplay paused in editor)
       </div>
+
+      {/* Stats bar at bottom of hero — mirrors renderer's stats row */}
+      {block.stats && block.stats.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 5,
+          padding: '16px 24px', background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(8px)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '24px',
+        }}>
+          {block.stats.map((stat, i) => (
+            <div key={stat.id} style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              {i > 0 && <div style={{ width: '1px', height: '32px', background: 'rgba(255,255,255,0.1)' }} />}
+              <div>
+                <p style={{ color: '#fff', fontSize: '20px', fontWeight: 700, margin: 0, ...getElementCSS(block.elementStyles, 'statValue') }}>{stat.value}</p>
+                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', margin: '2px 0 0', ...getElementCSS(block.elementStyles, 'statLabel') }}>{stat.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
