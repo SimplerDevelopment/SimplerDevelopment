@@ -6,6 +6,8 @@ import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { VisualBlockPreview } from './VisualBlockPreview';
 import { TokenColorPicker } from './TokenColorPicker';
 import { useBlockEditor } from '@/contexts/BlockEditorContext';
+import { NestedBlockInserter } from './NestedBlockInserter';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
 
 /** Parse numeric width from number or string ("50%") format */
 function parseColWidth(w: number | string): number {
@@ -49,29 +51,6 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
     lg: 'gap-8',
   };
 
-  const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
-    { type: 'heading', label: 'Heading', icon: 'title', category: 'Basic', description: 'Add a title or heading' },
-    { type: 'text', label: 'Paragraph', icon: 'subject', category: 'Basic', description: 'Start with plain text' },
-    { type: 'button', label: 'Button', icon: 'smart_button', category: 'Basic', description: 'Add a call-to-action button' },
-    { type: 'quote', label: 'Quote', icon: 'format_quote', category: 'Basic', description: 'Add a quotation' },
-    { type: 'image', label: 'Image', icon: 'image', category: 'Media', description: 'Insert an image' },
-    { type: 'youtube', label: 'YouTube', icon: 'smart_display', category: 'Media', description: 'Embed a YouTube video' },
-    { type: 'video', label: 'Video', icon: 'movie', category: 'Media', description: 'Embed a video file' },
-    { type: 'code', label: 'Code', icon: 'code', category: 'Media', description: 'Display code snippet' },
-    { type: 'spacer', label: 'Spacer', icon: 'space_bar', category: 'Layout', description: 'Add vertical space' },
-    { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Add a horizontal line' },
-    { type: 'columns', label: 'Columns', icon: 'view_column', category: 'Layout', description: 'Display content in columns' },
-    { type: 'accordion', label: 'Accordion', icon: 'unfold_more', category: 'Layout', description: 'Collapsible content sections' },
-    { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed content sections' },
-    { type: 'hero', label: 'Hero', icon: 'gps_fixed', category: 'Components', description: 'Hero section with CTA' },
-    { type: 'services-grid', label: 'Services', icon: 'apps', category: 'Components', description: 'Grid of services' },
-    { type: 'cta', label: 'Call to Action', icon: 'campaign', category: 'Components', description: 'CTA section' },
-    { type: 'card-grid', label: 'Card Grid', icon: 'dashboard', category: 'Components', description: 'Grid of cards' },
-    { type: 'stats', label: 'Stats', icon: 'trending_up', category: 'Components', description: 'Statistics display' },
-    { type: 'testimonial', label: 'Testimonial', icon: 'star', category: 'Components', description: 'Customer testimonial' },
-    { type: 'featured-content', label: 'Featured Content', icon: 'auto_awesome', category: 'Components', description: 'Featured content with image' },
-    { type: 'blog-posts', label: 'Blog Posts', icon: 'article', category: 'Components', description: 'Display blog posts' },
-  ];
 
   const addColumn = () => {
     if (block.columns.length >= 12) return;
@@ -909,137 +888,18 @@ export function ColumnsBlockPreview({ block, isSelected, onChange, selectedBlock
         </div>
       )}
 
-      {/* Block Inserter Modal */}
+      {/* Block Inserter Modal — sources full 47-block roster from registry */}
       {showBlockInserter && insertIntoColumnId && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            e.stopPropagation();
+        <NestedBlockInserter
+          title="Add Block to Column"
+          onPick={(type) => addBlockToColumn(insertIntoColumnId, type)}
+          onClose={() => {
             setShowBlockInserter(false);
             setInsertIntoColumnId(null);
           }}
-        >
-          <div
-            className="bg-white dark:bg-gray-900 border border-border rounded-lg max-w-2xl w-full max-h-[70vh] overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-4 border-b border-border bg-white dark:bg-gray-900">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-foreground">Add Block to Column</h3>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowBlockInserter(false);
-                    setInsertIntoColumnId(null);
-                  }}
-                  className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-y-auto max-h-[calc(70vh-80px)] bg-white dark:bg-gray-900">
-              {Array.from(new Set(blockTypes.map(bt => bt.category))).map(category => (
-                <div key={category} className="p-4 border-b border-border last:border-0 bg-white dark:bg-gray-900">
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-3 tracking-wide">{category}</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    {blockTypes
-                      .filter(bt => bt.category === category)
-                      .map(blockType => (
-                        <button
-                          key={blockType.type}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addBlockToColumn(insertIntoColumnId, blockType.type);
-                          }}
-                          className="p-3 border border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group bg-white dark:bg-gray-900"
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <span className="material-icons text-2xl text-muted-foreground group-hover:text-primary">{blockType.icon}</span>
-                            <div className="text-xs font-medium text-foreground group-hover:text-primary text-center">
-                              {blockType.label}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          compact
+        />
       )}
     </div>
   );
-}
-
-function createDefaultBlock(type: BlockType): Block {
-  const id = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const order = 0;
-  const base = { id, order, type };
-
-  switch (type) {
-    case 'text':
-      return { ...base, type: 'text', content: 'Start writing...', alignment: 'left', size: 'base' };
-    case 'heading':
-      return { ...base, type: 'heading', content: 'Heading', level: 2, alignment: 'left' };
-    case 'image':
-      return { ...base, type: 'image', url: '', alt: '', width: 'full', alignment: 'center' };
-    case 'button':
-      return { ...base, type: 'button', text: 'Click me', url: '', variant: 'primary', size: 'md', alignment: 'left' };
-    case 'quote':
-      return { ...base, type: 'quote', content: 'Add a quote...', author: '', citation: '' };
-    case 'code':
-      return { ...base, type: 'code', code: '// Code here...', language: 'javascript' };
-    case 'video':
-      return { ...base, type: 'video', url: '', caption: '', autoplay: false, controls: true };
-    case 'youtube':
-      return { ...base, type: 'youtube', url: '', caption: '' };
-    case 'spacer':
-      return { ...base, type: 'spacer', height: 'md' };
-    case 'divider':
-      return { ...base, type: 'divider', lineStyle: 'solid' };
-    case 'columns':
-      return { ...base, type: 'columns', columns: [
-        { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
-        { id: `col-${Date.now()}-2`, width: 50, blocks: [] }
-      ], gap: 'md' };
-    case 'accordion':
-      return { ...base, type: 'accordion', title: 'Frequently Asked Questions', items: [
-        { id: `item-${Date.now()}-1`, title: 'First question?', content: 'Answer to the first question.' },
-        { id: `item-${Date.now()}-2`, title: 'Second question?', content: 'Answer to the second question.' }
-      ]};
-    case 'tabs':
-      return { ...base, type: 'tabs', tabs: [
-        { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
-        { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] }
-      ]};
-    case 'hero':
-      return { ...base, type: 'hero', title: 'Hero Title', subtitle: 'Subtitle', description: 'Description', ctaText: 'Get Started', ctaLink: '/contact' };
-    case 'services-grid':
-      return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
-    case 'cta':
-      return { ...base, type: 'cta', title: 'Ready to get started?', description: 'Join thousands of satisfied customers', primaryButtonText: 'Get Started', primaryButtonUrl: '/contact', backgroundStyle: 'gradient' };
-    case 'card-grid':
-      return { ...base, type: 'card-grid', title: 'Features', cards: [], columns: 3 };
-    case 'stats':
-      return { ...base, type: 'stats', title: 'By the numbers', stats: [], columns: 3 };
-    case 'testimonial':
-      return { ...base, type: 'testimonial', quote: 'This is an amazing product!', author: 'John Doe', role: 'CEO', company: 'Company Inc' };
-    case 'featured-content':
-      return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
-    case 'blog-posts':
-      return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
-    case 'booking':
-      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
-    case 'survey':
-      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
-    default:
-      return { ...base, type: 'text', content: 'Block', alignment: 'left', size: 'base' };
-  }
 }

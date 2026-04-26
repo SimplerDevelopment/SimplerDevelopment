@@ -11,6 +11,7 @@ import { ServicesGridBlockEdit } from './edit/ServicesGridBlockEdit';
 import { CtaBlockEdit } from './edit/CtaBlockEdit';
 import { BLOCK_TYPES } from '@/lib/utils/blockIcons';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
 
 interface BlockEditorProps {
   blocks: Block[];
@@ -24,7 +25,7 @@ export function BlockEditor({ blocks, onChange, brandDefaults }: BlockEditorProp
   const [showBlockPicker, setShowBlockPicker] = useState(false);
 
   const addBlock = (type: BlockType) => {
-    let newBlock = createDefaultBlock(type, blocks.length);
+    let newBlock = createDefaultBlock(type, { order: blocks.length });
     if (brandDefaults) {
       newBlock = applyBrandDefaults(newBlock, brandDefaults);
     }
@@ -236,46 +237,6 @@ export function BlockEditor({ blocks, onChange, brandDefaults }: BlockEditorProp
       )}
     </div>
   );
-}
-
-function createDefaultBlock(type: BlockType, order: number): Block {
-  const id = `block-${Date.now()}`;
-  const base = { id, order, type };
-
-  switch (type) {
-    case 'text':
-      return { ...base, type: 'text', content: 'Enter your text here...', alignment: 'left', size: 'base' };
-    case 'heading':
-      return { ...base, type: 'heading', content: 'Heading', level: 2, alignment: 'left' };
-    case 'image':
-      return { ...base, type: 'image', url: '', alt: '', width: 'full', alignment: 'center' };
-    case 'button':
-      return { ...base, type: 'button', text: 'Click me', url: '', variant: 'primary', size: 'md', alignment: 'left' };
-    case 'spacer':
-      return { ...base, type: 'spacer', height: 'md' };
-    case 'divider':
-      return { ...base, type: 'divider', lineStyle: 'solid' };
-    case 'hero':
-      return { ...base, type: 'hero', title: 'Hero Title', ctaText: 'Get Started', ctaLink: '/contact' };
-    case 'services-grid':
-      return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
-    case 'cta':
-      return { ...base, type: 'cta', title: 'Ready to get started?', primaryButtonText: 'Get Started', primaryButtonUrl: '/contact', backgroundStyle: 'gradient' };
-    case 'card-grid':
-      return { ...base, type: 'card-grid', title: 'Features', cards: [], columns: 3 };
-    case 'stats':
-      return { ...base, type: 'stats', stats: [], columns: 3 };
-    case 'testimonial':
-      return { ...base, type: 'testimonial', quote: 'Great experience!', author: 'John Doe' };
-    case 'blog-posts':
-      return { ...base, type: 'blog-posts', title: 'Recent Posts', limit: 3, columns: 3, showExcerpt: true };
-    case 'booking':
-      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
-    case 'survey':
-      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
-    default:
-      return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
-  }
 }
 
 function renderBlockEdit(block: Block, onChange: (updates: Partial<Block>) => void) {

@@ -6,6 +6,8 @@ import { Breakpoint } from '@/types/responsive';
 import { VisualBlockPreview } from './visual/VisualBlockPreview';
 import { BlockSettings } from './visual/BlockSettings';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
+import { BUILT_IN_BLOCK_TYPES } from '@/lib/blocks/registry';
 
 interface VisualBlockEditorProps {
   blocks: Block[];
@@ -26,35 +28,11 @@ export function VisualBlockEditor({ blocks, onChange, brandDefaults }: VisualBlo
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
   const editorRef = useRef<HTMLDivElement>(null);
 
-  const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
-    { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a title or heading' },
-    { type: 'text', label: 'Paragraph', icon: '📄', category: 'Basic', description: 'Start with plain text' },
-    { type: 'button', label: 'Button', icon: '🔘', category: 'Basic', description: 'Add a call-to-action button' },
-    { type: 'quote', label: 'Quote', icon: '💬', category: 'Basic', description: 'Add a quotation' },
-    { type: 'image', label: 'Image', icon: '🖼️', category: 'Media', description: 'Insert an image' },
-    { type: 'youtube', label: 'YouTube', icon: '📺', category: 'Media', description: 'Embed a YouTube video' },
-    { type: 'video', label: 'Video', icon: '🎬', category: 'Media', description: 'Embed a video file' },
-    { type: 'code', label: 'Code', icon: '💻', category: 'Media', description: 'Display code snippet' },
-    { type: 'spacer', label: 'Spacer', icon: '↕️', category: 'Layout', description: 'Add vertical space' },
-    { type: 'divider', label: 'Divider', icon: '➖', category: 'Layout', description: 'Add a horizontal line' },
-    { type: 'columns', label: 'Columns', icon: '📊', category: 'Layout', description: 'Display content in columns' },
-    { type: 'accordion', label: 'Accordion', icon: '📑', category: 'Layout', description: 'Collapsible content sections' },
-    { type: 'tabs', label: 'Tabs', icon: '🗂️', category: 'Layout', description: 'Tabbed content sections' },
-    { type: 'hero', label: 'Hero', icon: '🎯', category: 'Components', description: 'Hero section with CTA' },
-    { type: 'services-grid', label: 'Services', icon: '📦', category: 'Components', description: 'Grid of services' },
-    { type: 'cta', label: 'Call to Action', icon: '📢', category: 'Components', description: 'CTA section' },
-    { type: 'card-grid', label: 'Card Grid', icon: '🎴', category: 'Components', description: 'Grid of cards' },
-    { type: 'stats', label: 'Stats', icon: '📈', category: 'Components', description: 'Statistics display' },
-    { type: 'testimonial', label: 'Testimonial', icon: '⭐', category: 'Components', description: 'Customer testimonial' },
-    { type: 'featured-content', label: 'Featured Content', icon: '✨', category: 'Components', description: 'Featured content with image' },
-    { type: 'blog-posts', label: 'Blog Posts', icon: '📰', category: 'Components', description: 'Display blog posts' },
-    { type: 'booking', label: 'Booking', icon: 'calendar_month', category: 'Interactive', description: 'Embed a booking page' },
-    { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
-    { type: 'survey-results', label: 'Survey Results', icon: 'poll', category: 'Interactive', description: 'Display survey results with charts' },
-  ];
+  // Source from registry so this picker stays in sync with the global 47-block roster
+  const blockTypes = BUILT_IN_BLOCK_TYPES;
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
-    let newBlock = createDefaultBlock(type, blocks.length);
+    let newBlock = createDefaultBlock(type, { order: blocks.length });
     if (brandDefaults) {
       newBlock = applyBrandDefaults(newBlock, brandDefaults);
     }
@@ -527,65 +505,3 @@ export function VisualBlockEditor({ blocks, onChange, brandDefaults }: VisualBlo
   );
 }
 
-function createDefaultBlock(type: BlockType, order: number): Block {
-  const id = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const base = { id, order, type };
-
-  switch (type) {
-    case 'text':
-      return { ...base, type: 'text', content: 'Start writing or type / to insert a block...', alignment: 'left', size: 'base' };
-    case 'heading':
-      return { ...base, type: 'heading', content: 'Write your heading...', level: 2, alignment: 'left' };
-    case 'image':
-      return { ...base, type: 'image', url: '', alt: '', width: 'full', alignment: 'center' };
-    case 'button':
-      return { ...base, type: 'button', text: 'Click me', url: '', variant: 'primary', size: 'md', alignment: 'left' };
-    case 'quote':
-      return { ...base, type: 'quote', content: 'Add a memorable quote...', author: '', citation: '' };
-    case 'code':
-      return { ...base, type: 'code', code: '// Enter your code here...', language: 'javascript' };
-    case 'video':
-      return { ...base, type: 'video', url: '', caption: '', autoplay: false, controls: true };
-    case 'youtube':
-      return { ...base, type: 'youtube', url: '', caption: '' };
-    case 'spacer':
-      return { ...base, type: 'spacer', height: 'md' };
-    case 'divider':
-      return { ...base, type: 'divider', lineStyle: 'solid' };
-    case 'columns':
-      return { ...base, type: 'columns', columns: [
-        { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
-        { id: `col-${Date.now()}-2`, width: 50, blocks: [] }
-      ], gap: 'md' };
-    case 'accordion':
-      return { ...base, type: 'accordion', title: 'Frequently Asked Questions', items: [
-        { id: `item-${Date.now()}-1`, title: 'First question?', content: 'Answer to the first question.' },
-        { id: `item-${Date.now()}-2`, title: 'Second question?', content: 'Answer to the second question.' }
-      ]};
-    case 'tabs':
-      return { ...base, type: 'tabs', tabs: [
-        { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
-        { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] }
-      ]};
-    case 'hero':
-      return { ...base, type: 'hero', title: 'Hero Title', subtitle: 'Subtitle', description: 'Description', ctaText: 'Get Started', ctaLink: '/contact' };
-    case 'services-grid':
-      return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
-    case 'cta':
-      return { ...base, type: 'cta', title: 'Ready to get started?', description: 'Join thousands of satisfied customers', primaryButtonText: 'Get Started', primaryButtonUrl: '/contact', backgroundStyle: 'gradient' };
-    case 'card-grid':
-      return { ...base, type: 'card-grid', title: 'Features', cards: [], columns: 3 };
-    case 'stats':
-      return { ...base, type: 'stats', title: 'By the numbers', stats: [], columns: 3 };
-    case 'testimonial':
-      return { ...base, type: 'testimonial', quote: 'This is an amazing product!', author: 'John Doe', role: 'CEO', company: 'Company Inc' };
-    case 'featured-content':
-      return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
-    case 'blog-posts':
-      return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
-    case 'survey-results':
-      return { ...base, type: 'survey-results', surveySlug: '', title: 'Survey Results', description: 'See what our customers are saying', chartType: 'bar', showResponseCount: true, showTextResponses: true, textResponseLimit: 5, layout: 'stacked' };
-    default:
-      return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
-  }
-}

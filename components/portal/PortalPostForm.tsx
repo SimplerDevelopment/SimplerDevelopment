@@ -18,6 +18,7 @@ import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
 
 interface Post {
   id?: number;
@@ -100,82 +101,6 @@ function parseContentToBlocks(content: string): Block[] {
 
 function generateSlug(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function createDefaultBlock(type: string, order: number): Block {
-  const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const base = { id, order };
-
-  switch (type) {
-    case 'heading': return { ...base, type: 'heading', content: 'New Heading', level: 2 } as Block;
-    case 'text': return { ...base, type: 'text', content: 'New paragraph text.' } as Block;
-    case 'image': return { ...base, type: 'image', url: '', alt: '' } as Block;
-    case 'button': return { ...base, type: 'button', text: 'Click Me', url: '#', variant: 'primary', size: 'md' } as Block;
-    case 'spacer': return { ...base, type: 'spacer', height: 'md' } as Block;
-    case 'divider': return { ...base, type: 'divider' } as Block;
-    case 'quote': return { ...base, type: 'quote', content: '', author: '' } as Block;
-    case 'code': return { ...base, type: 'code', code: '', language: 'javascript' } as Block;
-    case 'video': return { ...base, type: 'video', url: '' } as Block;
-    case 'youtube': return { ...base, type: 'youtube', url: '' } as Block;
-    case 'columns': return { ...base, type: 'columns', columns: [
-      { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
-      { id: `col-${Date.now()}-2`, width: 50, blocks: [] },
-    ], gap: 'md' } as Block;
-    case 'tabs': return { ...base, type: 'tabs', tabs: [
-      { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
-      { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] },
-    ] } as Block;
-    case 'section': return { ...base, type: 'section', blocks: [] } as Block;
-    case 'accordion': return { ...base, type: 'accordion', items: [
-      { id: `acc-${Date.now()}-1`, title: 'Item 1', content: 'Content for item 1' },
-      { id: `acc-${Date.now()}-2`, title: 'Item 2', content: 'Content for item 2' },
-    ] } as Block;
-    case 'hero': return { ...base, type: 'hero', title: 'Hero Title', subtitle: '', ctaText: 'Learn More', ctaLink: '#' } as Block;
-    case 'marquee': return { ...base, type: 'marquee', items: [
-      { id: `mi-${Date.now()}-1`, type: 'text', content: 'Scrolling text item' },
-      { id: `mi-${Date.now()}-2`, type: 'text', content: 'Another item' },
-    ], autoFill: true, speed: 50, direction: 'left', pauseOnHover: true } as Block;
-    case 'hero-slideshow': return { ...base, type: 'hero-slideshow', slides: [
-      { id: `slide-${Date.now()}-1`, title: 'First Slide', subtitle: '', description: '', ctaText: 'Learn More', ctaLink: '#' },
-      { id: `slide-${Date.now()}-2`, title: 'Second Slide', subtitle: '', description: '', ctaText: 'Learn More', ctaLink: '#' },
-    ], autoplay: true, interval: 6000, transition: 'fade', showDots: true, showArrows: true, kenBurns: true } as Block;
-    case 'cta': return { ...base, type: 'cta', title: 'Call to Action', primaryButtonText: 'Get Started', primaryButtonUrl: '#' } as Block;
-    case 'testimonial': return { ...base, type: 'testimonial', quote: '', author: '' } as Block;
-    case 'stats': return { ...base, type: 'stats', stats: [
-      { id: `stat-${Date.now()}-1`, value: '100+', label: 'Clients' },
-      { id: `stat-${Date.now()}-2`, value: '50', label: 'Projects' },
-    ], columns: 3 } as Block;
-    case 'card-grid': return { ...base, type: 'card-grid', cards: [
-      { id: `card-${Date.now()}-1`, title: 'Card 1', description: 'Description' },
-      { id: `card-${Date.now()}-2`, title: 'Card 2', description: 'Description' },
-    ], columns: 3 } as Block;
-    case 'flip-card-grid': return { ...base, type: 'flip-card-grid', cards: [
-      { id: `flip-${Date.now()}-1`, frontTitle: 'Front Title', frontIcon: 'rocket_launch', backText: 'Hover or tap to reveal more details about this service.', backLinkText: 'Learn More' },
-      { id: `flip-${Date.now()}-2`, frontTitle: 'Second Card', frontIcon: 'insights', backText: 'Add your own description here — this text is revealed on flip.', backLinkText: 'Learn More' },
-      { id: `flip-${Date.now()}-3`, frontTitle: 'Third Card', frontIcon: 'workspace_premium', backText: 'Flip cards are great for condensing info behind an interactive reveal.', backLinkText: 'Learn More' },
-    ], columns: 3, flipTrigger: 'hover', flipAxis: 'horizontal', cardHeight: '280px', accentColor: '#004D80' } as Block;
-    case 'metric-cards': return { ...base, type: 'metric-cards', metrics: [
-      { id: `m-${Date.now()}-1`, value: '83%', label: 'Increase in Completions', institution: 'Example University', linkText: 'Case Study' },
-      { id: `m-${Date.now()}-2`, value: '$965K+', label: 'Raised from 2,600+ Donors', institution: 'Loyola University', linkText: 'Case Study' },
-      { id: `m-${Date.now()}-3`, value: '2 Days', label: 'Staff Time Saved', institution: 'VCU', linkText: 'Case Study' },
-      { id: `m-${Date.now()}-4`, value: '5 Years', label: 'Historical Data Integrated', institution: 'Landmark College', linkText: 'Case Study' },
-    ], columns: 4, accentColor: '#004D80' } as Block;
-    case 'logo-strip': return { ...base, type: 'logo-strip', overline: 'TRUSTED BY LEADING COMPANIES', logos: [
-      { id: `l-${Date.now()}-1`, imageUrl: '', alt: 'Logo 1' },
-      { id: `l-${Date.now()}-2`, imageUrl: '', alt: 'Logo 2' },
-      { id: `l-${Date.now()}-3`, imageUrl: '', alt: 'Logo 3' },
-      { id: `l-${Date.now()}-4`, imageUrl: '', alt: 'Logo 4' },
-      { id: `l-${Date.now()}-5`, imageUrl: '', alt: 'Logo 5' },
-      { id: `l-${Date.now()}-6`, imageUrl: '', alt: 'Logo 6' },
-    ], columns: 6, grayscale: true, logoHeight: '40px', gap: 'lg', alignment: 'center' } as Block;
-    case 'gallery': return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3 } as Block;
-    case 'featured-content': return { ...base, type: 'featured-content', title: '', description: '' } as Block;
-    case 'services-grid': return { ...base, type: 'services-grid', services: [], columns: 3 } as Block;
-    case 'blog-posts': return { ...base, type: 'blog-posts', limit: 3, columns: 3 } as Block;
-    case 'booking': return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', showPageTitle: true, height: '700px' } as Block;
-    case 'survey': return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', showPageTitle: true, height: '700px' } as Block;
-    default: return { ...base, type: type as 'text', content: '' } as Block;
-  }
 }
 
 export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain, brandDefaults }: PortalPostFormProps) {
@@ -753,7 +678,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 onBlocksChange={setBlocks}
                 onSelectBlock={() => {}}
                 onAddBlock={(type) => {
-                  let newBlock = createDefaultBlock(type, blocks.length);
+                  let newBlock = createDefaultBlock(type as BlockType, { order: blocks.length });
                   if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
                   setBlocks([...blocks, newBlock]);
                 }}

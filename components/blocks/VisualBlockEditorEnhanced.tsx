@@ -6,6 +6,7 @@ import { VisualBlockPreview } from './visual/VisualBlockPreview';
 import { BlockSettings } from './visual/BlockSettings';
 import { BlockEditorProvider, useBlockEditor } from '@/contexts/BlockEditorContext';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { createDefaultBlock } from '@/lib/blocks/defaults';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
 import { Breakpoint } from '@/types/responsive';
 import { getViewportWidth } from '@/lib/utils/responsive';
@@ -628,7 +629,7 @@ export function EditorInner({
   };
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
-    let newBlock = createDefaultBlock(type, state.blocks.length);
+    let newBlock = createDefaultBlock(type, { order: state.blocks.length });
     if (brandDefaults) {
       newBlock = applyBrandDefaults(newBlock, brandDefaults);
     }
@@ -1046,77 +1047,3 @@ export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, o
   );
 }
 
-function createDefaultBlock(type: BlockType, order: number): Block {
-  const id = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const base = { id, order, type };
-
-  switch (type) {
-    case 'text':
-      return { ...base, type: 'text', content: 'Start writing or type / to insert a block...', alignment: 'left', size: 'base' };
-    case 'heading':
-      return { ...base, type: 'heading', content: 'Write your heading...', level: 2, alignment: 'left' };
-    case 'image':
-      return { ...base, type: 'image', url: '', alt: '', width: 'full', alignment: 'center' };
-    case 'button':
-      return { ...base, type: 'button', text: 'Click me', url: '', variant: 'primary', size: 'md', alignment: 'left' };
-    case 'quote':
-      return { ...base, type: 'quote', content: 'Add a memorable quote...', author: '', citation: '' };
-    case 'code':
-      return { ...base, type: 'code', code: '// Enter your code here...', language: 'javascript' };
-    case 'video':
-      return { ...base, type: 'video', url: '', caption: '', autoplay: false, controls: true };
-    case 'youtube':
-      return { ...base, type: 'youtube', url: '', caption: '' };
-    case 'spacer':
-      return { ...base, type: 'spacer', height: 'md' };
-    case 'divider':
-      return { ...base, type: 'divider', lineStyle: 'solid' };
-    case 'columns':
-      return { ...base, type: 'columns', columns: [
-        { id: `col-${Date.now()}-1`, width: 50, blocks: [] },
-        { id: `col-${Date.now()}-2`, width: 50, blocks: [] }
-      ], gap: 'md' };
-    case 'accordion':
-      return { ...base, type: 'accordion', title: 'Frequently Asked Questions', items: [
-        { id: `item-${Date.now()}-1`, title: 'First question?', content: 'Answer to the first question.' },
-        { id: `item-${Date.now()}-2`, title: 'Second question?', content: 'Answer to the second question.' }
-      ]};
-    case 'tabs':
-      return { ...base, type: 'tabs', tabs: [
-        { id: `tab-${Date.now()}-1`, label: 'Tab 1', blocks: [] },
-        { id: `tab-${Date.now()}-2`, label: 'Tab 2', blocks: [] }
-      ]};
-    case 'section':
-      return { ...base, type: 'section', blocks: [] };
-    case 'hero':
-      return { ...base, type: 'hero', title: 'Hero Title', subtitle: 'Subtitle', description: 'Description', ctaText: 'Get Started', ctaLink: '/contact' };
-    case 'services-grid':
-      return { ...base, type: 'services-grid', title: 'Our Services', services: [], columns: 3 };
-    case 'cta':
-      return { ...base, type: 'cta', title: 'Ready to get started?', description: 'Join thousands of satisfied customers', primaryButtonText: 'Get Started', primaryButtonUrl: '/contact', backgroundStyle: 'gradient' };
-    case 'card-grid':
-      return { ...base, type: 'card-grid', title: 'Features', cards: [], columns: 3 };
-    case 'stats':
-      return { ...base, type: 'stats', title: 'By the numbers', stats: [], columns: 3 };
-    case 'testimonial':
-      return { ...base, type: 'testimonial', quote: 'This is an amazing product!', author: 'John Doe', role: 'CEO', company: 'Company Inc' };
-    case 'featured-content':
-      return { ...base, type: 'featured-content', title: 'Featured Content', description: 'Description of the featured content', imagePosition: 'right', buttonText: 'Learn More', buttonUrl: '/learn-more' };
-    case 'blog-posts':
-      return { ...base, type: 'blog-posts', title: 'Latest Posts', limit: 3, columns: 3, showExcerpt: true };
-    case 'gallery':
-      return { ...base, type: 'gallery', images: [], layout: 'grid', columns: 3, lightbox: true, gap: 'md' };
-    case 'booking':
-      return { ...base, type: 'booking', slug: '', title: 'Schedule a Meeting', description: 'Pick a time that works for you', showPageTitle: true, height: '700px' };
-    case 'survey':
-      return { ...base, type: 'survey', slug: '', title: 'Take Our Survey', description: "We'd love to hear your feedback", showPageTitle: true, height: '700px' };
-    case 'social-links':
-      return { ...base, type: 'social-links', links: [], alignment: 'center' };
-    case 'email-header':
-      return { ...base, type: 'email-header', alignment: 'center' };
-    case 'email-footer':
-      return { ...base, type: 'email-footer', showUnsubscribe: true };
-    default:
-      return { ...base, type: 'text', content: 'Unknown block type', alignment: 'left', size: 'base' };
-  }
-}

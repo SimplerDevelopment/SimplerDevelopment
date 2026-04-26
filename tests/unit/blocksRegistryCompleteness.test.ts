@@ -53,8 +53,10 @@ function extractRenderCases(): Set<string> {
 }
 
 function extractPickerTypes(): Set<string> {
-  // Matches `{ type: 'foo', label: 'Foo', ...` entries in BUILT_IN_BLOCK_TYPES
-  const content = readRepoFile('components/portal/VisualEditorShell.tsx');
+  // Matches `{ type: 'foo', label: 'Foo', ...` entries in BUILT_IN_BLOCK_TYPES.
+  // The canonical registry is now lib/blocks/registry.ts; VisualEditorShell.tsx
+  // imports from there (refactor: audit decisions #8/#11).
+  const content = readRepoFile('lib/blocks/registry.ts');
   const matches = content.matchAll(/type:\s+'([a-z][a-z0-9-]*)',\s+label:/g);
   return new Set(Array.from(matches, m => m[1]));
 }
@@ -90,7 +92,7 @@ describe('Block registry drift detection', () => {
     const missing = userPickable.filter(t => !pickerTypes.has(t));
     expect(
       missing,
-      `BUILT_IN_BLOCK_TYPES (VisualEditorShell.tsx) is missing entries for: ${missing.join(', ')}`,
+      `BUILT_IN_BLOCK_TYPES (lib/blocks/registry.ts) is missing entries for: ${missing.join(', ')}`,
     ).toEqual([]);
   });
 
@@ -101,7 +103,7 @@ describe('Block registry drift detection', () => {
     );
     expect(
       orphans,
-      `BUILT_IN_BLOCK_TYPES has entries that aren't in the Block union: ${orphans.join(', ')}`,
+      `BUILT_IN_BLOCK_TYPES (lib/blocks/registry.ts) has entries that aren't in the Block union: ${orphans.join(', ')}`,
     ).toEqual([]);
   });
 
