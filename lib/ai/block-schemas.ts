@@ -442,7 +442,6 @@ const BUILT_IN_SCHEMAS: BlockSchema[] = [
       description: { type: 'string' },
       limit: { type: 'number' },
       columns: { type: 'enum', enumValues: ['2', '3', '4'], default: '3' },
-      layout: { type: 'enum', enumValues: ['grid', 'carousel'], default: 'grid' },
       showPrice: { type: 'boolean', default: true },
       showBadge: { type: 'boolean', default: true },
       badgeText: { type: 'string' },

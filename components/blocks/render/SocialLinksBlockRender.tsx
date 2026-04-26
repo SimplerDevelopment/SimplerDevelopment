@@ -19,6 +19,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 export function SocialLinksBlockRender({ block }: SocialLinksBlockRenderProps) {
   const alignment = block.alignment ?? 'center';
   const alignClass = alignment === 'center' ? 'justify-center' : alignment === 'right' ? 'justify-end' : 'justify-start';
+  const iconSize = block.iconSize ?? 24;
 
   return (
     <div
@@ -31,10 +32,18 @@ export function SocialLinksBlockRender({ block }: SocialLinksBlockRenderProps) {
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+          aria-label={PLATFORM_LABELS[link.platform] ?? link.platform}
+          className="text-muted-foreground hover:text-foreground transition-colors p-1 inline-flex items-center gap-1.5"
           style={getElementCSS(block.elementStyles, 'link')}
         >
-          {PLATFORM_LABELS[link.platform] ?? link.platform}
+          <span
+            className="material-icons"
+            style={{ fontSize: iconSize }}
+            aria-hidden="true"
+          >
+            {link.platform}
+          </span>
+          <span className="sr-only">{PLATFORM_LABELS[link.platform] ?? link.platform}</span>
         </a>
       ))}
     </div>

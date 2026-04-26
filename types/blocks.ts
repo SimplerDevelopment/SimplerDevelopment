@@ -530,7 +530,6 @@ export interface FeaturedProductsBlock extends BaseBlock {
   description?: string;
   limit?: number;
   columns?: 2 | 3 | 4;
-  layout?: 'grid' | 'carousel';
   showPrice?: boolean;
   showBadge?: boolean;
   badgeText?: string;

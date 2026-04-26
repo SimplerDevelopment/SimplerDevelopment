@@ -42,6 +42,8 @@ export function SocialLinksBlockPreview({ block, isSelected, onChange }: SocialL
 
   const alignClass = alignment === 'center' ? 'justify-center' : alignment === 'right' ? 'justify-end' : 'justify-start';
 
+  const iconSize = block.iconSize ?? 24;
+
   if (!isSelected) {
     return (
       <div
@@ -51,10 +53,17 @@ export function SocialLinksBlockPreview({ block, isSelected, onChange }: SocialL
         {links.map((link, i) => (
           <span
             key={i}
-            className="text-sm text-muted-foreground px-2 py-1"
+            className="text-muted-foreground p-1 inline-flex items-center gap-1.5"
             style={getElementCSS(block.elementStyles, 'link')}
           >
-            {PLATFORM_LABELS[link.platform] ?? link.platform}
+            <span
+              className="material-icons"
+              style={{ fontSize: iconSize }}
+              aria-hidden="true"
+            >
+              {link.platform}
+            </span>
+            <span className="sr-only">{PLATFORM_LABELS[link.platform] ?? link.platform}</span>
           </span>
         ))}
         {links.length === 0 && (

@@ -41,9 +41,9 @@ The cms-blocks audit ran through 4 phases plus a per-block visual deep review ac
 **Outstanding (need user judgment, not blockers):**
 1. Section legacy direct-style fields (`backgroundColor`, etc.) vs `block.style.*` — deprecate the legacy shape?
 2. Default `hero` block content — minimal vs richer placeholder?
-3. `SocialLinksBlock.iconSize` is dead — switch renderer to Material Icons (sized by `iconSize`) or remove the field?
-4. `FeaturedProductsBlock.layout` (`'grid' | 'carousel'`) is dead — implement carousel or remove?
-5. product-categories has no elementStyles surface (siblings do) — add parity or accept inconsistency?
+3. ~~RESOLVED~~ `SocialLinksBlock.iconSize` — renderer + preview now render `<span class="material-icons">` sized by `iconSize` (default 24); `aria-label` on `<a>`, text label hidden with `sr-only`.
+4. ~~RESOLVED~~ `FeaturedProductsBlock.layout` — dead `'grid' | 'carousel'` field removed from `types/blocks.ts`, `BlockSettings.tsx` settings panel, and `lib/ai/block-schemas.ts`.
+5. ~~RESOLVED~~ product-categories elementStyles parity — `getElementCSS('title'/'description')` wired in renderer (both layout branches); `'product-categories'` added to `ELEMENT_DEFINITIONS`; preview upgraded to `RichTextEditable` with element styles applied.
 6. `SurveyResultsBlock.fieldIds` has no settings UI — add a question-picker checklist or leave to JSON/AI?
 
 See "## Phase 4 status" near the end of this doc for the per-batch breakdown.

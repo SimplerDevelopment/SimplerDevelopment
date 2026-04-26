@@ -1,6 +1,8 @@
 'use client';
 
 import { ProductCategoriesBlock } from '@/types/blocks';
+import { RichTextEditable } from './RichTextEditable';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface ProductCategoriesBlockPreviewProps {
   block: ProductCategoriesBlock;
@@ -22,26 +24,31 @@ export function ProductCategoriesBlockPreview({ block, isSelected, onChange }: P
     4: 'md:grid-cols-2 lg:grid-cols-4',
   };
 
+  const titleStyle = getElementCSS(block.elementStyles, 'title');
+  const descriptionStyle = getElementCSS(block.elementStyles, 'description');
+
   const titleAndDescription = (
     <>
       {(block.title || isSelected) && (
-        <input
-          type="text"
-          value={block.title || ''}
-          onChange={(e) => onChange({ title: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
+        <RichTextEditable
+          html={block.title || ''}
+          onChange={(html) => onChange({ title: html })}
           className="font-heading text-4xl md:text-5xl font-bold mb-4 w-full bg-transparent border-none focus:outline-none focus:border-b-2 border-primary text-center text-foreground"
           placeholder="Shop by Category"
+          singleLine={true}
+          toolbar={true}
+          style={titleStyle}
         />
       )}
       {(block.description || isSelected) && (
-        <input
-          type="text"
-          value={block.description || ''}
-          onChange={(e) => onChange({ description: e.target.value })}
-          onClick={(e) => e.stopPropagation()}
-          className="text-xl max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none focus:border-b border-primary/50 text-center text-muted-foreground"
+        <RichTextEditable
+          html={block.description || ''}
+          onChange={(html) => onChange({ description: html })}
+          className="text-xl max-w-2xl mx-auto w-full bg-transparent border-none focus:outline-none text-center text-muted-foreground"
           placeholder="Browse our collections"
+          singleLine={true}
+          toolbar={true}
+          style={descriptionStyle}
         />
       )}
     </>

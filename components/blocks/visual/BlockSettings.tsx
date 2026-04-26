@@ -133,6 +133,10 @@ const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[]> = {
     { key: 'title', label: 'Section Title' },
     { key: 'description', label: 'Section Description' },
   ],
+  'product-categories': [
+    { key: 'title', label: 'Section Title' },
+    { key: 'description', label: 'Section Description' },
+  ],
   'booking': [
     { key: 'title', label: 'Title' },
     { key: 'description', label: 'Description' },
@@ -2194,17 +2198,6 @@ function FeaturedProductsBlockSettings({ block, onChange }: { block: FeaturedPro
         <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
           <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
         </div>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
-        <select
-          value={block.layout || 'grid'}
-          onChange={(e) => onChange({ layout: e.target.value as FeaturedProductsBlock['layout'] })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="grid">Grid</option>
-          <option value="carousel">Carousel</option>
-        </select>
       </div>
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">Number of Products</label>
