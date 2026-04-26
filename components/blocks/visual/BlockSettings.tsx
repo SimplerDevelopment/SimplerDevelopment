@@ -3006,6 +3006,47 @@ function SurveyResultsBlockSettings({ block, onChange }: { block: SurveyResultsB
         </div>
       )}
 
+      {/* Question picker — only shown when a survey with fields is selected */}
+      {selected && selected.fields && selected.fields.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-foreground">Questions to display</label>
+            <button
+              type="button"
+              onClick={() => onChange({ fieldIds: undefined })}
+              className="text-xs text-primary hover:underline"
+            >
+              All
+            </button>
+          </div>
+          <ul className="space-y-1 rounded border border-border bg-background px-3 py-2 max-h-48 overflow-y-auto">
+            {selected.fields.map((field) => {
+              const isChecked = !block.fieldIds || block.fieldIds.length === 0 || block.fieldIds.includes(field.id);
+              return (
+                <li key={field.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={`field-${field.id}`}
+                    checked={isChecked}
+                    onChange={(e) => {
+                      const allIds = selected.fields.map((f) => f.id);
+                      const current = block.fieldIds && block.fieldIds.length > 0 ? block.fieldIds : allIds;
+                      const next = e.target.checked
+                        ? [...current, field.id].filter((v, i, a) => a.indexOf(v) === i)
+                        : current.filter((id) => id !== field.id);
+                      // If every field is selected, store undefined (= show all)
+                      onChange({ fieldIds: next.length === allIds.length ? undefined : next });
+                    }}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <label htmlFor={`field-${field.id}`} className="text-sm text-foreground truncate">{field.label}</label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* Accent Color */}
       <div>
         <TokenColorPicker

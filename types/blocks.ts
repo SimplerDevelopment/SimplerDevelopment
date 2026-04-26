@@ -897,16 +897,45 @@ export interface SiteFooterBlock extends BaseBlock {
 export interface SectionBlock extends BaseBlock {
   type: 'section';
   blocks: Block[];
+  /**
+   * @deprecated Use `block.style.backgroundColor` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   * The renderer treats `block.style.*` as the winning value.
+   */
   backgroundColor?: string;
   backgroundImage?: string;
   backgroundSize?: 'cover' | 'contain' | 'auto';
   backgroundPosition?: string;
   maxWidth?: string;
+  /**
+   * @deprecated Use `block.style.padding` (or per-side variants) in `block.style` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   paddingTop?: string;
+  /**
+   * @deprecated Use `block.style.padding` (or per-side variants) in `block.style` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   paddingBottom?: string;
+  /**
+   * @deprecated Use `block.style.padding` (or per-side variants) in `block.style` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   paddingLeft?: string;
+  /**
+   * @deprecated Use `block.style.padding` (or per-side variants) in `block.style` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   paddingRight?: string;
+  /**
+   * @deprecated Use `block.style.color` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   color?: string;
+  /**
+   * @deprecated Use `block.style.fontFamily` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   */
   fontFamily?: string;
   cssClass?: string;
   htmlTag?: 'section' | 'div' | 'article' | 'aside' | 'header' | 'footer';

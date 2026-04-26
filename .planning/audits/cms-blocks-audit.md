@@ -1,7 +1,7 @@
 # CMS Blocks Audit
 
-**Status:** ✅ COMPLETE — all phases closed 2026-04-25
-**Last updated:** 2026-04-25 (Visual review batch 7 — final batch + closeout)
+**Status:** ✅ FULLY CLOSED — audit complete; all 6 design items resolved 2026-04-26
+**Last updated:** 2026-04-26 (final design-judgment closeout: items 1, 2, 6)
 **Scope:** every block type registered in `types/blocks.ts` Block union
 
 ## Audit closeout summary (2026-04-25)
@@ -39,12 +39,12 @@ The cms-blocks audit ran through 4 phases plus a per-block visual deep review ac
 - Pre-existing unrelated TS errors in `tests/e2e/portal-mcp-approvals.spec.ts`, `tests/integration/api/file-upload.test.ts`, `tests/e2e/pitch-deck-columns.spec.ts` are unchanged
 
 **Outstanding (need user judgment, not blockers):**
-1. Section legacy direct-style fields (`backgroundColor`, etc.) vs `block.style.*` — deprecate the legacy shape?
-2. Default `hero` block content — minimal vs richer placeholder?
+1. ~~RESOLVED~~ Section legacy direct-style fields — `@deprecated` JSDoc added to `backgroundColor`, `paddingTop/Bottom/Left/Right`, `color`, `fontFamily` on `SectionBlock`; fields retained for on-disk compatibility.
+2. ~~RESOLVED~~ Default `hero` block content — richer placeholder copy shipped: `subtitle` + `description` filled with obvious-to-replace placeholder text; no background image.
 3. ~~RESOLVED~~ `SocialLinksBlock.iconSize` — renderer + preview now render `<span class="material-icons">` sized by `iconSize` (default 24); `aria-label` on `<a>`, text label hidden with `sr-only`.
 4. ~~RESOLVED~~ `FeaturedProductsBlock.layout` — dead `'grid' | 'carousel'` field removed from `types/blocks.ts`, `BlockSettings.tsx` settings panel, and `lib/ai/block-schemas.ts`.
 5. ~~RESOLVED~~ product-categories elementStyles parity — `getElementCSS('title'/'description')` wired in renderer (both layout branches); `'product-categories'` added to `ELEMENT_DEFINITIONS`; preview upgraded to `RichTextEditable` with element styles applied.
-6. `SurveyResultsBlock.fieldIds` has no settings UI — add a question-picker checklist or leave to JSON/AI?
+6. ~~RESOLVED~~ `SurveyResultsBlock.fieldIds` — checkbox-list question picker added to `SurveyResultsBlockSettings`; shows each survey field when a survey is selected; "All" button clears `fieldIds` (= show all).
 
 See "## Phase 4 status" near the end of this doc for the per-batch breakdown.
 

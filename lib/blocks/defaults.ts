@@ -90,7 +90,14 @@ export function createDefaultBlock(
 
     // ── Components ────────────────────────────────────────────────────────────
     case 'hero':
-      return { ...base, type: 'hero', title: 'Hero Title', subtitle: 'Subtitle', description: 'Description', ctaText: 'Get Started', ctaLink: '/contact' };
+      return {
+        ...base, type: 'hero',
+        title: 'Your Headline Here',
+        subtitle: 'A short, compelling line that builds on the headline.',
+        description: 'Describe the value you offer in one or two sentences. This is placeholder copy — replace it with your own words.',
+        ctaText: 'Get Started',
+        ctaLink: '/contact',
+      };
     case 'hero-slideshow':
       return {
         ...base, type: 'hero-slideshow',
