@@ -86,7 +86,11 @@ function buildCtaSlide() {
         style: { color: C.darkTeal } },
       { id: 'cta-primary-btn', type: 'button', order: 7,
         text: 'Walk me through it  →', url: '/pitch-deck/pitch-deck-3',
-        variant: 'primary', alignment: 'left', size: 'lg' },
+        variant: 'primary', alignment: 'left', size: 'lg',
+        // Inline styles override the branding fallback (which would otherwise
+        // paint this in the brand's primaryBg/primaryText). Match the
+        // dark-teal pill used on pitch-deck-3 book-btn.
+        style: { backgroundColor: C.darkTeal, color: C.offWhite, borderRadius: '12px' } },
       { id: 'cta-primary-support', type: 'text', order: 8,
         content: 'A few questions that help identify which offering fits your situation and what getting started would look like.',
         style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', opacity: '0.72', maxWidth: '480px', margin: '10px 0 24px' } },
@@ -94,7 +98,10 @@ function buildCtaSlide() {
         style: { color: C.darkTeal } },
       { id: 'cta-secondary-btn', type: 'button', order: 10,
         text: 'Book a 30-minute call  →', url: CALENDLY,
-        variant: 'secondary', alignment: 'left', size: 'lg', openInNewTab: true },
+        variant: 'secondary', alignment: 'left', size: 'lg', openInNewTab: true,
+        // Match border + radius via inline style so the size and outline are
+        // identical to the primary button.
+        style: { backgroundColor: 'transparent', color: C.darkTeal, borderColor: C.darkTeal, borderWidth: '2px', borderStyle: 'solid', borderRadius: '12px' } },
       { id: 'cta-secondary-support', type: 'text', order: 11,
         content: 'If you already have context and want to talk it through, we can start there and figure out fit together.',
         style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', opacity: '0.72', maxWidth: '480px', margin: '10px 0 0' } },
