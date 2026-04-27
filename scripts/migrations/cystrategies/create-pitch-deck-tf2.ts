@@ -397,7 +397,11 @@ async function main() {
   const slides = buildSlides(survey.id);
   const theme = {
     primaryColor: C.darkTeal,
-    accentColor: C.rust,
+    // Use dark-teal for accent so prominent UI (decision slide icons,
+    // Continue links, survey * required marker, hover borders) reads as
+    // green like the figure-out-your-fit deck. Rust stays available as an
+    // explicit inline-style accent on book-rule etc.
+    accentColor: C.darkTeal,
     backgroundColor: C.offWhite,
     textColor: C.darkBlack,
     headingFont: 'Roboto',
