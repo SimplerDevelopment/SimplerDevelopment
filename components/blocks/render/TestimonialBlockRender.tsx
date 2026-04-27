@@ -31,7 +31,7 @@ export function TestimonialBlockRender({ block }: TestimonialBlockRenderProps) {
     : '';
 
   return (
-    <div className={`py-16 ${responsiveClasses}`}>
+    <div className={responsiveClasses}>
       <div className="max-w-4xl mx-auto text-center">
         <div className="relative">
           <svg

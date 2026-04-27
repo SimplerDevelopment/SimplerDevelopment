@@ -118,7 +118,7 @@ export function ColumnsBlockRender({ block }: ColumnsBlockRenderProps) {
     : rawWidths;
 
   return (
-    <div className={`py-8 my-8 ${responsiveClasses}`}>
+    <div className={responsiveClasses}>
       <div className={`flex ${stackingClasses} ${gapClasses[block.gap || 'md']}`}>
         {columns.map((column, colIndex) => {
           const paddingClass = column.padding === 'sm' ? 'p-2' : column.padding === 'md' ? 'p-4' : column.padding === 'lg' ? 'p-6' : '';

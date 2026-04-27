@@ -65,7 +65,7 @@ export function FeaturedProductsBlockRender({ block, siteId }: FeaturedProductsB
   }
 
   return (
-    <section className="py-16 my-8">
+    <section>
       <div className="container mx-auto px-4">
         {(block.title || block.description) && (
           <div className="text-center mb-12">

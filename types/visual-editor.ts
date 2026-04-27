@@ -30,6 +30,11 @@ export interface HoverBlockPayload {
   blockId: string | null;
 }
 
+export interface CustomCodeUpdatePayload {
+  css: string;
+  js: string;
+}
+
 // iframe → parent
 export interface IframeReadyPayload {
   registeredComponents: ComponentManifestEntry[];
@@ -95,6 +100,7 @@ export const PARENT_MESSAGES = {
   EXTERNAL_DRAG_MOVE: 'EXTERNAL_DRAG_MOVE',
   EXTERNAL_DRAG_END: 'EXTERNAL_DRAG_END',
   EXTERNAL_DRAG_CANCEL: 'EXTERNAL_DRAG_CANCEL',
+  CUSTOM_CODE_UPDATE: 'CUSTOM_CODE_UPDATE',
 } as const;
 
 export const IFRAME_MESSAGES = {

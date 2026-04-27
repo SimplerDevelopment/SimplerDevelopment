@@ -51,7 +51,7 @@ export function ProductCategoriesBlockRender({ block, siteId }: ProductCategorie
 
   if (block.layout === 'list') {
     return (
-      <section className="py-16 my-8">
+      <section>
         <div className="container mx-auto px-4">
           {(block.title || block.description) && (
             <div className="text-center mb-12">
@@ -103,7 +103,7 @@ export function ProductCategoriesBlockRender({ block, siteId }: ProductCategorie
   }
 
   return (
-    <section className="py-16 my-8">
+    <section>
       <div className="container mx-auto px-4">
         {(block.title || block.description) && (
           <div className="text-center mb-12">

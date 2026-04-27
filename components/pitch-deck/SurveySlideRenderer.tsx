@@ -63,6 +63,11 @@ export function SurveySlideRenderer({
   const label = resolvePiping(field.label, answers);
   const helpText = field.helpText ? resolvePiping(field.helpText, answers) : '';
 
+  const nextBg = theme.nextButtonColor ?? theme.accentColor;
+  const nextFg = theme.nextButtonTextColor ?? theme.backgroundColor;
+  const backBg = theme.backButtonColor ?? `${theme.textColor}15`;
+  const backFg = theme.backButtonTextColor ?? theme.textColor;
+
   // Heading slides get a simple centered display with nav buttons
   if (field.type === 'heading') {
     return (
@@ -86,7 +91,7 @@ export function SurveySlideRenderer({
                 type="button"
                 onClick={onBack}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-                style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}
+                style={{ color: backFg, backgroundColor: backBg }}
               >
                 <span className="material-icons text-lg">arrow_back</span>
                 Back
@@ -97,7 +102,7 @@ export function SurveySlideRenderer({
                 type="button"
                 onClick={onNext}
                 className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
+                style={{ backgroundColor: nextBg, color: nextFg }}
               >
                 Next
                 <span className="material-icons text-lg">arrow_forward</span>
@@ -161,7 +166,7 @@ export function SurveySlideRenderer({
               type="button"
               onClick={onBack}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-              style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}
+              style={{ color: backFg, backgroundColor: backBg }}
             >
               <span className="material-icons text-lg">arrow_back</span>
               Back
@@ -173,7 +178,7 @@ export function SurveySlideRenderer({
               onClick={onNext}
               disabled={isSubmitting}
               className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: theme.accentColor, color: theme.backgroundColor }}
+              style={{ backgroundColor: nextBg, color: nextFg }}
             >
               {isSubmitting ? (
                 <>

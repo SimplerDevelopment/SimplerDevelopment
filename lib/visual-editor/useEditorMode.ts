@@ -189,6 +189,24 @@ export function useEditorMode() {
           setState((s) => ({ ...s, externalDrag: { active: false, blockType: null, x: 0, y: 0 } }));
           break;
         }
+        case PARENT_MESSAGES.CUSTOM_CODE_UPDATE: {
+          // Live-inject custom CSS so modal "Apply" updates the iframe without
+          // a full reload (which would reset scroll + selection). The injected
+          // <style> is appended last so it overrides the SiteBlockRenderer's
+          // server-rendered <style> tag for the same rules.
+          const { css } = event.data.payload as { css: string; js?: string };
+          let liveStyle = document.getElementById('sd-editor-live-css') as HTMLStyleElement | null;
+          if (!liveStyle) {
+            liveStyle = document.createElement('style');
+            liveStyle.id = 'sd-editor-live-css';
+            document.head.appendChild(liveStyle);
+          }
+          liveStyle.textContent = css || '';
+          // JS is intentionally not re-run here — re-executing custom JS in a
+          // live-running iframe risks duplicate event listeners and polluted
+          // globals. JS changes still take effect on the next iframe reload.
+          break;
+        }
       }
     }
 

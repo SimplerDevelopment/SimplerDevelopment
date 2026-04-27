@@ -686,6 +686,8 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 onUndoRedoChange={setUndoRedo}
                 onUpdateBlock={(blockId, updates) => setBlocks(blocks.map(b => b.id === blockId ? ({ ...b, ...updates } as Block) : b))}
                 siteId={siteId}
+                customCss={formData.customCss || ''}
+                customJs={formData.customJs || ''}
               />
 
               {/* Settings slide-over panel */}
@@ -726,9 +728,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 onApply={(css, js) => {
                   setFormData(prev => ({ ...prev, customCss: css, customJs: js }));
                   formDataRef.current = { ...formDataRef.current, customCss: css, customJs: js };
-                  // Trigger autosave quickly so iframe refresh picks up the new code
+                  // CSS appears live in the iframe via VisualEditorShell's
+                  // sendCustomCodeUpdate effect — no manual save needed.
+                  // Autosave persists the change without reloading the iframe
+                  // (which would reset scroll + selection).
                   if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-                  autosaveTimer.current = setTimeout(() => { savePost('manual'); }, 100);
+                  autosaveTimer.current = setTimeout(() => { savePost('autosave'); }, 100);
                 }}
               />
             </div>

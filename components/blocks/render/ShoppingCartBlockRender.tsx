@@ -107,7 +107,7 @@ export function ShoppingCartBlockRender({ block, siteId }: ShoppingCartBlockRend
 
   // Full cart
   return (
-    <section className="py-8 my-4">
+    <section>
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="border border-border rounded-lg bg-card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-border">

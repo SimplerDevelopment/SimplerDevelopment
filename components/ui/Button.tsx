@@ -47,16 +47,18 @@ export function Button({
   const branding = useBranding();
   const bs = branding?.buttonStyle;
 
-  // Build branding-aware inline styles
+  // Build branding-aware inline styles. Explicit values from `style` (e.g.
+  // block.elementStyles.cta) always win over branding defaults — branding is a
+  // fallback for blocks the user hasn't styled, not an override.
   const brandStyle: React.CSSProperties = { ...style };
   const btnRadius = bs?.borderRadius || branding?.borderRadius;
-  if (btnRadius) brandStyle.borderRadius = btnRadius;
+  if (btnRadius && !style?.borderRadius) brandStyle.borderRadius = btnRadius;
 
   if (variant === 'default' && bs) {
-    if (bs.primaryBg) brandStyle.backgroundColor = bs.primaryBg;
-    if (bs.primaryText) brandStyle.color = bs.primaryText;
+    if (bs.primaryBg && !style?.backgroundColor) brandStyle.backgroundColor = bs.primaryBg;
+    if (bs.primaryText && !style?.color) brandStyle.color = bs.primaryText;
   } else if (variant === 'outline' && bs) {
-    if (bs.primaryBg) brandStyle.borderColor = bs.primaryBg;
+    if (bs.primaryBg && !style?.borderColor) brandStyle.borderColor = bs.primaryBg;
   }
 
   const baseClasses = `inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ${variantClasses[variant]} ${sizes[size]} ${!btnRadius ? 'rounded-lg' : ''} ${className}`;

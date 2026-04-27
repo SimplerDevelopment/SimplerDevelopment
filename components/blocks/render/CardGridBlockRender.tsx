@@ -37,7 +37,7 @@ export function CardGridBlockRender({ block }: CardGridBlockRenderProps) {
     : '';
 
   return (
-    <section className={`py-16 ${responsiveClasses}`}>
+    <section className={responsiveClasses}>
       {(block.title || block.description) && (
         <div className="text-center mb-12">
           {block.title && (

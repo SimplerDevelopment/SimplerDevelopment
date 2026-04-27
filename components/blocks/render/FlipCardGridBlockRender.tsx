@@ -46,7 +46,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
   const backTextStyle = getElementCSS(block.elementStyles, 'backText');
 
   return (
-    <section className={`py-16 ${responsiveClasses}`}>
+    <section className={responsiveClasses}>
       {(block.overline || block.title || block.description) && (
         <div className="text-center mb-12 max-w-3xl mx-auto">
           {block.overline && (

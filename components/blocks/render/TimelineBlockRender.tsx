@@ -14,7 +14,7 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
   const layout = block.layout || 'alternating';
 
   return (
-    <div className="py-16">
+    <div>
       {/* Header */}
       {(block.overline || block.title || block.subtitle) && (
         <div className="text-center mb-16">

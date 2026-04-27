@@ -21,7 +21,7 @@ export function BentoGridBlockRender({ block }: BentoGridBlockRenderProps) {
   }
 
   return (
-    <div className="py-16">
+    <div>
       {/* Header */}
       {(block.overline || block.title || block.subtitle) && (
         <div className="mb-16 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">

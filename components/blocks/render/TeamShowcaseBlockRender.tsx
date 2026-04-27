@@ -13,7 +13,7 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
   const photoFilter = block.photoFilter || 'none';
 
   return (
-    <div className="py-16">
+    <div>
       {/* Header */}
       {(block.overline || block.title || block.subtitle) && (
         <div className="text-center mb-16">

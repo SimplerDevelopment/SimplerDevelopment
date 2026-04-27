@@ -37,7 +37,7 @@ export function StatsBlockRender({ block }: StatsBlockRenderProps) {
     : '';
 
   return (
-    <div className={`py-16 ${responsiveClasses}`}>
+    <div className={responsiveClasses}>
       {block.title && (
         <h2 data-editable-field="title" className={`${hasCustomFontSize ? '' : 'text-3xl md:text-4xl'} ${hasCustomFontWeight ? '' : 'font-bold'} text-center mb-12`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
       )}

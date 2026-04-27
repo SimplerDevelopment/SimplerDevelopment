@@ -85,6 +85,10 @@ interface VisualEditorShellProps {
   allowIframeScroll?: boolean;
   /** Custom content for the right panel when no block is selected */
   noSelectionPanel?: React.ReactNode;
+  /** Custom CSS — when this changes the iframe is updated live (no reload). */
+  customCss?: string;
+  /** Custom JS — passed through but not live-injected (iframe reload required). */
+  customJs?: string;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -112,6 +116,8 @@ export function VisualEditorShell({
   extraBlockTypes = [],
   allowIframeScroll = false,
   noSelectionPanel,
+  customCss = '',
+  customJs = '',
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -258,6 +264,7 @@ export function VisualEditorShell({
     sendExternalDragMove,
     sendExternalDragEnd,
     sendExternalDragCancel,
+    sendCustomCodeUpdate,
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
@@ -359,6 +366,13 @@ export function VisualEditorShell({
   }, [blocks, sendBlocksUpdate]);
   useEffect(() => { sendSelectBlock(selectedBlockId, selectedBlockIds); }, [selectedBlockId, selectedBlockIds, sendSelectBlock]);
 
+  // Push custom CSS into the iframe live (no reload) whenever it changes.
+  // The iframe's useEditorMode handler injects/updates a <style> tag so
+  // modal "Apply" reflects immediately without losing scroll/selection.
+  useEffect(() => {
+    sendCustomCodeUpdate(customCss, customJs);
+  }, [customCss, customJs, sendCustomCodeUpdate]);
+
   // Notify parent of undo/redo availability
   useEffect(() => {
     onUndoRedoChange?.({ sendUndo, sendRedo, canUndo: undoRedoState.canUndo, canRedo: undoRedoState.canRedo });
@@ -393,17 +407,10 @@ export function VisualEditorShell({
       return block && !block.required;
     });
     if (deletableIds.length === 0) return;
-    let updated = [...blocks];
+    let updated = blocks;
     for (const id of deletableIds) {
-      updated = updated.filter(b => b.id !== id);
-      // Also remove from nested containers
-      updated = updated.map(b => {
-        if (b.type === 'columns') return { ...b, columns: (b as ColumnsBlock).columns.map(c => ({ ...c, blocks: c.blocks.filter(nb => !deletableIds.includes(nb.id)) })) };
-        if (b.type === 'section' && 'blocks' in b) return { ...b, blocks: (b as Block & { blocks: Block[] }).blocks.filter(nb => !deletableIds.includes(nb.id)) };
-        return b;
-      }) as Block[];
+      updated = removeBlockById(updated, id);
     }
-    iframeOriginatedRef.current = true;
     onBlocksChange(updated);
     setSelectedBlockIds([]);
     setInternalSelectedBlockId(null);

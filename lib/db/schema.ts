@@ -975,6 +975,14 @@ export interface PitchDeckTheme {
   headingFont: string;
   bodyFont: string;
   logo?: string;
+  /** Survey-slide Next/Submit button background. Falls back to accentColor. */
+  nextButtonColor?: string;
+  /** Survey-slide Next/Submit button text color. Falls back to backgroundColor. */
+  nextButtonTextColor?: string;
+  /** Survey-slide Back button background. Falls back to a 15%-opacity textColor wash. */
+  backButtonColor?: string;
+  /** Survey-slide Back button text color. Falls back to textColor. */
+  backButtonTextColor?: string;
   /**
    * Deck-global custom CSS injected once at the top of the presentation.
    * Use this for fonts, base typography, repeating background patterns,

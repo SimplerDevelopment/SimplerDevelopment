@@ -254,6 +254,11 @@ export function useVisualEditorParent({
     sendToIframe(iframeRef.current, PARENT_MESSAGES.EXTERNAL_DRAG_CANCEL, {});
   }, [iframeReady]);
 
+  const sendCustomCodeUpdate = useCallback((css: string, js: string) => {
+    if (!iframeReady) return;
+    sendToIframe(iframeRef.current, PARENT_MESSAGES.CUSTOM_CODE_UPDATE, { css, js });
+  }, [iframeReady]);
+
   return {
     iframeRef,
     iframeReady,
@@ -269,5 +274,6 @@ export function useVisualEditorParent({
     sendExternalDragMove,
     sendExternalDragEnd,
     sendExternalDragCancel,
+    sendCustomCodeUpdate,
   };
 }

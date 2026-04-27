@@ -42,6 +42,7 @@ const TEMPLATES = [
   { id: 'modern', label: 'Modern', description: 'Bold with accent line' },
   { id: 'transparent', label: 'Transparent', description: 'Overlay on hero' },
   { id: 'mega', label: 'Mega Menu', description: 'Full-width dropdowns' },
+  { id: 'none', label: 'None', description: 'Hide the top navigation entirely' },
 ];
 
 const DEFAULT_BRANDING: Branding = {
@@ -1256,6 +1257,12 @@ function NavPreview({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {template === 'none' && (
+        <div className="px-6 py-3 text-xs uppercase tracking-wider opacity-50 border-b border-dashed" style={{ color: branding.textColor }}>
+          Top navigation is hidden on this site
         </div>
       )}
 

@@ -51,7 +51,12 @@ function LoginForm() {
           return;
         }
 
-        if (subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
+        // Skip the subdomain hop in local dev — `*.simplerdevelopment.com` doesn't
+        // resolve from localhost, so the redirect would dead-end on chrome-error.
+        // Auth cookies are scoped to the current host (localhost), so staying put
+        // keeps the just-issued session usable.
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (!isLocal && subData.subdomain && window.location.hostname !== `${subData.subdomain}.simplerdevelopment.com`) {
           window.location.href = `https://${subData.subdomain}.simplerdevelopment.com${callbackUrl}`;
           return;
         }
@@ -77,7 +82,8 @@ function LoginForm() {
         body: JSON.stringify({ clientId: portal.clientId }),
       });
 
-      if (portal.subdomain) {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (portal.subdomain && !isLocal) {
         window.location.href = `https://${portal.subdomain}.simplerdevelopment.com${callbackUrl}`;
       } else {
         window.location.href = callbackUrl;

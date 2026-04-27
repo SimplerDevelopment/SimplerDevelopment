@@ -16,7 +16,9 @@ let deepSelectClaimed = false;
 
 interface ColumnData {
   id: string;
-  width: number;
+  // Authored widths can be `number` (50) or `string` ("55%") — see
+  // ColumnsEditorOverlay's parseColWidth for normalization.
+  width: number | string;
 }
 
 // Block types that have add/remove array items
@@ -68,6 +70,7 @@ export function SelectableBlock({
     <div
       ref={containerRef}
       data-block-id={blockId}
+      data-block-type={blockType}
       onClick={(e) => {
         e.preventDefault();
         const modifiers = { shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey };

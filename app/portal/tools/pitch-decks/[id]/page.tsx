@@ -1417,6 +1417,40 @@ useEffect(() => {
               </div>
             ))}
           </div>
+          {/* Survey-slide button colors. Optional — empty falls back to theme defaults. */}
+          <div>
+            <div className="text-xs text-muted-foreground mb-2">Survey Slide Buttons <span className="opacity-60">(optional — leave blank to use theme defaults)</span></div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {([
+                { key: 'nextButtonColor' as const, label: 'Next Button BG', fallback: deck.theme.accentColor },
+                { key: 'nextButtonTextColor' as const, label: 'Next Button Text', fallback: deck.theme.backgroundColor },
+                { key: 'backButtonColor' as const, label: 'Back Button BG', fallback: deck.theme.textColor },
+                { key: 'backButtonTextColor' as const, label: 'Back Button Text', fallback: deck.theme.textColor },
+              ]).map(({ key, label, fallback }) => {
+                const value = deck.theme[key];
+                return (
+                  <div key={key}>
+                    <label className="block text-xs text-muted-foreground mb-1">{label}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={value || fallback}
+                        onChange={(e) => handleThemeUpdate({ [key]: e.target.value })}
+                        className="w-8 h-8 rounded border border-border cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={value || ''}
+                        placeholder={fallback}
+                        onChange={(e) => handleThemeUpdate({ [key]: e.target.value || undefined })}
+                        className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded text-foreground font-mono"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>

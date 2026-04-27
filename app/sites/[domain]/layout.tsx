@@ -103,6 +103,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // Standard layout with branded nav
   const navItems = await getClientSiteNavItems(site.id);
   const isTransparent = branding.navTemplate === 'transparent';
+  const hideNav = branding.navTemplate === 'none';
   const navBg = isTransparent ? 'transparent' : (branding.navBackground || '#ffffff');
   const navText = isTransparent ? '#ffffff' : (branding.navTextColor || '#1e293b');
   const primaryColor = branding.primaryColor || '#cfa122';
@@ -124,20 +125,22 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
           scrollBehavior: 'smooth',
         }}
       >
-        <SiteNavClient
-          siteName={site.name}
-          navItems={navItems}
-          isTransparent={isTransparent}
-          navBg={navBg}
-          navText={navText}
-          primaryColor={primaryColor}
-          secondaryColor={secondaryColor}
-          logoUrl={branding.logoUrl || undefined}
-          logoAlt={branding.logoAlt || site.name}
-          buttonStyle={branding.buttonStyle}
-          headingFont={branding.headingFont || undefined}
-          navTemplate={branding.navTemplate || undefined}
-        />
+        {!hideNav && (
+          <SiteNavClient
+            siteName={site.name}
+            navItems={navItems}
+            isTransparent={isTransparent}
+            navBg={navBg}
+            navText={navText}
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            logoUrl={branding.logoUrl || undefined}
+            logoAlt={branding.logoAlt || site.name}
+            buttonStyle={branding.buttonStyle}
+            headingFont={branding.headingFont || undefined}
+            navTemplate={branding.navTemplate || undefined}
+          />
+        )}
 
         <main className="flex-1">{children}</main>
       </div>

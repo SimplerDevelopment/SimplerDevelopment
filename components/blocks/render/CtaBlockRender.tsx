@@ -49,7 +49,7 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
     : '';
 
   return (
-    <section className={`py-20 my-12 relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={gradientStyle}>
+    <section className={`relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={gradientStyle}>
       <div className="container mx-auto px-4 text-center relative z-10">
         <h2 data-editable-field="title" className={`font-display ${hasCustomFontSize ? '' : 'text-4xl md:text-6xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6 tracking-wide`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
 

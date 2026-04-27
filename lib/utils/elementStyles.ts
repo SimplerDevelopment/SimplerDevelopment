@@ -35,6 +35,22 @@ export function elementStyleToCSS(style?: Partial<BlockStyle>): React.CSSPropert
   if (style.backgroundPosition) css.backgroundPosition = style.backgroundPosition;
   if (style.gap) css.gap = style.gap;
 
+  // Parse free-form `customCSS` ("text-transform: uppercase; padding: 14px 32px")
+  // — same convention as block.style.customCSS in BlockStyleWrapper. Without this,
+  // values authored in the Style panel's "Custom CSS" field are silently dropped
+  // for element-level styling (cta button etc.).
+  if (style.customCSS) {
+    style.customCSS.split(';').forEach((rule) => {
+      const colon = rule.indexOf(':');
+      if (colon === -1) return;
+      const prop = rule.slice(0, colon).trim();
+      const val = rule.slice(colon + 1).trim();
+      if (!prop || !val) return;
+      const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      css[camel] = val;
+    });
+  }
+
   return css;
 }
 

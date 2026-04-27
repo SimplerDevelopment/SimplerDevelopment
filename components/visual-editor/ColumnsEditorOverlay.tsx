@@ -6,7 +6,9 @@ import { IFRAME_MESSAGES } from '@/types/visual-editor';
 
 interface Column {
   id: string;
-  width: number;
+  // Authored widths can be `number` (50) or `string` ("55%") — LLM-generated
+  // and migrated decks store the latter. Always normalize before doing math.
+  width: number | string;
 }
 
 interface ColumnsEditorOverlayProps {
@@ -15,6 +17,9 @@ interface ColumnsEditorOverlayProps {
   gap: 'sm' | 'md' | 'lg' | undefined;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
+
+const parseColWidth = (w: number | string | undefined): number =>
+  typeof w === 'string' ? parseFloat(w) || 50 : (typeof w === 'number' ? w : 50);
 
 const GAP_PX: Record<string, number> = { sm: 16, md: 24, lg: 32 };
 
@@ -45,7 +50,7 @@ export function ColumnsEditorOverlay({
 
       const containerWidth = container.offsetWidth;
       const startX = e.clientX;
-      const startWidths = columns.map(c => c.width);
+      const startWidths = columns.map(c => parseColWidth(c.width));
 
       setResizingIndex(index);
       setLiveLabel(`${Math.round(startWidths[index])}% | ${Math.round(startWidths[index + 1])}%`);
@@ -140,11 +145,13 @@ export function ColumnsEditorOverlay({
     [blockId, gap],
   );
 
-  // Calculate separator positions from column widths
+  // Calculate separator positions from column widths.
+  // Always parse first — `accumulated += "55%"` would coerce to a string and
+  // emit "055%%" in the inline `left` style, breaking the divider position.
   const separatorPositions: number[] = [];
   let accumulated = 0;
   for (let i = 0; i < columns.length - 1; i++) {
-    accumulated += columns[i].width;
+    accumulated += parseColWidth(columns[i].width);
     separatorPositions.push(accumulated);
   }
 

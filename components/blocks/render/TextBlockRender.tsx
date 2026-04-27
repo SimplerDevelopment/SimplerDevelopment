@@ -66,13 +66,13 @@ export function TextBlockRender({ block }: TextBlockRenderProps) {
         headingHasHtml ? (
           <h2
             data-editable-field="heading"
-            className={`${alignmentClass} text-3xl md:text-4xl font-bold mb-4 ${block.style?.color ? '' : 'text-foreground'}`}
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${block.style?.color ? '' : 'text-foreground'}`}
             dangerouslySetInnerHTML={{ __html: headingContent }}
           />
         ) : (
           <h2
             data-editable-field="heading"
-            className={`${alignmentClass} text-3xl md:text-4xl font-bold mb-4 ${block.style?.color ? '' : 'text-foreground'}`}
+            className={`${alignmentClass} text-3xl md:text-4xl font-bold ${block.style?.color ? '' : 'text-foreground'}`}
           >
             {headingContent}
           </h2>

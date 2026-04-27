@@ -387,15 +387,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           {String(current + 1).padStart(2, '0')}/{String(visibleCount).padStart(2, '0')}
         </div>
 
-        {/* Branding */}
-        <div className="absolute top-5 right-8 z-20 flex items-center gap-2 opacity-30 hover:opacity-60 transition-opacity">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/iconLogo.png" alt="" className="h-6 w-6 brightness-0 invert" />
-          <span className="text-xs tracking-wide font-light" style={{ color: theme.textColor, fontFamily: theme.bodyFont }}>
-            <b className="font-semibold">Simpler</b> Development
-          </span>
-        </div>
-
         {/* Navigation hint */}
         {current === 0 && currentVS?.kind === 'block' && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-xs opacity-20 tracking-wide" style={{ fontFamily: theme.bodyFont }}>

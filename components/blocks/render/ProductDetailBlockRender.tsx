@@ -177,7 +177,7 @@ export function ProductDetailBlockRender({ block, siteId }: ProductDetailBlockRe
   }
 
   return (
-    <section className="py-12 my-4">
+    <section>
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
         {showBreadcrumb && (

@@ -645,22 +645,44 @@ function ContainerBlockRenderer({
 }) {
   if (block.type === 'columns') {
     const gapClass = { sm: 'gap-4', md: 'gap-6', lg: 'gap-8' }[block.gap || 'md'];
+    // Mirror ColumnsBlockRender: widths can be stored as `number` or as a
+    // string like "55%" (LLM-authored / migrated decks). Strip the % so we
+    // don't emit "55%%" — invalid CSS that collapses the column to auto.
+    const parseWidth = (w: number | string | undefined) =>
+      typeof w === 'string' ? parseFloat(w) || 50 : (typeof w === 'number' ? w : 50);
+    const cols = block.columns || [];
+    const rawWidths = cols.map(c => parseWidth(c.width));
+    const totalWidth = rawWidths.reduce((s, w) => s + w, 0);
+    const widths = totalWidth > 100 ? rawWidths.map(w => (w / totalWidth) * 100) : rawWidths;
     return (
       <BlockStyleWrapper block={block}>
         <div className={`flex ${gapClass} py-4`}>
-          {(block.columns || []).map((col, i) => (
-            <div key={col.id} style={{ width: `${col.width}%` }} className="min-h-[60px]">
-              {(col.blocks || []).map((nested, ni) => (
-                <div key={nested.id}>
-                  <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
-                  {ni === (col.blocks || []).length - 1 && draggingId && (
-                    <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
-                  )}
-                </div>
-              ))}
-              <ContainerSlotDropZone containerId={block.id} slotIndex={i} hasChildren={(col.blocks || []).length > 0} />
-            </div>
-          ))}
+          {cols.map((col, i) => {
+            const verticalAlignClass = col.verticalAlign === 'center' ? 'flex flex-col justify-center' : col.verticalAlign === 'bottom' ? 'flex flex-col justify-end' : '';
+            const paddingClass = col.padding === 'sm' ? 'p-2' : col.padding === 'md' ? 'p-4' : col.padding === 'lg' ? 'p-6' : '';
+            const colWidth = `${widths[i]}%`;
+            return (
+              <div
+                key={col.id}
+                className={`${paddingClass} ${verticalAlignClass} ${col.cssClass || ''} min-h-[60px]`}
+                style={{
+                  flex: `0 0 ${colWidth}`,
+                  maxWidth: colWidth,
+                  ...(col.backgroundColor ? { backgroundColor: col.backgroundColor } : {}),
+                }}
+              >
+                {(col.blocks || []).map((nested, ni) => (
+                  <div key={nested.id}>
+                    <NestedSortableBlock block={nested} registry={registry} editor={editor} draggingId={draggingId} />
+                    {ni === (col.blocks || []).length - 1 && draggingId && (
+                      <DropIndicator id={`between:${nested.id}:after`} dragging={true} />
+                    )}
+                  </div>
+                ))}
+                <ContainerSlotDropZone containerId={block.id} slotIndex={i} hasChildren={(col.blocks || []).length > 0} />
+              </div>
+            );
+          })}
         </div>
       </BlockStyleWrapper>
     );

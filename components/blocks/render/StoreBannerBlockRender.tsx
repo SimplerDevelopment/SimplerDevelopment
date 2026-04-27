@@ -52,7 +52,7 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
   }
 
   return (
-    <section className="py-8 my-8">
+    <section>
       <div className="container mx-auto px-4">
         <div
           className={`relative overflow-hidden text-white ${!branding?.borderRadius ? 'rounded-2xl' : ''}`}

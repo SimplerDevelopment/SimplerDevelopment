@@ -47,7 +47,7 @@ export function LogoStripBlockRender({ block }: LogoStripBlockRenderProps) {
   const logoStyle = getElementCSS(block.elementStyles, 'logo');
 
   return (
-    <section className={`py-10 ${responsiveClasses}`}>
+    <section className={responsiveClasses}>
       {block.overline && (
         <p
           data-editable-field="overline"

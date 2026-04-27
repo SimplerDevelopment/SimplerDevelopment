@@ -41,7 +41,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
   const linkStyle = getElementCSS(block.elementStyles, 'link');
 
   return (
-    <section className={`py-16 ${responsiveClasses}`}>
+    <section className={responsiveClasses}>
       {(block.overline || block.title || block.description) && (
         <div className="text-center mb-12 max-w-3xl mx-auto">
           {block.overline && (
