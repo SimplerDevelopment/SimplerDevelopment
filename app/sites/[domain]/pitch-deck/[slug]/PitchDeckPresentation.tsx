@@ -35,6 +35,7 @@ type VirtualSlide =
   | { kind: 'block'; slide: PitchDeckSlideV2 }
   | { kind: 'decision'; slide: PitchDeckSlideV2; options: PitchDeckDecisionOption[] }
   | { kind: 'survey-question'; surveyId: number; field: SurveySlideField; surveyTitle: string }
+  | { kind: 'survey-contact'; surveyId: number; surveyTitle: string }
   | { kind: 'survey-thanks'; surveyId: number; thankYouTitle: string; thankYouMessage: string }
   | { kind: 'survey-recommendation'; surveyId: number; config: SurveyRecommendationConfig };
 
@@ -63,22 +64,9 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
     const fields = [...survey.fields].sort((a, b) => a.order - b.order);
     const questionFields = fields.filter(f => f.type !== 'page_break');
     const result: VirtualSlide[] = [];
-    // If email is required, inject an email collection slide first
+    // If email is required, inject a single contact slide (email + name + company)
     if (survey.requireEmail) {
-      result.push({
-        kind: 'survey-question', surveyId: survey.id, surveyTitle: survey.title,
-        field: {
-          id: '__email', type: 'email', label: 'Your Email', placeholder: 'you@example.com',
-          helpText: '', required: true, options: [], order: -2, page: 0,
-        },
-      });
-      result.push({
-        kind: 'survey-question', surveyId: survey.id, surveyTitle: survey.title,
-        field: {
-          id: '__name', type: 'text', label: 'Your Name', placeholder: 'John Doe',
-          helpText: '', required: false, options: [], order: -1, page: 0,
-        },
-      });
+      result.push({ kind: 'survey-contact', surveyId: survey.id, surveyTitle: survey.title });
     }
     for (const field of questionFields) {
       result.push({ kind: 'survey-question', surveyId: survey.id, field, surveyTitle: survey.title });
@@ -209,6 +197,16 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   // Validate current survey field before advancing
   function validateCurrentSurveyField(): boolean {
+    if (currentVS?.kind === 'survey-contact') {
+      const answers = surveyAnswers[currentVS.surveyId] || {};
+      const email = ((answers.__email as string) || '').trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setSurveyErrors({ __email: 'Please enter a valid email address' });
+        return false;
+      }
+      setSurveyErrors({});
+      return true;
+    }
     if (!currentVS || currentVS.kind !== 'survey-question') return true;
     const field = currentVS.field;
     const answers = surveyAnswers[currentVS.surveyId] || {};
@@ -263,11 +261,15 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     setSubmitting(true);
     try {
       const allAnswers = { ...(surveyAnswers[surveyId] || {}) };
-      // Extract synthetic email/name fields from answers
+      // Extract synthetic email/name from the contact slide. Company stays in
+      // answers (the API only knows email + name as top-level fields).
       const email = allAnswers.__email as string | undefined;
       const name = allAnswers.__name as string | undefined;
+      const company = allAnswers.__company as string | undefined;
       delete allAnswers.__email;
       delete allAnswers.__name;
+      delete allAnswers.__company;
+      if (company) allAnswers.company = company;
 
       const res = await fetch(`/api/surveys/${survey.slug}`, {
         method: 'POST',
@@ -492,6 +494,19 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
             />
           )}
 
+          {currentVS?.kind === 'survey-contact' && (
+            <ContactSlide
+              theme={theme}
+              surveyTitle={currentVS.surveyTitle}
+              answers={surveyAnswers[currentVS.surveyId] || {}}
+              onAnswer={(fieldId, value) => handleSurveyAnswer(currentVS.surveyId, fieldId, value)}
+              error={surveyErrors.__email}
+              onNext={next}
+              onBack={prev}
+              showBack
+            />
+          )}
+
           {currentVS?.kind === 'survey-thanks' && (
             <div className="flex flex-col items-center justify-center min-h-screen px-8 text-center">
               <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
@@ -537,3 +552,132 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     ? <BrandingProvider branding={branding}>{presentation}</BrandingProvider>
     : presentation;
 }
+
+/**
+ * Single-slide email + name + company collector. Mirrors SurveySlideRenderer's
+ * outer DOM (.w-full.flex.flex-col → .max-w-3xl) so deck-level customCss that
+ * targets the survey question chrome (eyebrow / question / nav buttons) also
+ * styles this slide consistently.
+ */
+function ContactSlide({
+  theme,
+  surveyTitle,
+  answers,
+  onAnswer,
+  error,
+  onNext,
+  onBack,
+  showBack,
+}: {
+  theme: PitchDeckTheme;
+  surveyTitle: string;
+  answers: Record<string, unknown>;
+  onAnswer: (fieldId: string, value: unknown) => void;
+  error?: string;
+  onNext: () => void;
+  onBack: () => void;
+  showBack: boolean;
+}) {
+  const inputStyle: React.CSSProperties = {
+    fontFamily: theme.bodyFont,
+    color: theme.textColor,
+    backgroundColor: `${theme.textColor}10`,
+    borderColor: `${theme.textColor}30`,
+    ['--tw-ring-color' as string]: theme.accentColor,
+  };
+  const inputCls = 'w-full px-4 py-3 border rounded-lg text-base focus:outline-none focus:ring-2 focus:border-transparent placeholder:opacity-40';
+
+  const nextBg = theme.nextButtonColor ?? theme.accentColor;
+  const nextFg = theme.nextButtonTextColor ?? theme.backgroundColor;
+  const backBg = theme.backButtonColor ?? `${theme.textColor}15`;
+  const backFg = theme.backButtonTextColor ?? theme.textColor;
+
+  return (
+    <div className="w-full flex flex-col items-center justify-center min-h-screen px-8">
+      <div className="w-full max-w-3xl space-y-8">
+        <div className="flex items-center gap-2 opacity-40">
+          <span className="material-icons text-sm" style={{ color: theme.accentColor }}>assignment</span>
+          <span className="text-xs tracking-wide" style={{ fontFamily: theme.bodyFont, color: theme.textColor }}>
+            {surveyTitle}
+          </span>
+        </div>
+
+        <h2
+          className="text-2xl md:text-3xl font-semibold leading-tight"
+          style={{ fontFamily: theme.headingFont, color: theme.textColor }}
+        >
+          Tell us a bit about you
+        </h2>
+
+        <p className="text-base opacity-50" style={{ fontFamily: theme.bodyFont, color: theme.textColor }}>
+          So we know who we&rsquo;re talking to.
+        </p>
+
+        <div className="pt-2 space-y-4">
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={(answers.__email as string) || ''}
+            onChange={(e) => onAnswer('__email', e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+            autoFocus
+            aria-label="Email"
+          />
+          <input
+            type="text"
+            placeholder="Your name"
+            value={(answers.__name as string) || ''}
+            onChange={(e) => onAnswer('__name', e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+            aria-label="Name"
+          />
+          <input
+            type="text"
+            placeholder="Company"
+            value={(answers.__company as string) || ''}
+            onChange={(e) => onAnswer('__company', e.target.value)}
+            className={inputCls}
+            style={inputStyle}
+            aria-label="Company"
+          />
+        </div>
+
+        {error && (
+          <div
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg"
+            style={{ backgroundColor: '#ef444420', color: '#ef4444' }}
+          >
+            <span className="material-icons text-base">error</span>
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-6">
+          {showBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+              style={{ color: backFg, backgroundColor: backBg }}
+            >
+              <span className="material-icons text-lg">arrow_back</span>
+              Back
+            </button>
+          ) : <div />}
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+            style={{ backgroundColor: nextBg, color: nextFg }}
+          >
+            Next
+            <span className="material-icons text-lg">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
