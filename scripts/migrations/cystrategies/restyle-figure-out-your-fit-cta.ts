@@ -99,9 +99,10 @@ function buildCtaSlide() {
       { id: 'cta-secondary-btn', type: 'button', order: 10,
         text: 'Book a 30-minute call  →', url: CALENDLY,
         variant: 'secondary', alignment: 'left', size: 'lg', openInNewTab: true,
-        // Match border + radius via inline style so the size and outline are
-        // identical to the primary button.
-        style: { backgroundColor: 'transparent', color: C.darkTeal, borderColor: C.darkTeal, borderWidth: '2px', borderStyle: 'solid', borderRadius: '12px' } },
+        // Border is painted by customCss on the inner <a> only. We can't put
+        // border* on block.style because BlockStyleWrapper would mirror it
+        // onto the wrapping div, producing a visible double border.
+        style: { backgroundColor: 'transparent', color: C.darkTeal, borderRadius: '12px' } },
       { id: 'cta-secondary-support', type: 'text', order: 11,
         content: 'If you already have context and want to talk it through, we can start there and figure out fit together.',
         style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', opacity: '0.72', maxWidth: '480px', margin: '10px 0 0' } },
