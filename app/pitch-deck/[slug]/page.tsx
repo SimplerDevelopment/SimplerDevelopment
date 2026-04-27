@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { pitchDecks, surveys, clientWebsites } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
@@ -148,6 +149,21 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   // deck belongs to that tenant (already enforced by getPitchDeckByDomainAndSlug).
   const deck = await getDeck(slug, false);
   if (!deck) notFound();
+
+  // Local dev: `<sub>.simplerdevelopment.com` doesn't resolve from localhost,
+  // so the cross-host redirect would dead-end. Render the deck inline instead.
+  const headersList = await headers();
+  const reqHost = headersList.get('host') || '';
+  const isLocal = reqHost.startsWith('localhost') || reqHost.startsWith('127.0.0.1');
+  if (isLocal) {
+    const theme = (deck.theme || {}) as PitchDeckTheme;
+    const slides = resolveSlides(deck.slides, theme);
+    const surveyData = await fetchSurveyData(slides);
+    const branding = deck.brandingProfileId
+      ? await getBrandingByProfileId(deck.brandingProfileId)
+      : await getBrandingByClientId(deck.clientId);
+    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+  }
 
   const host = await getTenantHostForDeck(deck.clientId);
   if (!host) notFound();
