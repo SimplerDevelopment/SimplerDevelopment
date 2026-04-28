@@ -2,6 +2,8 @@
 
 import { useState, useEffect, FormEvent, useCallback } from 'react';
 import { isFieldVisible as evalFieldVisible, resolvePiping } from '@/lib/survey-logic';
+import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
+import type { SurveyRecommendationConfig, PitchDeckTheme } from '@/lib/db/schema';
 
 function lightenColor(hex: string, amount: number): string {
   const c = hex.replace('#', '');
@@ -44,6 +46,26 @@ interface BrandingInfo {
   };
 }
 
+interface SurveyStyling {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  headingFont?: string;
+  bodyFont?: string;
+  borderRadius?: string;
+  buttonPrimaryBg?: string;
+  buttonPrimaryText?: string;
+  buttonBorderRadius?: string;
+  formBg?: string;
+  inputBg?: string;
+  inputTextColor?: string;
+  inputOptionTextColor?: string;
+  hideTitle?: boolean;
+  hideLogo?: boolean;
+}
+
 interface SurveyData {
   id: number;
   title: string;
@@ -55,7 +77,9 @@ interface SurveyData {
   thankYouMessage: string;
   redirectUrl: string | null;
   branding?: BrandingInfo | null;
+  styling?: SurveyStyling | null;
   cssVars?: Record<string, string>;
+  recommendation?: SurveyRecommendationConfig | null;
 }
 
 export interface SurveyFormInlineProps {
@@ -241,25 +265,31 @@ export function SurveyFormInline({
   if (!survey) return null;
 
   const br = survey.branding;
-  const accent = br?.primaryColor || survey.color || '#2563eb';
-  const secondaryColor = br?.secondaryColor;
-  const accentColor = br?.accentColor;
-  const bgColor = br?.backgroundColor;
-  const txtColor = br?.textColor;
+  const st = survey.styling || {};
+  // Per-survey styling overrides take precedence over branding profile.
+  const accent = st.primaryColor || br?.primaryColor || survey.color || '#2563eb';
+  const secondaryColor = st.secondaryColor || br?.secondaryColor;
+  const accentColor = st.accentColor || br?.accentColor;
+  const bgColor = st.backgroundColor || br?.backgroundColor;
+  const txtColor = st.textColor || br?.textColor;
   const logoUrl = br?.logoUrl;
-  const headingFont = br?.headingFont;
-  const bodyFont = br?.bodyFont;
-  const btnRadius = br?.buttonStyle?.borderRadius || br?.borderRadius;
-  const btnBg = br?.buttonStyle?.primaryBg || accent;
-  const btnText = br?.buttonStyle?.primaryText || '#ffffff';
-  const hasBranding = !!br;
+  const headingFont = st.headingFont || br?.headingFont;
+  const bodyFont = st.bodyFont || br?.bodyFont;
+  const btnRadius = st.buttonBorderRadius || br?.buttonStyle?.borderRadius || st.borderRadius || br?.borderRadius;
+  const btnBg = st.buttonPrimaryBg || br?.buttonStyle?.primaryBg || accent;
+  const btnText = st.buttonPrimaryText || br?.buttonStyle?.primaryText || '#ffffff';
+  const inputOptionTextColor = st.inputOptionTextColor;
+  const inputTextColor = st.inputTextColor || txtColor;
+  const hasBranding = !!br || Object.keys(st).length > 0;
 
-  const cardBg = hasBranding
-    ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
-    : undefined;
+  const cardBg = st.formBg
+    || (hasBranding
+      ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
+      : undefined);
   const cardBorder = secondaryColor ? `${secondaryColor}30` : undefined;
   const inputBorder = accentColor ? `${accentColor}40` : undefined;
-  const inputBg = hasBranding ? (bgColor === '#ffffff' ? '#ffffff' : bgColor ? lightenColor(bgColor, 0.08) : undefined) : undefined;
+  const inputBg = st.inputBg
+    || (hasBranding ? (bgColor === '#ffffff' ? '#ffffff' : bgColor ? lightenColor(bgColor, 0.08) : undefined) : undefined);
 
   const wrapperStyle: React.CSSProperties = {
     ...(txtColor ? { color: txtColor } : {}),
@@ -279,12 +309,28 @@ export function SurveyFormInline({
   const inputStyle: React.CSSProperties = {
     '--tw-ring-color': accent,
     ...(inputBorder ? { borderColor: inputBorder } : {}),
-    ...(inputBg ? { backgroundColor: inputBg, color: txtColor || '#111827' } : {}),
+    ...(inputBg ? { backgroundColor: inputBg } : {}),
+    ...(inputTextColor ? { color: inputTextColor } : (inputBg ? { color: '#111827' } : {})),
   } as React.CSSProperties;
 
   if (submitted) {
+    // If the survey has a recommendation config, render it after the thank-you
+    // — same component the pitch-deck render path uses, so the result screen
+    // looks identical whether the survey is taken standalone (/s/<slug>) or
+    // embedded in a deck.
+    const rec = survey.recommendation;
+    const recTheme: PitchDeckTheme | null = rec ? {
+      primaryColor: accent,
+      accentColor: accentColor || accent,
+      backgroundColor: bgColor || '#ffffff',
+      textColor: txtColor || '#111827',
+      headingFont: headingFont || 'Inter',
+      bodyFont: bodyFont || 'Inter',
+      logo: logoUrl,
+    } : null;
+
     return (
-      <div className="flex items-center justify-center py-20 px-4" style={wrapperStyle}>
+      <div className="flex flex-col items-center justify-center py-20 px-4 gap-10" style={wrapperStyle}>
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-10 max-w-md w-full text-center" style={cardStyle}>
           {logoUrl && <img src={logoUrl} alt="Logo" className="h-8 object-contain mx-auto mb-4" />}
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${accent}15` }}>
@@ -295,6 +341,12 @@ export function SurveyFormInline({
           <h2 className="text-xl font-bold text-gray-900 dark:text-white" style={headingStyle}>{thankYou.title}</h2>
           {thankYou.message && <p className="text-gray-600 dark:text-gray-400 mt-2">{thankYou.message}</p>}
         </div>
+
+        {rec && recTheme && (
+          <div className="w-full max-w-4xl">
+            <SurveyRecommendationRenderer config={rec} answers={answers} theme={recTheme} />
+          </div>
+        )}
       </div>
     );
   }
@@ -396,7 +448,7 @@ export function SurveyFormInline({
                       </label>
                       {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
 
-                      {renderField(field, answers, setAnswer, accent, inputStyle)}
+                      {renderField(field, answers, setAnswer, accent, inputStyle, inputOptionTextColor)}
                     </div>
                   )}
                 </div>
@@ -459,9 +511,14 @@ function renderField(
   setAnswer: (id: string, val: unknown) => void,
   color: string,
   fieldInputStyle?: React.CSSProperties,
+  optionTextColor?: string,
 ) {
   const inputCls = "w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent";
   const ringStyle = { '--tw-ring-color': color, ...(fieldInputStyle || {}) } as React.CSSProperties;
+  const optionLabelCls = optionTextColor
+    ? 'text-sm'
+    : 'text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white';
+  const optionLabelStyle = optionTextColor ? { color: optionTextColor } : undefined;
 
   switch (field.type) {
     case 'text':
@@ -548,7 +605,7 @@ function renderField(
                 className="w-4 h-4"
                 style={{ accentColor: color }}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">{opt}</span>
+              <span className={optionLabelCls} style={optionLabelStyle}>{opt}</span>
             </label>
           ))}
         </div>
@@ -571,7 +628,7 @@ function renderField(
                   className="w-4 h-4 rounded"
                   style={{ accentColor: color }}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">{opt}</span>
+                <span className={optionLabelCls} style={optionLabelStyle}>{opt}</span>
               </label>
             );
           })}
@@ -591,7 +648,7 @@ function renderField(
           >
             <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${answers[field.id] ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
           </div>
-          <span className="text-sm text-gray-700 dark:text-gray-300">{answers[field.id] ? 'Yes' : 'No'}</span>
+          <span className={optionTextColor ? 'text-sm' : 'text-sm text-gray-700 dark:text-gray-300'} style={optionLabelStyle}>{answers[field.id] ? 'Yes' : 'No'}</span>
         </button>
       );
 

@@ -25,6 +25,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       thankYouTitle: surveys.thankYouTitle,
       thankYouMessage: surveys.thankYouMessage,
       redirectUrl: surveys.redirectUrl,
+      styling: surveys.styling,
+      recommendation: surveys.recommendation,
     })
     .from(surveys)
     .where(eq(surveys.slug, slug));
