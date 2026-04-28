@@ -36,6 +36,7 @@ import { hasServiceAccess } from '@/lib/portal-auth';
 import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from './blocks-schema';
 import { registerBrandingToolsOnSdk } from '@/lib/branding/mcp-sdk-adapter';
 import { registerStoreToolsOnSdk } from '@/lib/storefront/mcp-sdk-adapter';
+import { registerBrainToolsOnSdk } from '@/lib/brain/mcp-sdk-adapter';
 import { registerApprovalToolsOnSdk } from './approvals';
 import { stageOrApply } from './pending-changes';
 import { uploadToS3 } from '@/lib/s3/upload';
@@ -5395,6 +5396,15 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   // store_customer_messages_*, store_settings_get.
   // Scopes: `store:read` / `store:write`.
   registerStoreToolsOnSdk(server, ctx);
+
+  // ── COMPANY BRAIN ──────────────────────────────────────────────────────
+  // brain_search / dashboard_summary / list+get for relationships, meetings,
+  // tasks, review items / create-meeting / create-task / propose-task /
+  // update-task / link-meeting / create-relationship.
+  // Sensitive ops (approve/reject review items, update relationship overlays)
+  // are gated on `brain:approve`. Reads need `brain:read`; writes
+  // `brain:write`.
+  registerBrainToolsOnSdk(server, ctx);
 
   // ── APPROVALS ──────────────────────────────────────────────────────────
   // approvals_list / get / approve / reject. Gated on approvals:read and
