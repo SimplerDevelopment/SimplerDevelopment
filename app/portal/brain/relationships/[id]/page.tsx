@@ -160,7 +160,7 @@ export default function RelationshipDetailPage() {
 
       <div className="grid md:grid-cols-3 gap-4">
         <Stat label="Open tasks" value={tasks.filter((t) => t.status !== 'done').length} icon="checklist" />
-        <Stat label="Meetings" value={meetings.length} icon="forum" />
+        <Stat label="Notes" value={meetings.length} icon="forum" />
         <Stat label="Linked contacts" value={contacts.length} icon="people" />
       </div>
 
@@ -263,12 +263,12 @@ export default function RelationshipDetailPage() {
       </Section>
 
       <Section
-        title="Recent meetings"
+        title="Recent notes"
         icon="forum"
         action={<Link href="/portal/brain/meetings/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"><span className="material-icons text-sm">add</span>New</Link>}
       >
         {meetings.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No meetings linked to this relationship yet.</p>
+          <p className="text-xs text-muted-foreground">No notes linked to this relationship yet.</p>
         ) : (
           <ul className="divide-y divide-border">
             {meetings.slice(0, 10).map((m) => (

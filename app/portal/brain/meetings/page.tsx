@@ -50,10 +50,10 @@ export default function BrainMeetingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <span className="material-icons text-primary">forum</span>
-            Meetings
+            Notes & Communications
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Capture meeting transcripts. AI extracts decisions, commitments, and tasks for your review.
+            Capture meeting transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review.
           </p>
         </div>
         <Link
@@ -61,7 +61,7 @@ export default function BrainMeetingsPage() {
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <span className="material-icons text-base">add</span>
-          New meeting
+          New note
         </Link>
       </div>
 
@@ -79,7 +79,7 @@ export default function BrainMeetingsPage() {
       ) : meetings.length === 0 ? (
         <div className="text-center py-12 bg-card border border-border rounded-lg">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">forum</span>
-          <p className="text-foreground text-sm font-medium">No meetings yet.</p>
+          <p className="text-foreground text-sm font-medium">No notes yet.</p>
           <p className="text-muted-foreground text-xs mt-1 mb-4">
             Paste your first transcript to see how Brain turns it into reviewable next steps.
           </p>

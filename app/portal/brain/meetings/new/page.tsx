@@ -125,7 +125,7 @@ export default function NewBrainMeetingPage() {
   return (
     <div className="max-w-3xl mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">New meeting</h1>
+        <h1 className="text-2xl font-bold text-foreground">New note</h1>
         <Link
           href="/portal/brain/meetings"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
@@ -179,7 +179,7 @@ export default function NewBrainMeetingPage() {
               className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </Field>
-          <Field label="Meeting date (optional)">
+          <Field label="Date (optional)">
             <input
               type="datetime-local"
               value={meetingDate}

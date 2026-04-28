@@ -24,14 +24,14 @@ interface BrainSearchResult {
 }
 
 const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
-  meeting: { label: 'Meeting', icon: 'forum', tone: 'text-blue-600 dark:text-blue-400' },
+  meeting: { label: 'Note', icon: 'forum', tone: 'text-blue-600 dark:text-blue-400' },
   task: { label: 'Task', icon: 'task_alt', tone: 'text-foreground' },
   relationship: { label: 'Relationship', icon: 'group_work', tone: 'text-cyan-600 dark:text-cyan-400' },
 };
 
 const FILTERS: { id: EntityType | 'all'; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'meeting', label: 'Meetings' },
+  { id: 'meeting', label: 'Notes' },
   { id: 'task', label: 'Tasks' },
   { id: 'relationship', label: 'Relationships' },
 ];

@@ -59,7 +59,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
     children: [
       { href: '/portal/brain', label: 'Dashboard', icon: 'dashboard', exact: true },
       { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work' },
-      { href: '/portal/brain/meetings', label: 'Meetings', icon: 'forum' },
+      { href: '/portal/brain/meetings', label: 'Notes & Communications', icon: 'forum' },
       { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist' },
       { href: '/portal/brain/prospects', label: 'Prospects', icon: 'schedule' },
       { href: '/portal/brain/ask', label: 'Ask Brain', icon: 'travel_explore' },

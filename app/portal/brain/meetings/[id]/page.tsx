@@ -160,7 +160,7 @@ export default function BrainMeetingDetailPage() {
         <div className="min-w-0">
           <Link href="/portal/brain/meetings" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
             <span className="material-icons text-sm">arrow_back</span>
-            All meetings
+            All notes
           </Link>
           <h1 className="text-2xl font-bold text-foreground mt-2 break-words">{meeting.title}</h1>
           <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
@@ -216,7 +216,7 @@ export default function BrainMeetingDetailPage() {
           <button
             onClick={deleteMeeting}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-            aria-label="Delete meeting"
+            aria-label="Delete note"
           >
             <span className="material-icons text-base">delete</span>
           </button>
@@ -232,6 +232,27 @@ export default function BrainMeetingDetailPage() {
       {meeting.aiSummary && (
         <Section title="AI summary" icon="auto_awesome">
           <p className="text-sm text-foreground whitespace-pre-wrap">{meeting.aiSummary}</p>
+        </Section>
+      )}
+
+      {/* Email envelope — only shown for email-sourced notes. The worker
+          captures From/To/sender on ingest into source_metadata. */}
+      {meeting.source === 'email' && (meeting.sourceMetadata?.from || meeting.sourceMetadata?.to) && (
+        <Section title="Email" icon="mail">
+          <dl className="text-sm space-y-1.5">
+            {meeting.sourceMetadata.from && (
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground w-12 shrink-0">From</dt>
+                <dd className="text-foreground break-all">{meeting.sourceMetadata.from}</dd>
+              </div>
+            )}
+            {meeting.sourceMetadata.to && (
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground w-12 shrink-0">To</dt>
+                <dd className="text-foreground break-all">{meeting.sourceMetadata.to}</dd>
+              </div>
+            )}
+          </dl>
         </Section>
       )}
 

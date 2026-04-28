@@ -23,7 +23,7 @@ const CONFIDENTIALITY_OPTIONS = [
 ] as const;
 
 const MODULE_OPTIONS: { id: keyof BrainEnabledModules; label: string; help: string }[] = [
-  { id: 'meetings', label: 'Meetings', help: 'Ingest transcripts, AI summarises, human approves.' },
+  { id: 'meetings', label: 'Notes & Communications', help: 'Ingest meeting transcripts, emails, and pasted notes. AI summarises, human approves.' },
   { id: 'tasks', label: 'Tasks', help: 'Brain-flavoured tasks with promotion to project boards.' },
   { id: 'prospects', label: 'Prospects', help: 'Stale-prospect detection over CRM deals.' },
   { id: 'knowledge', label: 'Knowledge', help: 'Notes and documents linked to relationships.' },

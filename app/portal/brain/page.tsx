@@ -99,8 +99,8 @@ export default function BrainDashboardPage() {
             and tasks into a secure, AI-queryable command center. AI proposes — you approve.
           </p>
           <div className="grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto mb-8">
-            <FeatureBullet icon="forum" title="Meetings → tasks">
-              Paste a transcript. AI extracts decisions, commitments, and follow-ups for your review.
+            <FeatureBullet icon="forum" title="Notes → tasks">
+              Paste a transcript or forward an email. AI extracts decisions, commitments, and follow-ups for your review.
             </FeatureBullet>
             <FeatureBullet icon="reviews" title="Human approval">
               Nothing is written to your records until a human approves it. Every approval is audited.
@@ -352,20 +352,20 @@ function DashboardWidgets() {
         />
       </div>
 
-      {/* Recent meetings */}
+      {/* Recent notes */}
       <div className="bg-card border border-border rounded-lg p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className="material-icons text-base text-muted-foreground">forum</span>
-            Recent meetings
+            Recent notes
           </h2>
           <Link href="/portal/brain/meetings/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
             <span className="material-icons text-sm">add</span>
-            New meeting
+            New note
           </Link>
         </div>
         {data.recentMeetings.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No meetings yet. Paste your first transcript to get started.</p>
+          <p className="text-xs text-muted-foreground">No notes yet. Paste your first transcript or forward an email to get started.</p>
         ) : (
           <ul className="divide-y divide-border">
             {data.recentMeetings.map((m) => (
