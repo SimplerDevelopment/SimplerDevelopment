@@ -33,7 +33,7 @@ type Tab = 'agency' | 'private';
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function PortalProjectsPage() {
-  const [tab, setTab] = useState<Tab>('agency');
+  const [tab, setTab] = useState<Tab>('private');
   const [agencyProjects, setAgencyProjects] = useState<Project[]>([]);
   const [privateProjects, setPrivateProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,8 +78,8 @@ export default function PortalProjectsPage() {
   };
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'agency', label: 'Simpler Development Projects', icon: 'business' },
     { key: 'private', label: 'Private Projects', icon: 'lock' },
+    { key: 'agency', label: 'Simpler Development Projects', icon: 'business' },
   ];
 
   return (
