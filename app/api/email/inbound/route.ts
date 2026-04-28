@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { clients, clientMembers, users, aiConversations, aiMessages } from '@/lib/db/schema';
+import { clients, clientMembers, users, aiConversations, aiMessages, brainProfiles, brainMeetings } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
@@ -41,6 +41,14 @@ Interpret edit requests literally but sensibly. "Add '!' to homepage hero" means
 - Format currency as dollars (e.g. $1,200.00)
 - Do not use markdown headers — use plain text with line breaks.`;
 
+interface InboundAttachment {
+  /** R2 object key — `email-attachments/<message-id>/<filename>` */
+  key: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 interface InboundPayload {
   secret: string;
   from: string;
@@ -48,6 +56,7 @@ interface InboundPayload {
   subject: string;
   body: string;
   messageId?: string;
+  attachments?: InboundAttachment[];
 }
 
 export async function POST(req: Request) {
@@ -59,18 +68,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { from, to, subject, body: emailBody, messageId } = payload;
+    const { from, to, subject, body: emailBody, messageId, attachments = [] } = payload;
 
-    if (!from || !to || !emailBody) {
+    // Body can be empty for attachment-only emails (e.g. forwarded meeting deck)
+    if (!from || !to || (!emailBody && attachments.length === 0)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Extract prefix from to address: prefix@simplerdevelopment.com
+    // Extract prefix from to address: prefix@simplerdevelopment.com (supports
+    // plus-tagging like brain+<token>@…). The prefix used for client lookup is
+    // the part before any '+', so client+anything@… still matches a client.
     const toMatch = to.toLowerCase().match(/^([^@]+)@simplerdevelopment\.com$/);
     if (!toMatch) {
       return NextResponse.json({ error: 'Invalid destination address' }, { status: 400 });
     }
-    const prefix = toMatch[1];
+    const fullLocal = toMatch[1];
+    const plusIdx = fullLocal.indexOf('+');
+    const prefix = plusIdx >= 0 ? fullLocal.slice(0, plusIdx) : fullLocal;
+    const tag = plusIdx >= 0 ? fullLocal.slice(plusIdx + 1) : '';
+
+    // Brain ingestion path: brain+<token>@simplerdevelopment.com
+    // Token resolves to a brain_profiles row → brain_meetings record.
+    // Bypasses the AI chat loop and the per-client emailPrefix scheme.
+    if (prefix === 'brain') {
+      return handleBrainIngest({ tag, from, to, subject, body: emailBody, messageId, attachments });
+    }
 
     // Look up client by email prefix
     const [client] = await db.select()
@@ -245,4 +267,95 @@ export async function POST(req: Request) {
     console.error('[POST /api/email/inbound]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+/**
+ * Brain ingestion path: brain+<token>@simplerdevelopment.com →
+ * brain_meetings row, source='email'. Token alone authenticates the recipient
+ * tenant; the sender email is recorded but not used as an authorization gate
+ * (the brain is meant to receive forwards from external participants).
+ *
+ * Idempotency: brain_meetings has a UNIQUE (client_id, source_ref) index, so
+ * the same Message-ID re-delivered (CF retry) updates instead of duplicates.
+ */
+async function handleBrainIngest(args: {
+  tag: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  messageId?: string;
+  attachments: InboundAttachment[];
+}) {
+  const { tag, from, to, subject, body: emailBody, messageId, attachments } = args;
+
+  if (!tag) {
+    console.log(`[inbound:brain] no token — to=${to}`);
+    return NextResponse.json({ status: 'rejected', reason: 'token required' });
+  }
+
+  const [profile] = await db
+    .select({ id: brainProfiles.id, clientId: brainProfiles.clientId, enabled: brainProfiles.enabled })
+    .from(brainProfiles)
+    .where(eq(brainProfiles.emailIngestToken, tag))
+    .limit(1);
+
+  if (!profile) {
+    console.log(`[inbound:brain] unknown token — tag=${tag.slice(0, 6)}…`);
+    return NextResponse.json({ status: 'rejected', reason: 'unknown token' });
+  }
+  if (!profile.enabled) {
+    console.log(`[inbound:brain] brain disabled for client=${profile.clientId}`);
+    return NextResponse.json({ status: 'rejected', reason: 'brain disabled' });
+  }
+
+  const senderEmail = from.toLowerCase().replace(/.*<([^>]+)>.*/, '$1');
+  const sourceRef = (messageId || `gen-${Date.now()}`).replace(/[<>]/g, '');
+
+  // Upsert by (client_id, source_ref). On retry, we update transcript +
+  // metadata in case the worker re-sent (e.g. attachment upload partially
+  // failed and is being retried).
+  await db
+    .insert(brainMeetings)
+    .values({
+      clientId: profile.clientId,
+      title: subject || '(email)',
+      transcript: emailBody,
+      status: 'draft',
+      source: 'email',
+      sourceRef,
+      sourceMetadata: {
+        from,
+        to,
+        senderEmail,
+        attachments: attachments.map(a => ({
+          key: a.key,
+          filename: a.filename,
+          contentType: a.contentType,
+          size: a.size,
+        })),
+      },
+    })
+    .onConflictDoUpdate({
+      target: [brainMeetings.clientId, brainMeetings.sourceRef],
+      set: {
+        title: subject || '(email)',
+        transcript: emailBody,
+        sourceMetadata: {
+          from,
+          to,
+          senderEmail,
+          attachments: attachments.map(a => ({
+            key: a.key,
+            filename: a.filename,
+            contentType: a.contentType,
+            size: a.size,
+          })),
+        },
+        updatedAt: new Date(),
+      },
+    });
+
+  console.log(`[inbound:brain] ingested for client=${profile.clientId} subject="${subject?.slice(0, 60)}" attachments=${attachments.length}`);
+  return NextResponse.json({ status: 'ingested', clientId: profile.clientId });
 }

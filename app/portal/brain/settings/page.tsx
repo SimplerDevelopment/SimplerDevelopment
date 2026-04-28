@@ -161,6 +161,21 @@ export default function BrainSettingsPage() {
         </Row>
       </Section>
 
+      {/* Inbound email gateway. The token in the alias both identifies this
+          tenant and authorizes the ingest — anyone with the address can drop
+          mail into the brain. Treat it like a shared secret. */}
+      {profile.emailIngestToken && (
+        <Section title="Inbound email" icon="mark_email_read">
+          <p className="text-xs text-muted-foreground mb-3">
+            Forward or BCC any email to the address below to add it as a meeting in your Brain.
+            Attachments are stored automatically.
+          </p>
+          <Row label="Brain email address">
+            <EmailIngestField token={profile.emailIngestToken} />
+          </Row>
+        </Section>
+      )}
+
       {/* Industry template */}
       <Section title="Industry template" icon="apartment">
         <p className="text-xs text-muted-foreground mb-3">
@@ -321,6 +336,37 @@ function NameField({ value, onSave, disabled }: { value: string; onSave: (v: str
         className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
       >
         Save
+      </button>
+    </div>
+  );
+}
+
+function EmailIngestField({ token }: { token: string }) {
+  const [copied, setCopied] = useState(false);
+  const address = `brain+${token}@simplerdevelopment.com`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <code className="flex-1 px-2 py-1.5 text-xs font-mono bg-muted rounded border border-border text-foreground truncate">
+        {address}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-border text-foreground hover:bg-accent shrink-0"
+      >
+        <span className="material-icons text-sm">{copied ? 'check' : 'content_copy'}</span>
+        {copied ? 'Copied' : 'Copy'}
       </button>
     </div>
   );

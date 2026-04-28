@@ -2612,6 +2612,10 @@ export const brainProfiles = pgTable('brain_profiles', {
     ask: false,
   }).notNull(),
   serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
+  // Per-tenant token for the inbound email gateway. Inbound mail at
+  // `brain+<token>@simplerdevelopment.com` is routed to this profile. Treat
+  // as a shared secret — rotate to revoke external sender access.
+  emailIngestToken: varchar('email_ingest_token', { length: 64 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -2658,7 +2662,10 @@ export const brainTasks = pgTable('brain_tasks', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
-  // Phase 3 promotion target. Phase 1 adds companyId/dealId; Phase 4 adds linkedActivityId.
+  // Optional CRM-relationship link. At most one of (companyId, dealId) is non-null in practice.
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  // Phase 3 promotion target.
   linkedKanbanCardId: integer('linked_kanban_card_id').references(() => kanbanCards.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 500 }).notNull(),
   description: text('description'),
@@ -2749,4 +2756,39 @@ export const brainAuditLogs = pgTable('brain_audit_logs', {
   entityId: integer('entity_id'),
   metadata: json('metadata').$type<Record<string, unknown>>().default({}),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BrainRelationshipPriority = 'low' | 'medium' | 'high' | 'critical';
+export type BrainRelationshipStatus = 'active' | 'paused' | 'archived';
+
+/**
+ * Phase 1 — overlay pattern. A `brain_relationship_overlays` row attaches
+ * Brain-only fields (priorities, open loops, next-review, confidentiality,
+ * compliance flags, stale-after) to an existing CRM company OR deal. Exactly
+ * one of (companyId, dealId) is non-null per row, enforced at the app layer
+ * and via partial unique indexes.
+ */
+export const brainRelationshipOverlays = pgTable('brain_relationship_overlays', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'cascade' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'cascade' }),
+  relationshipType: varchar('relationship_type', { length: 50 }).default('generic').notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainRelationshipStatus>().default('active').notNull(),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  secondaryOwnerId: integer('secondary_owner_id').references(() => users.id, { onDelete: 'set null' }),
+  priority: varchar('priority', { length: 20 }).$type<BrainRelationshipPriority>().default('medium').notNull(),
+  serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
+  summary: text('summary'),
+  currentPriorities: text('current_priorities'),
+  openLoops: text('open_loops'),
+  lastTouchAt: timestamp('last_touch_at'),
+  nextReviewAt: timestamp('next_review_at'),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  complianceFlags: json('compliance_flags').$type<string[]>().default([]).notNull(),
+  sourceSystem: varchar('source_system', { length: 100 }),
+  externalUrl: varchar('external_url', { length: 1000 }),
+  staleAfterDays: integer('stale_after_days'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

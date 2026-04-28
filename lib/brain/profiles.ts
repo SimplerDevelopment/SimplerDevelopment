@@ -1,9 +1,15 @@
 import { db } from '@/lib/db';
 import { brainProfiles, type BrainEnabledModules } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 import { getIndustryTemplate, type IndustryTemplateId } from './industry-templates';
 
 export type BrainProfile = typeof brainProfiles.$inferSelect;
+
+/** 128-bit random token for the brain inbound email gateway. */
+function generateEmailIngestToken(): string {
+  return randomBytes(16).toString('hex');
+}
 
 export async function getBrainProfile(clientId: number): Promise<BrainProfile | null> {
   const [row] = await db.select().from(brainProfiles).where(eq(brainProfiles.clientId, clientId)).limit(1);
@@ -11,19 +17,42 @@ export async function getBrainProfile(clientId: number): Promise<BrainProfile | 
 }
 
 /**
- * Idempotent: returns the existing brain profile for the client, or creates
- * a disabled one with sensible defaults if none exists.
+ * Idempotent: returns the existing brain profile for the client, or creates a
+ * disabled one with sensible defaults if none exists. New profiles get a
+ * random emailIngestToken; existing profiles missing one are backfilled in
+ * place so the brain inbound email always works as soon as the page loads.
  */
 export async function getOrCreateBrainProfile(clientId: number, defaultName: string): Promise<BrainProfile> {
   const existing = await getBrainProfile(clientId);
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.emailIngestToken) {
+      const [updated] = await db
+        .update(brainProfiles)
+        .set({ emailIngestToken: generateEmailIngestToken() })
+        .where(eq(brainProfiles.id, existing.id))
+        .returning();
+      return updated;
+    }
+    return existing;
+  }
 
   const [created] = await db.insert(brainProfiles).values({
     clientId,
     name: defaultName,
+    emailIngestToken: generateEmailIngestToken(),
   }).returning();
 
   return created;
+}
+
+/** Rotate the per-client email ingest token. Old aliases stop working. */
+export async function rotateEmailIngestToken(clientId: number): Promise<BrainProfile | null> {
+  const [updated] = await db
+    .update(brainProfiles)
+    .set({ emailIngestToken: generateEmailIngestToken(), updatedAt: new Date() })
+    .where(eq(brainProfiles.clientId, clientId))
+    .returning();
+  return updated ?? null;
 }
 
 interface UpdateBrainProfileInput {
