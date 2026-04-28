@@ -61,6 +61,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work' },
       { href: '/portal/brain/meetings', label: 'Meetings', icon: 'forum' },
       { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist' },
+      { href: '/portal/brain/prospects', label: 'Prospects', icon: 'schedule' },
       { href: '/portal/brain/settings', label: 'Settings', icon: 'settings' },
     ],
   },
