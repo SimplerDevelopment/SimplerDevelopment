@@ -38,6 +38,7 @@ async function fetchSurveyData(deckSlides: PitchDeckSlideV2[]): Promise<Record<n
     thankYouMessage: surveys.thankYouMessage,
     redirectUrl: surveys.redirectUrl,
     status: surveys.status,
+    recommendation: surveys.recommendation,
   }).from(surveys).where(inArray(surveys.id, uniqueIds));
 
   const result: Record<number, SurveyDataForDeck> = {};
@@ -52,6 +53,7 @@ async function fetchSurveyData(deckSlides: PitchDeckSlideV2[]): Promise<Record<n
       thankYouTitle: row.thankYouTitle || 'Thank you!',
       thankYouMessage: row.thankYouMessage || '',
       redirectUrl: row.redirectUrl,
+      recommendation: row.recommendation,
     };
   }
   return result;

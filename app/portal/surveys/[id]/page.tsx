@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import SurveyBuilder, { SurveyField } from '@/components/admin/SurveyBuilder';
 import Link from 'next/link';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
+import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
+import type { SurveyRecommendationConfig } from '@/lib/db/schema';
 
 interface Survey {
   id: number;
@@ -25,6 +27,7 @@ interface Survey {
   maxResponses: number | null;
   linkedType: string | null;
   linkedId: number | null;
+  recommendation: SurveyRecommendationConfig | null;
   responseCount: number;
   createdAt: string;
   updatedAt: string;
@@ -40,7 +43,7 @@ interface SurveyResponse {
   createdAt: string;
 }
 
-type Tab = 'overview' | 'edit' | 'responses' | 'analytics' | 'share' | 'settings';
+type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
 
 const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
@@ -189,6 +192,7 @@ export default function SurveyDetailPage() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Overview', icon: 'dashboard' },
     { key: 'edit', label: 'Edit', icon: 'edit' },
+    { key: 'recommendation', label: 'Recommendation', icon: 'recommend' },
     { key: 'responses', label: `Responses (${survey.responseCount})`, icon: 'people' },
     { key: 'analytics', label: 'Analytics', icon: 'bar_chart' },
     { key: 'share', label: 'Share & Embed', icon: 'share' },
@@ -403,6 +407,19 @@ export default function SurveyDetailPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ─── Recommendation Tab ─── */}
+      {/* Drives the dynamic result slide rendered after the survey thank-you
+          everywhere this survey is embedded (pitch decks today, /s/<slug>
+          standalone surveys later). The editor saves directly to
+          surveys.recommendation. */}
+      {tab === 'recommendation' && (
+        <SurveyRecommendationEditor
+          config={survey.recommendation ?? undefined}
+          surveyFields={editFields as unknown as Parameters<typeof SurveyRecommendationEditor>[0]['surveyFields']}
+          onChange={(next) => save({ recommendation: next ?? null })}
+        />
       )}
 
       {/* ─── Responses Tab ─── */}
@@ -861,6 +878,8 @@ export default function SurveyDetailPage() {
                   { key: 'textColor', label: 'Text', fallback: '#111827' },
                   { key: 'formBg', label: 'Form Card', fallback: '#ffffff' },
                   { key: 'inputBg', label: 'Input Fields', fallback: '#ffffff' },
+                  { key: 'inputTextColor', label: 'Input Text', fallback: '#111827' },
+                  { key: 'inputOptionTextColor', label: 'Option Text', fallback: '#374151' },
                 ] as const).map(({ key, label, fallback }) => (
                   <div key={key}>
                     <label className="block text-xs text-muted-foreground mb-1">{label}</label>

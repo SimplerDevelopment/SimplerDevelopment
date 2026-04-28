@@ -889,9 +889,9 @@ export interface PitchDeckSlideV2 {
   /** Per-field block overrides for survey sub-slide editing. Key is the field ID. */
   surveyFieldBlocks?: Record<string, import('@/types/blocks').Block[]>;
   /**
-   * Optional dynamic recommendation rendered after the survey thank-you.
-   * Computes a primary offering from the respondent's answers and renders a
-   * narrative + offering card stack with a book CTA.
+   * @deprecated Source of truth moved to `surveys.recommendation`. Kept on the
+   * type for backwards compat reads of decks created before the cutover; the
+   * editor and renderer now go through the survey row. New writes are ignored.
    */
   surveyRecommendation?: SurveyRecommendationConfig;
   /**
@@ -2269,6 +2269,8 @@ export interface SurveyStyling {
   buttonBorderRadius?: string;
   formBg?: string;
   inputBg?: string;
+  inputTextColor?: string;
+  inputOptionTextColor?: string;
   hideTitle?: boolean;
   hideLogo?: boolean;
 }
@@ -2299,6 +2301,10 @@ export const surveys = pgTable('surveys', {
   // Integration context — which system linked to this survey
   linkedType: varchar('linked_type', { length: 30 }), // 'email_campaign', 'crm_deal', 'crm_proposal', 'booking_page', 'website', 'pitch_deck'
   linkedId: integer('linked_id'),
+  // Optional dynamic recommendation rendered after the thank-you. Lives on the
+  // survey (not the deck slide) so it stays consistent everywhere the survey
+  // is rendered. Pitch-deck slides surface this via `survey.recommendation`.
+  recommendation: json('recommendation').$type<SurveyRecommendationConfig>(),
   // Meta
   responseCount: integer('response_count').default(0).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -2652,7 +2658,8 @@ export const brainTasks = pgTable('brain_tasks', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
-  // Phase 3 will add companyId / dealId / linkedKanbanCardId / linkedActivityId.
+  // Phase 3 promotion target. Phase 1 adds companyId/dealId; Phase 4 adds linkedActivityId.
+  linkedKanbanCardId: integer('linked_kanban_card_id').references(() => kanbanCards.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 500 }).notNull(),
   description: text('description'),
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),

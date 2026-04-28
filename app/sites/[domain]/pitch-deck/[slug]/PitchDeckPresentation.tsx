@@ -26,6 +26,9 @@ export interface SurveyDataForDeck {
   thankYouTitle?: string;
   thankYouMessage?: string;
   redirectUrl?: string | null;
+  /** Source of truth for the recommendation slide. Set on the survey row, not
+   *  the deck slide — see migration 0049. */
+  recommendation?: SurveyRecommendationConfig | null;
 }
 
 /**
@@ -76,11 +79,15 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
       thankYouTitle: survey.thankYouTitle || 'Thank you!',
       thankYouMessage: survey.thankYouMessage || '',
     });
-    if (slide.surveyRecommendation) {
+    // Source of truth: survey.recommendation. Falls back to the legacy
+    // slide-level field for decks created before migration 0049 — once those
+    // are backfilled the fallback can be removed.
+    const recommendation = survey.recommendation ?? slide.surveyRecommendation;
+    if (recommendation) {
       result.push({
         kind: 'survey-recommendation',
         surveyId: survey.id,
-        config: slide.surveyRecommendation,
+        config: recommendation,
       });
     }
     return result;

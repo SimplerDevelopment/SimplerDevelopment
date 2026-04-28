@@ -71,6 +71,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.linkedType !== undefined) updates.linkedType = body.linkedType || null;
   if (body.linkedId !== undefined) updates.linkedId = body.linkedId || null;
   if (body.styling !== undefined) updates.styling = body.styling;
+  if (body.recommendation !== undefined) updates.recommendation = body.recommendation;
 
   const [updated] = await db
     .update(surveys)
