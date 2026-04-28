@@ -37,8 +37,115 @@ interface ParsedResult {
   productScope: string | null;
 }
 
+interface AutomationTemplate {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  scope: string;
+  rule: {
+    name: string;
+    description: string;
+    trigger: { event: string; filters?: Record<string, unknown> };
+    actions: { tool: string; params: Record<string, unknown>; delay?: number }[];
+    productScope: string | null;
+  };
+}
+
+const TEMPLATES: AutomationTemplate[] = [
+  {
+    id: 'booking-to-deal',
+    icon: 'event_available',
+    title: 'New booking → CRM deal',
+    description: 'When a guest books a slot, create a deal in your default pipeline using the booking total.',
+    scope: 'crm',
+    rule: {
+      name: 'Booking → CRM Deal',
+      description: 'Auto-create a CRM deal when a guest books a slot.',
+      trigger: { event: 'booking.guest_booked' },
+      actions: [{
+        tool: 'create_crm_deal',
+        params: {
+          title: '{{event.guestName}} — {{event.pageTitle}}',
+          value: '{{event.total}}',
+          notes: 'Booking #{{event.bookingId}}\nEmail: {{event.guestEmail}}\nPhone: {{event.guestPhone}}\nStart: {{event.startTime}}',
+        },
+      }],
+      productScope: 'crm',
+    },
+  },
+  {
+    id: 'survey-to-deal',
+    icon: 'poll',
+    title: 'Survey response → CRM deal',
+    description: 'When a survey response comes in, create a deal in your default pipeline.',
+    scope: 'crm',
+    rule: {
+      name: 'Survey → CRM Deal',
+      description: 'Auto-create a CRM deal when a survey response is submitted.',
+      trigger: { event: 'survey.response_submitted' },
+      actions: [{
+        tool: 'create_crm_deal',
+        params: {
+          title: '{{event.respondentName}} — {{event.surveyTitle}}',
+          notes: 'Survey response #{{event.responseId}}\nEmail: {{event.respondentEmail}}\nSource: {{event.source}}',
+        },
+      }],
+      productScope: 'crm',
+    },
+  },
+  {
+    id: 'booking-to-contact',
+    icon: 'person_add',
+    title: 'New booking → CRM contact',
+    description: 'Lighter alternative to a deal — just capture the lead in CRM contacts.',
+    scope: 'crm',
+    rule: {
+      name: 'Booking → CRM Contact',
+      description: 'Auto-create a CRM contact when a guest books a slot.',
+      trigger: { event: 'booking.guest_booked' },
+      actions: [{
+        tool: 'create_crm_contact',
+        params: {
+          first_name: '{{event.guestName}}',
+          email: '{{event.guestEmail}}',
+          phone: '{{event.guestPhone}}',
+          source: 'web',
+          status: 'lead',
+          notes: 'Booked {{event.pageTitle}} at {{event.startTime}}',
+        },
+      }],
+      productScope: 'crm',
+    },
+  },
+  {
+    id: 'survey-to-contact',
+    icon: 'how_to_reg',
+    title: 'Survey response → CRM contact',
+    description: 'Capture survey respondents as CRM contacts (lighter than creating a deal).',
+    scope: 'crm',
+    rule: {
+      name: 'Survey → CRM Contact',
+      description: 'Auto-create a CRM contact when a survey response is submitted.',
+      trigger: { event: 'survey.response_submitted' },
+      actions: [{
+        tool: 'create_crm_contact',
+        params: {
+          first_name: '{{event.respondentName}}',
+          email: '{{event.respondentEmail}}',
+          source: 'web',
+          status: 'lead',
+          notes: 'Survey: {{event.surveyTitle}}',
+        },
+      }],
+      productScope: 'crm',
+    },
+  },
+];
+
 const EVENT_LABELS: Record<string, string> = {
-  'booking.created': 'Booking Created',
+  'booking.created': 'Booking Page Created',
+  'booking.guest_booked': 'Guest Booked a Slot',
   'booking.confirmed': 'Booking Confirmed',
   'booking.cancelled': 'Booking Cancelled',
   'booking.rescheduled': 'Booking Rescheduled',
@@ -125,6 +232,8 @@ export default function AutomationsPage() {
   const [parseError, setParseError] = useState('');
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [installingTemplateId, setInstallingTemplateId] = useState<string | null>(null);
+  const [installedTemplateIds, setInstalledTemplateIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
@@ -206,6 +315,32 @@ export default function AutomationsPage() {
     }
   };
 
+  const handleInstallTemplate = async (template: AutomationTemplate) => {
+    setInstallingTemplateId(template.id);
+    try {
+      const res = await fetch('/api/portal/automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: template.rule.name,
+          description: template.rule.description,
+          trigger: template.rule.trigger,
+          conditions: [],
+          actions: template.rule.actions,
+          source: 'template',
+          productScope: template.rule.productScope,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRules((prev) => [data.rule, ...prev]);
+        setInstalledTemplateIds((prev) => new Set(prev).add(template.id));
+      }
+    } finally {
+      setInstallingTemplateId(null);
+    }
+  };
+
   const handleDelete = async (ruleId: number) => {
     if (!confirm('Delete this automation rule?')) return;
     const res = await fetch(`/api/portal/automations/${ruleId}`, { method: 'DELETE' });
@@ -284,13 +419,13 @@ export default function AutomationsPage() {
               <span className="material-icons text-5xl text-muted-foreground">bolt</span>
               <h3 className="mt-3 font-semibold text-lg">No automations yet</h3>
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Describe what you want to automate in plain English and AI will create the rule for you.
+                Install a one-click template, or describe your own automation in plain English.
               </p>
               <button
                 onClick={() => setTab('create')}
                 className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90"
               >
-                Create your first automation
+                Browse templates
               </button>
             </div>
           ) : (
@@ -439,6 +574,75 @@ export default function AutomationsPage() {
       {/* ── Create Tab (NLP) ── */}
       {tab === 'create' && (
         <div className="space-y-6">
+          {/* Quick Start Templates */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-semibold">Quick start templates</h2>
+              <span className="text-xs text-muted-foreground">One-click install</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Pre-built rules for common workflows. They use your default CRM pipeline — no setup required.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {TEMPLATES.map((tpl) => {
+                const installed = installedTemplateIds.has(tpl.id);
+                const installing = installingTemplateId === tpl.id;
+                return (
+                  <div
+                    key={tpl.id}
+                    className="flex flex-col gap-3 bg-background border border-border rounded-lg p-4 hover:border-border/80 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${SCOPE_COLORS[tpl.scope] || 'bg-muted text-muted-foreground'}`}>
+                        <span className="material-icons text-lg">{tpl.icon}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm">{tpl.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">{tpl.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <span className="material-icons text-xs">sensors</span>
+                        <span>{EVENT_LABELS[tpl.rule.trigger.event] || tpl.rule.trigger.event}</span>
+                        <span className="material-icons text-xs">arrow_forward</span>
+                        <span className="font-mono">{formatToolName(tpl.rule.actions[0].tool)}</span>
+                      </div>
+                      <button
+                        onClick={() => handleInstallTemplate(tpl)}
+                        disabled={installing || installed}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                          installed
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 cursor-default'
+                            : installing
+                            ? 'bg-muted text-muted-foreground cursor-wait'
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
+                      >
+                        {installed ? (
+                          <>
+                            <span className="material-icons text-sm">check</span>
+                            Installed
+                          </>
+                        ) : installing ? (
+                          <>
+                            <span className="material-icons text-sm animate-spin">autorenew</span>
+                            Installing...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-icons text-sm">add</span>
+                            Install
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* NLP Input */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-1">Describe your automation</h2>

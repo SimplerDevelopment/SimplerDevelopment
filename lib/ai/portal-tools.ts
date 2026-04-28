@@ -748,21 +748,21 @@ Available routes:
   },
   {
     name: 'create_crm_deal',
-    description: 'Create a new CRM deal. Confirm details with the user before calling.',
+    description: 'Create a new CRM deal. If pipeline_id/stage_id are omitted, the client\'s default pipeline and its first stage are used — useful for automation rules.',
     input_schema: {
       type: 'object' as const,
       properties: {
         title: { type: 'string', description: 'Deal title' },
         value: { type: 'number', description: 'Deal value in dollars (will be stored as cents)' },
-        pipeline_id: { type: 'number', description: 'Pipeline ID (use get_crm_pipelines to find)' },
-        stage_id: { type: 'number', description: 'Stage ID within the pipeline' },
+        pipeline_id: { type: 'number', description: 'Pipeline ID (optional — defaults to client\'s default pipeline)' },
+        stage_id: { type: 'number', description: 'Stage ID within the pipeline (optional — defaults to first stage)' },
         contact_id: { type: 'number', description: 'Associated contact ID' },
         company_id: { type: 'number', description: 'Associated company ID' },
         priority: { type: 'string', description: 'Priority: low, medium, high. Default: medium' },
         expected_close_date: { type: 'string', description: 'Expected close date (YYYY-MM-DD)' },
         notes: { type: 'string', description: 'Deal notes' },
       },
-      required: ['title', 'pipeline_id', 'stage_id'],
+      required: ['title'],
     },
   },
   {
@@ -2386,12 +2386,38 @@ export async function executePortalTool(
 
     case 'create_crm_deal': {
       const valueCents = input.value ? Math.round(Number(input.value) * 100) : null;
+
+      let pipelineId = input.pipeline_id ? Number(input.pipeline_id) : null;
+      let stageId = input.stage_id ? Number(input.stage_id) : null;
+
+      if (!pipelineId) {
+        const [defaultPipeline] = await db.select({ id: crmPipelines.id }).from(crmPipelines)
+          .where(eq(crmPipelines.clientId, clientId))
+          .orderBy(desc(crmPipelines.isDefault), asc(crmPipelines.id))
+          .limit(1);
+        if (!defaultPipeline) {
+          return { error: 'No CRM pipeline configured. Create one in /portal/crm before enabling auto-deal automations.' };
+        }
+        pipelineId = defaultPipeline.id;
+      }
+
+      if (!stageId) {
+        const [firstStage] = await db.select({ id: crmPipelineStages.id }).from(crmPipelineStages)
+          .where(eq(crmPipelineStages.pipelineId, pipelineId))
+          .orderBy(asc(crmPipelineStages.sortOrder), asc(crmPipelineStages.id))
+          .limit(1);
+        if (!firstStage) {
+          return { error: 'CRM pipeline has no stages. Add at least one stage in /portal/crm.' };
+        }
+        stageId = firstStage.id;
+      }
+
       const [deal] = await db.insert(crmDeals).values({
         clientId,
         title: (input.title as string).trim(),
         value: valueCents,
-        pipelineId: input.pipeline_id as number,
-        stageId: input.stage_id as number,
+        pipelineId,
+        stageId,
         contactId: input.contact_id ? Number(input.contact_id) : null,
         companyId: input.company_id ? Number(input.company_id) : null,
         priority: (input.priority as string) || 'medium',

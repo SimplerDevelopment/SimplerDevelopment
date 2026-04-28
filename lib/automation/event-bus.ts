@@ -56,7 +56,8 @@ export function emitEvent(
 
 export const AUTOMATION_EVENTS = {
   // Booking
-  'booking.created': 'A new booking is made',
+  'booking.created': 'A new booking page is created',
+  'booking.guest_booked': 'A guest books a slot on a booking page',
   'booking.confirmed': 'A booking is confirmed',
   'booking.cancelled': 'A booking is cancelled',
   'booking.rescheduled': 'A booking is rescheduled',

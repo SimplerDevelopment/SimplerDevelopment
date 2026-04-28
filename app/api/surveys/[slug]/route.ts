@@ -120,8 +120,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     surveyId: survey.id,
     responseId: response.id,
     surveyTitle: survey.title,
+    respondentName: response.respondentName,
     respondentEmail: response.respondentEmail,
     source: response.source,
+    answers: response.answers,
   });
 
   return NextResponse.json({

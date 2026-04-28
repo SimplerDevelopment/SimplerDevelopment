@@ -51,6 +51,7 @@ interface NavService {
 const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
+  { href: '/portal/brain', label: 'Company Brain', icon: 'psychology' },
   { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
   {
     href: '/portal/crm',

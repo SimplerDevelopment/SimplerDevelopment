@@ -11,6 +11,7 @@ import { sendGuestConfirmation, sendHostNotification } from '@/lib/email/booking
 import { createCalendarEvent } from '@/lib/google-calendar';
 import { createZoomMeeting } from '@/lib/zoom';
 import { clients, users } from '@/lib/db/schema';
+import { emitEvent } from '@/lib/automation';
 
 function generateCheckinCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I,O,0,1 for readability
@@ -257,6 +258,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     paymentStatus: needsPayment ? 'pending' : 'free',
     status: needsPayment ? 'confirmed' : 'confirmed', // confirmed even while pending payment — cancelled if payment fails
   }).returning();
+
+  emitEvent('booking.guest_booked', page.clientId, 0, {
+    bookingId: booking.id,
+    bookingPageId: page.id,
+    pageTitle: page.title,
+    pageSlug: page.slug,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    guestPhone: booking.guestPhone,
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    timezone: booking.timezone,
+    groupSize: booking.groupSize,
+    total: total / 100, // dollars (matches create_crm_deal value contract)
+    paymentStatus: needsPayment ? 'pending' : 'free',
+    answers: booking.answers,
+  });
 
   // Save selected add-ons
   if (addOnDetails.length > 0) {
