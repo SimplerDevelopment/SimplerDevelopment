@@ -2649,6 +2649,12 @@ function BookingBlockSettings({ block, onChange }: { block: BookingBlock; onChan
           className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
         <label htmlFor="bookingShowSteps" className="ml-2 text-sm text-foreground">Show Step Indicators</label>
       </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="bookingShowLogo" checked={block.showLogo !== false}
+          onChange={(e) => onChange({ showLogo: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="bookingShowLogo" className="ml-2 text-sm text-foreground">Show Logo</label>
+      </div>
 
       {/* Advanced styling overrides — take precedence over the booking page's branding */}
       <details className="border border-border rounded">

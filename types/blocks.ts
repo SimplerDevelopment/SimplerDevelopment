@@ -595,6 +595,8 @@ export interface BookingBlock extends BaseBlock {
   showPageTitle?: boolean;
   showDescription?: boolean;
   showSteps?: boolean;
+  /** Show the booking page's logo above the form. Defaults to true. */
+  showLogo?: boolean;
   height?: string;
   // Style overrides — take precedence over the booking page's branding
   styleOverrides?: {

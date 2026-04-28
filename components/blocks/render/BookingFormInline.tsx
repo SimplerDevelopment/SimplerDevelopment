@@ -93,6 +93,7 @@ export interface BookingFormInlineProps {
   showPageTitle?: boolean;
   showDescription?: boolean;
   showSteps?: boolean;
+  showLogo?: boolean;
   styleOverrides?: {
     primaryColor?: string;
     backgroundColor?: string;
@@ -138,6 +139,7 @@ export function BookingFormInline({
   showPageTitle = true,
   showDescription = true,
   showSteps = true,
+  showLogo = true,
   styleOverrides,
 }: BookingFormInlineProps) {
   const [pageInfo, setPageInfo] = useState<BookingPageInfo | null>(null);
@@ -513,7 +515,7 @@ export function BookingFormInline({
   return (
     <div className="flex items-start justify-center p-4" style={wrapperStyle}>
       <div className="w-full max-w-lg">
-        {logoUrl && (
+        {showLogo && logoUrl && (
           <div className="flex justify-center mb-6">
             <img src={logoUrl} alt="Logo" className="h-10 object-contain" />
           </div>
