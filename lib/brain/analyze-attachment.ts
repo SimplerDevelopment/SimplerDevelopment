@@ -148,7 +148,12 @@ export async function analyzeMeetingAttachments(
 }> {
   const results = await Promise.allSettled(
     attachments.map(async (a) => {
-      if (a.analysis && !opts.force) return { att: a, tokens: 0 };
+      // Skip if already analyzed — but treat transient failure markers as
+      // "not yet analyzed" so a re-run after fixing credits/network retries.
+      // Permanent skip markers (oversize, unsupported) stay sticky.
+      const isTransientFailure = a.analysis?.startsWith('[analysis failed:');
+      const alreadyDone = a.analysis && !isTransientFailure;
+      if (alreadyDone && !opts.force) return { att: a, tokens: 0 };
       const out = await analyzeAttachment(a);
       if (!out) return { att: { ...a, analysis: '[unsupported file type for analysis]' }, tokens: 0 };
       return { att: { ...a, analysis: out.analysis }, tokens: out.tokensUsed };
