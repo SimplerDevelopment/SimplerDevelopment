@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { clients, users, clientMembers, clientServices, services, clientWebsites, projects, supportTickets, invoices } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
+import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 
 async function requireStaff() {
   const session = await auth();
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
   const [user] = await db.insert(users).values({ name, email, password: hashed, role: 'client', active: true }).returning();
   const [client] = await db.insert(clients).values({ userId: user.id, company, phone, website, address, notes }).returning();
   await db.insert(clientMembers).values({ clientId: client.id, userId: user.id, role: 'owner' });
+  await ensureDefaultPipeline(client.id);
 
   return NextResponse.json({ success: true, data: { user, client } });
 }

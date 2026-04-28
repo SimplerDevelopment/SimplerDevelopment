@@ -4,6 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { crmPipelines, crmPipelineStages } from '@/lib/db/schema';
 import { eq, asc, inArray } from 'drizzle-orm';
+import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 
 export async function GET() {
   const session = await auth();
@@ -14,6 +15,9 @@ export async function GET() {
   const client = await getPortalClient(userId);
   if (!client)
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
+
+  // Auto-seed a default pipeline for clients who don't have one yet
+  await ensureDefaultPipeline(client.id);
 
   const pipelines = await db
     .select()
