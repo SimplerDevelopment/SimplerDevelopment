@@ -46,6 +46,7 @@ import { TemplateLibrary } from '@/components/blocks/TemplateLibrary';
 // Sourced from lib/blocks/registry.ts so NestedBlockInserter and other pickers
 // can reference the same list without importing from a UI component.
 import { BUILT_IN_BLOCK_TYPES } from '@/lib/blocks/registry';
+import { StyleVariantsButton } from '@/components/blocks/visual/StyleVariantsButton';
 
 const BLOCK_ICON_MAP: Record<string, string> = {};
 for (const bt of BUILT_IN_BLOCK_TYPES) BLOCK_ICON_MAP[bt.type] = bt.icon;
@@ -1069,11 +1070,20 @@ export function VisualEditorShell({
                   <BlockContentEditor block={selectedBlock} onUpdate={(updates) => handleUpdateBlock(selectedBlock.id, updates)} siteId={siteId} />
                 )
               ) : (
-                <ElementStyleEditor
-                  block={selectedBlock}
-                  onChange={(updates) => handleUpdateBlock(selectedBlock.id, updates)}
-                  currentViewport={currentViewport}
-                />
+                <>
+                  {siteId !== undefined && (
+                    <StyleVariantsButton
+                      block={selectedBlock}
+                      siteId={siteId}
+                      onApply={(delta) => handleUpdateBlock(selectedBlock.id, delta as Partial<Block>)}
+                    />
+                  )}
+                  <ElementStyleEditor
+                    block={selectedBlock}
+                    onChange={(updates) => handleUpdateBlock(selectedBlock.id, updates)}
+                    currentViewport={currentViewport}
+                  />
+                </>
               )}
             </div>
           </>

@@ -19,6 +19,7 @@ import type { SurveyFieldDef, ProposalLineItem, AutomationTrigger, AutomationCon
 import crypto from 'crypto';
 import { eq, and, desc, asc, sql, isNull, or, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation/event-bus';
+import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
 import type Anthropic from '@anthropic-ai/sdk';
 
 // ─── TOOL DEFINITIONS ────────────────────────────────────────────────────────
@@ -2391,14 +2392,8 @@ export async function executePortalTool(
       let stageId = input.stage_id ? Number(input.stage_id) : null;
 
       if (!pipelineId) {
-        const [defaultPipeline] = await db.select({ id: crmPipelines.id }).from(crmPipelines)
-          .where(eq(crmPipelines.clientId, clientId))
-          .orderBy(desc(crmPipelines.isDefault), asc(crmPipelines.id))
-          .limit(1);
-        if (!defaultPipeline) {
-          return { error: 'No CRM pipeline configured. Create one in /portal/crm before enabling auto-deal automations.' };
-        }
-        pipelineId = defaultPipeline.id;
+        const pipeline = await ensureDefaultPipeline(clientId);
+        pipelineId = pipeline.id;
       }
 
       if (!stageId) {
