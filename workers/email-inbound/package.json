@@ -9,5 +9,8 @@
     "@cloudflare/workers-types": "^4.20241018.0",
     "typescript": "^5.5.0",
     "wrangler": "^3.80.0"
+  },
+  "dependencies": {
+    "postal-mime": "^2.7.4"
   }
 }
