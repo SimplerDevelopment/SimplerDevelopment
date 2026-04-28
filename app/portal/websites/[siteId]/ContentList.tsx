@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -39,6 +39,8 @@ export default function ContentList({
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState('');
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [, startTransition] = useTransition();
 
   const setType = (type: string | null) => {
     if (type) {
@@ -47,6 +49,24 @@ export default function ContentList({
       router.push(pathname);
     }
   };
+
+  async function handleDelete(post: Post) {
+    if (!confirm(`Delete "${post.title || 'Untitled'}"? This cannot be undone.`)) return;
+    setDeleting(post.id);
+    try {
+      const res = await fetch(`/api/portal/cms/websites/${siteId}/posts/${post.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || 'Failed to delete entry');
+        return;
+      }
+      startTransition(() => router.refresh());
+    } catch {
+      alert('Network error while deleting');
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   const filteredPosts = search
     ? posts.filter(p =>
@@ -129,10 +149,10 @@ export default function ContentList({
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <ul className="divide-y divide-border">
             {filteredPosts.map(post => (
-              <li key={post.id}>
+              <li key={post.id} className="flex items-stretch hover:bg-muted/20 transition-colors group">
                 <Link
                   href={`/portal/websites/${siteId}/posts/${post.id}/edit`}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors group"
+                  className="flex-1 flex items-center gap-4 px-4 py-3 min-w-0"
                 >
                   <span className="material-icons text-muted-foreground text-xl shrink-0">
                     {postTypeIcon[post.postType] || 'description'}
@@ -155,11 +175,20 @@ export default function ContentList({
                     <span className="text-xs text-muted-foreground">
                       {new Date(post.updatedAt).toLocaleDateString()}
                     </span>
-                    <span className="material-icons text-muted-foreground text-base opacity-0 group-hover:opacity-100 transition-opacity">
-                      edit
-                    </span>
                   </div>
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(post)}
+                  disabled={deleting === post.id}
+                  className="px-3 flex items-center text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 disabled:opacity-50 transition-opacity"
+                  title="Delete entry"
+                  aria-label={`Delete ${post.title || 'entry'}`}
+                >
+                  <span className="material-icons text-base">
+                    {deleting === post.id ? 'hourglass_top' : 'delete_outline'}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
