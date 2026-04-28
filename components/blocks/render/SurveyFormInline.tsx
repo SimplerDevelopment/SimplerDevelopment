@@ -314,16 +314,20 @@ export function SurveyFormInline({
   } as React.CSSProperties;
 
   if (submitted) {
-    // If the survey has a recommendation config, render it after the thank-you
-    // — same component the pitch-deck render path uses, so the result screen
-    // looks identical whether the survey is taken standalone (/s/<slug>) or
-    // embedded in a deck.
+    // Render the recommendation (when configured) below the thank-you card,
+    // using the same component the pitch deck uses. The renderer was designed
+    // for a deck's themed full-screen context, so we wrap it in a self-
+    // contained white card and force a light theme — keeps it readable on
+    // either light or dark page backgrounds (the standalone survey page uses
+    // bg-gray-50 dark:bg-gray-950, which would render dark-on-dark otherwise).
     const rec = survey.recommendation;
+    const recCardBg = cardBg || '#ffffff';
+    const recTextColor = txtColor || '#111827';
     const recTheme: PitchDeckTheme | null = rec ? {
       primaryColor: accent,
       accentColor: accentColor || accent,
-      backgroundColor: bgColor || '#ffffff',
-      textColor: txtColor || '#111827',
+      backgroundColor: recCardBg,
+      textColor: recTextColor,
       headingFont: headingFont || 'Inter',
       bodyFont: bodyFont || 'Inter',
       logo: logoUrl,
@@ -343,8 +347,15 @@ export function SurveyFormInline({
         </div>
 
         {rec && recTheme && (
-          <div className="w-full max-w-4xl">
-            <SurveyRecommendationRenderer config={rec} answers={answers} theme={recTheme} />
+          <div
+            className="w-full max-w-3xl rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden"
+            style={{ backgroundColor: recCardBg, color: recTextColor }}
+          >
+            {/* The renderer assumes a full-screen deck slide (min-h-screen +
+                large vertical padding). We override that here to fit a card. */}
+            <div className="[&>div]:!min-h-0 [&>div]:!py-8 [&>div]:!items-stretch">
+              <SurveyRecommendationRenderer config={rec} answers={answers} theme={recTheme} />
+            </div>
           </div>
         )}
       </div>
