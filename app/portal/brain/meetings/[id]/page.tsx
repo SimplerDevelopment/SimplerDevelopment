@@ -11,6 +11,13 @@ interface MeetingParticipant {
   roleInMeeting: string | null;
 }
 
+interface MeetingAttachment {
+  key: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 interface Meeting {
   id: number;
   title: string;
@@ -26,12 +33,25 @@ interface Meeting {
   companyId: number | null;
   dealId: number | null;
   participants: MeetingParticipant[];
+  /** Set on inbound-email meetings — populated by the worker. */
+  sourceMetadata?: {
+    from?: string;
+    to?: string;
+    senderEmail?: string;
+    attachments?: MeetingAttachment[];
+  } | null;
   link?: {
     type: 'company' | 'deal';
     id: number;
     name: string;
     overlayId: number | null;
   };
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 const STATUS_LABELS: Record<Meeting['status'], { label: string; tone: string }> = {
@@ -209,6 +229,34 @@ export default function BrainMeetingDetailPage() {
                 <span className="material-icons text-sm">person</span>
                 {p.name}{p.email ? ` <${p.email}>` : ''}
               </span>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {(meeting.sourceMetadata?.attachments?.length ?? 0) > 0 && (
+        <Section title={`Attachments (${meeting.sourceMetadata!.attachments!.length})`} icon="attach_file">
+          <div className="space-y-1.5">
+            {meeting.sourceMetadata!.attachments!.map((a, idx) => (
+              <a
+                key={a.key}
+                href={`/api/portal/brain/meetings/${meeting.id}/attachments/${idx}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2 rounded-md border border-border hover:bg-accent transition-colors"
+              >
+                <span className="material-icons text-base text-muted-foreground">
+                  {a.contentType.startsWith('image/') ? 'image' :
+                   a.contentType === 'application/pdf' ? 'picture_as_pdf' :
+                   a.contentType.startsWith('video/') ? 'videocam' :
+                   'description'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{a.filename}</p>
+                  <p className="text-xs text-muted-foreground">{a.contentType} · {formatBytes(a.size)}</p>
+                </div>
+                <span className="material-icons text-sm text-muted-foreground">download</span>
+              </a>
             ))}
           </div>
         </Section>

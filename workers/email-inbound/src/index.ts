@@ -36,7 +36,62 @@ interface OutboundAttachment {
 // long quoted threads can run several MB on their own.
 const MAX_BODY_BYTES = 1_000_000; // 1 MB
 
+// ─── HMAC helpers (used by the fetch handler that streams R2 attachments) ───
+async function hmacHex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
 export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // GET /attachment?key=<r2-key>&exp=<unix-ts>&sig=<hmac-hex>
+    // The Next.js API generates these short-lived signed URLs after verifying
+    // session + meeting ownership; the worker only checks the signature, then
+    // streams the R2 object back.
+    const url = new URL(request.url);
+    if (url.pathname !== '/attachment') {
+      return new Response('Not found', { status: 404 });
+    }
+    const key = url.searchParams.get('key');
+    const exp = url.searchParams.get('exp');
+    const sig = url.searchParams.get('sig');
+    if (!key || !exp || !sig) return new Response('Bad request', { status: 400 });
+
+    const expNum = parseInt(exp, 10);
+    if (!Number.isFinite(expNum) || expNum < Math.floor(Date.now() / 1000)) {
+      return new Response('Expired', { status: 410 });
+    }
+
+    const expected = await hmacHex(env.INBOUND_EMAIL_SECRET, `${key}\n${exp}`);
+    if (!await constantTimeEqual(expected, sig)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    const obj = await env.ATTACHMENTS.get(key);
+    if (!obj) return new Response('Not found', { status: 404 });
+
+    const filename = key.split('/').pop() || 'attachment';
+    const headers = new Headers();
+    if (obj.httpMetadata?.contentType) headers.set('Content-Type', obj.httpMetadata.contentType);
+    headers.set('Content-Length', String(obj.size));
+    // inline so images render in-browser; the download button on the API side
+    // can override this with `?download=1` if we ever want force-download UX.
+    headers.set('Content-Disposition', `inline; filename="${filename}"`);
+    headers.set('Cache-Control', 'private, max-age=300');
+    return new Response(obj.body, { headers });
+  },
+
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
     const from = message.from;
     const to = message.to;
