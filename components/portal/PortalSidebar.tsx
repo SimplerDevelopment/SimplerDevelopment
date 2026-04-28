@@ -51,7 +51,19 @@ interface NavService {
 const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
-  { href: '/portal/brain', label: 'Company Brain', icon: 'psychology' },
+  {
+    href: '/portal/brain',
+    label: 'Company Brain',
+    icon: 'psychology',
+    exact: true,
+    children: [
+      { href: '/portal/brain', label: 'Dashboard', icon: 'dashboard', exact: true },
+      { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work' },
+      { href: '/portal/brain/meetings', label: 'Meetings', icon: 'forum' },
+      { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist' },
+      { href: '/portal/brain/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
   { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
   {
     href: '/portal/crm',

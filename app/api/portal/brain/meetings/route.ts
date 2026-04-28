@@ -43,11 +43,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: `Adapter "${adapterId}" is not available.` }, { status: 400 });
   }
 
+  // Optional CRM-relationship link at creation time.
+  const link: { companyId?: number | null; dealId?: number | null } = {};
+  if (typeof body.companyId === 'number') link.companyId = body.companyId;
+  if (typeof body.dealId === 'number') link.dealId = body.dealId;
+  if (link.companyId != null && link.dealId != null) {
+    return NextResponse.json({ success: false, message: 'A meeting can link to a company OR a deal, not both.' }, { status: 400 });
+  }
+
   try {
     const meeting = await createMeetingFromAdapter({
       adapterId,
       input,
       ctx: { clientId: client.id, userId, profile },
+      link: (link.companyId != null || link.dealId != null) ? link : undefined,
     });
     return NextResponse.json({ success: true, data: meeting });
   } catch (err) {

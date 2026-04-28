@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import {
   brainAiReviewItems,
   brainAuditLogs,
+  brainMeetings,
   brainTasks,
   type BrainReviewItemStatus,
   type BrainReviewItemPayload,
@@ -86,9 +87,25 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
     switch (item.proposedType) {
       case 'task': {
         const taskPayload = payload as BrainReviewItemTaskPayload;
+        // If the proposal came from a meeting, inherit the meeting's
+        // CRM relationship link so this task surfaces on the relationship page.
+        let inheritedCompanyId: number | null = null;
+        let inheritedDealId: number | null = null;
+        if (item.sourceType === 'meeting') {
+          const [m] = await tx.select({
+            companyId: brainMeetings.companyId,
+            dealId: brainMeetings.dealId,
+          }).from(brainMeetings).where(eq(brainMeetings.id, item.sourceId)).limit(1);
+          if (m) {
+            inheritedCompanyId = m.companyId;
+            inheritedDealId = m.dealId;
+          }
+        }
         const [task] = await tx.insert(brainTasks).values({
           clientId: args.clientId,
           meetingId: item.sourceType === 'meeting' ? item.sourceId : null,
+          companyId: inheritedCompanyId,
+          dealId: inheritedDealId,
           title: (taskPayload.title || 'Untitled task').slice(0, 500),
           description: taskPayload.description,
           ownerId: null, // Phase 2: don't auto-resolve owner; admin can edit later

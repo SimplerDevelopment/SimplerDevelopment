@@ -33,10 +33,11 @@ export interface MeetingSourceAdapter<Input = unknown> {
 }
 
 import { pasteAdapter } from './paste';
+import { uploadAdapter } from './upload';
 
 const ADAPTERS: Record<MeetingSourceId, MeetingSourceAdapter | null> = {
   paste: pasteAdapter as MeetingSourceAdapter,
-  upload: null,                 // Phase 2b
+  upload: uploadAdapter as MeetingSourceAdapter,
   google_doc: null,             // Phase 2c
   google_drive_watch: null,     // Phase 5.5
   google_meet_recording: null,  // Phase 5.5

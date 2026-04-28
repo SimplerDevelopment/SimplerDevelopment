@@ -2,6 +2,9 @@ import { db } from '@/lib/db';
 import {
   brainMeetings,
   brainMeetingParticipants,
+  brainRelationshipOverlays,
+  crmCompanies,
+  crmDeals,
   type BrainMeetingStatus,
 } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -13,6 +16,14 @@ export type BrainMeetingParticipant = typeof brainMeetingParticipants.$inferSele
 
 interface MeetingWithParticipants extends BrainMeeting {
   participants: BrainMeetingParticipant[];
+  /** Set when the meeting links to a CRM record. */
+  link?: {
+    type: 'company' | 'deal';
+    id: number;
+    name: string;
+    /** The Brain overlay id if one exists for this CRM record. */
+    overlayId: number | null;
+  };
 }
 
 export async function listMeetings(clientId: number, opts?: { status?: BrainMeetingStatus; limit?: number }): Promise<BrainMeeting[]> {
@@ -32,13 +43,37 @@ export async function getMeeting(clientId: number, meetingId: number): Promise<M
   if (!row) return null;
   const participants = await db.select().from(brainMeetingParticipants)
     .where(eq(brainMeetingParticipants.meetingId, meetingId));
-  return { ...row, participants };
+
+  let link: MeetingWithParticipants['link'];
+  if (row.companyId !== null) {
+    const [co] = await db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
+      .where(eq(crmCompanies.id, row.companyId)).limit(1);
+    if (co) {
+      const [overlay] = await db.select({ id: brainRelationshipOverlays.id }).from(brainRelationshipOverlays)
+        .where(and(eq(brainRelationshipOverlays.clientId, clientId), eq(brainRelationshipOverlays.companyId, co.id)))
+        .limit(1);
+      link = { type: 'company', id: co.id, name: co.name, overlayId: overlay?.id ?? null };
+    }
+  } else if (row.dealId !== null) {
+    const [dl] = await db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
+      .where(eq(crmDeals.id, row.dealId)).limit(1);
+    if (dl) {
+      const [overlay] = await db.select({ id: brainRelationshipOverlays.id }).from(brainRelationshipOverlays)
+        .where(and(eq(brainRelationshipOverlays.clientId, clientId), eq(brainRelationshipOverlays.dealId, dl.id)))
+        .limit(1);
+      link = { type: 'deal', id: dl.id, name: dl.title, overlayId: overlay?.id ?? null };
+    }
+  }
+
+  return { ...row, participants, link };
 }
 
 interface CreateFromAdapterArgs {
   adapterId: string;
   input: unknown;
   ctx: AdapterContext;
+  /** Optional CRM-relationship link set at creation time. */
+  link?: { companyId?: number | null; dealId?: number | null };
 }
 
 /**
@@ -49,7 +84,7 @@ interface CreateFromAdapterArgs {
  * Idempotent on (clientId, sourceRef): re-importing the same source updates
  * the existing draft instead of creating a duplicate.
  */
-export async function createMeetingFromAdapter({ adapterId, input, ctx }: CreateFromAdapterArgs): Promise<BrainMeeting> {
+export async function createMeetingFromAdapter({ adapterId, input, ctx, link }: CreateFromAdapterArgs): Promise<BrainMeeting> {
   const adapter = getMeetingAdapter(adapterId);
   if (!adapter) throw new Error(`Unknown meeting source adapter: ${adapterId}`);
 
@@ -78,6 +113,8 @@ export async function createMeetingFromAdapter({ adapterId, input, ctx }: Create
   } else {
     const [created] = await db.insert(brainMeetings).values({
       clientId: ctx.clientId,
+      companyId: link?.companyId ?? null,
+      dealId: link?.dealId ?? null,
       title: titleTrimmed,
       meetingDate: normalized.meetingDate,
       transcript: normalized.transcript,
@@ -113,6 +150,20 @@ export async function createMeetingFromAdapter({ adapterId, input, ctx }: Create
   });
 
   return meeting;
+}
+
+export async function linkMeeting(
+  clientId: number,
+  meetingId: number,
+  link: { companyId?: number | null; dealId?: number | null },
+): Promise<BrainMeeting | null> {
+  const update: Partial<typeof brainMeetings.$inferInsert> = { updatedAt: new Date() };
+  if (link.companyId !== undefined) update.companyId = link.companyId;
+  if (link.dealId !== undefined) update.dealId = link.dealId;
+  const [updated] = await db.update(brainMeetings).set(update)
+    .where(and(eq(brainMeetings.id, meetingId), eq(brainMeetings.clientId, clientId)))
+    .returning();
+  return updated ?? null;
 }
 
 export async function updateMeetingStatus(

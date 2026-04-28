@@ -9,12 +9,10 @@ interface LogAuditArgs {
   entityType?: string;
   entityId?: number;
   metadata?: Record<string, unknown>;
-  tx?: typeof db; // optional transaction
 }
 
 export async function logAudit(args: LogAuditArgs): Promise<void> {
-  const conn = args.tx ?? db;
-  await conn.insert(brainAuditLogs).values({
+  await db.insert(brainAuditLogs).values({
     clientId: args.clientId,
     actorId: args.actorId ?? null,
     action: args.action,

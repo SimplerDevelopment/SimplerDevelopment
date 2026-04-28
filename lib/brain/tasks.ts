@@ -1,6 +1,13 @@
 import { db } from '@/lib/db';
-import { brainTasks, type BrainTaskStatus } from '@/lib/db/schema';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import {
+  brainAuditLogs,
+  brainTasks,
+  kanbanCards,
+  kanbanColumns,
+  projects,
+  type BrainTaskStatus,
+} from '@/lib/db/schema';
+import { eq, and, desc, inArray, max } from 'drizzle-orm';
 import { logAudit } from './audit';
 
 export type BrainTask = typeof brainTasks.$inferSelect;
@@ -126,4 +133,137 @@ export async function deleteTask(clientId: number, taskId: number, actorId: numb
     });
   }
   return result.length > 0;
+}
+
+interface PromoteToKanbanArgs {
+  clientId: number;
+  taskId: number;
+  projectId: number;
+  /** Column to drop the new card into. Defaults to the lowest-order non-done column. */
+  columnId?: number;
+  actorId: number;
+}
+
+interface PromoteResult {
+  task: BrainTask;
+  cardId: number;
+  projectId: number;
+  columnId: number;
+}
+
+/**
+ * Promote a Brain task into a project kanban board. Inserts a kanban_cards row
+ * in the chosen project + column and links the brain_task to it. Idempotent:
+ * if the task is already linked, returns the existing link without creating a
+ * duplicate.
+ */
+export async function promoteTaskToKanban(args: PromoteToKanbanArgs): Promise<PromoteResult> {
+  return db.transaction(async (tx) => {
+    // 1. Verify task belongs to client.
+    const [task] = await tx.select().from(brainTasks)
+      .where(and(eq(brainTasks.id, args.taskId), eq(brainTasks.clientId, args.clientId)))
+      .limit(1);
+    if (!task) throw new Error('Brain task not found.');
+    if (task.linkedKanbanCardId) {
+      // Idempotent — already promoted. Return existing link.
+      const [existing] = await tx.select().from(kanbanCards)
+        .where(eq(kanbanCards.id, task.linkedKanbanCardId)).limit(1);
+      if (existing) {
+        return { task, cardId: existing.id, projectId: existing.projectId, columnId: existing.columnId };
+      }
+      // Stale link — drop it and re-promote.
+    }
+
+    // 2. Verify project belongs to client.
+    const [project] = await tx.select().from(projects)
+      .where(and(eq(projects.id, args.projectId), eq(projects.clientId, args.clientId)))
+      .limit(1);
+    if (!project) throw new Error('Project not found in this workspace.');
+
+    // 3. Resolve target column.
+    let columnId = args.columnId;
+    if (columnId) {
+      const [col] = await tx.select().from(kanbanColumns)
+        .where(and(eq(kanbanColumns.id, columnId), eq(kanbanColumns.projectId, args.projectId)))
+        .limit(1);
+      if (!col) throw new Error('Column not found in selected project.');
+    } else {
+      const cols = await tx.select().from(kanbanColumns)
+        .where(eq(kanbanColumns.projectId, args.projectId))
+        .orderBy(kanbanColumns.order);
+      const firstOpen = cols.find((c) => !c.isDone) ?? cols[0];
+      if (!firstOpen) throw new Error('Project has no kanban columns yet.');
+      columnId = firstOpen.id;
+    }
+
+    // 4. Compute next sort order in the column.
+    const [maxOrder] = await tx.select({ m: max(kanbanCards.order) }).from(kanbanCards)
+      .where(eq(kanbanCards.columnId, columnId));
+    const nextOrder = (maxOrder?.m ?? -1) + 1;
+
+    // 5. Insert kanban card.
+    const cardPriority = ['low', 'medium', 'high', 'urgent'].includes(task.priority) ? task.priority : 'medium';
+    const [card] = await tx.insert(kanbanCards).values({
+      columnId,
+      projectId: args.projectId,
+      title: task.title,
+      description: task.description ?? null,
+      priority: cardPriority,
+      dueDate: task.dueDate,
+      order: nextOrder,
+      createdBy: args.actorId,
+    }).returning();
+
+    // 6. Link the brain task to the new card.
+    const [updatedTask] = await tx.update(brainTasks).set({
+      linkedKanbanCardId: card.id,
+      updatedAt: new Date(),
+    }).where(eq(brainTasks.id, args.taskId)).returning();
+
+    await tx.insert(brainAuditLogs).values({
+      clientId: args.clientId,
+      actorId: args.actorId,
+      action: 'task.promoted_to_kanban',
+      entityType: 'brain_task',
+      entityId: args.taskId,
+      metadata: { kanbanCardId: card.id, projectId: args.projectId, columnId },
+    });
+
+    return { task: updatedTask, cardId: card.id, projectId: args.projectId, columnId };
+  });
+}
+
+/**
+ * List the projects + columns the user can promote tasks into. Lightweight —
+ * one row per project with its columns inlined.
+ */
+export async function listPromotionTargets(clientId: number): Promise<{
+  id: number;
+  name: string;
+  projectKey: string | null;
+  status: string;
+  columns: { id: number; name: string; isDone: boolean }[];
+}[]> {
+  const rows = await db.select({
+    id: projects.id,
+    name: projects.name,
+    projectKey: projects.projectKey,
+    status: projects.status,
+  }).from(projects)
+    .where(and(eq(projects.clientId, clientId), inArray(projects.status, ['active', 'paused'])))
+    .orderBy(projects.name);
+
+  if (rows.length === 0) return [];
+
+  const projectIds = rows.map((r) => r.id);
+  const allColumns = await db.select().from(kanbanColumns)
+    .where(inArray(kanbanColumns.projectId, projectIds))
+    .orderBy(kanbanColumns.order);
+
+  return rows.map((r) => ({
+    ...r,
+    columns: allColumns
+      .filter((c) => c.projectId === r.id)
+      .map((c) => ({ id: c.id, name: c.name, isDone: c.isDone })),
+  }));
 }
