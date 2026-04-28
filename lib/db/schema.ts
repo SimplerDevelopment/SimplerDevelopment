@@ -1174,6 +1174,64 @@ export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── GOOGLE WORKSPACE INTEGRATION ─────────────────────────────────────────
+// See: .planning/milestones/google-workspace
+// Per-client (shared org connection) and per-user (personal connection within a client).
+
+export const googleWorkspaceClientConnections = pgTable('google_workspace_client_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
+  googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  syncSettings: jsonb('sync_settings').$type<{
+    aggressiveness: 'off' | 'passive' | 'moderate' | 'aggressive';
+    storeBodies: boolean;
+  }>().notNull().default({ aggressiveness: 'moderate', storeBodies: true }),
+  gmailHistoryId: varchar('gmail_history_id', { length: 64 }),
+  driveStartPageToken: varchar('drive_start_page_token', { length: 128 }),
+  calendarSyncToken: text('calendar_sync_token'),
+  contactsSyncToken: text('contacts_sync_token'),
+  lastSyncAt: timestamp('last_sync_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const googleWorkspaceUserConnections = pgTable('google_workspace_user_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  googleAccountEmail: varchar('google_account_email', { length: 320 }).notNull(),
+  googleAccountId: varchar('google_account_id', { length: 64 }).notNull(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  syncSettings: jsonb('sync_settings').$type<{
+    aggressiveness: 'off' | 'passive' | 'moderate' | 'aggressive';
+    storeBodies: boolean;
+  }>().notNull().default({ aggressiveness: 'passive', storeBodies: false }),
+  gmailHistoryId: varchar('gmail_history_id', { length: 64 }),
+  driveStartPageToken: varchar('drive_start_page_token', { length: 128 }),
+  calendarSyncToken: text('calendar_sync_token'),
+  contactsSyncToken: text('contacts_sync_token'),
+  lastSyncAt: timestamp('last_sync_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clientUserUnique: uniqueIndex('google_workspace_user_connections_client_user_unique').on(table.clientId, table.userId),
+}));
+
+export type GoogleWorkspaceClientConnection = typeof googleWorkspaceClientConnections.$inferSelect;
+export type NewGoogleWorkspaceClientConnection = typeof googleWorkspaceClientConnections.$inferInsert;
+export type GoogleWorkspaceUserConnection = typeof googleWorkspaceUserConnections.$inferSelect;
+export type NewGoogleWorkspaceUserConnection = typeof googleWorkspaceUserConnections.$inferInsert;
+
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
@@ -1994,6 +2052,7 @@ export const crmActivities = pgTable('crm_activities', {
   dueDate: timestamp('due_date'),
   completedAt: timestamp('completed_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  viaUserId: integer('via_user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
