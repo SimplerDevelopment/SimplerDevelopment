@@ -21,6 +21,16 @@ interface MeetingAttachment {
   analysis?: string;
 }
 
+interface MeetingLink {
+  url: string;
+  finalUrl?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  error?: string;
+}
+
 interface Meeting {
   id: number;
   title: string;
@@ -42,6 +52,7 @@ interface Meeting {
     to?: string;
     senderEmail?: string;
     attachments?: MeetingAttachment[];
+    links?: MeetingLink[];
   } | null;
   link?: {
     type: 'company' | 'deal';
@@ -269,6 +280,54 @@ export default function BrainMeetingDetailPage() {
                   </div>
                 )}
               </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {(meeting.sourceMetadata?.links?.length ?? 0) > 0 && (
+        <Section title={`Links (${meeting.sourceMetadata!.links!.length})`} icon="link">
+          <div className="space-y-2">
+            {meeting.sourceMetadata!.links!.map((l) => (
+              <a
+                key={l.url}
+                href={l.finalUrl || l.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex gap-3 p-3 rounded-md border border-border hover:bg-accent transition-colors group"
+              >
+                {l.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={l.image}
+                    alt=""
+                    className="w-20 h-20 object-cover rounded shrink-0 bg-muted"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded bg-muted flex items-center justify-center shrink-0">
+                    <span className="material-icons text-muted-foreground">link</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  {l.siteName && (
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
+                      {l.siteName}
+                    </p>
+                  )}
+                  <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                    {l.title || l.url}
+                  </p>
+                  {l.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                      {l.description}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/70 mt-1 truncate">
+                    {l.error ? `[failed: ${l.error}]` : (l.finalUrl || l.url)}
+                  </p>
+                </div>
+              </a>
             ))}
           </div>
         </Section>

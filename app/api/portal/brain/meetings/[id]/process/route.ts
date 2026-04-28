@@ -4,6 +4,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { getMeeting } from '@/lib/brain/meetings';
 import { processMeetingTranscript } from '@/lib/ai/meeting-processor';
 import { analyzeMeetingAttachments, type AttachmentLike } from '@/lib/brain/analyze-attachment';
+import { extractAndFetchLinks, type LinkMeta } from '@/lib/brain/extract-links';
 import { db } from '@/lib/db';
 import { brainMeetings } from '@/lib/db/schema';
 
@@ -24,8 +25,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ success: false, message: 'Meeting is already processing.' }, { status: 409 });
   }
 
-  const meta = (meeting.sourceMetadata as { attachments?: (AttachmentLike & { analysis?: string })[] } | null) ?? {};
+  const meta = (meeting.sourceMetadata as {
+    attachments?: (AttachmentLike & { analysis?: string })[];
+    links?: LinkMeta[];
+  } | null) ?? {};
   const attachments = meta.attachments ?? [];
+  const existingLinks = meta.links ?? [];
   const hasTranscript = !!meeting.transcript && meeting.transcript.trim().length > 0;
   const hasAttachments = attachments.length > 0;
 
@@ -34,15 +39,25 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   try {
-    // Step 1: analyze attachments first (cheap, fast, independent of transcript).
-    // Result is written back to source_metadata so the UI shows it under each
-    // attachment regardless of whether transcript processing succeeds.
-    let attachmentResult: { attachments: typeof attachments; totalTokens: number } | null = null;
-    if (hasAttachments) {
-      attachmentResult = await analyzeMeetingAttachments(attachments);
+    // Step 1: enrich the meeting with attachment analyses and link previews.
+    // Both are cheap, fast, independent of transcript, and written back to
+    // source_metadata so the UI surfaces them even if step 2 (transcript AI
+    // processing) fails. Run both in parallel.
+    const [attachmentResult, linkResult] = await Promise.all([
+      hasAttachments ? analyzeMeetingAttachments(attachments) : Promise.resolve(null),
+      hasTranscript
+        ? extractAndFetchLinks(meeting.transcript!, existingLinks)
+        : Promise.resolve(existingLinks),
+    ]);
+
+    if (attachmentResult || linkResult.length > 0 || existingLinks.length > 0) {
       await db.update(brainMeetings)
         .set({
-          sourceMetadata: { ...meta, attachments: attachmentResult.attachments },
+          sourceMetadata: {
+            ...meta,
+            ...(attachmentResult ? { attachments: attachmentResult.attachments } : {}),
+            links: linkResult,
+          },
           updatedAt: new Date(),
         })
         .where(eq(brainMeetings.id, meetingId));
@@ -68,6 +83,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           summary: out.extraction.summary,
           attachmentsAnalyzed: attachmentResult?.attachments.length ?? 0,
           attachmentTokens: attachmentResult?.totalTokens ?? 0,
+          linksExtracted: linkResult.length,
         },
       });
     }
