@@ -173,6 +173,16 @@ export default function BrainSettingsPage() {
           <Row label="Brain email address">
             <EmailIngestField token={profile.emailIngestToken} />
           </Row>
+          <Row
+            label="Auto-process on arrival"
+            help="Run the full AI pipeline (attachment analysis, link previews, transcript summary) automatically when an email lands. Off by default — meetings stay in Draft until you click Process."
+          >
+            <Toggle
+              checked={profile.autoProcessEmail}
+              onChange={(v) => save({ autoProcessEmail: v })}
+              disabled={saving}
+            />
+          </Row>
         </Section>
       )}
 

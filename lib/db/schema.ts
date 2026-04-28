@@ -2616,6 +2616,10 @@ export const brainProfiles = pgTable('brain_profiles', {
   // `brain+<token>@simplerdevelopment.com` is routed to this profile. Treat
   // as a shared secret — rotate to revoke external sender access.
   emailIngestToken: varchar('email_ingest_token', { length: 64 }),
+  // When true, inbound brain emails skip the manual Process step — the AI
+  // pipeline (attachment analysis, link OG previews, transcript summary)
+  // runs automatically as the meeting is created.
+  autoProcessEmail: boolean('auto_process_email').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

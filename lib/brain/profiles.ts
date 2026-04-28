@@ -59,6 +59,7 @@ interface UpdateBrainProfileInput {
   name?: string;
   industryTemplate?: IndustryTemplateId;
   enabled?: boolean;
+  autoProcessEmail?: boolean;
   defaultConfidentiality?: 'standard' | 'restricted' | 'confidential';
   enabledModules?: Partial<BrainEnabledModules>;
   serviceLines?: string[];
@@ -73,6 +74,7 @@ export async function updateBrainProfile(clientId: number, input: UpdateBrainPro
     ...(input.name !== undefined && { name: input.name }),
     ...(input.industryTemplate !== undefined && { industryTemplate: input.industryTemplate }),
     ...(input.enabled !== undefined && { enabled: input.enabled }),
+    ...(input.autoProcessEmail !== undefined && { autoProcessEmail: input.autoProcessEmail }),
     ...(input.defaultConfidentiality !== undefined && { defaultConfidentiality: input.defaultConfidentiality }),
     ...(input.serviceLines !== undefined && { serviceLines: input.serviceLines }),
     ...(input.enabledModules !== undefined && {

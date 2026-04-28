@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { db } from '@/lib/db';
 import { clients, clientMembers, users, aiConversations, aiMessages, brainProfiles, brainMeetings } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resend } from '@/lib/email';
+import { processBrainMeeting } from '@/lib/brain/process-meeting';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('ANTHROPIC_API_KEY is not set');
@@ -295,7 +296,12 @@ async function handleBrainIngest(args: {
   }
 
   const [profile] = await db
-    .select({ id: brainProfiles.id, clientId: brainProfiles.clientId, enabled: brainProfiles.enabled })
+    .select({
+      id: brainProfiles.id,
+      clientId: brainProfiles.clientId,
+      enabled: brainProfiles.enabled,
+      autoProcessEmail: brainProfiles.autoProcessEmail,
+    })
     .from(brainProfiles)
     .where(eq(brainProfiles.emailIngestToken, tag))
     .limit(1);
@@ -315,7 +321,7 @@ async function handleBrainIngest(args: {
   // Upsert by (client_id, source_ref). On retry, we update transcript +
   // metadata in case the worker re-sent (e.g. attachment upload partially
   // failed and is being retried).
-  await db
+  const [meetingRow] = await db
     .insert(brainMeetings)
     .values({
       clientId: profile.clientId,
@@ -354,8 +360,40 @@ async function handleBrainIngest(args: {
         },
         updatedAt: new Date(),
       },
-    });
+    })
+    .returning({ id: brainMeetings.id });
 
   console.log(`[inbound:brain] ingested for client=${profile.clientId} subject="${subject?.slice(0, 60)}" attachments=${attachments.length}`);
+
+  // Auto-process: when the brain profile opted in, run the full AI pipeline
+  // (attachment analysis, link OG previews, transcript summary) after the
+  // response is sent. `after()` keeps the function alive past the worker's
+  // POST without making the worker wait. Resolve the owning user so the
+  // transcript processor can attribute the AI job to a real account.
+  if (profile.autoProcessEmail && meetingRow) {
+    const meetingId = meetingRow.id;
+    const clientId = profile.clientId;
+    after(async () => {
+      try {
+        const [client] = await db
+          .select({ userId: clients.userId })
+          .from(clients)
+          .where(eq(clients.id, clientId))
+          .limit(1);
+        if (!client) {
+          console.error(`[inbound:brain] auto-process: client ${clientId} not found`);
+          return;
+        }
+        const out = await processBrainMeeting({
+          clientId,
+          meetingId,
+          userId: client.userId,
+        });
+        console.log(`[inbound:brain] auto-processed meeting=${meetingId} attachments=${out.attachmentsAnalyzed} links=${out.linksExtracted} review=${out.transcript?.reviewItemCount ?? 0}`);
+      } catch (err) {
+        console.error(`[inbound:brain] auto-process failed for meeting=${meetingId}:`, err);
+      }
+    });
+  }
   return NextResponse.json({ status: 'ingested', clientId: profile.clientId });
 }
