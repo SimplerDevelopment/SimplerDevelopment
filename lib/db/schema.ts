@@ -2576,3 +2576,170 @@ export const crmEnrichmentLog = pgTable('crm_enrichment_log', {
   cost: integer('cost').default(0).notNull(), // credits consumed (0 for free scrape)
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── COMPANY BRAIN ────────────────────────────────────────────────────────────
+// Per-client business intelligence layer. Phase 0 ships the profile/config row
+// only; meeting + review tables follow in Phase 2.
+
+export interface BrainEnabledModules {
+  meetings: boolean;
+  tasks: boolean;
+  prospects: boolean;
+  knowledge: boolean;
+  ask: boolean;
+}
+
+export const brainProfiles = pgTable('brain_profiles', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  industryTemplate: varchar('industry_template', { length: 50 }).default('generic').notNull(), // 'generic' | 'wealth_advisory' | …
+  enabled: boolean('enabled').default(false).notNull(),
+  defaultConfidentiality: varchar('default_confidentiality', { length: 20 }).default('standard').notNull(), // 'standard' | 'restricted' | 'confidential'
+  aiProvider: varchar('ai_provider', { length: 50 }).default('anthropic').notNull(),
+  embeddingProvider: varchar('embedding_provider', { length: 50 }), // null = embeddings disabled
+  enabledModules: json('enabled_modules').$type<BrainEnabledModules>().default({
+    meetings: true,
+    tasks: true,
+    prospects: false,
+    knowledge: false,
+    ask: false,
+  }).notNull(),
+  serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Meeting status: draft → processing → needs_review → approved (terminal)
+export type BrainMeetingStatus = 'draft' | 'processing' | 'needs_review' | 'approved';
+
+export const brainMeetings = pgTable('brain_meetings', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  // Phase 2 keeps relationships informal; FK to crm_companies/crm_deals lands in Phase 1.
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  meetingDate: timestamp('meeting_date'),
+  transcript: text('transcript'),
+  aiSummary: text('ai_summary'),
+  humanSummary: text('human_summary'),
+  status: varchar('status', { length: 20 }).$type<BrainMeetingStatus>().default('draft').notNull(),
+  reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'zoom'
+  sourceRef: varchar('source_ref', { length: 500 }).notNull(), // adapter-supplied dedupe key; (clientId, sourceRef) unique
+  sourceMetadata: json('source_metadata').$type<Record<string, unknown>>().default({}),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef)]);
+
+export const brainMeetingParticipants = pgTable('brain_meeting_participants', {
+  id: serial('id').primaryKey(),
+  meetingId: integer('meeting_id').notNull().references(() => brainMeetings.id, { onDelete: 'cascade' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  roleInMeeting: varchar('role_in_meeting', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BrainTaskStatus = 'open' | 'in_progress' | 'blocked' | 'done';
+
+export const brainTasks = pgTable('brain_tasks', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
+  // Phase 3 will add companyId / dealId / linkedKanbanCardId / linkedActivityId.
+  title: varchar('title', { length: 500 }).notNull(),
+  description: text('description'),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 20 }).$type<BrainTaskStatus>().default('open').notNull(),
+  priority: varchar('priority', { length: 20 }).default('medium').notNull(), // low | medium | high | urgent
+  dueDate: timestamp('due_date'),
+  blockedReason: text('blocked_reason'),
+  source: varchar('source', { length: 50 }).default('manual').notNull(), // 'manual' | 'meeting' | 'ai_suggestion'
+  createdByAi: boolean('created_by_ai').default(false).notNull(),
+  needsReview: boolean('needs_review').default(false).notNull(),
+  complianceFlag: boolean('compliance_flag').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// What kind of record an AI proposal would become if approved.
+export type BrainReviewItemType = 'task' | 'note' | 'decision' | 'commitment' | 'relationship_update' | 'follow_up' | 'compliance_warning';
+export type BrainReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
+
+export interface BrainReviewItemTaskPayload {
+  title: string;
+  description?: string;
+  ownerHint?: string;     // free-form; AI guess at owner
+  ownerEmail?: string;
+  dueDate?: string;       // ISO
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  complianceFlag?: boolean;
+}
+
+export interface BrainReviewItemDecisionPayload { title: string; details?: string; }
+export interface BrainReviewItemCommitmentPayload { who: string; what: string; when?: string; }
+export interface BrainReviewItemRelationshipUpdatePayload { field: string; value: string; rationale?: string; }
+export interface BrainReviewItemNotePayload { title?: string; body: string; tags?: string[]; }
+export interface BrainReviewItemComplianceWarningPayload { message: string; severity?: 'low' | 'medium' | 'high'; }
+
+export type BrainReviewItemPayload =
+  | BrainReviewItemTaskPayload
+  | BrainReviewItemDecisionPayload
+  | BrainReviewItemCommitmentPayload
+  | BrainReviewItemRelationshipUpdatePayload
+  | BrainReviewItemNotePayload
+  | BrainReviewItemComplianceWarningPayload
+  | Record<string, unknown>;
+
+export const brainAiReviewItems = pgTable('brain_ai_review_items', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  sourceType: varchar('source_type', { length: 50 }).notNull(), // 'meeting' | 'document' | 'manual'
+  sourceId: integer('source_id').notNull(),
+  proposedType: varchar('proposed_type', { length: 50 }).$type<BrainReviewItemType>().notNull(),
+  proposedPayload: json('proposed_payload').$type<BrainReviewItemPayload>().notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainReviewItemStatus>().default('pending').notNull(),
+  reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at'),
+  resultEntityType: varchar('result_entity_type', { length: 50 }), // 'brain_task' | 'brain_note' | …  (set on approve)
+  resultEntityId: integer('result_entity_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc';
+export type BrainAiJobStatus = 'queued' | 'running' | 'completed' | 'failed';
+
+export const brainAiJobs = pgTable('brain_ai_jobs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  jobType: varchar('job_type', { length: 50 }).$type<BrainAiJobType>().notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainAiJobStatus>().default('queued').notNull(),
+  input: json('input').$type<Record<string, unknown>>().default({}),
+  output: json('output').$type<Record<string, unknown>>().default({}),
+  error: text('error'),
+  inputTokens: integer('input_tokens').default(0).notNull(),
+  outputTokens: integer('output_tokens').default(0).notNull(),
+  creditsCharged: integer('credits_charged').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+});
+
+export const brainAuditLogs = pgTable('brain_audit_logs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  actorId: integer('actor_id').references(() => users.id, { onDelete: 'set null' }), // null = AI / system
+  action: varchar('action', { length: 100 }).notNull(),
+  entityType: varchar('entity_type', { length: 50 }),
+  entityId: integer('entity_id'),
+  metadata: json('metadata').$type<Record<string, unknown>>().default({}),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
