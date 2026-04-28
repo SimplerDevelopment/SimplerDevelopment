@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-09-01"
 
 [vars]
-API_URL = "https://simplerdevelopment.com/api/email/inbound"
+API_URL = "https://www.simplerdevelopment.com/api/email/inbound"
 # INBOUND_EMAIL_SECRET is set via `wrangler secret put INBOUND_EMAIL_SECRET`
 
 # Attachments on inbound mail (e.g. a meeting deck PDF sent to brain+<token>@…)
