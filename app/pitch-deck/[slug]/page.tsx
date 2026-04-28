@@ -138,7 +138,7 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     const branding = deck.brandingProfileId
       ? await getBrandingByProfileId(deck.brandingProfileId)
       : await getBrandingByClientId(deck.clientId);
-    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} branding={branding} />;
+    return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} isDraft={deck.status !== 'published'} surveys={surveyData} branding={branding} />;
   }
 
   // Non-preview: the main-app host never renders published decks — it
@@ -162,7 +162,7 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
     const branding = deck.brandingProfileId
       ? await getBrandingByProfileId(deck.brandingProfileId)
       : await getBrandingByClientId(deck.clientId);
-    return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+    return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
   }
 
   const host = await getTenantHostForDeck(deck.clientId);

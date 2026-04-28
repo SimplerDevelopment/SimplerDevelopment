@@ -86,5 +86,9 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
     ? await getBrandingByProfileId(deck.brandingProfileId)
     : await getBrandingByClientId(deck.clientId);
 
-  return <PitchDeckPresentation slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+  // key={deck.id} forces a remount when navigating between two deck slugs via
+  // next/link. Without it React reuses the same instance and stale state
+  // (current slide index, decisionChoices, surveyAnswers, ...) leaks across
+  // decks — manifests as the first decision option silently doing nothing.
+  return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
 }

@@ -89,6 +89,10 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
 }
 
 export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {}, branding }: Props) {
+  // Initial seed from the URL hash — covers direct URL access (e.g. /foo#6)
+  // without flashing slide 0 first. A useEffect below re-reads the hash after
+  // mount to correct stale reads on cross-deck next/link navigation, where the
+  // previous deck's hash may not be cleared yet at render time.
   const [current, setCurrent] = useState(() => {
     if (typeof window === 'undefined') return 0;
     const hash = parseInt(window.location.hash.replace('#', ''), 10);
@@ -167,6 +171,21 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   const currentVirtualIdx = visibleSlideIndices[current] ?? 0;
   const currentVS = virtualSlides[currentVirtualIdx];
   const isOnDecisionSlide = currentVS?.kind === 'decision';
+
+  // Sync `current` from the URL hash on mount and on hashchange. Runs after
+  // the URL has settled, so cross-deck navigation (where the previous deck's
+  // hash may not be cleared yet at render time) can't seed a stale index.
+  useEffect(() => {
+    function applyHash() {
+      const raw = parseInt(window.location.hash.replace('#', ''), 10);
+      const idx = raw > 0 ? raw - 1 : 0;
+      // Defer the read so we win any same-tick history.pushState from next/link.
+      setCurrent(idx);
+    }
+    applyHash();
+    window.addEventListener('hashchange', applyHash);
+    return () => window.removeEventListener('hashchange', applyHash);
+  }, []);
 
   const goTo = useCallback((visibleIdx: number, dir?: 'next' | 'prev') => {
     if (visibleIdx < 0 || visibleIdx >= visibleCount || isAnimating) return;

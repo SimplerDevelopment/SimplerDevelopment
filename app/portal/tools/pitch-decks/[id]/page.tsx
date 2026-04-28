@@ -35,6 +35,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
+import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
 
 interface Deck {
   id: number;
@@ -169,9 +170,13 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   const [showSurveyPicker, setShowSurveyPicker] = useState(false);
   const [surveyListLoaded, setSurveyListLoaded] = useState(false);
   const [editingSurveyFieldId, setEditingSurveyFieldId] = useState<string | null>(null);
+  const [surveyPanelTab, setSurveyPanelTab] = useState<'questions' | 'recommendation'>('questions');
 
-  // Clear survey field editing when switching slides
-  useEffect(() => { setEditingSurveyFieldId(null); }, [activeSlide]);
+  // Clear survey field editing and reset to Questions tab when switching slides
+  useEffect(() => {
+    setEditingSurveyFieldId(null);
+    setSurveyPanelTab('questions');
+  }, [activeSlide]);
 
   // Check if surveys service is available via the nav services endpoint
   useEffect(() => {
@@ -2070,46 +2075,85 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  {/* Question list */}
-                  <div className="space-y-1">
-                    {getSurveyFields(currentSlide.surveyId).map((field, fieldIdx) => {
-                      const hasCustomBlocks = !!(currentSlide.surveyFieldBlocks?.[field.id]);
-                      return (
-                        <button
-                          key={field.id}
-                          onClick={() => setEditingSurveyFieldId(field.id)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-accent transition-colors group/field border border-transparent hover:border-border"
-                        >
-                          <span className="text-xs font-mono text-muted-foreground/50 w-5 text-right shrink-0">{fieldIdx + 1}</span>
-                          <span className="material-icons text-base text-emerald-500 shrink-0">{getSurveyFieldIcon(field.type)}</span>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm text-foreground truncate block">{field.label}</span>
-                            <span className="text-[10px] text-muted-foreground">{field.type}{field.required ? ' (required)' : ''}</span>
-                          </div>
-                          {hasCustomBlocks && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0">customized</span>
-                          )}
-                          <span className="material-icons text-sm text-muted-foreground/50 group-hover/field:text-foreground transition-colors shrink-0">chevron_right</span>
-                        </button>
-                      );
-                    })}
-                    {getSurveyFields(currentSlide.surveyId).length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        <span className="material-icons text-2xl mb-2 block">quiz</span>
-                        No questions found. Add questions in the survey editor.
-                      </div>
-                    )}
+                  {/* Tab strip — Questions list vs. Recommendation editor.
+                      Recommendation drives the dynamic result slide injected
+                      after the survey thank-you (offerings + per-answer routing). */}
+                  <div className="flex border-b border-border -mx-2">
+                    {([
+                      { key: 'questions', label: 'Questions', icon: 'quiz' },
+                      { key: 'recommendation', label: 'Recommendation', icon: 'recommend' },
+                    ] as const).map(t => (
+                      <button
+                        key={t.key}
+                        onClick={() => setSurveyPanelTab(t.key)}
+                        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                          surveyPanelTab === t.key
+                            ? 'border-emerald-500 text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <span className="material-icons text-sm">{t.icon}</span>
+                        {t.label}
+                      </button>
+                    ))}
                   </div>
 
-                  <div className="bg-accent/30 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <span className="material-icons text-sm text-emerald-500 mt-0.5">info</span>
-                      <p className="text-xs text-muted-foreground">
-                        Each question expands into its own full-screen slide during the presentation.
-                        Customize the layout by clicking a question above. Required blocks (heading, input) cannot be deleted.
-                      </p>
-                    </div>
-                  </div>
+                  {surveyPanelTab === 'questions' ? (
+                    <>
+                      {/* Question list */}
+                      <div className="space-y-1">
+                        {getSurveyFields(currentSlide.surveyId).map((field, fieldIdx) => {
+                          const hasCustomBlocks = !!(currentSlide.surveyFieldBlocks?.[field.id]);
+                          return (
+                            <button
+                              key={field.id}
+                              onClick={() => setEditingSurveyFieldId(field.id)}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-accent transition-colors group/field border border-transparent hover:border-border"
+                            >
+                              <span className="text-xs font-mono text-muted-foreground/50 w-5 text-right shrink-0">{fieldIdx + 1}</span>
+                              <span className="material-icons text-base text-emerald-500 shrink-0">{getSurveyFieldIcon(field.type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm text-foreground truncate block">{field.label}</span>
+                                <span className="text-[10px] text-muted-foreground">{field.type}{field.required ? ' (required)' : ''}</span>
+                              </div>
+                              {hasCustomBlocks && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0">customized</span>
+                              )}
+                              <span className="material-icons text-sm text-muted-foreground/50 group-hover/field:text-foreground transition-colors shrink-0">chevron_right</span>
+                            </button>
+                          );
+                        })}
+                        {getSurveyFields(currentSlide.surveyId).length === 0 && (
+                          <div className="text-center py-8 text-muted-foreground text-sm">
+                            <span className="material-icons text-2xl mb-2 block">quiz</span>
+                            No questions found. Add questions in the survey editor.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-accent/30 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <span className="material-icons text-sm text-emerald-500 mt-0.5">info</span>
+                          <p className="text-xs text-muted-foreground">
+                            Each question expands into its own full-screen slide during the presentation.
+                            Customize the layout by clicking a question above. Required blocks (heading, input) cannot be deleted.
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <SurveyRecommendationEditor
+                      config={currentSlide.surveyRecommendation}
+                      surveyFields={getSurveyFields(currentSlide.surveyId)}
+                      onChange={(next) => {
+                        if (!deck) return;
+                        const newSlides = [...deck.slides];
+                        newSlides[activeSlide] = { ...newSlides[activeSlide], surveyRecommendation: next };
+                        setDeck({ ...deck, slides: newSlides });
+                        setHasUnsavedChanges(true);
+                      }}
+                    />
+                  )}
                 </div>
               )
             ) : currentSlide.decisionSlide ? (
