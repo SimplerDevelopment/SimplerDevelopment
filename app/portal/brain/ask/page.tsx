@@ -3,7 +3,15 @@
 import Link from 'next/link';
 import { useState, useCallback, useMemo } from 'react';
 
-type EntityType = 'meeting' | 'note' | 'task' | 'relationship';
+type EntityType =
+  | 'meeting'
+  | 'note'
+  | 'task'
+  | 'relationship'
+  | 'company'
+  | 'contact'
+  | 'deal'
+  | 'post';
 
 interface BrainSearchHit {
   type: EntityType;
@@ -24,18 +32,26 @@ interface BrainSearchResult {
 }
 
 const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
-  meeting: { label: 'Meeting', icon: 'forum', tone: 'text-blue-600 dark:text-blue-400' },
-  note: { label: 'Knowledge', icon: 'sticky_note_2', tone: 'text-amber-600 dark:text-amber-400' },
-  task: { label: 'Task', icon: 'task_alt', tone: 'text-foreground' },
-  relationship: { label: 'Relationship', icon: 'group_work', tone: 'text-cyan-600 dark:text-cyan-400' },
+  meeting:      { label: 'Meeting',      icon: 'forum',          tone: 'text-blue-600 dark:text-blue-400' },
+  note:         { label: 'Knowledge',    icon: 'sticky_note_2',  tone: 'text-amber-600 dark:text-amber-400' },
+  task:         { label: 'Task',         icon: 'task_alt',       tone: 'text-foreground' },
+  relationship: { label: 'Relationship', icon: 'group_work',     tone: 'text-cyan-600 dark:text-cyan-400' },
+  company:      { label: 'Company',      icon: 'business',       tone: 'text-emerald-600 dark:text-emerald-400' },
+  contact:      { label: 'Contact',      icon: 'person',         tone: 'text-rose-600 dark:text-rose-400' },
+  deal:         { label: 'Deal',         icon: 'handshake',      tone: 'text-violet-600 dark:text-violet-400' },
+  post:         { label: 'Page',         icon: 'web',            tone: 'text-sky-600 dark:text-sky-400' },
 };
 
 const FILTERS: { id: EntityType | 'all'; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'meeting', label: 'Meetings' },
-  { id: 'note', label: 'Knowledge' },
-  { id: 'task', label: 'Tasks' },
+  { id: 'all',          label: 'All' },
+  { id: 'note',         label: 'Knowledge' },
+  { id: 'meeting',      label: 'Meetings' },
+  { id: 'company',      label: 'Companies' },
+  { id: 'contact',      label: 'Contacts' },
+  { id: 'deal',         label: 'Deals' },
+  { id: 'task',         label: 'Tasks' },
   { id: 'relationship', label: 'Relationships' },
+  { id: 'post',         label: 'Pages' },
 ];
 
 export default function AskBrainPage() {
@@ -83,7 +99,10 @@ export default function AskBrainPage() {
 
   const grouped = useMemo(() => {
     if (!result) return null;
-    const out = new Map<EntityType, BrainSearchHit[]>([['meeting', []], ['note', []], ['relationship', []], ['task', []]]);
+    const out = new Map<EntityType, BrainSearchHit[]>([
+      ['note', []], ['meeting', []], ['company', []], ['contact', []],
+      ['deal', []], ['task', []], ['relationship', []], ['post', []],
+    ]);
     for (const h of result.hits) {
       out.get(h.type)?.push(h);
     }
@@ -98,7 +117,7 @@ export default function AskBrainPage() {
           Ask Brain
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Search your meetings, knowledge notes, tasks, and relationships. For richer conversational queries, connect Brain to Claude Desktop via MCP — see below.
+          Search across everything in your portal — knowledge notes, meetings, CRM companies and contacts, deals, tasks, relationships, and pages. Both keyword and meaning-based matches. For richer conversational queries, connect Brain to Claude Desktop via MCP — see below.
         </p>
       </div>
 
@@ -194,7 +213,7 @@ export default function AskBrainPage() {
                       </p>
                       <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
                         {hit.occurredAt && <span>{new Date(hit.occurredAt).toLocaleDateString()}</span>}
-                        {hit.contextName && (hit.type === 'task' || hit.type === 'note') && (
+                        {hit.contextName && (
                           <span className="inline-flex items-center gap-0.5">
                             <span className="material-icons text-sm">link</span>
                             {hit.contextName}
@@ -211,7 +230,7 @@ export default function AskBrainPage() {
 
           {grouped && (
             <div className="text-xs text-muted-foreground">
-              {(['meeting', 'note', 'task', 'relationship'] as EntityType[]).map((t) => {
+              {(['note', 'meeting', 'company', 'contact', 'deal', 'task', 'relationship', 'post'] as EntityType[]).map((t) => {
                 const count = grouped.get(t)?.length ?? 0;
                 if (count === 0) return null;
                 return <span key={t} className="mr-3">{TYPE_META[t].label}s: {count}</span>;

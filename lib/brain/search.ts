@@ -10,7 +10,15 @@ import {
 import { eq, and, or, desc, sql, ilike, inArray } from 'drizzle-orm';
 import { searchSemantic } from './embeddings';
 
-export type BrainSearchEntityType = 'meeting' | 'note' | 'task' | 'relationship';
+export type BrainSearchEntityType =
+  | 'meeting'
+  | 'note'
+  | 'task'
+  | 'relationship'
+  | 'company'
+  | 'contact'
+  | 'deal'
+  | 'post';
 
 export interface BrainSearchHit {
   type: BrainSearchEntityType;
@@ -72,7 +80,9 @@ export async function searchBrain(
     return { query: '', total: 0, hits: [] };
   }
 
-  const types = new Set<BrainSearchEntityType>(opts.types ?? ['meeting', 'note', 'task', 'relationship']);
+  const types = new Set<BrainSearchEntityType>(opts.types ?? [
+    'meeting', 'note', 'task', 'relationship', 'company', 'contact', 'deal', 'post',
+  ]);
   const perTypeLimit = Math.max(1, Math.min(opts.perTypeLimit ?? DEFAULT_PER_TYPE, 50));
   const totalLimit = Math.max(1, Math.min(opts.limit ?? DEFAULT_TOTAL, 100));
 
@@ -83,9 +93,10 @@ export async function searchBrain(
 
   const meetingHits: BrainSearchHit[] = [];
   const noteHits: BrainSearchHit[] = [];
-  // Semantic-search-only note hits (populated below alongside the lexical
-  // branches). Merged into noteHits after Promise.all completes.
-  const semanticNoteHits: BrainSearchHit[] = [];
+  // Semantic-search hits across every embedded entity type. Populated
+  // below alongside the lexical branches. Notes get merged with their
+  // lexical counterparts; other types ride along semantic-only.
+  const semanticHits: BrainSearchHit[] = [];
   const taskHits: BrainSearchHit[] = [];
   const relationshipHits: BrainSearchHit[] = [];
 
@@ -333,25 +344,40 @@ export async function searchBrain(
           })
       : Promise.resolve(),
 
-    // Semantic note search. Embeds the query, runs cosine ANN against
-    // brain_embeddings, deduplicates per note (keeping the best chunk),
-    // joins back to brain_notes for metadata. Wrapped to fail-soft: if
-    // OPENAI_API_KEY isn't set or the request fails, returns 0 hits and
-    // search degrades gracefully to lexical-only.
-    types.has('note') && process.env.OPENAI_API_KEY
-      ? runSemanticNoteBranch(clientId, query, perTypeLimit)
-          .then((hits) => { for (const h of hits) semanticNoteHits.push(h); })
+    // Semantic search across every embedded entity type the caller asked
+    // for. Single OpenAI roundtrip embeds the query; one cosine ANN scan
+    // returns top-K chunks across all types; we then dedupe per entity
+    // and look up display metadata. Wrapped to fail-soft.
+    process.env.OPENAI_API_KEY
+      ? runSemanticBranch(clientId, query, [...types], perTypeLimit)
+          .then((hits) => { for (const h of hits) semanticHits.push(h); })
           .catch(() => { /* fail-soft */ })
       : Promise.resolve(),
   ]);
 
-  // Merge lexical + semantic note hits. For notes that appear in both
-  // signals, take the higher score and prefer the lexical snippet (it has
-  // the matched keyword in context, which feels better in the UI).
-  const mergedNoteHits = mergeNoteHits(noteHits, semanticNoteHits);
+  // Split semantic hits by entity type — notes get merged with their
+  // lexical counterparts (both signals contribute), other types ride
+  // along with semantic-only scoring.
+  const semanticByType = new Map<BrainSearchEntityType, BrainSearchHit[]>();
+  for (const h of semanticHits) {
+    const list = semanticByType.get(h.type) ?? [];
+    list.push(h);
+    semanticByType.set(h.type, list);
+  }
+  const mergedNoteHits = mergeNoteHits(noteHits, semanticByType.get('note') ?? []);
 
   // Merge + sort by score, then by recency for ties.
-  const all = [...meetingHits, ...mergedNoteHits, ...taskHits, ...relationshipHits];
+  const all = [
+    ...meetingHits,
+    ...mergedNoteHits,
+    ...taskHits,
+    ...relationshipHits,
+    // Semantic-only entity types (no lexical counterpart yet).
+    ...(semanticByType.get('company') ?? []),
+    ...(semanticByType.get('contact') ?? []),
+    ...(semanticByType.get('deal') ?? []),
+    ...(semanticByType.get('post') ?? []),
+  ];
   all.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
     const at = a.occurredAt ? Date.parse(a.occurredAt) : 0;
@@ -423,91 +449,207 @@ const SEMANTIC_SNIPPET_RADIUS = 240;
  * one note can have several chunks in the top-K and we only want one hit
  * per note.
  */
-async function runSemanticNoteBranch(
+async function runSemanticBranch(
   clientId: number,
   query: string,
+  entityTypes: BrainSearchEntityType[],
   perTypeLimit: number,
 ): Promise<BrainSearchHit[]> {
-  const k = Math.min(perTypeLimit * 4, 200);
+  if (entityTypes.length === 0) return [];
+  // Over-fetch: a single entity can occupy several chunks in the top-K, and
+  // we want at least perTypeLimit *unique entities per type* in the result.
+  const k = Math.min(perTypeLimit * entityTypes.length * 4, 400);
   const chunks = await searchSemantic({
     clientId,
     query,
     k,
-    entityTypes: ['note'],
+    entityTypes,
   });
   if (chunks.length === 0) return [];
 
-  // Dedupe by entity_id, keep best chunk per note.
-  const bestByNote = new Map<number, typeof chunks[0]>();
+  // Dedupe by (entity_type, entity_id), keep best chunk per entity.
+  const bestByEntity = new Map<string, typeof chunks[0]>();
   for (const c of chunks) {
-    const prev = bestByNote.get(c.entityId);
-    if (!prev || c.similarity > prev.similarity) bestByNote.set(c.entityId, c);
+    const key = `${c.entityType}:${c.entityId}`;
+    const prev = bestByEntity.get(key);
+    if (!prev || c.similarity > prev.similarity) bestByEntity.set(key, c);
   }
 
-  // Preserve ranking — order by best similarity per note, then cap.
-  const ordered = [...bestByNote.values()]
-    .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, perTypeLimit);
+  // Group dedup'd entities by type, capped to perTypeLimit each.
+  const idsByType: Record<string, number[]> = {};
+  const chunksByEntity = new Map<string, typeof chunks[0]>();
+  const grouped = [...bestByEntity.values()].sort((a, b) => b.similarity - a.similarity);
+  const seenPerType: Record<string, number> = {};
+  for (const c of grouped) {
+    const t = c.entityType;
+    seenPerType[t] = (seenPerType[t] ?? 0) + 1;
+    if (seenPerType[t] > perTypeLimit) continue;
+    (idsByType[t] ??= []).push(c.entityId);
+    chunksByEntity.set(`${t}:${c.entityId}`, c);
+  }
 
-  if (ordered.length === 0) return [];
-
-  // Batch-fetch note metadata so we don't N+1 the DB.
-  const noteIds = ordered.map(c => c.entityId);
-  const notes = await db.select({
-    id: brainNotes.id,
-    title: brainNotes.title,
-    pinned: brainNotes.pinned,
-    updatedAt: brainNotes.updatedAt,
-    createdAt: brainNotes.createdAt,
-    companyId: brainNotes.companyId,
-    dealId: brainNotes.dealId,
-    tags: brainNotes.tags,
-  }).from(brainNotes).where(inArray(brainNotes.id, noteIds));
-  const noteById = new Map(notes.map(n => [n.id, n]));
-
-  // Optional: company/deal context names (best-effort, mirrors lexical branch).
-  const companyIds = notes.map(n => n.companyId).filter((v): v is number => v !== null);
-  const dealIds = notes.map(n => n.dealId).filter((v): v is number => v !== null);
-  const [coRows, dlRows] = await Promise.all([
-    companyIds.length
-      ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-        .where(inArray(crmCompanies.id, companyIds))
-      : Promise.resolve([] as { id: number; name: string }[]),
-    dealIds.length
-      ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-        .where(inArray(crmDeals.id, dealIds))
-      : Promise.resolve([] as { id: number; title: string }[]),
-  ]);
-  const coMap = new Map(coRows.map(c => [c.id, c.name]));
-  const dlMap = new Map(dlRows.map(d => [d.id, d.title]));
-
+  // Batch-fetch metadata per type so we don't N+1.
   const out: BrainSearchHit[] = [];
-  for (const chunk of ordered) {
-    const note = noteById.get(chunk.entityId);
-    if (!note) continue;
-    // Trim chunk content to a reasonable snippet width.
-    const trimmed = chunk.content.length > SEMANTIC_SNIPPET_RADIUS * 2
-      ? chunk.content.slice(0, SEMANTIC_SNIPPET_RADIUS * 2).replace(/\s+/g, ' ').trim() + '…'
-      : chunk.content.replace(/\s+/g, ' ').trim();
-    out.push({
-      type: 'note',
-      id: note.id,
-      title: note.title,
-      snippet: trimmed,
-      // Cosine similarity is already in [-1, 1]; pgvector with normalized
-      // text embeddings is effectively in [0, 1]. Use directly as score.
-      score: chunk.similarity,
-      status: note.pinned ? 'pinned' : undefined,
-      occurredAt: (note.updatedAt ?? note.createdAt).toISOString(),
-      contextName: note.companyId !== null
-        ? coMap.get(note.companyId)
-        : note.dealId !== null
-          ? dlMap.get(note.dealId)
-          : undefined,
-      url: '/portal/brain/knowledge',
-    });
+
+  if (idsByType.note?.length) {
+    const rows = await db.select({
+      id: brainNotes.id, title: brainNotes.title, pinned: brainNotes.pinned,
+      updatedAt: brainNotes.updatedAt, createdAt: brainNotes.createdAt,
+      companyId: brainNotes.companyId, dealId: brainNotes.dealId,
+    }).from(brainNotes).where(inArray(brainNotes.id, idsByType.note));
+    for (const r of rows) {
+      const c = chunksByEntity.get(`note:${r.id}`); if (!c) continue;
+      out.push({
+        type: 'note', id: r.id, title: r.title, snippet: trimChunk(c.content),
+        score: c.similarity, status: r.pinned ? 'pinned' : undefined,
+        occurredAt: (r.updatedAt ?? r.createdAt).toISOString(),
+        url: '/portal/brain/knowledge',
+      });
+    }
   }
+
+  if (idsByType.meeting?.length) {
+    const rows = await db.select({
+      id: brainMeetings.id, title: brainMeetings.title, status: brainMeetings.status,
+      meetingDate: brainMeetings.meetingDate, createdAt: brainMeetings.createdAt,
+    }).from(brainMeetings).where(inArray(brainMeetings.id, idsByType.meeting));
+    for (const r of rows) {
+      const c = chunksByEntity.get(`meeting:${r.id}`); if (!c) continue;
+      out.push({
+        type: 'meeting', id: r.id, title: r.title, snippet: trimChunk(c.content),
+        score: c.similarity, status: r.status,
+        occurredAt: (r.meetingDate ?? r.createdAt).toISOString(),
+        url: `/portal/brain/meetings/${r.id}`,
+      });
+    }
+  }
+
+  if (idsByType.relationship?.length) {
+    const rows = await db.select({
+      id: brainRelationshipOverlays.id,
+      relationshipType: brainRelationshipOverlays.relationshipType,
+      priority: brainRelationshipOverlays.priority,
+      updatedAt: brainRelationshipOverlays.updatedAt,
+      companyId: brainRelationshipOverlays.companyId,
+      dealId: brainRelationshipOverlays.dealId,
+    }).from(brainRelationshipOverlays).where(inArray(brainRelationshipOverlays.id, idsByType.relationship));
+    for (const r of rows) {
+      const c = chunksByEntity.get(`relationship:${r.id}`); if (!c) continue;
+      out.push({
+        type: 'relationship', id: r.id, title: r.relationshipType, snippet: trimChunk(c.content),
+        score: c.similarity, status: r.priority,
+        occurredAt: r.updatedAt.toISOString(),
+        contextName: r.companyId !== null ? 'company' : r.dealId !== null ? 'deal' : undefined,
+        url: `/portal/brain/relationships/${r.id}`,
+      });
+    }
+  }
+
+  if (idsByType.task?.length) {
+    const rows = await db.select({
+      id: brainTasks.id, title: brainTasks.title, status: brainTasks.status,
+      priority: brainTasks.priority, dueDate: brainTasks.dueDate, createdAt: brainTasks.createdAt,
+    }).from(brainTasks).where(inArray(brainTasks.id, idsByType.task));
+    for (const r of rows) {
+      const c = chunksByEntity.get(`task:${r.id}`); if (!c) continue;
+      out.push({
+        type: 'task', id: r.id, title: r.title, snippet: trimChunk(c.content),
+        score: c.similarity, status: `${r.status} · ${r.priority}`,
+        occurredAt: (r.dueDate ?? r.createdAt).toISOString(),
+        url: '/portal/brain/tasks',
+      });
+    }
+  }
+
+  if (idsByType.company?.length) {
+    const rows = await db.select({
+      id: crmCompanies.id, name: crmCompanies.name, industry: crmCompanies.industry,
+      updatedAt: crmCompanies.updatedAt, createdAt: crmCompanies.createdAt,
+    }).from(crmCompanies).where(inArray(crmCompanies.id, idsByType.company));
+    for (const r of rows) {
+      const c = chunksByEntity.get(`company:${r.id}`); if (!c) continue;
+      out.push({
+        type: 'company', id: r.id, title: r.name, snippet: trimChunk(c.content),
+        score: c.similarity, status: r.industry ?? undefined,
+        occurredAt: (r.updatedAt ?? r.createdAt).toISOString(),
+        url: `/portal/crm/companies/${r.id}`,
+      });
+    }
+  }
+
+  if (idsByType.contact?.length) {
+    const rows = await db.execute<{
+      id: number; first_name: string; last_name: string | null; title: string | null;
+      updated_at: Date; company_name: string | null;
+    }>(sql`
+      SELECT c.id, c.first_name, c.last_name, c.title, c.updated_at, co.name AS company_name
+      FROM crm_contacts c
+      LEFT JOIN crm_companies co ON co.id = c.company_id
+      WHERE c.id IN ${idsByType.contact}
+    `);
+    for (const r of rows as unknown as Array<{ id: number; first_name: string; last_name: string | null; title: string | null; updated_at: Date; company_name: string | null; }>) {
+      const ck = chunksByEntity.get(`contact:${r.id}`); if (!ck) continue;
+      const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ');
+      out.push({
+        type: 'contact', id: r.id, title: fullName, snippet: trimChunk(ck.content),
+        score: ck.similarity, status: r.title ?? undefined,
+        occurredAt: new Date(r.updated_at).toISOString(),
+        contextName: r.company_name ?? undefined,
+        url: `/portal/crm/contacts/${r.id}`,
+      });
+    }
+  }
+
+  if (idsByType.deal?.length) {
+    const rows = await db.execute<{
+      id: number; title: string; status: string; updated_at: Date; company_name: string | null;
+    }>(sql`
+      SELECT d.id, d.title, d.status, d.updated_at, co.name AS company_name
+      FROM crm_deals d
+      LEFT JOIN crm_companies co ON co.id = d.company_id
+      WHERE d.id IN ${idsByType.deal}
+    `);
+    for (const r of rows as unknown as Array<{ id: number; title: string; status: string; updated_at: Date; company_name: string | null; }>) {
+      const ck = chunksByEntity.get(`deal:${r.id}`); if (!ck) continue;
+      out.push({
+        type: 'deal', id: r.id, title: r.title, snippet: trimChunk(ck.content),
+        score: ck.similarity, status: r.status,
+        occurredAt: new Date(r.updated_at).toISOString(),
+        contextName: r.company_name ?? undefined,
+        url: '/portal/crm/deals',
+      });
+    }
+  }
+
+  if (idsByType.post?.length) {
+    const rows = await db.execute<{
+      id: number; title: string; updated_at: Date; website_id: number | null;
+    }>(sql`
+      SELECT id, title, updated_at, website_id
+      FROM posts WHERE id IN ${idsByType.post}
+    `);
+    for (const r of rows as unknown as Array<{ id: number; title: string; updated_at: Date; website_id: number | null }>) {
+      const ck = chunksByEntity.get(`post:${r.id}`); if (!ck) continue;
+      out.push({
+        type: 'post', id: r.id, title: r.title, snippet: trimChunk(ck.content),
+        score: ck.similarity,
+        occurredAt: new Date(r.updated_at).toISOString(),
+        url: r.website_id
+          ? `/portal/websites/${r.website_id}/posts/${r.id}/edit`
+          : '/portal/posts',
+      });
+    }
+  }
+
   return out;
+}
+
+/** Trim chunk content to a snippet length and collapse whitespace. */
+function trimChunk(content: string): string {
+  if (content.length > SEMANTIC_SNIPPET_RADIUS * 2) {
+    return content.slice(0, SEMANTIC_SNIPPET_RADIUS * 2).replace(/\s+/g, ' ').trim() + '…';
+  }
+  return content.replace(/\s+/g, ' ').trim();
 }
 
 /**
