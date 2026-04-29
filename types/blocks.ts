@@ -931,6 +931,13 @@ export interface SiteFooterBlock extends BaseBlock {
   type: 'site-footer';
   logoUrl?: string;
   logoAlt?: string;
+  /**
+   * Wordmark text displayed inline next to the logo image (e.g. for a
+   * brand lockup like LOGO + "POST CAPTAIN / CONSULTING"). Multi-line is
+   * supported via `\n` — newlines render as a `<br>`. When omitted, the
+   * logo renders alone, preserving the legacy single-image behavior.
+   */
+  wordmark?: string;
   tagline?: string;
   /** Optional CTA shown beneath the tagline in the brand column. */
   ctaText?: string;

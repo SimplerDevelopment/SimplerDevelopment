@@ -40,15 +40,29 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
         <div className="grid md:grid-cols-4 gap-12">
           {/* Brand column */}
           <div className="md:col-span-1">
-            {block.logoUrl && (
+            {(block.logoUrl || block.wordmark) && (
               <div className="mb-4">
-                <a href="/">
-                  <img
-                    src={block.logoUrl}
-                    alt={block.logoAlt || ''}
-                    className="h-10 w-auto"
-                    style={getElementCSS(block.elementStyles, 'logo')}
-                  />
+                <a href="/" className="inline-flex items-center gap-3">
+                  {block.logoUrl && (
+                    <img
+                      src={block.logoUrl}
+                      alt={block.logoAlt || ''}
+                      className="h-10 w-auto"
+                      style={getElementCSS(block.elementStyles, 'logo')}
+                    />
+                  )}
+                  {block.wordmark && (
+                    <span
+                      className="text-xs font-semibold uppercase tracking-[0.18em] leading-tight"
+                      style={{ color: accent, ...getElementCSS(block.elementStyles, 'wordmark') }}
+                    >
+                      {block.wordmark.split('\n').map((line, i) => (
+                        <span key={i} style={{ display: 'block' }}>
+                          {line}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </a>
               </div>
             )}
