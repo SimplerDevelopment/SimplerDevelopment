@@ -905,14 +905,69 @@ export interface PitchDeckSlideV2 {
   // Decision slides — force the viewer to choose a path
   decisionSlide?: boolean;
   decisionOptions?: PitchDeckDecisionOption[];
+  /**
+   * Optional cover-style content for the decision slide. When set, the
+   * decision slide renders a two-column intro layout (logo/wordmark, eyebrow,
+   * headline + light punchline, rule, intro line, body, about, image) with
+   * the decision options surfacing as CTA cards. When unset, the legacy
+   * centered-grid layout is used.
+   */
+  decisionCover?: PitchDeckDecisionCover;
 }
 
 export interface PitchDeckDecisionOption {
   id: string;
   label: string;
   description?: string;
+  /**
+   * Small uppercase eyebrow shown above the label on the option card.
+   * Useful for offering numbering ("01 / SNAPSHOT") or category tags.
+   */
+  eyebrow?: string;
   icon?: string; // Material Icon name
   pathGroup: string; // which path group this choice leads to
+}
+
+export interface PitchDeckDecisionCover {
+  /** Logo image URL — rendered above the wordmark. Optional. */
+  logo?: string;
+  /** Small uppercase wordmark text (e.g. "CY STRATEGIES"). Has a bullet dot prefix. */
+  wordmark?: string;
+  /** Eyebrow line ("MARKETING STRATEGY CONSULTANT") */
+  eyebrow?: string;
+  /** Bold first headline line. */
+  headline?: string;
+  /** Light second headline line (the "punchline" — paired with headline visually). */
+  punchline?: string;
+  /** Smaller intro line (e.g. "Hi, I'm Cody."). Sits above body. */
+  intro?: string;
+  /** Body paragraph copy. Plain text — line breaks render as <br>. */
+  body?: string;
+  /** About paragraph(s) — separate paragraphs with a blank line. Renders with a top border. */
+  about?: string;
+  /** Right-column image URL (e.g. headshot). When set, layout becomes two-column. */
+  image?: string;
+  /** Alt text for image. */
+  imageAlt?: string;
+  /**
+   * Slide background override. Falls back to slide.pageSettings.backgroundColor
+   * → theme.backgroundColor.
+   */
+  backgroundColor?: string;
+  /**
+   * Slide text color override (used by headline / wordmark). Falls back to theme.textColor.
+   */
+  textColor?: string;
+  /**
+   * Muted/soft text color (used by eyebrow/intro/about). Falls back to a 70%-opacity textColor.
+   */
+  mutedColor?: string;
+  /**
+   * Light supporting text color (used by punchline/body). Falls back to mutedColor.
+   */
+  softColor?: string;
+  /** Accent color (rule + dot + option-card icons). Falls back to theme.accentColor. */
+  accentColor?: string;
 }
 
 export interface SurveyRecommendationOffering {
@@ -3052,6 +3107,21 @@ export const brainCustomFieldValues = pgTable('brain_custom_field_values', {
   value: text('value'), // stored as text, parsed by fieldType
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Embedding job queue. Write paths enqueue here, a cron worker drains it.
+// Idempotent on (entity_type, entity_id) via the unique index — re-enqueues
+// while a job is processing just reset it to pending.
+export const brainEmbeddingJobs = pgTable('brain_embedding_jobs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: integer('entity_id').notNull(),
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending' | 'processing' | 'failed'
+  attempts: integer('attempts').default(0).notNull(),
+  lastError: text('last_error'),
+  enqueuedAt: timestamp('enqueued_at').defaultNow().notNull(),
+  startedAt: timestamp('started_at'),
 });
 
 // Obsidian-style link graph for KB-imported notes. Each row is one [[link]]

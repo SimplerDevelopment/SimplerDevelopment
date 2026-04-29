@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/drive-sync",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/process-embeddings",
+      "schedule": "* * * * *"
     }
   ]
 }

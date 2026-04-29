@@ -16,7 +16,20 @@ import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
 
 export type EmbeddingProvider = 'openai' | 'voyage' | 'cohere';
-export type EntityType = 'note' | 'meeting' | 'relationship';
+export type EntityType =
+  | 'note'
+  | 'meeting'
+  | 'relationship'
+  | 'task'
+  | 'company'
+  | 'contact'
+  | 'deal'
+  | 'post';
+
+export const ALL_ENTITY_TYPES: EntityType[] = [
+  'note', 'meeting', 'relationship', 'task',
+  'company', 'contact', 'deal', 'post',
+];
 
 const DEFAULT_MODEL = 'text-embedding-3-small';
 const DEFAULT_DIM = 1536;
@@ -257,6 +270,38 @@ export async function removeEmbeddings(entityType: EntityType, entityId: number)
   `);
 }
 
+/**
+ * Fetch + embed an entity by id. The high-level "just embed this thing"
+ * entry point — backfill scripts and write-path hooks should both use this
+ * rather than calling embedEntity directly. Returns null when the entity
+ * doesn't exist (and removes any prior embeddings for it).
+ */
+export async function embedById(args: {
+  clientId: number;
+  entityType: EntityType;
+  entityId: number;
+}): Promise<{ chunks: number; tokens: number } | null> {
+  const { extractContentForEntity } = await import('./embedding-extractors');
+  const { text, found } = await extractContentForEntity(args.clientId, args.entityType, args.entityId);
+  if (!found) {
+    // Entity was deleted — clean up any orphaned embeddings.
+    await removeEmbeddings(args.entityType, args.entityId);
+    return null;
+  }
+  if (!text.trim()) {
+    // Entity exists but has nothing meaningful to embed (e.g. a deal with
+    // just a stage and no notes). Drop any prior chunks and skip.
+    await removeEmbeddings(args.entityType, args.entityId);
+    return { chunks: 0, tokens: 0 };
+  }
+  return embedEntity({
+    clientId: args.clientId,
+    entityType: args.entityType,
+    entityId: args.entityId,
+    content: text,
+  });
+}
+
 export interface SemanticHit {
   entityType: EntityType;
   entityId: number;
@@ -287,7 +332,7 @@ export async function searchSemantic(args: {
 
   // Build the type filter clause inline since drizzle's sql tag handles arrays
   // poorly for `IN (...)` cases. Validate input strictly to keep this safe.
-  const allowed: EntityType[] = ['note', 'meeting', 'relationship'];
+  const allowed: EntityType[] = ALL_ENTITY_TYPES;
   const types = (args.entityTypes ?? allowed).filter(t => allowed.includes(t));
   if (types.length === 0) return [];
 
