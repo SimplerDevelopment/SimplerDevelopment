@@ -37,22 +37,37 @@ const targets = [
 
 async function findAnchorY(page, anchorTexts) {
   // Try each text in order; return absolute document Y of the element's top.
+  // Prefer matches inside an h1/h2/h3/h4 — section headings are reliable
+  // anchors. Caller is expected to keep scrollY=0 during this call so the
+  // simple getBoundingClientRect+scrollY math is reliable; see detect()'s
+  // comment about live postcaptain's sticky scroll-tabs heading.
   for (const text of anchorTexts) {
     const y = await page.evaluate((needle) => {
       const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const allMatches = [];
       let n;
       while ((n = tw.nextNode())) {
         if (n.nodeValue && n.nodeValue.includes(needle)) {
           let el = n.parentElement;
-          // Walk up to find a block-level container with a sensible bounding
-          // rect (skip pure inline spans inside larger headlines).
           while (el && el.tagName === 'SPAN') el = el.parentElement;
           if (!el) continue;
+          let inHeading = el;
+          while (inHeading && !/^H[1-6]$/.test(inHeading.tagName)) {
+            inHeading = inHeading.parentElement;
+          }
           const r = el.getBoundingClientRect();
-          return r.top + window.scrollY;
+          allMatches.push({
+            y: r.top + window.scrollY,
+            isHeading: !!inHeading,
+            tag: el.tagName,
+          });
         }
       }
-      return null;
+      if (allMatches.length === 0) return null;
+      const headings = allMatches.filter((m) => m.isHeading);
+      const pool = headings.length > 0 ? headings : allMatches;
+      pool.sort((a, b) => a.y - b.y);
+      return pool[0].y;
     }, text);
     if (y != null && Number.isFinite(y)) return y;
   }
@@ -117,21 +132,19 @@ async function findAnchorY(page, anchorTexts) {
       document.querySelectorAll('nextjs-portal, next-route-announcer, [data-nextjs-toast], [data-nextjs-build-indicator]').forEach((el) => el.remove());
     });
 
-    // Force-reveal scroll loop to materialize lazy sections.
-    await page.evaluate(async () => {
-      const total = () => document.documentElement.scrollHeight;
-      let y = 0;
-      while (y < total()) {
-        window.scrollTo(0, y);
-        await new Promise((r) => setTimeout(r, 80));
-        y += 350;
-      }
-      window.scrollTo(0, total());
-      await new Promise((r) => setTimeout(r, 300));
-      window.scrollTo(0, 0);
-      await new Promise((r) => setTimeout(r, 300));
-    });
-
+    // We deliberately DO NOT run the force-reveal scroll loop here, even
+    // though screenshot.mjs does. Reason: postcaptain.com's homepage has
+    // a position:sticky `<h2 class="header-heading">` inside its
+    // scroll-tabs section. After the scroll loop, the page's own JS
+    // scroll-restoration code prevents window.scrollTo(0, 0) from
+    // returning to actual top, leaving currentScrollY around 4800. With
+    // a non-zero scrollY, getBoundingClientRect().top + scrollY returns
+    // the H2's document Y as if it were at 3458 instead of its natural
+    // 1083 — the sticky element's bounding rect reflects its stuck
+    // (off-screen) position. Skipping the scroll loop keeps scrollY=0
+    // throughout, which keeps the rect math correct. Section content is
+    // present in DOM either way (lazy-loading on this page is just
+    // animation classes that .addStyleTag already neutralizes).
     try {
       await page.waitForLoadState('networkidle', { timeout: 4000 });
     } catch {}
