@@ -938,6 +938,18 @@ export interface SiteFooterBlock extends BaseBlock {
    * logo renders alone, preserving the legacy single-image behavior.
    */
   wordmark?: string;
+  /**
+   * Scale of the logo + wordmark lockup in the brand column.
+   *
+   * - `'sm'` — compact (logo h-8, wordmark 9px) for dense footers.
+   * - `'md'` — default (logo h-10, wordmark 10px). Matches legacy behavior.
+   * - `'lg'` — enlarged (logo h-12, wordmark 12px) for prominent brand-first
+   *   footers like Post Captain's "POST CAPTAIN / CONSULTING" lockup.
+   *
+   * Defaults to `'md'`. `elementStyles.logo` / `elementStyles.wordmark` still
+   * win when set, so this is a non-breaking convenience prop.
+   */
+  brandSize?: 'sm' | 'md' | 'lg';
   tagline?: string;
   /** Optional CTA shown beneath the tagline in the brand column. */
   ctaText?: string;

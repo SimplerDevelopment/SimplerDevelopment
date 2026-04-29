@@ -34,6 +34,18 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
   const copyrightText = light ? 'rgba(60,72,90,0.55)' : 'rgba(255,255,255,0.25)';
   const borderTone = light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)';
 
+  // Brand lockup sizing. `md` preserves legacy behavior (h-10 logo, 10px wordmark).
+  const brandSize = block.brandSize ?? 'md';
+  const logoSizeClass = brandSize === 'sm' ? 'h-8' : brandSize === 'lg' ? 'h-12' : 'h-10';
+  const wordmarkSizeClass =
+    brandSize === 'sm'
+      ? 'text-[9px]'
+      : brandSize === 'lg'
+        ? 'text-[12px]'
+        : 'text-[10px]';
+  const wordmarkLineHeight =
+    brandSize === 'lg' ? 'leading-[1.15]' : 'leading-tight';
+
   return (
     <footer style={{ backgroundColor: bg, borderTop: `1px solid ${borderTone}` }}>
       <div className="mx-auto max-w-7xl px-6 py-16">
@@ -47,13 +59,13 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
                     <img
                       src={block.logoUrl}
                       alt={block.logoAlt || ''}
-                      className="h-10 w-auto flex-shrink-0"
+                      className={`${logoSizeClass} w-auto flex-shrink-0`}
                       style={getElementCSS(block.elementStyles, 'logo')}
                     />
                   )}
                   {block.wordmark && (
                     <span
-                      className="text-[10px] font-semibold uppercase tracking-[0.1em] leading-tight"
+                      className={`${wordmarkSizeClass} font-semibold uppercase tracking-[0.1em] ${wordmarkLineHeight}`}
                       style={{ color: accent, ...getElementCSS(block.elementStyles, 'wordmark') }}
                     >
                       {block.wordmark.split('\n').map((line, i) => (
