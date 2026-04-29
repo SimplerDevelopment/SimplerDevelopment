@@ -246,3 +246,67 @@ explicit min-heights per metric. Either is a renderer-level change, not
 a polish-CSS-batch change. Team holds at 85-86.
 
 **Revisit when:** the team-flip-grid renderer gets a polish pass.
+
+## RESOLVED — services sv7 (services panel inactive icon set)
+
+The previous ACCEPTED entry above was based on the assumption that
+live's icons were freely-drawn outlined SVGs. Investigation revealed
+they are Material-Icons-DERIVED SVG exports (rocket_launch,
+conversion_path, handshake, dashboard_customize, web_traffic, etc.)
+hosted on the WP CDN with brand-blue (#004D80) fill. Extracted them
+to `public/sites/postcaptain/svg/svc-*.svg` via
+`.planning/postcaptain-replication/extract-svg-assets.mjs` (commit
+b7b4b095) and wired them into the panel feature lists in batch35
+(commit 3e38b9a2). The Material-Icons-span markup was replaced with
+`<span class="seu-icon-svg-badge"><img src="...svg"></span>` so the
+44px green-tinted circular badge from batch21 is preserved.
+
+Services vision-score: 82 → 86 → 85 (held at 85, vision now fixates on
+feature-list label typography weight which is at noise floor).
+
+## RESOLVED — hero h4 (diagonal light-ray background texture)
+
+The "diagonal streak" texture turned out NOT to be an SVG noise
+overlay — live uses a near-white wavy webp asset
+(`home-bg.webp`, 252KB) layered on the gradient via a separate
+`pc-hero__overlay` div. Saved locally to
+`public/sites/postcaptain/img/hero-bg.webp` and applied in batch36
+(commit 97a04979) as a `::after` pseudo-element with
+`mix-blend-mode: screen` at 0.32 opacity, plus a deeper-saturation
+gradient (#003E69 → #155082 → #3A7AA6 → #B8D2E5 → #F4F8FB).
+
+`overlay`/`multiply` blend modes were tried first and BOTH ate the
+gradient information; `screen` lifts the highlight wave-lines through
+the gradient without flattening it.
+
+Hero vision-score: 92 → 90 (held at 90; remaining gap is badge size +
+logo-row weight, both at noise floor).
+
+## RESOLVED — solutions sl3 (card width / body line-count)
+
+Probe (`_probe-solutions-width.mjs`) confirmed the actual rendered
+geometry:
+
+  live  : section maxWidth 1200, card width 378.6, card padding 20px
+  local : section maxWidth 1080, card width 338.6, card padding 0px
+
+Fixed in batch38 (commit 19e3fe75) as JSON-only edits: bumped
+`solutions-section.maxWidth` from 1080 → 1200, added 20px card padding
+via customCss scoped to `[data-block-id="solutions-cards"]`. Now
+pixel-perfect geometry match (verified via re-probe).
+
+Solutions vision-score held at 88 — pixel match is exact, vision-review
+fixates on perceptual differences below noise floor (font-size feel,
+shadow strength).
+
+## RESOLVED — team-flip-grid `verticalOffset` per-member prop
+
+Added optional `verticalOffset?: number` to `TeamFlipMember`, applied
+as `transform: translateY(<n>px)` on the outer `pc-flip-card` div
+(commit 90b35a26). Default no-op — backward-compatible. Universal
+extension available for future tenants whose team grids need
+asymmetric stagger.
+
+Postcaptain's team grid no longer needs Vinnie offset (batch31's
+align-items:start already top-baselines all four cards), so no
+batch37 migration ships against post 302.
