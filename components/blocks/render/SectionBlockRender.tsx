@@ -13,6 +13,7 @@ import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
 import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
+import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
 import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
@@ -160,6 +161,7 @@ function renderNestedBlock(block: Block) {
     case 'youtube': return <YoutubeBlockRender block={block} />;
     case 'columns': return <ColumnsBlockRender block={block} />;
     case 'tabs': return <TabsBlockRender block={block} />;
+    case 'sticky-scroll-tabs': return <StickyScrollTabsBlockRender block={block} />;
     case 'accordion': return <AccordionBlockRender block={block} />;
     case 'hero': return <HeroBlockRender block={block} />;
     case 'hero-slideshow': return <HeroSlideshowBlockRender block={block} />;

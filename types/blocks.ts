@@ -385,6 +385,57 @@ export interface TabsBlock extends BaseBlock {
   }>;
 }
 
+/**
+ * Sticky Scroll Tabs — full-viewport panels that cross-fade as the user scrolls,
+ * with a sticky tab strip that highlights the active panel. Inspired by the
+ * "wp-block-postcaptain-scroll-tabs" pattern. Universal — usable for any
+ * multi-section "show one panel at a time, scroll-driven" UX.
+ */
+export interface StickyScrollTabsBlock extends BaseBlock {
+  type: 'sticky-scroll-tabs';
+  /** Optional eyebrow above the heading. */
+  overline?: string;
+  /** Optional section heading rendered above the tabs. */
+  title?: string;
+  /** Optional supporting paragraph rendered alongside / under the heading. */
+  description?: string;
+  /** Each panel gets a tab pill + a content block list. */
+  panels: Array<{
+    id: string;
+    label: string;
+    icon?: string; // Material Icon name
+    blocks: Block[];
+  }>;
+  /** Px offset from top where the sticky tab strip pins. Default 80. */
+  stickyTopOffset?: number;
+  /** Visual height of each panel (CSS unit). Default '60vh'. */
+  panelMinHeight?: string;
+  /** Pill border radius. Default '999px'. */
+  tabBorderRadius?: string;
+  /** Pill colors. */
+  activeTabBackground?: string;
+  activeTabColor?: string;
+  inactiveTabBackground?: string;
+  inactiveTabColor?: string;
+  /**
+   * Optional mobile-specific pill colors. When set, the mobile carousel tab
+   * strip uses these instead of the desktop colors. Useful when desktop and
+   * mobile designs diverge (e.g. desktop uses white pills, mobile uses
+   * mint-green). Each falls back to its desktop counterpart when undefined.
+   */
+  mobileActiveTabBackground?: string;
+  mobileActiveTabColor?: string;
+  mobileInactiveTabBackground?: string;
+  mobileInactiveTabColor?: string;
+  /**
+   * Behavior of the tab strip on mobile (≤1024px).
+   * - 'hide':     panels stack vertically, no tab UI rendered (legacy default).
+   * - 'carousel': panels stack vertically AND a sticky horizontal-scroll tab strip
+   *               renders at the top; tapping a tab scrolls to its panel. Default.
+   */
+  mobileTabsBehavior?: 'hide' | 'carousel';
+}
+
 export interface CardGridBlock extends BaseBlock {
   type: 'card-grid';
   title?: string;
@@ -881,6 +932,10 @@ export interface SiteFooterBlock extends BaseBlock {
   logoUrl?: string;
   logoAlt?: string;
   tagline?: string;
+  /** Optional CTA shown beneath the tagline in the brand column. */
+  ctaText?: string;
+  /** Required when `ctaText` is set. */
+  ctaUrl?: string;
   linkGroups: FooterLinkGroup[];
   contactInfo?: {
     address?: string;
@@ -1006,6 +1061,7 @@ export type Block =
   | FeaturedContentBlock
   | AccordionBlock
   | TabsBlock
+  | StickyScrollTabsBlock
   | CardGridBlock
   | SectionBlock
   | GalleryBlock

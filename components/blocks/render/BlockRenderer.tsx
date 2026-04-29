@@ -13,6 +13,7 @@ import { VideoBlockRender } from './VideoBlockRender';
 import { YoutubeBlockRender } from './YoutubeBlockRender';
 import { ColumnsBlockRender } from './ColumnsBlockRender';
 import { TabsBlockRender } from './TabsBlockRender';
+import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
 import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
@@ -167,6 +168,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <ColumnsBlockRender block={normalized} />;
     case 'tabs':
       return <TabsBlockRender block={normalized} />;
+    case 'sticky-scroll-tabs':
+      return <StickyScrollTabsBlockRender block={normalized} />;
     case 'accordion':
       return <AccordionBlockRender block={normalized} />;
     case 'hero':

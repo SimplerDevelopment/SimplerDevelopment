@@ -119,6 +119,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'deck-next-slide': ArrowRight,
   'deck-jump-to': CornerDownRight,
   'survey-input': TextCursorInput,
+  'sticky-scroll-tabs': NotebookTabs,
 };
 
 /**

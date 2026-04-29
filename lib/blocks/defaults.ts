@@ -215,6 +215,15 @@ export function createDefaultBlock(
       };
     case 'site-footer':
       return { ...base, type: 'site-footer', linkGroups: [], socialLinks: [] };
+    case 'sticky-scroll-tabs':
+      return {
+        ...base,
+        type: 'sticky-scroll-tabs',
+        panels: [
+          { id: 'panel-1', label: 'Tab 1', blocks: [] },
+          { id: 'panel-2', label: 'Tab 2', blocks: [] },
+        ],
+      };
     case 'social-links':
       return { ...base, type: 'social-links', links: [], alignment: 'center' };
 

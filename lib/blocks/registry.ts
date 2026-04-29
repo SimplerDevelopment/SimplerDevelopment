@@ -35,6 +35,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'section', label: 'Section', icon: 'crop_free', category: 'Layout', description: 'Container wrapper' },
   { type: 'tabs', label: 'Tabs', icon: 'tab', category: 'Layout', description: 'Tabbed sections' },
   { type: 'accordion', label: 'Accordion', icon: 'expand_more', category: 'Layout', description: 'Collapsible sections' },
+  { type: 'sticky-scroll-tabs', label: 'Sticky Scroll Tabs', icon: 'view_carousel', category: 'Layout', description: 'Sticky tab strip with full-viewport panels that cross-fade on scroll' },
   { type: 'hero', label: 'Hero', icon: 'view_carousel', category: 'Components', description: 'Hero section with CTA' },
   { type: 'hero-slideshow', label: 'Hero Slideshow', icon: 'slideshow', category: 'Components', description: 'Slideshow hero with multiple slides' },
   { type: 'marquee', label: 'Marquee', icon: 'text_rotation_none', category: 'Components', description: 'Scrolling text, images, or logos' },
