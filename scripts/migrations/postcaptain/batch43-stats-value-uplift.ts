@@ -32,36 +32,42 @@ import { db } from '@/lib/db';
 import { posts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
-const BATCH43_CSS = `/* batch43 — stats value uplift + suffix-on-own-line */
+const BATCH43_CSS = `/* batch43 — stats value uplift + flex-wrap suffix */
 
-/* Bigger value typography to match live's 56px stat number. The
-   selector chain below is one level deeper than the prior
-   1.95rem-cap rule from batch31, so it wins the cascade. */
+/* Bigger value typography to match live's 56px stat number, while
+   keeping live's MIXED inline/wrapped suffix behavior:
+     short suffix ("Increase", "Raised")              → INLINE with number
+     long suffix  ("of Staff Time Saved", "...Data")  → WRAPS below number
+   This is what the original batch31 was trying to achieve, but its
+   1.95rem cap clamped the number too small. We keep flex+wrap and
+   raise the size. */
 .block-content [data-block-id="cs-metrics"][data-block-type="metric-cards"] .grid > a > div > div:first-child > div[style*="font-size"],
 .block-content [data-block-id="cs-metrics"][data-block-type="metric-cards"] .grid > div > div > div:first-child > div[style*="font-size"] {
   font-size: clamp(2.25rem, 4vw, 3.5rem) !important;
   line-height: 1.05 !important;
   font-weight: 300 !important;
   letter-spacing: -0.01em !important;
-  /* Stack number + suffix vertically so suffix lays out on a NEW line
-     below the number — matching live where stat-number and stat-label
-     are siblings in a column-direction flex. */
   display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
+  flex-direction: row !important;
+  align-items: baseline !important;
+  flex-wrap: wrap !important;
+  column-gap: 0.35em !important;
   row-gap: 0.05em !important;
   max-width: 100% !important;
 }
 
-/* Suffix: smaller scale, label-like, lays out on its own line. */
+/* Suffix: smaller scale, inline when it fits, wraps to next line on
+   long copy. font-size 0.42em ≈ 23.5px against a 56px parent — close
+   to live's stat-label scale. */
 .block-content [data-block-id="cs-metrics"][data-block-type="metric-cards"] .grid > a > div > div > div > span.pc-metric-suffix,
 .block-content [data-block-id="cs-metrics"][data-block-type="metric-cards"] .grid > div > div > div > div > span.pc-metric-suffix {
-  font-size: 0.4em !important;
+  font-size: 0.42em !important;
   font-weight: 400 !important;
   letter-spacing: 0 !important;
   margin-left: 0 !important;
   white-space: normal !important;
-  display: block !important;
+  display: inline-block !important;
+  vertical-align: baseline !important;
   color: inherit !important;
   flex: 0 1 auto !important;
 }
