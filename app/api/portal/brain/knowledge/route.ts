@@ -22,6 +22,8 @@ export async function GET(request: Request) {
   const tag = url.searchParams.get('tag');
   const search = url.searchParams.get('search');
   const pinnedOnly = url.searchParams.get('pinned') === 'true';
+  const sourceUrl = url.searchParams.get('sourceUrl');
+  const sourceUrlStartsWith = url.searchParams.get('sourceUrlStartsWith');
 
   const notes = await listNotes(result.client.id, {
     relationshipOverlayId: relationshipOverlayId ? parseInt(relationshipOverlayId, 10) : undefined,
@@ -32,6 +34,8 @@ export async function GET(request: Request) {
     tag: tag ?? undefined,
     search: search ?? undefined,
     pinnedOnly,
+    sourceUrl: sourceUrl ?? undefined,
+    sourceUrlStartsWith: sourceUrlStartsWith ?? undefined,
   });
 
   return NextResponse.json({ success: true, data: notes });
@@ -59,6 +63,7 @@ export async function POST(request: Request) {
     confidentialityLevel: ['standard', 'restricted', 'confidential'].includes(body.confidentialityLevel)
       ? body.confidentialityLevel : 'standard',
     pinned: body.pinned === true,
+    sourceUrl: typeof body.sourceUrl === 'string' && body.sourceUrl.trim() ? body.sourceUrl.trim() : null,
     source: 'manual',
     createdBy: result.userId,
   });

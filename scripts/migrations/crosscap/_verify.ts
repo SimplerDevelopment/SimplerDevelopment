@@ -9,7 +9,8 @@ async function main() {
   const clientId: number = ids.clientId;
 
   const { db } = await import('../../../lib/db');
-  const { crmContacts, crmCompanies } = await import('../../../lib/db/schema');
+  const { crmContacts, crmCompanies, crmCustomFields, crmCustomFieldValues, crmTags } =
+    await import('../../../lib/db/schema');
   const { eq, and, isNotNull, sql, count } = await import('drizzle-orm');
 
   const [{ n: total }]  = await db.select({ n: count() }).from(crmContacts).where(eq(crmContacts.clientId, clientId));
@@ -44,6 +45,21 @@ async function main() {
   for (const c of enriched) {
     console.log(`  • ${c.firstName} ${c.lastName ?? ''} — ${c.email} — ${c.phone}`);
   }
+
+  // Custom fields summary
+  const fields = await db.select().from(crmCustomFields).where(eq(crmCustomFields.clientId, clientId));
+  const [{ n: valueRows }] = await db.select({ n: count() }).from(crmCustomFieldValues)
+    .innerJoin(crmCustomFields, eq(crmCustomFieldValues.customFieldId, crmCustomFields.id))
+    .where(eq(crmCustomFields.clientId, clientId));
+  console.log(`\nCustom fields: ${fields.length} defined, ${valueRows} values backfilled`);
+  for (const f of fields) {
+    console.log(`  ${f.entityType.padEnd(7)} [${(f.category ?? '').padEnd(18)}] ${f.fieldName} (${f.fieldType}${f.filterable ? ', filterable' : ''})`);
+  }
+
+  // Tags summary
+  const [{ n: tagCount }] = await db.select({ n: count() }).from(crmTags).where(eq(crmTags.clientId, clientId));
+  console.log(`\nTags: ${tagCount}`);
+
   process.exit(0);
 }
 

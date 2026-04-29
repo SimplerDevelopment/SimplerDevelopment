@@ -15,6 +15,10 @@ interface ListOpts {
   pinnedOnly?: boolean;
   search?: string;
   tag?: string;
+  /** Exact source URL match — used by MCP crawlers to dedupe before re-saving. */
+  sourceUrl?: string;
+  /** Prefix match on source URL — find all notes ingested from a given site. */
+  sourceUrlStartsWith?: string;
   limit?: number;
 }
 
@@ -35,6 +39,13 @@ export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<
     // tags is json[]; jsonb_path_exists works on jsonb so we cast.
     conds.push(sql`${brainNotes.tags}::jsonb @> ${JSON.stringify([opts.tag])}::jsonb`);
   }
+  if (opts.sourceUrl) {
+    conds.push(eq(brainNotes.sourceUrl, opts.sourceUrl));
+  }
+  if (opts.sourceUrlStartsWith) {
+    const prefix = `${opts.sourceUrlStartsWith}%`;
+    conds.push(sql`${brainNotes.sourceUrl} ILIKE ${prefix}`);
+  }
 
   return db.select().from(brainNotes)
     .where(and(...conds))
@@ -45,6 +56,19 @@ export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<
 export async function getNote(clientId: number, noteId: number): Promise<BrainNote | null> {
   const [row] = await db.select().from(brainNotes)
     .where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Find a note by its source URL — used by AI-driven web crawls to decide
+ * whether to insert a new note or update the existing one for that URL.
+ * Returns the most recently updated match.
+ */
+export async function getNoteBySourceUrl(clientId: number, sourceUrl: string): Promise<BrainNote | null> {
+  const [row] = await db.select().from(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), eq(brainNotes.sourceUrl, sourceUrl)))
+    .orderBy(desc(brainNotes.updatedAt))
     .limit(1);
   return row ?? null;
 }
@@ -61,8 +85,10 @@ interface CreateNoteInput {
   contactId?: number | null;
   confidentialityLevel?: 'standard' | 'restricted' | 'confidential';
   pinned?: boolean;
-  source?: 'manual' | 'ai_review' | 'document_import';
+  source?: 'manual' | 'ai_review' | 'document_import' | 'crawl';
   reviewItemId?: number | null;
+  /** Original URL the content was scraped/imported from. */
+  sourceUrl?: string | null;
   createdBy?: number | null;
   // Optional file attachment (one per note). All five must be provided
   // together when an attachment is being saved.
@@ -88,6 +114,7 @@ export async function createNote(input: CreateNoteInput): Promise<BrainNote> {
     pinned: input.pinned ?? false,
     source: input.source ?? 'manual',
     reviewItemId: input.reviewItemId ?? null,
+    sourceUrl: input.sourceUrl ?? null,
     attachmentUrl: input.attachmentUrl ?? null,
     attachmentFilename: input.attachmentFilename ?? null,
     attachmentMimeType: input.attachmentMimeType ?? null,
@@ -118,6 +145,7 @@ interface UpdateNoteInput {
   contactId?: number | null;
   confidentialityLevel?: 'standard' | 'restricted' | 'confidential';
   pinned?: boolean;
+  sourceUrl?: string | null;
 }
 
 export async function updateNote(
@@ -140,6 +168,7 @@ export async function updateNote(
   if (input.contactId !== undefined) patch.contactId = input.contactId;
   if (input.confidentialityLevel !== undefined) patch.confidentialityLevel = input.confidentialityLevel;
   if (input.pinned !== undefined) patch.pinned = input.pinned;
+  if (input.sourceUrl !== undefined) patch.sourceUrl = input.sourceUrl;
 
   const [updated] = await db.update(brainNotes).set(patch)
     .where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)))

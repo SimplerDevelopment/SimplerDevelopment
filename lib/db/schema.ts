@@ -2996,6 +2996,10 @@ export const brainNotes = pgTable('brain_notes', {
   // upload pipelines.
   source: varchar('source', { length: 50 }).default('manual').notNull(),
   reviewItemId: integer('review_item_id').references(() => brainAiReviewItems.id, { onDelete: 'set null' }),
+  // Where this note's content originally came from — set for AI-driven web
+  // crawls and document imports. Lets MCP clients dedupe before re-ingesting
+  // the same URL ("does a note already exist for https://docs.example.com/x?").
+  sourceUrl: varchar('source_url', { length: 1000 }),
   // Optional file attachment. When set, the note is "file-based" — the body
   // typically holds commentary about the file. Files are stored in S3 via
   // lib/s3/upload; the URL is a proxy path like `/api/media/proxy/<key>`.

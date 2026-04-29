@@ -74,9 +74,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'workspace_revoked' }, { status: 409 });
   }
 
+  // Override the stored redirectUri with one derived from the current request
+  // origin. MUST match what /connect sent to Google in the auth URL — Google
+  // validates the redirect_uri across the auth + token-exchange round trip.
+  // Same reasoning: works on localhost / staging / www without DB tweaks.
+  const credentials = {
+    ...tenant.oauth,
+    redirectUri: `${url.origin}/api/portal/integrations/google/callback`,
+  };
+
   let exchanged;
   try {
-    exchanged = await exchangeCode(code, tenant.oauth);
+    exchanged = await exchangeCode(code, credentials);
   } catch (err) {
     return NextResponse.json(
       { error: 'token_exchange_failed', message: (err as Error).message },
@@ -92,7 +101,7 @@ export async function GET(req: NextRequest) {
   if (exchanged.scopes.some((s) => s.includes('gmail'))) {
     try {
       const watch = await startGmailWatch({
-        credentials: tenant.oauth,
+        credentials,
         connection: {
           accessToken: exchanged.accessToken,
           refreshToken: exchanged.refreshToken,

@@ -72,8 +72,18 @@ export async function GET(req: NextRequest) {
     returnTo,
   });
 
+  // Derive the callback URL from the request origin so the same code works
+  // across localhost / staging / production without per-env DB updates.
+  // The stored tenant.oauth.redirectUri is informational only; the actual
+  // OAuth client must have this exact URL registered (we registered all 3
+  // up front: localhost:3000, staging.simplerdevelopment.com, www.simplerdevelopment.com).
+  const credentials = {
+    ...tenant.oauth,
+    redirectUri: `${url.origin}/api/portal/integrations/google/callback`,
+  };
+
   const authUrl = buildAuthUrl({
-    credentials: tenant.oauth,
+    credentials,
     surfaces,
     state,
     loginHint: session.user.email ?? undefined,

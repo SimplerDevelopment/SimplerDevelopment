@@ -42,6 +42,14 @@ import {
   listReviewItems,
   rejectReviewItem,
 } from './review';
+import {
+  createNote,
+  deleteNote,
+  getNote,
+  getNoteBySourceUrl,
+  listNotes,
+  updateNote,
+} from './notes';
 import { getDashboardSummary } from './dashboard';
 import { db } from '@/lib/db';
 import { brainAiReviewItems } from '@/lib/db/schema';
@@ -549,6 +557,230 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       } catch (e) {
         return err(e instanceof Error ? e.message : 'Failed to update.');
       }
+    },
+  );
+
+  // ── KNOWLEDGE — notes (the surface AI agents drive web crawls into) ──────
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_list_notes',
+    {
+      title: 'List Brain knowledge notes',
+      description: 'List/search notes in Company Brain Knowledge. Use this BEFORE crawling a URL to dedupe — pass `sourceUrl` for an exact match or `sourceUrlStartsWith` for a domain-wide check.',
+      inputSchema: {
+        search: z.string().optional().describe('ILIKE on title and body.'),
+        tag: z.string().optional().describe('Match a single tag.'),
+        sourceUrl: z.string().optional().describe('Exact source URL match — for dedup.'),
+        sourceUrlStartsWith: z.string().optional().describe('Prefix match on source URL — e.g. "https://docs.example.com/" to find everything ingested from that site.'),
+        relationshipOverlayId: z.number().int().positive().optional(),
+        companyId: z.number().int().positive().optional(),
+        dealId: z.number().int().positive().optional(),
+        contactId: z.number().int().positive().optional(),
+        meetingId: z.number().int().positive().optional(),
+        pinnedOnly: z.boolean().optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const notes = await listNotes(clientId, {
+        search: args.search,
+        tag: args.tag,
+        sourceUrl: args.sourceUrl,
+        sourceUrlStartsWith: args.sourceUrlStartsWith,
+        relationshipOverlayId: args.relationshipOverlayId,
+        companyId: args.companyId,
+        dealId: args.dealId,
+        contactId: args.contactId,
+        meetingId: args.meetingId,
+        pinnedOnly: args.pinnedOnly,
+        limit: args.limit ?? 50,
+      });
+      // Trim bodies for list responses; full body is available via brain_get_note.
+      return json(notes.map((n) => ({
+        id: n.id,
+        title: n.title,
+        bodyPreview: n.body.slice(0, 400),
+        bodyLength: n.body.length,
+        tags: n.tags,
+        sourceUrl: n.sourceUrl,
+        confidentialityLevel: n.confidentialityLevel,
+        pinned: n.pinned,
+        source: n.source,
+        relationshipOverlayId: n.relationshipOverlayId,
+        companyId: n.companyId,
+        dealId: n.dealId,
+        contactId: n.contactId,
+        meetingId: n.meetingId,
+        attachmentFilename: n.attachmentFilename,
+        attachmentMimeType: n.attachmentMimeType,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+      })));
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_get_note',
+    {
+      title: 'Get a Brain knowledge note',
+      description: 'Fetch a single note with its full body. Use brain_list_notes to find IDs.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const note = await getNote(clientId, args.noteId);
+      if (!note) return err('Note not found.');
+      return json(note);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_create_note',
+    {
+      title: 'Create a Brain knowledge note',
+      description: 'Save a knowledge note. The primary write surface for AI-driven web ingestion: pass `sourceUrl` to record provenance and source="crawl" when ingesting from the web. Body is markdown, capped at 50KB. Pre-check for an existing note via brain_list_notes(sourceUrl=...) before creating to avoid duplicates.',
+      inputSchema: {
+        title: z.string().min(1).max(255),
+        body: z.string().max(50_000).optional(),
+        tags: z.array(z.string()).optional(),
+        sourceUrl: z.string().url().optional().describe('Original URL the content came from (for crawled notes).'),
+        source: z.enum(['manual', 'ai_review', 'document_import', 'crawl']).optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+        pinned: z.boolean().optional(),
+        relationshipOverlayId: z.number().int().positive().optional(),
+        companyId: z.number().int().positive().optional(),
+        dealId: z.number().int().positive().optional(),
+        contactId: z.number().int().positive().optional(),
+        meetingId: z.number().int().positive().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const note = await createNote({
+        clientId,
+        title: args.title,
+        body: args.body ?? '',
+        tags: args.tags ?? [],
+        sourceUrl: args.sourceUrl ?? null,
+        source: args.source ?? (args.sourceUrl ? 'crawl' : 'manual'),
+        confidentialityLevel: args.confidentialityLevel,
+        pinned: args.pinned ?? false,
+        relationshipOverlayId: args.relationshipOverlayId ?? null,
+        companyId: args.companyId ?? null,
+        dealId: args.dealId ?? null,
+        contactId: args.contactId ?? null,
+        meetingId: args.meetingId ?? null,
+        createdBy: ctx.userId,
+      });
+      return json(note);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_upsert_note_by_url',
+    {
+      title: 'Upsert a Brain knowledge note keyed by source URL',
+      description: 'Idempotent crawl primitive: if a note already exists for this `sourceUrl`, update its title/body/tags; otherwise create a new one. Returns `{ note, created: boolean }`. Prefer this over brain_create_note when ingesting web pages.',
+      inputSchema: {
+        sourceUrl: z.string().url(),
+        title: z.string().min(1).max(255),
+        body: z.string().max(50_000),
+        tags: z.array(z.string()).optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+        relationshipOverlayId: z.number().int().positive().optional(),
+        companyId: z.number().int().positive().optional(),
+        dealId: z.number().int().positive().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const existing = await getNoteBySourceUrl(clientId, args.sourceUrl);
+      if (existing) {
+        const updated = await updateNote(clientId, existing.id, {
+          title: args.title,
+          body: args.body,
+          tags: args.tags,
+          confidentialityLevel: args.confidentialityLevel,
+          relationshipOverlayId: args.relationshipOverlayId,
+          companyId: args.companyId,
+          dealId: args.dealId,
+        }, ctx.userId);
+        return json({ note: updated, created: false });
+      }
+      const created = await createNote({
+        clientId,
+        title: args.title,
+        body: args.body,
+        tags: args.tags ?? [],
+        sourceUrl: args.sourceUrl,
+        source: 'crawl',
+        confidentialityLevel: args.confidentialityLevel,
+        relationshipOverlayId: args.relationshipOverlayId ?? null,
+        companyId: args.companyId ?? null,
+        dealId: args.dealId ?? null,
+        createdBy: ctx.userId,
+      });
+      return json({ note: created, created: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_update_note',
+    {
+      title: 'Update a Brain knowledge note',
+      description: 'Patch fields on an existing note. Pass `null` for nullable fields to clear them.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+        title: z.string().min(1).max(255).optional(),
+        body: z.string().max(50_000).optional(),
+        tags: z.array(z.string()).optional(),
+        sourceUrl: z.string().url().nullable().optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+        pinned: z.boolean().optional(),
+        relationshipOverlayId: z.number().int().positive().nullable().optional(),
+        companyId: z.number().int().positive().nullable().optional(),
+        dealId: z.number().int().positive().nullable().optional(),
+        contactId: z.number().int().positive().nullable().optional(),
+        meetingId: z.number().int().positive().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const updated = await updateNote(clientId, args.noteId, {
+        title: args.title,
+        body: args.body,
+        tags: args.tags,
+        sourceUrl: args.sourceUrl ?? undefined,
+        confidentialityLevel: args.confidentialityLevel,
+        pinned: args.pinned,
+        relationshipOverlayId: args.relationshipOverlayId ?? undefined,
+        companyId: args.companyId ?? undefined,
+        dealId: args.dealId ?? undefined,
+        contactId: args.contactId ?? undefined,
+        meetingId: args.meetingId ?? undefined,
+      }, ctx.userId);
+      if (!updated) return err('Note not found.');
+      return json(updated);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_delete_note',
+    {
+      title: 'Delete a Brain knowledge note',
+      description: 'Permanently delete a note. If it has an attached file, the S3 object is best-effort cleaned up. AUDITED.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const ok = await deleteNote(clientId, args.noteId, ctx.userId);
+      if (!ok) return err('Note not found.');
+      return json({ ok: true });
     },
   );
 }
