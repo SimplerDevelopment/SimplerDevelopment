@@ -920,6 +920,27 @@ export interface MetricCardsBlock extends BaseBlock {
   columns?: 2 | 3 | 4;
   /** Accent color for the metric value + link arrow */
   accentColor?: string;
+  /**
+   * CSS-unit width reserved for the institution-logo region inside each
+   * card. When set, the heading + label column is constrained so the
+   * logo sits to the side without overlapping. Useful when paired with
+   * customCss that absolute-positions the logo top-right (as in the
+   * Post Captain stats section).
+   *
+   * Applied as `--mc-logo-col-width` on the section root + as
+   * `padding-right` on the heading column. Defaults to unset (no
+   * reservation; legacy below-the-fold logo placement).
+   */
+  logoColumnWidth?: string;
+  /**
+   * CSS-unit max-width for the secondary `label` text inside each card.
+   * Useful to keep long labels like "IN READMIT COMPLETIONS" on one
+   * line when the logo is pinned to the side. Falls back to no cap.
+   *
+   * Applied as `--mc-label-max-width` on the section root + as
+   * `max-width` on each label element.
+   */
+  labelMaxWidth?: string;
 }
 
 export interface FooterLinkGroup {

@@ -40,8 +40,27 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
   const institutionStyle = getElementCSS(block.elementStyles, 'institution');
   const linkStyle = getElementCSS(block.elementStyles, 'link');
 
+  // Optional widths for cards that pair a side-pinned logo with constrained
+  // label width. Both are CSS-unit strings. Exposed as CSS variables so
+  // post-level customCss can also reference them (`var(--mc-logo-col-width)`).
+  const sectionVars: React.CSSProperties = {};
+  if (block.logoColumnWidth) {
+    (sectionVars as Record<string, string>)['--mc-logo-col-width'] = block.logoColumnWidth;
+  }
+  if (block.labelMaxWidth) {
+    (sectionVars as Record<string, string>)['--mc-label-max-width'] = block.labelMaxWidth;
+  }
+  // Heading column (value + label) gets its right padding reserved when a
+  // logoColumnWidth is set. Preserves legacy spacing when unset.
+  const headingColPadStyle: React.CSSProperties = block.logoColumnWidth
+    ? { paddingRight: block.logoColumnWidth }
+    : {};
+  const labelMaxWidthStyle: React.CSSProperties = block.labelMaxWidth
+    ? { maxWidth: block.labelMaxWidth }
+    : {};
+
   return (
-    <section className={responsiveClasses}>
+    <section className={responsiveClasses} style={sectionVars}>
       {(block.overline || block.title || block.description) && (
         <div className="text-center mb-12 max-w-3xl mx-auto">
           {block.overline && (
@@ -78,7 +97,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
               className="h-full flex flex-col justify-between rounded-xl border bg-white p-7 transition-all hover:shadow-md hover:-translate-y-0.5"
               style={{ borderColor: '#E5E7EB', ...cardStyle }}
             >
-              <div>
+              <div style={headingColPadStyle}>
                 <div
                   className="font-heading font-bold leading-none tracking-tight mb-3"
                   style={{
@@ -90,7 +109,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
                 />
                 <div
                   className="text-[11px] font-semibold tracking-[0.15em] uppercase text-gray-600 leading-snug"
-                  style={labelStyle}
+                  style={{ ...labelMaxWidthStyle, ...labelStyle }}
                   dangerouslySetInnerHTML={{ __html: metric.label }}
                 />
               </div>
