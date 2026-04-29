@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import {
   brainMeetings,
+  brainNotes,
   brainTasks,
   brainRelationshipOverlays,
   crmCompanies,
@@ -8,7 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, or, desc, sql, ilike } from 'drizzle-orm';
 
-export type BrainSearchEntityType = 'meeting' | 'task' | 'relationship';
+export type BrainSearchEntityType = 'meeting' | 'note' | 'task' | 'relationship';
 
 export interface BrainSearchHit {
   type: BrainSearchEntityType;
@@ -63,7 +64,7 @@ export async function searchBrain(
     return { query: '', total: 0, hits: [] };
   }
 
-  const types = new Set<BrainSearchEntityType>(opts.types ?? ['meeting', 'task', 'relationship']);
+  const types = new Set<BrainSearchEntityType>(opts.types ?? ['meeting', 'note', 'task', 'relationship']);
   const perTypeLimit = Math.max(1, Math.min(opts.perTypeLimit ?? DEFAULT_PER_TYPE, 50));
   const totalLimit = Math.max(1, Math.min(opts.limit ?? DEFAULT_TOTAL, 100));
 
@@ -73,6 +74,7 @@ export async function searchBrain(
   const lowered = query.toLowerCase();
 
   const meetingHits: BrainSearchHit[] = [];
+  const noteHits: BrainSearchHit[] = [];
   const taskHits: BrainSearchHit[] = [];
   const relationshipHits: BrainSearchHit[] = [];
 
@@ -117,6 +119,73 @@ export async function searchBrain(
                 status: m.status,
                 occurredAt: (m.meetingDate ?? m.createdAt).toISOString(),
                 url: `/portal/brain/meetings/${m.id}`,
+              });
+            }
+          })
+      : Promise.resolve(),
+
+    types.has('note')
+      ? db.select({
+          id: brainNotes.id,
+          title: brainNotes.title,
+          body: brainNotes.body,
+          tags: brainNotes.tags,
+          pinned: brainNotes.pinned,
+          confidentialityLevel: brainNotes.confidentialityLevel,
+          source: brainNotes.source,
+          companyId: brainNotes.companyId,
+          dealId: brainNotes.dealId,
+          updatedAt: brainNotes.updatedAt,
+          createdAt: brainNotes.createdAt,
+        }).from(brainNotes)
+          .where(and(
+            eq(brainNotes.clientId, clientId),
+            or(
+              ilike(brainNotes.title, pattern),
+              ilike(brainNotes.body, pattern),
+            ),
+          ))
+          .orderBy(desc(brainNotes.pinned), desc(brainNotes.updatedAt))
+          .limit(perTypeLimit)
+          .then(async (rows) => {
+            const companyIds = rows.map((r) => r.companyId).filter((v): v is number => v !== null);
+            const dealIds = rows.map((r) => r.dealId).filter((v): v is number => v !== null);
+            const [coRows, dlRows] = await Promise.all([
+              companyIds.length
+                ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
+                  .where(sql`${crmCompanies.id} IN ${companyIds}`)
+                : Promise.resolve([] as { id: number; name: string }[]),
+              dealIds.length
+                ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
+                  .where(sql`${crmDeals.id} IN ${dealIds}`)
+                : Promise.resolve([] as { id: number; title: string }[]),
+            ]);
+            const coMap = new Map(coRows.map((c) => [c.id, c.name]));
+            const dlMap = new Map(dlRows.map((d) => [d.id, d.title]));
+
+            for (const n of rows) {
+              const haystacks = [
+                { text: n.title, weight: 1.0 },
+                { text: n.body ?? '', weight: 0.7 },
+              ];
+              const { snippet, score } = pickSnippet(haystacks, lowered);
+              // Boost pinned notes a touch so they surface first on ties.
+              const finalScore = Math.min(1, score + (n.pinned ? 0.1 : 0));
+              const tagList = (n.tags ?? []).slice(0, 3).join(' · ');
+              noteHits.push({
+                type: 'note',
+                id: n.id,
+                title: n.title,
+                snippet,
+                score: finalScore,
+                status: tagList || (n.pinned ? 'pinned' : undefined),
+                occurredAt: (n.updatedAt ?? n.createdAt).toISOString(),
+                contextName: n.companyId !== null
+                  ? coMap.get(n.companyId)
+                  : n.dealId !== null
+                    ? dlMap.get(n.dealId)
+                    : undefined,
+                url: '/portal/brain/knowledge',
               });
             }
           })
@@ -255,7 +324,7 @@ export async function searchBrain(
   ]);
 
   // Merge + sort by score, then by recency for ties.
-  const all = [...meetingHits, ...taskHits, ...relationshipHits];
+  const all = [...meetingHits, ...noteHits, ...taskHits, ...relationshipHits];
   all.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score;
     const at = a.occurredAt ? Date.parse(a.occurredAt) : 0;

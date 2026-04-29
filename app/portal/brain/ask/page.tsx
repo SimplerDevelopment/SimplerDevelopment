@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useCallback, useMemo } from 'react';
 
-type EntityType = 'meeting' | 'task' | 'relationship';
+type EntityType = 'meeting' | 'note' | 'task' | 'relationship';
 
 interface BrainSearchHit {
   type: EntityType;
@@ -24,14 +24,16 @@ interface BrainSearchResult {
 }
 
 const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
-  meeting: { label: 'Note', icon: 'forum', tone: 'text-blue-600 dark:text-blue-400' },
+  meeting: { label: 'Meeting', icon: 'forum', tone: 'text-blue-600 dark:text-blue-400' },
+  note: { label: 'Knowledge', icon: 'sticky_note_2', tone: 'text-amber-600 dark:text-amber-400' },
   task: { label: 'Task', icon: 'task_alt', tone: 'text-foreground' },
   relationship: { label: 'Relationship', icon: 'group_work', tone: 'text-cyan-600 dark:text-cyan-400' },
 };
 
 const FILTERS: { id: EntityType | 'all'; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'meeting', label: 'Notes' },
+  { id: 'meeting', label: 'Meetings' },
+  { id: 'note', label: 'Knowledge' },
   { id: 'task', label: 'Tasks' },
   { id: 'relationship', label: 'Relationships' },
 ];
@@ -81,7 +83,7 @@ export default function AskBrainPage() {
 
   const grouped = useMemo(() => {
     if (!result) return null;
-    const out = new Map<EntityType, BrainSearchHit[]>([['meeting', []], ['relationship', []], ['task', []]]);
+    const out = new Map<EntityType, BrainSearchHit[]>([['meeting', []], ['note', []], ['relationship', []], ['task', []]]);
     for (const h of result.hits) {
       out.get(h.type)?.push(h);
     }
@@ -96,7 +98,7 @@ export default function AskBrainPage() {
           Ask Brain
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Search your meetings, tasks, and relationships. For richer conversational queries, connect Brain to Claude Desktop via MCP — see below.
+          Search your meetings, knowledge notes, tasks, and relationships. For richer conversational queries, connect Brain to Claude Desktop via MCP — see below.
         </p>
       </div>
 
@@ -192,7 +194,7 @@ export default function AskBrainPage() {
                       </p>
                       <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
                         {hit.occurredAt && <span>{new Date(hit.occurredAt).toLocaleDateString()}</span>}
-                        {hit.contextName && hit.type === 'task' && (
+                        {hit.contextName && (hit.type === 'task' || hit.type === 'note') && (
                           <span className="inline-flex items-center gap-0.5">
                             <span className="material-icons text-sm">link</span>
                             {hit.contextName}
@@ -209,7 +211,7 @@ export default function AskBrainPage() {
 
           {grouped && (
             <div className="text-xs text-muted-foreground">
-              {(['meeting', 'task', 'relationship'] as EntityType[]).map((t) => {
+              {(['meeting', 'note', 'task', 'relationship'] as EntityType[]).map((t) => {
                 const count = grouped.get(t)?.length ?? 0;
                 if (count === 0) return null;
                 return <span key={t} className="mr-3">{TYPE_META[t].label}s: {count}</span>;
