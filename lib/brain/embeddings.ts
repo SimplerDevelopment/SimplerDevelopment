@@ -94,6 +94,47 @@ const OVERLAP_TOKENS = 100;
 const TARGET_CHARS = TARGET_CHUNK_TOKENS * CHARS_PER_TOKEN;
 const OVERLAP_CHARS = OVERLAP_TOKENS * CHARS_PER_TOKEN;
 
+// OpenAI text-embedding-3-small caps individual inputs at 8192 tokens. We
+// hard-split anything above this character count to stay safely under, with
+// a margin for the chars-per-token estimate being approximate.
+const HARD_MAX_CHARS = 7000 * CHARS_PER_TOKEN;
+
+/**
+ * Aggressive last-resort splitter for "paragraphs" that are themselves
+ * larger than TARGET_CHARS — e.g. an auto-generated index of links with no
+ * blank-line breaks. Splits on single-newline boundaries first, then hard
+ * character windows if even those individual lines are too large.
+ */
+function hardSplit(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+  // First try: split on single newlines.
+  const lines = text.split(/\n/);
+  const out: string[] = [];
+  let buf = '';
+  for (const line of lines) {
+    if ((buf + '\n' + line).length > maxChars && buf.length > 0) {
+      out.push(buf);
+      buf = line;
+    } else {
+      buf = buf.length > 0 ? `${buf}\n${line}` : line;
+    }
+  }
+  if (buf.length > 0) out.push(buf);
+  // Anything still oversize (single line longer than maxChars — unusual but
+  // possible for crawled HTML with no whitespace) gets hard-windowed.
+  const final: string[] = [];
+  for (const piece of out) {
+    if (piece.length <= maxChars) {
+      final.push(piece);
+    } else {
+      for (let i = 0; i < piece.length; i += maxChars) {
+        final.push(piece.slice(i, i + maxChars));
+      }
+    }
+  }
+  return final;
+}
+
 export function chunkMarkdown(text: string): string[] {
   const trimmed = text.trim();
   if (trimmed.length === 0) return [];
@@ -113,19 +154,33 @@ export function chunkMarkdown(text: string): string[] {
     const paragraphs = section.split(/\n\n+/);
     let buf = '';
     for (const p of paragraphs) {
-      if ((buf + '\n\n' + p).length > TARGET_CHARS && buf.length > 0) {
-        chunks.push(buf.trim());
-        // Carry the tail of the previous chunk forward as overlap so context
-        // isn't lost at chunk boundaries.
-        buf = buf.slice(-OVERLAP_CHARS) + '\n\n' + p;
-      } else {
-        buf = buf.length > 0 ? `${buf}\n\n${p}` : p;
+      // If a single paragraph is itself huge (auto-generated indexes often
+      // have one big paragraph of bullets with no blank lines), hard-split
+      // it before bin-packing.
+      const pPieces = p.length > TARGET_CHARS ? hardSplit(p, TARGET_CHARS) : [p];
+      for (const piece of pPieces) {
+        if ((buf + '\n\n' + piece).length > TARGET_CHARS && buf.length > 0) {
+          chunks.push(buf.trim());
+          // Carry the tail of the previous chunk forward as overlap so context
+          // isn't lost at chunk boundaries.
+          buf = buf.slice(-OVERLAP_CHARS) + '\n\n' + piece;
+        } else {
+          buf = buf.length > 0 ? `${buf}\n\n${piece}` : piece;
+        }
       }
     }
     if (buf.trim().length > 0) chunks.push(buf.trim());
   }
 
-  return chunks;
+  // Final safety net — anything still over the hard token cap gets sliced
+  // (shouldn't fire after the paragraph-level split above, but the OpenAI
+  // 8192-token limit is a hard wall so we belt-and-suspenders it).
+  const safe: string[] = [];
+  for (const c of chunks) {
+    if (c.length <= HARD_MAX_CHARS) safe.push(c);
+    else for (const piece of hardSplit(c, HARD_MAX_CHARS)) safe.push(piece);
+  }
+  return safe;
 }
 
 /**
