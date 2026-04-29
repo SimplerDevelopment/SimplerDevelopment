@@ -227,6 +227,29 @@ export function registerBrandingToolsOnSdk(server: McpServer, ctx: PortalMcpCont
   );
 
   hasScope(ctx.scopes, 'branding:write') && server.registerTool(
+    'branding_delete_profile',
+    {
+      title: 'Delete branding profile',
+      description:
+        'Permanently delete a branding profile. Sites that referenced it will fall back to the client default profile.',
+      inputSchema: {
+        profileId: z.number().int().positive(),
+      },
+    },
+    async ({ profileId }) => {
+      const blocked = writeGate();
+      if (blocked) return blocked;
+      const [existing] = await db.select({ id: brandingProfiles.id })
+        .from(brandingProfiles)
+        .where(and(eq(brandingProfiles.id, profileId), eq(brandingProfiles.clientId, clientId))).limit(1);
+      if (!existing) return json({ error: 'Profile not found' });
+      await db.delete(brandingProfiles).where(eq(brandingProfiles.id, profileId));
+      revalidate();
+      return json({ success: true, id: profileId });
+    },
+  );
+
+  hasScope(ctx.scopes, 'branding:write') && server.registerTool(
     'branding_update_messaging',
     {
       title: 'Update brand messaging',

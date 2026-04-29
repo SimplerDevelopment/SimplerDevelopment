@@ -88,7 +88,9 @@ Authorization: Bearer sd_mcp_your_key_here</code></pre>
         <li><strong>kanban_card_attach_file_from_url</strong></li>
         <li><strong>ai_credits_balance / ledger</strong></li>
         <li><strong>branding_list_profiles / get_profile / get_messaging / audit / check_contrast</strong></li>
-        <li><strong>branding_create_profile / update_profile / update_messaging</strong></li>
+        <li><strong>branding_create_profile / update_profile / delete_profile / update_messaging</strong></li>
+        <li><strong>hosting_list / hosting_get</strong></li>
+        <li><strong>my_tasks_list</strong></li>
         <li><strong>approvals_list / get / approve / reject</strong></li>
         <li><strong>proposals_list / get / create / update / send</strong></li>
         <li><strong>contracts_list / get / create / void</strong></li>

@@ -61,6 +61,7 @@ import {
   crmCustomFields, crmCustomFieldValues, crmSavedViews, crmScoringRules,
   websiteDomains, websiteEnvironments, websiteEnvVars,
   clients, aiCreditBalances, aiCreditLedger,
+  hostedSites,
 } from '@/lib/db/schema';
 import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause } from '@/lib/db/schema';
 import crypto from 'crypto';
@@ -5365,6 +5366,105 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       await db.delete(automationRules).where(eq(automationRules.id, id));
       revalidateForWrite('portal');
       return json({ success: true, id });
+    }
+  );
+
+  // ── HOSTING ────────────────────────────────────────────────────────────
+  // Surfaces the `hostedSites` table (Railway-backed managed app hosting).
+  // Read-only — provisioning is a Stripe-driven flow that we don't expose
+  // to MCP-issued credentials.
+  hasScope(ctx.scopes, 'hosting:read') && server.registerTool(
+    'hosting_list',
+    {
+      title: 'List hosted sites',
+      description:
+        "List Railway-hosted application sites for the authenticated client. Returns name, custom domain, Railway domain, status, plan, and renewal date.",
+      inputSchema: {
+        status: z.enum(['provisioning', 'active', 'suspended', 'cancelled']).optional(),
+      },
+    },
+    async ({ status }) => {
+      if (!requireScope(ctx, 'hosting:read')) return denied('hosting:read');
+      const rows = await db
+        .select({
+          id: hostedSites.id,
+          name: hostedSites.name,
+          customDomain: hostedSites.customDomain,
+          railwayDomain: hostedSites.railwayDomain,
+          status: hostedSites.status,
+          plan: hostedSites.plan,
+          renewalDate: hostedSites.renewalDate,
+          createdAt: hostedSites.createdAt,
+        })
+        .from(hostedSites)
+        .where(
+          status
+            ? and(eq(hostedSites.clientId, clientId), eq(hostedSites.status, status))
+            : eq(hostedSites.clientId, clientId)
+        )
+        .orderBy(hostedSites.createdAt);
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'hosting:read') && server.registerTool(
+    'hosting_get',
+    {
+      title: 'Get hosted site',
+      description:
+        'Get full details for a single hosted site including DNS instructions and operator notes.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'hosting:read')) return denied('hosting:read');
+      const [row] = await db.select().from(hostedSites)
+        .where(and(eq(hostedSites.id, id), eq(hostedSites.clientId, clientId))).limit(1);
+      if (!row) return json({ error: 'Hosted site not found' });
+      return json(row);
+    }
+  );
+
+  // ── MY TASKS ───────────────────────────────────────────────────────────
+  // Convenience read for the authenticated user's own kanban work across the
+  // client's projects — mirrors the /portal/my-tasks page.
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'my_tasks_list',
+    {
+      title: 'List my assigned tasks',
+      description:
+        "List kanban cards assigned to the authenticated user across the client's projects. Includes project, column, priority, and due date.",
+      inputSchema: {
+        openOnly: z.boolean().optional().describe('Default true — exclude cards in done columns.'),
+      },
+    },
+    async ({ openOnly = true }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      const rows = await db
+        .select({
+          id: kanbanCards.id,
+          number: kanbanCards.number,
+          title: kanbanCards.title,
+          priority: kanbanCards.priority,
+          dueDate: kanbanCards.dueDate,
+          projectId: kanbanCards.projectId,
+          projectName: projects.name,
+          projectKey: projects.projectKey,
+          columnId: kanbanCards.columnId,
+          columnName: kanbanColumns.name,
+          columnIsDone: kanbanColumns.isDone,
+        })
+        .from(kanbanCardAssignees)
+        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardAssignees.cardId))
+        .innerJoin(projects, eq(projects.id, kanbanCards.projectId))
+        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+        .where(and(
+          eq(kanbanCardAssignees.userId, ctx.userId),
+          eq(projects.clientId, clientId),
+        ));
+      const filtered = openOnly ? rows.filter(r => !r.columnIsDone) : rows;
+      return json(filtered);
     }
   );
 
