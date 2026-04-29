@@ -150,7 +150,7 @@ const targets = [
     // mobile site was doing → 555px-wide screenshot vs live's 390px). The
     // post-crop forces width parity between live and local.
     const outPath = join(OUT, `${t.id}.png`);
-    const buf = await page.screenshot({ fullPage: true });
+    const buf = await page.screenshot({ fullPage: true, timeout: 90000 });
     const meta = await sharp(buf).metadata();
     const targetW = t.viewport.width;
     if ((meta.width ?? 0) > targetW) {
