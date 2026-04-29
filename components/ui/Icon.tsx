@@ -89,6 +89,16 @@ import {
   MdAnalytics,
   MdAutoAwesome,
   MdLink,
+  MdBadge,
+  MdGpsFixed,
+  MdStorage,
+  MdWorkspaces,
+  MdMyLocation,
+  MdGroup,
+  MdTune,
+  MdAccountTree,
+  MdHub,
+  MdScale,
 } from 'react-icons/md';
 
 /** Map Material Icons font names → react-icons/md components. */
@@ -179,6 +189,16 @@ const ICON_MAP: Record<string, ComponentType<IconBaseProps>> = {
   analytics: MdAnalytics,
   auto_awesome: MdAutoAwesome,
   link: MdLink,
+  badge: MdBadge,
+  gps_fixed: MdGpsFixed,
+  storage: MdStorage,
+  workspaces: MdWorkspaces,
+  my_location: MdMyLocation,
+  group: MdGroup,
+  tune: MdTune,
+  account_tree: MdAccountTree,
+  hub: MdHub,
+  scale: MdScale,
 };
 
 interface IconProps {
