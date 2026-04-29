@@ -70,7 +70,12 @@ export function TeamFlipGridBlockRender({ block }: Props) {
               key={m.id}
               className="pc-flip-card"
               data-flipped={isFlipped}
-              style={{ perspective: '1200px' }}
+              style={{
+                perspective: '1200px',
+                ...(m.verticalOffset
+                  ? { transform: `translateY(${m.verticalOffset}px)` }
+                  : null),
+              }}
             >
               <div className="pc-flip-card__inner">
                 {/* Front */}

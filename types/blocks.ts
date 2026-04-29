@@ -790,6 +790,14 @@ export interface TeamFlipMember {
   question: string;
   /** Answer shown on the back of the card */
   answer: string;
+  /**
+   * Optional vertical offset in pixels. Applied as `transform: translateY(<n>px)`
+   * on the card. Useful for staggered/offset grid layouts where one card needs
+   * to drop down to balance an asymmetric row (e.g. Post Captain's team grid
+   * has one member's card offset to compensate for a shorter title). Default 0
+   * — backward-compatible no-op when unset.
+   */
+  verticalOffset?: number;
 }
 
 export interface TeamFlipGridBlock extends BaseBlock {
