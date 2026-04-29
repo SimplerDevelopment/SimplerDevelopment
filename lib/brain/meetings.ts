@@ -10,6 +10,7 @@ import {
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { getMeetingAdapter, type AdapterContext, type NormalizedMeetingInput } from './meeting-sources';
+import { stripQuotedReply } from './strip-quoted';
 
 export type BrainMeeting = typeof brainMeetings.$inferSelect;
 export type BrainMeetingParticipant = typeof brainMeetingParticipants.$inferSelect;
@@ -26,6 +27,52 @@ export interface ThreadSegment {
   createdAt: Date;
   transcript: string | null;
   sourceMetadata: BrainMeeting['sourceMetadata'];
+}
+
+/**
+ * Joins a Gmail thread's segments into one transcript that the AI processor
+ * can reason about as a conversation. Each segment is preceded by a small
+ * `From / Date / To` header and uses stripQuotedReply to drop inline-quoted
+ * history (which would otherwise repeat content already present in earlier
+ * segments). Segments without a body are skipped.
+ */
+export function buildThreadTranscript(thread: ThreadSegment[]): string {
+  const parts: string[] = [];
+  for (const seg of thread) {
+    const meta = (seg.sourceMetadata ?? null) as { from?: string; to?: string } | null;
+    const date = seg.meetingDate ? new Date(seg.meetingDate) : new Date(seg.createdAt);
+    const { body } = stripQuotedReply(seg.transcript);
+    if (!body) continue;
+    const header = [
+      `From: ${meta?.from ?? '(unknown sender)'}`,
+      `Date: ${date.toISOString()}`,
+      meta?.to ? `To: ${meta.to}` : null,
+    ].filter(Boolean).join('\n');
+    parts.push(`---\n${header}\n\n${body}`);
+  }
+  return parts.join('\n\n').trim();
+}
+
+/**
+ * Collects unique participants across a thread by inspecting each segment's
+ * sourceMetadata.from / senderEmail. Falls back gracefully when only one of
+ * name or email is present. De-dupes case-insensitively on email (or name
+ * when no email).
+ */
+export function collectThreadParticipants(thread: ThreadSegment[]): { name: string; email?: string }[] {
+  const seen = new Map<string, { name: string; email?: string }>();
+  for (const seg of thread) {
+    const meta = (seg.sourceMetadata ?? null) as { from?: string; senderEmail?: string } | null;
+    if (!meta?.from && !meta?.senderEmail) continue;
+    const fromHeader = meta.from ?? '';
+    const emailMatch = fromHeader.match(/<([^>]+)>/);
+    const email = (meta.senderEmail || emailMatch?.[1] || '').toLowerCase().trim() || undefined;
+    const namePart = fromHeader.replace(/<[^>]+>/, '').trim().replace(/^"|"$/g, '').trim();
+    const name = namePart || email || 'Unknown';
+    const key = (email || name).toLowerCase();
+    if (!seen.has(key)) seen.set(key, { name, email });
+  }
+  return [...seen.values()];
 }
 
 interface MeetingWithParticipants extends BrainMeeting {

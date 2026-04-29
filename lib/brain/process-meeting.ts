@@ -9,15 +9,23 @@
  *   3. (optional) processMeetingTranscript → AI summary, action items, etc.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brainMeetings } from '@/lib/db/schema';
-import { getMeeting } from '@/lib/brain/meetings';
+import { brainMeetings, brainAiReviewItems } from '@/lib/db/schema';
+import {
+  getMeeting,
+  buildThreadTranscript,
+  collectThreadParticipants,
+} from '@/lib/brain/meetings';
 import { getBrainProfile } from '@/lib/brain/profiles';
 import { processMeetingTranscript, type MeetingExtraction } from '@/lib/ai/meeting-processor';
 import { classifyAndLinkCrm } from '@/lib/brain/classify-crm';
 import { analyzeMeetingAttachments, type AttachmentLike } from '@/lib/brain/analyze-attachment';
 import { extractAndFetchLinks, type LinkMeta } from '@/lib/brain/extract-links';
+
+/** Email-like sources whose meetings are eligible for CRM auto-linking and
+ *  thread-aware AI processing. Add new sources here when they ingest email. */
+const EMAIL_SOURCES: ReadonlySet<string> = new Set(['email', 'gmail-api']);
 
 export interface ProcessOptions {
   /** When true, AI transcript processing is skipped — only attachments + links
@@ -107,14 +115,41 @@ export async function processBrainMeeting(args: {
   let transcriptResult: ProcessResult['transcript'] = null;
   let extraction: MeetingExtraction | null = null;
   if (hasTranscript && !options.skipTranscriptAi) {
+    // Gmail thread context: process the whole conversation (oldest -> newest)
+    // rather than the single message in isolation. Each new reply re-runs the
+    // pipeline anchored to itself, so we dedupe by clearing PENDING review
+    // items from any sibling in the thread (approved/rejected items are kept).
+    const isGmailThread = meeting.source === 'gmail-api'
+      && !!meeting.thread
+      && meeting.thread.length > 1;
+    let aiTranscript = meeting.transcript!;
+    let aiParticipants: { name: string; email?: string }[] = meeting.participants.map((p) => ({
+      name: p.name,
+      ...(p.email ? { email: p.email } : {}),
+    }));
+    if (isGmailThread) {
+      const combined = buildThreadTranscript(meeting.thread!);
+      if (combined) aiTranscript = combined;
+      const threadParticipants = collectThreadParticipants(meeting.thread!);
+      if (threadParticipants.length > 0) aiParticipants = threadParticipants;
+
+      const siblingIds = meeting.thread!.map((s) => s.id);
+      await db.delete(brainAiReviewItems).where(and(
+        eq(brainAiReviewItems.clientId, clientId),
+        eq(brainAiReviewItems.sourceType, 'meeting'),
+        inArray(brainAiReviewItems.sourceId, siblingIds),
+        eq(brainAiReviewItems.status, 'pending'),
+      ));
+    }
+
     const out = await processMeetingTranscript({
       clientId,
       meetingId,
       userId,
-      transcript: meeting.transcript!,
+      transcript: aiTranscript,
       meetingTitle: meeting.title,
       meetingDate: meeting.meetingDate,
-      participants: meeting.participants.map((p) => ({ name: p.name, email: p.email ?? undefined })),
+      participants: aiParticipants,
     });
     extraction = out.extraction;
     transcriptResult = {
@@ -129,7 +164,7 @@ export async function processBrainMeeting(args: {
   // extraction we can ground the AI call in. Best-effort — failure here
   // doesn't fail the overall pipeline (auto-applied links are kept).
   let crmResult: ProcessResult['crm'] = null;
-  if (meeting.source !== 'email') {
+  if (!EMAIL_SOURCES.has(meeting.source)) {
     crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'not_email_source' };
   } else if (!extraction) {
     crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'no_extraction' };
