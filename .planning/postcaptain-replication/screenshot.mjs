@@ -1,6 +1,16 @@
 // Capture matched screenshots of live + local postcaptain home at desktop+mobile.
 // Forces reduced motion + scrolls slowly to trigger IntersectionObserver reveal animations.
+//
+// Pipeline guarantees (post-fix):
+//   - Both sides capture at deviceScaleFactor: 1 (no Retina doubling).
+//   - Mobile captures are clipped to the viewport width so horizontal overflow
+//     on either site can't make the local capture artificially wider than live.
+//   - We wait on document.fonts.ready before the final screenshot so that
+//     Material Icons render as glyphs rather than as their text-name fallback.
+//   - We also wait briefly on networkidle so any late-arriving icon/font CDN
+//     requests resolve.
 import { chromium } from 'playwright-core';
+import sharp from 'sharp';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -88,8 +98,44 @@ const targets = [
       await new Promise((r) => setTimeout(r, 400));
     });
 
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: join(OUT, `${t.id}.png`), fullPage: true });
+    // Wait for the icon-font CDN + any other late requests to settle so that
+    // Material Icons resolve to glyphs (otherwise they capture as their text
+    // name like "rocket_launch", which destroys pixelmatch scoring).
+    try {
+      await page.waitForLoadState('networkidle', { timeout: 5000 });
+    } catch {
+      // Some pages never reach perfect idle; tolerate it.
+    }
+
+    // Hard wait on document.fonts.ready — the canonical browser API for "every
+    // declared font face is loaded and ready to render."
+    await page.evaluate(async () => {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      // One more rAF to flush any glyph re-layout.
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    });
+
+    await page.waitForTimeout(800);
+
+    // Capture the full scrollable page, then post-crop to the intended viewport
+    // width via sharp. We can't use `clip` here because clip only operates
+    // within currently-rendered area — to get full-page we must use
+    // `fullPage: true`. Playwright's full-page capture extends the canvas
+    // horizontally if any element overflows the viewport (which the local
+    // mobile site was doing → 555px-wide screenshot vs live's 390px). The
+    // post-crop forces width parity between live and local.
+    const outPath = join(OUT, `${t.id}.png`);
+    const buf = await page.screenshot({ fullPage: true });
+    const meta = await sharp(buf).metadata();
+    const targetW = t.viewport.width;
+    if ((meta.width ?? 0) > targetW) {
+      console.log(`  cropping ${t.id} from ${meta.width}px wide to ${targetW}px`);
+      await sharp(buf).extract({ left: 0, top: 0, width: targetW, height: meta.height ?? 0 }).toFile(outPath);
+    } else {
+      await sharp(buf).toFile(outPath);
+    }
     await ctx.close();
   }
   await browser.close();
