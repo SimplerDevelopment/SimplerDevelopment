@@ -208,7 +208,7 @@ export default function BrainMeetingDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {(meeting.status === 'draft' || (meeting.status === 'needs_review' && !meeting.aiSummary)) && (
+          {meeting.status !== 'processing' && (
             <button
               onClick={runProcessing}
               disabled={processing}
@@ -216,7 +216,7 @@ export default function BrainMeetingDetailPage() {
             >
               {processing
                 ? <><span className="material-icons animate-spin text-base">progress_activity</span>Processing…</>
-                : <><span className="material-icons text-base">auto_awesome</span>Process with AI</>
+                : <><span className="material-icons text-base">auto_awesome</span>{meeting.aiSummary ? 'Re-process with AI' : 'Process with AI'}</>
               }
             </button>
           )}

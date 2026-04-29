@@ -116,9 +116,7 @@ export async function processBrainMeeting(args: {
   let extraction: MeetingExtraction | null = null;
   if (hasTranscript && !options.skipTranscriptAi) {
     // Gmail thread context: process the whole conversation (oldest -> newest)
-    // rather than the single message in isolation. Each new reply re-runs the
-    // pipeline anchored to itself, so we dedupe by clearing PENDING review
-    // items from any sibling in the thread (approved/rejected items are kept).
+    // rather than the single message in isolation.
     const isGmailThread = meeting.source === 'gmail-api'
       && !!meeting.thread
       && meeting.thread.length > 1;
@@ -132,15 +130,20 @@ export async function processBrainMeeting(args: {
       if (combined) aiTranscript = combined;
       const threadParticipants = collectThreadParticipants(meeting.thread!);
       if (threadParticipants.length > 0) aiParticipants = threadParticipants;
-
-      const siblingIds = meeting.thread!.map((s) => s.id);
-      await db.delete(brainAiReviewItems).where(and(
-        eq(brainAiReviewItems.clientId, clientId),
-        eq(brainAiReviewItems.sourceType, 'meeting'),
-        inArray(brainAiReviewItems.sourceId, siblingIds),
-        eq(brainAiReviewItems.status, 'pending'),
-      ));
     }
+
+    // Dedupe pending review items before re-extracting. Each call replaces the
+    // PENDING items from this meeting (and from sibling messages in the same
+    // Gmail thread, when applicable). Approved/rejected/edited items are
+    // preserved — only un-acted items are wiped. This makes manual
+    // "Re-process with AI" idempotent.
+    const dedupeIds = isGmailThread ? meeting.thread!.map((s) => s.id) : [meetingId];
+    await db.delete(brainAiReviewItems).where(and(
+      eq(brainAiReviewItems.clientId, clientId),
+      eq(brainAiReviewItems.sourceType, 'meeting'),
+      inArray(brainAiReviewItems.sourceId, dedupeIds),
+      eq(brainAiReviewItems.status, 'pending'),
+    ));
 
     const out = await processMeetingTranscript({
       clientId,
