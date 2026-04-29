@@ -35,6 +35,7 @@ interface NavItem {
   label: string;
   icon: string;
   exact?: boolean;
+  alsoActiveOn?: string;
   children?: NavChild[];
 }
 
@@ -50,7 +51,6 @@ interface NavService {
 // Static nav structure with collapsible children
 const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
   { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
   {
     href: '/portal/brain',
     label: 'Company Brain',
@@ -58,15 +58,28 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
     exact: true,
     children: [
       { href: '/portal/brain', label: 'Dashboard', icon: 'dashboard', exact: true },
+      { href: '/portal/brain/calendar', label: 'Calendar', icon: 'calendar_month' },
       { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work' },
-      { href: '/portal/brain/meetings', label: 'Notes & Communications', icon: 'forum' },
+      { href: '/portal/brain/meetings', label: 'Communications', icon: 'forum' },
       { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist' },
+      { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book' },
       { href: '/portal/brain/prospects', label: 'Prospects', icon: 'schedule' },
+      { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt' },
       { href: '/portal/brain/ask', label: 'Ask Brain', icon: 'travel_explore' },
       { href: '/portal/brain/settings', label: 'Settings', icon: 'settings' },
     ],
   },
-  { href: '/portal/projects', label: 'Projects', icon: 'view_kanban' },
+  {
+    href: '/portal/projects',
+    label: 'Projects',
+    icon: 'view_kanban',
+    exact: true,
+    alsoActiveOn: '/portal/my-tasks',
+    children: [
+      { href: '/portal/projects', label: 'All Projects', icon: 'view_kanban', exact: true },
+      { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
+    ],
+  },
   {
     href: '/portal/crm',
     label: 'CRM',
@@ -92,7 +105,6 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt' },
       { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
       { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics' },
-      { href: '/portal/email/automations', label: 'Automations', icon: 'bolt' },
       { href: '/portal/email/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -149,7 +161,6 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
   ),
   { href: '/portal/media', label: 'Media', icon: 'perm_media' },
   { href: '/portal/branding', label: 'Branding', icon: 'palette' },
-  { href: '/portal/automations', label: 'Automations', icon: 'bolt' },
   { href: '/portal/approvals', label: 'Approvals', icon: 'fact_check' },
   { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];

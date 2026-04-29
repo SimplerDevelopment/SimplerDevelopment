@@ -5,6 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
 
+interface Tag {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
 interface Contact {
   id: number;
   firstName: string;
@@ -19,7 +25,7 @@ interface Contact {
   source: string | null;
   address: string | null;
   notes: string | null;
-  tags: string[];
+  tags: Tag[];
   score: number;
   ownerId: number | null;
   lastContactedAt: string | null;
@@ -217,26 +223,47 @@ export default function CrmContactDetailPage() {
   }
 
   async function addTag() {
-    if (!newTag.trim() || !contact) return;
-    const tags = [...(contact.tags ?? []), newTag.trim()];
+    const name = newTag.trim();
+    if (!name || !contact) return;
+
+    // If the tag (by name) is already on this contact, just clear the input.
+    const existing = (contact.tags ?? []).find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setNewTag('');
+      return;
+    }
+
+    // Create-or-get a tag in the client's tag library, then link it to this contact.
+    const createRes = await fetch('/api/portal/crm/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!createRes.ok) return;
+    const { data: newTagRow } = await createRes.json();
+    if (!newTagRow?.id) return;
+
+    const nextTags: Tag[] = [...(contact.tags ?? []), {
+      id: newTagRow.id, name: newTagRow.name, color: newTagRow.color ?? null,
+    }];
     await fetch(`/api/portal/crm/contacts/${contactId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags }),
+      body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
     });
-    setContact(prev => prev ? { ...prev, tags } : prev);
+    setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
     setNewTag('');
   }
 
-  async function removeTag(tag: string) {
+  async function removeTag(tagId: number) {
     if (!contact) return;
-    const tags = (contact.tags ?? []).filter(t => t !== tag);
+    const nextTags = (contact.tags ?? []).filter(t => t.id !== tagId);
     await fetch(`/api/portal/crm/contacts/${contactId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags }),
+      body: JSON.stringify({ tagIds: nextTags.map(t => t.id) }),
     });
-    setContact(prev => prev ? { ...prev, tags } : prev);
+    setContact(prev => prev ? { ...prev, tags: nextTags } : prev);
   }
 
   async function logActivity(e: React.FormEvent) {
@@ -604,9 +631,13 @@ export default function CrmContactDetailPage() {
                 <p className="text-sm text-muted-foreground">No tags yet.</p>
               )}
               {(contact.tags ?? []).map(tag => (
-                <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent rounded-full text-xs font-medium text-foreground">
-                  {tag}
-                  <button onClick={() => removeTag(tag)} className="text-muted-foreground hover:text-destructive ml-0.5">
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={tag.color ? { backgroundColor: `${tag.color}1a`, color: tag.color } : undefined}
+                >
+                  {tag.name}
+                  <button onClick={() => removeTag(tag.id)} className="opacity-70 hover:opacity-100 ml-0.5">
                     <span className="material-icons text-xs">close</span>
                   </button>
                 </span>

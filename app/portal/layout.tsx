@@ -4,6 +4,7 @@ import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
+import PortalTitle from '@/components/portal/PortalTitle';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -55,6 +56,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   if (isLoginPage || isIframePage) {
     return (
       <SessionProvider>
+        <PortalTitle />
         {isIframePage ? children : (
           <div className="min-h-screen flex items-center justify-center bg-background">
             {children}
@@ -71,6 +73,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   return (
     <SessionProvider>
+      <PortalTitle />
       <div className="min-h-screen bg-background">
         {!previewMode && <PortalSidebar />}
         <div>

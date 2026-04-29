@@ -27,12 +27,21 @@ vi.mock('googleapis', () => ({
   },
 }));
 
-process.env.GOOGLE_WORKSPACE_CLIENT_ID = 'test-client-id';
-process.env.GOOGLE_WORKSPACE_CLIENT_SECRET = 'test-client-secret';
-process.env.GOOGLE_WORKSPACE_REDIRECT_URI = 'http://localhost:3000/cb';
-
 const oauthModule = await import('@/lib/google/oauth');
-const { buildAuthUrl, exchangeCode, refreshIfExpired, revoke, RefreshTokenInvalidError } = oauthModule;
+const {
+  buildAuthUrl,
+  exchangeCode,
+  refreshIfExpired,
+  revoke,
+  RefreshTokenInvalidError,
+  getEnvWorkspaceCredentials,
+} = oauthModule;
+
+const TEST_CREDS = {
+  clientId: 'test-client-id',
+  clientSecret: 'test-client-secret',
+  redirectUri: 'http://localhost:3000/cb',
+};
 
 beforeEach(() => {
   mockGenerateAuthUrl.mockReset();
@@ -43,6 +52,43 @@ beforeEach(() => {
   mockUserinfoGet.mockReset();
 });
 
+describe('getEnvWorkspaceCredentials', () => {
+  it('returns credentials when all env vars are set', () => {
+    const prev = {
+      id: process.env.GOOGLE_WORKSPACE_CLIENT_ID,
+      sec: process.env.GOOGLE_WORKSPACE_CLIENT_SECRET,
+      uri: process.env.GOOGLE_WORKSPACE_REDIRECT_URI,
+    };
+    process.env.GOOGLE_WORKSPACE_CLIENT_ID = 'env-client-id';
+    process.env.GOOGLE_WORKSPACE_CLIENT_SECRET = 'env-client-secret';
+    process.env.GOOGLE_WORKSPACE_REDIRECT_URI = 'http://localhost:3000/env-cb';
+    const creds = getEnvWorkspaceCredentials();
+    expect(creds).toEqual({
+      clientId: 'env-client-id',
+      clientSecret: 'env-client-secret',
+      redirectUri: 'http://localhost:3000/env-cb',
+    });
+    process.env.GOOGLE_WORKSPACE_CLIENT_ID = prev.id;
+    process.env.GOOGLE_WORKSPACE_CLIENT_SECRET = prev.sec;
+    process.env.GOOGLE_WORKSPACE_REDIRECT_URI = prev.uri;
+  });
+
+  it('throws when any env var is missing', () => {
+    const prev = {
+      id: process.env.GOOGLE_WORKSPACE_CLIENT_ID,
+      sec: process.env.GOOGLE_WORKSPACE_CLIENT_SECRET,
+      uri: process.env.GOOGLE_WORKSPACE_REDIRECT_URI,
+    };
+    delete process.env.GOOGLE_WORKSPACE_CLIENT_ID;
+    delete process.env.GOOGLE_WORKSPACE_CLIENT_SECRET;
+    delete process.env.GOOGLE_WORKSPACE_REDIRECT_URI;
+    expect(() => getEnvWorkspaceCredentials()).toThrow(/env vars not configured/);
+    process.env.GOOGLE_WORKSPACE_CLIENT_ID = prev.id;
+    process.env.GOOGLE_WORKSPACE_CLIENT_SECRET = prev.sec;
+    process.env.GOOGLE_WORKSPACE_REDIRECT_URI = prev.uri;
+  });
+});
+
 describe('buildAuthUrl', () => {
   beforeEach(() => {
     mockGenerateAuthUrl.mockReturnValue(
@@ -51,7 +97,7 @@ describe('buildAuthUrl', () => {
   });
 
   it('passes access_type=offline, prompt=consent, include_granted_scopes=true to googleapis', () => {
-    buildAuthUrl({ surfaces: ['identity'], state: 'abc' });
+    buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity'], state: 'abc' });
     const call = mockGenerateAuthUrl.mock.calls[0][0];
     expect(call.access_type).toBe('offline');
     expect(call.prompt).toBe('consent');
@@ -59,13 +105,13 @@ describe('buildAuthUrl', () => {
   });
 
   it('passes the supplied state', () => {
-    buildAuthUrl({ surfaces: ['identity'], state: 'state-xyz' });
+    buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity'], state: 'state-xyz' });
     const call = mockGenerateAuthUrl.mock.calls[0][0];
     expect(call.state).toBe('state-xyz');
   });
 
   it('includes identity scopes plus requested surface scopes (no duplicates)', () => {
-    buildAuthUrl({ surfaces: ['identity', 'gmail'], state: 's' });
+    buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity', 'gmail'], state: 's' });
     const call = mockGenerateAuthUrl.mock.calls[0][0];
     expect(call.scope).toContain('openid');
     expect(call.scope).toContain('https://www.googleapis.com/auth/userinfo.email');
@@ -73,19 +119,19 @@ describe('buildAuthUrl', () => {
   });
 
   it('returns the URL produced by googleapis', () => {
-    const url = buildAuthUrl({ surfaces: ['identity'], state: 'abc' });
+    const url = buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity'], state: 'abc' });
     expect(url).toContain('accounts.google.com');
     expect(url).toContain('access_type=offline');
   });
 
   it('passes login_hint when provided', () => {
-    buildAuthUrl({ surfaces: ['identity'], state: 's', loginHint: 'user@example.com' });
+    buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity'], state: 's', loginHint: 'user@example.com' });
     const call = mockGenerateAuthUrl.mock.calls[0][0];
     expect(call.login_hint).toBe('user@example.com');
   });
 
   it('omits login_hint when not provided', () => {
-    buildAuthUrl({ surfaces: ['identity'], state: 's' });
+    buildAuthUrl({ credentials: TEST_CREDS, surfaces: ['identity'], state: 's' });
     const call = mockGenerateAuthUrl.mock.calls[0][0];
     expect(call.login_hint).toBeUndefined();
   });
@@ -108,7 +154,7 @@ describe('exchangeCode', () => {
         scope: 'openid email',
       },
     });
-    const result = await exchangeCode('code123');
+    const result = await exchangeCode('code123', TEST_CREDS);
     expect(result.accessToken).toBe('a');
     expect(result.refreshToken).toBe('r');
     expect(result.expiresAt).toBeInstanceOf(Date);
@@ -122,14 +168,14 @@ describe('exchangeCode', () => {
     mockGetToken.mockResolvedValueOnce({
       tokens: { access_token: 'a', expiry_date: Date.now() + 3600_000, scope: 'openid' },
     });
-    await expect(exchangeCode('code123')).rejects.toThrow(/No refresh token/);
+    await expect(exchangeCode('code123', TEST_CREDS)).rejects.toThrow(/No refresh token/);
   });
 
   it('throws when access_token is absent', async () => {
     mockGetToken.mockResolvedValueOnce({
       tokens: { refresh_token: 'r', expiry_date: Date.now() + 3600_000 },
     });
-    await expect(exchangeCode('code123')).rejects.toThrow(/incomplete tokens/);
+    await expect(exchangeCode('code123', TEST_CREDS)).rejects.toThrow(/incomplete tokens/);
   });
 
   it('throws when userinfo lacks email', async () => {
@@ -137,18 +183,17 @@ describe('exchangeCode', () => {
       tokens: { access_token: 'a', refresh_token: 'r', expiry_date: Date.now() + 3600_000, scope: 'openid' },
     });
     mockUserinfoGet.mockResolvedValueOnce({ data: { id: '12345' } });
-    await expect(exchangeCode('code123')).rejects.toThrow(/userinfo/);
+    await expect(exchangeCode('code123', TEST_CREDS)).rejects.toThrow(/userinfo/);
   });
 });
 
 describe('refreshIfExpired', () => {
   it('returns refreshed:false when token has more than 60s remaining', async () => {
     const futureExpiry = new Date(Date.now() + 5 * 60_000);
-    const result = await refreshIfExpired({
-      accessToken: 'a',
-      refreshToken: 'r',
-      expiresAt: futureExpiry,
-    });
+    const result = await refreshIfExpired(
+      { accessToken: 'a', refreshToken: 'r', expiresAt: futureExpiry },
+      TEST_CREDS
+    );
     expect(result.refreshed).toBe(false);
     expect(result.accessToken).toBe('a');
     expect(result.refreshToken).toBe('r');
@@ -161,11 +206,10 @@ describe('refreshIfExpired', () => {
     mockRefreshAccessToken.mockResolvedValueOnce({
       credentials: { access_token: 'a2', expiry_date: newExpiryMs },
     });
-    const result = await refreshIfExpired({
-      accessToken: 'a',
-      refreshToken: 'r',
-      expiresAt: pastExpiry,
-    });
+    const result = await refreshIfExpired(
+      { accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry },
+      TEST_CREDS
+    );
     expect(result.refreshed).toBe(true);
     expect(result.accessToken).toBe('a2');
     expect(result.refreshToken).toBeUndefined();
@@ -177,11 +221,10 @@ describe('refreshIfExpired', () => {
     mockRefreshAccessToken.mockResolvedValueOnce({
       credentials: { access_token: 'a2', refresh_token: 'r2', expiry_date: Date.now() + 3600_000 },
     });
-    const result = await refreshIfExpired({
-      accessToken: 'a',
-      refreshToken: 'r',
-      expiresAt: pastExpiry,
-    });
+    const result = await refreshIfExpired(
+      { accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry },
+      TEST_CREDS
+    );
     expect(result.refreshToken).toBe('r2');
   });
 
@@ -193,7 +236,7 @@ describe('refreshIfExpired', () => {
       })
     );
     await expect(
-      refreshIfExpired({ accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry })
+      refreshIfExpired({ accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry }, TEST_CREDS)
     ).rejects.toBeInstanceOf(RefreshTokenInvalidError);
   });
 
@@ -201,7 +244,7 @@ describe('refreshIfExpired', () => {
     const pastExpiry = new Date(Date.now() - 60_000);
     mockRefreshAccessToken.mockRejectedValueOnce(new Error('network unreachable'));
     await expect(
-      refreshIfExpired({ accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry })
+      refreshIfExpired({ accessToken: 'a', refreshToken: 'r', expiresAt: pastExpiry }, TEST_CREDS)
     ).rejects.toThrow(/network unreachable/);
   });
 
@@ -210,11 +253,10 @@ describe('refreshIfExpired', () => {
     mockRefreshAccessToken.mockResolvedValueOnce({
       credentials: { access_token: 'a2', expiry_date: Date.now() + 3600_000 },
     });
-    const result = await refreshIfExpired({
-      accessToken: 'a',
-      refreshToken: 'r',
-      expiresAt: nearFuture,
-    });
+    const result = await refreshIfExpired(
+      { accessToken: 'a', refreshToken: 'r', expiresAt: nearFuture },
+      TEST_CREDS
+    );
     expect(result.refreshed).toBe(true);
   });
 });
@@ -222,7 +264,7 @@ describe('refreshIfExpired', () => {
 describe('revoke', () => {
   it('returns revoked:true on success', async () => {
     mockRevokeToken.mockResolvedValueOnce({});
-    const result = await revoke('refresh-token-value');
+    const result = await revoke('refresh-token-value', TEST_CREDS);
     expect(result.revoked).toBe(true);
     expect(result.alreadyRevoked).toBeUndefined();
   });
@@ -233,13 +275,13 @@ describe('revoke', () => {
         response: { status: 400, data: { error: 'invalid_token' } },
       })
     );
-    const result = await revoke('already-revoked');
+    const result = await revoke('already-revoked', TEST_CREDS);
     expect(result.revoked).toBe(true);
     expect(result.alreadyRevoked).toBe(true);
   });
 
   it('rethrows other errors', async () => {
     mockRevokeToken.mockRejectedValueOnce(new Error('500 internal server error'));
-    await expect(revoke('x')).rejects.toThrow(/500/);
+    await expect(revoke('x', TEST_CREDS)).rejects.toThrow(/500/);
   });
 });

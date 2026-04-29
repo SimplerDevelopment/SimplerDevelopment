@@ -12,14 +12,32 @@ export interface GoogleConnectionLike {
   expiresAt: Date;
 }
 
-export class RefreshTokenInvalidError extends Error {
-  constructor(message = 'Refresh token is invalid or revoked — user must re-authorize') {
-    super(message);
-    this.name = 'RefreshTokenInvalidError';
-  }
+/**
+ * The OAuth client credentials used to mint a flow. SimplerDevelopment supports two tiers:
+ *
+ *   Standard tier  — no Workspace OAuth at all (MX-based email tracking).
+ *   Enterprise tier — every tenant has their own GCP project + OAuth client. Credentials
+ *                     are stored per-tenant in google_workspace_tenant_credentials and
+ *                     resolved by siteId at request time.
+ *
+ * For SD's own dogfood flow (sd team using SD's GCP project), use getEnvWorkspaceCredentials().
+ * For per-tenant flows, the caller must look up the row in google_workspace_tenant_credentials
+ * and pass its credentials explicitly. There is intentionally no implicit env fallback inside
+ * this module — every caller must declare which credentials it's using, so a tier-2 caller
+ * that forgets to pass per-tenant creds fails loudly instead of silently using SD's OAuth app.
+ */
+export interface GoogleOAuthCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
 }
 
-function getOAuth2Client(): Auth.OAuth2Client {
+/**
+ * Read platform-level (SD-owned) credentials from env vars. Use this for SimplerDevelopment's
+ * own dogfood flow only. Per-tenant callers should resolve credentials from
+ * google_workspace_tenant_credentials by siteId instead.
+ */
+export function getEnvWorkspaceCredentials(): GoogleOAuthCredentials {
   const clientId = process.env.GOOGLE_WORKSPACE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_WORKSPACE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_WORKSPACE_REDIRECT_URI;
@@ -28,7 +46,18 @@ function getOAuth2Client(): Auth.OAuth2Client {
       'Google Workspace OAuth env vars not configured (GOOGLE_WORKSPACE_CLIENT_ID/SECRET/REDIRECT_URI)'
     );
   }
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  return { clientId, clientSecret, redirectUri };
+}
+
+export class RefreshTokenInvalidError extends Error {
+  constructor(message = 'Refresh token is invalid or revoked — user must re-authorize') {
+    super(message);
+    this.name = 'RefreshTokenInvalidError';
+  }
+}
+
+function buildOAuth2Client(credentials: GoogleOAuthCredentials): Auth.OAuth2Client {
+  return new google.auth.OAuth2(credentials.clientId, credentials.clientSecret, credentials.redirectUri);
 }
 
 /**
@@ -38,11 +67,12 @@ function getOAuth2Client(): Auth.OAuth2Client {
  * without invalidating the existing refresh token.
  */
 export function buildAuthUrl(opts: {
+  credentials: GoogleOAuthCredentials;
   surfaces: readonly GoogleSurface[];
   state: string;
   loginHint?: string;
 }): string {
-  const oauth2 = getOAuth2Client();
+  const oauth2 = buildOAuth2Client(opts.credentials);
   return oauth2.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -62,8 +92,11 @@ export interface ExchangeResult {
   googleAccountId: string;
 }
 
-export async function exchangeCode(code: string): Promise<ExchangeResult> {
-  const oauth2 = getOAuth2Client();
+export async function exchangeCode(
+  code: string,
+  credentials: GoogleOAuthCredentials
+): Promise<ExchangeResult> {
+  const oauth2 = buildOAuth2Client(credentials);
   const { tokens } = await oauth2.getToken(code);
   if (!tokens.refresh_token) {
     throw new Error(
@@ -106,7 +139,10 @@ export interface RefreshResult {
   expiresAt: Date;
 }
 
-export async function refreshIfExpired(connection: GoogleConnectionLike): Promise<RefreshResult> {
+export async function refreshIfExpired(
+  connection: GoogleConnectionLike,
+  credentials: GoogleOAuthCredentials
+): Promise<RefreshResult> {
   const now = Date.now();
   const skewMs = 60_000;
   if (connection.expiresAt.getTime() > now + skewMs) {
@@ -118,7 +154,7 @@ export async function refreshIfExpired(connection: GoogleConnectionLike): Promis
     };
   }
 
-  const oauth2 = getOAuth2Client();
+  const oauth2 = buildOAuth2Client(credentials);
   oauth2.setCredentials({
     access_token: connection.accessToken,
     refresh_token: connection.refreshToken,
@@ -126,15 +162,15 @@ export async function refreshIfExpired(connection: GoogleConnectionLike): Promis
   });
 
   try {
-    const { credentials } = await oauth2.refreshAccessToken();
-    if (!credentials.access_token || !credentials.expiry_date) {
+    const { credentials: refreshed } = await oauth2.refreshAccessToken();
+    if (!refreshed.access_token || !refreshed.expiry_date) {
       throw new Error('Refresh response missing access_token or expiry_date');
     }
     return {
       refreshed: true,
-      accessToken: credentials.access_token,
-      refreshToken: credentials.refresh_token ?? undefined,
-      expiresAt: new Date(credentials.expiry_date),
+      accessToken: refreshed.access_token,
+      refreshToken: refreshed.refresh_token ?? undefined,
+      expiresAt: new Date(refreshed.expiry_date),
     };
   } catch (err: unknown) {
     const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -150,8 +186,11 @@ export interface RevokeResult {
   alreadyRevoked?: boolean;
 }
 
-export async function revoke(refreshOrAccessToken: string): Promise<RevokeResult> {
-  const oauth2 = getOAuth2Client();
+export async function revoke(
+  refreshOrAccessToken: string,
+  credentials: GoogleOAuthCredentials
+): Promise<RevokeResult> {
+  const oauth2 = buildOAuth2Client(credentials);
   try {
     await oauth2.revokeToken(refreshOrAccessToken);
     return { revoked: true };

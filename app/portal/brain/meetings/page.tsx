@@ -50,7 +50,7 @@ export default function BrainMeetingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <span className="material-icons text-primary">forum</span>
-            Notes & Communications
+            Communications
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Capture meeting transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review.

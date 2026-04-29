@@ -11,7 +11,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { formatCents, ticketStatusColor, invoiceStatusColor, invoiceStatusLabel } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
+import { getBrainProfile } from '@/lib/brain/profiles';
 import CreditBalance from '@/components/portal/CreditBalance';
+import { BrainDashboardWidgets } from '@/components/portal/BrainDashboardWidgets';
+import { EnableBrainBanner } from '@/components/portal/EnableBrainBanner';
 
 const SERVICE_META: Record<string, { icon: string; color: string; bgColor: string; href: string; description: string; cta: string }> = {
   cms: { icon: 'language', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/40', href: '/portal/websites', description: 'Drag-and-drop website builder with unlimited pages, blog, and SEO tools.', cta: 'Build your website' },
@@ -40,6 +43,9 @@ export default async function PortalDashboardPage() {
       </div>
     );
   }
+
+  const brainProfile = await getBrainProfile(client.id);
+  const brainEnabled = brainProfile?.enabled ?? false;
 
   // Fetch everything in parallel
   const [
@@ -144,10 +150,31 @@ export default async function PortalDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome back{client.company ? `, ${client.company}` : ''}!</h1>
-        <p className="text-muted-foreground mt-1">Here's what's happening across your business.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            {brainEnabled && <span className="material-icons text-primary">psychology</span>}
+            Welcome back{client.company ? `, ${client.company}` : ''}!
+          </h1>
+          <p className="text-muted-foreground mt-1">Here&apos;s what&apos;s happening across your business.</p>
+        </div>
+        {brainEnabled && (
+          <Link
+            href="/portal/brain/settings"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-accent shrink-0"
+          >
+            <span className="material-icons text-base">settings</span>
+            Brain Settings
+          </Link>
+        )}
       </div>
+
+      {/* Brain — operational layer (top of dashboard when enabled) */}
+      {brainEnabled ? (
+        <BrainDashboardWidgets />
+      ) : (
+        <EnableBrainBanner />
+      )}
 
       {/* Core Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

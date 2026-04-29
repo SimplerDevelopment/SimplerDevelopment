@@ -23,11 +23,13 @@ const CONFIDENTIALITY_OPTIONS = [
 ] as const;
 
 const MODULE_OPTIONS: { id: keyof BrainEnabledModules; label: string; help: string }[] = [
-  { id: 'meetings', label: 'Notes & Communications', help: 'Ingest meeting transcripts, emails, and pasted notes. AI summarises, human approves.' },
+  { id: 'meetings', label: 'Communications', help: 'Ingest meeting transcripts, emails, and pasted notes. AI summarises, human approves.' },
   { id: 'tasks', label: 'Tasks', help: 'Brain-flavoured tasks with promotion to project boards.' },
+  { id: 'calendar', label: 'Calendar', help: 'Month view of tasks, meetings, relationship reviews, and free-form scheduled events. Phase C will add Google Calendar sync.' },
+  { id: 'knowledge', label: 'Knowledge', help: 'Free-form notes linked to relationships, deals, contacts, or meetings — pinnable, taggable, searchable.' },
   { id: 'prospects', label: 'Prospects', help: 'Stale-prospect detection over CRM deals.' },
-  { id: 'knowledge', label: 'Knowledge', help: 'Notes and documents linked to relationships.' },
   { id: 'ask', label: 'Ask Brain', help: 'Conversational query layer with citations.' },
+  { id: 'automations', label: 'Automations', help: 'Cross-product rules that fire on events (booking, survey, deal, task) and act on your behalf — NLP-built or template-installed.' },
 ];
 
 export default function BrainSettingsPage() {

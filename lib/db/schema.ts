@@ -1216,6 +1216,7 @@ export const googleWorkspaceUserConnections = pgTable('google_workspace_user_con
     storeBodies: boolean;
   }>().notNull().default({ aggressiveness: 'passive', storeBodies: false }),
   gmailHistoryId: varchar('gmail_history_id', { length: 64 }),
+  gmailWatchExpiration: timestamp('gmail_watch_expiration'),
   driveStartPageToken: varchar('drive_start_page_token', { length: 128 }),
   calendarSyncToken: text('calendar_sync_token'),
   contactsSyncToken: text('contacts_sync_token'),
@@ -1245,7 +1246,7 @@ export const googleWorkspaceTenantCredentials = pgTable('google_workspace_tenant
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
   googleProjectId: varchar('google_project_id', { length: 64 }).notNull(),
   oauthClientId: text('oauth_client_id').notNull(),
-  oauthClientSecret: text('oauth_client_secret').notNull(),
+  oauthClientSecretEncrypted: text('oauth_client_secret_encrypted').notNull(),
   oauthRedirectUri: text('oauth_redirect_uri').notNull(),
   pubsubTopic: text('pubsub_topic').notNull(),
   pubsubVerificationToken: text('pubsub_verification_token').notNull(),
@@ -2688,6 +2689,8 @@ export interface BrainEnabledModules {
   prospects: boolean;
   knowledge: boolean;
   ask: boolean;
+  automations: boolean;
+  calendar: boolean;
 }
 
 export const brainProfiles = pgTable('brain_profiles', {
@@ -2703,8 +2706,10 @@ export const brainProfiles = pgTable('brain_profiles', {
     meetings: true,
     tasks: true,
     prospects: false,
-    knowledge: false,
+    knowledge: true,
     ask: false,
+    automations: true,
+    calendar: true,
   }).notNull(),
   serviceLines: json('service_lines').$type<string[]>().default([]).notNull(),
   // Per-tenant token for the inbound email gateway. Inbound mail at
@@ -2961,6 +2966,83 @@ export const brainRelationshipOverlays = pgTable('brain_relationship_overlays', 
   sourceSystem: varchar('source_system', { length: 100 }),
   externalUrl: varchar('external_url', { length: 1000 }),
   staleAfterDays: integer('stale_after_days'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── BRAIN KNOWLEDGE ─────────────────────────────────────────────────────────
+// Free-form notes/documents linked to relationships, deals, contacts, or
+// meetings. Body is plain text (markdown). Confidentiality inherits from the
+// brain profile default at creation time and may be tightened per note.
+
+export const brainNotes = pgTable('brain_notes', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body').default('').notNull(),
+  // Optional anchors to other brain/CRM records. At most one of these is
+  // typically set, but multiple are allowed (e.g. a note about a deal that
+  // also references the underlying company).
+  meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
+  relationshipOverlayId: integer('relationship_overlay_id').references(() => brainRelationshipOverlays.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  contactId: integer('contact_id').references(() => crmContacts.id, { onDelete: 'set null' }),
+  tags: json('tags').$type<string[]>().default([]).notNull(),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  pinned: boolean('pinned').default(false).notNull(),
+  // Provenance — 'manual' for user-authored, 'ai_review' when promoted from a
+  // brain_ai_review_items row of type 'note', 'document_import' for future
+  // upload pipelines.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  reviewItemId: integer('review_item_id').references(() => brainAiReviewItems.id, { onDelete: 'set null' }),
+  // Optional file attachment. When set, the note is "file-based" — the body
+  // typically holds commentary about the file. Files are stored in S3 via
+  // lib/s3/upload; the URL is a proxy path like `/api/media/proxy/<key>`.
+  // attachmentStoredKey is kept so DELETE can clean up the S3 object.
+  attachmentUrl: varchar('attachment_url', { length: 1000 }),
+  attachmentFilename: varchar('attachment_filename', { length: 500 }),
+  attachmentMimeType: varchar('attachment_mime_type', { length: 200 }),
+  attachmentFileSize: integer('attachment_file_size'),
+  attachmentStoredKey: varchar('attachment_stored_key', { length: 500 }),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// ─── BRAIN CALENDAR ──────────────────────────────────────────────────────────
+// Free-form scheduled items distinct from tasks (which have due dates) and
+// meetings (which are records of past communications). Used to schedule things
+// to happen on specific days. Phase C of the calendar feature will sync these
+// bidirectionally with Google Calendar via the workspace OAuth scaffold; for
+// now everything is `source = 'manual'` and `googleEventId` stays null.
+
+export type BrainCalendarEventSource = 'manual' | 'google';
+
+export const brainCalendarEvents = pgTable('brain_calendar_events', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  startAt: timestamp('start_at').notNull(),
+  endAt: timestamp('end_at').notNull(),
+  allDay: boolean('all_day').default(false).notNull(),
+  timezone: varchar('timezone', { length: 100 }).default('UTC').notNull(),
+  location: varchar('location', { length: 500 }),
+  link: varchar('link', { length: 1000 }),
+  // Optional anchors. A scheduled event might be "follow up on this task by
+  // Friday" or "review session for this relationship next month".
+  relatedTaskId: integer('related_task_id').references(() => brainTasks.id, { onDelete: 'set null' }),
+  relatedMeetingId: integer('related_meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
+  relatedRelationshipOverlayId: integer('related_relationship_overlay_id').references(() => brainRelationshipOverlays.id, { onDelete: 'set null' }),
+  source: varchar('source', { length: 20 }).$type<BrainCalendarEventSource>().default('manual').notNull(),
+  // Reserved for Phase C — populated when the event is mirrored to Google.
+  googleEventId: varchar('google_event_id', { length: 255 }),
+  googleCalendarId: varchar('google_calendar_id', { length: 255 }),
+  // Reserved for Phase C — last successful one-way sync to Google (we use
+  // last-write-wins on conflict).
+  lastSyncedAt: timestamp('last_synced_at'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

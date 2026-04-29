@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/expire-mcp-pendings",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/renew-gmail-watches",
+      "schedule": "47 3 * * *"
     }
   ]
 }
