@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
+import { stripQuotedReply } from '@/lib/brain/strip-quoted';
 
 interface MeetingParticipant {
   id: number;
@@ -31,6 +32,24 @@ interface MeetingLink {
   error?: string;
 }
 
+interface MessageSourceMetadata {
+  from?: string;
+  to?: string;
+  senderEmail?: string;
+  gmailThreadId?: string;
+  attachments?: MeetingAttachment[];
+  links?: MeetingLink[];
+}
+
+interface ThreadSegment {
+  id: number;
+  title: string;
+  meetingDate: string | null;
+  createdAt: string;
+  transcript: string | null;
+  sourceMetadata?: MessageSourceMetadata | null;
+}
+
 interface Meeting {
   id: number;
   title: string;
@@ -47,19 +66,16 @@ interface Meeting {
   dealId: number | null;
   participants: MeetingParticipant[];
   /** Set on inbound-email meetings — populated by the worker. */
-  sourceMetadata?: {
-    from?: string;
-    to?: string;
-    senderEmail?: string;
-    attachments?: MeetingAttachment[];
-    links?: MeetingLink[];
-  } | null;
+  sourceMetadata?: MessageSourceMetadata | null;
   link?: {
     type: 'company' | 'deal';
     id: number;
     name: string;
     overlayId: number | null;
   };
+  /** Sibling messages in the same Gmail thread, oldest → newest. Populated
+   *  only for source='gmail-api' meetings whose thread has > 1 messages. */
+  thread?: ThreadSegment[];
 }
 
 function formatBytes(n: number): string {
@@ -269,98 +285,223 @@ export default function BrainMeetingDetailPage() {
         </Section>
       )}
 
-      {(meeting.sourceMetadata?.attachments?.length ?? 0) > 0 && (
-        <Section title={`Attachments (${meeting.sourceMetadata!.attachments!.length})`} icon="attach_file">
-          <div className="space-y-2">
-            {meeting.sourceMetadata!.attachments!.map((a, idx) => (
-              <div key={a.key} className="border border-border rounded-md overflow-hidden">
-                <a
-                  href={`/api/portal/brain/meetings/${meeting.id}/attachments/${idx}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
+      {/* Gmail thread — segmented timeline. Each segment owns its own
+          attachments via /attachments/[idx] keyed on the segment's id, so
+          replies that don't re-attach files still expose the originals
+          from earlier in the thread. */}
+      {meeting.thread && meeting.thread.length > 1 ? (
+        <Section title={`Thread (${meeting.thread.length} messages)`} icon="forum">
+          <div className="space-y-3">
+            {meeting.thread.map((seg) => {
+              const segMeta = seg.sourceMetadata ?? null;
+              const isCurrent = seg.id === meeting.id;
+              const segDate = seg.meetingDate ? new Date(seg.meetingDate) : new Date(seg.createdAt);
+              const { body, quoted } = stripQuotedReply(seg.transcript);
+              const attachments = segMeta?.attachments ?? [];
+              const links = segMeta?.links ?? [];
+              return (
+                <article
+                  key={seg.id}
+                  className={`rounded-md border p-4 ${isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/20'}`}
                 >
-                  <span className="material-icons text-base text-muted-foreground">
-                    {a.contentType.startsWith('image/') ? 'image' :
-                     a.contentType === 'application/pdf' ? 'picture_as_pdf' :
-                     a.contentType.startsWith('video/') ? 'videocam' :
-                     'description'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground truncate">{a.filename}</p>
-                    <p className="text-xs text-muted-foreground">{a.contentType} · {formatBytes(a.size)}</p>
-                  </div>
-                  <span className="material-icons text-sm text-muted-foreground">download</span>
-                </a>
-                {a.analysis && (
-                  <div className="px-3 py-2 bg-muted/40 border-t border-border">
-                    <div className="flex items-start gap-2">
-                      <span className="material-icons text-xs text-primary mt-0.5">auto_awesome</span>
-                      <p className="text-xs text-foreground/90 leading-relaxed">{a.analysis}</p>
+                  <header className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground break-all">
+                        {segMeta?.from || '(unknown sender)'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {segDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                        {segMeta?.to ? <> · to <span className="break-all">{segMeta.to}</span></> : null}
+                      </p>
                     </div>
+                    {!isCurrent && (
+                      <Link
+                        href={`/portal/brain/meetings/${seg.id}`}
+                        className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-0.5 shrink-0"
+                      >
+                        Open
+                        <span className="material-icons text-sm">open_in_new</span>
+                      </Link>
+                    )}
+                  </header>
+
+                  {body ? (
+                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-background/60 border border-border rounded-md p-3 overflow-auto max-h-[400px]">{body}</pre>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">No body content.</p>
+                  )}
+
+                  {quoted && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground inline-flex items-center gap-1">
+                        <span className="material-icons text-sm">format_quote</span>
+                        Quoted reply
+                      </summary>
+                      <pre className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-md p-3 mt-2 overflow-auto max-h-[200px]">{quoted}</pre>
+                    </details>
+                  )}
+
+                  {attachments.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1">
+                        <span className="material-icons text-sm">attach_file</span>
+                        Attachments ({attachments.length})
+                      </p>
+                      <div className="space-y-1.5">
+                        {attachments.map((a, idx) => (
+                          <div key={a.key} className="border border-border rounded-md overflow-hidden bg-background/40">
+                            <a
+                              href={`/api/portal/brain/meetings/${seg.id}/attachments/${idx}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
+                            >
+                              <span className="material-icons text-base text-muted-foreground">
+                                {a.contentType.startsWith('image/') ? 'image' :
+                                 a.contentType === 'application/pdf' ? 'picture_as_pdf' :
+                                 a.contentType.startsWith('video/') ? 'videocam' :
+                                 'description'}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-foreground truncate">{a.filename}</p>
+                                <p className="text-xs text-muted-foreground">{a.contentType} · {formatBytes(a.size)}</p>
+                              </div>
+                              <span className="material-icons text-sm text-muted-foreground">download</span>
+                            </a>
+                            {a.analysis && (
+                              <div className="px-3 py-2 bg-muted/40 border-t border-border">
+                                <div className="flex items-start gap-2">
+                                  <span className="material-icons text-xs text-primary mt-0.5">auto_awesome</span>
+                                  <p className="text-xs text-foreground/90 leading-relaxed">{a.analysis}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {links.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1">
+                        <span className="material-icons text-sm">link</span>
+                        Links ({links.length})
+                      </p>
+                      {links.map((l) => (
+                        <a
+                          key={l.url}
+                          href={l.finalUrl || l.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-xs text-foreground hover:text-primary truncate"
+                        >
+                          {l.title || l.finalUrl || l.url}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </Section>
+      ) : (
+        <>
+          {(meeting.sourceMetadata?.attachments?.length ?? 0) > 0 && (
+            <Section title={`Attachments (${meeting.sourceMetadata!.attachments!.length})`} icon="attach_file">
+              <div className="space-y-2">
+                {meeting.sourceMetadata!.attachments!.map((a, idx) => (
+                  <div key={a.key} className="border border-border rounded-md overflow-hidden">
+                    <a
+                      href={`/api/portal/brain/meetings/${meeting.id}/attachments/${idx}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
+                    >
+                      <span className="material-icons text-base text-muted-foreground">
+                        {a.contentType.startsWith('image/') ? 'image' :
+                         a.contentType === 'application/pdf' ? 'picture_as_pdf' :
+                         a.contentType.startsWith('video/') ? 'videocam' :
+                         'description'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{a.filename}</p>
+                        <p className="text-xs text-muted-foreground">{a.contentType} · {formatBytes(a.size)}</p>
+                      </div>
+                      <span className="material-icons text-sm text-muted-foreground">download</span>
+                    </a>
+                    {a.analysis && (
+                      <div className="px-3 py-2 bg-muted/40 border-t border-border">
+                        <div className="flex items-start gap-2">
+                          <span className="material-icons text-xs text-primary mt-0.5">auto_awesome</span>
+                          <p className="text-xs text-foreground/90 leading-relaxed">{a.analysis}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-        </Section>
-      )}
+            </Section>
+          )}
 
-      {(meeting.sourceMetadata?.links?.length ?? 0) > 0 && (
-        <Section title={`Links (${meeting.sourceMetadata!.links!.length})`} icon="link">
-          <div className="space-y-2">
-            {meeting.sourceMetadata!.links!.map((l) => (
-              <a
-                key={l.url}
-                href={l.finalUrl || l.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex gap-3 p-3 rounded-md border border-border hover:bg-accent transition-colors group"
-              >
-                {l.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={l.image}
-                    alt=""
-                    className="w-20 h-20 object-cover rounded shrink-0 bg-muted"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded bg-muted flex items-center justify-center shrink-0">
-                    <span className="material-icons text-muted-foreground">link</span>
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  {l.siteName && (
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
-                      {l.siteName}
-                    </p>
-                  )}
-                  <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
-                    {l.title || l.url}
-                  </p>
-                  {l.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-                      {l.description}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/70 mt-1 truncate">
-                    {l.error ? `[failed: ${l.error}]` : (l.finalUrl || l.url)}
-                  </p>
-                </div>
-              </a>
-            ))}
-          </div>
-        </Section>
-      )}
+          {(meeting.sourceMetadata?.links?.length ?? 0) > 0 && (
+            <Section title={`Links (${meeting.sourceMetadata!.links!.length})`} icon="link">
+              <div className="space-y-2">
+                {meeting.sourceMetadata!.links!.map((l) => (
+                  <a
+                    key={l.url}
+                    href={l.finalUrl || l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex gap-3 p-3 rounded-md border border-border hover:bg-accent transition-colors group"
+                  >
+                    {l.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={l.image}
+                        alt=""
+                        className="w-20 h-20 object-cover rounded shrink-0 bg-muted"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded bg-muted flex items-center justify-center shrink-0">
+                        <span className="material-icons text-muted-foreground">link</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      {l.siteName && (
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5 truncate">
+                          {l.siteName}
+                        </p>
+                      )}
+                      <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                        {l.title || l.url}
+                      </p>
+                      {l.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                          {l.description}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/70 mt-1 truncate">
+                        {l.error ? `[failed: ${l.error}]` : (l.finalUrl || l.url)}
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </Section>
+          )}
 
-      <Section title="Transcript" icon="description">
-        {meeting.transcript ? (
-          <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-md p-3 max-h-[600px] overflow-auto">{meeting.transcript}</pre>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No transcript captured.</p>
-        )}
-      </Section>
+          <Section title="Transcript" icon="description">
+            {meeting.transcript ? (
+              <pre className="text-xs text-foreground whitespace-pre-wrap font-mono bg-muted/30 border border-border rounded-md p-3 max-h-[600px] overflow-auto">{meeting.transcript}</pre>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No transcript captured.</p>
+            )}
+          </Section>
+        </>
+      )}
     </div>
   );
 }

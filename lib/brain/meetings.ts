@@ -7,12 +7,26 @@ import {
   crmDeals,
   type BrainMeetingStatus,
 } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { getMeetingAdapter, type AdapterContext, type NormalizedMeetingInput } from './meeting-sources';
 
 export type BrainMeeting = typeof brainMeetings.$inferSelect;
 export type BrainMeetingParticipant = typeof brainMeetingParticipants.$inferSelect;
+
+/**
+ * Lightweight per-segment shape for the Gmail thread timeline. Skips heavier
+ * fields (aiSummary, humanSummary, reviewedAt, etc.) that aren't needed for
+ * rendering each sibling message in the thread view.
+ */
+export interface ThreadSegment {
+  id: number;
+  title: string;
+  meetingDate: Date | null;
+  createdAt: Date;
+  transcript: string | null;
+  sourceMetadata: BrainMeeting['sourceMetadata'];
+}
 
 interface MeetingWithParticipants extends BrainMeeting {
   participants: BrainMeetingParticipant[];
@@ -24,6 +38,12 @@ interface MeetingWithParticipants extends BrainMeeting {
     /** The Brain overlay id if one exists for this CRM record. */
     overlayId: number | null;
   };
+  /**
+   * Sibling Gmail messages in the same thread, ordered oldest → newest.
+   * Only populated when source='gmail-api' AND sourceMetadata.gmailThreadId
+   * is set AND the thread contains more than one message.
+   */
+  thread?: ThreadSegment[];
 }
 
 export async function listMeetings(clientId: number, opts?: { status?: BrainMeetingStatus; limit?: number }): Promise<BrainMeeting[]> {
@@ -65,7 +85,30 @@ export async function getMeeting(clientId: number, meetingId: number): Promise<M
     }
   }
 
-  return { ...row, participants, link };
+  // Gmail thread context — surface sibling messages so the detail page can
+  // render a segmented timeline. Each segment keeps its own attachments via
+  // the existing /attachments/[idx] proxy keyed on the segment's row id.
+  let thread: ThreadSegment[] | undefined;
+  const meta = (row.sourceMetadata ?? null) as { gmailThreadId?: string } | null;
+  if (row.source === 'gmail-api' && meta?.gmailThreadId) {
+    const siblings = await db.select({
+      id: brainMeetings.id,
+      title: brainMeetings.title,
+      meetingDate: brainMeetings.meetingDate,
+      createdAt: brainMeetings.createdAt,
+      transcript: brainMeetings.transcript,
+      sourceMetadata: brainMeetings.sourceMetadata,
+    }).from(brainMeetings)
+      .where(and(
+        eq(brainMeetings.clientId, clientId),
+        eq(brainMeetings.source, 'gmail-api'),
+        sql`brain_meetings.source_metadata->>'gmailThreadId' = ${meta.gmailThreadId}`,
+      ))
+      .orderBy(asc(brainMeetings.meetingDate));
+    if (siblings.length > 1) thread = siblings;
+  }
+
+  return { ...row, participants, link, thread };
 }
 
 interface CreateFromAdapterArgs {
