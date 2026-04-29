@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 
-type ProposedType = 'task' | 'decision' | 'commitment' | 'relationship_update' | 'follow_up' | 'compliance_warning' | 'note';
+type ProposedType =
+  | 'task' | 'decision' | 'commitment' | 'relationship_update' | 'follow_up' | 'compliance_warning' | 'note'
+  | 'crm_contact_classify' | 'crm_deal_link' | 'crm_deal_create' | 'crm_company_link' | 'crm_company_create';
 type ReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
 
 interface ReviewItem {
@@ -26,9 +28,18 @@ const TYPE_META: Record<ProposedType, { label: string; icon: string; tone: strin
   follow_up: { label: 'Follow-up', icon: 'reply', tone: 'text-foreground bg-muted' },
   compliance_warning: { label: 'Compliance warning', icon: 'warning', tone: 'text-red-600 dark:text-red-400 bg-red-500/10' },
   note: { label: 'Note', icon: 'sticky_note_2', tone: 'text-foreground bg-muted' },
+  crm_contact_classify: { label: 'Classify contact', icon: 'badge', tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+  crm_deal_link:        { label: 'Link to deal',     icon: 'link',  tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+  crm_deal_create:      { label: 'Create deal',      icon: 'monetization_on', tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+  crm_company_link:     { label: 'Link to company',  icon: 'link',  tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+  crm_company_create:   { label: 'Create company',   icon: 'apartment', tone: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
 };
 
-const TYPE_ORDER: ProposedType[] = ['compliance_warning', 'task', 'decision', 'commitment', 'relationship_update', 'follow_up', 'note'];
+const TYPE_ORDER: ProposedType[] = [
+  'compliance_warning',
+  'crm_company_link', 'crm_company_create', 'crm_contact_classify', 'crm_deal_link', 'crm_deal_create',
+  'task', 'decision', 'commitment', 'relationship_update', 'follow_up', 'note',
+];
 
 interface MeetingShape {
   id: number;
@@ -237,6 +248,26 @@ function ReviewCard({ item, busy, onApprove, onReject }: {
     summary = `${typeof p.field === 'string' ? p.field : 'field'}: ${typeof p.value === 'string' ? p.value : ''}`;
   } else if (item.proposedType === 'compliance_warning') {
     summary = typeof p.message === 'string' ? p.message : '';
+  } else if (item.proposedType === 'crm_contact_classify') {
+    const parts: string[] = [];
+    if (typeof p.proposedStatus === 'string') parts.push(`status → ${p.proposedStatus}`);
+    if (typeof p.proposedSeniority === 'string') parts.push(`seniority → ${p.proposedSeniority}`);
+    if (typeof p.proposedDepartment === 'string') parts.push(`department → ${p.proposedDepartment}`);
+    if (typeof p.proposedTitle === 'string') parts.push(`title → ${p.proposedTitle}`);
+    summary = parts.length > 0 ? `Contact #${p.contactId}: ${parts.join(', ')}` : `Contact #${p.contactId}`;
+  } else if (item.proposedType === 'crm_deal_link') {
+    summary = `Link this email to deal #${p.dealId}`;
+  } else if (item.proposedType === 'crm_deal_create') {
+    const value = typeof p.value === 'number' ? ` (${formatCents(p.value, typeof p.currency === 'string' ? p.currency : 'USD')})` : '';
+    summary = `Create deal: ${typeof p.title === 'string' ? p.title : '(untitled)'}${value}`;
+  } else if (item.proposedType === 'crm_company_link') {
+    const candidates = Array.isArray(p.candidateCompanyIds) ? p.candidateCompanyIds : [];
+    summary = candidates.length > 1
+      ? `Pick a company from ${candidates.length} candidates (default: #${p.companyId})`
+      : `Link to company #${p.companyId}`;
+  } else if (item.proposedType === 'crm_company_create') {
+    const dom = typeof p.domain === 'string' ? ` (${p.domain})` : '';
+    summary = `Create company: ${typeof p.name === 'string' ? p.name : '(unnamed)'}${dom}`;
   } else {
     summary = JSON.stringify(p).slice(0, 80);
   }
@@ -333,6 +364,7 @@ function PayloadDetails({ payload, type }: { payload: Record<string, unknown>; t
     if (typeof payload.dueDate === 'string') bits.push({ label: 'due', value: payload.dueDate });
     if (typeof payload.priority === 'string') bits.push({ label: 'priority', value: payload.priority });
     if (payload.complianceFlag === true) bits.push({ label: '', value: 'compliance flag' });
+    if (typeof payload.relatesToBrainHit === 'string') bits.push({ label: 'brain context', value: payload.relatesToBrainHit });
   } else if (type === 'decision' && typeof payload.details === 'string') {
     bits.push({ label: '', value: payload.details });
   } else if (type === 'commitment' && typeof payload.when === 'string') {
@@ -341,6 +373,25 @@ function PayloadDetails({ payload, type }: { payload: Record<string, unknown>; t
     bits.push({ label: 'rationale', value: payload.rationale });
   } else if (type === 'compliance_warning' && typeof payload.severity === 'string') {
     bits.push({ label: 'severity', value: payload.severity });
+  } else if (type === 'crm_contact_classify') {
+    if (typeof payload.confidence === 'string') bits.push({ label: 'confidence', value: payload.confidence });
+    if (typeof payload.rationale === 'string') bits.push({ label: 'rationale', value: payload.rationale });
+  } else if (type === 'crm_deal_link') {
+    if (typeof payload.rationale === 'string') bits.push({ label: 'rationale', value: payload.rationale });
+  } else if (type === 'crm_deal_create') {
+    if (typeof payload.priority === 'string') bits.push({ label: 'priority', value: payload.priority });
+    if (typeof payload.expectedCloseDate === 'string') bits.push({ label: 'close by', value: payload.expectedCloseDate });
+    if (typeof payload.contactId === 'number') bits.push({ label: 'contact', value: `#${payload.contactId}` });
+    if (typeof payload.companyId === 'number') bits.push({ label: 'company', value: `#${payload.companyId}` });
+    if (typeof payload.rationale === 'string') bits.push({ label: 'rationale', value: payload.rationale });
+  } else if (type === 'crm_company_link') {
+    const candidates = Array.isArray(payload.candidateCompanyIds) ? payload.candidateCompanyIds : [];
+    if (candidates.length > 1) bits.push({ label: 'candidates', value: candidates.map((c) => `#${c}`).join(', ') });
+    if (typeof payload.rationale === 'string') bits.push({ label: 'rationale', value: payload.rationale });
+  } else if (type === 'crm_company_create') {
+    if (typeof payload.industry === 'string') bits.push({ label: 'industry', value: payload.industry });
+    if (typeof payload.website === 'string') bits.push({ label: 'website', value: payload.website });
+    if (typeof payload.rationale === 'string') bits.push({ label: 'rationale', value: payload.rationale });
   }
 
   if (bits.length === 0) return null;
@@ -353,4 +404,12 @@ function PayloadDetails({ payload, type }: { payload: Record<string, unknown>; t
       ))}
     </div>
   );
+}
+
+function formatCents(cents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${currency}`;
+  }
 }

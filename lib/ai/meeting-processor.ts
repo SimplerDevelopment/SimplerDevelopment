@@ -37,7 +37,7 @@ interface ProcessMeetingArgs {
   participants?: { name: string; email?: string }[];
 }
 
-interface MeetingExtraction {
+export interface MeetingExtraction {
   summary: string;
   decisions: { title: string; details?: string }[];
   commitments: { who: string; what: string; when?: string }[];

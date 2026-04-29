@@ -183,6 +183,16 @@ export default function BrainSettingsPage() {
               disabled={saving}
             />
           </Row>
+          <Row
+            label="Auto-link to CRM"
+            help="When an email is processed, also: upsert the sender as a CRM contact, link the email to a CRM company on unambiguous domain match, and propose contact classification, deal links, and brain-aware action items in the review queue. Requires Auto-process on arrival."
+          >
+            <Toggle
+              checked={profile.autoLinkCrm}
+              onChange={(v) => save({ autoLinkCrm: v })}
+              disabled={saving || !profile.autoProcessEmail}
+            />
+          </Row>
         </Section>
       )}
 

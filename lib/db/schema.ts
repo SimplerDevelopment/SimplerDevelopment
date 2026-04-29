@@ -1232,6 +1232,42 @@ export type NewGoogleWorkspaceClientConnection = typeof googleWorkspaceClientCon
 export type GoogleWorkspaceUserConnection = typeof googleWorkspaceUserConnections.$inferSelect;
 export type NewGoogleWorkspaceUserConnection = typeof googleWorkspaceUserConnections.$inferInsert;
 
+// ─── ENTERPRISE TIER: Per-tenant OAuth credentials ────────────────────────
+// One row per enterprise client. The client owns their own GCP project + OAuth
+// client; we store the credentials here and use them to mint per-tenant OAuth
+// flows. Standard-tier clients (MX-based email tracking) have no row.
+//
+// See: drizzle/0054_workspace_tenant_credentials.sql header for the security
+// note on plaintext storage of oauth_client_secret and pubsub_verification_token.
+
+export const googleWorkspaceTenantCredentials = pgTable('google_workspace_tenant_credentials', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  googleProjectId: varchar('google_project_id', { length: 64 }).notNull(),
+  oauthClientId: text('oauth_client_id').notNull(),
+  oauthClientSecret: text('oauth_client_secret').notNull(),
+  oauthRedirectUri: text('oauth_redirect_uri').notNull(),
+  pubsubTopic: text('pubsub_topic').notNull(),
+  pubsubVerificationToken: text('pubsub_verification_token').notNull(),
+  consentScreenUserType: varchar('consent_screen_user_type', { length: 16 })
+    .$type<'internal' | 'external'>()
+    .notNull()
+    .default('internal'),
+  status: varchar('status', { length: 16 })
+    .$type<'pending' | 'configured' | 'active' | 'revoked'>()
+    .notNull()
+    .default('pending'),
+  configuredByUserId: integer('configured_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  pubsubTokenUnique: uniqueIndex('google_workspace_tenant_credentials_token_idx').on(table.pubsubVerificationToken),
+}));
+
+export type GoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCredentials.$inferSelect;
+export type NewGoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCredentials.$inferInsert;
+
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
@@ -2679,6 +2715,12 @@ export const brainProfiles = pgTable('brain_profiles', {
   // pipeline (attachment analysis, link OG previews, transcript summary)
   // runs automatically as the meeting is created.
   autoProcessEmail: boolean('auto_process_email').default(false).notNull(),
+  // When true, the brain pipeline runs an additional CRM-classification step
+  // after transcript AI: upserts the sender as a crm_contact, links the
+  // meeting to a crm_company on unambiguous domain match, and proposes
+  // contact classification / deal links / brain-aware action items via the
+  // brain_ai_review_items queue.
+  autoLinkCrm: boolean('auto_link_crm').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -2747,7 +2789,21 @@ export const brainTasks = pgTable('brain_tasks', {
 });
 
 // What kind of record an AI proposal would become if approved.
-export type BrainReviewItemType = 'task' | 'note' | 'decision' | 'commitment' | 'relationship_update' | 'follow_up' | 'compliance_warning';
+export type BrainReviewItemType =
+  | 'task'
+  | 'note'
+  | 'decision'
+  | 'commitment'
+  | 'relationship_update'
+  | 'follow_up'
+  | 'compliance_warning'
+  // CRM-linkage proposals (created by the brain → CRM auto-linking step;
+  // see lib/brain/classify-crm.ts). Approval mutates CRM rows directly.
+  | 'crm_contact_classify'
+  | 'crm_deal_link'
+  | 'crm_deal_create'
+  | 'crm_company_link'
+  | 'crm_company_create';
 export type BrainReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
 
 export interface BrainReviewItemTaskPayload {
@@ -2758,6 +2814,10 @@ export interface BrainReviewItemTaskPayload {
   dueDate?: string;       // ISO
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   complianceFlag?: boolean;
+  // Set by classify-crm when an action item was surfaced via brain context
+  // (rather than the transcript alone). Free-form pointer like
+  // "Follow-up on brain_task #42 (2026-03-10 — Send Q2 proposal to Acme)".
+  relatesToBrainHit?: string;
 }
 
 export interface BrainReviewItemDecisionPayload { title: string; details?: string; }
@@ -2766,6 +2826,50 @@ export interface BrainReviewItemRelationshipUpdatePayload { field: string; value
 export interface BrainReviewItemNotePayload { title?: string; body: string; tags?: string[]; }
 export interface BrainReviewItemComplianceWarningPayload { message: string; severity?: 'low' | 'medium' | 'high'; }
 
+// CRM-linkage proposal payloads. Approval handlers in lib/brain/review.ts
+// mutate the relevant CRM table and (where appropriate) link the meeting.
+export interface BrainReviewItemCrmContactClassifyPayload {
+  contactId: number;                                  // existing crm_contacts.id (auto-upserted on ingest)
+  proposedStatus?: 'active' | 'inactive' | 'lead' | 'customer';
+  proposedSeniority?: string;
+  proposedDepartment?: string;
+  proposedTitle?: string;
+  confidence: 'high' | 'medium' | 'low';
+  rationale: string;
+}
+
+export interface BrainReviewItemCrmDealLinkPayload {
+  dealId: number;                                     // existing crm_deals.id
+  rationale: string;
+}
+
+export interface BrainReviewItemCrmDealCreatePayload {
+  title: string;
+  contactId?: number;
+  companyId?: number;
+  value?: number;                                     // cents
+  currency?: string;
+  priority?: 'low' | 'medium' | 'high';
+  expectedCloseDate?: string;                         // ISO
+  rationale: string;
+}
+
+export interface BrainReviewItemCrmCompanyLinkPayload {
+  companyId: number;                                  // existing crm_companies.id
+  rationale: string;
+  // When the sender's domain matched multiple companies, list all candidates
+  // so the reviewer can pick the right one in the UI.
+  candidateCompanyIds?: number[];
+}
+
+export interface BrainReviewItemCrmCompanyCreatePayload {
+  name: string;
+  domain?: string;
+  website?: string;
+  industry?: string;
+  rationale: string;
+}
+
 export type BrainReviewItemPayload =
   | BrainReviewItemTaskPayload
   | BrainReviewItemDecisionPayload
@@ -2773,6 +2877,11 @@ export type BrainReviewItemPayload =
   | BrainReviewItemRelationshipUpdatePayload
   | BrainReviewItemNotePayload
   | BrainReviewItemComplianceWarningPayload
+  | BrainReviewItemCrmContactClassifyPayload
+  | BrainReviewItemCrmDealLinkPayload
+  | BrainReviewItemCrmDealCreatePayload
+  | BrainReviewItemCrmCompanyLinkPayload
+  | BrainReviewItemCrmCompanyCreatePayload
   | Record<string, unknown>;
 
 export const brainAiReviewItems = pgTable('brain_ai_review_items', {
@@ -2790,7 +2899,7 @@ export const brainAiReviewItems = pgTable('brain_ai_review_items', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc';
+export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc' | 'crm_classify';
 export type BrainAiJobStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 export const brainAiJobs = pgTable('brain_ai_jobs', {

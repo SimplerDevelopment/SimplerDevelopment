@@ -13,7 +13,9 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brainMeetings } from '@/lib/db/schema';
 import { getMeeting } from '@/lib/brain/meetings';
-import { processMeetingTranscript } from '@/lib/ai/meeting-processor';
+import { getBrainProfile } from '@/lib/brain/profiles';
+import { processMeetingTranscript, type MeetingExtraction } from '@/lib/ai/meeting-processor';
+import { classifyAndLinkCrm } from '@/lib/brain/classify-crm';
 import { analyzeMeetingAttachments, type AttachmentLike } from '@/lib/brain/analyze-attachment';
 import { extractAndFetchLinks, type LinkMeta } from '@/lib/brain/extract-links';
 
@@ -33,6 +35,14 @@ export interface ProcessResult {
     jobId: number | null;
     reviewItemCount: number;
     summary: string | null;
+  } | null;
+  crm: {
+    jobId: number | null;
+    reviewItemCount: number;
+    contactId: number | null;
+    contactCreated: boolean;
+    companyId: number | null;
+    skipped?: 'no_sender_email' | 'no_credits' | 'disabled' | 'not_email_source' | 'no_extraction' | 'failed';
   } | null;
 }
 
@@ -95,6 +105,7 @@ export async function processBrainMeeting(args: {
   // Step 2: transcript AI processing (more expensive). Only when there's a
   // transcript and the caller hasn't opted out.
   let transcriptResult: ProcessResult['transcript'] = null;
+  let extraction: MeetingExtraction | null = null;
   if (hasTranscript && !options.skipTranscriptAi) {
     const out = await processMeetingTranscript({
       clientId,
@@ -105,11 +116,52 @@ export async function processBrainMeeting(args: {
       meetingDate: meeting.meetingDate,
       participants: meeting.participants.map((p) => ({ name: p.name, email: p.email ?? undefined })),
     });
+    extraction = out.extraction;
     transcriptResult = {
       jobId: out.jobId,
       reviewItemCount: out.reviewItemIds.length,
       summary: out.extraction.summary,
     };
+  }
+
+  // Step 3: brain → CRM auto-linking. Only runs when the profile opted in,
+  // the meeting was an inbound email, and the transcript step produced an
+  // extraction we can ground the AI call in. Best-effort — failure here
+  // doesn't fail the overall pipeline (auto-applied links are kept).
+  let crmResult: ProcessResult['crm'] = null;
+  if (meeting.source !== 'email') {
+    crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'not_email_source' };
+  } else if (!extraction) {
+    crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'no_extraction' };
+  } else {
+    const profile = await getBrainProfile(clientId);
+    if (!profile?.autoLinkCrm) {
+      crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'disabled' };
+    } else {
+      try {
+        const out = await classifyAndLinkCrm({
+          clientId,
+          meetingId,
+          userId,
+          extraction,
+          sourceMetadata: meeting.sourceMetadata,
+          meetingTitle: meeting.title,
+          transcript: meeting.transcript,
+        });
+        crmResult = {
+          jobId: out.jobId,
+          reviewItemCount: out.reviewItemIds.length,
+          contactId: out.appliedLinks.contactId ?? null,
+          contactCreated: out.appliedLinks.contactCreated ?? false,
+          companyId: out.appliedLinks.companyId ?? null,
+          skipped: out.skipped,
+        };
+      } catch (err) {
+        // Soft-fail: log via console; the audit row is written inside classifyAndLinkCrm.
+        console.error(`[brain.classify-crm] meeting ${meetingId}:`, err);
+        crmResult = { jobId: null, reviewItemCount: 0, contactId: null, contactCreated: false, companyId: null, skipped: 'failed' };
+      }
+    }
   }
 
   return {
@@ -118,5 +170,6 @@ export async function processBrainMeeting(args: {
     attachmentTokens: attachmentResult?.totalTokens ?? 0,
     linksExtracted: linkResult.length,
     transcript: transcriptResult,
+    crm: crmResult,
   };
 }

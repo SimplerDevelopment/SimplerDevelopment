@@ -58,6 +58,9 @@ export async function PUT(request: Request) {
   if (typeof body.autoProcessEmail === 'boolean') {
     updates.autoProcessEmail = body.autoProcessEmail;
   }
+  if (typeof body.autoLinkCrm === 'boolean') {
+    updates.autoLinkCrm = body.autoLinkCrm;
+  }
   if (typeof body.defaultConfidentiality === 'string') {
     if (!VALID_CONFIDENTIALITY.has(body.defaultConfidentiality as 'standard' | 'restricted' | 'confidential')) {
       return NextResponse.json({ success: false, message: 'Unknown confidentiality level' }, { status: 400 });

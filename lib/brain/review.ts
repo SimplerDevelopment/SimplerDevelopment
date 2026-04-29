@@ -4,11 +4,21 @@ import {
   brainAuditLogs,
   brainMeetings,
   brainTasks,
+  crmContacts,
+  crmCompanies,
+  crmDeals,
+  crmPipelines,
+  crmPipelineStages,
   type BrainReviewItemStatus,
   type BrainReviewItemPayload,
   type BrainReviewItemTaskPayload,
+  type BrainReviewItemCrmContactClassifyPayload,
+  type BrainReviewItemCrmDealLinkPayload,
+  type BrainReviewItemCrmDealCreatePayload,
+  type BrainReviewItemCrmCompanyLinkPayload,
+  type BrainReviewItemCrmCompanyCreatePayload,
 } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, asc, desc } from 'drizzle-orm';
 import { logAudit } from './audit';
 
 export type BrainAiReviewItem = typeof brainAiReviewItems.$inferSelect;
@@ -120,6 +130,109 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
         }).returning();
         resultEntityType = 'brain_task';
         resultEntityId = task.id;
+        break;
+      }
+      case 'crm_contact_classify': {
+        const cc = payload as BrainReviewItemCrmContactClassifyPayload;
+        if (typeof cc.contactId !== 'number') throw new Error('crm_contact_classify: missing contactId');
+        const update: Partial<typeof crmContacts.$inferInsert> = { updatedAt: new Date() };
+        if (cc.proposedStatus) update.status = cc.proposedStatus;
+        if (cc.proposedSeniority) update.seniority = cc.proposedSeniority;
+        if (cc.proposedDepartment) update.department = cc.proposedDepartment;
+        if (cc.proposedTitle) update.title = cc.proposedTitle;
+        const [updatedContact] = await tx.update(crmContacts)
+          .set(update)
+          .where(and(eq(crmContacts.id, cc.contactId), eq(crmContacts.clientId, args.clientId)))
+          .returning({ id: crmContacts.id });
+        if (!updatedContact) throw new Error(`crm_contact_classify: contact ${cc.contactId} not found for this client`);
+        resultEntityType = 'crm_contact';
+        resultEntityId = updatedContact.id;
+        break;
+      }
+      case 'crm_company_link': {
+        const cl = payload as BrainReviewItemCrmCompanyLinkPayload;
+        if (typeof cl.companyId !== 'number') throw new Error('crm_company_link: missing companyId');
+        const [co] = await tx.select({ id: crmCompanies.id }).from(crmCompanies)
+          .where(and(eq(crmCompanies.id, cl.companyId), eq(crmCompanies.clientId, args.clientId)))
+          .limit(1);
+        if (!co) throw new Error(`crm_company_link: company ${cl.companyId} not found for this client`);
+        if (item.sourceType === 'meeting') {
+          await tx.update(brainMeetings)
+            .set({ companyId: co.id, updatedAt: new Date() })
+            .where(and(eq(brainMeetings.id, item.sourceId), eq(brainMeetings.clientId, args.clientId)));
+        }
+        resultEntityType = 'crm_company';
+        resultEntityId = co.id;
+        break;
+      }
+      case 'crm_company_create': {
+        const cc = payload as BrainReviewItemCrmCompanyCreatePayload;
+        if (!cc.name) throw new Error('crm_company_create: missing name');
+        const [created] = await tx.insert(crmCompanies).values({
+          clientId: args.clientId,
+          name: cc.name.slice(0, 255),
+          domain: cc.domain ?? null,
+          website: cc.website ?? null,
+          industry: cc.industry ?? null,
+        }).returning({ id: crmCompanies.id });
+        if (item.sourceType === 'meeting') {
+          await tx.update(brainMeetings)
+            .set({ companyId: created.id, updatedAt: new Date() })
+            .where(and(eq(brainMeetings.id, item.sourceId), eq(brainMeetings.clientId, args.clientId)));
+        }
+        resultEntityType = 'crm_company';
+        resultEntityId = created.id;
+        break;
+      }
+      case 'crm_deal_link': {
+        const dl = payload as BrainReviewItemCrmDealLinkPayload;
+        if (typeof dl.dealId !== 'number') throw new Error('crm_deal_link: missing dealId');
+        const [d] = await tx.select({ id: crmDeals.id }).from(crmDeals)
+          .where(and(eq(crmDeals.id, dl.dealId), eq(crmDeals.clientId, args.clientId)))
+          .limit(1);
+        if (!d) throw new Error(`crm_deal_link: deal ${dl.dealId} not found for this client`);
+        if (item.sourceType === 'meeting') {
+          await tx.update(brainMeetings)
+            .set({ dealId: d.id, updatedAt: new Date() })
+            .where(and(eq(brainMeetings.id, item.sourceId), eq(brainMeetings.clientId, args.clientId)));
+        }
+        resultEntityType = 'crm_deal';
+        resultEntityId = d.id;
+        break;
+      }
+      case 'crm_deal_create': {
+        const dc = payload as BrainReviewItemCrmDealCreatePayload;
+        if (!dc.title) throw new Error('crm_deal_create: missing title');
+        const [pipeline] = await tx.select({ id: crmPipelines.id }).from(crmPipelines)
+          .where(eq(crmPipelines.clientId, args.clientId))
+          .orderBy(desc(crmPipelines.isDefault), asc(crmPipelines.id))
+          .limit(1);
+        if (!pipeline) throw new Error('crm_deal_create: no CRM pipeline configured. Create a pipeline in CRM settings first.');
+        const [stage] = await tx.select({ id: crmPipelineStages.id }).from(crmPipelineStages)
+          .where(eq(crmPipelineStages.pipelineId, pipeline.id))
+          .orderBy(asc(crmPipelineStages.sortOrder), asc(crmPipelineStages.id))
+          .limit(1);
+        if (!stage) throw new Error('crm_deal_create: pipeline has no stages. Add stages in CRM settings first.');
+        const [created] = await tx.insert(crmDeals).values({
+          clientId: args.clientId,
+          pipelineId: pipeline.id,
+          stageId: stage.id,
+          contactId: dc.contactId ?? null,
+          companyId: dc.companyId ?? null,
+          title: dc.title.slice(0, 255),
+          value: typeof dc.value === 'number' && dc.value > 0 ? dc.value : null,
+          currency: dc.currency ?? 'USD',
+          priority: dc.priority ?? 'medium',
+          expectedCloseDate: dc.expectedCloseDate ? new Date(dc.expectedCloseDate) : null,
+          ownerId: args.actorId,
+        }).returning({ id: crmDeals.id });
+        if (item.sourceType === 'meeting') {
+          await tx.update(brainMeetings)
+            .set({ dealId: created.id, updatedAt: new Date() })
+            .where(and(eq(brainMeetings.id, item.sourceId), eq(brainMeetings.clientId, args.clientId)));
+        }
+        resultEntityType = 'crm_deal';
+        resultEntityId = created.id;
         break;
       }
       // Phase 2 limits the approve sink to tasks. Approving other proposed types
