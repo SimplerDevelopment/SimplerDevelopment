@@ -54,6 +54,13 @@ next-env.d.ts
 
 # claude code local state
 /.claude/scheduled_tasks.lock
+/.claude/.runtime/
 
 # DB backup dumps (large, sensitive)
 /.migration-backup/
+
+# one-off debug scripts and editor snapshots
+_tmp-*
+**/_tmp-*
+editor-snapshot.md
+audit-verify-*

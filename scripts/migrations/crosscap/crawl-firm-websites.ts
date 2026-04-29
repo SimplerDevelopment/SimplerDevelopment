@@ -22,10 +22,11 @@ import { JSDOM } from 'jsdom';
 dotenv.config({ path: '.env' });
 
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36 SimplerDevResearchBot/1.0 (info@danielpcoyle.com)';
-const FETCH_TIMEOUT_MS = 9000;
-const POLITE_DELAY_MS = 1500;
-const INTRA_FIRM_DELAY_MS = 700;
-const MAX_PROFILES_PER_FIRM = 12;
+const FETCH_TIMEOUT_MS = 5000;         // tighter — slow hosts kill throughput
+const INTRA_FIRM_DELAY_MS = 200;
+const PER_FIRM_DELAY_MS = 250;
+const MAX_PROFILES_PER_FIRM = 8;
+const CONCURRENCY = parseInt(process.env.CRAWL_CONCURRENCY ?? '3', 10);
 
 // ── Heuristic keyword maps for firm-level inference ────────────────────
 const HNW_PRIMARY = /(ultra[-\s]high[-\s]net[-\s]worth|complex high[-\s]net[-\s]worth|complex (?:asset|estate)|wealthy clientele|high asset divorce|high[-\s]net[-\s]worth divorce)/i;
@@ -321,31 +322,46 @@ async function main() {
   let processed = 0, fetchOk = 0, teamFound = 0, profilesParsed = 0,
       newContacts = 0, signalsWritten = 0, socialsWritten = 0;
 
-  for (const firm of firms) {
-    if (processed >= cap) break;
-
-    if (!force) {
-      const [existing] = await db.select().from(crmCustomFieldValues).where(and(
+  // Pre-skim the already-crawled set in one query so worker startup is cheap.
+  const alreadyCrawled = new Set<number>(
+    (await db.select({ entityId: crmCustomFieldValues.entityId }).from(crmCustomFieldValues)
+      .where(and(
         eq(crmCustomFieldValues.customFieldId, crawledFieldId),
-        eq(crmCustomFieldValues.entityId, firm.id),
         eq(crmCustomFieldValues.entityType, 'company'),
-      )).limit(1);
-      if (existing) continue;
-    }
-    processed += 1;
+      ))).map(r => r.entityId),
+  );
 
+  const queue = firms.filter(f => force || !alreadyCrawled.has(f.id));
+  console.log(`Already crawled: ${alreadyCrawled.size}, remaining: ${queue.length}, concurrency=${CONCURRENCY}\n`);
+
+  let cursor = 0;
+  async function worker(workerId: number) {
+    while (true) {
+      if (processed >= cap) return;
+      const my = cursor++;
+      if (my >= queue.length) return;
+      const firm = queue[my];
+      processed += 1;
+      const tag = `[w${workerId} ${processed}/${Math.min(cap, queue.length)}]`;
+
+      const homeUrl = firm.website!;
+      const home = await fetchHtml(homeUrl);
+      if (!home) {
+        console.log(`${tag} firm ${firm.id} ${firm.name} → FETCH FAILED`);
+        await upsertField('company', firm.id, 'Website Crawl Status', 'Fetch failed');
+        await upsertField('company', firm.id, 'Website Crawled At', new Date().toISOString().slice(0, 10));
+        await new Promise(r => setTimeout(r, PER_FIRM_DELAY_MS));
+        continue;
+      }
+      fetchOk += 1;
+      await crawlFirm(firm, home, tag);
+      await new Promise(r => setTimeout(r, PER_FIRM_DELAY_MS));
+    }
+  }
+
+  // Per-firm crawl logic, after we have the homepage HTML.
+  async function crawlFirm(firm: typeof firms[number], home: { html: string; finalUrl: string }, tag: string) {
     const homeUrl = firm.website!;
-    process.stdout.write(`[${processed}] firm ${firm.id} ${firm.name} → ${homeUrl} `);
-
-    const home = await fetchHtml(homeUrl);
-    if (!home) {
-      process.stdout.write('FETCH FAILED\n');
-      await upsertField('company', firm.id, 'Website Crawl Status', 'Fetch failed');
-      await upsertField('company', firm.id, 'Website Crawled At', new Date().toISOString().slice(0, 10));
-      await new Promise(r => setTimeout(r, POLITE_DELAY_MS));
-      continue;
-    }
-    fetchOk += 1;
 
     // Firm socials + practice areas snippet
     const socials = findFirmSocials(home.html);
@@ -363,7 +379,6 @@ async function main() {
     // Find team page
     const teamUrl = findTeamPageUrl(home.html, home.finalUrl);
     if (!teamUrl) {
-      process.stdout.write('no team page\n');
       // still infer signals from home
       const sig = inferCompanySignals(home.html);
       let any = false;
@@ -377,8 +392,8 @@ async function main() {
 
       await upsertField('company', firm.id, 'Website Crawl Status', 'No team page found');
       await upsertField('company', firm.id, 'Website Crawled At', new Date().toISOString().slice(0, 10));
-      await new Promise(r => setTimeout(r, POLITE_DELAY_MS));
-      continue;
+      console.log(`${tag} firm ${firm.id} ${firm.name} → no team page${any ? ' ✓signals' : ''}`);
+      return;
     }
     teamFound += 1;
 
@@ -387,7 +402,6 @@ async function main() {
     const teamHtml = team?.html ?? '';
 
     const hits = team ? findAttorneyProfiles(team.html, team.finalUrl) : [];
-    process.stdout.write(`team(${hits.length} profiles) `);
 
     // Aggregate text we have so far for signal inference (home + team + first 3 profiles).
     let cumulativeText = home.html + ' ' + teamHtml;
@@ -481,10 +495,13 @@ async function main() {
     await upsertField('company', firm.id, 'Website Crawl Status', 'Success');
     await upsertField('company', firm.id, 'Website Crawled At', new Date().toISOString().slice(0, 10));
 
-    process.stdout.write(`+${profilesAdded} new contacts ${any ? '✓signals ' : ''}\n`);
+    console.log(`${tag} firm ${firm.id} ${firm.name} → team(${hits.length}) +${profilesAdded} new${any ? ' ✓signals' : ''}`);
     void ilike; void gte;
-    await new Promise(r => setTimeout(r, POLITE_DELAY_MS));
-  }
+  } // end crawlFirm
+
+  // Spawn workers
+  const workerPromises = Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1));
+  await Promise.all(workerPromises);
 
   console.log(`\n=== CRAWL DONE ===`);
   console.log(`Processed firms: ${processed}`);

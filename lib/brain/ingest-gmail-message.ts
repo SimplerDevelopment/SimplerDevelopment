@@ -25,8 +25,17 @@ export async function ingestGmailMessageIntoBrain(opts: {
   clientId: number;
   message: FetchedMessage;
   storeBodies: boolean;
+  /**
+   * Already-fetched + already-uploaded attachments for this message, in the
+   * same shape the MX path uses. Caller should run fetchAndUploadGmailAttachments
+   * (lib/google/gmail-attachments.ts) and pass the result through. We don't
+   * fetch attachments inline here so the orchestrating webhook stays in control
+   * of timeouts and retry semantics.
+   */
+  attachments?: { key: string; filename: string; contentType: string; size: number }[];
 }): Promise<{ meetingId: number | null; status: 'inserted' | 'updated' | 'skipped'; reason?: string }> {
   const { clientId, message, storeBodies } = opts;
+  const attachments = opts.attachments ?? [];
 
   const [profile] = await db
     .select({
@@ -60,6 +69,7 @@ export async function ingestGmailMessageIntoBrain(opts: {
     senderEmail,
     receivedAt: message.receivedAt.toISOString(),
     storedBody: storeBodies,
+    attachments,
   };
 
   const [meetingRow] = await db

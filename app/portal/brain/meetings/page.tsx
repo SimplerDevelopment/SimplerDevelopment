@@ -10,6 +10,43 @@ interface BrainMeetingRow {
   status: 'draft' | 'processing' | 'needs_review' | 'approved';
   source: string;
   createdAt: string;
+  sourceMetadata?: { gmailThreadId?: string; senderEmail?: string } | null;
+}
+
+/**
+ * One row per thread for source='gmail-api' messages, one row per individual
+ * meeting for everything else. Within a Gmail thread we keep the LATEST message
+ * as the visible row (so the row link goes to the most recent activity); the
+ * count badge surfaces the size of the thread.
+ */
+interface ThreadGroup {
+  key: string;            // either gmailThreadId or `single:${id}` for ungrouped rows
+  latest: BrainMeetingRow;
+  count: number;
+}
+
+function groupByThread(meetings: BrainMeetingRow[]): ThreadGroup[] {
+  const groups = new Map<string, ThreadGroup>();
+  for (const m of meetings) {
+    const tid = m.source === 'gmail-api' ? m.sourceMetadata?.gmailThreadId : null;
+    const key = tid ? `gmail:${tid}` : `single:${m.id}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, { key, latest: m, count: 1 });
+      continue;
+    }
+    existing.count += 1;
+    // The list arrives ordered by createdAt DESC, but be defensive: pick the
+    // latest by meetingDate || createdAt so reordering at the API level doesn't break us.
+    const existingTs = new Date(existing.latest.meetingDate ?? existing.latest.createdAt).getTime();
+    const candidateTs = new Date(m.meetingDate ?? m.createdAt).getTime();
+    if (candidateTs > existingTs) existing.latest = m;
+  }
+  return [...groups.values()].sort((a, b) => {
+    const at = new Date(a.latest.meetingDate ?? a.latest.createdAt).getTime();
+    const bt = new Date(b.latest.meetingDate ?? b.latest.createdAt).getTime();
+    return bt - at;
+  });
 }
 
 const STATUS_LABELS: Record<BrainMeetingRow['status'], { label: string; tone: string }> = {
@@ -93,18 +130,29 @@ export default function BrainMeetingsPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg divide-y divide-border">
-          {meetings.map((m) => {
+          {groupByThread(meetings).map((g) => {
+            const m = g.latest;
             const status = STATUS_LABELS[m.status];
             const date = m.meetingDate ? new Date(m.meetingDate) : new Date(m.createdAt);
+            const isThread = g.count > 1;
             return (
               <Link
-                key={m.id}
+                key={g.key}
                 href={`/portal/brain/meetings/${m.id}`}
                 className="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors"
               >
-                <span className="material-icons text-muted-foreground">forum</span>
+                <span className="material-icons text-muted-foreground">
+                  {isThread ? 'forum' : 'chat'}
+                </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{m.title}</div>
+                  <div className="text-sm font-medium text-foreground truncate flex items-center gap-2">
+                    <span className="truncate">{m.title}</span>
+                    {isThread && (
+                      <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                        {g.count} messages
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                     {' · '}

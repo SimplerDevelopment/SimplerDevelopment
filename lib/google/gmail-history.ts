@@ -27,6 +27,13 @@ export class HistoryTooOldError extends Error {
   }
 }
 
+export interface GmailAttachmentRef {
+  attachmentId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 export interface FetchedMessage {
   id: string;
   threadId: string;
@@ -38,6 +45,7 @@ export interface FetchedMessage {
   receivedAt: Date;
   labelIds: string[];
   snippet: string;
+  attachments: GmailAttachmentRef[];
 }
 
 function buildOAuth2(creds: GoogleOAuthCredentials, connection: GoogleConnectionLike) {
@@ -122,6 +130,32 @@ function header(msg: gmail_v1.Schema$Message, name: string): string {
 }
 
 /**
+ * Walk a Gmail message's MIME tree and collect every part that's an
+ * attachment — i.e. has both a non-empty `filename` AND an `attachmentId`
+ * that lets us fetch the bytes. This includes user-attached files AND
+ * inline images (Gmail tags those with filenames + Content-Disposition: inline).
+ * For MVP we keep both; the brain UI can hide inline images later if desired.
+ */
+function extractAttachmentRefs(msg: gmail_v1.Schema$Message): GmailAttachmentRef[] {
+  const out: GmailAttachmentRef[] = [];
+  const walk = (part: gmail_v1.Schema$MessagePart) => {
+    const filename = part.filename ?? '';
+    const attachmentId = part.body?.attachmentId ?? '';
+    if (filename && attachmentId) {
+      out.push({
+        attachmentId,
+        filename,
+        contentType: part.mimeType ?? 'application/octet-stream',
+        size: part.body?.size ?? 0,
+      });
+    }
+    for (const sub of part.parts ?? []) walk(sub);
+  };
+  if (msg.payload) walk(msg.payload);
+  return out;
+}
+
+/**
  * Sync once: fetch every messageAdded event since startHistoryId and return
  * fully-parsed FetchedMessage objects plus the new watermark to persist.
  */
@@ -162,6 +196,7 @@ export async function syncHistorySince(opts: {
       receivedAt: m.internalDate ? new Date(parseInt(m.internalDate, 10)) : new Date(),
       labelIds: m.labelIds ?? [],
       snippet: m.snippet ?? '',
+      attachments: extractAttachmentRefs(m),
     });
   }
 

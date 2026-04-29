@@ -18,9 +18,16 @@ interface AttachmentMeta {
 /**
  * GET /api/portal/brain/meetings/[id]/attachments/[idx]
  *
- * Verifies session + meeting ownership, then redirects the browser to a
- * short-lived HMAC-signed URL on the email Worker, which streams the R2
- * object back. Vercel never sees the bytes — only the signing happens here.
+ * Verifies session + meeting ownership, then redirects the browser to the
+ * underlying storage. Two backends:
+ *
+ *   - S3 (Gmail-API ingestion path) — keys begin with `media/` (the prefix
+ *     lib/s3/upload uses). We redirect to /api/media/proxy/<key> which streams
+ *     from S3 same-origin. No HMAC needed — keys are random UUIDs and the
+ *     authorization check above is the gate.
+ *   - R2 (MX-routed inbound email path) — everything else. We mint an HMAC-
+ *     signed URL on the email Worker, which streams from R2. Vercel never
+ *     sees the bytes; only the signing happens here.
  */
 export async function GET(
   _req: Request,
@@ -47,6 +54,13 @@ export async function GET(
     return NextResponse.json({ success: false, message: 'Attachment not found' }, { status: 404 });
   }
 
+  // S3 (Gmail-API ingestion). The `media/` prefix is exactly what lib/s3/upload
+  // produces and what /api/media/proxy/<key> reads back.
+  if (att.key.startsWith('media/')) {
+    return NextResponse.redirect(new URL(`/api/media/proxy/${att.key}`, _req.url), 302);
+  }
+
+  // R2 (MX-routed inbound email).
   if (!INBOUND_SECRET) {
     return NextResponse.json({ success: false, message: 'Server misconfigured: INBOUND_EMAIL_SECRET unset' }, { status: 500 });
   }

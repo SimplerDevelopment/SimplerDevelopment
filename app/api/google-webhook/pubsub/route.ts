@@ -9,6 +9,7 @@ import {
   HistoryTooOldError,
 } from '@/lib/google/gmail-history';
 import { startGmailWatch } from '@/lib/google/gmail-watch';
+import { fetchAndUploadGmailAttachments } from '@/lib/google/gmail-attachments';
 import { ingestGmailMessageIntoBrain } from '@/lib/brain/ingest-gmail-message';
 
 /**
@@ -192,12 +193,26 @@ export async function POST(req: NextRequest) {
 
   let inserted = 0;
   let skipped = 0;
+  let attachmentsUploaded = 0;
   for (const m of messages) {
     try {
+      // Fetch + upload attachments first, before the brain row is written, so
+      // the inserted source_metadata.attachments has the final S3 keys ready.
+      // Failures inside this helper are logged per-attachment and skipped —
+      // they don't throw — so the brain row still lands without them on partial failure.
+      const uploadedAttachments = await fetchAndUploadGmailAttachments({
+        credentials: tenant.oauth,
+        connection: { accessToken, refreshToken, expiresAt },
+        messageId: m.id,
+        refs: m.attachments,
+      });
+      attachmentsUploaded += uploadedAttachments.length;
+
       const result = await ingestGmailMessageIntoBrain({
         clientId: tenant.clientId,
         message: m,
         storeBodies,
+        attachments: uploadedAttachments,
       });
       if (result.status === 'inserted') inserted++;
       else skipped++;
@@ -223,6 +238,7 @@ export async function POST(req: NextRequest) {
     fetched: messages.length,
     inserted,
     skipped,
+    attachmentsUploaded,
     latestHistoryId,
   });
 }
