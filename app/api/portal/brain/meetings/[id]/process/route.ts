@@ -42,6 +42,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to process meeting';
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error(`[brain.process.route] meeting=${meetingId} FAILED: ${message}`);
+    if (stack) console.error(stack);
     const status = message === 'Meeting has no transcript or attachments to process.' ? 400 : 500;
     return NextResponse.json({ success: false, message }, { status });
   }

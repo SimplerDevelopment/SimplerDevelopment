@@ -94,12 +94,11 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
   const transcript = args.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
   const truncated = args.transcript.length > MAX_TRANSCRIPT_CHARS;
 
-  // Pre-flight credit check.
-  if (!(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
-    throw new Error('Insufficient AI credits. Purchase more credits or enable pay-as-you-go.');
-  }
-
-  // Mark meeting as processing + create job row.
+  // Mark meeting as processing + create job row FIRST. This way a credit
+  // failure (or any other early failure) leaves an auditable
+  // `brain_ai_jobs` row with status='failed', so the meeting detail page's
+  // latestJob banner can surface the reason. Previously the credit check
+  // ran before the insert and silent failures were invisible.
   await updateMeetingStatus(args.clientId, args.meetingId, 'processing');
   const [job] = await db.insert(brainAiJobs).values({
     clientId: args.clientId,
@@ -109,6 +108,27 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
     createdBy: args.userId,
     startedAt: new Date(),
   }).returning();
+
+  // Credit pre-flight. If insufficient, mark the freshly-created job as
+  // failed and bubble up — same shape as any other AI failure.
+  if (!(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
+    const message = 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go.';
+    await db.update(brainAiJobs).set({
+      status: 'failed' as BrainAiJobStatus,
+      error: message,
+      completedAt: new Date(),
+    }).where(eq(brainAiJobs.id, job.id));
+    await updateMeetingStatus(args.clientId, args.meetingId, 'draft');
+    await logAudit({
+      clientId: args.clientId,
+      actorId: args.userId,
+      action: 'meeting.process_failed',
+      entityType: 'brain_meeting',
+      entityId: args.meetingId,
+      metadata: { error: message, reason: 'insufficient_credits' },
+    });
+    throw new Error(message);
+  }
 
   let extraction: MeetingExtraction;
   let inputTokens = 0;
@@ -123,6 +143,7 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
       truncated,
     });
 
+    console.log(`[brain.process] meeting=${args.meetingId} AI request: transcript=${transcript.length}c title="${args.meetingTitle}" participants=${args.participants?.length ?? 0}`);
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 4096,
@@ -136,7 +157,10 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
     const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
     if (!textBlock) throw new Error('AI returned no text content.');
 
+    console.log(`[brain.process] meeting=${args.meetingId} AI raw response (${textBlock.text.length}c): ${textBlock.text.slice(0, 800)}`);
+
     extraction = parseExtraction(textBlock.text);
+    console.log(`[brain.process] meeting=${args.meetingId} parsed: tasks=${extraction.tasks.length} decisions=${extraction.decisions.length} commitments=${extraction.commitments.length} compliance=${extraction.complianceWarnings.length}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown AI processing error';
     await db.update(brainAiJobs).set({

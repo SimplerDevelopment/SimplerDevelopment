@@ -110,7 +110,7 @@ export default function BrainMeetingDetailPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { keepError?: boolean }) => {
     setLoading(true);
     try {
       const r = await fetch(`/api/portal/brain/meetings/${meetingId}`);
@@ -119,7 +119,7 @@ export default function BrainMeetingDetailPage() {
         setError(json.message || 'Failed to load meeting.');
       } else {
         setMeeting(json.data);
-        setError(null);
+        if (!opts?.keepError) setError(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
@@ -137,8 +137,11 @@ export default function BrainMeetingDetailPage() {
       const r = await fetch(`/api/portal/brain/meetings/${meetingId}/process`, { method: 'POST' });
       const json = await r.json();
       if (!r.ok || !json.success) {
-        setError(json.message || 'Processing failed.');
-        await load();
+        const msg = json.message || 'Processing failed.';
+        // Refresh meeting state (status may have reset to draft, latestJob will
+        // now reflect the failure) WITHOUT clobbering the just-set error message.
+        await load({ keepError: true });
+        setError(msg);
         return;
       }
       router.push(`/portal/brain/meetings/${meetingId}/review`);
