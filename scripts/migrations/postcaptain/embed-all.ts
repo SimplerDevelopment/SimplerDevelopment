@@ -143,10 +143,13 @@ async function run() {
     return rows.map(r => r.id);
   }
 
-  // Concurrency knob — OpenAI Tier 1 = 5,000 RPM for embeddings, more than
-  // enough headroom for 10-way parallelism. Keeps short-content entities
-  // (contacts, deals) from becoming round-trip-bound.
-  const CONCURRENCY = 10;
+  // Concurrency knob. Capped at 1 today because lib/db/index.ts pins the
+  // postgres pool to max=1 connection (sensible Vercel serverless default,
+  // bad for batch workloads). True parallelism would need a separate
+  // higher-pool client just for backfills — not worth the maintenance
+  // overhead since this is a one-shot. With max=1 a single worker already
+  // saturates the OpenAI round-trip path.
+  const CONCURRENCY = 1;
 
   const summary: Record<string, { count: number; succeeded: number; failed: number; chunks: number; tokens: number }> = {};
   for (const t of requestedTypes) {
