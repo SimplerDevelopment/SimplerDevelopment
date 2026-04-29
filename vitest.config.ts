@@ -77,6 +77,7 @@ export default defineConfig({
           maxWorkers: 2,
           hookTimeout: 120_000,
           testTimeout: 15_000,
+          sequence: { groupOrder: 2 },
         },
       },
     ],
