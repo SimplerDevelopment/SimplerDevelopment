@@ -70,7 +70,30 @@ const targets = [
         #pc-announce { display: none !important; }
         body.pc-has-announce { padding-top: 0 !important; }
         body.pc-has-announce nav.fixed { top: 0 !important; }
+
+        /* Next.js dev overlays / toasts (top-left "N 1 issue" badge,
+           build indicator, route announcer). Only present in local. */
+        nextjs-portal,
+        next-route-announcer,
+        [data-nextjs-toast],
+        [data-nextjs-build-indicator],
+        [data-nextjs-dialog-overlay],
+        #__next-build-watcher,
+        #__nextjs_original-stack-frame {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+        }
       `,
+    });
+
+    // The Next.js dev toast lives in a top-level <nextjs-portal> web component
+    // with an open shadow root — addStyleTag CSS won't pierce the shadow DOM
+    // for inner buttons. The display:none on the host element is enough to
+    // remove it from layout, but belt + suspenders: yank it from the DOM.
+    await page.evaluate(() => {
+      document.querySelectorAll('nextjs-portal, next-route-announcer, [data-nextjs-toast], [data-nextjs-build-indicator]').forEach((el) => el.remove());
     });
 
     // Some banners are injected as JS DOM nodes after CSS resolves; remove the
