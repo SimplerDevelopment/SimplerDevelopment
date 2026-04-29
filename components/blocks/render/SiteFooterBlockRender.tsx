@@ -42,18 +42,18 @@ export function SiteFooterBlockRender({ block }: SiteFooterBlockRenderProps) {
           <div className="md:col-span-1">
             {(block.logoUrl || block.wordmark) && (
               <div className="mb-4">
-                <a href="/" className="inline-flex items-center gap-3">
+                <a href="/" className="flex items-center gap-3 flex-wrap">
                   {block.logoUrl && (
                     <img
                       src={block.logoUrl}
                       alt={block.logoAlt || ''}
-                      className="h-10 w-auto"
+                      className="h-10 w-auto flex-shrink-0"
                       style={getElementCSS(block.elementStyles, 'logo')}
                     />
                   )}
                   {block.wordmark && (
                     <span
-                      className="text-xs font-semibold uppercase tracking-[0.18em] leading-tight"
+                      className="text-[10px] font-semibold uppercase tracking-[0.1em] leading-tight"
                       style={{ color: accent, ...getElementCSS(block.elementStyles, 'wordmark') }}
                     >
                       {block.wordmark.split('\n').map((line, i) => (
