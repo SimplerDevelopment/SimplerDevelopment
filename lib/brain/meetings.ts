@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import {
   brainMeetings,
   brainMeetingParticipants,
+  brainAiJobs,
   brainRelationshipOverlays,
   crmCompanies,
   crmDeals,
@@ -91,6 +92,19 @@ interface MeetingWithParticipants extends BrainMeeting {
    * is set AND the thread contains more than one message.
    */
   thread?: ThreadSegment[];
+  /**
+   * Latest AI job for this meeting (any type), most recent first by createdAt.
+   * Used by the detail UI to surface a failure reason when a Draft meeting got
+   * there because processing errored — without this, failures are silent.
+   */
+  latestJob?: {
+    id: number;
+    jobType: string;
+    status: string;
+    error: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  };
 }
 
 export async function listMeetings(clientId: number, opts?: { status?: BrainMeetingStatus; limit?: number }): Promise<BrainMeeting[]> {
@@ -155,7 +169,34 @@ export async function getMeeting(clientId: number, meetingId: number): Promise<M
     if (siblings.length > 1) thread = siblings;
   }
 
-  return { ...row, participants, link, thread };
+  // Latest AI job — surface failure reason when processing errored out and
+  // silently reset the meeting to Draft. Filtering by input.meetingId so we
+  // catch all job types (process_meeting, crm_classify, etc.) that ran on
+  // this meeting.
+  const [job] = await db.select({
+    id: brainAiJobs.id,
+    jobType: brainAiJobs.jobType,
+    status: brainAiJobs.status,
+    error: brainAiJobs.error,
+    createdAt: brainAiJobs.createdAt,
+    completedAt: brainAiJobs.completedAt,
+  }).from(brainAiJobs)
+    .where(and(
+      eq(brainAiJobs.clientId, clientId),
+      sql`(brain_ai_jobs.input->>'meetingId')::int = ${meetingId}`,
+    ))
+    .orderBy(desc(brainAiJobs.createdAt))
+    .limit(1);
+  const latestJob = job ? {
+    id: job.id,
+    jobType: job.jobType,
+    status: job.status,
+    error: job.error,
+    createdAt: job.createdAt.toISOString(),
+    completedAt: job.completedAt ? job.completedAt.toISOString() : null,
+  } : undefined;
+
+  return { ...row, participants, link, thread, latestJob };
 }
 
 interface CreateFromAdapterArgs {

@@ -76,6 +76,15 @@ interface Meeting {
   /** Sibling messages in the same Gmail thread, oldest → newest. Populated
    *  only for source='gmail-api' meetings whose thread has > 1 messages. */
   thread?: ThreadSegment[];
+  /** Latest AI job for this meeting — surfaced so failures aren't silent. */
+  latestJob?: {
+    id: number;
+    jobType: string;
+    status: string;
+    error: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  };
 }
 
 function formatBytes(n: number): string {
@@ -242,6 +251,27 @@ export default function BrainMeetingDetailPage() {
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {meeting.latestJob && meeting.latestJob.status === 'failed' && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm">
+          <div className="flex items-start gap-2">
+            <span className="material-icons text-destructive text-base">error_outline</span>
+            <div className="min-w-0">
+              <p className="font-medium text-destructive">
+                Last AI run failed ({meeting.latestJob.jobType.replace(/_/g, ' ')})
+              </p>
+              {meeting.latestJob.error && (
+                <p className="text-destructive/80 mt-0.5 text-xs break-words font-mono">
+                  {meeting.latestJob.error}
+                </p>
+              )}
+              <p className="text-muted-foreground text-xs mt-1">
+                Click {meeting.aiSummary ? '"Re-process with AI"' : '"Process with AI"'} to retry.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
