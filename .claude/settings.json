@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/settings.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "_comment": "Project-scoped settings for simplerdevelopment2026. Merges with user-global settings (~/.claude/settings.json) — both fire. See CLAUDE.md for context.",
   "permissions": {
     "allow": [
@@ -29,13 +29,8 @@
       "Bash(gh api:*)"
     ],
     "deny": [
-      "Edit(drizzle/*.sql)",
-      "Write(drizzle/*.sql)",
       "Edit(bun.lock)",
-      "Write(bun.lock)",
-      "Edit(.planning/STATE.md)",
-      "Edit(.planning/ROADMAP.md)",
-      "Edit(.planning/MILESTONES.md)"
+      "Write(bun.lock)"
     ]
   },
   "hooks": {
@@ -70,6 +65,17 @@
             "type": "command",
             "command": "bash .claude/hooks/stop-qa-gate.sh",
             "timeout": 120
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/cost-log.sh",
+            "timeout": 10
           }
         ]
       }
