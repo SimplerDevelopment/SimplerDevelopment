@@ -1,0 +1,147 @@
+{
+  "extractedAt": "2026-04-29T20:18:15.391Z",
+  "source": "https://postcaptain.com/",
+  "tool": ".planning/postcaptain-replication/extract-svg-assets.mjs",
+  "notes": [
+    "Filenames have been curated post-extraction: services SVGs renamed to svc-<glyph>.svg, audit SVGs renamed to audit-<topic>.svg.",
+    "Hero overlay turned out to be a webp (home-bg.webp), not an SVG — saved under public/sites/postcaptain/img/hero-bg.webp instead.",
+    "Pruned the original extraction: dropped duplicate services-projects/support icons (live emits them twice for hover state), dropped 221KB WPU footer logo, dropped solutions-icon footer copyright SVG.",
+    "Audit SVGs (targeted/database/organization) were inline DOM SVGs scoped to the audit-row, not the services panel — extractor mis-classified due to section-detection heuristic. Kept under audit-* names for potential future use."
+  ],
+  "assets": [
+    {
+      "section": "services",
+      "panel": "implementations",
+      "label": "Implementations (rocket_launch)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/rocket_launch_55dp_004D80_FILL0_wght400_GRAD0_opsz48-2.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-implementations.svg",
+      "bytes": 2702
+    },
+    {
+      "section": "services",
+      "panel": "projects",
+      "label": "Projects (conversion_path)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/10/conversion_path_55dp_004D80_FILL0_wght400_GRAD0_opsz48-1.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-projects.svg",
+      "bytes": 2810
+    },
+    {
+      "section": "services",
+      "panel": "support",
+      "label": "Support (handshake)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/handshake_55dp_004D80_FILL0_wght400_GRAD0_opsz48-2.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-support.svg",
+      "bytes": 890
+    },
+    {
+      "section": "services",
+      "panel": "implementations",
+      "feature": "Learn Along The Way",
+      "label": "Learn (lightbulb-outline)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/learn.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-learn.svg",
+      "bytes": 1464
+    },
+    {
+      "section": "services",
+      "panel": "implementations",
+      "feature": "Simplify Your Tech Stack",
+      "label": "Simplify (linked-camera-style)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/simplify.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-simplify.svg",
+      "bytes": 515
+    },
+    {
+      "section": "services",
+      "panel": "implementations",
+      "feature": "Reduce Overhead & Overload",
+      "label": "Reduce (downward-trend)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/reduce.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-reduce.svg",
+      "bytes": 334
+    },
+    {
+      "section": "services",
+      "panel": "projects",
+      "feature": "Receive Complete Solutions",
+      "label": "Web Traffic (web_traffic)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/10/web_traffic_35dp_004D80_FILL0_wght400_GRAD0_opsz40-1.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-web-traffic.svg",
+      "bytes": 583
+    },
+    {
+      "section": "services",
+      "panel": "projects",
+      "feature": "Keep It Instance-Specific",
+      "label": "Conversion Path (conversion_path)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/10/conversion_path_55dp_004D80_FILL0_wght400_GRAD0_opsz48-1.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-conversion-path.svg",
+      "bytes": 2810
+    },
+    {
+      "section": "services",
+      "panel": "projects",
+      "feature": "Save Time & Accelerate Results",
+      "label": "Dashboard Customize (dashboard_customize)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/10/dashboard_customize_55dp_004D80_FILL0_wght400_GRAD0_opsz48-1.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-dashboard-customize.svg",
+      "bytes": 1196
+    },
+    {
+      "section": "services",
+      "panel": "support",
+      "feature": "Ask a Real Human",
+      "label": "Human",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/human-2.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-human.svg",
+      "bytes": 459
+    },
+    {
+      "section": "services",
+      "panel": "support",
+      "feature": "Adapt to Your Needs",
+      "label": "Adapt",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/adapt-2.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-adapt.svg",
+      "bytes": 829
+    },
+    {
+      "section": "services",
+      "panel": "support",
+      "feature": "Feel Seen & Heard",
+      "label": "Feel Seen",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/feelseen-2.svg",
+      "publicPath": "/sites/postcaptain/svg/svc-feelseen.svg",
+      "bytes": 612
+    },
+    {
+      "section": "audits",
+      "label": "Targeted Audit (inline)",
+      "source": "inline-dom",
+      "publicPath": "/sites/postcaptain/svg/audit-targeted.svg",
+      "bytes": 275
+    },
+    {
+      "section": "audits",
+      "label": "Database Audit (inline)",
+      "source": "inline-dom",
+      "publicPath": "/sites/postcaptain/svg/audit-database.svg",
+      "bytes": 309
+    },
+    {
+      "section": "audits",
+      "label": "Organization & Governance Audit (inline)",
+      "source": "inline-dom",
+      "publicPath": "/sites/postcaptain/svg/audit-organization.svg",
+      "bytes": 346
+    },
+    {
+      "section": "hero",
+      "label": "Hero gradient overlay (raster, not SVG)",
+      "source": "https://postcaptain.com/wp-content/uploads/2025/05/home-bg.webp",
+      "publicPath": "/sites/postcaptain/img/hero-bg.webp",
+      "bytes": 252950,
+      "format": "webp"
+    }
+  ]
+}
