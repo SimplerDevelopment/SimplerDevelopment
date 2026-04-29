@@ -10,6 +10,8 @@ import {
   getDriveStartPageToken,
   findMeetRecordingsFolderId,
   backfillMeetRecordingsFolder,
+  subscribeDriveChanges,
+  stopDriveChanges,
 } from '@/lib/google/drive-changes';
 
 export const dynamic = 'force-dynamic';
@@ -23,11 +25,15 @@ export const runtime = 'nodejs';
  * and as a fast feedback loop while building / debugging.
  *
  * Query params:
- *   ?mode=backfill  — list every Google Doc in the Meet Recordings folder
- *                     and ingest each (idempotent on driveFileId). Use after
- *                     a fresh connect to pull in historical recordings the
- *                     changes API can't see.
- *   ?limit=N        — cap on backfill ingest (default 50).
+ *   ?mode=backfill    — list every Google Doc in the Meet Recordings folder
+ *                       and ingest each (idempotent on driveFileId). Use after
+ *                       a fresh connect to pull in historical recordings the
+ *                       changes API can't see.
+ *   ?mode=subscribe   — open a drive.changes.watch HTTP push channel so new
+ *                       recordings sync within seconds of landing in Drive.
+ *                       Stops the prior channel first if one exists.
+ *   ?mode=unsubscribe — tear down the existing watch channel.
+ *   ?limit=N          — cap on backfill ingest (default 50).
  */
 export async function POST(request: Request) {
   const result = await authorizePortal({ action: 'write' });
@@ -112,6 +118,59 @@ export async function POST(request: Request) {
         ingested: out.ingested,
         skipped: out.skipped,
         errors: out.errors.slice(0, 10),
+      },
+    });
+  }
+
+  if (mode === 'subscribe' || mode === 'unsubscribe') {
+    // Tear down any prior channel first — same flow either way.
+    if (conn.driveChannelId && conn.driveChannelResourceId) {
+      await stopDriveChanges({
+        credentials: tenant.oauth,
+        connection: { accessToken, refreshToken, expiresAt },
+        channelId: conn.driveChannelId,
+        resourceId: conn.driveChannelResourceId,
+      }).catch((err) => {
+        console.warn(`[drive-sync.subscribe] stop failed for connection=${conn.id}:`, err);
+      });
+      await db.update(googleWorkspaceUserConnections)
+        .set({
+          driveChannelId: null,
+          driveChannelResourceId: null,
+          driveChannelToken: null,
+          driveChannelExpiration: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(googleWorkspaceUserConnections.id, conn.id));
+    }
+
+    if (mode === 'unsubscribe') {
+      return NextResponse.json({ success: true, data: { mode: 'unsubscribe', state: 'stopped' } });
+    }
+
+    const webhookBase = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+    const webhookAddress = `${webhookBase.replace(/\/$/, '')}/api/google-webhook/drive`;
+    const watch = await subscribeDriveChanges({
+      credentials: tenant.oauth,
+      connection: { accessToken, refreshToken, expiresAt, driveStartPageToken: pageToken },
+      webhookAddress,
+    });
+    await db.update(googleWorkspaceUserConnections)
+      .set({
+        driveChannelId: watch.channelId,
+        driveChannelResourceId: watch.resourceId,
+        driveChannelToken: watch.channelToken,
+        driveChannelExpiration: watch.expiration,
+        updatedAt: new Date(),
+      })
+      .where(eq(googleWorkspaceUserConnections.id, conn.id));
+    return NextResponse.json({
+      success: true,
+      data: {
+        mode: 'subscribe',
+        webhookAddress,
+        channelId: watch.channelId,
+        expiration: watch.expiration.toISOString(),
       },
     });
   }

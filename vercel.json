@@ -12,6 +12,14 @@
     {
       "path": "/api/cron/renew-gmail-watches",
       "schedule": "47 3 * * *"
+    },
+    {
+      "path": "/api/cron/renew-drive-watches",
+      "schedule": "13 4 * * *"
+    },
+    {
+      "path": "/api/cron/drive-sync",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

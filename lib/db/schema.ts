@@ -1218,6 +1218,14 @@ export const googleWorkspaceUserConnections = pgTable('google_workspace_user_con
   gmailHistoryId: varchar('gmail_history_id', { length: 64 }),
   gmailWatchExpiration: timestamp('gmail_watch_expiration'),
   driveStartPageToken: varchar('drive_start_page_token', { length: 128 }),
+  // drive.changes.watch push-channel state. Channels expire ≤ 7 days
+  // (typically 1 day) and a daily cron re-subscribes near expiration.
+  // driveChannelToken is the secret we hand to Google; webhook handler
+  // validates the X-Goog-Channel-Token header against it.
+  driveChannelId: varchar('drive_channel_id', { length: 64 }),
+  driveChannelResourceId: varchar('drive_channel_resource_id', { length: 64 }),
+  driveChannelExpiration: timestamp('drive_channel_expiration'),
+  driveChannelToken: varchar('drive_channel_token', { length: 64 }),
   calendarSyncToken: text('calendar_sync_token'),
   contactsSyncToken: text('contacts_sync_token'),
   lastSyncAt: timestamp('last_sync_at'),
@@ -1226,6 +1234,7 @@ export const googleWorkspaceUserConnections = pgTable('google_workspace_user_con
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   clientUserUnique: uniqueIndex('google_workspace_user_connections_client_user_unique').on(table.clientId, table.userId),
+  driveChannelIdIdx: uniqueIndex('google_workspace_user_connections_drive_channel_id').on(table.driveChannelId),
 }));
 
 export type GoogleWorkspaceClientConnection = typeof googleWorkspaceClientConnections.$inferSelect;

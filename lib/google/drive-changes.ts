@@ -15,6 +15,7 @@
  */
 
 import { google, type drive_v3 } from 'googleapis';
+import { randomBytes, randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
@@ -22,6 +23,13 @@ import type { GoogleConnectionLike, GoogleOAuthCredentials } from '@/lib/google/
 import { createMeetingFromAdapter } from '@/lib/brain/meetings';
 import { getOrCreateBrainProfile } from '@/lib/brain/profiles';
 import { getMeetingAdapter } from '@/lib/brain/meeting-sources';
+
+export interface DriveWatchResult {
+  channelId: string;
+  resourceId: string;
+  channelToken: string;
+  expiration: Date;
+}
 
 export interface DriveSyncResult {
   scanned: number;
@@ -208,6 +216,77 @@ export async function syncDriveChangesForConnection(args: {
   result.newPageToken = tokenToPersist;
 
   return result;
+}
+
+/**
+ * Subscribe to drive.changes via an HTTP push channel. Google will POST
+ * X-Goog-Channel-* headers to `address` whenever any file changes for this
+ * user; our webhook handler validates the channel-token header against the
+ * value we persist, then dispatches the same syncDriveChangesForConnection
+ * the cron uses.
+ *
+ * Channels expire after 1 day by default (Drive's max is ~7 but the API often
+ * caps lower); a daily cron near the expiration re-subscribes.
+ *
+ * Idempotent at the call site: callers should stopDriveChanges first if a
+ * channel already exists, otherwise Google may keep delivering on both.
+ */
+export async function subscribeDriveChanges(args: {
+  credentials: GoogleOAuthCredentials;
+  connection: GoogleConnectionLike & { driveStartPageToken: string };
+  webhookAddress: string;
+  /** TTL hint in ms — Google caps. Default: 1 day. */
+  ttlMs?: number;
+}): Promise<DriveWatchResult> {
+  const drive = google.drive({ version: 'v3', auth: buildOAuth2(args.credentials, args.connection) });
+  const channelId = randomUUID();
+  const channelToken = randomBytes(24).toString('hex');
+  const ttl = args.ttlMs ?? 24 * 60 * 60 * 1000;
+  const requestedExpiration = String(Date.now() + ttl);
+
+  const res = await drive.changes.watch({
+    pageToken: args.connection.driveStartPageToken,
+    requestBody: {
+      id: channelId,
+      type: 'web_hook',
+      address: args.webhookAddress,
+      token: channelToken,
+      expiration: requestedExpiration,
+    },
+  });
+
+  if (!res.data.resourceId) {
+    throw new Error('drive.changes.watch returned no resourceId');
+  }
+  const expirationMs = res.data.expiration ? parseInt(res.data.expiration, 10) : NaN;
+  if (!Number.isFinite(expirationMs)) {
+    throw new Error(`drive.changes.watch returned non-numeric expiration: ${res.data.expiration}`);
+  }
+  return {
+    channelId,
+    resourceId: res.data.resourceId,
+    channelToken,
+    expiration: new Date(expirationMs),
+  };
+}
+
+/** Tear down an existing drive watch channel. Safe to call when the channel
+ *  may already be expired/dead — Google returns 404 in that case which we
+ *  swallow. */
+export async function stopDriveChanges(args: {
+  credentials: GoogleOAuthCredentials;
+  connection: GoogleConnectionLike;
+  channelId: string;
+  resourceId: string;
+}): Promise<void> {
+  const drive = google.drive({ version: 'v3', auth: buildOAuth2(args.credentials, args.connection) });
+  try {
+    await drive.channels.stop({ requestBody: { id: args.channelId, resourceId: args.resourceId } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/404|not found|gone/i.test(msg)) return;
+    throw err;
+  }
 }
 
 /**
