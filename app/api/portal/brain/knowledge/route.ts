@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
-import { listNotes, createNote, listAllTags } from '@/lib/brain/notes';
+import { listNotes, countNotes, createNote, listAllTags } from '@/lib/brain/notes';
 
 export async function GET(request: Request) {
   const result = await authorizePortal({ action: 'read' });
@@ -25,7 +25,14 @@ export async function GET(request: Request) {
   const sourceUrl = url.searchParams.get('sourceUrl');
   const sourceUrlStartsWith = url.searchParams.get('sourceUrlStartsWith');
 
-  const notes = await listNotes(result.client.id, {
+  // Pagination — clamp to sane bounds. limit max 200 (matches the previous
+  // un-paginated cap so we never blow up a client by accident).
+  const limitRaw = parseInt(url.searchParams.get('limit') ?? '50', 10);
+  const offsetRaw = parseInt(url.searchParams.get('offset') ?? '0', 10);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 200)) : 50;
+  const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+
+  const filters = {
     relationshipOverlayId: relationshipOverlayId ? parseInt(relationshipOverlayId, 10) : undefined,
     companyId: companyId ? parseInt(companyId, 10) : undefined,
     dealId: dealId ? parseInt(dealId, 10) : undefined,
@@ -36,9 +43,14 @@ export async function GET(request: Request) {
     pinnedOnly,
     sourceUrl: sourceUrl ?? undefined,
     sourceUrlStartsWith: sourceUrlStartsWith ?? undefined,
-  });
+  };
 
-  return NextResponse.json({ success: true, data: notes });
+  const [items, total] = await Promise.all([
+    listNotes(result.client.id, { ...filters, limit, offset }),
+    countNotes(result.client.id, filters),
+  ]);
+
+  return NextResponse.json({ success: true, data: { items, total, limit, offset } });
 }
 
 export async function POST(request: Request) {

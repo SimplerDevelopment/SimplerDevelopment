@@ -147,8 +147,10 @@ test.describe('Portal Brain — Knowledge @brain @brain-knowledge', () => {
     const res = await clientApi.get('/api/portal/brain/knowledge');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
-    expect(Array.isArray(res.data.data)).toBe(true);
-    expect(res.data.data.some((n: { id: number }) => n.id === id)).toBe(true);
+    // Paginated envelope: { items, total, limit, offset }.
+    expect(Array.isArray(res.data.data.items)).toBe(true);
+    expect(typeof res.data.data.total).toBe('number');
+    expect(res.data.data.items.some((n: { id: number }) => n.id === id)).toBe(true);
   });
 
   test('GET /knowledge?tags=true returns tag list', async ({ clientApi }) => {

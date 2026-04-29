@@ -20,9 +20,12 @@ interface ListOpts {
   /** Prefix match on source URL — find all notes ingested from a given site. */
   sourceUrlStartsWith?: string;
   limit?: number;
+  /** Pagination offset; pairs with `limit`. Default 0. */
+  offset?: number;
 }
 
-export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<BrainNote[]> {
+/** Build the WHERE conditions shared by listNotes and countNotes. */
+function buildNoteFilters(clientId: number, opts: ListOpts) {
   const conds = [eq(brainNotes.clientId, clientId)];
   if (opts.relationshipOverlayId !== undefined) conds.push(eq(brainNotes.relationshipOverlayId, opts.relationshipOverlayId));
   if (opts.companyId !== undefined) conds.push(eq(brainNotes.companyId, opts.companyId));
@@ -30,27 +33,35 @@ export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<
   if (opts.contactId !== undefined) conds.push(eq(brainNotes.contactId, opts.contactId));
   if (opts.meetingId !== undefined) conds.push(eq(brainNotes.meetingId, opts.meetingId));
   if (opts.pinnedOnly) conds.push(eq(brainNotes.pinned, true));
-
   if (opts.search && opts.search.trim()) {
     const q = `%${opts.search.trim()}%`;
     conds.push(sql`(${brainNotes.title} ILIKE ${q} OR ${brainNotes.body} ILIKE ${q})`);
   }
   if (opts.tag) {
-    // tags is json[]; jsonb_path_exists works on jsonb so we cast.
     conds.push(sql`${brainNotes.tags}::jsonb @> ${JSON.stringify([opts.tag])}::jsonb`);
   }
-  if (opts.sourceUrl) {
-    conds.push(eq(brainNotes.sourceUrl, opts.sourceUrl));
-  }
+  if (opts.sourceUrl) conds.push(eq(brainNotes.sourceUrl, opts.sourceUrl));
   if (opts.sourceUrlStartsWith) {
     const prefix = `${opts.sourceUrlStartsWith}%`;
     conds.push(sql`${brainNotes.sourceUrl} ILIKE ${prefix}`);
   }
+  return conds;
+}
 
+export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<BrainNote[]> {
+  const conds = buildNoteFilters(clientId, opts);
   return db.select().from(brainNotes)
     .where(and(...conds))
     .orderBy(desc(brainNotes.pinned), desc(brainNotes.updatedAt))
-    .limit(opts.limit ?? 200);
+    .limit(opts.limit ?? 200)
+    .offset(opts.offset ?? 0);
+}
+
+/** Count rows matching the same filter set as listNotes — for pagination total. */
+export async function countNotes(clientId: number, opts: ListOpts = {}): Promise<number> {
+  const conds = buildNoteFilters(clientId, opts);
+  const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(brainNotes).where(and(...conds));
+  return row?.count ?? 0;
 }
 
 export async function getNote(clientId: number, noteId: number): Promise<BrainNote | null> {

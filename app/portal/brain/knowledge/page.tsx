@@ -57,8 +57,12 @@ const CONFIDENTIALITY_BADGE: Record<BrainNote['confidentialityLevel'], string> =
   confidential: 'bg-red-500/10 text-red-700 dark:text-red-300',
 };
 
+const PAGE_SIZE = 50;
+
 export default function BrainKnowledgePage() {
   const [notes, setNotes] = useState<BrainNote[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [tags, setTags] = useState<string[]>([]);
   const [relationships, setRelationships] = useState<RelationshipOption[]>([]);
   const [search, setSearch] = useState('');
@@ -74,6 +78,8 @@ export default function BrainKnowledgePage() {
     if (search.trim()) params.set('search', search.trim());
     if (activeTag) params.set('tag', activeTag);
     if (pinnedOnly) params.set('pinned', 'true');
+    params.set('limit', String(PAGE_SIZE));
+    params.set('offset', String((page - 1) * PAGE_SIZE));
 
     async function safeJson(url: string): Promise<{ ok: boolean; data?: { success?: boolean; data?: unknown; message?: string }; status: number; raw?: string }> {
       try {
@@ -98,7 +104,9 @@ export default function BrainKnowledgePage() {
 
     // Notes is the page's primary resource — surface its failure first.
     if (notesRes.data?.success) {
-      setNotes(notesRes.data.data as BrainNote[]);
+      const payload = notesRes.data.data as { items: BrainNote[]; total: number; limit: number; offset: number };
+      setNotes(payload.items);
+      setTotal(payload.total);
       setError(null);
     } else {
       const msg = notesRes.data?.message
@@ -106,6 +114,7 @@ export default function BrainKnowledgePage() {
         || (notesRes.status === 401 ? 'Not signed in.' : `Failed to load notes (HTTP ${notesRes.status}).`);
       setError(msg);
       setNotes([]);
+      setTotal(0);
     }
 
     if (tagsRes.data?.success) {
@@ -124,9 +133,15 @@ export default function BrainKnowledgePage() {
       }));
       setRelationships(list);
     }
-  }, [search, activeTag, pinnedOnly]);
+  }, [search, activeTag, pinnedOnly, page]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset to page 1 whenever filters change, otherwise the user can land on
+  // an empty page (e.g. on page 5 of 5, switch tags, new filter only has 2 pages).
+  useEffect(() => {
+    setPage(1);
+  }, [search, activeTag, pinnedOnly]);
 
   const openCreate = () => { setEditing(null); setShowForm(true); };
   const openEdit = (note: BrainNote) => { setEditing(note); setShowForm(true); };
@@ -319,19 +334,27 @@ export default function BrainKnowledgePage() {
           </button>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {notes.map((n) => (
-            <NoteCard
-              key={n.id}
-              note={n}
-              relationships={relationships}
-              onEdit={() => openEdit(n)}
-              onDelete={() => handleDelete(n)}
-              onTogglePin={() => togglePin(n)}
-              onClearAttachment={() => handleClearAttachment(n)}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-3">
+            {notes.map((n) => (
+              <NoteCard
+                key={n.id}
+                note={n}
+                relationships={relationships}
+                onEdit={() => openEdit(n)}
+                onDelete={() => handleDelete(n)}
+                onTogglePin={() => togglePin(n)}
+                onClearAttachment={() => handleClearAttachment(n)}
+              />
+            ))}
+          </ul>
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onChange={setPage}
+          />
+        </>
       )}
 
       {/* New / edit form — modal overlay */}
@@ -720,5 +743,72 @@ function NoteForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  onChange,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  onChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return null;
+
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+
+  return (
+    <div className="flex items-center justify-between gap-3 pt-2 text-sm">
+      <div className="text-muted-foreground">
+        {start.toLocaleString()}–{end.toLocaleString()} of {total.toLocaleString()}
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onChange(1)}
+          disabled={page === 1}
+          aria-label="First page"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <span className="material-icons text-base">first_page</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(page - 1)}
+          disabled={page === 1}
+          aria-label="Previous page"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <span className="material-icons text-base">chevron_left</span>
+        </button>
+        <span className="px-2 text-muted-foreground tabular-nums">
+          page {page} of {totalPages}
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(page + 1)}
+          disabled={page === totalPages}
+          aria-label="Next page"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <span className="material-icons text-base">chevron_right</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(totalPages)}
+          disabled={page === totalPages}
+          aria-label="Last page"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <span className="material-icons text-base">last_page</span>
+        </button>
+      </div>
+    </div>
   );
 }
