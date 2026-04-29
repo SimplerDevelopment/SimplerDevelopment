@@ -3023,6 +3023,53 @@ export const brainNotes = pgTable('brain_notes', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Brain custom fields — same shape as crm_custom_fields/values but a separate
+// table pair so Brain and CRM custom-field admin/lifecycles stay decoupled.
+// `source` distinguishes user-created defs from auto-derived ones (importers
+// can create defs for unknown frontmatter keys without polluting the manual
+// definition list).
+export const brainCustomFields = pgTable('brain_custom_fields', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(), // 'note' | 'meeting' | 'relationship'
+  fieldName: varchar('field_name', { length: 100 }).notNull(),
+  fieldLabel: varchar('field_label', { length: 150 }),
+  fieldType: varchar('field_type', { length: 20 }).notNull(), // 'text'|'number'|'date'|'datetime'|'url'|'email'|'select'|'multiselect'|'tags'|'boolean'|'json'
+  options: json('options').$type<string[]>(),
+  required: boolean('required').default(false).notNull(),
+  filterable: boolean('filterable').default(false).notNull(),
+  category: varchar('category', { length: 100 }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  source: varchar('source', { length: 50 }).default('manual').notNull(), // 'manual' | 'auto-derived'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const brainCustomFieldValues = pgTable('brain_custom_field_values', {
+  id: serial('id').primaryKey(),
+  customFieldId: integer('custom_field_id').notNull().references(() => brainCustomFields.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 20 }).notNull(),
+  entityId: integer('entity_id').notNull(),
+  value: text('value'), // stored as text, parsed by fieldType
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Obsidian-style link graph for KB-imported notes. Each row is one [[link]]
+// or ![[embed]] found in a source note; backlinks come for free by querying
+// the same table the other way. to_note_id is nullable for orphaned targets
+// (Obsidian permits links to non-existent notes).
+export const brainKbLinks = pgTable('brain_kb_links', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  fromNoteId: integer('from_note_id').notNull().references(() => brainNotes.id, { onDelete: 'cascade' }),
+  toNoteId: integer('to_note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
+  rawTarget: varchar('raw_target', { length: 500 }).notNull(),
+  anchor: varchar('anchor', { length: 255 }),
+  displayText: varchar('display_text', { length: 500 }),
+  linkType: varchar('link_type', { length: 20 }).default('wikilink').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // ─── BRAIN CALENDAR ──────────────────────────────────────────────────────────
 // Free-form scheduled items distinct from tasks (which have due dates) and
 // meetings (which are records of past communications). Used to schedule things
