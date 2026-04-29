@@ -80,10 +80,13 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_search',
     {
       title: 'Search Company Brain',
-      description: 'Keyword search across meetings, knowledge notes, tasks, and relationships. Returns ranked hits with snippets and citation URLs. Use this before answering any factual question about the workspace — never guess.',
+      description: 'Hybrid lexical + semantic search across the entire workspace: knowledge notes, meetings, CRM companies and contacts, deals, tasks, relationships, and pages. Returns ranked hits with snippets and citation URLs. Use this before answering any factual question about the workspace — never guess.',
       inputSchema: {
         query: z.string().min(1).max(500),
-        types: z.array(z.enum(['meeting', 'note', 'task', 'relationship'])).optional(),
+        types: z.array(z.enum([
+          'meeting', 'note', 'task', 'relationship',
+          'company', 'contact', 'deal', 'post',
+        ])).optional(),
         limit: z.number().int().min(1).max(50).optional(),
       },
     },
