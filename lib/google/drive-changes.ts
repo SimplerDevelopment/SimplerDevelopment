@@ -209,3 +209,75 @@ export async function syncDriveChangesForConnection(args: {
 
   return result;
 }
+
+/**
+ * Backfill: list every Google Doc currently in the Meet Recordings folder
+ * (oldest → newest, capped) and dispatch each through the adapter. Used to
+ * pull in pre-existing recordings on first connect — the changes API only
+ * sees deltas from the watermark forward, so historical files would otherwise
+ * never sync.
+ *
+ * Idempotent on (clientId, sourceRef=fileId): re-running the backfill on the
+ * same folder updates existing rows rather than duplicating.
+ */
+export async function backfillMeetRecordingsFolder(args: {
+  credentials: GoogleOAuthCredentials;
+  connection: GoogleConnectionLike;
+  clientId: number;
+  userId: number;
+  meetRecordingsFolderId: string;
+  /** Cap on how many files to ingest in one pass. Default 50. */
+  limit?: number;
+}): Promise<DriveSyncResult> {
+  const result: DriveSyncResult = { scanned: 0, ingested: 0, skipped: 0, errors: [], newPageToken: null };
+  const drive = google.drive({ version: 'v3', auth: buildOAuth2(args.credentials, args.connection) });
+  const profile = await getOrCreateBrainProfile(args.clientId, 'Brain');
+  if (!getMeetingAdapter('google_meet_recording')) {
+    throw new Error('google_meet_recording adapter not registered');
+  }
+
+  const limit = args.limit ?? 50;
+  let pageToken: string | undefined;
+  let collected: drive_v3.Schema$File[] = [];
+
+  while (collected.length < limit) {
+    const remaining = limit - collected.length;
+    const res = await drive.files.list({
+      q: `'${args.meetRecordingsFolderId}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.document'`,
+      fields: 'files(id, name, mimeType, createdTime, webViewLink), nextPageToken',
+      pageSize: Math.min(100, remaining),
+      orderBy: 'createdTime',
+      pageToken,
+    });
+    const files = res.data.files ?? [];
+    collected = collected.concat(files);
+    pageToken = res.data.nextPageToken ?? undefined;
+    if (!pageToken) break;
+  }
+
+  for (const f of collected.slice(0, limit)) {
+    if (!f.id) { result.skipped += 1; continue; }
+    result.scanned += 1;
+    try {
+      const text = await exportDocAsText(drive, f.id);
+      if (!text || !text.trim()) { result.skipped += 1; continue; }
+      await createMeetingFromAdapter({
+        adapterId: 'google_meet_recording',
+        input: {
+          fileId: f.id,
+          name: f.name ?? '(Meet recording)',
+          createdTime: f.createdTime ?? null,
+          webViewLink: f.webViewLink ?? null,
+          parentFolderId: args.meetRecordingsFolderId,
+          text,
+        },
+        ctx: { clientId: args.clientId, userId: args.userId, profile },
+      });
+      result.ingested += 1;
+    } catch (err) {
+      result.errors.push({ fileId: f.id, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return result;
+}

@@ -9,6 +9,7 @@ import {
   syncDriveChangesForConnection,
   getDriveStartPageToken,
   findMeetRecordingsFolderId,
+  backfillMeetRecordingsFolder,
 } from '@/lib/google/drive-changes';
 
 export const dynamic = 'force-dynamic';
@@ -20,10 +21,21 @@ export const runtime = 'nodejs';
  * Manual trigger for the same sync the cron runs — but scoped to the
  * authenticated user's tenant. Used by the Brain settings UI ("Sync now")
  * and as a fast feedback loop while building / debugging.
+ *
+ * Query params:
+ *   ?mode=backfill  — list every Google Doc in the Meet Recordings folder
+ *                     and ingest each (idempotent on driveFileId). Use after
+ *                     a fresh connect to pull in historical recordings the
+ *                     changes API can't see.
+ *   ?limit=N        — cap on backfill ingest (default 50).
  */
-export async function POST() {
+export async function POST(request: Request) {
   const result = await authorizePortal({ action: 'write' });
   if (isAuthError(result)) return result.response;
+
+  const url = new URL(request.url);
+  const mode = url.searchParams.get('mode');
+  const limit = Number(url.searchParams.get('limit') ?? '50');
 
   const conn = await db.select().from(googleWorkspaceUserConnections)
     .where(and(
@@ -75,6 +87,34 @@ export async function POST() {
     credentials: tenant.oauth,
     connection: { accessToken, refreshToken, expiresAt },
   });
+
+  if (mode === 'backfill') {
+    if (!folderId) {
+      return NextResponse.json({
+        success: false,
+        message: 'Meet Recordings folder not found. Record a Meet first to create it.',
+      }, { status: 400 });
+    }
+    const out = await backfillMeetRecordingsFolder({
+      credentials: tenant.oauth,
+      connection: { accessToken, refreshToken, expiresAt },
+      clientId: result.client.id,
+      userId: result.userId,
+      meetRecordingsFolderId: folderId,
+      limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, 200) : 50,
+    });
+    return NextResponse.json({
+      success: true,
+      data: {
+        mode: 'backfill',
+        meetRecordingsFolderId: folderId,
+        scanned: out.scanned,
+        ingested: out.ingested,
+        skipped: out.skipped,
+        errors: out.errors.slice(0, 10),
+      },
+    });
+  }
 
   const out = await syncDriveChangesForConnection({
     credentials: tenant.oauth,
