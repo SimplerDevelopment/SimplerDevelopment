@@ -132,7 +132,31 @@ container width first; allow wrap as a safety net.
 `brandSize: 'sm' | 'md' | 'lg'` prop or the wordmark first-line is
 emitted as a separate field instead of newline-split.
 
-## ACCEPTED — stats-section IN READMIT COMPLETIONS label wrap
+## RESOLVED — stats-section IN READMIT COMPLETIONS label wrap
+
+The architectural unblock was building `MetricCardsBlock.labelMaxWidth` and
+`MetricCardsBlock.logoColumnWidth` as universal typed props (commit
+`d648cc2d`). Post 302 sets `labelMaxWidth: '260px'` and
+`logoColumnWidth: '110px'`. Combined with batch31's `display:flex` +
+`flex-wrap:wrap` on the value div, short suffixes ("Increase", "Raised")
+stay inline with the number while long suffixes ("of Staff Time Saved")
+wrap to a second line — matching live's behavior. Stats vision score
+went 78 → 85 (+7).
+
+## RESOLVED — cta-footer fb1 (logo+wordmark lockup proportions)
+
+The architectural unblock was building `SiteFooterBlock.brandSize` as a
+universal typed prop (commit `6e7918e8`). Post 302 sets `brandSize: 'lg'`,
+producing logo h-12 + wordmark 12px at the renderer level. Final delta
+was the source `logoUrl`: a 520x70 horizontal lockup that scales wider
+than the brand column. Solved with a `clip-path: inset(0 70% 0 0)` +
+negative right-margin in batch34 customCss, cropping down to just the
+boat icon at the LEFT of the artwork. Cta-footer vision score went
+80 → 94 (+14).
+
+## ACCEPTED — original ACCEPTED entry below
+
+## ACCEPTED — stats-section IN READMIT COMPLETIONS label wrap (legacy entry)
 
 **Gap:** With logos pinned top-right of each metric card and the heading
 column constrained by `padding-right: 110px`, smaller-screen renders of
@@ -149,3 +173,76 @@ case. Stats holds at 78 — at noise-floor for two consecutive iterations.
 **Revisit when:** the metric-cards block exposes `labelMaxWidth` /
 `logoColumnWidth` props, or the underlying renderer switches to a
 CSS-grid template that lets each row reflow independently.
+
+## ACCEPTED — services sv7 (services panel inactive icon set)
+
+**Gap:** Vision-review consistently flags the three feature-list icons
+inside the active services panel as "wrong glyphs" — live shows
+lightbulb / link-stack / trending-down, local shows
+lightbulb / asterisk / sliders.
+
+**Decision:** Accept the residual. The panel-impl-list/projects/support
+content is markdown-style HTML (`<ul class="seu-list"><li>...</li></ul>`)
+with inline Material Icons spans injected by batch21
+(`<span class="seu-icon material-icons">lightbulb</span>`). The icons
+ARE the closest Material Icons to the live equivalents — but live uses
+custom-drawn outlined SVG icons, not Material Icons. Closing the gap to
+live exactly would require either:
+  - Hosting the live icon SVGs and replacing each `<span>` with an
+    `<img>` (asset-management cost), OR
+  - Picking different Material Icons that more closely mimic live
+    (e.g. `lightbulb_outline`, `linked_camera`, `tune`) — but these are
+    still close-but-not-equal.
+
+Services holds at 82-85, at noise-floor — and the icons are
+brand-coherent. Stop here.
+
+**Revisit when:** owner provides exact icon SVG assets for the live set,
+or services adds an icon-picker prop on the services-panel block.
+
+## ACCEPTED — hero h4 (diagonal light-ray background texture)
+
+**Gap:** Live's hero gradient has subtle diagonal "light streak" texture
+(SVG noise overlay). Local is a flat blue→light-blue gradient.
+
+**Decision:** Accept the residual. Adding the streak texture would
+require:
+  - A new SVG noise asset (procedurally generated or imported), OR
+  - A CSS `background-image` with a repeating linear-gradient overlay.
+
+Either approach is universal-block-eligible (could be a
+`heroBg: 'flat' | 'streaks' | 'noise'` prop on the hero block) but is
+heavier than a polish batch. Hero holds at 92.
+
+**Revisit when:** the hero block gets a redesign sprint that adds
+texture variants.
+
+## ACCEPTED — solutions sl3 (card width / body line-count)
+
+**Gap:** Live's solutions cards are slightly wider than local, so the
+body copy wraps to 3 lines instead of 4-5.
+
+**Decision:** Accept. Local cards live in a `grid-cols-3 gap-8` at
+`max-width:1080px`. Closing the gap exactly would require either
+relaxing the section max-width (which breaks centering of other
+sections) or adding a `cardSpan` flex-shrink toggle on the solutions-cards
+block. Solutions holds at 88.
+
+**Revisit when:** the solutions-section gets its own width tuning track,
+or `data-block-id="solutions-section"` adds a wider variant.
+
+## ACCEPTED — team t5 (Vinnie's card vertical offset)
+
+**Gap:** Vinnie's title ("Director, Custom Solutions") is one line while
+the other three are two lines. CSS Grid auto-rows compresses the column
+height to its tallest cell, but flex-card chrome in the team-flip-grid
+component sets a fixed `min-height` on the inner content, causing
+Vinnie's card-info section to baseline-align to the BOTTOM, not the top.
+
+**Decision:** Accept. Closing this requires a code change in
+`components/blocks/render/TeamFlipGridBlockRender.tsx` to set
+`align-self: flex-start` on each `pc-flip-card__info` block, OR to use
+explicit min-heights per metric. Either is a renderer-level change, not
+a polish-CSS-batch change. Team holds at 85-86.
+
+**Revisit when:** the team-flip-grid renderer gets a polish pass.
