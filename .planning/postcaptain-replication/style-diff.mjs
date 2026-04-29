@@ -52,7 +52,7 @@ const SECTIONS = [
   { id: 'portals', anchorText: ["See What's Possible in Slate", 'See What’s Possible in Slate', 'PORTALS'] },
   { id: 'audits', anchorText: ['Get More from Your Slate Instance'] },
   { id: 'solutions', anchorText: ['Charting a Clear Course'] },
-  { id: 'stats', anchorText: ['TURNING SLATE INTO A', 'Turning Slate Into a', 'STRATEGIC GROWTH ENGINE'] },
+  { id: 'stats', anchorText: ['Turning Slate into a Strategic Growth Engine', 'Turning Slate Into a Strategic Growth Engine', 'TURNING SLATE INTO A', 'STRATEGIC GROWTH ENGINE'] },
   { id: 'team', anchorText: ["Follow Our Team's Lead", 'Follow Our Team’s Lead'] },
   { id: 'cta', anchorText: ['Your Slate Journey Starts Here', "Let's Talk Slate", 'Let’s Talk Slate'] },
   { id: 'footer', anchorText: ['__FOOTER__'] }, // sentinel: handled by tag, not text
