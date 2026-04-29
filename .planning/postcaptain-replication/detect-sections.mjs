@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: 'portals', anchorText: ["See What's Possible in Slate", 'See What’s Possible in Slate'] },
   { id: 'audits', anchorText: ['Get More from Your Slate Instance'] },
   { id: 'solutions', anchorText: ['Charting a Clear Course'] },
-  { id: 'stats', anchorText: ['TURNING SLATE INTO A', 'Turning Slate Into a', 'STRATEGIC GROWTH ENGINE', 'Strategic Growth Engine'] },
+  { id: 'stats', anchorText: ['STRATEGIC GROWTH ENGINE', 'Strategic Growth Engine', 'TURNING SLATE INTO A', 'Turning Slate Into a', 'Turning Slate into a'] },
   { id: 'team', anchorText: ["Follow Our Team's Lead", 'Follow Our Team’s Lead'] },
   { id: 'cta-footer', anchorText: ['Your Slate Journey Starts Here'] },
 ];
@@ -63,9 +63,11 @@ async function findAnchorY(page, anchorTexts) {
           });
         }
       }
-      if (allMatches.length === 0) return null;
-      const headings = allMatches.filter((m) => m.isHeading);
-      const pool = headings.length > 0 ? headings : allMatches;
+      // Filter out matches that are at y<50 (likely script/style/hidden text).
+      const visible = allMatches.filter((m) => m.y >= 50);
+      if (visible.length === 0) return null;
+      const headings = visible.filter((m) => m.isHeading);
+      const pool = headings.length > 0 ? headings : visible;
       pool.sort((a, b) => a.y - b.y);
       return pool[0].y;
     }, text);

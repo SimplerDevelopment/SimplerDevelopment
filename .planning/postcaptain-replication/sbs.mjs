@@ -58,8 +58,8 @@ const localRanges = rangesFor('local-desktop');
 async function crop(src, [a, b], outPath) {
   const meta = await sharp(src).metadata();
   const totalH = meta.height ?? 0;
-  const top = Math.max(0, a);
-  const height = Math.max(1, Math.min(b - a, totalH - top));
+  const top = Math.max(0, Math.floor(a));
+  const height = Math.max(1, Math.min(Math.floor(b - a), totalH - top));
   await sharp(src).extract({ left: 0, top, width: W, height }).resize({ width: 720 }).toFile(outPath);
 }
 
