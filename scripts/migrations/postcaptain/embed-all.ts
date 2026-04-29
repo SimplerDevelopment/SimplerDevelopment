@@ -143,6 +143,11 @@ async function run() {
     return rows.map(r => r.id);
   }
 
+  // Concurrency knob — OpenAI Tier 1 = 5,000 RPM for embeddings, more than
+  // enough headroom for 10-way parallelism. Keeps short-content entities
+  // (contacts, deals) from becoming round-trip-bound.
+  const CONCURRENCY = 10;
+
   const summary: Record<string, { count: number; succeeded: number; failed: number; chunks: number; tokens: number }> = {};
   for (const t of requestedTypes) {
     const ids = await idsToEmbed(t);
@@ -150,9 +155,10 @@ async function run() {
     console.log(`>> ${t}: ${ids.length} to embed`);
     if (args.dryRun || ids.length === 0) continue;
 
+    let processed = 0;
     let lastReport = Date.now();
-    for (let i = 0; i < ids.length; i++) {
-      const id = ids[i];
+
+    async function processOne(id: number) {
       try {
         const r = await embedById({ clientId: POST_CAPTAIN_CLIENT_ID, entityType: t, entityId: id });
         if (r) {
@@ -160,18 +166,32 @@ async function run() {
           summary[t].chunks += r.chunks;
           summary[t].tokens += r.tokens;
         } else {
-          // Entity gone or empty content — counts as success but logs nothing.
           summary[t].succeeded++;
         }
       } catch (err) {
         summary[t].failed++;
         console.error(`     ! ${t}#${id}: ${err instanceof Error ? err.message : err}`);
       }
+      processed++;
       if (Date.now() - lastReport > 5000) {
-        console.log(`     ${i + 1}/${ids.length} (${summary[t].chunks} chunks, ${summary[t].tokens.toLocaleString()} tokens)`);
+        console.log(`     ${processed}/${ids.length} (${summary[t].chunks} chunks, ${summary[t].tokens.toLocaleString()} tokens)`);
         lastReport = Date.now();
       }
     }
+
+    // Worker-pool pattern — N workers pull from a shared id queue. Better
+    // than slicing into batches (no stragglers — fast workers don't sit
+    // idle waiting for slow ones).
+    const queue = [...ids];
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, ids.length) }, async () => {
+        while (queue.length > 0) {
+          const id = queue.shift();
+          if (id === undefined) break;
+          await processOne(id);
+        }
+      })
+    );
   }
 
   console.log('\n>> backfill summary');
