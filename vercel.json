@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/process-embeddings",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/brain-daily-notes",
+      "schedule": "5 6 * * *"
     }
   ]
 }

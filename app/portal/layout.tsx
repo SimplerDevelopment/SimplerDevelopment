@@ -5,6 +5,7 @@ import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
+import CmdKPalette from '@/components/CmdKPalette';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -86,6 +87,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
         {!previewMode && <AIChatWidget />}
       </div>
+      <CmdKPalette />
     </SessionProvider>
   );
 }
