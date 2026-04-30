@@ -41,7 +41,7 @@ async function run() {
     crmCompanies, crmContacts, crmDeals,
     posts, clientWebsites,
   } = await import('../../../lib/db/schema');
-  const { embedById, ALL_ENTITY_TYPES } = await import('../../../lib/brain/embeddings');
+  const { embedManyEntities, ALL_ENTITY_TYPES } = await import('../../../lib/brain/embeddings');
   type EntityType = typeof ALL_ENTITY_TYPES[number];
 
   // Default: every entity type except note (already embedded by the KB import).
@@ -143,13 +143,13 @@ async function run() {
     return rows.map(r => r.id);
   }
 
-  // Concurrency knob. Capped at 1 today because lib/db/index.ts pins the
-  // postgres pool to max=1 connection (sensible Vercel serverless default,
-  // bad for batch workloads). True parallelism would need a separate
-  // higher-pool client just for backfills — not worth the maintenance
-  // overhead since this is a one-shot. With max=1 a single worker already
-  // saturates the OpenAI round-trip path.
-  const CONCURRENCY = 1;
+  // Batch size for OpenAI embeddings request — embedManyEntities flattens
+  // all entities' chunks into one request. OpenAI accepts up to 2048
+  // inputs per call; we chunk at 100 to keep request bodies sane and to
+  // make per-batch retries cheap. This is the big perf win — short-content
+  // entities (contacts, deals) go from 1 round-trip per entity (~1.5s) to
+  // 100 entities per round-trip (~1.5s for the whole batch).
+  const BATCH = 100;
 
   const summary: Record<string, { count: number; succeeded: number; failed: number; chunks: number; tokens: number }> = {};
   for (const t of requestedTypes) {
@@ -161,40 +161,27 @@ async function run() {
     let processed = 0;
     let lastReport = Date.now();
 
-    async function processOne(id: number) {
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const slice = ids.slice(i, i + BATCH);
       try {
-        const r = await embedById({ clientId: POST_CAPTAIN_CLIENT_ID, entityType: t, entityId: id });
-        if (r) {
-          summary[t].succeeded++;
-          summary[t].chunks += r.chunks;
-          summary[t].tokens += r.tokens;
-        } else {
-          summary[t].succeeded++;
-        }
+        const r = await embedManyEntities({
+          clientId: POST_CAPTAIN_CLIENT_ID,
+          entityType: t,
+          entityIds: slice,
+        });
+        summary[t].succeeded += r.entities + r.skipped;
+        summary[t].chunks += r.chunks;
+        summary[t].tokens += r.tokens;
       } catch (err) {
-        summary[t].failed++;
-        console.error(`     ! ${t}#${id}: ${err instanceof Error ? err.message : err}`);
+        summary[t].failed += slice.length;
+        console.error(`     ! ${t} batch ${i}: ${err instanceof Error ? err.message : err}`);
       }
-      processed++;
-      if (Date.now() - lastReport > 5000) {
+      processed += slice.length;
+      if (Date.now() - lastReport > 5000 || i + BATCH >= ids.length) {
         console.log(`     ${processed}/${ids.length} (${summary[t].chunks} chunks, ${summary[t].tokens.toLocaleString()} tokens)`);
         lastReport = Date.now();
       }
     }
-
-    // Worker-pool pattern — N workers pull from a shared id queue. Better
-    // than slicing into batches (no stragglers — fast workers don't sit
-    // idle waiting for slow ones).
-    const queue = [...ids];
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, ids.length) }, async () => {
-        while (queue.length > 0) {
-          const id = queue.shift();
-          if (id === undefined) break;
-          await processOne(id);
-        }
-      })
-    );
   }
 
   console.log('\n>> backfill summary');

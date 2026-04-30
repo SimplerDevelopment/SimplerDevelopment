@@ -260,6 +260,97 @@ export async function embedEntity(args: {
 }
 
 /**
+ * Bulk-embed many entities of the same type in a single round-trip per
+ * batch. Wins big for short-content entities (contacts, deals, simple
+ * companies) where every entity has 1 chunk: the OpenAI embeddings endpoint
+ * accepts up to 2048 inputs per request, so a 100-entity batch finishes in
+ * one ~1.5s call instead of 100 × 1.5s.
+ *
+ * Per-entity failures don't abort the batch — extraction errors just skip
+ * that entity. OpenAI errors fail the whole batch (caller decides whether
+ * to retry).
+ */
+export async function embedManyEntities(args: {
+  clientId: number;
+  entityType: EntityType;
+  entityIds: number[];
+  provider?: EmbeddingProvider;
+  model?: string;
+}): Promise<{ entities: number; chunks: number; tokens: number; skipped: number }> {
+  if (args.entityIds.length === 0) return { entities: 0, chunks: 0, tokens: 0, skipped: 0 };
+
+  const { extractContentForEntity } = await import('./embedding-extractors');
+  const provider = args.provider ?? 'openai';
+  const model = args.model ?? DEFAULT_MODEL;
+  const dim = DEFAULT_DIM;
+
+  // Pass 1: extract content per entity. Build a flat list of chunks +
+  // remember which entity each chunk came from.
+  const flatChunks: { entityId: number; chunkIndex: number; text: string }[] = [];
+  const entitiesToReplace: number[] = []; // ones we'll overwrite
+  let skipped = 0;
+  for (const id of args.entityIds) {
+    const { text, found } = await extractContentForEntity(args.clientId, args.entityType, id);
+    if (!found) {
+      // Entity gone — drop any orphan chunks. Cheap one-row delete.
+      await removeEmbeddings(args.entityType, id);
+      skipped++;
+      continue;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) {
+      await removeEmbeddings(args.entityType, id);
+      skipped++;
+      continue;
+    }
+    const chunks = chunkMarkdown(trimmed);
+    if (chunks.length === 0) {
+      skipped++;
+      continue;
+    }
+    entitiesToReplace.push(id);
+    chunks.forEach((c, i) => flatChunks.push({ entityId: id, chunkIndex: i, text: c }));
+  }
+
+  if (flatChunks.length === 0) {
+    return { entities: 0, chunks: 0, tokens: 0, skipped };
+  }
+
+  // Pass 2: embed all chunks across all entities in a single (batched) call.
+  // embedText handles its own internal batching at 100 inputs per request.
+  const results = await embedText(flatChunks.map(c => c.text), { provider, model });
+
+  // Pass 3: replace existing chunks for these entities, bulk insert new ones.
+  // Single transaction so a failure mid-batch leaves the queue in a clean
+  // "still pending" state.
+  await db.transaction(async (tx) => {
+    if (entitiesToReplace.length > 0) {
+      await tx.execute(sql`
+        DELETE FROM brain_embeddings
+        WHERE entity_type = ${args.entityType}
+          AND entity_id IN (${sql.raw(entitiesToReplace.join(','))})
+      `);
+    }
+    for (let i = 0; i < flatChunks.length; i++) {
+      const c = flatChunks[i];
+      const v = results[i].vector;
+      const vectorLiteral = `[${v.join(',')}]`;
+      await tx.execute(sql`
+        INSERT INTO brain_embeddings
+          (client_id, entity_type, entity_id, chunk_index, content, vector, model, dim, tokens)
+        VALUES (
+          ${args.clientId}, ${args.entityType}, ${c.entityId}, ${c.chunkIndex},
+          ${c.text}, ${vectorLiteral}::vector, ${model}, ${dim}, ${results[i].tokens}
+        )
+      `);
+    }
+  });
+
+  const totalTokens = results.reduce((s, r) => s + r.tokens, 0);
+  return { entities: entitiesToReplace.length, chunks: flatChunks.length, tokens: totalTokens, skipped };
+}
+
+/**
  * Remove all embeddings for an entity. Call from delete handlers so vectors
  * don't outlive their source content.
  */
