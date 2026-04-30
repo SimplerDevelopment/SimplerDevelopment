@@ -140,7 +140,7 @@ export async function searchBrain(
                 score,
                 status: m.status,
                 occurredAt: (m.meetingDate ?? m.createdAt).toISOString(),
-                url: `/portal/brain/meetings/${m.id}`,
+                url: `/portal/brain/communications/${m.id}`,
               });
             }
           })
@@ -519,7 +519,7 @@ async function runSemanticBranch(
         type: 'meeting', id: r.id, title: r.title, snippet: trimChunk(c.content),
         score: c.similarity, status: r.status,
         occurredAt: (r.meetingDate ?? r.createdAt).toISOString(),
-        url: `/portal/brain/meetings/${r.id}`,
+        url: `/portal/brain/communications/${r.id}`,
       });
     }
   }

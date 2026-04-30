@@ -406,7 +406,7 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
   });
 
   test('GET /meetings lists meetings @critical', async ({ clientApi }) => {
-    const res = await clientApi.get('/api/portal/brain/meetings');
+    const res = await clientApi.get('/api/portal/brain/communications');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
     expect(Array.isArray(res.data.data)).toBe(true);
@@ -415,7 +415,7 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
   test('POST /meetings creates a meeting via paste adapter @critical', async ({ clientApi }) => {
     test.skip(!brainEnabled, 'Brain profile not enabled');
     const title = `Meeting ${uniq()}`;
-    const res = await clientApi.post('/api/portal/brain/meetings', {
+    const res = await clientApi.post('/api/portal/brain/communications', {
       adapterId: 'paste',
       input: {
         transcript: 'Alice: Hello.\nBob: Hi.\nAlice: Action item — ship the feature.',
@@ -433,13 +433,13 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
     expect(res.data.data).toHaveProperty('id');
 
     cleanups.push(async () => {
-      await clientApi.delete(`/api/portal/brain/meetings/${res.data.data.id}`).catch(() => {});
+      await clientApi.delete(`/api/portal/brain/communications/${res.data.data.id}`).catch(() => {});
     });
   });
 
   test('POST /meetings rejects unknown adapter', async ({ clientApi }) => {
     test.skip(!brainEnabled, 'Brain profile not enabled');
-    const res = await clientApi.post('/api/portal/brain/meetings', {
+    const res = await clientApi.post('/api/portal/brain/communications', {
       adapterId: 'definitely-not-an-adapter',
       input: { transcript: 'x' },
     });
@@ -449,7 +449,7 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
 
   test('POST /meetings rejects missing input', async ({ clientApi }) => {
     test.skip(!brainEnabled, 'Brain profile not enabled');
-    const res = await clientApi.post('/api/portal/brain/meetings', {
+    const res = await clientApi.post('/api/portal/brain/communications', {
       adapterId: 'paste',
     });
     expect(res.status).toBe(400);
@@ -457,7 +457,7 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
 
   test('POST /meetings rejects linking to both company and deal', async ({ clientApi }) => {
     test.skip(!brainEnabled, 'Brain profile not enabled');
-    const res = await clientApi.post('/api/portal/brain/meetings', {
+    const res = await clientApi.post('/api/portal/brain/communications', {
       adapterId: 'paste',
       input: { transcript: 'x' },
       companyId: 1,
@@ -468,22 +468,22 @@ test.describe('Portal Brain — Meetings @brain @brain-meetings', () => {
   });
 
   test('GET /meetings/[id] returns 404 for non-existent', async ({ clientApi }) => {
-    const res = await clientApi.get('/api/portal/brain/meetings/999999');
+    const res = await clientApi.get('/api/portal/brain/communications/999999');
     expect(res.status).toBe(404);
   });
 
   test('PUT /meetings/[id] returns 404 for non-existent', async ({ clientApi }) => {
-    const res = await clientApi.put('/api/portal/brain/meetings/999999', { companyId: null });
+    const res = await clientApi.put('/api/portal/brain/communications/999999', { companyId: null });
     expect(res.status).toBe(404);
   });
 
   test('DELETE /meetings/[id] returns 404 for non-existent', async ({ clientApi }) => {
-    const res = await clientApi.delete('/api/portal/brain/meetings/999999');
+    const res = await clientApi.delete('/api/portal/brain/communications/999999');
     expect(res.status).toBe(404);
   });
 
   test('GET /meetings rejects unauthenticated', async ({ unauthApi }) => {
-    const res = await unauthApi.get('/api/portal/brain/meetings');
+    const res = await unauthApi.get('/api/portal/brain/communications');
     expect(res.status).toBe(401);
   });
 });

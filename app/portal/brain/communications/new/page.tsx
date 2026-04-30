@@ -80,7 +80,7 @@ export default function NewBrainMeetingPage() {
           }
         : baseInput;
 
-      const createRes = await fetch('/api/portal/brain/meetings', {
+      const createRes = await fetch('/api/portal/brain/communications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,26 +92,26 @@ export default function NewBrainMeetingPage() {
       });
       const createJson = await createRes.json();
       if (!createRes.ok || !createJson.success) {
-        setError(createJson.message || 'Failed to create meeting.');
+        setError(createJson.message || 'Failed to create communication.');
         return;
       }
 
       const meetingId = createJson.data.id;
 
       if (!alsoProcess) {
-        router.push(`/portal/brain/meetings/${meetingId}`);
+        router.push(`/portal/brain/communications/${meetingId}`);
         return;
       }
 
       setProcessing(true);
-      const procRes = await fetch(`/api/portal/brain/meetings/${meetingId}/process`, { method: 'POST' });
+      const procRes = await fetch(`/api/portal/brain/communications/${meetingId}/process`, { method: 'POST' });
       const procJson = await procRes.json();
       if (!procRes.ok || !procJson.success) {
-        setError(`Meeting created, but AI processing failed: ${procJson.message || 'unknown error'}`);
-        router.push(`/portal/brain/meetings/${meetingId}`);
+        setError(`Communication created, but AI processing failed: ${procJson.message || 'unknown error'}`);
+        router.push(`/portal/brain/communications/${meetingId}`);
         return;
       }
-      router.push(`/portal/brain/meetings/${meetingId}/review`);
+      router.push(`/portal/brain/communications/${meetingId}/review`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
     } finally {
@@ -127,7 +127,7 @@ export default function NewBrainMeetingPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">New note</h1>
         <Link
-          href="/portal/brain/meetings"
+          href="/portal/brain/communications"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent"
         >
           <span className="material-icons text-base">arrow_back</span>
@@ -258,7 +258,7 @@ export default function NewBrainMeetingPage() {
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           rows={adapterId === 'upload' ? 8 : 14}
-          placeholder={adapterId === 'upload' ? 'Parsed file text appears here. Edit if needed.' : 'Paste meeting notes, transcript, or recording text here…'}
+          placeholder={adapterId === 'upload' ? 'Parsed file text appears here. Edit if needed.' : 'Paste communication notes, transcript, or recording text here…'}
           className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
         />
         <p className="text-xs text-muted-foreground mt-1">

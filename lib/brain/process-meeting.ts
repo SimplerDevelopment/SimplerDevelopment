@@ -1,6 +1,6 @@
 /**
  * Shared brain meeting processing pipeline. Two callers:
- *   - app/api/portal/brain/meetings/[id]/process — manual Process button
+ *   - app/api/portal/brain/communications/[id]/process — manual Process button
  *   - app/api/email/inbound (when brain_profiles.auto_process_email is true)
  *
  * Pipeline steps (all best-effort — failure of one doesn't block the others):

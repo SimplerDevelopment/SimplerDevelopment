@@ -23,10 +23,10 @@ const CONFIDENTIALITY_OPTIONS = [
 ] as const;
 
 const MODULE_OPTIONS: { id: keyof BrainEnabledModules; label: string; help: string }[] = [
-  { id: 'meetings', label: 'Communications', help: 'Ingest meeting transcripts, emails, and pasted notes. AI summarises, human approves.' },
+  { id: 'meetings', label: 'Communications', help: 'Ingest communication transcripts, emails, and pasted notes. AI summarises, human approves.' },
   { id: 'tasks', label: 'Tasks', help: 'Brain-flavoured tasks with promotion to project boards.' },
-  { id: 'calendar', label: 'Calendar', help: 'Month view of tasks, meetings, relationship reviews, and free-form scheduled events. Phase C will add Google Calendar sync.' },
-  { id: 'knowledge', label: 'Knowledge', help: 'Free-form notes linked to relationships, deals, contacts, or meetings — pinnable, taggable, searchable.' },
+  { id: 'calendar', label: 'Calendar', help: 'Month view of tasks, communications, relationship reviews, and free-form scheduled events. Phase C will add Google Calendar sync.' },
+  { id: 'knowledge', label: 'Knowledge', help: 'Free-form notes linked to relationships, deals, contacts, or communications — pinnable, taggable, searchable.' },
   { id: 'prospects', label: 'Prospects', help: 'Stale-prospect detection over CRM deals.' },
   { id: 'ask', label: 'Ask Brain', help: 'Conversational query layer with citations.' },
   { id: 'automations', label: 'Automations', help: 'Cross-product rules that fire on events (booking, survey, deal, task) and act on your behalf — NLP-built or template-installed.' },
@@ -169,7 +169,7 @@ export default function BrainSettingsPage() {
       {profile.emailIngestToken && (
         <Section title="Inbound email" icon="mark_email_read">
           <p className="text-xs text-muted-foreground mb-3">
-            Forward or BCC any email to the address below to add it as a meeting in your Brain.
+            Forward or BCC any email to the address below to add it as a communication in your Brain.
             Attachments are stored automatically.
           </p>
           <Row label="Brain email address">
@@ -177,7 +177,7 @@ export default function BrainSettingsPage() {
           </Row>
           <Row
             label="Auto-process on arrival"
-            help="Run the full AI pipeline (attachment analysis, link previews, transcript summary) automatically when an email lands. Off by default — meetings stay in Draft until you click Process."
+            help="Run the full AI pipeline (attachment analysis, link previews, transcript summary) automatically when an email lands. Off by default — communications stay in Draft until you click Process."
           >
             <Toggle
               checked={profile.autoProcessEmail}
@@ -235,7 +235,7 @@ export default function BrainSettingsPage() {
       {/* Confidentiality */}
       <Section title="Default confidentiality" icon="lock">
         <p className="text-xs text-muted-foreground mb-3">
-          New meetings, notes, and documents inherit this confidentiality level by default.
+          New communications, notes, and documents inherit this confidentiality level by default.
         </p>
         <div className="grid gap-2">
           {CONFIDENTIALITY_OPTIONS.map((opt) => (

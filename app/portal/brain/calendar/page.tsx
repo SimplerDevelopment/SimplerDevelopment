@@ -44,7 +44,7 @@ const KIND_STYLE: Record<AgendaItem['kind'], { dot: string; pill: string; icon: 
     dot: 'bg-blue-500',
     pill: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
     icon: 'forum',
-    label: 'Meeting',
+    label: 'Communication',
   },
   relationship_review: {
     dot: 'bg-cyan-500',
@@ -211,7 +211,7 @@ export default function BrainCalendarPage() {
             Calendar
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Tasks, meetings, relationship reviews, and scheduled events — all in one view. Click an empty day to schedule something.
+            Tasks, communications, relationship reviews, and scheduled events — all in one view. Click an empty day to schedule something.
           </p>
         </div>
         <div className="flex items-center gap-2">

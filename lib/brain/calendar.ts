@@ -270,7 +270,7 @@ export async function getAgenda(
       endAt: null,
       allDay: false,
       subtitle: m.status.replace(/_/g, ' '),
-      href: `/portal/brain/meetings/${m.id}`,
+      href: `/portal/brain/communications/${m.id}`,
     });
   }
 

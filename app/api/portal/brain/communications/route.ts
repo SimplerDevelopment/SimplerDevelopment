@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   if (typeof body.companyId === 'number') link.companyId = body.companyId;
   if (typeof body.dealId === 'number') link.dealId = body.dealId;
   if (link.companyId != null && link.dealId != null) {
-    return NextResponse.json({ success: false, message: 'A meeting can link to a company OR a deal, not both.' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'A communication can link to a company OR a deal, not both.' }, { status: 400 });
   }
 
   try {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   } catch (err) {
     return NextResponse.json({
       success: false,
-      message: err instanceof Error ? err.message : 'Failed to create meeting',
+      message: err instanceof Error ? err.message : 'Failed to create communication',
     }, { status: 400 });
   }
 }

@@ -10,11 +10,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const meetingId = parseInt(id, 10);
   if (Number.isNaN(meetingId)) {
-    return NextResponse.json({ success: false, message: 'Invalid meeting id' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Invalid communication id' }, { status: 400 });
   }
   const meeting = await getMeeting(result.client.id, meetingId);
   if (!meeting) {
-    return NextResponse.json({ success: false, message: 'Meeting not found' }, { status: 404 });
+    return NextResponse.json({ success: false, message: 'Communication not found' }, { status: 404 });
   }
   return NextResponse.json({ success: true, data: meeting });
 }
@@ -26,7 +26,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const meetingId = parseInt(id, 10);
   if (Number.isNaN(meetingId)) {
-    return NextResponse.json({ success: false, message: 'Invalid meeting id' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Invalid communication id' }, { status: 400 });
   }
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') {
@@ -42,12 +42,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
   // Reject linking both at once.
   if (link.companyId != null && link.dealId != null) {
-    return NextResponse.json({ success: false, message: 'A meeting can link to a company OR a deal, not both.' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'A communication can link to a company OR a deal, not both.' }, { status: 400 });
   }
 
   const updated = await linkMeeting(result.client.id, meetingId, link);
   if (!updated) {
-    return NextResponse.json({ success: false, message: 'Meeting not found' }, { status: 404 });
+    return NextResponse.json({ success: false, message: 'Communication not found' }, { status: 404 });
   }
   await logAudit({
     clientId: result.client.id,
@@ -67,13 +67,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const meetingId = parseInt(id, 10);
   if (Number.isNaN(meetingId)) {
-    return NextResponse.json({ success: false, message: 'Invalid meeting id' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Invalid communication id' }, { status: 400 });
   }
 
   try {
     const ok = await deleteMeeting(result.client.id, meetingId);
     if (!ok) {
-      return NextResponse.json({ success: false, message: 'Meeting not found' }, { status: 404 });
+      return NextResponse.json({ success: false, message: 'Communication not found' }, { status: 404 });
     }
     await logAudit({
       clientId: result.client.id,
@@ -84,8 +84,8 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     });
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error(`[DELETE /api/portal/brain/meetings/${meetingId}] failed:`, err);
-    const message = err instanceof Error ? err.message : 'Failed to delete meeting.';
+    console.error(`[DELETE /api/portal/brain/communications/${meetingId}] failed:`, err);
+    const message = err instanceof Error ? err.message : 'Failed to delete communication.';
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }

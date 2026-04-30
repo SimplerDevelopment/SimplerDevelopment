@@ -152,7 +152,7 @@ export default function BrainTasksAndReviewPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {tab === 'review'
             ? 'Tasks, decisions, commitments, and CRM links extracted by AI from your communications. Approve to commit them, edit and approve, or reject.'
-            : 'Tasks captured from meetings and AI-generated suggestions, after human approval.'}
+            : 'Tasks captured from communications and AI-generated suggestions, after human approval.'}
         </p>
       </div>
 
@@ -477,13 +477,13 @@ function TaskCard({
         )}
         {task.meetingId && (
           <Link
-            href={`/portal/brain/meetings/${task.meetingId}`}
+            href={`/portal/brain/communications/${task.meetingId}`}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             className="text-xs text-muted-foreground hover:text-foreground hover:underline flex items-center gap-0.5"
           >
             <span className="material-icons text-xs">forum</span>
-            meeting
+            communication
           </Link>
         )}
         {task.linkedKanbanCardId && (
@@ -771,14 +771,23 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
             </button>
           ))}
         </div>
-        {statusFilter === 'pending' && (
-          <div className="text-sm text-muted-foreground flex-shrink-0">
-            {pendingTotal === 0
-              ? <span className="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><span className="material-icons text-base">check_circle</span> All clear</span>
-              : <span><strong className="text-foreground">{pendingTotal}</strong> pending</span>
-            }
-          </div>
-        )}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {statusFilter === 'pending' && (
+            <div className="text-sm text-muted-foreground">
+              {pendingTotal === 0
+                ? <span className="text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1"><span className="material-icons text-base">check_circle</span> All clear</span>
+                : <span><strong className="text-foreground">{pendingTotal}</strong> pending</span>
+              }
+            </div>
+          )}
+          <Link
+            href="/portal/brain/communications"
+            className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
+          >
+            <span className="material-icons text-sm">forum</span>
+            View communications
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -799,7 +808,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
             {statusFilter === 'pending' ? 'Nothing pending review.' : 'Nothing here yet.'}
           </p>
           <p className="text-muted-foreground text-xs mt-1">
-            New items appear here when AI processes a meeting or email thread.
+            New items appear here when AI processes a communication or email thread.
           </p>
         </div>
       ) : (
@@ -812,7 +821,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
                   <div className="min-w-0">
                     {meeting ? (
                       <Link
-                        href={`/portal/brain/meetings/${meeting.id}`}
+                        href={`/portal/brain/communications/${meeting.id}`}
                         className="text-sm font-medium text-foreground hover:text-primary truncate inline-flex items-center gap-1"
                       >
                         <span className="material-icons text-base text-muted-foreground">
@@ -844,7 +853,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
                       busy={busyId === item.id}
                       onApprove={() => approve(item)}
                       onReject={() => reject(item)}
-                      meetingHref={meeting ? `/portal/brain/meetings/${meeting.id}/review` : null}
+                      meetingHref={meeting ? `/portal/brain/communications/${meeting.id}/review` : null}
                     />
                   ))}
                 </div>

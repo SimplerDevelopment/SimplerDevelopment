@@ -37,11 +37,9 @@ export function buildPortalNavItems(
       exact: true,
       keywords: ['ai', 'knowledge'],
       children: [
-        { href: '/portal/brain', label: 'Dashboard', icon: 'dashboard', exact: true, keywords: ['brain home'] },
         { href: '/portal/brain/calendar', label: 'Calendar', icon: 'calendar_month' },
         { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work', alsoActiveOn: '/portal/brain/prospects', keywords: ['prospects', 'stale', 'overlay'] },
-        { href: '/portal/brain/meetings', label: 'Communications', icon: 'forum', keywords: ['meetings', 'email', 'threads', 'transcripts'] },
-        { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review', keywords: ['kanban', 'review queue', 'todo'] },
+        { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review', keywords: ['kanban', 'review queue', 'todo', 'communications'] },
         { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book', keywords: ['notes', 'wiki', 'docs'] },
         { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt', keywords: ['rules', 'triggers'] },
         { href: '/portal/brain/ask', label: 'Connect AI', icon: 'cable', keywords: ['mcp', 'ask brain', 'chat'] },

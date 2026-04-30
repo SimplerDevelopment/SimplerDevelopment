@@ -62,12 +62,12 @@ export default function MeetingReviewPage() {
     setLoading(true);
     try {
       const [mr, ir] = await Promise.all([
-        fetch(`/api/portal/brain/meetings/${meetingId}`),
-        fetch(`/api/portal/brain/meetings/${meetingId}/review`),
+        fetch(`/api/portal/brain/communications/${meetingId}`),
+        fetch(`/api/portal/brain/communications/${meetingId}/review`),
       ]);
       const [mj, ij] = await Promise.all([mr.json(), ir.json()]);
       if (!mr.ok || !mj.success) {
-        setError(mj.message || 'Failed to load meeting.');
+        setError(mj.message || 'Failed to load communication.');
       } else if (!ir.ok || !ij.success) {
         setError(ij.message || 'Failed to load review items.');
       } else {
@@ -145,7 +145,7 @@ export default function MeetingReviewPage() {
     return (
       <div className="max-w-4xl mx-auto py-12">
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
-          {error || 'Meeting not found.'}
+          {error || 'Communication not found.'}
         </div>
       </div>
     );
@@ -155,9 +155,9 @@ export default function MeetingReviewPage() {
     <div className="max-w-4xl mx-auto py-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link href={`/portal/brain/meetings/${meetingId}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <Link href={`/portal/brain/communications/${meetingId}`} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
             <span className="material-icons text-sm">arrow_back</span>
-            Back to meeting
+            Back to communication
           </Link>
           <h1 className="text-2xl font-bold text-foreground mt-2 flex items-center gap-2">
             <span className="material-icons text-primary">reviews</span>
@@ -193,7 +193,7 @@ export default function MeetingReviewPage() {
         <div className="text-center py-12 bg-card border border-border rounded-lg">
           <span className="material-icons text-4xl text-muted-foreground mb-2 block">inbox</span>
           <p className="text-sm text-muted-foreground">
-            No items in the review queue yet. Run AI processing from the meeting page.
+            No items in the review queue yet. Run AI processing from the communication page.
           </p>
         </div>
       ) : (

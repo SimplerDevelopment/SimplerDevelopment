@@ -113,10 +113,10 @@ export default function BrainMeetingDetailPage() {
   const load = useCallback(async (opts?: { keepError?: boolean }) => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/portal/brain/meetings/${meetingId}`);
+      const r = await fetch(`/api/portal/brain/communications/${meetingId}`);
       const json = await r.json();
       if (!r.ok || !json.success) {
-        setError(json.message || 'Failed to load meeting.');
+        setError(json.message || 'Failed to load communication.');
       } else {
         setMeeting(json.data);
         if (!opts?.keepError) setError(null);
@@ -134,7 +134,7 @@ export default function BrainMeetingDetailPage() {
     setProcessing(true);
     setError(null);
     try {
-      const r = await fetch(`/api/portal/brain/meetings/${meetingId}/process`, { method: 'POST' });
+      const r = await fetch(`/api/portal/brain/communications/${meetingId}/process`, { method: 'POST' });
       const json = await r.json();
       if (!r.ok || !json.success) {
         const msg = json.message || 'Processing failed.';
@@ -144,21 +144,21 @@ export default function BrainMeetingDetailPage() {
         setError(msg);
         return;
       }
-      router.push(`/portal/brain/meetings/${meetingId}/review`);
+      router.push(`/portal/brain/communications/${meetingId}/review`);
     } finally {
       setProcessing(false);
     }
   };
 
   const deleteMeeting = async () => {
-    if (!confirm('Delete this meeting? This cannot be undone.')) return;
-    const r = await fetch(`/api/portal/brain/meetings/${meetingId}`, { method: 'DELETE' });
+    if (!confirm('Delete this communication? This cannot be undone.')) return;
+    const r = await fetch(`/api/portal/brain/communications/${meetingId}`, { method: 'DELETE' });
     const json = await r.json().catch(() => ({}));
     if (!r.ok || !json.success) {
       setError(json.message || 'Failed to delete.');
       return;
     }
-    router.push('/portal/brain/meetings');
+    router.push('/portal/brain/communications');
   };
 
   if (loading) {
@@ -173,7 +173,7 @@ export default function BrainMeetingDetailPage() {
     return (
       <div className="max-w-4xl mx-auto py-12">
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
-          {error || 'Meeting not found.'}
+          {error || 'Communication not found.'}
         </div>
       </div>
     );
@@ -186,9 +186,9 @@ export default function BrainMeetingDetailPage() {
     <div className="max-w-4xl mx-auto py-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link href="/portal/brain/meetings" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+          <Link href="/portal/brain/communications" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
             <span className="material-icons text-sm">arrow_back</span>
-            All notes
+            All communications
           </Link>
           <h1 className="text-2xl font-bold text-foreground mt-2 break-words">{meeting.title}</h1>
           <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
@@ -234,7 +234,7 @@ export default function BrainMeetingDetailPage() {
           )}
           {(meeting.status === 'needs_review' || meeting.status === 'approved') && (
             <Link
-              href={`/portal/brain/meetings/${meetingId}/review`}
+              href={`/portal/brain/communications/${meetingId}/review`}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <span className="material-icons text-base">reviews</span>
@@ -244,7 +244,7 @@ export default function BrainMeetingDetailPage() {
           <button
             onClick={deleteMeeting}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-            aria-label="Delete note"
+            aria-label="Delete communication"
           >
             <span className="material-icons text-base">delete</span>
           </button>
@@ -349,7 +349,7 @@ export default function BrainMeetingDetailPage() {
                     </div>
                     {!isCurrent && (
                       <Link
-                        href={`/portal/brain/meetings/${seg.id}`}
+                        href={`/portal/brain/communications/${seg.id}`}
                         className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-0.5 shrink-0"
                       >
                         Open
@@ -384,7 +384,7 @@ export default function BrainMeetingDetailPage() {
                         {attachments.map((a, idx) => (
                           <div key={a.key} className="border border-border rounded-md overflow-hidden bg-background/40">
                             <a
-                              href={`/api/portal/brain/meetings/${seg.id}/attachments/${idx}`}
+                              href={`/api/portal/brain/communications/${seg.id}/attachments/${idx}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
@@ -447,7 +447,7 @@ export default function BrainMeetingDetailPage() {
                 {meeting.sourceMetadata!.attachments!.map((a, idx) => (
                   <div key={a.key} className="border border-border rounded-md overflow-hidden">
                     <a
-                      href={`/api/portal/brain/meetings/${meeting.id}/attachments/${idx}`}
+                      href={`/api/portal/brain/communications/${meeting.id}/attachments/${idx}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"

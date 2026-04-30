@@ -8,10 +8,10 @@ const APP = 'SimplerDevelopment';
 // Order matters: more-specific patterns must come before broader ones.
 const ROUTES: { match: RegExp; title: string }[] = [
   // ─── Brain ───────────────────────────────────────────────────────────────
-  { match: /^\/portal\/brain\/meetings\/\d+\/review$/, title: 'Review Meeting' },
-  { match: /^\/portal\/brain\/meetings\/new$/,         title: 'New Meeting' },
-  { match: /^\/portal\/brain\/meetings\/\d+$/,         title: 'Meeting' },
-  { match: /^\/portal\/brain\/meetings$/,              title: 'Communications' },
+  { match: /^\/portal\/brain\/communications\/\d+\/review$/, title: 'Review Communication' },
+  { match: /^\/portal\/brain\/communications\/new$/,         title: 'New Communication' },
+  { match: /^\/portal\/brain\/communications\/\d+$/,         title: 'Communication' },
+  { match: /^\/portal\/brain\/communications$/,              title: 'Communications' },
   { match: /^\/portal\/brain\/relationships\/\d+$/,    title: 'Relationship' },
   { match: /^\/portal\/brain\/relationships$/,         title: 'Relationships' },
   { match: /^\/portal\/brain\/tasks$/,                 title: 'Brain Tasks' },

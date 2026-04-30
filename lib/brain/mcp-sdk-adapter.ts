@@ -369,7 +369,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_propose_task',
     {
       title: 'Propose a task (lands in the human review queue)',
-      description: 'Stage a suggested task as a pending AI review item — visible in /portal/brain/meetings/[id]/review for the user to approve, edit, or reject. Prefer this over brain_create_task when you\'re unsure or when the suggestion came from analysis the user hasn\'t directly authorized.',
+      description: 'Stage a suggested task as a pending AI review item — visible in /portal/brain/communications/[id]/review for the user to approve, edit, or reject. Prefer this over brain_create_task when you\'re unsure or when the suggestion came from analysis the user hasn\'t directly authorized.',
       inputSchema: {
         title: z.string().min(1).max(500),
         description: z.string().optional(),

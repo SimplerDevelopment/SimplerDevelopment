@@ -16,7 +16,7 @@ interface AttachmentMeta {
 }
 
 /**
- * GET /api/portal/brain/meetings/[id]/attachments/[idx]
+ * GET /api/portal/brain/communications/[id]/attachments/[idx]
  *
  * Verifies session + meeting ownership, then redirects the browser to the
  * underlying storage. Two backends:

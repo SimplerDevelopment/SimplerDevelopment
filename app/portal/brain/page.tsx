@@ -96,7 +96,7 @@ export default function BrainDashboardPage() {
           <span className="material-icons text-5xl text-primary mb-3 block">psychology</span>
           <h1 className="text-2xl font-bold text-foreground mb-2">Company Brain</h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-6">
-            A structured operating layer for your business. Capture meetings, decisions, commitments,
+            A structured operating layer for your business. Capture communications, decisions, commitments,
             and tasks into a secure, AI-queryable command center. AI proposes — you approve.
           </p>
           <div className="grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto mb-8">
@@ -107,7 +107,7 @@ export default function BrainDashboardPage() {
               Nothing is written to your records until a human approves it. Every approval is audited.
             </FeatureBullet>
             <FeatureBullet icon="search" title="Ask anything">
-              Search across meetings, decisions, and follow-ups with citations back to source records.
+              Search across communications, decisions, and follow-ups with citations back to source records.
             </FeatureBullet>
           </div>
           <button

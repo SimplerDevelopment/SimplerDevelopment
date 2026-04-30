@@ -265,7 +265,7 @@ export default function RelationshipDetailPage() {
       <Section
         title="Recent notes"
         icon="forum"
-        action={<Link href="/portal/brain/meetings/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"><span className="material-icons text-sm">add</span>New</Link>}
+        action={<Link href="/portal/brain/communications/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"><span className="material-icons text-sm">add</span>New</Link>}
       >
         {meetings.length === 0 ? (
           <p className="text-xs text-muted-foreground">No notes linked to this relationship yet.</p>
@@ -273,7 +273,7 @@ export default function RelationshipDetailPage() {
           <ul className="divide-y divide-border">
             {meetings.slice(0, 10).map((m) => (
               <li key={m.id} className="py-2">
-                <Link href={`/portal/brain/meetings/${m.id}`} className="flex items-center justify-between hover:text-primary">
+                <Link href={`/portal/brain/communications/${m.id}`} className="flex items-center justify-between hover:text-primary">
                   <span className="text-sm text-foreground truncate">{m.title}</span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">
                     {m.status.replace(/_/g, ' ')} ·{' '}

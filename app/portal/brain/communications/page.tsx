@@ -65,7 +65,7 @@ export default function BrainMeetingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/portal/brain/meetings');
+      const r = await fetch('/api/portal/brain/communications');
       const json = await r.json();
       if (!r.ok || !json.success) {
         setError(json.message || 'Failed to load meetings.');
@@ -90,11 +90,11 @@ export default function BrainMeetingsPage() {
             Communications
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Capture meeting transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review.
+            Capture communication transcripts, emails, and notes. AI extracts decisions, commitments, and tasks for your review.
           </p>
         </div>
         <Link
-          href="/portal/brain/meetings/new"
+          href="/portal/brain/communications/new"
           className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <span className="material-icons text-base">add</span>
@@ -121,11 +121,11 @@ export default function BrainMeetingsPage() {
             Paste your first transcript to see how Brain turns it into reviewable next steps.
           </p>
           <Link
-            href="/portal/brain/meetings/new"
+            href="/portal/brain/communications/new"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <span className="material-icons text-base">add</span>
-            New meeting
+            New communication
           </Link>
         </div>
       ) : (
@@ -138,7 +138,7 @@ export default function BrainMeetingsPage() {
             return (
               <Link
                 key={g.key}
-                href={`/portal/brain/meetings/${m.id}`}
+                href={`/portal/brain/communications/${m.id}`}
                 className="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors"
               >
                 <span className="material-icons text-muted-foreground">

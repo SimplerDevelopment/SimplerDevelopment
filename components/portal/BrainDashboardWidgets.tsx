@@ -93,7 +93,7 @@ export function BrainDashboardWidgets() {
     <div className="space-y-4">
       {/* Counts strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Counter icon="reviews" tone="text-blue-600 dark:text-blue-400" label="Pending review" value={data.counts.pendingReviewItems} href="/portal/brain/meetings?status=needs_review" />
+        <Counter icon="reviews" tone="text-blue-600 dark:text-blue-400" label="Pending review" value={data.counts.pendingReviewItems} href="/portal/brain/communications?status=needs_review" />
         <Counter icon="checklist" tone="text-foreground" label="Open tasks" value={data.counts.openTasks} href="/portal/brain/tasks" />
         <Counter icon="auto_awesome" tone="text-primary" label="AI-created tasks" value={data.counts.aiCreatedTasks} href="/portal/brain/tasks?filter=ai" />
         <Counter icon="group_work" tone="text-cyan-600 dark:text-cyan-400" label="Relationships" value={data.counts.relationships} href="/portal/brain/relationships" />
@@ -104,11 +104,11 @@ export function BrainDashboardWidgets() {
           title="Needs review"
           icon="reviews"
           tone="text-blue-600 dark:text-blue-400"
-          action={<Link href="/portal/brain/meetings" className="text-xs text-primary hover:underline">View all</Link>}
+          action={<Link href="/portal/brain/communications" className="text-xs text-primary hover:underline">View all</Link>}
           empty="Nothing waiting for review."
           items={data.needsReviewMeetings}
           render={(m) => (
-            <Link href={`/portal/brain/meetings/${m.id}/review`} className="block hover:text-primary">
+            <Link href={`/portal/brain/communications/${m.id}/review`} className="block hover:text-primary">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-foreground truncate">{m.title}</span>
                 {m.pendingReviewItems > 0 && (
@@ -209,7 +209,7 @@ export function BrainDashboardWidgets() {
             <span className="material-icons text-base text-muted-foreground">forum</span>
             Recent Communication
           </h2>
-          <Link href="/portal/brain/meetings/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
+          <Link href="/portal/brain/communications/new" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
             <span className="material-icons text-sm">add</span>
             New note
           </Link>
@@ -220,7 +220,7 @@ export function BrainDashboardWidgets() {
           <ul className="divide-y divide-border">
             {data.recentMeetings.map((m) => (
               <li key={m.id} className="py-2">
-                <Link href={`/portal/brain/meetings/${m.id}`} className="flex items-center justify-between hover:text-primary">
+                <Link href={`/portal/brain/communications/${m.id}`} className="flex items-center justify-between hover:text-primary">
                   <span className="text-sm text-foreground truncate">{m.title}</span>
                   <span className="text-xs text-muted-foreground">
                     {m.status.replace(/_/g, ' ')} · {new Date(m.createdAt).toLocaleDateString()}
