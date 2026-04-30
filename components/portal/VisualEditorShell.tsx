@@ -2442,6 +2442,11 @@ function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdat
         <SurveyResultsEditor block={block} onUpdate={onUpdate} />
       )}
 
+      {/* ── HTML Embed Block ── */}
+      {block.type === 'html-embed' && (
+        <HtmlEmbedEditor block={block} onUpdate={onUpdate} siteId={siteId} />
+      )}
+
       {/* ── Site Footer Block ── */}
       {block.type === 'site-footer' && (
         <>
@@ -2666,6 +2671,117 @@ function SurveyResultsEditor({ block, onUpdate }: { block: Block; onUpdate: (upd
       )}
 
       <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+    </>
+  );
+}
+
+// ─── HTML Embed Editor — file upload, replace-versioned, plus iframe knobs ──
+
+function HtmlEmbedEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
+  const b = block as unknown as Record<string, unknown>;
+  const url = (b.url as string) || '';
+  const filename = (b.filename as string) || '';
+  const mediaId = b.mediaId as number | undefined;
+
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      // Existing media: version it via /replace so history is preserved.
+      if (mediaId) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`/api/portal/media/${mediaId}/replace`, { method: 'POST', body: fd });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          onUpdate({ url: json.data.url, filename: json.data.filename } as Partial<Block>);
+          return;
+        }
+        // fall through to fresh upload on failure
+      }
+      const fd = new FormData();
+      fd.append('file', file);
+      if (siteId) fd.append('websiteId', String(siteId));
+      const res = await fetch('/api/portal/html-uploads', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Upload failed');
+      onUpdate({ url: json.data.url, filename: json.data.filename, mediaId: json.data.id } as Partial<Block>);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <>
+      <div>
+        <span className="text-xs font-medium text-muted-foreground">HTML File</span>
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) handleFile(f);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mt-1 cursor-pointer rounded border-2 border-dashed p-4 text-center text-xs transition-colors ${
+            dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.htm,.xhtml,text/html"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          />
+          {uploading ? (
+            <span className="text-muted-foreground">Uploading…</span>
+          ) : url ? (
+            <div>
+              <div className="font-medium text-foreground truncate">{filename || 'uploaded.html'}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {mediaId ? 'Click or drop to upload a new version' : 'Click or drop a new file to replace'}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">
+              <span className="material-icons text-2xl block mb-1">upload_file</span>
+              Drop an .html file or click to browse
+            </div>
+          )}
+        </div>
+        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+      </div>
+
+      <Field label="URL" value={url} onChange={(v) => onUpdate({ url: v } as Partial<Block>)} />
+      <Field label="Height" value={(b.height as string) || '600px'} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
+      <SelectField
+        label="Width"
+        value={(b.width as string) || 'full'}
+        options={['full', 'contained']}
+        onChange={(v) => onUpdate({ width: v } as Partial<Block>)}
+      />
+      <SelectField
+        label="Sandbox"
+        value={(b.sandbox as string) || 'scripts'}
+        options={['strict', 'scripts', 'scripts-forms']}
+        onChange={(v) => onUpdate({ sandbox: v } as Partial<Block>)}
+      />
+      <Field label="Iframe Title" value={(b.iframeTitle as string) || ''} onChange={(v) => onUpdate({ iframeTitle: v || undefined } as Partial<Block>)} />
+      <Field label="Caption" value={(b.caption as string) || ''} onChange={(v) => onUpdate({ caption: v || undefined } as Partial<Block>)} />
     </>
   );
 }
