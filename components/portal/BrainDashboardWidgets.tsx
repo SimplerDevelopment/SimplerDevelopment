@@ -138,7 +138,7 @@ export function BrainDashboardWidgets() {
           title="Stale prospects"
           icon="schedule"
           tone="text-amber-600 dark:text-amber-400"
-          action={<Link href="/portal/brain/prospects" className="text-xs text-primary hover:underline">All</Link>}
+          action={<Link href="/portal/brain/relationships?view=stale" className="text-xs text-primary hover:underline">All</Link>}
           empty="No stale prospects."
           items={data.staleProspects}
           render={(r) => (
