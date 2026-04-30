@@ -16,7 +16,7 @@ const ROUTES: { match: RegExp; title: string }[] = [
   { match: /^\/portal\/brain\/relationships$/,         title: 'Relationships' },
   { match: /^\/portal\/brain\/tasks$/,                 title: 'Brain Tasks' },
   { match: /^\/portal\/brain\/prospects$/,             title: 'Prospects' },
-  { match: /^\/portal\/brain\/ask$/,                   title: 'Ask Brain' },
+  { match: /^\/portal\/brain\/ask$/,                   title: 'Connect AI' },
   { match: /^\/portal\/brain\/settings$/,              title: 'Brain Settings' },
   { match: /^\/portal\/brain$/,                        title: 'Company Brain' },
 

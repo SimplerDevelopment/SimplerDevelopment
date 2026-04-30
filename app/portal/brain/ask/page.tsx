@@ -1,309 +1,227 @@
 'use client';
 
-import Link from 'next/link';
-import { useState, useCallback, useMemo } from 'react';
+import { useState } from 'react';
+import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
 
-type EntityType =
-  | 'meeting'
-  | 'note'
-  | 'task'
-  | 'relationship'
-  | 'company'
-  | 'contact'
-  | 'deal'
-  | 'post';
+type ClientId = 'claude-desktop' | 'claude-code' | 'chatgpt';
 
-interface BrainSearchHit {
-  type: EntityType;
-  id: number;
-  title: string;
-  snippet: string;
-  score: number;
-  status?: string;
-  occurredAt?: string;
-  contextName?: string;
-  url: string;
-}
-
-interface BrainSearchResult {
-  query: string;
-  total: number;
-  hits: BrainSearchHit[];
-}
-
-const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
-  meeting:      { label: 'Meeting',      icon: 'forum',          tone: 'text-blue-600 dark:text-blue-400' },
-  note:         { label: 'Knowledge',    icon: 'sticky_note_2',  tone: 'text-amber-600 dark:text-amber-400' },
-  task:         { label: 'Task',         icon: 'task_alt',       tone: 'text-foreground' },
-  relationship: { label: 'Relationship', icon: 'group_work',     tone: 'text-cyan-600 dark:text-cyan-400' },
-  company:      { label: 'Company',      icon: 'business',       tone: 'text-emerald-600 dark:text-emerald-400' },
-  contact:      { label: 'Contact',      icon: 'person',         tone: 'text-rose-600 dark:text-rose-400' },
-  deal:         { label: 'Deal',         icon: 'handshake',      tone: 'text-violet-600 dark:text-violet-400' },
-  post:         { label: 'Page',         icon: 'web',            tone: 'text-sky-600 dark:text-sky-400' },
-};
-
-const FILTERS: { id: EntityType | 'all'; label: string }[] = [
-  { id: 'all',          label: 'All' },
-  { id: 'note',         label: 'Knowledge' },
-  { id: 'meeting',      label: 'Meetings' },
-  { id: 'company',      label: 'Companies' },
-  { id: 'contact',      label: 'Contacts' },
-  { id: 'deal',         label: 'Deals' },
-  { id: 'task',         label: 'Tasks' },
-  { id: 'relationship', label: 'Relationships' },
-  { id: 'post',         label: 'Pages' },
+const TABS: { id: ClientId; label: string; icon: string }[] = [
+  { id: 'claude-desktop', label: 'Claude Desktop', icon: 'desktop_windows' },
+  { id: 'claude-code',    label: 'Claude Code',    icon: 'terminal' },
+  { id: 'chatgpt',        label: 'ChatGPT',        icon: 'smart_toy' },
 ];
 
-export default function AskBrainPage() {
-  const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState('');
-  const [filter, setFilter] = useState<EntityType | 'all'>('all');
-  const [result, setResult] = useState<BrainSearchResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searched, setSearched] = useState(false);
+export default function ConnectAiPage() {
+  const [tab, setTab] = useState<ClientId>('claude-desktop');
+  const [origin, setOrigin] = useState('https://simplerdevelopment.com');
 
-  const search = useCallback(async (q: string, types?: EntityType[]) => {
-    if (!q.trim()) return;
-    setLoading(true);
-    setError(null);
-    setSearched(true);
-    try {
-      const params = new URLSearchParams({ q });
-      if (types && types.length > 0) params.set('types', types.join(','));
-      const r = await fetch(`/api/portal/brain/search?${params.toString()}`);
-      const json = await r.json();
-      if (!r.ok || !json.success) {
-        setError(json.message || 'Search failed.');
-        setResult(null);
-      } else {
-        setResult(json.data);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Network error');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  if (typeof window !== 'undefined' && origin === 'https://simplerdevelopment.com' && window.location.origin !== origin) {
+    setOrigin(window.location.origin);
+  }
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setQuery(draft);
-    search(draft, filter === 'all' ? undefined : [filter]);
-  };
-
-  const onFilterChange = (next: EntityType | 'all') => {
-    setFilter(next);
-    if (query) search(query, next === 'all' ? undefined : [next]);
-  };
-
-  const grouped = useMemo(() => {
-    if (!result) return null;
-    const out = new Map<EntityType, BrainSearchHit[]>([
-      ['note', []], ['meeting', []], ['company', []], ['contact', []],
-      ['deal', []], ['task', []], ['relationship', []], ['post', []],
-    ]);
-    for (const h of result.hits) {
-      out.get(h.type)?.push(h);
-    }
-    return out;
-  }, [result]);
+  const endpoint = `${origin}/api/mcp`;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 space-y-6">
+    <div className="max-w-4xl mx-auto py-8 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <span className="material-icons text-primary">travel_explore</span>
-          Ask Brain
+          <span className="material-icons text-primary">cable</span>
+          Connect AI to your portal
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Search across everything in your portal — knowledge notes, meetings, CRM companies and contacts, deals, tasks, relationships, and pages. Both keyword and meaning-based matches. For richer conversational queries, connect Brain to Claude Desktop via MCP — see below.
+        <p className="text-sm text-muted-foreground mt-2">
+          Hook Claude Desktop, Claude Code, ChatGPT, or any MCP-compatible client up to your portal
+          via <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer" className="text-primary hover:underline">Model Context Protocol</a>.
+          The AI can read and write across CRM, content, pitch decks, email, projects, and more —
+          scoped to whatever permissions you grant the API key.
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <div className="relative">
-          <span className="material-icons absolute left-3 top-2.5 text-muted-foreground pointer-events-none">search</span>
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="What did we decide about pricing? Who owns the Acme follow-up?"
-            className="w-full pl-10 pr-4 py-2.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            autoFocus
-          />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => onFilterChange(f.id)}
-                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                  filter === f.id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">MCP endpoint</h2>
+        <div className="rounded-md border border-border bg-muted/30 p-3 flex items-center gap-2">
+          <code className="text-xs flex-1 break-all">{endpoint}</code>
           <button
-            type="submit"
-            disabled={loading || !draft.trim()}
-            className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            onClick={() => navigator.clipboard.writeText(endpoint)}
+            className="shrink-0 text-xs px-2 py-1 border border-border rounded hover:bg-background"
           >
-            {loading
-              ? <><span className="material-icons animate-spin text-base">progress_activity</span>Searching…</>
-              : <><span className="material-icons text-base">search</span>Search</>
-            }
+            Copy
           </button>
         </div>
-      </form>
+        <p className="text-xs text-muted-foreground">
+          Streamable HTTP transport in stateless mode. Authenticate with{' '}
+          <code className="text-[11px] px-1 py-0.5 bg-muted rounded">Authorization: Bearer sd_mcp_…</code>.
+        </p>
+      </section>
 
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
-          {error}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Setup instructions</h2>
+          <p className="text-sm text-muted-foreground">Pick your client and follow the steps. You&apos;ll need an API key from the section below.</p>
         </div>
-      )}
 
-      {!searched && !loading && (
-        <McpSetupCard />
-      )}
-
-      {result && (
-        <div className="space-y-4">
-          <div className="text-xs text-muted-foreground">
-            {result.total === 0
-              ? 'No matches.'
-              : `${result.total} ${result.total === 1 ? 'match' : 'matches'} for "${result.query}"`}
-          </div>
-
-          {result.hits.length === 0 ? (
-            <div className="text-center py-12 bg-card border border-border rounded-lg">
-              <span className="material-icons text-4xl text-muted-foreground mb-2 block">search_off</span>
-              <p className="text-sm text-muted-foreground">
-                Nothing matched. Try different words, or shorter phrases.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {result.hits.map((hit) => (
-                <Link
-                  key={`${hit.type}-${hit.id}`}
-                  href={hit.url}
-                  className="block bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className={`material-icons mt-0.5 ${TYPE_META[hit.type].tone}`}>{TYPE_META[hit.type].icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-foreground truncate">{hit.title}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                          {TYPE_META[hit.type].label}
-                        </span>
-                        {hit.status && (
-                          <span className="text-xs text-muted-foreground">{hit.status}</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-foreground mt-1 line-clamp-2">
-                        <Highlight text={hit.snippet} query={result.query} />
-                      </p>
-                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                        {hit.occurredAt && <span>{new Date(hit.occurredAt).toLocaleDateString()}</span>}
-                        {hit.contextName && (
-                          <span className="inline-flex items-center gap-0.5">
-                            <span className="material-icons text-sm">link</span>
-                            {hit.contextName}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="material-icons text-muted-foreground self-center">chevron_right</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {grouped && (
-            <div className="text-xs text-muted-foreground">
-              {(['note', 'meeting', 'company', 'contact', 'deal', 'task', 'relationship', 'post'] as EntityType[]).map((t) => {
-                const count = grouped.get(t)?.length ?? 0;
-                if (count === 0) return null;
-                return <span key={t} className="mr-3">{TYPE_META[t].label}s: {count}</span>;
-              })}
-            </div>
-          )}
+        <div className="flex gap-1 border-b border-border">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === t.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="material-icons text-base">{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
         </div>
-      )}
+
+        {tab === 'claude-desktop' && <ClaudeDesktopInstructions endpoint={endpoint} />}
+        {tab === 'claude-code' && <ClaudeCodeInstructions endpoint={endpoint} />}
+        {tab === 'chatgpt' && <ChatGptInstructions endpoint={endpoint} />}
+      </section>
+
+      <section>
+        <McpApiKeysManager
+          heading="Manage API keys"
+          subheading="Generate a key for each client (Claude Desktop, ChatGPT, etc.). Keep the secret value safe — it's shown once. Revoke any key here if you lose access."
+        />
+      </section>
     </div>
   );
 }
 
-function Highlight({ text, query }: { text: string; query: string }) {
-  if (!query) return <>{text}</>;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`(${escaped})`, 'ig');
-  const parts = text.split(re);
+function CodeBlock({ children }: { children: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
   return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1
-          ? <mark key={i} className="bg-amber-300/30 text-foreground rounded-sm px-0.5">{part}</mark>
-          : <span key={i}>{part}</span>
-      )}
-    </>
+    <div className="relative">
+      <pre className="rounded-md border border-border bg-muted/30 p-3 text-xs overflow-x-auto">
+        <code>{children}</code>
+      </pre>
+      <button
+        onClick={copy}
+        className="absolute top-2 right-2 text-xs px-2 py-0.5 border border-border rounded bg-background hover:bg-muted"
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
   );
 }
 
-function McpSetupCard() {
+function ClaudeDesktopInstructions({ endpoint }: { endpoint: string }) {
+  const config = `{
+  "mcpServers": {
+    "simplerdevelopment": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "${endpoint}",
+        "--header",
+        "Authorization: Bearer sd_mcp_your_key_here"
+      ]
+    }
+  }
+}`;
   return (
-    <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-      <div className="flex items-start gap-3">
-        <span className="material-icons text-primary text-2xl">auto_awesome</span>
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Connect Brain to Claude Desktop</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Keyword search above is the lightweight option. The real Ask Brain experience runs through{' '}
-            <strong>Model Context Protocol (MCP)</strong> — Claude Desktop talks directly to your Brain over the same
-            authenticated channel, with full conversational context, citations, and the ability to <em>act</em> within scoped
-            limits (propose tasks, link meetings to relationships, summarize across multiple sources).
-          </p>
-        </div>
-      </div>
+    <div className="space-y-4 text-sm">
+      <ol className="list-decimal ml-5 space-y-3">
+        <li>
+          <span className="font-medium">Generate an API key</span> in the section below — name it something like{' '}
+          <code className="text-xs px-1 py-0.5 bg-muted rounded">Claude Desktop</code>.
+        </li>
+        <li>
+          <span className="font-medium">Open the Claude Desktop config</span> file:
+          <ul className="list-disc ml-5 mt-1 text-muted-foreground space-y-0.5">
+            <li>macOS: <code className="text-xs px-1 py-0.5 bg-muted rounded">~/Library/Application Support/Claude/claude_desktop_config.json</code></li>
+            <li>Windows: <code className="text-xs px-1 py-0.5 bg-muted rounded">%APPDATA%\Claude\claude_desktop_config.json</code></li>
+          </ul>
+        </li>
+        <li>
+          <span className="font-medium">Add the SimplerDevelopment MCP server</span> (replace{' '}
+          <code className="text-xs px-1 py-0.5 bg-muted rounded">sd_mcp_your_key_here</code> with the key you generated):
+          <div className="mt-2"><CodeBlock>{config}</CodeBlock></div>
+        </li>
+        <li>
+          <span className="font-medium">Restart Claude Desktop</span>. Tools will appear in the tools menu — try
+          asking <em>&quot;What&apos;s in my CRM pipeline?&quot;</em> or <em>&quot;Draft a pitch deck for Acme.&quot;</em>
+        </li>
+      </ol>
+      <p className="text-xs text-muted-foreground">
+        The <code className="text-[11px] px-1 py-0.5 bg-muted rounded">mcp-remote</code> bridge translates the
+        Streamable HTTP endpoint into the stdio transport that Claude Desktop expects. No additional install — npx pulls it on demand.
+      </p>
+    </div>
+  );
+}
 
-      <div className="bg-muted/30 border border-border rounded-md p-4 text-xs space-y-2">
-        <p className="font-medium text-foreground">Setup (one-time):</p>
-        <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-          <li>
-            Generate a portal API key with <code className="bg-background px-1 rounded">brain:read</code>
-            {' '}+{' '}<code className="bg-background px-1 rounded">brain:write</code> scopes (and{' '}
-            <code className="bg-background px-1 rounded">brain:approve</code> if you want Claude to approve review items).
-            See <Link href="/portal/settings" className="text-primary hover:underline">Settings → API keys</Link>.
-          </li>
-          <li>
-            In Claude Desktop, open <code className="bg-background px-1 rounded">~/.claude/claude_desktop_config.json</code>{' '}
-            and add the SimplerDevelopment MCP server with your bearer token.
-          </li>
-          <li>Restart Claude Desktop. Brain tools (<code className="bg-background px-1 rounded">brain_search</code>, <code className="bg-background px-1 rounded">brain_get_relationship</code>, etc.) appear automatically.</li>
-        </ol>
-      </div>
+function ClaudeCodeInstructions({ endpoint }: { endpoint: string }) {
+  const command = `claude mcp add --transport http simplerdevelopment \\
+  ${endpoint} \\
+  --header "Authorization: Bearer sd_mcp_your_key_here"`;
+  return (
+    <div className="space-y-4 text-sm">
+      <ol className="list-decimal ml-5 space-y-3">
+        <li>
+          <span className="font-medium">Generate an API key</span> below — name it{' '}
+          <code className="text-xs px-1 py-0.5 bg-muted rounded">Claude Code</code>.
+        </li>
+        <li>
+          <span className="font-medium">Add the MCP server</span> from your terminal:
+          <div className="mt-2"><CodeBlock>{command}</CodeBlock></div>
+        </li>
+        <li>
+          <span className="font-medium">Verify</span> with <code className="text-xs px-1 py-0.5 bg-muted rounded">claude mcp list</code>.
+          The <code className="text-xs px-1 py-0.5 bg-muted rounded">simplerdevelopment</code> server should appear and respond.
+        </li>
+        <li>
+          In any Claude Code session, type <code className="text-xs px-1 py-0.5 bg-muted rounded">/mcp</code> to see available tools.
+        </li>
+      </ol>
+    </div>
+  );
+}
 
-      <div className="flex items-center justify-between pt-1">
-        <Link
-          href="/portal/settings"
-          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <span className="material-icons text-base">vpn_key</span>
-          Manage API keys
-        </Link>
-        <span className="text-xs text-muted-foreground">
-          Tools: brain_search · brain_dashboard_summary · brain_list_relationships · brain_get_relationship · brain_list_meetings · brain_get_meeting · brain_list_tasks · brain_get_task · brain_list_review_items · brain_create_meeting · brain_create_task · brain_propose_task · brain_update_task · brain_link_meeting · brain_create_relationship · brain_approve_review_item · brain_reject_review_item · brain_update_relationship
-        </span>
-      </div>
+function ChatGptInstructions({ endpoint }: { endpoint: string }) {
+  return (
+    <div className="space-y-4 text-sm">
+      <p className="text-muted-foreground">
+        ChatGPT supports MCP servers as <strong>Connectors</strong> on Pro / Team / Enterprise plans.
+        Configuration is done in ChatGPT settings, not on this page.
+      </p>
+      <ol className="list-decimal ml-5 space-y-3">
+        <li>
+          <span className="font-medium">Generate an API key</span> below — name it{' '}
+          <code className="text-xs px-1 py-0.5 bg-muted rounded">ChatGPT</code>.
+        </li>
+        <li>
+          In ChatGPT, open <span className="font-medium">Settings → Connectors</span> (or{' '}
+          <span className="font-medium">Beta features → MCP</span> depending on your plan), and choose{' '}
+          <span className="font-medium">Add custom connector</span>.
+        </li>
+        <li>
+          Configure the connector:
+          <ul className="list-disc ml-5 mt-1 text-muted-foreground space-y-0.5">
+            <li>Name: <code className="text-xs px-1 py-0.5 bg-muted rounded">SimplerDevelopment</code></li>
+            <li>Server URL: <code className="text-xs px-1 py-0.5 bg-muted rounded">{endpoint}</code></li>
+            <li>Auth: <span className="font-medium">Bearer token</span></li>
+            <li>Token: <code className="text-xs px-1 py-0.5 bg-muted rounded">sd_mcp_your_key_here</code></li>
+          </ul>
+        </li>
+        <li>
+          <span className="font-medium">Save and enable the connector</span>. New conversations will have access to
+          all the SimplerDevelopment tools your key&apos;s scopes allow.
+        </li>
+      </ol>
+      <p className="text-xs text-muted-foreground">
+        ChatGPT&apos;s connector UI changes as MCP support rolls out. If your account doesn&apos;t expose
+        custom connectors yet, the Claude Desktop or Claude Code routes work today.
+      </p>
     </div>
   );
 }

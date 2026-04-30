@@ -64,7 +64,7 @@ const buildNavItems = (activeSiteId: string | null, activeSiteName: string | nul
       { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review' },
       { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book' },
       { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt' },
-      { href: '/portal/brain/ask', label: 'Ask Brain', icon: 'travel_explore' },
+      { href: '/portal/brain/ask', label: 'Connect AI', icon: 'cable' },
       { href: '/portal/brain/settings', label: 'Settings', icon: 'settings' },
     ],
   },

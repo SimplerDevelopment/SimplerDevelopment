@@ -33,7 +33,6 @@ interface BrainSearchResponse {
   hits?: BrainSearchHit[];
 }
 
-// Keep visual choices in sync with app/portal/brain/ask/page.tsx
 const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string }> = {
   meeting:      { label: 'Meeting',      icon: 'forum',          tone: 'text-blue-600 dark:text-blue-400' },
   note:         { label: 'Knowledge',    icon: 'sticky_note_2',  tone: 'text-amber-600 dark:text-amber-400' },
@@ -63,14 +62,6 @@ const ACTION_COMMANDS: ActionCommand[] = [
     icon: 'note_add',
     tone: 'text-amber-600 dark:text-amber-400',
     resolve: () => '/portal/brain/knowledge?new=1',
-  },
-  {
-    id: 'search-brain',
-    label: 'Search Brain',
-    description: 'Ask Brain across all entities',
-    icon: 'travel_explore',
-    tone: 'text-primary',
-    resolve: (q) => (q ? `/portal/brain/ask?q=${encodeURIComponent(q)}` : '/portal/brain/ask'),
   },
   {
     id: 'open-dashboard',
