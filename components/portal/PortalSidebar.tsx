@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
+import { buildPortalNavItems, type PortalNavChild, type PortalNavItem } from '@/lib/portal-nav';
 
 type Theme = 'light' | 'dark' | 'system';
 const themeOrder: Theme[] = ['system', 'light', 'dark'];
@@ -21,23 +22,8 @@ function applyTheme(theme: Theme) {
   }
 }
 
-interface NavChild {
-  href: string;
-  label: string;
-  icon: string;
-  exact?: boolean;
-  alsoActiveOn?: string;
-  children?: NavChild[];
-}
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: string;
-  exact?: boolean;
-  alsoActiveOn?: string;
-  children?: NavChild[];
-}
+type NavChild = PortalNavChild;
+type NavItem = PortalNavItem;
 
 interface NavService {
   id: number;
@@ -47,122 +33,6 @@ interface NavService {
   href: string;
   subscribed: boolean;
 }
-
-// Static nav structure with collapsible children
-const buildNavItems = (activeSiteId: string | null, activeSiteName: string | null): NavItem[] => [
-  { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  {
-    href: '/portal/brain',
-    label: 'Company Brain',
-    icon: 'psychology',
-    exact: true,
-    children: [
-      { href: '/portal/brain', label: 'Dashboard', icon: 'dashboard', exact: true },
-      { href: '/portal/brain/calendar', label: 'Calendar', icon: 'calendar_month' },
-      { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work', alsoActiveOn: '/portal/brain/prospects' },
-      { href: '/portal/brain/meetings', label: 'Communications', icon: 'forum' },
-      { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review' },
-      { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book' },
-      { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt' },
-      { href: '/portal/brain/ask', label: 'Connect AI', icon: 'cable' },
-      { href: '/portal/brain/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-  {
-    href: '/portal/projects',
-    label: 'Projects',
-    icon: 'view_kanban',
-    exact: true,
-    alsoActiveOn: '/portal/my-tasks',
-    children: [
-      { href: '/portal/projects', label: 'All Projects', icon: 'view_kanban', exact: true },
-      { href: '/portal/my-tasks', label: 'My Tasks', icon: 'task_alt' },
-    ],
-  },
-  {
-    href: '/portal/crm',
-    label: 'CRM',
-    icon: 'contacts',
-    exact: true,
-    children: [
-      { href: '/portal/crm', label: 'Dashboard', icon: 'dashboard', exact: true },
-      { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people' },
-      { href: '/portal/crm/companies', label: 'Companies', icon: 'business' },
-      { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake' },
-      { href: '/portal/crm/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-  {
-    href: '/portal/email',
-    label: 'Email',
-    icon: 'email',
-    exact: true,
-    children: [
-      { href: '/portal/email', label: 'Dashboard', icon: 'dashboard', exact: true },
-      { href: '/portal/email/campaigns', label: 'Campaigns', icon: 'campaign' },
-      { href: '/portal/email/templates', label: 'Templates', icon: 'dynamic_feed' },
-      { href: '/portal/email/lists', label: 'Lists', icon: 'list_alt' },
-      { href: '/portal/email/segments', label: 'Segments', icon: 'filter_alt' },
-      { href: '/portal/email/analytics', label: 'Analytics', icon: 'analytics' },
-      { href: '/portal/email/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-  {
-    href: '/portal/surveys',
-    label: 'Surveys',
-    icon: 'poll',
-    exact: true,
-    children: [
-      { href: '/portal/surveys', label: 'All Surveys', icon: 'poll', exact: true },
-      { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle' },
-    ],
-  },
-  { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow' },
-  { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true },
-  ...(activeSiteId
-    ? [{
-        href: `/portal/websites/${activeSiteId}`,
-        label: activeSiteName || 'Website',
-        icon: 'web',
-        exact: true,
-        children: [
-          {
-            href: `/portal/websites/${activeSiteId}/entries`,
-            label: 'Content',
-            icon: 'article',
-            alsoActiveOn: `/portal/websites/${activeSiteId}/posts`,
-            children: [
-              { href: `/portal/websites/${activeSiteId}/entries`, label: 'Entries', icon: 'edit_note', alsoActiveOn: `/portal/websites/${activeSiteId}/posts` },
-              { href: `/portal/websites/${activeSiteId}/taxonomy`, label: 'Taxonomies', icon: 'account_tree' },
-              { href: `/portal/websites/${activeSiteId}/content-types`, label: 'Content Types', icon: 'description' },
-            ],
-          },
-          {
-            href: `/portal/websites/${activeSiteId}/store`,
-            label: 'Store',
-            icon: 'shopping_cart',
-            exact: true,
-            children: [
-              { href: `/portal/websites/${activeSiteId}/store/products`, label: 'Products', icon: 'inventory_2' },
-              { href: `/portal/websites/${activeSiteId}/store/orders`, label: 'Orders', icon: 'receipt_long' },
-              { href: `/portal/websites/${activeSiteId}/store/categories`, label: 'Categories', icon: 'category' },
-              { href: `/portal/websites/${activeSiteId}/store/discounts`, label: 'Discounts', icon: 'sell' },
-              { href: `/portal/websites/${activeSiteId}/store/shipping`, label: 'Shipping', icon: 'local_shipping' },
-              { href: `/portal/websites/${activeSiteId}/store/settings`, label: 'Store Settings', icon: 'settings' },
-            ],
-          },
-          { href: `/portal/websites/${activeSiteId}/email`, label: 'Website Emails', icon: 'email' },
-          { href: `/portal/websites/${activeSiteId}/navigation`, label: 'Navigation', icon: 'menu' },
-          { href: `/portal/websites/${activeSiteId}/settings`, label: 'Website Settings', icon: 'settings' },
-        ],
-      }]
-    : []
-  ),
-  { href: '/portal/media', label: 'Media', icon: 'perm_media' },
-  { href: '/portal/branding', label: 'Branding', icon: 'palette' },
-  { href: '/portal/approvals', label: 'Approvals', icon: 'fact_check' },
-  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
-];
 
 const EXCLUDED_SERVICES = new Set([
   'Chat Bot', 'Project Management System', 'Pitch Decks',
@@ -238,7 +108,7 @@ export default function PortalSidebar() {
 
   // Auto-expand sections based on active route
   useEffect(() => {
-    const items = buildNavItems(activeSiteId, activeSiteName);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName);
     const newExpanded: Record<string, boolean> = { ...expandedSections };
     const autoExpand = (list: NavChild[]) => {
       for (const item of list) {
@@ -261,7 +131,7 @@ export default function PortalSidebar() {
 
   // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
-    const items = buildNavItems(activeSiteId, activeSiteName);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName);
     const serviceItems: NavItem[] = navServices
       .filter(svc => !EXCLUDED_SERVICES.has(svc.name) && !svc.name.startsWith('__'))
       .map(svc => ({ href: svc.href, label: svc.name, icon: svc.icon }));

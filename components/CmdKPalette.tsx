@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { buildPortalNavItems, flattenPortalNav, type PortalNavTarget } from '@/lib/portal-nav';
 
 type EntityType =
   | 'meeting'
@@ -44,88 +45,70 @@ const TYPE_META: Record<EntityType, { label: string; icon: string; tone: string 
   post:         { label: 'Page',         icon: 'web',            tone: 'text-sky-600 dark:text-sky-400' },
 };
 
-interface ActionCommand {
+interface CreateAction {
   id: string;
   label: string;
-  description?: string;
+  description: string;
   icon: string;
   tone?: string;
-  /** Resolves the destination URL given the current typed query. */
-  resolve: (q: string) => string;
+  href: string;
 }
 
-const ACTION_COMMANDS: ActionCommand[] = [
+// Quick-create / quick-jump actions that are not just plain navigation —
+// these stay above the long nav list so power users can hit them fast.
+const CREATE_ACTIONS: CreateAction[] = [
   {
     id: 'new-knowledge-note',
     label: 'New knowledge note',
     description: 'Create a knowledge note',
     icon: 'note_add',
     tone: 'text-amber-600 dark:text-amber-400',
-    resolve: () => '/portal/brain/knowledge?new=1',
+    href: '/portal/brain/knowledge?new=1',
   },
   {
-    id: 'open-dashboard',
-    label: 'Open dashboard',
-    description: 'Brain dashboard',
-    icon: 'dashboard',
+    id: 'new-survey',
+    label: 'New survey',
+    description: 'Start a survey',
+    icon: 'add_circle',
     tone: 'text-foreground',
-    resolve: () => '/portal/brain',
+    href: '/portal/surveys/new',
   },
   {
-    id: 'open-knowledge',
-    label: 'Open knowledge',
-    description: 'Knowledge notes',
-    icon: 'sticky_note_2',
-    tone: 'text-amber-600 dark:text-amber-400',
-    resolve: () => '/portal/brain/knowledge',
-  },
-  {
-    id: 'open-meetings',
-    label: 'Open meetings',
-    description: 'Meeting notes & recordings',
-    icon: 'forum',
-    tone: 'text-blue-600 dark:text-blue-400',
-    resolve: () => '/portal/brain/meetings',
-  },
-  {
-    id: 'open-relationships',
-    label: 'Open relationships',
-    description: 'Relationship graph',
-    icon: 'group_work',
-    tone: 'text-cyan-600 dark:text-cyan-400',
-    resolve: () => '/portal/brain/relationships',
-  },
-  {
-    id: 'open-crm-contacts',
-    label: 'Open CRM contacts',
-    description: 'CRM · Contacts',
-    icon: 'person',
-    tone: 'text-rose-600 dark:text-rose-400',
-    resolve: () => '/portal/crm/contacts',
-  },
-  {
-    id: 'open-crm-companies',
-    label: 'Open CRM companies',
-    description: 'CRM · Companies',
-    icon: 'business',
-    tone: 'text-emerald-600 dark:text-emerald-400',
-    resolve: () => '/portal/crm/companies',
-  },
-  {
-    id: 'open-crm-deals',
-    label: 'Open CRM deals',
-    description: 'CRM · Deals',
-    icon: 'handshake',
-    tone: 'text-violet-600 dark:text-violet-400',
-    resolve: () => '/portal/crm/deals',
+    id: 'new-pitch-deck',
+    label: 'New pitch deck',
+    description: 'Start a deck',
+    icon: 'add_to_queue',
+    tone: 'text-foreground',
+    href: '/portal/tools/pitch-decks?new=1',
   },
 ];
 
 type Item =
-  | { kind: 'action'; cmd: ActionCommand }
+  | { kind: 'create'; action: CreateAction; score: number }
+  | { kind: 'nav'; target: PortalNavTarget; score: number }
   | { kind: 'hit'; hit: BrainSearchHit };
 
-const MAX_INLINE_ACTIONS = 7;
+const MAX_NAV_RESULTS = 8;
+
+/**
+ * Score a haystack against a query: each query token must appear in the
+ * haystack. Returns a positive score (higher = better match) or -1 to drop.
+ * Boosts: prefix match on the last segment of the haystack (the label),
+ * exact label match, and contiguous run.
+ */
+function scoreMatch(haystack: string, queryTokens: string[]): number {
+  if (queryTokens.length === 0) return 0;
+  let score = 0;
+  for (const tok of queryTokens) {
+    const idx = haystack.indexOf(tok);
+    if (idx < 0) return -1;
+    // Earlier-in-haystack matches score slightly higher.
+    score += Math.max(0, 100 - idx);
+  }
+  // Bonus for contiguous run of all tokens joined by spaces.
+  if (haystack.includes(queryTokens.join(' '))) score += 200;
+  return score;
+}
 
 export default function CmdKPalette() {
   const [open, setOpen] = useState(false);
@@ -133,9 +116,36 @@ export default function CmdKPalette() {
   const [hits, setHits] = useState<BrainSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [activeSiteName, setActiveSiteName] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Detect active site from URL (mirror the sidebar's logic) so per-site
+  // pages show up when the user is inside `/portal/websites/[id]/...`.
+  const cmsMatch = pathname?.match(/^\/portal\/websites\/(\d+)(\/|$)/);
+  const activeSiteId = cmsMatch ? cmsMatch[1] : null;
+
+  useEffect(() => {
+    if (!activeSiteId) { setActiveSiteName(null); return; }
+    fetch('/api/portal/cms/websites')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          const site = res.data.find((s: { id: number }) => String(s.id) === activeSiteId);
+          setActiveSiteName(site?.name ?? null);
+        }
+      })
+      .catch(() => {});
+  }, [activeSiteId]);
+
+  // Flatten the nav tree once per (site) change. The palette only needs the
+  // flat target list with breadcrumbs + haystack — the tree shape is the
+  // sidebar's concern.
+  const navTargets = useMemo<PortalNavTarget[]>(() => {
+    return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName));
+  }, [activeSiteId, activeSiteName]);
 
   // Global Cmd+K / Ctrl+K listener — toggles open. Cmd+K is not a typing key
   // so it is safe to capture even when an input/textarea is focused (matches
@@ -158,7 +168,6 @@ export default function CmdKPalette() {
       setQuery('');
       setHits([]);
       setSelectedIndex(0);
-      // Slight delay so the autoFocus on the input plays nicely with mount.
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -179,7 +188,7 @@ export default function CmdKPalette() {
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/portal/brain/search?q=${encodeURIComponent(trimmed)}&limit=15`,
+          `/api/portal/brain/search?q=${encodeURIComponent(trimmed)}&limit=12`,
           { signal: ctrl.signal, credentials: 'same-origin' },
         );
         if (!res.ok) {
@@ -201,19 +210,42 @@ export default function CmdKPalette() {
     };
   }, [query, open]);
 
-  // Filter actions by case-insensitive substring match on the label.
-  const filteredActions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return ACTION_COMMANDS;
-    return ACTION_COMMANDS.filter((c) => c.label.toLowerCase().includes(q));
-  }, [query]);
-
   const items = useMemo<Item[]>(() => {
-    const inlineActions = filteredActions.slice(0, MAX_INLINE_ACTIONS);
-    const actionItems: Item[] = inlineActions.map((cmd) => ({ kind: 'action', cmd }));
+    const trimmed = query.trim().toLowerCase();
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+
+    // Score creates and nav targets. With no query, show a curated default
+    // list (creates first, then top-level pages) so the palette never feels
+    // empty on first open.
+    let createItems: Item[];
+    let navItems: Item[];
+
+    if (tokens.length === 0) {
+      createItems = CREATE_ACTIONS.map((a) => ({ kind: 'create', action: a, score: 0 }));
+      navItems = navTargets
+        .filter((t) => t.breadcrumb.length === 0)
+        .slice(0, MAX_NAV_RESULTS)
+        .map((t) => ({ kind: 'nav', target: t, score: 0 }));
+    } else {
+      createItems = CREATE_ACTIONS
+        .map((a) => {
+          const haystack = `${a.label} ${a.description}`.toLowerCase();
+          return { action: a, score: scoreMatch(haystack, tokens) };
+        })
+        .filter((x) => x.score >= 0)
+        .map((x) => ({ kind: 'create' as const, action: x.action, score: x.score }));
+
+      navItems = navTargets
+        .map((t) => ({ target: t, score: scoreMatch(t.haystack, tokens) }))
+        .filter((x) => x.score >= 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_NAV_RESULTS)
+        .map((x) => ({ kind: 'nav' as const, target: x.target, score: x.score }));
+    }
+
     const hitItems: Item[] = hits.map((hit) => ({ kind: 'hit', hit }));
-    return [...actionItems, ...hitItems];
-  }, [filteredActions, hits]);
+    return [...createItems, ...navItems, ...hitItems];
+  }, [query, navTargets, hits]);
 
   // Keep selection within bounds when items change.
   useEffect(() => {
@@ -231,11 +263,15 @@ export default function CmdKPalette() {
 
   const activate = useCallback(
     (item: Item) => {
-      const url = item.kind === 'action' ? item.cmd.resolve(query.trim()) : item.hit.url;
+      const url = item.kind === 'create'
+        ? item.action.href
+        : item.kind === 'nav'
+          ? item.target.href
+          : item.hit.url;
       close();
       router.push(url);
     },
-    [close, query, router],
+    [close, router],
   );
 
   const onKeyDown = useCallback(
@@ -275,8 +311,23 @@ export default function CmdKPalette() {
   if (!open) return null;
 
   const trimmedQuery = query.trim();
-  const showEmptyHint = !trimmedQuery && hits.length === 0;
+  const showEmptyHint = !trimmedQuery && items.length === 0;
   const noResults = trimmedQuery && !loading && items.length === 0;
+
+  // Group items for section headers.
+  const grouped: Array<{ kind: Item['kind']; title: string; items: { item: Item; index: number }[] }> = [];
+  items.forEach((item, index) => {
+    const last = grouped[grouped.length - 1];
+    if (last && last.kind === item.kind) {
+      last.items.push({ item, index });
+    } else {
+      const title =
+        item.kind === 'create' ? 'Create' :
+        item.kind === 'nav' ? (trimmedQuery ? 'Navigate' : 'Quick access') :
+        'Search results';
+      grouped.push({ kind: item.kind, title, items: [{ item, index }] });
+    }
+  });
 
   return (
     <div
@@ -310,7 +361,7 @@ export default function CmdKPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search notes, contacts, companies, deals…"
+            placeholder="Jump to a page, search notes, contacts, deals…"
             className="flex-1 bg-transparent outline-none text-base text-foreground placeholder:text-muted-foreground"
             autoFocus
             spellCheck={false}
@@ -328,86 +379,107 @@ export default function CmdKPalette() {
 
         {/* Results */}
         <div ref={listRef} className="max-h-[60vh] overflow-y-auto py-1">
-          {items.length > 0 && (
-            <ul className="text-sm">
-              {items.map((item, index) => {
-                const isSelected = index === selectedIndex;
-                if (item.kind === 'action') {
-                  const cmd = item.cmd;
+          {grouped.map((group) => (
+            <div key={group.kind + group.title}>
+              <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                {group.title}
+              </div>
+              <ul className="text-sm">
+                {group.items.map(({ item, index }) => {
+                  const isSelected = index === selectedIndex;
+
+                  if (item.kind === 'create') {
+                    const a = item.action;
+                    return (
+                      <li key={`create-${a.id}`}>
+                        <button
+                          type="button"
+                          data-cmdk-index={index}
+                          onMouseEnter={() => setSelectedIndex(index)}
+                          onClick={() => activate(item)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                            isSelected ? 'bg-muted' : 'hover:bg-muted/60'
+                          }`}
+                        >
+                          <span className={`material-icons text-xl ${a.tone ?? 'text-foreground'}`}>{a.icon}</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate text-foreground">{a.label}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{a.description}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  }
+
+                  if (item.kind === 'nav') {
+                    const t = item.target;
+                    return (
+                      <li key={`nav-${t.href}`}>
+                        <button
+                          type="button"
+                          data-cmdk-index={index}
+                          onMouseEnter={() => setSelectedIndex(index)}
+                          onClick={() => activate(item)}
+                          className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
+                            isSelected ? 'bg-muted' : 'hover:bg-muted/60'
+                          }`}
+                        >
+                          <span className="material-icons text-xl text-muted-foreground shrink-0">{t.icon}</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate text-foreground">{t.label}</span>
+                            {t.breadcrumb.length > 0 && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {t.breadcrumb.join(' / ')}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium shrink-0">
+                            Page
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  }
+
+                  const hit = item.hit;
+                  const meta = TYPE_META[hit.type];
                   return (
-                    <li key={`action-${cmd.id}`}>
+                    <li key={`hit-${hit.type}-${hit.id}`}>
                       <button
                         type="button"
                         data-cmdk-index={index}
                         onMouseEnter={() => setSelectedIndex(index)}
                         onClick={() => activate(item)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${
                           isSelected ? 'bg-muted' : 'hover:bg-muted/60'
                         }`}
                       >
-                        <span className={`material-icons text-xl ${cmd.tone ?? 'text-foreground'}`}>
-                          {cmd.icon}
-                        </span>
+                        <span className={`material-icons text-xl mt-0.5 ${meta.tone}`}>{meta.icon}</span>
                         <span className="flex-1 min-w-0">
-                          <span className="block truncate text-foreground">{cmd.label}</span>
-                          {cmd.description && (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {cmd.description}
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-foreground">{hit.title}</span>
+                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium shrink-0">
+                              {meta.label}
+                            </span>
+                          </span>
+                          {hit.snippet && (
+                            <span className="block text-xs text-muted-foreground line-clamp-1">
+                              {hit.snippet}
                             </span>
                           )}
                         </span>
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-                          Action
-                        </span>
-                      </button>
-                    </li>
-                  );
-                }
-                const hit = item.hit;
-                const meta = TYPE_META[hit.type];
-                return (
-                  <li key={`hit-${hit.type}-${hit.id}`}>
-                    <button
-                      type="button"
-                      data-cmdk-index={index}
-                      onMouseEnter={() => setSelectedIndex(index)}
-                      onClick={() => activate(item)}
-                      className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${
-                        isSelected ? 'bg-muted' : 'hover:bg-muted/60'
-                      }`}
-                    >
-                      <span className={`material-icons text-xl mt-0.5 ${meta.tone}`}>{meta.icon}</span>
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-foreground">{hit.title}</span>
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium shrink-0">
-                            {meta.label}
-                          </span>
-                        </span>
-                        {hit.snippet && (
-                          <span className="block text-xs text-muted-foreground line-clamp-1">
-                            {hit.snippet}
-                          </span>
-                        )}
-                      </span>
-                      <span className="flex flex-col items-end gap-0.5 shrink-0 self-center">
                         {hit.contextName && (
-                          <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[140px] shrink-0 self-center">
                             {hit.contextName}
                           </span>
                         )}
-                        {typeof hit.score === 'number' && (
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {hit.score.toFixed(2)}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
 
           {noResults && (
             <div className="px-4 py-8 text-center">
@@ -418,9 +490,9 @@ export default function CmdKPalette() {
             </div>
           )}
 
-          {showEmptyHint && items.length === 0 && (
+          {showEmptyHint && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Type to search across notes, meetings, CRM…
+              Type to jump to any page, or search notes, meetings, CRM…
             </div>
           )}
         </div>
