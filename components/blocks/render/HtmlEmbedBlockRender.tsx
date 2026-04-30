@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { HtmlEmbedBlock, HtmlEmbedSandbox } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 
@@ -14,10 +15,6 @@ const SANDBOX_PRESETS: Record<HtmlEmbedSandbox, string> = {
 };
 
 export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
-  const sandbox = SANDBOX_PRESETS[block.sandbox || 'scripts'];
-  const height = block.height || '600px';
-  const isContained = block.width === 'contained';
-
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
         block.responsive.paddingTop,
@@ -32,6 +29,27 @@ export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
       )
     : '';
 
+  const isContained = block.width === 'contained';
+  const containerClass = isContained ? 'max-w-5xl mx-auto' : 'w-full';
+
+  // Server-prefetched HTML inlines into the page DOM — this is the SEO path:
+  // crawlers see the actual markup, not an opaque iframe. Scripts that came
+  // through dangerouslySetInnerHTML are inert by spec, so we re-create them
+  // after mount to get behavior parity with the iframe path.
+  if (block.inlineHtml) {
+    return (
+      <div className={responsiveClasses}>
+        <div className={containerClass}>
+          <InlineHtml html={block.inlineHtml} />
+          {block.caption && (
+            <p className="text-sm text-muted-foreground mt-2 text-center italic">{block.caption}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // No URL — empty state.
   if (!block.url) {
     return (
       <div className={responsiveClasses}>
@@ -43,15 +61,17 @@ export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
     );
   }
 
+  // Fallback iframe path — editor preview, or production render where the
+  // server-side prefetch failed. Iframe sandbox keeps the embedded HTML in
+  // an opaque origin so it can't read parent cookies/storage.
+  const sandbox = SANDBOX_PRESETS[block.sandbox || 'scripts'];
+  const height = block.height || '600px';
   return (
     <div className={responsiveClasses}>
-      <div className={isContained ? 'max-w-5xl mx-auto' : 'w-full'}>
+      <div className={containerClass}>
         <iframe
           src={block.url}
           title={block.iframeTitle || 'Embedded HTML content'}
-          // Sandbox without `allow-same-origin` gives the iframe an opaque
-          // origin, so the embedded HTML can't read cookies/storage on the
-          // parent origin even though the asset is served from /api/media.
           sandbox={sandbox}
           referrerPolicy="no-referrer"
           loading="lazy"
@@ -59,11 +79,31 @@ export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
           style={{ height }}
         />
         {block.caption && (
-          <p className="text-sm text-muted-foreground mt-2 text-center italic">
-            {block.caption}
-          </p>
+          <p className="text-sm text-muted-foreground mt-2 text-center italic">{block.caption}</p>
         )}
       </div>
     </div>
   );
+}
+
+function InlineHtml({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Replace each inert <script> with a fresh element so the browser
+    // executes it. Process in document order to preserve dependency chains.
+    const scripts = Array.from(el.querySelectorAll('script'));
+    for (const old of scripts) {
+      const fresh = document.createElement('script');
+      for (const { name, value } of Array.from(old.attributes)) {
+        fresh.setAttribute(name, value);
+      }
+      if (old.textContent) fresh.textContent = old.textContent;
+      old.replaceWith(fresh);
+    }
+  }, [html]);
+
+  return <div ref={ref} dangerouslySetInnerHTML={{ __html: html }} />;
 }

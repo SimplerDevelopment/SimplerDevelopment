@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts } from '@/lib/actions/client-sites';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
+import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
@@ -101,7 +102,8 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       );
     }
 
-    return <SiteBlockRenderer content={homePage.content} siteId={site.id} branding={branding} customCss={homePage.customCss} customJs={homePage.customJs} />;
+    const content = await prefetchHtmlEmbeds(homePage.content);
+    return <SiteBlockRenderer content={content} siteId={site.id} branding={branding} customCss={homePage.customCss} customJs={homePage.customJs} />;
   }
 
   // Shop listing
@@ -187,7 +189,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
             </time>
           )}
         </header>
-        <SiteBlockRenderer content={post.content} siteId={site.id} branding={branding} customCss={post.customCss} customJs={post.customJs} />
+        <SiteBlockRenderer content={await prefetchHtmlEmbeds(post.content)} siteId={site.id} branding={branding} customCss={post.customCss} customJs={post.customJs} />
       </article>
     );
   }
@@ -201,7 +203,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   return (
     <div>
-      <SiteBlockRenderer content={page.content} siteId={site.id} branding={branding} customCss={page.customCss} customJs={page.customJs} />
+      <SiteBlockRenderer content={await prefetchHtmlEmbeds(page.content)} siteId={site.id} branding={branding} customCss={page.customCss} customJs={page.customJs} />
     </div>
   );
 }
