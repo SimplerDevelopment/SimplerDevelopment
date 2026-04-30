@@ -136,7 +136,7 @@ function PropertyField({
               onChange={(url) => onChange(url)}
               label={schema.label}
               mimeTypeFilter="image"
-              apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+              apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media'}
             />
           </div>
         </div>

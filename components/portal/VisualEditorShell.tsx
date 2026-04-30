@@ -1664,7 +1664,7 @@ function ElementStyleEditor({
 function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
   const b = block as unknown as Record<string, unknown>;
   const uid = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media';
 
   return (
     <div className="space-y-3">
@@ -3435,7 +3435,7 @@ function ProductSlugPicker({ siteId, value, onChange }: { siteId?: number; value
 function MarqueeEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
   const b = block as unknown as Record<string, unknown>;
   const items = (b.items as Array<Record<string, unknown>>) || [];
-  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media';
 
   function updateItem(index: number, updates: Record<string, unknown>) {
     const newItems = items.map((it, i) => i === index ? { ...it, ...updates } : it);
@@ -3531,7 +3531,7 @@ function HeroSlideshowEditor({ block, onUpdate, siteId }: { block: Block; onUpda
   const slides = (b.slides as Array<Record<string, unknown>>) || [];
   const [activeSlide, setActiveSlide] = useState(0);
   const slide = slides[activeSlide] as Record<string, unknown> | undefined;
-  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media';
+  const mediaApi = siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media';
 
   function updateSlide(index: number, updates: Record<string, unknown>) {
     const newSlides = slides.map((s, i) => i === index ? { ...s, ...updates } : s);

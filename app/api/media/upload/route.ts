@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { media } from '@/lib/db/schema';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { auth } from '@/lib/auth';
+import { getPortalClient } from '@/lib/portal-client';
 import sharp from 'sharp';
 
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default
@@ -10,13 +11,15 @@ const ALLOWED_TYPES = process.env.ALLOWED_FILE_TYPES?.split(',') || [];
 
 export async function POST(request: NextRequest) {
   try {
-    // const session = await auth();
-    // if (!session?.user) {
-    //   return NextResponse.json(
-    //     { success: false, error: 'Unauthorized' },
-    //     { status: 401 }
-    //   );
-    // }
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const userId = parseInt(session.user.id as string, 10);
+    const client = await getPortalClient(userId);
+    if (!client) {
+      return NextResponse.json({ success: false, error: 'No portal client found' }, { status: 403 });
+    }
 
     const formData = await request.formData() as unknown as globalThis.FormData;
     const file = formData.get('file') as File | null;
@@ -81,7 +84,8 @@ export async function POST(request: NextRequest) {
         height,
         alt: alt || null,
         caption: caption || null,
-        // uploadedBy: parseInt(session.user.id as string),
+        uploadedBy: userId,
+        clientId: client.id,
       })
       .returning();
 

@@ -685,7 +685,7 @@ function NavItemRow({
                     onChange={(url) => onUpdate({ featuredImage: url })}
                     label="Column Image"
                     mimeTypeFilter="image"
-                    apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+                    apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media'}
                   />
                 </div>
                 {onAddChild && (
@@ -756,7 +756,7 @@ function NavItemRow({
                         onChange={(url) => onUpdate({ featuredImage: url })}
                         label="Featured Image"
                         mimeTypeFilter="image"
-                        apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/media'}
+                        apiEndpoint={siteId ? `/api/portal/cms/websites/${siteId}/media` : '/api/portal/media'}
                       />
                     </div>
                   </>
