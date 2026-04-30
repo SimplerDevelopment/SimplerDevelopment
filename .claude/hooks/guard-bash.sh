@@ -52,4 +52,64 @@ if echo "$cmd" | grep -qE 'git +(commit|merge|rebase|push) .*--no-verify'; then
   block "--no-verify skips required hooks; fix the underlying failure"
 fi
 
+# 7. Destructive git operations that overwrite uncommitted work
+if echo "$cmd" | grep -qE '\bgit +reset +.*--hard\b'; then
+  block "git reset --hard discards uncommitted work — investigate before destroying state"
+fi
+if echo "$cmd" | grep -qE '\bgit +clean +.*-[a-z]*[fdx]'; then
+  block "git clean -fdx removes untracked files — investigate before destroying state"
+fi
+if echo "$cmd" | grep -qE '\bgit +checkout +(\.|--|--all)\b'; then
+  block "git checkout . / -- discards uncommitted work — investigate before destroying state"
+fi
+
+# 8. Privilege escalation has no place in a dev session
+if echo "$cmd" | grep -qE '(^|[^a-zA-Z_])sudo\b'; then
+  block "sudo is not authorized in this workflow"
+fi
+
+# 9. Plaintext-HTTP fetches — almost always a misconfig or supply-chain risk.
+# Exception: localhost / 127.0.0.1 / [::1] are legitimately HTTP for local dev.
+if echo "$cmd" | grep -qE '\b(curl|wget) +[^|]*\bhttp://' \
+   && ! echo "$cmd" | grep -qE '\b(curl|wget) +[^|]*\bhttp://(localhost|127\.0\.0\.1|\[::1\])(:|/|$)'; then
+  block "plaintext HTTP fetch to non-localhost — use https:// or fix the upstream URL"
+fi
+
+# 10. Publish to a package registry
+if echo "$cmd" | grep -qE '\b(npm|bun|yarn|pnpm) +publish\b'; then
+  block "package publish is not part of this workflow"
+fi
+
+# 11. Code-eval in Bash — a known sandbox-escape vector for denylists like this one
+if echo "$cmd" | grep -qE '\bnode +-e\b'; then
+  block "node -e bypasses Bash matchers; write a script and run it instead"
+fi
+if echo "$cmd" | grep -qE '\bbash +-c +.*(rm +-rf|curl|wget|sudo|node +-e)\b'; then
+  block "bash -c wrapping a destructive/network command — run it directly so this hook can match it"
+fi
+
+# 12. Writing into user-level secrets / config dirs.
+#     Treat ~/.aws, ~/.gnupg, ~/.config/gh, ~/.netrc, ~/.kube as secret in their entirety.
+if echo "$cmd" | grep -qE '> *(\$HOME|~|/Users/[^/]+)/\.(aws|gnupg|config/gh|netrc|kube)\b'; then
+  block "writing into user secrets/config dir — never appropriate from agentic Bash"
+fi
+# Within ~/.ssh, only block the sensitive files. known_hosts (and *.pub) are
+# public information and legitimately need to be written by setup scripts.
+# Anchor the filename end with a delimiter so id_rsa is blocked but id_rsa.pub is allowed.
+if echo "$cmd" | grep -qE '> *(\$HOME|~|/Users/[^/]+)/\.ssh/(authorized_keys|config|environment|id_[a-z0-9_]+)([[:space:]]|$|>|&|;|<|\|)'; then
+  block "writing into ~/.ssh/ secret files (authorized_keys, id_*, config, environment)"
+fi
+
+# 13. HANDS_OFF mode: tighter rules
+if [ "${HANDS_OFF:-0}" = "1" ]; then
+  # 13a. Push must target a claude/* branch
+  if echo "$cmd" | grep -qE '\bgit +push\b' && ! echo "$cmd" | grep -qE '\b(claude/|HEAD:claude/|refs/heads/claude/)'; then
+    block "HANDS_OFF=1: push restricted to claude/* branches only"
+  fi
+  # 13b. No interactive rebase / commit (would hang)
+  if echo "$cmd" | grep -qE '\bgit +(rebase|commit|add) +.*-i\b'; then
+    block "HANDS_OFF=1: interactive git mode would hang the loop"
+  fi
+fi
+
 exit 0
