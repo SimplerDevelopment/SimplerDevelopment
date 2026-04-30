@@ -1,6 +1,6 @@
 'use client';
 
-import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock, SurveyResultsBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, BookingMenuBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, SiteFooterBlock, MarqueeBlock, MarqueeItem, TabsBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock, HtmlEmbedBlock } from '@/types/blocks';
+import { Block, TextBlock, HeadingBlock, ImageBlock, ButtonBlock, SpacerBlock, DividerBlock, QuoteBlock, CodeBlock, VideoBlock, YoutubeBlock, ColumnsBlock, HeroBlock, HeroSlideshowBlock, HeroSlideshowSlide, ServicesGridBlock, CtaBlock, TestimonialBlock, StatsBlock, BlogPostsBlock, CardGridBlock, FeaturedContentBlock, AccordionBlock, SectionBlock, GalleryBlock, ProductGridBlock, FeaturedProductsBlock, ProductCategoriesBlock, ShoppingCartBlock, StoreBannerBlock, ProductDetailBlock, BookingBlock, SurveyBlock, SurveyResultsBlock, SocialLinksBlock, LogoStripBlock, MetricCardsBlock, BookingMenuBlock, FlipCardGridBlock, TimelineBlock, TeamShowcaseBlock, TeamFlipGridBlock, BentoGridBlock, BentoCard, SiteFooterBlock, MarqueeBlock, MarqueeItem, TabsBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock, HtmlEmbedBlock, HtmlRenderBlock } from '@/types/blocks';
 import { PageSettingsPanel } from './PageSettingsPanel';
 import { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
@@ -462,6 +462,8 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
               return <EmailFooterBlockSettings block={block as EmailFooterBlock} onChange={onChange} />;
             case 'html-embed':
               return <HtmlEmbedBlockSettings block={block as HtmlEmbedBlock} onChange={onChange} />;
+            case 'html-render':
+              return <HtmlRenderBlockSettings block={block as HtmlRenderBlock} onChange={onChange} />;
             default:
               return <div className="text-sm text-muted-foreground">No settings available for this block.</div>;
           }
@@ -5317,6 +5319,39 @@ function EmailFooterBlockSettings({ block, onChange }: { block: EmailFooterBlock
         >
           + Add Social Link
         </button>
+      </div>
+    </div>
+  );
+}
+
+function HtmlRenderBlockSettings({ block, onChange }: { block: HtmlRenderBlock; onChange: (updates: Partial<HtmlRenderBlock>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">HTML Markup</label>
+        <textarea
+          value={block.html || ''}
+          onChange={(e) => onChange({ html: e.target.value })}
+          rows={18}
+          spellCheck={false}
+          className="w-full text-xs font-mono rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="<section>...</section>"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Rendered directly into the page DOM. <code>&lt;script&gt;</code> tags execute on mount;
+          page-level styles &amp; JS go in the Custom CSS &amp; JavaScript modal.
+        </p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Width</label>
+        <select
+          value={block.width || 'full'}
+          onChange={(e) => onChange({ width: e.target.value as 'full' | 'contained' })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="full">Full width</option>
+          <option value="contained">Contained (centered)</option>
+        </select>
       </div>
     </div>
   );

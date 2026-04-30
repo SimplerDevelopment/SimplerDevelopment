@@ -59,6 +59,7 @@ import { MetricCardsBlockRender } from './MetricCardsBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { SurveyInputBlockRender } from './SurveyInputBlockRender';
 import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
+import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -101,6 +102,8 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
     // html-embed manages its own width via block.width ('full' | 'contained');
     // keep it out of the default max-w-7xl wrapper so 'full' really is full.
     'html-embed',
+    // html-render does the same — caller-controlled width, no outer constraint.
+    'html-render',
   ]);
 
   const rendered = (
@@ -266,6 +269,8 @@ function renderBlock(block: Block, siteId?: number) {
       return <DeckJumpToBlockRender block={normalized} />;
     case 'html-embed':
       return <HtmlEmbedBlockRender block={normalized} />;
+    case 'html-render':
+      return <HtmlRenderBlockRender block={normalized} />;
     default:
       return <UnknownBlockFallback block={normalized} />;
   }

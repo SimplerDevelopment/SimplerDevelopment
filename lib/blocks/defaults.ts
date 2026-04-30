@@ -45,6 +45,8 @@ export function createDefaultBlock(
       return { ...base, type: 'quote', content: 'Add a memorable quote...', author: '', citation: '' };
     case 'code':
       return { ...base, type: 'code', code: '// Enter your code here...', language: 'javascript' };
+    case 'html-render':
+      return { ...base, type: 'html-render', html: '<div>Paste raw HTML here.</div>', width: 'full' };
     case 'spacer':
       return { ...base, type: 'spacer', height: 'md' };
     case 'divider':

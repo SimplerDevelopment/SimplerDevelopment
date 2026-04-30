@@ -69,6 +69,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'survey-input': 'Survey Input',
   'sticky-scroll-tabs': 'Sticky Scroll Tabs',
   'html-embed': 'HTML Embed',
+  'html-render': 'HTML Render',
 };
 
 function SettingsPopupContent() {

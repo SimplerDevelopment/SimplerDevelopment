@@ -59,6 +59,7 @@ import { SiteFooterBlockRender } from '@/components/blocks/render/SiteFooterBloc
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from '@/components/blocks/render/DeckNavBlockRender';
 import { SurveyInputBlockRender } from '@/components/blocks/render/SurveyInputBlockRender';
 import { HtmlEmbedBlockRender } from '@/components/blocks/render/HtmlEmbedBlockRender';
+import { HtmlRenderBlockRender } from '@/components/blocks/render/HtmlRenderBlockRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -127,6 +128,7 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'deck-jump-to': DeckJumpToBlockRender,
   'survey-input': SurveyInputBlockRender,
   'html-embed': HtmlEmbedBlockRender,
+  'html-render': HtmlRenderBlockRender,
 };
 
 let _registry: BlockRegistry | null = null;

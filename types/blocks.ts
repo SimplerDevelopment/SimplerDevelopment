@@ -173,6 +173,14 @@ export interface CodeBlock extends BaseBlock {
   language?: string;
 }
 
+export interface HtmlRenderBlock extends BaseBlock {
+  type: 'html-render';
+  /** Raw HTML markup; rendered directly into the parent DOM (no iframe). */
+  html: string;
+  /** 'full' = span container width, 'contained' = max-width 1024px centered */
+  width?: 'full' | 'contained';
+}
+
 export interface QuoteBlock extends BaseBlock {
   type: 'quote';
   content: string;
@@ -1125,6 +1133,7 @@ export type Block =
   | DividerBlock
   | ColumnsBlock
   | CodeBlock
+  | HtmlRenderBlock
   | QuoteBlock
   | VideoBlock
   | YoutubeBlock

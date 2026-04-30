@@ -29,6 +29,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'video', label: 'Video', icon: 'videocam', category: 'Media', description: 'Embed a video file' },
   { type: 'gallery', label: 'Gallery', icon: 'photo_library', category: 'Media', description: 'Image gallery' },
   { type: 'code', label: 'Code', icon: 'code', category: 'Media', description: 'Code snippet' },
+  { type: 'html-render', label: 'HTML Render', icon: 'data_object', category: 'Media', description: 'Render raw HTML markup directly into the page (no iframe)' },
   { type: 'html-embed', label: 'HTML Embed', icon: 'integration_instructions', category: 'Media', description: 'Upload a custom HTML file rendered inside a sandboxed iframe' },
   { type: 'spacer', label: 'Spacer', icon: 'height', category: 'Layout', description: 'Add vertical space' },
   { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Horizontal line' },
