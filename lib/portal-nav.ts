@@ -39,7 +39,8 @@ export function buildPortalNavItems(
       children: [
         // Calendar is intentionally hidden from sidebar + cmd-k. The page at
         // /portal/brain/calendar still renders for direct URL navigation.
-        { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work', alsoActiveOn: '/portal/brain/prospects', keywords: ['prospects', 'stale', 'overlay'] },
+        // Relationships is intentionally hidden from sidebar + cmd-k. The page
+        // at /portal/brain/relationships still renders for direct URL access.
         { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review', keywords: ['kanban', 'review queue', 'todo', 'communications'] },
         { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book', keywords: ['notes', 'wiki', 'docs'] },
         // Automations is intentionally hidden from sidebar + cmd-k. The page
