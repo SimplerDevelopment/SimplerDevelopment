@@ -14,6 +14,17 @@ interface MediaItem {
   caption?: string | null;
   brandingProfileId?: number | null;
   brandingProfileName?: string | null;
+  version?: number;
+  createdAt: string;
+}
+
+interface MediaVersionEntry {
+  id: number;
+  version: number;
+  filename: string;
+  url: string;
+  fileSize: number;
+  mimeType: string;
   createdAt: string;
 }
 
@@ -58,6 +69,12 @@ export default function PortalMediaPage() {
   const [editCaption, setEditCaption] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [savingDetail, setSavingDetail] = useState(false);
+
+  // Versioning state
+  const [versions, setVersions] = useState<MediaVersionEntry[]>([]);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
@@ -141,6 +158,69 @@ export default function PortalMediaPage() {
     setEditAlt(item.alt || '');
     setEditCaption(item.caption || '');
     setEditMode(false);
+    setVersions([]);
+    setVersionsOpen(false);
+  };
+
+  const loadVersions = async (mediaId: number) => {
+    const res = await fetch(`${base}/${mediaId}/versions`);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success) {
+      setVersions(json.data.history);
+      if (detail && json.data.current) {
+        setDetail({ ...detail, version: json.data.current.version });
+      }
+    }
+  };
+
+  const handleReplaceFile = async (file: File) => {
+    if (!detail) return;
+    setReplacing(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${base}/${detail.id}/replace`, { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        alert(json.message || 'Replace failed');
+        return;
+      }
+      setDetail({
+        ...detail,
+        filename: json.data.filename,
+        url: json.data.url,
+        fileSize: json.data.fileSize,
+        version: json.data.version,
+      });
+      if (versionsOpen) await loadVersions(detail.id);
+      load();
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: number) => {
+    if (!detail) return;
+    if (!confirm('Restore this version? The current file will be moved into history.')) return;
+    const res = await fetch(`${base}/${detail.id}/versions/${versionId}/restore`, { method: 'POST' });
+    if (!res.ok) {
+      alert('Restore failed');
+      return;
+    }
+    const json = await res.json();
+    if (json.success) {
+      setDetail({
+        ...detail,
+        filename: json.data.filename,
+        url: json.data.url,
+        fileSize: json.data.fileSize,
+        mimeType: json.data.mimeType,
+        version: json.data.version,
+      });
+      await loadVersions(detail.id);
+      load();
+    }
   };
 
   const handleSaveDetail = async () => {
@@ -468,13 +548,31 @@ export default function PortalMediaPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-3 border-t border-border">
+              <div className="flex gap-2 pt-3 border-t border-border flex-wrap">
+                <input
+                  ref={replaceInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleReplaceFile(f);
+                    if (replaceInputRef.current) replaceInputRef.current.value = '';
+                  }}
+                />
                 <button
                   onClick={() => copyUrl(detail.url)}
                   className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
                   <span className="material-icons text-base">content_copy</span>
                   Copy URL
+                </button>
+                <button
+                  onClick={() => replaceInputRef.current?.click()}
+                  disabled={replacing}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-foreground border border-border rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  <span className="material-icons text-base">{replacing ? 'refresh' : 'upload_file'}</span>
+                  {replacing ? 'Replacing…' : 'Replace File'}
                 </button>
                 {!editMode && (
                   <button
@@ -490,6 +588,53 @@ export default function PortalMediaPage() {
                 >
                   Delete
                 </button>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <button
+                  onClick={() => {
+                    const next = !versionsOpen;
+                    setVersionsOpen(next);
+                    if (next) loadVersions(detail.id);
+                  }}
+                  className="flex items-center gap-1.5 text-sm text-foreground hover:text-primary transition-colors"
+                >
+                  <span className="material-icons text-base">{versionsOpen ? 'expand_less' : 'expand_more'}</span>
+                  Version history{detail.version ? ` (current: v${detail.version})` : ''}
+                </button>
+                {versionsOpen && (
+                  <div className="mt-3 space-y-2">
+                    {versions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No prior versions yet. Replace the file to start a history.</p>
+                    ) : (
+                      versions.map((v) => (
+                        <div key={v.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-background">
+                          <span className="material-icons text-base text-muted-foreground">history</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">v{v.version} · {v.filename}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(v.fileSize)} · {new Date(v.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <a
+                            href={v.url}
+                            target="_blank"
+                            rel="noopener"
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            View
+                          </a>
+                          <button
+                            onClick={() => handleRestoreVersion(v.id)}
+                            className="text-xs px-2 py-1 rounded border border-border hover:bg-accent transition-colors"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -5328,18 +5328,53 @@ function HtmlEmbedBlockSettings({ block, onChange }: { block: HtmlEmbedBlock; on
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pull siteId out of /portal/websites/<id>/posts/... so newly uploaded HTML
+  // can have its assets imported into the site's media library. Settings panel
+  // is also rendered inside an editor popup that lives on the same path.
+  function detectSiteId(): string | null {
+    if (typeof window === 'undefined') return null;
+    const m = window.location.pathname.match(/\/portal\/websites\/(\d+)/);
+    if (m) return m[1];
+    // Settings popup: try the parent window if same-origin
+    try {
+      const opener = window.opener as Window | null;
+      const parentPath = opener?.location?.pathname;
+      const m2 = parentPath?.match(/\/portal\/websites\/(\d+)/);
+      if (m2) return m2[1];
+    } catch {
+      // cross-origin opener — ignore
+    }
+    return null;
+  }
+
   async function handleFile(file: File) {
     setError(null);
     setUploading(true);
     try {
+      const siteId = detectSiteId();
+      // If we already have a backing media row, version it instead of creating
+      // a new one. Falls back to fresh upload if /replace fails.
+      if (block.mediaId) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`/api/portal/media/${block.mediaId}/replace`, { method: 'POST', body: fd });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          onChange({ url: json.data.url, filename: json.data.filename });
+          return;
+        }
+        // fall through to fresh upload on failure
+      }
+
       const fd = new FormData();
       fd.append('file', file);
+      if (siteId) fd.append('websiteId', siteId);
       const res = await fetch('/api/portal/html-uploads', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Upload failed');
       }
-      onChange({ url: json.data.url, filename: json.data.filename });
+      onChange({ url: json.data.url, filename: json.data.filename, mediaId: json.data.id });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {

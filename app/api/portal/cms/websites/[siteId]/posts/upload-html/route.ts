@@ -5,6 +5,8 @@ import { posts, media } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite, getPortalClient } from '@/lib/portal-client';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { cleanEmbedHtml } from '@/lib/html-embed-clean';
+import { importHtmlAssets } from '@/lib/html-asset-import';
 
 const MAX_HTML_SIZE = 1_000_000; // 1 MB
 const ALLOWED_MIME = new Set(['text/html', 'application/xhtml+xml']);
@@ -65,7 +67,16 @@ export async function POST(
     return NextResponse.json({ success: false, message: `File exceeds ${MAX_HTML_SIZE} bytes` }, { status: 400 });
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  const cleaned = cleanEmbedHtml(rawBuffer.toString('utf8'));
+  const baseUrl = (formData.get('sourceUrl') ?? '').toString() || undefined;
+  const imported = await importHtmlAssets(cleaned, {
+    websiteId: site.id,
+    clientId: client.id,
+    uploadedBy: userId,
+    baseUrl,
+  });
+  const buffer = Buffer.from(imported.html, 'utf8');
   const uploadResult = await uploadToS3(buffer, filename, 'text/html');
 
   await db.insert(media).values({

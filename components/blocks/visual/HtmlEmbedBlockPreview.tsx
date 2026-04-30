@@ -22,10 +22,16 @@ export function HtmlEmbedBlockPreview({ block, onChange }: HtmlEmbedBlockPreview
     try {
       const fd = new FormData();
       fd.append('file', file);
+      // Pass siteId so the upload route can import external assets into the
+      // site's media library and rewrite refs.
+      if (typeof window !== 'undefined') {
+        const m = window.location.pathname.match(/\/portal\/websites\/(\d+)/);
+        if (m) fd.append('websiteId', m[1]);
+      }
       const res = await fetch('/api/portal/html-uploads', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || 'Upload failed');
-      onChange({ url: json.data.url, filename: json.data.filename });
+      onChange({ url: json.data.url, filename: json.data.filename, mediaId: json.data.id });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
