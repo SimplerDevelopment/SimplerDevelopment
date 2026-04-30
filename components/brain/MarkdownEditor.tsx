@@ -27,9 +27,14 @@ import CodeMirror, {
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { indentWithTab, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import { EditorSelection, type ChangeSpec } from '@codemirror/state';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import {
+  brainAutocomplete,
+  defaultBrainAutocompleteFetchers,
+  type BrainAutocompleteFetchers,
+} from './markdown-autocomplete';
 
 export type MarkdownEditorMode = 'edit' | 'preview' | 'split';
 
@@ -45,6 +50,24 @@ export interface MarkdownEditorProps {
   /** Optional storage key override; defaults to `brain.editor.mode`. */
   storageKey?: string;
   className?: string;
+  /**
+   * Override the autocomplete data sources. Defaults to the live portal Brain
+   * APIs. Pass `null` to disable autocomplete (e.g. in admin contexts that
+   * have no brain).
+   */
+  autocompleteFetchers?: BrainAutocompleteFetchers | null;
+  /**
+   * Extra `react-markdown` component overrides applied on top of (and
+   * overriding) the editor's defaults. Lets a caller plug in custom renderers
+   * — most notably the `dataview` code-block override
+   * (see `components/brain/DataviewBlock.tsx`).
+   *
+   * Keys here are merged into the default components map AFTER the defaults,
+   * so any key you provide wins. If you override `code`, you'll usually want
+   * to delegate non-dataview cases back to the default behaviour;
+   * `makeDataviewCodeOverride` does this for you.
+   */
+  extraComponents?: Components;
 }
 
 const DEFAULT_STORAGE_KEY = 'brain.editor.mode';
@@ -159,7 +182,13 @@ const portalEditorTheme = EditorView.theme({
 });
 
 /** Markdown preview body — reuses portal aesthetic without depending on @tailwindcss/typography. */
-function MarkdownPreview({ value }: { value: string }) {
+function MarkdownPreview({
+  value,
+  extraComponents,
+}: {
+  value: string;
+  extraComponents?: Components;
+}) {
   if (!value.trim()) {
     return (
       <div className="text-sm text-muted-foreground italic p-4">
@@ -167,12 +196,10 @@ function MarkdownPreview({ value }: { value: string }) {
       </div>
     );
   }
-  return (
-    <div className="markdown-preview p-4 text-sm leading-relaxed text-foreground">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
-        components={{
+  // Default component map (built once per render). Spread `extraComponents`
+  // last so caller-supplied keys win — the dataview `code` override needs
+  // this precedence to intercept ` ```dataview ` fences.
+  const defaultComponents: Components = {
           h1: ({ children }) => <h1 className="text-2xl font-bold mt-4 mb-2 first:mt-0">{children}</h1>,
           h2: ({ children }) => <h2 className="text-xl font-bold mt-4 mb-2 first:mt-0">{children}</h2>,
           h3: ({ children }) => <h3 className="text-lg font-semibold mt-3 mb-1.5 first:mt-0">{children}</h3>,
@@ -250,7 +277,16 @@ function MarkdownPreview({ value }: { value: string }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} className="max-w-full rounded-md my-2" />
           ),
-        }}
+  };
+  const components: Components = extraComponents
+    ? { ...defaultComponents, ...extraComponents }
+    : defaultComponents;
+  return (
+    <div className="markdown-preview p-4 text-sm leading-relaxed text-foreground">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={components}
       >
         {value}
       </ReactMarkdown>
@@ -300,6 +336,8 @@ export default function MarkdownEditor({
   defaultMode = 'split',
   storageKey = DEFAULT_STORAGE_KEY,
   className,
+  autocompleteFetchers = defaultBrainAutocompleteFetchers,
+  extraComponents,
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<MarkdownEditorMode>(defaultMode);
   const [hydrated, setHydrated] = useState(false);
@@ -393,8 +431,12 @@ export default function MarkdownEditor({
       portalEditorTheme,
       EditorView.contentAttributes.of({ 'aria-label': 'Markdown editor' }),
       editorKeymap,
+      // Obsidian-style autocomplete: [[ for notes, # for tags, @ for CRM,
+      // / for slash commands. Falls back to no-op when fetchers are null
+      // (e.g. admin contexts with no brain).
+      ...(autocompleteFetchers ? [brainAutocomplete(autocompleteFetchers)] : []),
     ];
-  }, [invokeSave]);
+  }, [invokeSave, autocompleteFetchers]);
 
   // On narrow screens, force split → edit (preview stays available via toggle).
   const effectiveMode: MarkdownEditorMode = isNarrow && mode === 'split' ? 'edit' : mode;
@@ -487,7 +529,7 @@ export default function MarkdownEditor({
             data-testid="markdown-editor-preview"
             aria-label="Markdown preview"
           >
-            <MarkdownPreview value={value} />
+            <MarkdownPreview value={value} extraComponents={extraComponents} />
           </div>
         )}
       </div>
