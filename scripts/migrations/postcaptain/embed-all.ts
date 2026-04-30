@@ -19,14 +19,22 @@ interface Args {
   types: string[] | null;
   limit: number | null;
   dryRun: boolean;
+  /** "N/M" — process id N (1-indexed) of total M shards. Each shard processes
+   *  rows where id % M = N-1. Run M instances in parallel; each gets its own
+   *  DB connection so they don't fight over the max=1 pool. */
+  shard: { n: number; m: number } | null;
 }
 
 function parseArgs(): Args {
-  const out: Args = { types: null, limit: null, dryRun: false };
+  const out: Args = { types: null, limit: null, dryRun: false, shard: null };
   for (const arg of process.argv.slice(2)) {
     if (arg.startsWith('--types=')) out.types = arg.slice(8).split(',').map(s => s.trim()).filter(Boolean);
     else if (arg.startsWith('--limit=')) out.limit = parseInt(arg.slice(8), 10);
     else if (arg === '--dry-run') out.dryRun = true;
+    else if (arg.startsWith('--shard=')) {
+      const m = arg.slice(8).match(/^(\d+)\/(\d+)$/);
+      if (m) out.shard = { n: parseInt(m[1], 10), m: parseInt(m[2], 10) };
+    }
   }
   return out;
 }
@@ -48,11 +56,20 @@ async function run() {
   const requestedTypes = args.types
     ? args.types.filter((t): t is EntityType => (ALL_ENTITY_TYPES as readonly string[]).includes(t))
     : ALL_ENTITY_TYPES.filter(t => t !== 'note');
-  console.log(`>> entity types: ${requestedTypes.join(', ')}`);
-  console.log(`>> dry-run=${args.dryRun} limit=${args.limit ?? 'all'}`);
+  const shardLabel = args.shard ? `[shard ${args.shard.n}/${args.shard.m}] ` : '';
+  console.log(`${shardLabel}>> entity types: ${requestedTypes.join(', ')}`);
+  console.log(`${shardLabel}>> dry-run=${args.dryRun} limit=${args.limit ?? 'all'}`);
 
   // Find ids per entity type. Each block needs a client-scoped query that
   // also excludes ids that already have at least one chunk in brain_embeddings.
+  // Shard filter: only process ids where id % M = N-1. Lets multiple
+  // instances run in parallel without stomping on each other.
+  // sql.raw is safe here — args.shard comes from a strict /^\d+\/\d+$/ regex.
+  function shardClause(alias: string) {
+    if (!args.shard) return sql.raw('');
+    return sql.raw(` AND (${alias}.id % ${args.shard.m}) = ${args.shard.n - 1}`);
+  }
+
   async function idsToEmbed(entityType: EntityType): Promise<number[]> {
     const limit = args.limit ?? 100000;
     let rows: Array<{ id: number }> = [];
@@ -61,7 +78,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT n.id FROM brain_notes n
           LEFT JOIN brain_embeddings e ON e.entity_type='note' AND e.entity_id=n.id
-          WHERE n.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE n.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('n')}
           ORDER BY n.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -71,7 +88,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT m.id FROM brain_meetings m
           LEFT JOIN brain_embeddings e ON e.entity_type='meeting' AND e.entity_id=m.id
-          WHERE m.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE m.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('m')}
           ORDER BY m.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -81,7 +98,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT t.id FROM brain_tasks t
           LEFT JOIN brain_embeddings e ON e.entity_type='task' AND e.entity_id=t.id
-          WHERE t.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE t.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('t')}
           ORDER BY t.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -91,7 +108,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT r.id FROM brain_relationship_overlays r
           LEFT JOIN brain_embeddings e ON e.entity_type='relationship' AND e.entity_id=r.id
-          WHERE r.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE r.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('r')}
           ORDER BY r.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -101,7 +118,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT c.id FROM crm_companies c
           LEFT JOIN brain_embeddings e ON e.entity_type='company' AND e.entity_id=c.id
-          WHERE c.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE c.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('c')}
           ORDER BY c.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -111,7 +128,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT c.id FROM crm_contacts c
           LEFT JOIN brain_embeddings e ON e.entity_type='contact' AND e.entity_id=c.id
-          WHERE c.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE c.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('c')}
           ORDER BY c.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -121,7 +138,7 @@ async function run() {
         const r = await db.execute<{ id: number }>(sql`
           SELECT d.id FROM crm_deals d
           LEFT JOIN brain_embeddings e ON e.entity_type='deal' AND e.entity_id=d.id
-          WHERE d.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL
+          WHERE d.client_id=${POST_CAPTAIN_CLIENT_ID} AND e.id IS NULL${shardClause('d')}
           ORDER BY d.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -133,7 +150,7 @@ async function run() {
           SELECT p.id FROM posts p
           JOIN client_websites w ON w.id = p.website_id AND w.client_id = ${POST_CAPTAIN_CLIENT_ID}
           LEFT JOIN brain_embeddings e ON e.entity_type='post' AND e.entity_id=p.id
-          WHERE e.id IS NULL
+          WHERE e.id IS NULL${shardClause('p')}
           ORDER BY p.id LIMIT ${limit}
         `);
         rows = r as unknown as Array<{ id: number }>;
@@ -155,7 +172,7 @@ async function run() {
   for (const t of requestedTypes) {
     const ids = await idsToEmbed(t);
     summary[t] = { count: ids.length, succeeded: 0, failed: 0, chunks: 0, tokens: 0 };
-    console.log(`>> ${t}: ${ids.length} to embed`);
+    console.log(`${shardLabel}>> ${t}: ${ids.length} to embed`);
     if (args.dryRun || ids.length === 0) continue;
 
     let processed = 0;
@@ -178,7 +195,7 @@ async function run() {
       }
       processed += slice.length;
       if (Date.now() - lastReport > 5000 || i + BATCH >= ids.length) {
-        console.log(`     ${processed}/${ids.length} (${summary[t].chunks} chunks, ${summary[t].tokens.toLocaleString()} tokens)`);
+        console.log(`${shardLabel}     ${processed}/${ids.length} (${summary[t].chunks} chunks, ${summary[t].tokens.toLocaleString()} tokens)`);
         lastReport = Date.now();
       }
     }
