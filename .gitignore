@@ -64,3 +64,10 @@ _tmp-*
 **/_tmp-*
 editor-snapshot.md
 audit-verify-*
+
+# Probe / compare / inspect debug artifacts (per CLAUDE.md)
+scripts/_*
+public/_cmp*
+public/_cmp/
+.planning/postcaptain-replication/_probe-*.mjs
+.planning/postcaptain-replication/probe-*.mjs
