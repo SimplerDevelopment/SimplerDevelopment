@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import MarkdownEditor from '@/components/brain/MarkdownEditor';
 
 interface BrainNote {
   id: number;
@@ -529,6 +530,7 @@ function NoteForm({
   const [pinned, setPinned] = useState(note?.pinned ?? false);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const tagSuggestions = useMemo(() => {
     if (!tagInput.trim()) return [];
@@ -556,8 +558,13 @@ function NoteForm({
     onSave({ title: title.trim(), body, tags, relationshipOverlayId, confidentialityLevel, pinned }, file);
   };
 
+  // Cmd/Ctrl+S inside the editor → submit the surrounding form via requestSubmit (preserves validation).
+  const handleEditorSave = useCallback(() => {
+    formRef.current?.requestSubmit();
+  }, []);
+
   return (
-    <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4 shadow-xl">
+    <form ref={formRef} onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 space-y-4 shadow-xl">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">{note ? 'Edit note' : 'New note'}</h2>
         <button type="button" onClick={onCancel} className="p-1 text-muted-foreground hover:text-foreground">
@@ -579,12 +586,13 @@ function NoteForm({
 
       <div>
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Body</label>
-        <textarea
+        <MarkdownEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={6}
-          placeholder="Markdown supported."
-          className="mt-1 w-full px-3 py-2 rounded-md border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+          onChange={setBody}
+          onSave={handleEditorSave}
+          placeholder="Markdown supported. **bold**, *italic*, `code`, > quote, - list, [link](url)"
+          minHeight={300}
+          defaultMode="split"
         />
       </div>
 
