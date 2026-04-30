@@ -75,6 +75,10 @@ export default defineConfig({
           //   global-setup drops orphans from crashed runs at startup.
           //   scripts/cleanup-test-schemas.ts sweeps manually.
           maxWorkers: 2,
+          // Vitest 4.x requires a unique `sequence.groupOrder` for projects
+          // that override `maxWorkers`; otherwise startup fails with
+          // "different 'maxWorkers' but same 'sequence.groupOrder'".
+          sequence: { groupOrder: 1 },
           hookTimeout: 120_000,
           testTimeout: 15_000,
         },
