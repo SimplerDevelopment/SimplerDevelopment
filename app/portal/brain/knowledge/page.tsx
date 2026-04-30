@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarkdownEditor from '@/components/brain/MarkdownEditor';
+import { makeDataviewCodeOverride } from '@/components/brain/DataviewBlock';
 
 interface BrainNote {
   id: number;
@@ -549,6 +550,14 @@ function NoteForm({
     return allTags.filter(t => t.toLowerCase().includes(tagInput.toLowerCase().trim()) && !tags.includes(t));
   }, [tagInput, allTags, tags]);
 
+  // Plug the dataview code-block override into the editor's preview so
+  // ` ```dataview { ... } ` fences render as live tables. Memoised so the
+  // editor's components map identity is stable across renders.
+  const editorExtraComponents = useMemo(
+    () => ({ code: makeDataviewCodeOverride() }),
+    [],
+  );
+
   const addTag = (t: string) => {
     const v = t.trim();
     if (!v || tags.includes(v)) return;
@@ -605,6 +614,7 @@ function NoteForm({
           placeholder="Markdown supported. **bold**, *italic*, `code`, > quote, - list, [link](url)"
           minHeight={300}
           defaultMode="split"
+          extraComponents={editorExtraComponents}
         />
       </div>
 
