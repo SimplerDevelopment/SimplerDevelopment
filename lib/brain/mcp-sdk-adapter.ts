@@ -59,6 +59,15 @@ function json(payload: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
 }
 
+// MCP clients are off-origin (Claude Desktop, etc.), so relative paths like
+// /portal/brain/knowledge are useless to them. Absolutize against the public
+// portal origin before returning.
+const PORTAL_BASE_URL = (process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com').replace(/\/$/, '');
+function absolutizeUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${PORTAL_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 function denied(scope: string) {
   return {
     content: [{ type: 'text' as const, text: `Permission denied: this API key lacks the "${scope}" scope.` }],
@@ -96,7 +105,10 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         types: args.types,
         limit: args.limit,
       });
-      return json(out);
+      return json({
+        ...out,
+        hits: out.hits.map((h) => ({ ...h, url: absolutizeUrl(h.url) })),
+      });
     },
   );
 
