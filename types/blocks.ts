@@ -832,6 +832,8 @@ export interface HtmlEmbedBlock extends BaseBlock {
   url: string;
   /** Original filename (display only) */
   filename?: string;
+  /** ID of the backing media row — when present, re-uploads version the same row instead of creating a new one. */
+  mediaId?: number;
   /** Iframe height — any CSS unit (e.g. "600px", "100vh"). Default "600px". */
   height?: string;
   /** 'full' = span container width, 'contained' = max-width 1024px centered */

@@ -198,12 +198,30 @@ export const media = pgTable('media', {
   thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
   alt: text('alt'),
   caption: text('caption'),
+  // Bumped on every replace; prior states live in media_versions.
+  version: integer('version').default(1).notNull(),
   uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }), // null = admin-only media
   websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }), // shared across services using same branding
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Snapshots of prior media states — written on /replace + /restore so that
+// any version can be restored without losing the bytes. Restore copies the
+// snapshot back onto `media` and pushes the just-replaced state as a new row.
+export const mediaVersions = pgTable('media_versions', {
+  id: serial('id').primaryKey(),
+  mediaId: integer('media_id').notNull().references(() => media.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  filename: varchar('filename', { length: 255 }).notNull(),
+  storedFilename: varchar('stored_filename', { length: 255 }).notNull(),
+  mimeType: varchar('mime_type', { length: 100 }).notNull(),
+  fileSize: integer('file_size').notNull(),
+  url: varchar('url', { length: 500 }).notNull(),
+  uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // ─── CLIENT PORTAL ────────────────────────────────────────────────────────────
