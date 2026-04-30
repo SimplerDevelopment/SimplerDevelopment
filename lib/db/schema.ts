@@ -1044,6 +1044,14 @@ export interface PitchDeckTheme {
    * and rules that need to span every slide.
    */
   customCss?: string;
+  /**
+   * Show the "01/12" slide counter overlay in the top-left of the
+   * presentation. Defaults to true (counter shown). Set to false for decks
+   * where slide chrome would clash with full-bleed content (e.g. uploaded
+   * HTML decks). Auto-overridden to false on any slide whose content is a
+   * single full-width html-embed block.
+   */
+  showSlideNumber?: boolean;
 }
 
 export const pitchDecks = pgTable('pitch_decks', {

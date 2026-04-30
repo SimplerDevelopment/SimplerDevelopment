@@ -78,10 +78,9 @@ export default defineConfig({
           // Vitest 4.x requires a unique `sequence.groupOrder` for projects
           // that override `maxWorkers`; otherwise startup fails with
           // "different 'maxWorkers' but same 'sequence.groupOrder'".
-          sequence: { groupOrder: 1 },
+          sequence: { groupOrder: 2 },
           hookTimeout: 120_000,
           testTimeout: 15_000,
-          sequence: { groupOrder: 2 },
         },
       },
     ],
