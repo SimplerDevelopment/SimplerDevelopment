@@ -37,14 +37,12 @@ Multi-tenant SaaS platform: admin + client portal + per-tenant client websites +
 | New MCP tool | `simplerdev-mcp-tool` (handler + schema + scope guard registered in lockstep) |
 | New client site from a URL | `site-migration` |
 | Block-editor audit | `block-orchestrator` to drive, `block-implementer` for one-off fixes |
-| Phase planning / execution | GSD skills (`/gsd-plan-phase`, `/gsd-execute-phase`). `.planning/` is the GSD source of truth |
 | E2E test authoring | `/e2e-writer`. Running existing E2E: `/e2e-runner`. Visual QA: `/qa` |
 | Visual diff (port verification) | `/visual-compare` |
 
 ## Don't-touch zones
 
 - `drizzle/*.sql` — generated only; edit `lib/db/schema.ts`, then `bun run db:generate`
-- `.planning/STATE.md`, `.planning/ROADMAP.md`, `.planning/MILESTONES.md` — owned by GSD skills, do not hand-edit outside them
 - `bun.lock` — package changes go through `bun add` / `bun remove`
 - `worktree-agent-*` branches — created by isolated agents in other sessions; never delete from here
 - Repo-root debug artifacts (`*.png`, `_tmp-*.cjs`, `editor-snapshot.md`, `audit-verify-*.png`, `edit-*.png`, `editor-*.png`) — stale; do not Read them, do not commit new ones (use `docs/screenshots/` if needed)
@@ -57,13 +55,16 @@ Multi-tenant SaaS platform: admin + client portal + per-tenant client websites +
 - **Material Icons over emojis** in any rendered UI.
 - **Crosscap migrations:** auto-derive client email from domain as `{sitename}@simplerdevelopment.com`.
 
-## Pointers (loaded on demand via `@`)
+## Pointers (read on demand — `@`-mention to import)
 
-- @DATABASE.md — Drizzle setup + posts/categories/tags REST API
-- @BLOCK_EDITOR_GUIDE.md — block JSON schema, examples, troubleshooting (load when working in `lib/blocks/`)
-- @USER_MANAGEMENT.md — auth and roles
-- @HOME_PAGE_FEATURES.md — public marketing surface
-- @tests/TESTING_PLAN.md — what each test layer is responsible for
+These are reference docs. Don't read them speculatively; only when the task touches the area.
+
+- `DATABASE.md` — Drizzle setup + posts/categories/tags REST API
+- `BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting (read when working in `lib/blocks/`)
+- `USER_MANAGEMENT.md` — auth and roles
+- `tests/TESTING_PLAN.md` — what each test layer is responsible for
+- `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
+- `.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the hands-off / "code while I sleep" workflow
 
 ## Vendored skills
 
