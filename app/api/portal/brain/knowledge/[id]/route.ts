@@ -59,7 +59,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ success: false, message: 'Invalid note id' }, { status: 400 });
   }
 
-  const ok = await deleteNote(result.client.id, noteId, result.userId);
-  if (!ok) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-  return NextResponse.json({ success: true });
+  try {
+    const ok = await deleteNote(result.client.id, noteId, result.userId);
+    if (!ok) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('[brain.knowledge] delete failed', { noteId, clientId: result.client.id, err });
+    const message = err instanceof Error ? err.message : 'Delete failed';
+    return NextResponse.json({ success: false, message }, { status: 500 });
+  }
 }
