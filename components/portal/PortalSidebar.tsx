@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { signOut, useSession } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -185,7 +185,6 @@ function isChildActive(children: NavChild[] | undefined, pathname: string): bool
 }
 
 export default function PortalSidebar() {
-  const { status } = useSession();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -297,8 +296,6 @@ export default function PortalSidebar() {
   const toggleSection = (href: string) => {
     setExpandedSections(prev => ({ ...prev, [href]: !prev[href] }));
   };
-
-  if (status !== 'authenticated') return null;
 
   const toggleOpen = () => {
     const next = !isOpen;
