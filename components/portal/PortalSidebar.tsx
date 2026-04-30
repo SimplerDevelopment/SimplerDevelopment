@@ -52,6 +52,33 @@ function isChildActive(children: NavChild[] | undefined, pathname: string): bool
   return children.some(c => isItemActive(c, pathname) || isChildActive(c.children, pathname));
 }
 
+// Walk the nav tree to find the path from the root down to `targetHref`,
+// returning the list of hrefs along that chain (inclusive). Powers accordion
+// toggling — opening a node sets only its ancestor chain expanded.
+function findAncestorChain(items: NavChild[], targetHref: string): string[] | null {
+  for (const item of items) {
+    if (item.href === targetHref) return [item.href];
+    if (item.children) {
+      const sub = findAncestorChain(item.children, targetHref);
+      if (sub) return [item.href, ...sub];
+    }
+  }
+  return null;
+}
+
+// Walk the nav tree following the active branch (parents whose children
+// match the current pathname). Returns the chain of group hrefs that should
+// be expanded for the active route.
+function activeExpandChain(items: NavChild[], pathname: string): string[] {
+  for (const item of items) {
+    if (!item.children) continue;
+    if (isItemActive(item, pathname) || isChildActive(item.children, pathname)) {
+      return [item.href, ...activeExpandChain(item.children, pathname)];
+    }
+  }
+  return [];
+}
+
 export default function PortalSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
@@ -106,28 +133,15 @@ export default function PortalSidebar() {
     return () => { cancelled = true; clearInterval(t); };
   }, [pathname]);
 
-  // Auto-expand sections based on active route
+  // Accordion auto-expand: on route change, expand only the active chain
+  // and collapse every other branch. Manual toggles below stay accordion-y.
   useEffect(() => {
     const items = buildPortalNavItems(activeSiteId, activeSiteName);
-    const newExpanded: Record<string, boolean> = { ...expandedSections };
-    const autoExpand = (list: NavChild[]) => {
-      for (const item of list) {
-        if (item.children && (isItemActive(item, pathname) || isChildActive(item.children, pathname))) {
-          newExpanded[item.href] = true;
-          autoExpand(item.children);
-        }
-      }
-    };
-    for (const item of items) {
-      if (item.children && (isItemActive(item, pathname) || isChildActive(item.children, pathname))) {
-        newExpanded[item.href] = true;
-        autoExpand(item.children);
-      }
-    }
-    setExpandedSections(newExpanded);
-    // Only auto-expand on route change, not on every expandedSections change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, activeSiteId]);
+    const chain = activeExpandChain(items, pathname);
+    const next: Record<string, boolean> = {};
+    for (const h of chain) next[h] = true;
+    setExpandedSections(next);
+  }, [pathname, activeSiteId, activeSiteName]);
 
   // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
@@ -152,7 +166,29 @@ export default function PortalSidebar() {
   };
 
   const toggleSection = (href: string) => {
-    setExpandedSections(prev => ({ ...prev, [href]: !prev[href] }));
+    setExpandedSections(prev => {
+      const wasExpanded = !!prev[href];
+      const chain = findAncestorChain(navItems, href);
+      if (!chain) {
+        // Fallback if href isn't found in the tree (e.g. injected service).
+        return { ...prev, [href]: !prev[href] };
+      }
+      if (wasExpanded) {
+        // Collapse this group and any descendants. Keep ancestors open so
+        // collapsing a sub-group doesn't also close its parent.
+        const ancestors = new Set(chain.slice(0, -1));
+        const next: Record<string, boolean> = {};
+        for (const k of Object.keys(prev)) {
+          if (prev[k] && ancestors.has(k)) next[k] = true;
+        }
+        return next;
+      }
+      // Expanding: keep only this node's chain. Every sibling branch and
+      // unrelated open group collapses (accordion behavior).
+      const next: Record<string, boolean> = {};
+      for (const h of chain) next[h] = true;
+      return next;
+    });
   };
 
   const toggleOpen = () => {
