@@ -81,6 +81,7 @@ export default defineConfig({
           sequence: { groupOrder: 1 },
           hookTimeout: 120_000,
           testTimeout: 15_000,
+          sequence: { groupOrder: 2 },
         },
       },
     ],
