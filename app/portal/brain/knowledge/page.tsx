@@ -410,7 +410,12 @@ function NoteCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             {note.pinned && <span className="material-icons text-sm text-amber-500" title="Pinned">push_pin</span>}
-            <h3 className="font-semibold text-foreground truncate">{note.title}</h3>
+            <Link
+              href={`/portal/brain/knowledge/${note.id}`}
+              className="font-semibold text-foreground truncate hover:text-primary transition-colors"
+            >
+              {note.title}
+            </Link>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CONFIDENTIALITY_BADGE[note.confidentialityLevel]}`}>
               {note.confidentialityLevel}
             </span>
@@ -444,10 +449,17 @@ function NoteCard({
           >
             <span className="material-icons text-base">{note.pinned ? 'push_pin' : 'pin'}</span>
           </button>
+          <Link
+            href={`/portal/brain/knowledge/${note.id}`}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent inline-flex items-center justify-center"
+            title="Open detail view"
+          >
+            <span className="material-icons text-base">open_in_new</span>
+          </Link>
           <button
             onClick={onEdit}
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
-            title="Edit"
+            title="Quick edit"
           >
             <span className="material-icons text-base">edit</span>
           </button>
