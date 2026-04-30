@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains } from '@/lib/db/schema';
-import { eq, and, or, asc, isNull } from 'drizzle-orm';
+import { eq, and, asc, isNull } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
   // Try exact match on the legacy primary-domain column first
@@ -40,10 +40,14 @@ export async function getClientWebsiteByDomain(domain: string) {
 }
 
 export async function getClientPage(websiteId: number, slug: string, preview = false) {
+  // Match any post type — pages, blog posts, and any custom post type
+  // (solution, service, case-study, guide, portal-demo, …) can all live at
+  // /<slug>. The slug is the full URL path (e.g. "solution/admissions") for
+  // CPTs whose WordPress URLs include a type prefix; this preserves the
+  // original site structure when mirroring.
   const conditions = [
     eq(posts.websiteId, websiteId),
     eq(posts.slug, slug),
-    or(eq(posts.postType, 'page'), eq(posts.postType, 'blog')),
   ];
   if (!preview) conditions.push(eq(posts.published, true));
 
