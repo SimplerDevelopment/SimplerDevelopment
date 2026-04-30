@@ -131,6 +131,7 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
                     slide={slide}
                     theme={deck.theme}
                     className="w-full h-full"
+                    fullBleed={slide.blocks?.length === 1 && slide.blocks[0].type === 'html-embed' && (slide.blocks[0].width ?? 'full') === 'full'}
                   />
                 </div>
               </div>
@@ -217,6 +218,7 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
                       slide={nextSlide}
                       theme={deck.theme}
                       className="w-full h-full"
+                      fullBleed={nextSlide.blocks?.length === 1 && nextSlide.blocks[0].type === 'html-embed' && (nextSlide.blocks[0].width ?? 'full') === 'full'}
                     />
                   </div>
                 </div>

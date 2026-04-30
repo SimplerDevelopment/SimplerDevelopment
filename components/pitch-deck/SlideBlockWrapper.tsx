@@ -10,13 +10,19 @@ interface SlideBlockWrapperProps {
   className?: string;
   /** When true (live viewer / presenter), drop the vertical padding around block content. */
   presentation?: boolean;
+  /**
+   * When true, render the block content edge-to-edge with no horizontal max-width
+   * or padding. Used for slides that contain a single full-width html-embed block
+   * so the embedded HTML can occupy the full viewport.
+   */
+  fullBleed?: boolean;
 }
 
 /**
  * Renders a pitch deck slide's blocks wrapped with the deck's theme styling.
  * Used in both the editor preview and the presentation viewer.
  */
-export function SlideBlockWrapper({ slide, theme, className, presentation = false }: SlideBlockWrapperProps) {
+export function SlideBlockWrapper({ slide, theme, className, presentation = false, fullBleed = false }: SlideBlockWrapperProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const content = JSON.stringify({
     blocks: slide.blocks,
@@ -109,8 +115,12 @@ export function SlideBlockWrapper({ slide, theme, className, presentation = fals
         }}
       >
         <div
-          className={`w-full max-w-6xl mx-auto px-12 md:px-20 ${presentation ? 'py-0' : 'py-12'}`}
-          style={{ marginTop: 'auto', marginBottom: 'auto' }}
+          className={
+            fullBleed
+              ? 'w-full'
+              : `w-full max-w-6xl mx-auto px-12 md:px-20 ${presentation ? 'py-0' : 'py-12'}`
+          }
+          style={fullBleed ? undefined : { marginTop: 'auto', marginBottom: 'auto' }}
         >
           <BlockRenderer content={content} />
         </div>

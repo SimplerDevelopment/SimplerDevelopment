@@ -641,6 +641,22 @@ export async function GET() {
       ],
     },
     {
+      type: 'html-embed',
+      name: 'HTML Embed',
+      description: 'Upload a custom HTML file and render it inside a sandboxed iframe',
+      icon: 'code',
+      category: 'media',
+      inputs: [
+        { name: 'url', type: 'string', required: true, description: 'URL of the uploaded HTML file (use the upload control in settings)' },
+        { name: 'filename', type: 'string', description: 'Original filename (display only)' },
+        { name: 'height', type: 'string', default: '600px', description: 'Iframe height (any CSS unit)' },
+        { name: 'width', type: 'select', options: ['full', 'contained'], default: 'full', description: 'Span container width or constrain to a centered max-width' },
+        { name: 'sandbox', type: 'select', options: ['strict', 'scripts', 'scripts-forms'], default: 'scripts', description: 'Iframe sandbox preset (strict = no scripts; scripts = recommended; scripts-forms = scripts + forms + popups). allow-same-origin is intentionally never granted.' },
+        { name: 'iframeTitle', type: 'string', description: 'Accessibility title for the iframe' },
+        { name: 'caption', type: 'string', description: 'Optional caption rendered below the iframe' },
+      ],
+    },
+    {
       type: 'survey-results',
       name: 'Survey Results',
       description: 'Charts and aggregations of survey responses',

@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import ApiKeysManager from '@/components/portal/ApiKeysManager';
+import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
 
 export default async function PortalCmsDashboardPage({
   params,
@@ -61,6 +62,7 @@ export default async function PortalCmsDashboardPage({
           {!site.subdomain && site.domain && <p className="text-muted-foreground font-mono text-sm mt-1">{site.domain}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <UploadHtmlPageButton siteId={site.id} />
           <Link
             href={`/portal/websites/${site.id}/posts/new`}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"

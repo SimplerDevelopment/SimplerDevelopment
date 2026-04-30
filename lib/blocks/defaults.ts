@@ -282,6 +282,17 @@ export function createDefaultBlock(
     case 'palizzi-footer':
       return { ...base, type: 'palizzi-footer', marqueeImage: '', columns: [], bottomText: '' };
 
+    // ── HTML embed ────────────────────────────────────────────────────────────
+    case 'html-embed':
+      return {
+        ...base, type: 'html-embed',
+        url: '',
+        height: '600px',
+        width: 'full',
+        sandbox: 'scripts',
+        iframeTitle: 'Embedded HTML content',
+      };
+
     default: {
       // TypeScript exhaustiveness guard — should never reach here for known types.
       const _exhaustive: never = type;

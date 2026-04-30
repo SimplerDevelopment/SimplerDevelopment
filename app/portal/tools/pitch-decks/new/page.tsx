@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
+import UploadHtmlDeckButton from '@/components/portal/UploadHtmlDeckButton';
 
 export default function NewPitchDeckPage() {
   const router = useRouter();
@@ -88,6 +89,16 @@ export default function NewPitchDeckPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Describe what you need and let AI generate a professional pitch deck
         </p>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Already have an HTML deck?</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Upload a single .html file and we&apos;ll wrap it in a one-slide deck.
+          </p>
+        </div>
+        <UploadHtmlDeckButton />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">

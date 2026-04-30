@@ -74,15 +74,20 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
     for (const field of questionFields) {
       result.push({ kind: 'survey-question', surveyId: survey.id, field, surveyTitle: survey.title });
     }
-    result.push({
-      kind: 'survey-thanks', surveyId: survey.id,
-      thankYouTitle: survey.thankYouTitle || 'Thank you!',
-      thankYouMessage: survey.thankYouMessage || '',
-    });
     // Source of truth: survey.recommendation. Falls back to the legacy
     // slide-level field for decks created before migration 0049 — once those
     // are backfilled the fallback can be removed.
     const recommendation = survey.recommendation ?? slide.surveyRecommendation;
+    // Skip the standalone thank-you slide when a recommendation is configured
+    // — the recommendation slide is itself the post-submit landing screen, so
+    // a "Got it." interstitial just adds a redundant click.
+    if (!recommendation) {
+      result.push({
+        kind: 'survey-thanks', surveyId: survey.id,
+        thankYouTitle: survey.thankYouTitle || 'Thank you!',
+        thankYouMessage: survey.thankYouMessage || '',
+      });
+    }
     if (recommendation) {
       result.push({
         kind: 'survey-recommendation',
@@ -93,6 +98,19 @@ function expandSlide(slide: PitchDeckSlideV2, surveys: Record<number, SurveyData
     return result;
   }
   return [{ kind: 'block', slide }];
+}
+
+/**
+ * A "full-bleed HTML slide" is one that contains exactly one html-embed block
+ * configured to span the full slide width. We auto-suppress the deck chrome
+ * (slide counter, default content padding) on these slides so the uploaded
+ * HTML can take over the viewport.
+ */
+function isFullBleedHtmlSlide(slide: PitchDeckSlideV2): boolean {
+  if (!slide.blocks || slide.blocks.length !== 1) return false;
+  const block = slide.blocks[0];
+  if (block.type !== 'html-embed') return false;
+  return (block.width ?? 'full') === 'full';
 }
 
 export default function PitchDeckPresentation({ slides, theme, title, isDraft, surveys = {}, branding }: Props) {
@@ -120,39 +138,44 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   const [decisionChoices, setDecisionChoices] = useState<Record<string, string>>({});
   const [pendingAdvance, setPendingAdvance] = useState(false);
 
-  // Pre-compute path group slide maps
-  const pathGroupSlides = useMemo(() => {
-    const groups: Record<string, VirtualSlide[]> = {};
+  // Group raw slides by pathGroup so we can recursively inject sub-paths
+  // when a nested decision slide is chosen (e.g. welcome → "direct" path
+  // → offering-selection → specific-offering detail).
+  const slidesByPath = useMemo(() => {
+    const groups: Record<string, PitchDeckSlideV2[]> = {};
     for (const slide of slides) {
       if (slide.pathGroup) {
-        if (!groups[slide.pathGroup]) groups[slide.pathGroup] = [];
-        groups[slide.pathGroup].push(...expandSlide(slide, surveys));
+        groups[slide.pathGroup] ??= [];
+        groups[slide.pathGroup].push(slide);
       }
     }
     return groups;
-  }, [slides, surveys]);
+  }, [slides]);
 
-  // Build the active virtual slide sequence
+  // Build the active virtual slide sequence. Walks each main slide and, on
+  // any decision slide where a choice has been made, recursively injects the
+  // chosen path's slides — including any nested decisions on those slides.
   const virtualSlides = useMemo(() => {
     const result: VirtualSlide[] = [];
-    // Main sequence = slides without a pathGroup
-    const mainSlides = slides.filter(s => !s.pathGroup);
 
-    for (let i = 0; i < mainSlides.length; i++) {
-      const slide = mainSlides[i];
+    function walk(slide: PitchDeckSlideV2) {
       const expanded = expandSlide(slide, surveys);
       result.push(...expanded);
-
-      // If this is a decision slide and a choice has been made, inject that path's slides
       if (slide.decisionSlide && slide.decisionOptions?.length) {
         const chosenPath = decisionChoices[slide.id];
-        if (chosenPath && pathGroupSlides[chosenPath]) {
-          result.push(...pathGroupSlides[chosenPath]);
+        if (chosenPath && slidesByPath[chosenPath]) {
+          for (const pathSlide of slidesByPath[chosenPath]) {
+            walk(pathSlide);
+          }
         }
       }
     }
+
+    for (const slide of slides.filter(s => !s.pathGroup)) {
+      walk(slide);
+    }
     return result;
-  }, [slides, surveys, decisionChoices, pathGroupSlides]);
+  }, [slides, surveys, decisionChoices, slidesByPath]);
 
   // Filter visible slides (survey conditional logic)
   const visibleSlideIndices = useMemo(() => {
@@ -410,10 +433,14 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           </div>
         )}
 
-        {/* Slide counter */}
-        <div className="absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: theme.bodyFont }}>
-          {String(current + 1).padStart(2, '0')}/{String(visibleCount).padStart(2, '0')}
-        </div>
+        {/* Slide counter — suppressed when the deck opts out via theme.showSlideNumber=false
+            or when the current slide is a single full-bleed html-embed (auto-stripped chrome). */}
+        {theme.showSlideNumber !== false &&
+          !(currentVS?.kind === 'block' && isFullBleedHtmlSlide(currentVS.slide)) && (
+          <div className="absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: theme.bodyFont }}>
+            {String(current + 1).padStart(2, '0')}/{String(visibleCount).padStart(2, '0')}
+          </div>
+        )}
 
         {/* Navigation hint */}
         {current === 0 && currentVS?.kind === 'block' && (
@@ -492,6 +519,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               theme={theme}
               className="min-h-screen w-full flex items-center justify-center"
               presentation
+              fullBleed={isFullBleedHtmlSlide(currentVS.slide)}
             />
           )}
 
@@ -501,6 +529,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
               options={currentVS.options}
               theme={theme}
               onChoose={handleDecisionChoice}
+              cover={currentVS.slide.decisionCover}
             />
           )}
 

@@ -231,12 +231,16 @@ function SlidePreviewInner() {
     );
   }
 
-  // Preview mode: use the actual SlideBlockWrapper for pixel-perfect match with live view
+  // Preview mode: use the actual SlideBlockWrapper for pixel-perfect match with live view.
+  // Mirror the live presentation's auto-full-bleed for single full-width html-embed slides.
+  const blockOnly = previewBlocks.length === 1 ? previewBlocks[0] : null;
+  const isFullBleedHtml = blockOnly?.type === 'html-embed' && (blockOnly.width ?? 'full') === 'full';
   const previewBody = (
     <SlideBlockWrapper
       slide={virtualSlide}
       theme={theme}
       className="min-h-screen w-full flex items-center justify-center"
+      fullBleed={isFullBleedHtml}
     />
   );
   return (

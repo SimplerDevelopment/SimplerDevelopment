@@ -51,6 +51,7 @@ import { TeamFlipGridBlockPreview } from './TeamFlipGridBlockPreview';
 import { BentoGridBlockPreview } from './BentoGridBlockPreview';
 import { SiteFooterBlockPreview } from './SiteFooterBlockPreview';
 import { BookingMenuBlockPreview } from './BookingMenuBlockPreview';
+import { HtmlEmbedBlockPreview } from './HtmlEmbedBlockPreview';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -233,6 +234,8 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <SiteFooterBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'booking-menu':
       return <BookingMenuBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'html-embed':
+      return <HtmlEmbedBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

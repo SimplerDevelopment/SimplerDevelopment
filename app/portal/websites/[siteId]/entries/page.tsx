@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import ContentList from '../ContentList';
+import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
 
 export default async function PortalCmsEntriesPage({
   params,
@@ -60,6 +61,7 @@ export default async function PortalCmsEntriesPage({
             <span className="material-icons text-base">calendar_month</span>
             Calendar
           </Link>
+          <UploadHtmlPageButton siteId={site.id} />
           <Link
             href={`/portal/websites/${site.id}/posts/new`}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"

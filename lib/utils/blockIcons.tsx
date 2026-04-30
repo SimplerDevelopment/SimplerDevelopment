@@ -37,6 +37,7 @@ import {
   TextCursorInput,
   ArrowRight,
   CornerDownRight,
+  FileCode2,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -120,6 +121,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'deck-jump-to': CornerDownRight,
   'survey-input': TextCursorInput,
   'sticky-scroll-tabs': NotebookTabs,
+  'html-embed': FileCode2,
 };
 
 /**

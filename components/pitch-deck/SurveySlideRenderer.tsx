@@ -293,32 +293,44 @@ function renderSlideField(
       );
 
     case 'radio':
+      // Letter-badge style (A, B, C, D) on the left of each option, matching
+      // the TF2 Qualifier v4 quiz design. The badge is a soft accent-tinted
+      // square by default and flips to a filled accent when selected.
       return (
-        <div className="space-y-3">
-          {field.options.map(opt => {
+        <div className="space-y-2.5">
+          {field.options.map((opt, idx) => {
             const selected = answers[field.id] === opt;
+            const letter = String.fromCharCode(65 + idx); // 0 → A, 1 → B, ...
             return (
               <button
                 key={opt}
                 type="button"
                 onClick={() => onAnswer(field.id, opt)}
-                className="w-full text-left px-5 py-3.5 rounded-lg border-2 transition-all flex items-center gap-3"
+                className="w-full text-left px-5 py-3.5 rounded-lg border-2 transition-all flex items-start gap-3.5"
                 style={{
                   fontFamily: theme.bodyFont,
                   color: theme.textColor,
-                  borderColor: selected ? theme.accentColor : `${theme.textColor}20`,
-                  backgroundColor: selected ? `${theme.accentColor}15` : 'transparent',
+                  borderColor: selected ? theme.accentColor : `${theme.textColor}1a`,
+                  backgroundColor: selected ? `${theme.accentColor}12` : 'transparent',
                 }}
               >
-                <div
-                  className="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center"
-                  style={{ borderColor: selected ? theme.accentColor : `${theme.textColor}40` }}
+                <span
+                  className="shrink-0 inline-flex items-center justify-center font-black transition-all"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 7,
+                    fontSize: 11,
+                    fontFamily: theme.bodyFont,
+                    letterSpacing: 1,
+                    backgroundColor: selected ? theme.accentColor : `${theme.accentColor}1f`,
+                    color: selected ? theme.backgroundColor : theme.accentColor,
+                    marginTop: 1,
+                  }}
                 >
-                  {selected && (
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: theme.accentColor }} />
-                  )}
-                </div>
-                <span className="text-base">{opt}</span>
+                  {letter}
+                </span>
+                <span className="text-base leading-relaxed">{opt}</span>
               </button>
             );
           })}

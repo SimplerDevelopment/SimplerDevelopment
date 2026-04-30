@@ -275,6 +275,9 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     setHasUnsavedChanges(true);
   }
 
+  /** Hidden file input for "Upload HTML Slide" — triggered from each add-slide affordance */
+  const htmlSlideFileInputRef = useRef<HTMLInputElement>(null);
+
   /** Update a survey field property and persist to the survey record (source of truth) */
   const surveyFieldSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   function updateSurveyField(surveyId: number, fieldId: string, updates: Record<string, unknown>) {
@@ -440,6 +443,16 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
     const newSlides = [...deck.slides];
     const slide = { ...newSlides[slideIdx] };
     slide.decisionOptions = (slide.decisionOptions || []).filter(opt => opt.id !== optionId);
+    newSlides[slideIdx] = slide;
+    setDeck({ ...deck, slides: newSlides });
+    setHasUnsavedChanges(true);
+  }
+
+  function updateDecisionCover(slideIdx: number, updates: Partial<NonNullable<PitchDeckSlideV2['decisionCover']>>) {
+    if (!deck) return;
+    const newSlides = [...deck.slides];
+    const slide = { ...newSlides[slideIdx] };
+    slide.decisionCover = { ...(slide.decisionCover || {}), ...updates };
     newSlides[slideIdx] = slide;
     setDeck({ ...deck, slides: newSlides });
     setHasUnsavedChanges(true);
@@ -645,6 +658,41 @@ useEffect(() => {
       blocks: [
         { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
         { id: `block-${Date.now()}-t`, type: 'text', order: 2, content: 'Add your content here...', alignment: 'center' as const, size: 'base' as const },
+      ],
+    };
+    const newSlides = [...deck.slides, newSlide];
+    setDeck({ ...deck, slides: newSlides });
+    setActiveSlide(newSlides.length - 1);
+    setHasUnsavedChanges(true);
+  }
+
+  async function addHtmlSlide(file: File) {
+    if (!deck) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/portal/html-uploads', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      alert(`Upload failed: ${json.error || 'unknown error'}`);
+      return;
+    }
+    const ts = Date.now();
+    const filenameNoExt = (json.data.filename || 'HTML Slide').replace(/\.[^.]+$/, '');
+    const newSlide: PitchDeckSlideV2 = {
+      id: `slide-${ts}`,
+      label: filenameNoExt || 'HTML Slide',
+      blocks: [
+        {
+          id: `block-${ts}-html`,
+          type: 'html-embed',
+          order: 1,
+          url: json.data.url,
+          filename: json.data.filename,
+          height: '100vh',
+          width: 'full',
+          sandbox: 'scripts',
+          iframeTitle: filenameNoExt || 'Embedded HTML slide',
+        },
       ],
     };
     const newSlides = [...deck.slides, newSlide];
@@ -1451,6 +1499,20 @@ useEffect(() => {
               })}
             </div>
           </div>
+          <div>
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={deck.theme.showSlideNumber !== false}
+                onChange={(e) => handleThemeUpdate({ showSlideNumber: e.target.checked })}
+                className="h-4 w-4 rounded border-border"
+              />
+              Show slide number overlay
+              <span className="text-xs text-muted-foreground ml-1">
+                (auto-hidden on full-bleed HTML slides)
+              </span>
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>
@@ -1590,6 +1652,19 @@ useEffect(() => {
         </div>
       )}
 
+      {/* Hidden input shared by every "Upload HTML Slide" trigger */}
+      <input
+        ref={htmlSlideFileInputRef}
+        type="file"
+        accept=".html,.htm,.xhtml,text/html"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) addHtmlSlide(file);
+          e.target.value = '';
+        }}
+      />
+
       {/* Main editor area */}
       {deck.slides.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center space-y-4">
@@ -1612,6 +1687,13 @@ useEffect(() => {
             >
               <span className="material-icons text-base">add</span>
               Add Blank Slide
+            </button>
+            <button
+              onClick={() => htmlSlideFileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <span className="material-icons text-base">upload_file</span>
+              Upload HTML Slide
             </button>
           </div>
         </div>
@@ -1669,6 +1751,13 @@ useEffect(() => {
                       )}
                       <button onClick={addSlide} className="text-primary hover:text-primary/80" title="Add slide">
                         <span className="material-icons text-lg">add_circle</span>
+                      </button>
+                      <button
+                        onClick={() => htmlSlideFileInputRef.current?.click()}
+                        className="text-primary hover:text-primary/80"
+                        title="Upload HTML slide"
+                      >
+                        <span className="material-icons text-lg">upload_file</span>
                       </button>
                       <button
                         onClick={() => setSlidePanelCollapsed(true)}
@@ -2224,6 +2313,159 @@ useEffect(() => {
                   ))}
                 </div>
 
+                {/* Cover-style content (optional) — when any field is set, the
+                    decision slide renders the TF1-v8 two-column intro layout
+                    instead of the default centered grid. */}
+                <details className="border-t border-border pt-4 group" open={Boolean(currentSlide.decisionCover && Object.values(currentSlide.decisionCover).some(Boolean))}>
+                  <summary className="cursor-pointer flex items-center justify-between text-sm font-medium text-foreground hover:text-primary transition-colors">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="material-icons text-base text-primary">view_column</span>
+                      Cover-style content (optional)
+                    </span>
+                    <span className="material-icons text-base text-muted-foreground group-open:rotate-180 transition-transform">expand_more</span>
+                  </summary>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Renders a two-column intro layout (logo, eyebrow, headline + light punchline, body, image) with the decision options as CTA cards. Leave all fields blank to use the default centered grid.
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {/* Wordmark + Eyebrow */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Wordmark</label>
+                        <input
+                          type="text"
+                          value={currentSlide.decisionCover?.wordmark || ''}
+                          onChange={(e) => updateDecisionCover(activeSlide, { wordmark: e.target.value })}
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          placeholder="CY STRATEGIES"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Eyebrow</label>
+                        <input
+                          type="text"
+                          value={currentSlide.decisionCover?.eyebrow || ''}
+                          onChange={(e) => updateDecisionCover(activeSlide, { eyebrow: e.target.value })}
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          placeholder="MARKETING STRATEGY CONSULTANT"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Headline + Punchline */}
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Headline (bold)</label>
+                      <input
+                        type="text"
+                        value={currentSlide.decisionCover?.headline || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { headline: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="Most companies don't have a marketing problem."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Punchline (light)</label>
+                      <input
+                        type="text"
+                        value={currentSlide.decisionCover?.punchline || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { punchline: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="They have a decision problem."
+                      />
+                    </div>
+
+                    {/* Intro + Body */}
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Intro line</label>
+                      <input
+                        type="text"
+                        value={currentSlide.decisionCover?.intro || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { intro: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="Hi, I'm Cody."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Body</label>
+                      <textarea
+                        value={currentSlide.decisionCover?.body || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { body: e.target.value })}
+                        rows={3}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                        placeholder="I figure out what's actually driving growth, what isn't, and what to do about it."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        About <span className="text-muted-foreground/70">(blank lines split paragraphs)</span>
+                      </label>
+                      <textarea
+                        value={currentSlide.decisionCover?.about || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { about: e.target.value })}
+                        rows={4}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+                        placeholder={"Most companies don't need more marketing.\n\nThis is a quick look at how I think."}
+                      />
+                    </div>
+
+                    {/* Image */}
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Image URL (right column)</label>
+                        <input
+                          type="text"
+                          value={currentSlide.decisionCover?.image || ''}
+                          onChange={(e) => updateDecisionCover(activeSlide, { image: e.target.value })}
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-xs"
+                          placeholder="https://… (headshot)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Alt</label>
+                        <input
+                          type="text"
+                          value={currentSlide.decisionCover?.imageAlt || ''}
+                          onChange={(e) => updateDecisionCover(activeSlide, { imageAlt: e.target.value })}
+                          className="w-32 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          placeholder="Headshot"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Logo URL (above wordmark)</label>
+                      <input
+                        type="text"
+                        value={currentSlide.decisionCover?.logo || ''}
+                        onChange={(e) => updateDecisionCover(activeSlide, { logo: e.target.value })}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-xs"
+                        placeholder="https://… (optional)"
+                      />
+                    </div>
+
+                    {/* Color overrides */}
+                    <div className="grid grid-cols-5 gap-2 pt-2 border-t border-border/60">
+                      {([
+                        ['backgroundColor', 'BG'],
+                        ['textColor', 'Text'],
+                        ['mutedColor', 'Muted'],
+                        ['softColor', 'Soft'],
+                        ['accentColor', 'Accent'],
+                      ] as const).map(([key, label]) => (
+                        <div key={key}>
+                          <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">{label}</label>
+                          <input
+                            type="text"
+                            value={currentSlide.decisionCover?.[key] || ''}
+                            onChange={(e) => updateDecisionCover(activeSlide, { [key]: e.target.value || undefined })}
+                            className="w-full px-2 py-1.5 bg-background border border-border rounded text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
+                            placeholder="#005652"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </details>
+
                 <div className="flex items-center gap-2 pt-2">
                   <button
                     onClick={() => removeSlide(activeSlide)}
@@ -2457,13 +2699,22 @@ useEffect(() => {
                       );
                     })}
                     {/* Add new slide */}
-                    <button
-                      onClick={() => { addSlide(); }}
-                      className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent/30 transition-colors"
-                    >
-                      <span className="material-icons text-base">add</span>
-                      Add Slide
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => { addSlide(); }}
+                        className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                      >
+                        <span className="material-icons text-base">add</span>
+                        Add Slide
+                      </button>
+                      <button
+                        onClick={() => htmlSlideFileInputRef.current?.click()}
+                        className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent/30 transition-colors"
+                      >
+                        <span className="material-icons text-base">upload_file</span>
+                        Upload HTML
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -2624,7 +2875,12 @@ function SortableBoardCard({ slide, index, isActive, theme, onClick, pathGroups,
               transformOrigin: 'top left',
             }}
           >
-            <SlideBlockWrapper slide={slide} theme={theme} className="w-full h-full" />
+            <SlideBlockWrapper
+              slide={slide}
+              theme={theme}
+              className="w-full h-full"
+              fullBleed={slide.blocks?.length === 1 && slide.blocks[0].type === 'html-embed' && (slide.blocks[0].width ?? 'full') === 'full'}
+            />
           </div>
         </div>
       </button>
