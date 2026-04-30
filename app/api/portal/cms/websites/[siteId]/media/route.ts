@@ -30,8 +30,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ siteId: 
   const mimeType = searchParams.get('mimeType') || '';
   const filterProfileId = searchParams.get('brandingProfileId') || '';
 
-  // Scope all queries to this client's media
-  const conditions = [eq(media.clientId, client.id)];
+  // Scope to media owned by this client AND attached to this site. Without
+  // the websiteId filter, a per-site media manager would show every site's
+  // media mixed together — fine for single-site clients, surprising for
+  // multi-site ones.
+  const conditions = [eq(media.clientId, client.id), eq(media.websiteId, site.id)];
 
   if (filterProfileId === 'unassigned') {
     conditions.push(isNull(media.brandingProfileId));
