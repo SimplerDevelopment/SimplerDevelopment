@@ -187,7 +187,6 @@ function isChildActive(children: NavChild[] | undefined, pathname: string): bool
 export default function PortalSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [navServices, setNavServices] = useState<NavService[]>([]);
@@ -212,19 +211,10 @@ export default function PortalSidebar() {
       .catch(() => {});
   }, [activeSiteId]);
 
-  // Auto-collapse on editor pages
-  const isEditorPage = /\/portal\/websites\/\d+\/posts\//.test(pathname);
-
   useEffect(() => {
-    if (isEditorPage) {
-      setIsCollapsed(true);
-    } else {
-      const saved = localStorage.getItem('portalSidebarCollapsed');
-      if (saved !== null) setIsCollapsed(saved === 'true');
-    }
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     if (savedTheme && themeOrder.includes(savedTheme)) setTheme(savedTheme);
-  }, [isEditorPage]);
+  }, []);
 
   // Fetch services for nav
   useEffect(() => {
@@ -300,14 +290,7 @@ export default function PortalSidebar() {
   const toggleOpen = () => {
     const next = !isOpen;
     setIsOpen(next);
-    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: next, collapsed: isCollapsed } }));
-  };
-
-  const toggleCollapsed = () => {
-    const next = !isCollapsed;
-    setIsCollapsed(next);
-    localStorage.setItem('portalSidebarCollapsed', String(next));
-    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: isOpen, collapsed: next } }));
+    window.dispatchEvent(new CustomEvent('portalSidebarToggle', { detail: { open: next } }));
   };
 
   // Renders a nav item link (or parent toggle)
@@ -325,7 +308,7 @@ export default function PortalSidebar() {
       2: 'pl-12 pr-4',
       3: 'pl-16 pr-4',
     };
-    const pl = isCollapsed ? 'px-3 justify-center' : (depthPadding[depth] ?? 'pl-16 pr-4');
+    const pl = depthPadding[depth] ?? 'pl-16 pr-4';
 
     const linkClass = `flex items-center gap-3 ${pl} py-2.5 rounded-md text-sm font-medium transition-colors relative group w-full ${
       active && !childActive
@@ -335,13 +318,7 @@ export default function PortalSidebar() {
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
     }`;
 
-    const tooltip = isCollapsed && (
-      <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-        {item.label}
-      </div>
-    );
-
-    const chevron = !isCollapsed && hasChildren && (
+    const chevron = hasChildren && (
       <span className="material-icons text-base opacity-50 shrink-0">
         {isExpanded ? 'expand_less' : 'expand_more'}
       </span>
@@ -352,12 +329,10 @@ export default function PortalSidebar() {
         <div
           className={linkClass + ' cursor-pointer'}
           onClick={() => toggleSection(item.href)}
-          title={isCollapsed ? item.label : ''}
         >
           <span className="material-icons text-xl shrink-0">{item.icon}</span>
-          {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
+          <span className="flex-1 truncate">{item.label}</span>
           {chevron}
-          {tooltip}
         </div>
       );
     }
@@ -369,23 +344,14 @@ export default function PortalSidebar() {
         href={item.href}
         onClick={toggleOpen}
         className={linkClass}
-        title={isCollapsed ? item.label : ''}
       >
-        <span className="material-icons text-xl shrink-0 relative">
-          {item.icon}
-          {isCollapsed && badgeCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
-              {badgeCount > 9 ? '9+' : badgeCount}
-            </span>
-          )}
-        </span>
-        {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
-        {!isCollapsed && badgeCount > 0 && (
+        <span className="material-icons text-xl shrink-0">{item.icon}</span>
+        <span className="flex-1 truncate">{item.label}</span>
+        {badgeCount > 0 && (
           <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
             {badgeCount > 99 ? '99+' : badgeCount}
           </span>
         )}
-        {tooltip}
       </Link>
     );
   };
@@ -398,7 +364,7 @@ export default function PortalSidebar() {
     return (
       <li key={`${depth}-${item.href}`}>
         {renderNavLink(item, depth)}
-        {hasChildren && isExpanded && !isCollapsed && (
+        {hasChildren && isExpanded && (
           <ul className="mt-0.5 space-y-0.5">
             {item.children!.map(child => renderNavItem(child, depth + 1))}
           </ul>
@@ -429,16 +395,14 @@ export default function PortalSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
+        className={`fixed top-0 left-0 z-40 h-screen w-64 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${
-          isCollapsed ? 'w-16' : 'w-64'
         } bg-card border-r border-border`}
       >
         <div className="h-full flex flex-col">
           {/* Header with close button */}
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} h-14 border-b border-border px-3`}>
-            <CompanySwitcher collapsed={isCollapsed} />
+          <div className="flex items-center justify-between h-14 border-b border-border px-3">
+            <CompanySwitcher />
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={toggleOpen}
@@ -452,32 +416,20 @@ export default function PortalSidebar() {
 
           {/* Unified Nav */}
           <nav className="flex-1 overflow-y-auto py-4">
-            <ul className={`space-y-1 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+            <ul className="space-y-1 px-3">
               {navItems.map(item => renderNavItem(item, 0))}
             </ul>
           </nav>
 
           {/* Footer */}
-          <div className={`border-t border-border ${isCollapsed ? 'p-2' : 'p-4'} space-y-1`}>
+          <div className="border-t border-border p-4 space-y-1">
             <button
               onClick={cycleTheme}
-              className={`flex items-center gap-2 w-full ${
-                isCollapsed ? 'justify-center px-3' : 'px-4'
-              } py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group`}
-              title={isCollapsed ? `Theme: ${themeLabel[theme]}` : ''}
+              className="flex items-center gap-2 w-full px-4 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
               <span className="material-icons text-xl">{themeIcon[theme]}</span>
-              {!isCollapsed && (
-                <span className="flex-1 text-left">{themeLabel[theme]} Mode</span>
-              )}
-              {!isCollapsed && (
-                <span className="material-icons text-sm opacity-40">swap_horiz</span>
-              )}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                  Theme: {themeLabel[theme]}
-                </div>
-              )}
+              <span className="flex-1 text-left">{themeLabel[theme]} Mode</span>
+              <span className="material-icons text-sm opacity-40">swap_horiz</span>
             </button>
 
             <button
@@ -485,18 +437,10 @@ export default function PortalSidebar() {
                 await fetch('/api/portal/sign-out', { method: 'POST' });
                 await signOut({ callbackUrl: '/portal/login' });
               }}
-              className={`flex items-center gap-2 w-full ${
-                isCollapsed ? 'justify-center px-3' : 'px-4'
-              } py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors relative group`}
-              title={isCollapsed ? 'Sign Out' : ''}
+              className="flex items-center gap-2 w-full px-4 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
             >
               <span className="material-icons text-xl">logout</span>
-              {!isCollapsed && <span>Sign Out</span>}
-              {isCollapsed && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                  Sign Out
-                </div>
-              )}
+              <span>Sign Out</span>
             </button>
           </div>
         </div>

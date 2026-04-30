@@ -10,11 +10,7 @@ interface ClientEntry {
   website: string | null;
 }
 
-interface CompanySwitcherProps {
-  collapsed?: boolean;
-}
-
-export default function CompanySwitcher({ collapsed }: CompanySwitcherProps) {
+export default function CompanySwitcher() {
   const router = useRouter();
   const [clients, setClients] = useState<ClientEntry[]>([]);
   const [activeClientId, setActiveClientId] = useState<number | null>(null);
@@ -77,9 +73,6 @@ export default function CompanySwitcher({ collapsed }: CompanySwitcherProps) {
 
   // Loading state
   if (clients.length === 0) {
-    if (collapsed) {
-      return <div className="w-8 h-8 rounded-lg bg-muted animate-pulse" />;
-    }
     return (
       <div className="flex items-center gap-2.5 min-w-0">
         <div className="w-8 h-8 rounded-lg bg-muted animate-pulse shrink-0" />
@@ -91,40 +84,6 @@ export default function CompanySwitcher({ collapsed }: CompanySwitcherProps) {
     );
   }
 
-  // Collapsed: square avatar button
-  if (collapsed) {
-    return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setOpen(!open)}
-          className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold hover:brightness-110 transition-all relative group"
-          title={activeClient?.company || 'Company'}
-        >
-          {initial}
-          {!open && (
-            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-              {activeClient?.company}
-            </div>
-          )}
-        </button>
-
-        {/* Dropdown — positioned to the right of collapsed sidebar */}
-        {open && (
-          <div className="absolute top-0 left-full ml-2 w-64 bg-card border border-border rounded-lg shadow-xl z-[60] overflow-hidden">
-            <DropdownContent
-              clients={clients}
-              activeClientId={activeClientId}
-              switching={switching}
-              onSwitch={handleSwitch}
-              onClose={() => setOpen(false)}
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Expanded: Slack-style header button
   return (
     <div className="relative min-w-0 flex-1" ref={dropdownRef}>
       <button
