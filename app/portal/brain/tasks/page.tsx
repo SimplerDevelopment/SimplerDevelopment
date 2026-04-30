@@ -669,6 +669,8 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -691,6 +693,21 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
   }, [statusFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Clear selection on tab change and prune any IDs that are no longer pending.
+  useEffect(() => { setSelected(new Set()); }, [statusFilter]);
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const stillPending = new Set(items.filter((i) => i.status === 'pending').map((i) => i.id));
+      const next = new Set<number>();
+      let changed = false;
+      for (const id of prev) {
+        if (stillPending.has(id)) next.add(id); else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [items]);
 
   // Refresh the parent's pending count whenever this view mutates the queue.
   const refreshPendingCount = useCallback(async () => {
@@ -716,6 +733,71 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
       return db.localeCompare(da);
     });
   }, [items, meetings]);
+
+  const pendingIds = useMemo(
+    () => items.filter((i) => i.status === 'pending').map((i) => i.id),
+    [items],
+  );
+  const allPendingSelected = pendingIds.length > 0 && pendingIds.every((id) => selected.has(id));
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllPending = useCallback(() => {
+    setSelected((prev) => {
+      const allChecked = pendingIds.length > 0 && pendingIds.every((id) => prev.has(id));
+      return allChecked ? new Set() : new Set(pendingIds);
+    });
+  }, [pendingIds]);
+
+  const toggleGroupPending = useCallback((groupPendingIds: number[]) => {
+    if (groupPendingIds.length === 0) return;
+    setSelected((prev) => {
+      const allChecked = groupPendingIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allChecked) {
+        for (const id of groupPendingIds) next.delete(id);
+      } else {
+        for (const id of groupPendingIds) next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const bulkAction = useCallback(async (action: 'approve' | 'reject') => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const results = await Promise.allSettled(
+        ids.map(async (id) => {
+          const r = await fetch(`/api/portal/brain/review-items/${id}/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          const json = await r.json();
+          if (!r.ok || !json.success) throw new Error(json.message || `${action} failed`);
+          return json;
+        }),
+      );
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed > 0) {
+        setError(`${failed} of ${ids.length} ${action} request${ids.length === 1 ? '' : 's'} failed.`);
+      }
+      setSelected(new Set());
+      await load();
+      void refreshPendingCount();
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [selected, load, refreshPendingCount]);
 
   const approve = async (item: ReviewItem) => {
     setBusyId(item.id);
@@ -790,6 +872,48 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
         </div>
       </div>
 
+      {pendingIds.length > 0 && (
+        <div className="flex items-center justify-between gap-4 bg-muted/40 border border-border rounded-md px-3 py-2">
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+              checked={allPendingSelected}
+              ref={(el) => { if (el) el.indeterminate = !allPendingSelected && selected.size > 0; }}
+              onChange={toggleAllPending}
+              disabled={bulkBusy}
+              aria-label="Select all pending items"
+            />
+            <span>
+              {selected.size > 0
+                ? <><strong className="text-foreground">{selected.size}</strong> selected</>
+                : <>Select all pending ({pendingIds.length})</>}
+            </span>
+          </label>
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => bulkAction('reject')}
+                disabled={bulkBusy}
+                className="px-3 py-1 text-xs rounded-md border border-border text-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 inline-flex items-center gap-1"
+              >
+                <span className="material-icons text-sm">close</span>
+                Reject {selected.size}
+              </button>
+              <button
+                onClick={() => bulkAction('approve')}
+                disabled={bulkBusy}
+                className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+              >
+                {bulkBusy
+                  ? <><span className="material-icons animate-spin text-sm">progress_activity</span>Working…</>
+                  : <><span className="material-icons text-sm">check</span>Approve {selected.size}</>}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
           {error}
@@ -815,10 +939,24 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
         <div className="space-y-6">
           {groups.map(([key, groupItems]) => {
             const meeting = key === 'other' ? null : meetings[key as number];
+            const groupPendingIds = groupItems.filter((i) => i.status === 'pending').map((i) => i.id);
+            const allGroupSelected = groupPendingIds.length > 0 && groupPendingIds.every((id) => selected.has(id));
+            const someGroupSelected = groupPendingIds.some((id) => selected.has(id)) && !allGroupSelected;
             return (
               <section key={String(key)} className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  {groupPendingIds.length > 0 && (
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                      checked={allGroupSelected}
+                      ref={(el) => { if (el) el.indeterminate = someGroupSelected; }}
+                      onChange={() => toggleGroupPending(groupPendingIds)}
+                      disabled={bulkBusy}
+                      aria-label="Select all pending items in this section"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
                     {meeting ? (
                       <Link
                         href={`/portal/brain/communications/${meeting.id}`}
@@ -850,10 +988,13 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
                     <ReviewCard
                       key={item.id}
                       item={item}
-                      busy={busyId === item.id}
+                      busy={busyId === item.id || bulkBusy}
                       onApprove={() => approve(item)}
                       onReject={() => reject(item)}
                       meetingHref={meeting ? `/portal/brain/communications/${meeting.id}/review` : null}
+                      selectable={item.status === 'pending'}
+                      selected={selected.has(item.id)}
+                      onToggleSelect={() => toggleSelect(item.id)}
                     />
                   ))}
                 </div>
@@ -866,12 +1007,15 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
   );
 }
 
-function ReviewCard({ item, busy, onApprove, onReject, meetingHref }: {
+function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, selected, onToggleSelect }: {
   item: ReviewItem;
   busy: boolean;
   onApprove: () => void;
   onReject: () => void;
   meetingHref: string | null;
+  selectable: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const meta = TYPE_META[item.proposedType] ?? { label: item.proposedType, icon: 'help', tone: 'text-foreground bg-muted' };
   const isPending = item.status === 'pending';
@@ -879,13 +1023,25 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref }: {
 
   return (
     <div className={`bg-card border rounded-lg p-4 ${
-      item.status === 'approved' || item.status === 'edited'
-        ? 'border-emerald-500/30 bg-emerald-500/5'
-        : item.status === 'rejected'
-          ? 'border-border opacity-60'
-          : 'border-border'
+      selected
+        ? 'border-primary/60 bg-primary/5'
+        : item.status === 'approved' || item.status === 'edited'
+          ? 'border-emerald-500/30 bg-emerald-500/5'
+          : item.status === 'rejected'
+            ? 'border-border opacity-60'
+            : 'border-border'
     }`}>
       <div className="flex items-start gap-3">
+        {selectable && (
+          <input
+            type="checkbox"
+            className="h-4 w-4 mt-0.5 rounded border-border accent-primary cursor-pointer flex-shrink-0"
+            checked={selected}
+            onChange={onToggleSelect}
+            disabled={busy}
+            aria-label="Select item"
+          />
+        )}
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${meta.tone} flex items-center gap-1 flex-shrink-0`}>
           <span className="material-icons text-sm">{meta.icon}</span>
           {meta.label}
