@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import McpApiKeysManager from '@/components/portal/McpApiKeysManager';
+import OAuthTokensManager from '@/components/portal/OAuthTokensManager';
 
-type ClientId = 'claude-desktop' | 'claude-code' | 'chatgpt';
+type ClientId = 'claude-web' | 'claude-desktop' | 'claude-code' | 'chatgpt';
 
 const TABS: { id: ClientId; label: string; icon: string }[] = [
-  { id: 'claude-desktop', label: 'Claude Desktop', icon: 'desktop_windows' },
-  { id: 'claude-code',    label: 'Claude Code',    icon: 'terminal' },
-  { id: 'chatgpt',        label: 'ChatGPT',        icon: 'smart_toy' },
+  { id: 'claude-web',     label: 'Claude.ai (web)', icon: 'public' },
+  { id: 'claude-desktop', label: 'Claude Desktop',  icon: 'desktop_windows' },
+  { id: 'claude-code',    label: 'Claude Code',     icon: 'terminal' },
+  { id: 'chatgpt',        label: 'ChatGPT',         icon: 'smart_toy' },
 ];
 
 export default function ConnectAiPage() {
-  const [tab, setTab] = useState<ClientId>('claude-desktop');
+  const [tab, setTab] = useState<ClientId>('claude-web');
   const [origin, setOrigin] = useState('https://simplerdevelopment.com');
 
   if (typeof window !== 'undefined' && origin === 'https://simplerdevelopment.com' && window.location.origin !== origin) {
@@ -48,8 +50,8 @@ export default function ConnectAiPage() {
           </button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Streamable HTTP transport in stateless mode. Authenticate with{' '}
-          <code className="text-[11px] px-1 py-0.5 bg-muted rounded">Authorization: Bearer sd_mcp_…</code>.
+          Streamable HTTP transport in stateless mode. Claude.ai web uses OAuth (no API key needed).
+          Other clients send <code className="text-[11px] px-1 py-0.5 bg-muted rounded">Authorization: Bearer sd_mcp_…</code>.
         </p>
       </section>
 
@@ -76,17 +78,84 @@ export default function ConnectAiPage() {
           ))}
         </div>
 
+        {tab === 'claude-web' && <ClaudeWebInstructions endpoint={endpoint} />}
         {tab === 'claude-desktop' && <ClaudeDesktopInstructions endpoint={endpoint} />}
         {tab === 'claude-code' && <ClaudeCodeInstructions endpoint={endpoint} />}
         {tab === 'chatgpt' && <ChatGptInstructions endpoint={endpoint} />}
       </section>
 
       <section>
+        <OAuthTokensManager />
+      </section>
+
+      <section>
         <McpApiKeysManager
           heading="Manage API keys"
-          subheading="Generate a key for each client (Claude Desktop, ChatGPT, etc.). Keep the secret value safe — it's shown once. Revoke any key here if you lose access."
+          subheading="Only needed for Claude Desktop, Claude Code, ChatGPT, or other non-web clients. The Claude.ai web flow above uses OAuth instead. Keep secret values safe — they're shown once. Revoke any key here to cut access immediately."
         />
       </section>
+    </div>
+  );
+}
+
+function ClaudeWebInstructions({ endpoint }: { endpoint: string }) {
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
+        <span className="material-icons text-primary text-base mt-0.5">verified</span>
+        <span>
+          <strong>Easiest path.</strong> No API key, no config file, no terminal — just click Add and approve.
+        </span>
+      </div>
+      <ol className="list-decimal ml-5 space-y-3">
+        <li>
+          Open{' '}
+          <a href="https://claude.ai/settings/connectors" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            claude.ai → Settings → Connectors
+          </a>{' '}
+          and click <span className="font-medium">Browse connectors</span>, then{' '}
+          <span className="font-medium">Add custom connector</span> at the bottom of the list.
+        </li>
+        <li>
+          Fill in the form:
+          <ul className="list-disc ml-5 mt-1 text-muted-foreground space-y-0.5">
+            <li>Name: <code className="text-xs px-1 py-0.5 bg-muted rounded">SimplerDevelopment</code></li>
+            <li>Remote MCP server URL: <code className="text-xs px-1 py-0.5 bg-muted rounded break-all">{endpoint}</code></li>
+            <li>Leave OAuth Client ID / Secret <strong>blank</strong> — Claude registers itself automatically.</li>
+          </ul>
+        </li>
+        <li>
+          Click <span className="font-medium">Add</span>. Claude will redirect you to your portal login (if you&apos;re not
+          already signed in here), then to a consent screen showing the application name and the scopes it&apos;s asking for.
+        </li>
+        <li>
+          Pick which portal to grant access to (if you have access to more than one), uncheck any scopes you want
+          to deny, and click <span className="font-medium">Approve</span>. You&apos;re done — Claude.ai now has access.
+        </li>
+        <li>
+          Try it: in any new chat, ask <em>&quot;Show me my CRM pipeline&quot;</em> or <em>&quot;What support tickets are
+          open?&quot;</em> Claude will use the SimplerDevelopment connector to answer.
+        </li>
+      </ol>
+      <div className="rounded-md border border-border p-3 text-xs space-y-1.5">
+        <p className="font-medium">Revoking access</p>
+        <p className="text-muted-foreground">
+          Two ways to revoke at any time:
+        </p>
+        <ul className="list-disc ml-5 text-muted-foreground space-y-0.5">
+          <li>Claude.ai → Settings → Connectors → SimplerDevelopment → Disconnect.</li>
+          <li>The <span className="font-medium">OAuth-issued tokens</span> table below — click <span className="font-medium">Revoke</span>
+              on the SimplerDevelopment row. Cuts access immediately.</li>
+        </ul>
+        <p className="text-muted-foreground">
+          Tokens have a 1-year max lifetime and are scoped to the portal you approved — they can&apos;t see other portals
+          you have access to.
+        </p>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Under the hood: OAuth 2.1 with PKCE. Each Claude session gets its own access token scoped to the portal
+        and scopes you approved. Tokens are stored hashed — only Claude has the raw value.
+      </p>
     </div>
   );
 }

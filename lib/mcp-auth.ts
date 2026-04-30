@@ -1,9 +1,10 @@
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { portalApiKeys, clients } from '@/lib/db/schema';
+import { portalApiKeys, oauthAccessTokens, clients } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 export const PORTAL_KEY_PREFIX = 'sd_mcp_';
+export const OAUTH_TOKEN_PREFIX = 'sd_oauth_';
 
 export interface PortalMcpContext {
   userId: number;
@@ -66,6 +67,46 @@ export async function resolvePortalApiKey(rawKey: string): Promise<PortalMcpCont
 }
 
 /**
+ * Validate an OAuth-issued bearer token (`sd_oauth_…`) against the
+ * `oauth_access_tokens` table. Same shape as `resolvePortalApiKey` so callers
+ * can treat both auth methods identically downstream.
+ */
+export async function resolveOAuthToken(rawToken: string): Promise<PortalMcpContext | null> {
+  if (!rawToken.startsWith(OAUTH_TOKEN_PREFIX)) return null;
+
+  const hash = hashPortalApiKey(rawToken);
+  const [record] = await db
+    .select()
+    .from(oauthAccessTokens)
+    .where(eq(oauthAccessTokens.tokenHash, hash))
+    .limit(1);
+
+  if (!record) return null;
+  if (record.revokedAt) return null;
+  if (record.expiresAt && record.expiresAt < new Date()) return null;
+
+  const [client] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, record.clientId))
+    .limit(1);
+  if (!client) return null;
+
+  db.update(oauthAccessTokens)
+    .set({ lastUsedAt: new Date() })
+    .where(eq(oauthAccessTokens.id, record.id))
+    .then(() => {})
+    .catch(() => {});
+
+  return {
+    userId: record.userId,
+    client,
+    scopes: record.scopes ?? [],
+    keyId: record.id,
+  };
+}
+
+/**
  * Extract and validate a bearer token from a Request's Authorization header.
  */
 export async function resolvePortalFromRequest(req: Request): Promise<PortalMcpContext | null> {
@@ -73,7 +114,9 @@ export async function resolvePortalFromRequest(req: Request): Promise<PortalMcpC
   if (!auth) return null;
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
-  return resolvePortalApiKey(match[1].trim());
+  const token = match[1].trim();
+  if (token.startsWith(OAUTH_TOKEN_PREFIX)) return resolveOAuthToken(token);
+  return resolvePortalApiKey(token);
 }
 
 /**

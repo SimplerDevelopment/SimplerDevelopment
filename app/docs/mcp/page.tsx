@@ -13,19 +13,37 @@ export default function McpDocsPage() {
         projects, tickets, CRM, content, media, and email.
       </p>
 
-      <h2>1. Generate an API key</h2>
+      <h2>Option A — Claude.ai (one-click, recommended)</h2>
+      <p>Claude.ai web has a custom-connector dialog that handles login and consent for you. No API key to copy and paste.</p>
+      <ol>
+        <li>In Claude.ai → <strong>Settings → Connectors → Browse connectors → Add custom connector</strong>.</li>
+        <li>Name: <strong>SimplerDevelopment</strong>.</li>
+        <li>Remote MCP server URL: <code>https://your-domain.com/api/mcp</code></li>
+        <li>Leave the OAuth fields blank — Claude registers itself automatically.</li>
+        <li>Click <strong>Add</strong>. You&apos;ll be redirected to your portal login (if not already signed in), then to a consent screen showing what Claude is asking for. Approve to finish.</li>
+      </ol>
+      <p>
+        Behind the scenes this uses OAuth 2.1 with PKCE. Tokens are scoped to whichever
+        portal you choose on the consent screen and can be revoked at any time from{' '}
+        <a href="/portal/settings/api-keys"><code>/portal/settings/api-keys</code></a>.
+      </p>
+
+      <h2>Option B — API key (Claude Code, scripts, headless)</h2>
+      <p>Use this for non-interactive clients (Claude Code agents, custom scripts, CI). The OAuth flow above is easier for end users.</p>
+
+      <h3>1. Generate an API key</h3>
       <ol>
         <li>Open <a href="/portal/settings/api-keys"><code>/portal/settings/api-keys</code></a>.</li>
         <li>Click <strong>New key</strong>, name it, choose scopes, generate.</li>
         <li>Copy the <code>sd_mcp_…</code> value — it&apos;s shown <em>once</em>.</li>
       </ol>
 
-      <h2>2. Endpoint</h2>
+      <h3>2. Endpoint</h3>
       <pre><code>POST https://your-domain.com/api/mcp
 Authorization: Bearer sd_mcp_your_key_here</code></pre>
       <p>The server uses the MCP Streamable HTTP transport in stateless mode. It accepts GET, POST, and DELETE.</p>
 
-      <h2>3. Claude Desktop config</h2>
+      <h3>3. Claude Desktop config</h3>
       <p>
         Claude Desktop expects stdio-style MCP servers. Use <code>mcp-remote</code> as a bridge:
       </p>
@@ -44,7 +62,7 @@ Authorization: Bearer sd_mcp_your_key_here</code></pre>
   }
 }`}</code></pre>
 
-      <h2>4. Claude Code</h2>
+      <h3>4. Claude Code</h3>
       <pre><code>{`claude mcp add --transport http simplerdevelopment \\
   https://your-domain.com/api/mcp \\
   --header "Authorization: Bearer sd_mcp_your_key_here"`}</code></pre>
