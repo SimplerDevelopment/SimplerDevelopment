@@ -70,7 +70,6 @@ export function buildPortalNavItems(
         { href: '/portal/crm/contacts', label: 'Contacts', icon: 'people', keywords: ['leads', 'people'] },
         { href: '/portal/crm/companies', label: 'Companies', icon: 'business', keywords: ['organizations', 'accounts'] },
         { href: '/portal/crm/deals', label: 'Deals', icon: 'handshake', keywords: ['pipeline', 'opportunities'] },
-        { href: '/portal/crm/proposals', label: 'Proposals', icon: 'request_quote', keywords: ['quotes'] },
         { href: '/portal/crm/settings', label: 'Settings', icon: 'settings', keywords: ['crm settings', 'custom fields'] },
       ],
     },
@@ -101,7 +100,17 @@ export function buildPortalNavItems(
         { href: '/portal/surveys/new', label: 'New Survey', icon: 'add_circle', keywords: ['create survey'] },
       ],
     },
-    { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow', keywords: ['slides', 'presentations'] },
+    {
+      href: '/portal/tools/pitch-decks',
+      label: 'Pitches & Proposals',
+      icon: 'slideshow',
+      exact: true,
+      keywords: ['slides', 'presentations', 'proposals', 'quotes'],
+      children: [
+        { href: '/portal/tools/pitch-decks', label: 'Pitch Decks', icon: 'slideshow', exact: true, keywords: ['slides', 'presentations'] },
+        { href: '/portal/crm/proposals', label: 'Proposals', icon: 'request_quote', keywords: ['quotes'] },
+      ],
+    },
     { href: '/portal/websites', label: 'Websites', icon: 'language', exact: true, keywords: ['sites', 'cms'] },
     ...(activeSiteId
       ? [{
