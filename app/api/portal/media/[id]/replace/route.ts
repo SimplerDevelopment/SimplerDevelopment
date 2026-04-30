@@ -13,6 +13,19 @@ const MAX_HTML_SIZE = 1_000_000;
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    return await handle(req, params);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[media/replace] failed:', err);
+    return NextResponse.json(
+      { success: false, message: `replace failed: ${message}` },
+      { status: 500 }
+    );
+  }
+}
+
+async function handle(req: NextRequest, paramsPromise: Promise<{ id: string }>) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -23,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: false, message: 'Client not found' }, { status: 403 });
   }
 
-  const { id } = await params;
+  const { id } = await paramsPromise;
   const mediaId = parseInt(id, 10);
   if (!Number.isFinite(mediaId)) {
     return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 });
