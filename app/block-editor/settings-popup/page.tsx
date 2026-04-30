@@ -68,6 +68,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'deck-jump-to': 'Jump To Slide',
   'survey-input': 'Survey Input',
   'sticky-scroll-tabs': 'Sticky Scroll Tabs',
+  'html-embed': 'HTML Embed',
 };
 
 function SettingsPopupContent() {
