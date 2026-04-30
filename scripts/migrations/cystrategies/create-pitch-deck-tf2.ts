@@ -1,4 +1,6 @@
 import * as dotenv from 'dotenv';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 dotenv.config({ path: '.env' });
 
 /**
@@ -23,6 +25,7 @@ dotenv.config({ path: '.env' });
 
 const CALENDLY = 'https://calendly.com/cody-cystrategies/30min';
 const CY_STRATEGIES_USER_EMAIL = 'cystrategies@simplerdevelopment.com';
+const HEADSHOT_URL = 'https://cystrategies.co/assets/images/image08.jpg';
 
 const DECK_SLUG = 'pitch-deck-3';
 const SURVEY_SLUG = 'cy-strategy-qualifier';
@@ -59,15 +62,23 @@ const DECK_GLOBAL_CSS = `
 `.trim();
 
 // ─── Welcome slide (decision slide with 2 route options) ─────────────
+// Renders as a TF2-Qualifier-v4-style centered cover (logo → rust rule →
+// headline → body → stacked route buttons). The `decisionCover` shape
+// carries every piece of cover copy as content-managed fields — see
+// PitchDeckDecisionCover in lib/db/schema.ts and the matching editor UI
+// in app/portal/tools/pitch-decks/[id]/page.tsx.
+//
+// The logo SVG is read at build time from public/clients/cystrategies/logo.svg
+// and inlined into the slide JSON so it can pick up `currentColor` for fill.
 function buildWelcomeSlide() {
-  const css = `
-[data-slide-id="slide-welcome"] .block-content { max-width: 680px; margin: 0 auto; }
-`.trim();
+  const logoSvg = readFileSync(
+    join(process.cwd(), 'public/clients/cystrategies/logo.svg'),
+    'utf8',
+  ).trim();
 
   return {
     id: 'slide-welcome',
     label: 'Welcome',
-    customCss: css,
     pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
     // Decision slide — 2 options, each picks a pathGroup
     decisionSlide: true,
@@ -75,18 +86,31 @@ function buildWelcomeSlide() {
       {
         id: 'route-guided',
         label: 'Help me figure out what fits',
-        description: 'A few questions to map your situation to the right offering. ~2 minutes.',
-        icon: 'explore',
+        // Description renders as the small uppercase eyebrow on the route
+        // button (matches TF2 Qualifier v4's `rb-label`).
+        description: 'Not sure yet',
         pathGroup: 'guided',
       },
       {
         id: 'route-direct',
-        label: 'I know the direction I want to explore',
-        description: 'Show me the offerings and let me pick the one that makes sense.',
-        icon: 'list',
+        label: 'I know the direction I want to explore further',
+        description: 'Already have something in mind',
         pathGroup: 'direct',
       },
     ],
+    decisionCover: {
+      logo: logoSvg,
+      headline: "Let's figure out where to start.",
+      body:
+        "Three questions to help map your situation to the right offering. Takes about two minutes. At the end, you'll see what fits and why, along with a way to book a call if it makes sense.",
+      backgroundColor: C.offWhite,
+      textColor: C.darkBlack,
+      // The body uses #4a5c5a in the TF2 source — slightly warmer than soft-teal.
+      mutedColor: '#4a5c5a',
+      // Rule colors with rust per the TF2 design (`.rule-rust` in the source).
+      // The primary route button picks up `theme.primaryColor` (dark teal).
+      accentColor: C.rust,
+    },
     blocks: [],
   };
 }
@@ -211,108 +235,186 @@ function buildGuidedSurveySlide(surveyId: number) {
   };
 }
 
-// ─── Route 2 (direct): four offerings grid ────────────────────────────
-const SNAPSHOT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
-const ROADMAP_ICON  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>';
-const BLUEPRINT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-const ADVISORY_ICON  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+// ─── Route 2 (direct): selection grid + per-offering detail slides ────
+// Mirrors TF2 Qualifier v4: a "Which offering?" selection screen, then a
+// dedicated detail slide for whichever offering is chosen — with its own
+// price, duration, "you get" block, and book CTA.
 
-function offeringDetailCard(idPrefix: string, num: string, label: string, title: string, desc: string, youGet: string, price: string, duration: string, iconSvg: string) {
+interface OfferingSpec {
+  key: 'snapshot' | 'roadmap' | 'blueprint' | 'advisory';
+  num: string;            // "01", "02"
+  numLabel: string;       // "01 / Strategy Snapshot"
+  name: string;           // "Strategy Snapshot"
+  shortDesc: string;      // selection card description
+  tagline: string;        // detail page tagline (large)
+  youGet: string;         // detail page "You get" body
+  price: string;          // "$7,500" or "$12K-$18K"
+  duration: string;       // "3-4 weeks"
+  rangeNote?: string;     // optional gray note explaining the price range
+  bookNote: string;       // small caption below the book button
+}
+
+const OFFERINGS: OfferingSpec[] = [
+  {
+    key: 'snapshot',
+    num: '01',
+    numLabel: '01 / Strategy Snapshot',
+    name: 'Strategy Snapshot',
+    shortDesc: 'A prioritized picture of what to focus on for the next 90 days and why. Clarity on where to aim before anything gets built.',
+    tagline: "When things feel off but it's not clear why. Identifies what's driving results, what's wasting effort, and the few moves that actually matter next.",
+    youGet: 'A prioritized picture of what to focus on for the next 90 days and why. Clarity on where to aim before anything gets built.',
+    price: '$7,500',
+    duration: '3-4 weeks',
+    bookNote: 'Select this offering when you book. I look forward to the conversation.',
+  },
+  {
+    key: 'roadmap',
+    num: '02',
+    numLabel: '02 / Marketing Roadmap',
+    name: 'Marketing Roadmap',
+    shortDesc: 'A sequenced marketing plan your team can take and execute from. Covers what to build, in what order, and why.',
+    tagline: "Before you invest in execution, make the decisions most teams avoid. What actually matters, what doesn't, what gets built first.",
+    youGet: 'A sequenced marketing plan your team can take and execute from. Covers what to build, in what order, and why. For when you need the whole picture before anyone starts.',
+    price: '$12K-$18K',
+    duration: '4-6 weeks',
+    rangeNote: 'The range reflects how much ground needs to be covered, from a single focused area to the full marketing picture.',
+    bookNote: 'Select this offering when you book. I look forward to the conversation.',
+  },
+  {
+    key: 'blueprint',
+    num: '03',
+    numLabel: '03 / Campaign Blueprint',
+    name: 'Campaign Blueprint',
+    shortDesc: 'A fully designed campaign your team can build and launch. One audience, one goal, one motion.',
+    tagline: 'For when you need one specific thing to work. Designs the campaign around the right audience, message, and channels.',
+    youGet: 'A fully designed campaign your team can build and launch. One audience, one goal, one motion. For when you know the direction but need the campaign designed correctly before anyone runs it.',
+    price: '$7,500-$12K',
+    duration: '3-4 weeks',
+    rangeNote: 'The range reflects how clearly the audience and goal are defined going into the work.',
+    bookNote: 'Select this offering when you book. I look forward to the conversation.',
+  },
+  {
+    key: 'advisory',
+    num: '04',
+    numLabel: '04 / Fractional Marketing Advisory',
+    name: 'Fractional Marketing Advisory',
+    shortDesc: 'A strategic partner who shows up consistently as decisions come up. Ongoing guidance that keeps execution pointed in the right direction.',
+    tagline: 'Ongoing strategic input as priorities shift. Keeps decisions tight and execution pointed in the right direction.',
+    youGet: 'A strategic partner who shows up consistently as decisions come up. Not a project. Not a deliverable. Ongoing guidance that keeps execution pointed in the right direction.',
+    price: 'Starting at $3K/month',
+    duration: '6-month minimum',
+    bookNote: 'Select this offering when you book. I look forward to the conversation.',
+  },
+];
+
+const detailPath = (key: OfferingSpec['key']) => `direct-${key}`;
+
+/**
+ * Selection grid: a decision slide on pathGroup='direct' that branches into
+ * one of four per-offering detail pathGroups. Renders via the simple
+ * decision layout — 4 cards, each with an "01 / SNAPSHOT" eyebrow, the
+ * offering name, and a short description.
+ */
+function buildDirectSelectSlide() {
   return {
-    id: idPrefix,
-    type: 'section',
-    order: 1,
-    paddingTop: '22px',
-    paddingBottom: '22px',
-    paddingLeft: '24px',
-    paddingRight: '24px',
-    backgroundColor: '#ffffff',
-    blocks: [
-      { id: `${idPrefix}-bgnum`, type: 'text', order: 1, content: num,
-        style: { color: C.lightTeal, fontFamily: 'Roboto', fontSize: '38px', fontWeight: '900', lineHeight: '1' } },
-      { id: `${idPrefix}-icon`, type: 'text', order: 2, content: iconSvg,
-        style: { color: C.darkTeal } },
-      { id: `${idPrefix}-num`, type: 'text', order: 3, content: label,
-        style: { color: C.softTeal, fontFamily: 'Roboto', fontSize: '10px', fontWeight: '700', letterSpacing: '2.5px', textTransform: 'uppercase', margin: '6px 0 4px' } },
-      { id: `${idPrefix}-title`, type: 'heading', order: 4, level: 4, content: title,
-        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '15px', fontWeight: '700', lineHeight: '1.2' } },
-      { id: `${idPrefix}-desc`, type: 'text', order: 5, content: desc,
-        style: { color: '#4a5c5a', fontFamily: 'Roboto', fontSize: '12.5px', lineHeight: '1.55' } },
-      { id: `${idPrefix}-get`, type: 'text', order: 6, content: `You get: ${youGet}`,
-        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11.5px', fontWeight: '500' } },
-      { id: `${idPrefix}-meta`, type: 'text', order: 7, content: `${price} · ${duration}`,
-        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '12px', fontWeight: '600' } },
-    ],
+    id: 'slide-direct-select',
+    label: 'Which offering are you most interested in?',
+    pathGroup: 'direct',
+    pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
+    decisionSlide: true,
+    decisionOptions: OFFERINGS.map((o) => ({
+      id: `pick-${o.key}`,
+      eyebrow: o.numLabel.toUpperCase(),
+      label: o.name,
+      description: o.shortDesc,
+      pathGroup: detailPath(o.key),
+    })),
+    blocks: [],
   };
 }
 
-function buildDirectOfferingsSlide() {
+/**
+ * Per-offering detail slide. Mirrors TF2 v4 `screen-offering-detail`:
+ *  - small uppercase number/name eyebrow
+ *  - large offering name
+ *  - tagline
+ *  - "You get" highlighted block
+ *  - optional rust-bordered range note
+ *  - meta pills (price · duration)
+ *  - book CTA button
+ *  - small caption
+ */
+function buildOfferingDetailSlide(o: OfferingSpec) {
+  const slideId = `slide-detail-${o.key}`;
   const css = `
-[data-slide-id="slide-direct-offerings"] .block-content { max-width: 1000px; margin: 0 auto; }
-[data-block-id="direct-brand"] [data-editable-field="content"] { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 28px; }
-[data-block-id="direct-brand"] [data-editable-field="content"]::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
-[data-block-id="direct-heading"] h2 { margin: 0 0 10px !important; }
-[data-block-id="direct-intro"] [data-editable-field="content"] { margin: 0 0 18px; }
-/* Columns wrapper — kill default py-8 my-8 */
-[data-block-id="direct-grid"] .py-8 { padding: 0 !important; }
-[data-block-id="direct-grid"] .my-8 { margin: 0 !important; }
-[data-block-id="direct-grid"] .flex.flex-row { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
-[data-block-id="direct-grid"] [data-col-stacks-never] { width: auto !important; flex: 1 1 auto !important; }
-/* Card shells */
-[data-block-id^="dir-"][data-block-type="section"] section { border: 1px solid rgba(0,86,82,0.12) !important; border-left: 4px solid var(--dark-teal) !important; border-radius: 0 12px 12px 0 !important; box-shadow: 0 2px 10px rgba(0,86,82,0.06); position: relative !important; overflow: hidden !important; }
-[data-block-id^="dir-"][data-block-type="section"] { margin: 0 !important; }
-[data-block-id$="-bgnum"] { position: absolute !important; top: 6px; right: 14px; z-index: 0; pointer-events: none; user-select: none; margin: 0 !important; }
-[data-block-id$="-icon"] [data-editable-field="content"] svg { display: block; }
-[data-block-id$="-title"] h4 { margin: 0 !important; padding-right: 40px; }
-[data-block-id$="-get"] [data-editable-field="content"] { background: var(--light-teal); padding: 6px 10px; border-radius: 5px; display: inline-block; line-height: 1.4; margin-top: 4px; }
-[data-block-id$="-meta"] [data-editable-field="content"] { margin-top: 6px; }
+[data-slide-id="${slideId}"] .block-content { max-width: 640px; margin: 0 auto; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-num"] [data-editable-field="content"] { color: ${C.softTeal}; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 8px; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-name"] h2 { font-size: 28px; font-weight: 700; line-height: 1.15; letter-spacing: -0.3px; color: ${C.darkBlack}; margin: 0 0 6px; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-tagline"] [data-editable-field="content"] { font-size: 15px; color: ${C.darkTeal}; line-height: 1.65; margin: 0 0 18px; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-yg"] section { background: ${C.lightTeal} !important; border-radius: 8px !important; padding: 14px 18px !important; margin: 0 0 14px !important; border: none !important; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-yg-label"] [data-editable-field="content"] { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: ${C.darkTeal}; margin: 0 0 4px; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-yg-text"] [data-editable-field="content"] { font-size: 14px; color: ${C.darkBlack}; line-height: 1.6; margin: 0; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-range"] [data-editable-field="content"] { background: white; border-left: 3px solid ${C.rust}; border-radius: 0 6px 6px 0; padding: 10px 14px; margin: 0 0 14px; font-size: 13px; color: #3e5553; line-height: 1.55; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-meta"] [data-editable-field="content"] { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 20px; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-meta"] [data-editable-field="content"] span { background: white; border: 1px solid rgba(0,86,82,0.15); border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 600; color: ${C.darkTeal}; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-btn"] a, [data-slide-id="${slideId}"] [data-block-id="${slideId}-btn"] > div > a {
+  background: ${C.darkTeal} !important; color: ${C.offWhite} !important;
+  padding: 16px 22px !important; border-radius: 10px !important; border: none !important;
+  font-family: 'Roboto', sans-serif !important; font-size: 15px !important; font-weight: 700 !important;
+  width: 100% !important; display: flex !important; align-items: center !important;
+  justify-content: space-between !important; text-align: left !important; text-decoration: none !important;
+  margin: 0 !important;
+}
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-btn"] > div { margin: 0 !important; }
+[data-slide-id="${slideId}"] [data-block-id="${slideId}-note"] [data-editable-field="content"] { font-size: 12px; color: ${C.softTeal}; text-align: center; margin: 8px 0 0; line-height: 1.5; }
 `.trim();
 
+  const blocks: any[] = [
+    { id: `${slideId}-num`, type: 'text', order: 1, content: o.numLabel.toUpperCase() },
+    { id: `${slideId}-name`, type: 'heading', order: 2, level: 2, content: o.name },
+    { id: `${slideId}-tagline`, type: 'text', order: 3, content: o.tagline },
+    {
+      id: `${slideId}-yg`,
+      type: 'section',
+      order: 4,
+      paddingTop: '14px',
+      paddingBottom: '14px',
+      paddingLeft: '18px',
+      paddingRight: '18px',
+      blocks: [
+        { id: `${slideId}-yg-label`, type: 'text', order: 1, content: 'You get' },
+        { id: `${slideId}-yg-text`, type: 'text', order: 2, content: o.youGet },
+      ],
+    },
+  ];
+
+  if (o.rangeNote) {
+    blocks.push({ id: `${slideId}-range`, type: 'text', order: 5, content: o.rangeNote });
+  }
+
+  blocks.push(
+    { id: `${slideId}-meta`, type: 'text', order: 6, content: `<span>${o.price}</span><span>${o.duration}</span>` },
+    {
+      id: `${slideId}-btn`,
+      type: 'button',
+      order: 7,
+      text: 'Book a 30-minute call  →',
+      url: CALENDLY,
+      variant: 'primary',
+      alignment: 'left',
+      size: 'lg',
+      openInNewTab: true,
+    },
+    { id: `${slideId}-note`, type: 'text', order: 8, content: o.bookNote },
+  );
+
   return {
-    id: 'slide-direct-offerings',
-    label: 'Offerings',
-    pathGroup: 'direct',
+    id: slideId,
+    label: o.name,
+    pathGroup: detailPath(o.key),
     customCss: css,
     pageSettings: { backgroundColor: C.offWhite, color: C.darkBlack, fontFamily: 'Roboto' },
-    blocks: [
-      { id: 'direct-brand', type: 'text', order: 1, content: 'CY STRATEGIES',
-        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '4px', textTransform: 'uppercase' } },
-      { id: 'direct-eyebrow', type: 'text', order: 2, content: 'FOUR WAYS TO WORK TOGETHER',
-        style: { color: C.darkTeal, fontFamily: 'Roboto', fontSize: '11px', fontWeight: '700', letterSpacing: '3px', margin: '0 0 14px' } },
-      { id: 'direct-heading', type: 'heading', order: 3, level: 2, content: 'Pick the one that fits.',
-        style: { color: C.darkBlack, fontFamily: 'Roboto', fontSize: '36px', fontWeight: '700', lineHeight: '1.15', letterSpacing: '-0.4px' } },
-      { id: 'direct-intro', type: 'text', order: 4, content: "Each covers a different situation. If none feel right, book a call and we'll sort it out together on the next slide.",
-        style: { color: '#5a6b69', fontFamily: 'Roboto', fontSize: '14px', lineHeight: '1.6', maxWidth: '560px' } },
-      {
-        id: 'direct-grid',
-        type: 'columns',
-        order: 5,
-        gap: 'md',
-        stackOnMobile: true,
-        columns: [
-          {
-            id: 'direct-col-left', width: '50%', verticalAlign: 'top', padding: 'none',
-            blocks: [
-              offeringDetailCard('dir-01', '01', '01 / SNAPSHOT', 'Strategy Snapshot', "A prioritized picture of what to focus on for the next 90 days and why. Clarity on where to aim before anything gets built.",
-                'A 2-page prioritized plan with 3 initiatives to act on immediately', '$7,500', '3-4 weeks', SNAPSHOT_ICON),
-              { id: 'direct-spacer-left', type: 'spacer', order: 2, height: 'xs' },
-              offeringDetailCard('dir-03', '03', '03 / BLUEPRINT', 'Campaign Blueprint', 'A fully designed campaign your team can build and launch. One audience, one goal, one motion.',
-                'A build-ready campaign structure with audience, message, channels, and measurement', '$7,500-$12K', '3-4 weeks', BLUEPRINT_ICON),
-            ],
-          },
-          {
-            id: 'direct-col-right', width: '50%', verticalAlign: 'top', padding: 'none',
-            blocks: [
-              offeringDetailCard('dir-02', '02', '02 / ROADMAP', 'Marketing Roadmap', "A sequenced marketing plan your team can take and execute from. Covers what to build, in what order, and why.",
-                'A sequenced, execution-ready roadmap your team can follow with confidence', '$12K-$18K', '4-6 weeks', ROADMAP_ICON),
-              { id: 'direct-spacer-right', type: 'spacer', order: 2, height: 'xs' },
-              offeringDetailCard('dir-04', '04', '04 / ADVISORY', 'Fractional Advisory', 'A strategic partner who shows up consistently as decisions come up. Ongoing guidance that keeps execution pointed in the right direction.',
-                'Consistent strategic input that keeps execution connected to the plan', 'Starting at $3K/mo', '6-month min', ADVISORY_ICON),
-            ],
-          },
-        ],
-      },
-    ],
+    blocks,
   };
 }
 
@@ -360,10 +462,11 @@ function buildBookSlide() {
 
 function buildSlides(surveyId: number) {
   return [
-    buildWelcomeSlide(),            // main — decision
-    buildGuidedSurveySlide(surveyId), // pathGroup='guided'
-    buildDirectOfferingsSlide(),    // pathGroup='direct'
-    buildBookSlide(),               // main — book CTA (after any path)
+    buildWelcomeSlide(),                              // main — decision (guided/direct)
+    buildGuidedSurveySlide(surveyId),                 // pathGroup='guided'
+    buildDirectSelectSlide(),                         // pathGroup='direct' — nested decision (snap/road/blue/adv)
+    ...OFFERINGS.map(buildOfferingDetailSlide),       // pathGroups 'direct-<key>' — per-offering detail
+    buildBookSlide(),                                 // main — final book CTA
   ];
 }
 

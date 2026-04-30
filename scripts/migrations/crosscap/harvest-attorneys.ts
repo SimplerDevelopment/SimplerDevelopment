@@ -125,7 +125,10 @@ async function nextPageUrl(page: Page): Promise<string | null> {
 }
 
 async function harvestState(slug: string, maxPages: number) {
-  const stateAbbr = STATE_SLUG_TO_ABBR[slug];
+  // Accept both "state" and "state/city" — for city scope, the state abbr
+  // is taken from the leading state segment, and the URL appends the city.
+  const stateRoot = slug.split('/')[0];
+  const stateAbbr = STATE_SLUG_TO_ABBR[stateRoot];
   if (!stateAbbr) throw new Error(`Unknown state slug: ${slug}. Use one of: ${Object.keys(STATE_SLUG_TO_ABBR).join(', ')}`);
 
   const ids = JSON.parse(fs.readFileSync(path.join(__dirname, 'ids.json'), 'utf-8'));

@@ -21,7 +21,12 @@ import { JSDOM } from 'jsdom';
 
 dotenv.config({ path: '.env' });
 
-const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36 SimplerDevResearchBot/1.0 (info@danielpcoyle.com)';
+// Best-effort: keep the worker alive on stray async errors from jsdom / fetch.
+// We don't want a single broken homepage's CSS to take down a multi-hour shard.
+process.on('uncaughtException', (e) => { console.error('[uncaughtException]', (e as Error).message); });
+process.on('unhandledRejection', (e) => { console.error('[unhandledRejection]', (e as Error)?.message ?? e); });
+
+const UA ='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0 Safari/537.36 SimplerDevResearchBot/1.0 (info@danielpcoyle.com)';
 const FETCH_TIMEOUT_MS = 5000;         // tighter — slow hosts kill throughput
 const INTRA_FIRM_DELAY_MS = 200;
 const PER_FIRM_DELAY_MS = 250;
@@ -70,6 +75,20 @@ function abs(href: string, base: string): string | null {
   try { return new URL(href, base).toString(); } catch { return null; }
 }
 
+// JSDOM occasionally throws inside its CSS parser (cssstyle/cssom) on malformed
+// inline styles. We only need anchors and <p> text, so strip style/script blocks
+// and wrap construction in try/catch to keep workers alive.
+function safeJsdom(html: string, url?: string): JSDOM | null {
+  const cleaned = html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ');
+  try {
+    return url ? new JSDOM(cleaned, { url }) : new JSDOM(cleaned);
+  } catch {
+    return null;
+  }
+}
+
 function sameHost(href: string, base: string): boolean {
   try {
     const a = new URL(href);
@@ -79,7 +98,8 @@ function sameHost(href: string, base: string): boolean {
 }
 
 function findTeamPageUrl(homeHtml: string, homeUrl: string): string | null {
-  const dom = new JSDOM(homeHtml, { url: homeUrl });
+  const dom = safeJsdom(homeHtml, homeUrl);
+  if (!dom) return null;
   const links = Array.from(dom.window.document.querySelectorAll<HTMLAnchorElement>('a[href]'));
   // 1) Exact path hints, prioritized
   for (const hint of TEAM_PATH_HINTS) {
@@ -108,8 +128,9 @@ function findTeamPageUrl(homeHtml: string, homeUrl: string): string | null {
 interface AttorneyHit { name: string; profileUrl: string; }
 
 function findAttorneyProfiles(teamHtml: string, teamUrl: string): AttorneyHit[] {
-  const dom = new JSDOM(teamHtml, { url: teamUrl });
+  const dom = safeJsdom(teamHtml, teamUrl);
   const out: AttorneyHit[] = [];
+  if (!dom) return out;
   const seen = new Set<string>();
 
   // Heuristic: look for anchors whose href contains "/attorney/", "/lawyer/", "/our-team/<slug>"
@@ -162,12 +183,14 @@ function parseProfile(html: string): ProfileFacts {
 
   // Bio snippet — the first <p> with reasonable length inside the body.
   let bioSnippet: string | null = null;
-  const dom = new JSDOM(html);
-  const ps = Array.from(dom.window.document.querySelectorAll<HTMLParagraphElement>('p'));
-  for (const p of ps) {
-    const t = (p.textContent ?? '').replace(/\s+/g, ' ').trim();
-    if (t.length >= 80 && t.length <= 500) { bioSnippet = t; break; }
-    if (t.length > 500) { bioSnippet = t.slice(0, 480) + '…'; break; }
+  const dom = safeJsdom(html);
+  if (dom) {
+    const ps = Array.from(dom.window.document.querySelectorAll<HTMLParagraphElement>('p'));
+    for (const p of ps) {
+      const t = (p.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (t.length >= 80 && t.length <= 500) { bioSnippet = t; break; }
+      if (t.length > 500) { bioSnippet = t.slice(0, 480) + '…'; break; }
+    }
   }
 
   return { email, phone, linkedinUrl, bioSnippet };
@@ -331,8 +354,17 @@ async function main() {
       ))).map(r => r.entityId),
   );
 
-  const queue = firms.filter(f => force || !alreadyCrawled.has(f.id));
-  console.log(`Already crawled: ${alreadyCrawled.size}, remaining: ${queue.length}, concurrency=${CONCURRENCY}\n`);
+  // Optional sharding: SHARD=n/m → only handle firms where (id % m) === n.
+  // Lets multiple processes carve up the queue without overlap.
+  const shardEnv = (process.env.SHARD ?? '').match(/^(\d+)\/(\d+)$/);
+  const shardN = shardEnv ? parseInt(shardEnv[1], 10) : 0;
+  const shardM = shardEnv ? parseInt(shardEnv[2], 10) : 1;
+
+  const queue = firms.filter(f =>
+    (force || !alreadyCrawled.has(f.id)) &&
+    (f.id % shardM) === shardN
+  );
+  console.log(`Shard ${shardN}/${shardM} | already crawled: ${alreadyCrawled.size} | this shard remaining: ${queue.length} | concurrency=${CONCURRENCY}\n`);
 
   let cursor = 0;
   async function worker(workerId: number) {
