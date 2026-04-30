@@ -84,6 +84,7 @@
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
     "react-native": "0.81.5",
+    "react-resizable-panels": "^3",
     "react-select": "^5.10.2",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
