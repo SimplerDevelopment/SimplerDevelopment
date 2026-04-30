@@ -10,6 +10,8 @@ import { and, eq } from 'drizzle-orm';
 
 const MAX_HTML_SIZE = 1_000_000;
 
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) {

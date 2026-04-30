@@ -11,6 +11,10 @@ const MAX_HTML_SIZE = 1_000_000; // 1 MB
 const ALLOWED_MIME = new Set(['text/html', 'application/xhtml+xml']);
 const ALLOWED_EXT = /\.(html?|xhtml)$/i;
 
+// Asset import can hit dozens of external URLs sequentially before the
+// upload finishes. Keep this aligned with the platform-level function limit.
+export const maxDuration = 120;
+
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {

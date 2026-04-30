@@ -12,6 +12,8 @@ const MAX_HTML_SIZE = 1_000_000; // 1 MB
 const ALLOWED_MIME = new Set(['text/html', 'application/xhtml+xml']);
 const ALLOWED_EXT = /\.(html?|xhtml)$/i;
 
+export const maxDuration = 120;
+
 function slugify(input: string): string {
   return input
     .trim()

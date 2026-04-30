@@ -2677,6 +2677,24 @@ function SurveyResultsEditor({ block, onUpdate }: { block: Block; onUpdate: (upd
 
 // ─── HTML Embed Editor — file upload, replace-versioned, plus iframe knobs ──
 
+// Some failure modes (Railway timeouts, proxy errors) return an HTML error
+// page. Calling res.json() on that throws "Unexpected token '<'..." which
+// looks like a frontend bug instead of a server failure — fall back to text.
+interface UploadEnvelope {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: { id?: number; url?: string; filename?: string };
+}
+async function safeJson(res: Response): Promise<UploadEnvelope | null> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as UploadEnvelope;
+  } catch {
+    return null;
+  }
+}
+
 function HtmlEmbedEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: (updates: Partial<Block>) => void; siteId?: number }) {
   const b = block as unknown as Record<string, unknown>;
   const url = (b.url as string) || '';
@@ -2697,20 +2715,25 @@ function HtmlEmbedEditor({ block, onUpdate, siteId }: { block: Block; onUpdate: 
         const fd = new FormData();
         fd.append('file', file);
         const res = await fetch(`/api/portal/media/${mediaId}/replace`, { method: 'POST', body: fd });
-        const json = await res.json();
-        if (res.ok && json.success) {
-          onUpdate({ url: json.data.url, filename: json.data.filename } as Partial<Block>);
+        const parsed = await safeJson(res);
+        if (res.ok && parsed?.success && parsed.data) {
+          onUpdate({ url: parsed.data.url, filename: parsed.data.filename } as Partial<Block>);
           return;
         }
-        // fall through to fresh upload on failure
+        // Replace failed (timeout, server error, etc.) — surface why and stop.
+        // Falling through to a fresh upload would create a duplicate media row
+        // and orphan the existing version history, which is worse than failing.
+        throw new Error(parsed?.message || parsed?.error || `Replace failed (status ${res.status})`);
       }
       const fd = new FormData();
       fd.append('file', file);
       if (siteId) fd.append('websiteId', String(siteId));
       const res = await fetch('/api/portal/html-uploads', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || 'Upload failed');
-      onUpdate({ url: json.data.url, filename: json.data.filename, mediaId: json.data.id } as Partial<Block>);
+      const parsed = await safeJson(res);
+      if (!res.ok || !parsed?.success || !parsed.data) {
+        throw new Error(parsed?.error || parsed?.message || `Upload failed (status ${res.status})`);
+      }
+      onUpdate({ url: parsed.data.url, filename: parsed.data.filename, mediaId: parsed.data.id } as Partial<Block>);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
     } finally {
