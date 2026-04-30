@@ -1,4 +1,4 @@
-import { JSDOM } from 'jsdom';
+import { parse } from 'node-html-parser';
 import { db } from '@/lib/db';
 import { media } from '@/lib/db/schema';
 import { uploadToS3 } from '@/lib/s3/upload';
@@ -49,8 +49,10 @@ export async function importHtmlAssets(
   const concurrency = opts.concurrency ?? DEFAULT_CONCURRENCY;
   const timeoutMs = opts.perAssetTimeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const dom = new JSDOM(html);
-  const doc = dom.window.document;
+  const root = parse(html, {
+    voidTag: { closingSlash: true },
+    blockTextElements: { script: true, style: true, pre: true },
+  });
 
   // ── Pass 1: collect URLs ────────────────────────────────────────────────
   const urls = new Set<string>();
@@ -68,12 +70,12 @@ export async function importHtmlAssets(
     ['link[rel="apple-touch-icon"][href]', 'href'],
   ];
   for (const [selector, attr] of singleAttrSelectors) {
-    for (const el of Array.from(doc.querySelectorAll(selector))) {
+    for (const el of root.querySelectorAll(selector)) {
       const v = el.getAttribute(attr);
       if (v) urls.add(v);
     }
   }
-  for (const el of Array.from(doc.querySelectorAll('img[srcset], source[srcset]'))) {
+  for (const el of root.querySelectorAll('img[srcset], source[srcset]')) {
     const v = el.getAttribute('srcset');
     if (!v) continue;
     for (const part of v.split(',').map((s) => s.trim()).filter(Boolean)) {
@@ -81,10 +83,10 @@ export async function importHtmlAssets(
       if (u) urls.add(u);
     }
   }
-  for (const el of Array.from(doc.querySelectorAll('style'))) {
+  for (const el of root.querySelectorAll('style')) {
     extractCssUrls(el.textContent ?? '').forEach((u) => urls.add(u));
   }
-  for (const el of Array.from(doc.querySelectorAll('[style]'))) {
+  for (const el of root.querySelectorAll('[style]')) {
     const v = el.getAttribute('style');
     if (v) extractCssUrls(v).forEach((u) => urls.add(u));
   }
@@ -192,14 +194,14 @@ export async function importHtmlAssets(
   for (const [u, p] of cache.entries()) rewritten.set(u, await p);
 
   for (const [selector, attr] of singleAttrSelectors) {
-    for (const el of Array.from(doc.querySelectorAll(selector))) {
+    for (const el of root.querySelectorAll(selector)) {
       const v = el.getAttribute(attr);
       if (!v) continue;
       const r = rewritten.get(v);
       if (r) el.setAttribute(attr, r);
     }
   }
-  for (const el of Array.from(doc.querySelectorAll('img[srcset], source[srcset]'))) {
+  for (const el of root.querySelectorAll('img[srcset], source[srcset]')) {
     const v = el.getAttribute('srcset');
     if (!v) continue;
     const parts = v.split(',').map((s) => s.trim()).filter(Boolean);
@@ -211,12 +213,12 @@ export async function importHtmlAssets(
     }
     el.setAttribute('srcset', out.join(', '));
   }
-  for (const el of Array.from(doc.querySelectorAll('style'))) {
+  for (const el of root.querySelectorAll('style')) {
     const css = el.textContent ?? '';
     const next = applyCssRewrites(css, rewritten);
     if (next !== css) el.textContent = next;
   }
-  for (const el of Array.from(doc.querySelectorAll('[style]'))) {
+  for (const el of root.querySelectorAll('[style]')) {
     const css = el.getAttribute('style');
     if (!css) continue;
     const next = applyCssRewrites(css, rewritten);
@@ -224,7 +226,7 @@ export async function importHtmlAssets(
   }
 
   return {
-    html: dom.serialize(),
+    html: root.toString(),
     importedCount: imported,
     skippedCount: skipped,
   };
