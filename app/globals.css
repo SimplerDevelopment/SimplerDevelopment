@@ -147,6 +147,47 @@ body {
   border-radius: 4px;
 }
 
+/*
+ * Minimal highlight.js token coloring for the brain markdown preview.
+ * Scoped to .markdown-preview so other surfaces (MarkdownView etc.) are unaffected.
+ * Designed to read on both the light (#fafaf9) and dark (#18181b) themes.
+ */
+.markdown-preview .hljs { color: var(--foreground); background: transparent; }
+.markdown-preview .hljs-comment,
+.markdown-preview .hljs-quote { color: color-mix(in srgb, var(--foreground) 50%, transparent); font-style: italic; }
+.markdown-preview .hljs-keyword,
+.markdown-preview .hljs-selector-tag,
+.markdown-preview .hljs-built_in,
+.markdown-preview .hljs-meta { color: #2563eb; }
+.dark .markdown-preview .hljs-keyword,
+.dark .markdown-preview .hljs-selector-tag,
+.dark .markdown-preview .hljs-built_in,
+.dark .markdown-preview .hljs-meta { color: #60a5fa; }
+.markdown-preview .hljs-string,
+.markdown-preview .hljs-doctag,
+.markdown-preview .hljs-attr { color: #059669; }
+.dark .markdown-preview .hljs-string,
+.dark .markdown-preview .hljs-doctag,
+.dark .markdown-preview .hljs-attr { color: #34d399; }
+.markdown-preview .hljs-number,
+.markdown-preview .hljs-literal,
+.markdown-preview .hljs-symbol { color: #d97706; }
+.dark .markdown-preview .hljs-number,
+.dark .markdown-preview .hljs-literal,
+.dark .markdown-preview .hljs-symbol { color: #fbbf24; }
+.markdown-preview .hljs-title,
+.markdown-preview .hljs-section,
+.markdown-preview .hljs-name { color: #be185d; font-weight: 600; }
+.dark .markdown-preview .hljs-title,
+.dark .markdown-preview .hljs-section,
+.dark .markdown-preview .hljs-name { color: #f472b6; }
+.markdown-preview .hljs-variable,
+.markdown-preview .hljs-template-variable { color: #b45309; }
+.dark .markdown-preview .hljs-variable,
+.dark .markdown-preview .hljs-template-variable { color: #fbbf24; }
+.markdown-preview .hljs-emphasis { font-style: italic; }
+.markdown-preview .hljs-strong { font-weight: 700; }
+
 /* Large section number watermark */
 .section-number {
   font-size: 8rem;
