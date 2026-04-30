@@ -69,16 +69,23 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (Number.isNaN(meetingId)) {
     return NextResponse.json({ success: false, message: 'Invalid meeting id' }, { status: 400 });
   }
-  const ok = await deleteMeeting(result.client.id, meetingId);
-  if (!ok) {
-    return NextResponse.json({ success: false, message: 'Meeting not found' }, { status: 404 });
+
+  try {
+    const ok = await deleteMeeting(result.client.id, meetingId);
+    if (!ok) {
+      return NextResponse.json({ success: false, message: 'Meeting not found' }, { status: 404 });
+    }
+    await logAudit({
+      clientId: result.client.id,
+      actorId: result.userId,
+      action: 'meeting.deleted',
+      entityType: 'brain_meeting',
+      entityId: meetingId,
+    });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(`[DELETE /api/portal/brain/meetings/${meetingId}] failed:`, err);
+    const message = err instanceof Error ? err.message : 'Failed to delete meeting.';
+    return NextResponse.json({ success: false, message }, { status: 500 });
   }
-  await logAudit({
-    clientId: result.client.id,
-    actorId: result.userId,
-    action: 'meeting.deleted',
-    entityType: 'brain_meeting',
-    entityId: meetingId,
-  });
-  return NextResponse.json({ success: true });
 }

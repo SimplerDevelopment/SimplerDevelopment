@@ -3,6 +3,7 @@ import {
   brainMeetings,
   brainMeetingParticipants,
   brainAiJobs,
+  brainAiReviewItems,
   brainRelationshipOverlays,
   crmCompanies,
   crmDeals,
@@ -332,8 +333,19 @@ export async function setMeetingAiSummary(
 }
 
 export async function deleteMeeting(clientId: number, meetingId: number): Promise<boolean> {
-  const result = await db.delete(brainMeetings)
-    .where(and(eq(brainMeetings.id, meetingId), eq(brainMeetings.clientId, clientId)))
-    .returning({ id: brainMeetings.id });
-  return result.length > 0;
+  return await db.transaction(async (tx) => {
+    // brain_ai_review_items.sourceId has no FK, so we must clean up orphans
+    // explicitly before deleting the meeting. Without this the review queue
+    // keeps showing items pointing at a meeting that no longer exists.
+    await tx.delete(brainAiReviewItems).where(and(
+      eq(brainAiReviewItems.clientId, clientId),
+      eq(brainAiReviewItems.sourceType, 'meeting'),
+      eq(brainAiReviewItems.sourceId, meetingId),
+    ));
+
+    const result = await tx.delete(brainMeetings)
+      .where(and(eq(brainMeetings.id, meetingId), eq(brainMeetings.clientId, clientId)))
+      .returning({ id: brainMeetings.id });
+    return result.length > 0;
+  });
 }
