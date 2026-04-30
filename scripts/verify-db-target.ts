@@ -11,6 +11,7 @@ if (!url) {
 
 const PROD_INDICATORS = [
   'tramway.proxy.rlwy.net:43167',
+  'metro.proxy.rlwy.net:25565',
 ];
 
 const hitProd = PROD_INDICATORS.some((p) => url.includes(p)) || process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
