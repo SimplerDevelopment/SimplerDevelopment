@@ -42,7 +42,8 @@ export function buildPortalNavItems(
         { href: '/portal/brain/relationships', label: 'Relationships', icon: 'group_work', alsoActiveOn: '/portal/brain/prospects', keywords: ['prospects', 'stale', 'overlay'] },
         { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review', keywords: ['kanban', 'review queue', 'todo', 'communications'] },
         { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book', keywords: ['notes', 'wiki', 'docs'] },
-        { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt', keywords: ['rules', 'triggers'] },
+        // Automations is intentionally hidden from sidebar + cmd-k. The page
+        // at /portal/brain/automations still renders for direct URL access.
         { href: '/portal/brain/ask', label: 'Connect AI', icon: 'cable', keywords: ['mcp', 'ask brain', 'chat'] },
         { href: '/portal/brain/settings', label: 'Settings', icon: 'settings', keywords: ['brain settings'] },
       ],
@@ -145,7 +146,8 @@ export function buildPortalNavItems(
     ),
     { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
     { href: '/portal/branding', label: 'Branding', icon: 'palette', keywords: ['theme', 'colors', 'logo'] },
-    { href: '/portal/approvals', label: 'Approvals', icon: 'fact_check', keywords: ['mcp approvals', 'pending'] },
+    // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
+    // at /portal/approvals still renders for direct URL access.
     { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team', 'billing'] },
   ];
 }
