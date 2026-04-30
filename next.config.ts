@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
     workerThreads: false,
     cpus: 4,
   },
+
+  // jsdom (used by lib/html-embed-clean + lib/html-asset-import) pulls in
+  // ESM-only transitive deps via html-encoding-sniffer → @exodus/bytes.
+  // Vercel's bundler can't `require()` those from bundled CJS, so let Node
+  // resolve jsdom at runtime instead of attempting to bundle it.
+  serverExternalPackages: ['jsdom'],
+
   images: {
     remotePatterns: [
       {
