@@ -90,7 +90,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const isOnAdminLogin = nextUrl.pathname === '/admin/login';
       const isOnPortal = nextUrl.pathname.startsWith('/portal');
       const isOnPortalLogin = nextUrl.pathname === '/portal/login';
-      const isOnPortalPublic = nextUrl.pathname === '/portal/forgot-password' || nextUrl.pathname === '/portal/reset-password';
+      const isOnPortalPublic =
+        nextUrl.pathname === '/portal/forgot-password' ||
+        nextUrl.pathname === '/portal/reset-password' ||
+        nextUrl.pathname.startsWith('/portal/invite/');
 
       // Admin panel: require auth, block clients
       if (isOnAdmin && !isOnAdminLogin) {
