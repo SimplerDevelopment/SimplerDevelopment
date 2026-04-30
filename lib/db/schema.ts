@@ -3078,6 +3078,32 @@ export const brainNotes = pgTable('brain_notes', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Brain note templates — reusable note bodies a tenant can apply manually, via
+// slash command, on a daily cron, or auto-attached to a new meeting. Bodies
+// are markdown with `{{variables}}` resolved by lib/brain/template.ts. The
+// daily-note cron (app/api/cron/brain-daily-notes) materializes one
+// brain_notes row per (template.id, YYYY-MM-DD) using
+// `source_url = 'daily://<templateId>/<YYYY-MM-DD>'` as its idempotency key.
+export type BrainNoteTemplateTrigger = 'manual' | 'daily' | 'meeting' | 'slash';
+
+export const brainNoteTemplates = pgTable('brain_note_templates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  body: text('body').notNull(),
+  trigger: varchar('trigger', { length: 50 }).$type<BrainNoteTemplateTrigger>().default('manual').notNull(),
+  // Variable names this template references — used as UI hints only; the
+  // template engine re-parses the body on apply.
+  variables: json('variables').$type<string[]>(),
+  enabled: boolean('enabled').default(true).notNull(),
+  // Tags pre-attached to notes created from this template. Merged with any
+  // call-site tags (e.g. the daily cron always adds 'daily').
+  defaultTags: json('default_tags').$type<string[]>(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [uniqueIndex('brain_note_templates_client_name_idx').on(t.clientId, t.name)]);
+
 // Brain custom fields — same shape as crm_custom_fields/values but a separate
 // table pair so Brain and CRM custom-field admin/lifecycles stay decoupled.
 // `source` distinguishes user-created defs from auto-derived ones (importers
