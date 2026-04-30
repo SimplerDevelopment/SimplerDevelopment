@@ -59,15 +59,18 @@ export interface MarkdownEditorProps {
   /**
    * Extra `react-markdown` component overrides applied on top of (and
    * overriding) the editor's defaults. Lets a caller plug in custom renderers
-   * — most notably the `dataview` code-block override
-   * (see `components/brain/DataviewBlock.tsx`).
+   * — most notably future block overrides (e.g. dataview).
    *
    * Keys here are merged into the default components map AFTER the defaults,
-   * so any key you provide wins. If you override `code`, you'll usually want
-   * to delegate non-dataview cases back to the default behaviour;
-   * `makeDataviewCodeOverride` does this for you.
+   * so any key you provide wins.
    */
   extraComponents?: Components;
+  /**
+   * Receive the underlying CodeMirror EditorView once mounted. Used by the
+   * note detail page's outline panel to scroll the editor to a heading.
+   * Fires with `null` on unmount.
+   */
+  onEditorReady?: (view: EditorView | null) => void;
 }
 
 const DEFAULT_STORAGE_KEY = 'brain.editor.mode';
@@ -338,6 +341,7 @@ export default function MarkdownEditor({
   className,
   autocompleteFetchers = defaultBrainAutocompleteFetchers,
   extraComponents,
+  onEditorReady,
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<MarkdownEditorMode>(defaultMode);
   const [hydrated, setHydrated] = useState(false);
@@ -382,6 +386,15 @@ export default function MarkdownEditor({
     },
     [storageKey],
   );
+
+  // Surface the EditorView upward when @uiw/react-codemirror has created it.
+  // Using `onCreateEditor` (the library's lifecycle hook) avoids polling and
+  // fires exactly once per mount of the underlying CodeMirror instance.
+  const onEditorReadyRef = useRef(onEditorReady);
+  useEffect(() => { onEditorReadyRef.current = onEditorReady; }, [onEditorReady]);
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    onEditorReadyRef.current?.(view);
+  }, []);
 
   const handleChange = useCallback(
     (v: string) => {
@@ -502,6 +515,7 @@ export default function MarkdownEditor({
               ref={editorRef}
               value={value}
               onChange={handleChange}
+              onCreateEditor={handleCreateEditor}
               placeholder={placeholder}
               extensions={extensions}
               basicSetup={{
