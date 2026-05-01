@@ -5,6 +5,7 @@ import { clientWebsites, postTypes } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { CustomFieldsManager } from '@/components/portal/CustomFieldsManager';
+import { promoteBuiltInContentType } from '@/lib/portal/promote-content-type';
 
 interface PageProps {
   params: Promise<{ siteId: string; typeId: string }>;
@@ -25,10 +26,18 @@ export default async function ContentTypeFieldsPage({ params }: PageProps) {
     .limit(1);
   if (!site) notFound();
 
+  // Built-in types (page, blog, event, …) are global; fork to a site-scoped
+  // copy on first edit so customizations don't bleed across clients.
+  const promoted = await promoteBuiltInContentType(site.id, parseInt(typeId));
+  if (!promoted) notFound();
+  if (promoted.redirected) {
+    redirect(`/portal/websites/${siteId}/content-types/${promoted.id}/fields`);
+  }
+
   const [type] = await db
     .select()
     .from(postTypes)
-    .where(and(eq(postTypes.id, parseInt(typeId)), eq(postTypes.websiteId, site.id)))
+    .where(and(eq(postTypes.id, promoted.id), eq(postTypes.websiteId, site.id)))
     .limit(1);
   if (!type) notFound();
 

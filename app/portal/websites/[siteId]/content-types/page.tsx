@@ -225,24 +225,25 @@ export default function ContentTypesPage() {
             {type.description && (
               <p className="text-xs text-muted-foreground mt-2">{type.description}</p>
             )}
-            {type.websiteId ? (
-              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                <Link
-                  href={`/portal/websites/${siteId}/content-types/${type.id}/fields`}
-                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                >
-                  <span className="material-icons text-sm">input</span>
-                  Custom fields
-                </Link>
-                <Link
-                  href={`/portal/websites/${siteId}/content-types/${type.id}/template`}
-                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                >
-                  <span className="material-icons text-sm">view_quilt</span>
-                  Template &amp; code
-                </Link>
-              </div>
-            ) : null}
+            {/* Edit links — same set for built-in and site-specific types.
+                Built-ins are forked into a site-scoped copy on first edit
+                (handled server-side by promoteBuiltInContentType). */}
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              <Link
+                href={`/portal/websites/${siteId}/content-types/${type.id}/fields`}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <span className="material-icons text-sm">input</span>
+                Custom fields
+              </Link>
+              <Link
+                href={`/portal/websites/${siteId}/content-types/${type.id}/template`}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <span className="material-icons text-sm">view_quilt</span>
+                Template &amp; code
+              </Link>
+            </div>
           </div>
         ))}
       </div>
