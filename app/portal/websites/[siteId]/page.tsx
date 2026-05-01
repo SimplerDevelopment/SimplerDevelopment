@@ -113,6 +113,7 @@ export default async function PortalCmsDashboardPage({
           { href: `/portal/websites/${site.id}/taxonomy`, icon: 'account_tree', label: 'Taxonomy' },
           { href: `/portal/websites/${site.id}/content-types`, icon: 'description', label: 'Content Types' },
           { href: `/portal/websites/${site.id}/calendar`, icon: 'calendar_month', label: 'Calendar' },
+          { href: `/portal/websites/${site.id}/code`, icon: 'code', label: 'Custom Code' },
           { href: `/portal/websites/${site.id}/settings`, icon: 'settings', label: 'Settings' },
           { href: `#api-keys`, icon: 'code', label: 'Developer' },
         ].map(link => (
