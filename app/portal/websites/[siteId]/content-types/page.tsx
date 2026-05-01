@@ -235,18 +235,11 @@ export default function ContentTypesPage() {
                   Custom fields
                 </Link>
                 <Link
-                  href={`/portal/websites/${siteId}/content-types/${type.id}/code`}
-                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                >
-                  <span className="material-icons text-sm">code</span>
-                  Custom code
-                </Link>
-                <Link
                   href={`/portal/websites/${siteId}/content-types/${type.id}/template`}
                   className="inline-flex items-center gap-1 text-primary hover:underline"
                 >
                   <span className="material-icons text-sm">view_quilt</span>
-                  Template
+                  Template &amp; code
                 </Link>
               </div>
             ) : null}
