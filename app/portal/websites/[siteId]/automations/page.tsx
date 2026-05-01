@@ -3,7 +3,6 @@ import { clientWebsites } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
-import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import WebsiteAutomationSettings from '@/components/portal/WebsiteAutomationSettings';
 import WebsiteNotificationSettings from '@/components/portal/WebsiteNotificationSettings';
@@ -31,20 +30,11 @@ export default async function WebsiteAutomationsPage({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Breadcrumb */}
-      <Link
-        href={`/portal/websites/${site.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span className="material-icons text-base">arrow_back</span>
-        Back to {site.name}
-      </Link>
-
-      {/* Header */}
+      {/* Header — site identity + back lives in WebsiteSubNav. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Automations & Notifications</h1>
+        <h1 className="text-2xl font-bold text-foreground">Automations &amp; Notifications</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Configure automated workflows and notification alerts for {site.name}.
+          Configure automated workflows and notification alerts.
         </p>
       </div>
 
