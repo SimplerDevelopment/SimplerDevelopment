@@ -60,6 +60,7 @@ import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { SurveyInputBlockRender } from './SurveyInputBlockRender';
 import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
 import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
+import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -272,16 +273,11 @@ function renderBlock(block: Block, siteId?: number) {
     case 'html-render':
       return <HtmlRenderBlockRender block={normalized} />;
     case 'post-content':
-      // The substitution should have happened in wrapWithTypeTemplate already;
-      // anything that reaches this case is either an unwrapped template
-      // preview, or a post that put a placeholder in its own content. Render
-      // nothing in production, a debug stub in development.
-      if (process.env.NODE_ENV !== 'development') return null;
-      return (
-        <div className="my-2 px-3 py-2 border border-dashed border-amber-400 bg-amber-50 text-xs text-amber-900 rounded">
-          [post-content placeholder — no post body to substitute]
-        </div>
-      );
+      // wrapWithTypeTemplate() substitutes this block with the post body
+      // before render in production, so reaching this case means we're
+      // rendering a template preview directly — show the visible placeholder
+      // so the editor can see the slot.
+      return <PostContentPlaceholderRender />;
     default:
       return <UnknownBlockFallback block={normalized} />;
   }

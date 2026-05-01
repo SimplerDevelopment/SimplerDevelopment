@@ -236,6 +236,18 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <BookingMenuBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'html-embed':
       return <HtmlEmbedBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'post-content':
+      // Template editor only — substituted with the post's blocks at render
+      // time. Render a clear placeholder card so authors can see the slot.
+      return (
+        <div className="px-5 py-8 border-2 border-dashed border-primary/40 bg-primary/5 rounded-lg text-center">
+          <span className="material-icons text-primary/70 text-3xl">article</span>
+          <div className="mt-2 text-sm font-semibold text-foreground">Post Content</div>
+          <div className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+            The post’s own blocks render here at runtime. This placeholder only appears in the template editor.
+          </div>
+        </div>
+      );
     default:
       return (
         <div className="p-4 bg-muted/30 border border-border rounded text-muted-foreground text-sm">

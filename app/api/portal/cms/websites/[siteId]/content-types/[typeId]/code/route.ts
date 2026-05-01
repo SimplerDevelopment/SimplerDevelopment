@@ -4,8 +4,6 @@ import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import { clientWebsites, postTypes } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { revalidateClientSite } from '@/lib/revalidate-client-site';
-
 // Mirrors verifyTypeAccess in ../route.ts: only the site's own (non-global)
 // content types are editable through the portal.
 async function verifyTypeAccess(siteIdRaw: string, typeIdRaw: string) {
@@ -55,7 +53,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ siteId: 
     .where(eq(postTypes.id, ctx.type.id))
     .returning();
 
-  await revalidateClientSite(ctx.site.id).catch(() => {});
+  // /sites/* renders are dynamic — type CSS/JS picks up on the next request.
 
   return NextResponse.json({
     success: true,

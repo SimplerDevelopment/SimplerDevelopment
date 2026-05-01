@@ -30,7 +30,6 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'gallery', label: 'Gallery', icon: 'photo_library', category: 'Media', description: 'Image gallery' },
   { type: 'code', label: 'Code', icon: 'code', category: 'Media', description: 'Code snippet' },
   { type: 'html-render', label: 'HTML Render', icon: 'data_object', category: 'Media', description: 'Render raw HTML markup directly into the page (no iframe)' },
-  { type: 'post-content', label: 'Post Content', icon: 'article', category: 'Layout', description: 'Placeholder for the post’s own blocks. Use inside a content-type template; replaced with the post body at render time.' },
   { type: 'html-embed', label: 'HTML Embed', icon: 'integration_instructions', category: 'Media', description: 'Upload a custom HTML file rendered inside a sandboxed iframe' },
   { type: 'spacer', label: 'Spacer', icon: 'height', category: 'Layout', description: 'Add vertical space' },
   { type: 'divider', label: 'Divider', icon: 'horizontal_rule', category: 'Layout', description: 'Horizontal line' },
@@ -69,3 +68,17 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
   { type: 'survey-results', label: 'Survey Results', icon: 'analytics', category: 'Interactive', description: 'Charts of survey responses' },
 ];
+
+/**
+ * The Post Content placeholder is not part of the regular picker — it only
+ * makes sense inside a content-type template, where it's substituted with the
+ * post's own blocks at render time. Template editors opt-in by passing this
+ * to the block editor's `extraBlockTypes` prop.
+ */
+export const POST_CONTENT_PICKER_ENTRY: BlockRegistryEntry = {
+  type: 'post-content',
+  label: 'Post Content',
+  icon: 'article',
+  category: 'Layout',
+  description: 'Placeholder for the post body. The post’s own blocks render here at runtime. Use this only inside a content-type template.',
+};

@@ -4,8 +4,6 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
-import { revalidateClientSite } from '@/lib/revalidate-client-site';
-
 async function verifySite(siteIdRaw: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -48,8 +46,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ siteId: 
     .where(eq(clientWebsites.id, site.id))
     .returning();
 
-  // Bust the per-page renders so site CSS/JS picks up immediately.
-  await revalidateClientSite(site.id).catch(() => {});
+  // Per-page renders use `dynamic = 'force-dynamic'`, so no ISR cache to bust —
+  // site CSS/JS picks up on the next request automatically.
 
   return NextResponse.json({
     success: true,

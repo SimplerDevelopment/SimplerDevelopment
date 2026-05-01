@@ -7,7 +7,7 @@ import { VisualBlockPreview } from './visual/VisualBlockPreview';
 import { BlockSettings } from './visual/BlockSettings';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { createDefaultBlock } from '@/lib/blocks/defaults';
-import { BUILT_IN_BLOCK_TYPES } from '@/lib/blocks/registry';
+import { BUILT_IN_BLOCK_TYPES, type BlockRegistryEntry } from '@/lib/blocks/registry';
 
 interface VisualBlockEditorProps {
   blocks: Block[];
@@ -18,9 +18,15 @@ interface VisualBlockEditorProps {
    * sentinels so colors/fonts follow the brand. Safe to omit.
    */
   brandDefaults?: BrandDefaultsContext;
+  /**
+   * Extra entries appended to the picker. Used by the content-type template
+   * editor to surface the `post-content` placeholder, which is intentionally
+   * left out of the global registry so it can't appear in regular post pickers.
+   */
+  extraBlockTypes?: BlockRegistryEntry[];
 }
 
-export function VisualBlockEditor({ blocks, onChange, brandDefaults }: VisualBlockEditorProps) {
+export function VisualBlockEditor({ blocks, onChange, brandDefaults, extraBlockTypes = [] }: VisualBlockEditorProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
   const [showBlockInserter, setShowBlockInserter] = useState(false);
@@ -28,8 +34,9 @@ export function VisualBlockEditor({ blocks, onChange, brandDefaults }: VisualBlo
   const [currentViewport, setCurrentViewport] = useState<Breakpoint>('desktop');
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Source from registry so this picker stays in sync with the global 47-block roster
-  const blockTypes = BUILT_IN_BLOCK_TYPES;
+  // Source from registry so this picker stays in sync with the global 47-block
+  // roster, plus any caller-supplied extras (e.g. post-content for templates).
+  const blockTypes = [...BUILT_IN_BLOCK_TYPES, ...extraBlockTypes];
 
   const addBlock = (type: BlockType, afterBlockId: string | null = null) => {
     let newBlock = createDefaultBlock(type, { order: blocks.length });
