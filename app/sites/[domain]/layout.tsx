@@ -66,11 +66,16 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   const sitePathname = headersList.get('x-site-pathname') || '';
   if (
     sitePathname.includes('/nav-preview') ||
-    sitePathname.startsWith('/pitch-deck') ||
-    sitePathname.startsWith('/template-preview')
+    sitePathname.startsWith('/pitch-deck')
   ) {
     return <>{children}</>;
   }
+  // Template preview keeps the layout wrapper so customCss / customJs cascade
+  // identically to the live site (a `body { background: red }` rule on a
+  // type, for example, has to contend with the same wrapping div on both
+  // sides). The fixed nav is still hidden — the full-screen editor doesn't
+  // need it and it'd cover the post-content slot.
+  const isTemplatePreview = sitePathname.startsWith('/template-preview');
 
   const branding = await getBrandingByWebsiteId(site.id);
 
@@ -107,7 +112,10 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // Standard layout with branded nav
   const navItems = await getClientSiteNavItems(site.id);
   const isTransparent = branding.navTemplate === 'transparent';
-  const hideNav = branding.navTemplate === 'none';
+  // The fixed nav is hidden when the branding template is 'none' OR when
+  // we're rendering a template-preview iframe (the editor doesn't need
+  // chrome and the fixed nav would cover the post-content slot).
+  const hideNav = branding.navTemplate === 'none' || isTemplatePreview;
   const navBg = isTransparent ? 'transparent' : (branding.navBackground || '#ffffff');
   const navText = isTransparent ? '#ffffff' : (branding.navTextColor || '#1e293b');
   const primaryColor = branding.primaryColor || '#cfa122';
