@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Block, BlockType } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { CustomCodeModal } from '@/components/portal/CustomCodeModal';
@@ -31,8 +31,28 @@ export function TemplateEditor({ siteId, typeId, typeName, typeSlug, siteUrl, pr
   const templateEndpoint = `/api/portal/cms/websites/${siteId}/content-types/${typeId}/template`;
   const codeEndpoint = `/api/portal/cms/websites/${siteId}/content-types/${typeId}/code`;
 
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [blocks, setBlocksRaw] = useState<Block[]>([]);
   const [savedBlocks, setSavedBlocks] = useState<Block[]>([]);
+
+  // Templates require exactly one post-content placeholder. If a user deletes
+  // a container block (section, column, tabs) that held the placeholder
+  // inside it, the placeholder vanishes from the tree along with the
+  // container. Re-add one at the top of the tree so the invariant survives —
+  // immediately, in the same state update, so the editor never renders an
+  // intermediate placeholder-less state.
+  const setBlocks = useCallback((next: Block[] | ((prev: Block[]) => Block[])) => {
+    setBlocksRaw((prev) => {
+      const updated = typeof next === 'function' ? (next as (p: Block[]) => Block[])(prev) : next;
+      if (countPostContent(updated) > 0) return updated;
+      const placeholder = {
+        id: `block-pc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'post-content' as const,
+        order: 0,
+        required: true,
+      } as Block;
+      return [placeholder, ...updated.map((b, i) => ({ ...b, order: (b.order ?? i) + 1 }))];
+    });
+  }, []);
 
   const [customCss, setCustomCss] = useState('');
   const [customJs, setCustomJs] = useState('');
