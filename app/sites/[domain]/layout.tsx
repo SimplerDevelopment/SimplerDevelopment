@@ -64,7 +64,11 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // Bare layout for preview pages and pitch decks (no nav/footer chrome)
   const headersList = await headers();
   const sitePathname = headersList.get('x-site-pathname') || '';
-  if (sitePathname.includes('/nav-preview') || sitePathname.startsWith('/pitch-deck')) {
+  if (
+    sitePathname.includes('/nav-preview') ||
+    sitePathname.startsWith('/pitch-deck') ||
+    sitePathname.startsWith('/template-preview')
+  ) {
     return <>{children}</>;
   }
 

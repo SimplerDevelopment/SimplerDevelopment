@@ -277,7 +277,7 @@ function renderBlock(block: Block, siteId?: number) {
       // before render in production, so reaching this case means we're
       // rendering a template preview directly — show the visible placeholder
       // so the editor can see the slot.
-      return <PostContentPlaceholderRender />;
+      return <PostContentPlaceholderRender block={normalized} />;
     default:
       return <UnknownBlockFallback block={normalized} />;
   }
