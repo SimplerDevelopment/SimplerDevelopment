@@ -189,12 +189,17 @@ export function useVisualEditorParent({
     }, 500);
   }, [sendInit]);
 
-  // Send block updates when blocks change
+  // Send block updates when blocks change. Pass `coalesce: true` for updates
+  // generated mid-drag (slider thumb moving, color picker tracking) so the
+  // iframe collapses the burst into a single undo entry. Default (false /
+  // omitted) treats each call as a discrete history entry — one per panel
+  // checkbox, dropdown, button, or text-input commit.
   const sendBlocksUpdate = useCallback(
-    (updatedBlocks: Block[]) => {
+    (updatedBlocks: Block[], options?: { coalesce?: boolean }) => {
       if (!iframeReady) return;
       sendToIframe(iframeRef.current, PARENT_MESSAGES.BLOCKS_UPDATE, {
         blocks: updatedBlocks,
+        coalesce: options?.coalesce ?? false,
       } satisfies BlocksUpdatePayload);
     },
     [iframeReady],

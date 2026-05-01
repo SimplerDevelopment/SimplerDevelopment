@@ -230,6 +230,28 @@ export function VisualEditorShell({
   // Track when a blocks change originated from the iframe to avoid echoing it back
   const iframeOriginatedRef = useRef(false);
 
+  // Track whether a pointer is currently down anywhere in the parent window
+  // (sliders, color pickers, range thumbs, swatches in the right panel). When
+  // true, sendBlocksUpdate marks BLOCKS_UPDATE messages with coalesce: true
+  // so the iframe collapses the burst of slider-drag updates into a single
+  // undo entry. Discrete clicks fire onClick after pointerup, so the flag is
+  // already false by the time their state change arrives — they get their
+  // own history entry. Window-level listener; iframe-internal pointer events
+  // do not bubble into the parent and have their own batching path.
+  const pointerDownRef = useRef(false);
+  useEffect(() => {
+    const onDown = () => { pointerDownRef.current = true; };
+    const onUpOrCancel = () => { pointerDownRef.current = false; };
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('pointerup', onUpOrCancel, true);
+    window.addEventListener('pointercancel', onUpOrCancel, true);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('pointerup', onUpOrCancel, true);
+      window.removeEventListener('pointercancel', onUpOrCancel, true);
+    };
+  }, []);
+
   const selectBlock = useCallback((blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => {
     const multi = modifiers?.metaKey || modifiers?.ctrlKey || modifiers?.shiftKey;
 
@@ -363,7 +385,9 @@ export function VisualEditorShell({
       iframeOriginatedRef.current = false;
       return;
     }
-    sendBlocksUpdate(blocks);
+    // Coalesce mid-drag updates (slider thumb, color picker, range input) into
+    // one undo entry; pointer-up flushes the next change as discrete.
+    sendBlocksUpdate(blocks, { coalesce: pointerDownRef.current });
   }, [blocks, sendBlocksUpdate]);
   useEffect(() => { sendSelectBlock(selectedBlockId, selectedBlockIds); }, [selectedBlockId, selectedBlockIds, sendSelectBlock]);
 

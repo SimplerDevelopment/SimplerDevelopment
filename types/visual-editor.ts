@@ -20,6 +20,14 @@ export interface EditorInitPayload {
 
 export interface BlocksUpdatePayload {
   blocks: Block[];
+  /**
+   * When true, the iframe coalesces this update into the current drag/slider
+   * session — only the first coalesce-true update in a session pushes history,
+   * so a slider drag becomes one undo entry instead of one per pixel. The
+   * session ends after a 300 ms quiet period or when a coalesce-false update
+   * arrives. Default false: every parent-initiated change is its own entry.
+   */
+  coalesce?: boolean;
 }
 
 export interface SelectBlockPayload {
