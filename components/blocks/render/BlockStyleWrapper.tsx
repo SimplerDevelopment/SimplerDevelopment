@@ -3,6 +3,7 @@
 import React from 'react';
 import { Block, BlockStyle } from '@/types/blocks';
 import { isBrandSentinel, resolveBrandSentinel } from '@/lib/branding/sentinel';
+import { generateResponsiveStyles, parseShorthandSide } from '@/lib/utils/responsiveCss';
 
 interface BlockStyleWrapperProps {
   block: Block;
@@ -19,13 +20,16 @@ interface BlockStyleWrapperProps {
  * pass through unchanged.
  */
 export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
-  const style = block.style;
-  if (!style || typeof style !== 'object') {
-    return <>{children}</>;
-  }
+  const responsiveResult = generateResponsiveStyles(block);
+  const rawStyle = block.style;
+  // Normalize style to an object so the rest of the function can read fields
+  // safely even when callers passed `undefined` (and we still need to render
+  // because there are responsive values).
+  const style: BlockStyle =
+    rawStyle && typeof rawStyle === 'object' ? rawStyle : ({} as BlockStyle);
 
   const hasAnyStyle = Object.values(style).some((v) => v !== undefined && v !== '');
-  if (!hasAnyStyle) {
+  if (!hasAnyStyle && !responsiveResult) {
     return <>{children}</>;
   }
 
@@ -65,12 +69,46 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     if (style.opacity) customStyles.opacity = style.opacity;
   }
 
+  // Per-side resolution for margin/padding. Each side independently checks
+  // whether `block.responsive` owns it (any breakpoint set) and, if not,
+  // applies the static value — preferring longhand `style.{prop}{Side}` over
+  // a side parsed out of the shorthand `style.{prop}`. Emitting longhand
+  // (marginTop, etc.) — never shorthand — keeps each side independently
+  // overridable by the responsive <style> tag without one side wiping the
+  // others. Bug class this guards against: setting a single responsive side
+  // dropped the entire static shorthand, so all four sides flipped at once.
   const resp = block.responsive;
-  const hasResponsivePadding = resp?.paddingTop || resp?.paddingBottom || resp?.paddingLeft || resp?.paddingRight;
-  const hasResponsiveMargin = resp?.marginTop || resp?.marginBottom || resp?.marginLeft || resp?.marginRight;
+  type SideKey = 'top' | 'right' | 'bottom' | 'left';
+  type LonghandKey =
+    | 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft'
+    | 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft';
 
-  if (style.padding && !hasResponsivePadding) customStyles.padding = style.padding;
-  if (style.margin && !hasResponsiveMargin) customStyles.margin = style.margin;
+  const sideKey = (prop: 'margin' | 'padding', side: SideKey): LonghandKey =>
+    (prop + side[0].toUpperCase() + side.slice(1)) as LonghandKey;
+
+  const responsiveOwns = (prop: 'margin' | 'padding', side: SideKey): boolean => {
+    if (!resp) return false;
+    const bucket = resp[sideKey(prop, side) as keyof typeof resp] as
+      | { mobile?: unknown; tablet?: unknown; desktop?: unknown }
+      | undefined;
+    if (!bucket || typeof bucket !== 'object') return false;
+    const isSet = (v: unknown) => v !== undefined && v !== null && v !== '';
+    return isSet(bucket.mobile) || isSet(bucket.tablet) || isSet(bucket.desktop);
+  };
+
+  const sides: SideKey[] = ['top', 'right', 'bottom', 'left'];
+  for (const prop of ['margin', 'padding'] as const) {
+    const shorthand = style[prop];
+    for (const side of sides) {
+      if (responsiveOwns(prop, side)) continue;
+      const longhandKey = sideKey(prop, side);
+      const longhand = style[longhandKey];
+      const value = longhand && longhand !== '' ? longhand : parseShorthandSide(shorthand, side);
+      if (value) {
+        (customStyles as Record<string, string>)[longhandKey] = value;
+      }
+    }
+  }
 
   if (style.display) customStyles.display = style.display;
   if (style.flexDirection) customStyles.flexDirection = style.flexDirection;
@@ -144,6 +182,10 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     }
   }
 
+  const wrapperClass = [fontFamilyClass, responsiveResult?.className]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <>
       {rawFont && !isTailwindFont && !isBrandFont && (
@@ -152,7 +194,10 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
           href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(rawFont)}&display=swap`}
         />
       )}
-      <div className={fontFamilyClass || undefined} style={customStyles}>
+      {responsiveResult && (
+        <style dangerouslySetInnerHTML={{ __html: responsiveResult.css }} />
+      )}
+      <div className={wrapperClass || undefined} style={customStyles}>
         {children}
       </div>
     </>

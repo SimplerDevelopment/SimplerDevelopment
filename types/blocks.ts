@@ -32,6 +32,18 @@ export interface BlockStyle {
   borderBottomRightRadius?: string;
   padding?: string;
   margin?: string;
+  // Per-side overrides. When both shorthand and a longhand are set, the
+  // renderer prefers longhand for that side. The panel writes shorthand;
+  // the visual editor's drag/resize handles can write longhand. Either is
+  // also independently overridable per-breakpoint via block.responsive.
+  paddingTop?: string;
+  paddingRight?: string;
+  paddingBottom?: string;
+  paddingLeft?: string;
+  marginTop?: string;
+  marginRight?: string;
+  marginBottom?: string;
+  marginLeft?: string;
   boxShadow?: string;
   opacity?: string;
   // Flex layout
