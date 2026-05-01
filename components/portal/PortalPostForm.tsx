@@ -19,6 +19,7 @@ import MediaPicker from '@/components/admin/MediaPicker';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
 import { createDefaultBlock } from '@/lib/blocks/defaults';
+import { useContentTypes, type ContentTypeOption } from '@/lib/hooks/useContentTypes';
 
 interface Post {
   id?: number;
@@ -124,6 +125,11 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
   const [useLocalhost, setUseLocalhost] = useState(false);
   const [localPort, setLocalPort] = useState('3003');
   const [hydrated, setHydrated] = useState(false);
+  // Site's content types — sourced from the same scoped API the content-types
+  // page uses, including built-ins. Pickers default to this list so authors
+  // see every available type (custom + page/blog/event/etc.) rather than the
+  // old hardcoded page/blog/landing trio.
+  const contentTypes = useContentTypes(siteId);
 
   // Hydrate from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
@@ -252,6 +258,21 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
     }
   }, [mode, post?.id, siteId, editorMode, router]);
 
+  // When the author switches the post type from the Page Details panel, save
+  // immediately and bump the iframe so the new type's template wraps the
+  // post on next render. Skip the initial mount value so we don't re-save +
+  // reload right after opening the editor.
+  const initialPostTypeRef = useRef(formData.postType);
+  useEffect(() => {
+    if (mode !== 'edit' || editorMode !== 'iframe') return;
+    if (formData.postType === initialPostTypeRef.current) return;
+    initialPostTypeRef.current = formData.postType;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    // Use 'manual' so savePost reloads the iframe (autosave intentionally
+    // doesn't, to keep scroll/selection during normal editing).
+    savePost('manual');
+  }, [formData.postType, mode, editorMode, savePost]);
+
   // Debounced autosave on block changes (2s after last change)
   const initialBlocksRef = useRef(JSON.stringify(blocks));
   useEffect(() => {
@@ -347,15 +368,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
-              <select
+              <ContentTypeSelect
                 value={formData.postType}
-                onChange={e => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                contentTypes={contentTypes}
+                onChange={(slug) => setFormData(prev => ({ ...prev, postType: slug }))}
                 className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-              >
-                <option value="page">Page</option>
-                <option value="blog">Blog Post</option>
-                <option value="landing">Landing Page</option>
-              </select>
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
@@ -638,14 +656,12 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   {/* Post Type */}
                   <label className="block">
                     <span className="text-sm font-medium text-foreground">Type</span>
-                    <select
+                    <ContentTypeSelect
                       value={formData.postType}
-                      onChange={(e) => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                      contentTypes={contentTypes}
+                      onChange={(slug) => setFormData(prev => ({ ...prev, postType: slug }))}
                       className="mt-1.5 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-                    >
-                      <option value="page">Page</option>
-                      <option value="blog">Blog Post</option>
-                    </select>
+                    />
                   </label>
 
                   {/* Create button */}
@@ -697,6 +713,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                   setFormData={setFormData}
                   handleTitleChange={handleTitleChange}
                   siteId={siteId}
+                  contentTypes={contentTypes}
                   availableCategories={availableCategories}
                   setAvailableCategories={setAvailableCategories}
                   availableTags={availableTags}
@@ -1584,11 +1601,54 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'custom-fields', label: 'Custom Fields', icon: 'input' },
 ];
 
+/**
+ * Type picker — sources options from useContentTypes(siteId) so the dropdown
+ * always reflects the site's actual content types (built-in + custom),
+ * including any built-ins the author has forked into a site-scoped copy.
+ *
+ * Renders the current value as a fallback option even if it isn't in the
+ * fetched list yet (network in flight, or post stored a slug for a type
+ * that's since been deleted) so the select never shows an empty value.
+ */
+function ContentTypeSelect({
+  value,
+  contentTypes,
+  onChange,
+  className,
+}: {
+  value: string;
+  contentTypes: ContentTypeOption[];
+  onChange: (slug: string) => void;
+  className?: string;
+}) {
+  const known = contentTypes.some((t) => t.slug === value);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+    >
+      {!known && value ? (
+        <option value={value}>{value}</option>
+      ) : null}
+      {contentTypes.map((t) => (
+        <option key={t.id} value={t.slug}>
+          {t.name}
+        </option>
+      ))}
+      {contentTypes.length === 0 && known === false ? (
+        <option value="page">Page</option>
+      ) : null}
+    </select>
+  );
+}
+
 function SettingsSlideOver({
   formData,
   setFormData,
   handleTitleChange,
   siteId,
+  contentTypes,
   availableCategories,
   setAvailableCategories,
   availableTags,
@@ -1599,6 +1659,7 @@ function SettingsSlideOver({
   setFormData: React.Dispatch<React.SetStateAction<Post>>;
   handleTitleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   siteId: number;
+  contentTypes: ContentTypeOption[];
   availableCategories: TaxonomyItem[];
   setAvailableCategories: React.Dispatch<React.SetStateAction<TaxonomyItem[]>>;
   availableTags: TaxonomyItem[];
@@ -1741,15 +1802,15 @@ function SettingsSlideOver({
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
-                <select
+                <ContentTypeSelect
                   value={formData.postType}
-                  onChange={e => setFormData(prev => ({ ...prev, postType: e.target.value }))}
+                  contentTypes={contentTypes}
+                  onChange={(slug) => setFormData(prev => ({ ...prev, postType: slug }))}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground outline-none focus:border-primary"
-                >
-                  <option value="page">Page</option>
-                  <option value="blog">Blog Post</option>
-                  <option value="landing">Landing Page</option>
-                </select>
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Switching the type re-applies that type’s template to the post and reloads the preview.
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Excerpt</label>
