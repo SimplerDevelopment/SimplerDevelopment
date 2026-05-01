@@ -271,6 +271,17 @@ function renderBlock(block: Block, siteId?: number) {
       return <HtmlEmbedBlockRender block={normalized} />;
     case 'html-render':
       return <HtmlRenderBlockRender block={normalized} />;
+    case 'post-content':
+      // The substitution should have happened in wrapWithTypeTemplate already;
+      // anything that reaches this case is either an unwrapped template
+      // preview, or a post that put a placeholder in its own content. Render
+      // nothing in production, a debug stub in development.
+      if (process.env.NODE_ENV !== 'development') return null;
+      return (
+        <div className="my-2 px-3 py-2 border border-dashed border-amber-400 bg-amber-50 text-xs text-amber-900 rounded">
+          [post-content placeholder — no post body to substitute]
+        </div>
+      );
     default:
       return <UnknownBlockFallback block={normalized} />;
   }

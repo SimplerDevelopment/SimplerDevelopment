@@ -1420,6 +1420,8 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         excerpt: z.string().optional(),
         postType: z.string().default('blog').optional(),
         published: z.boolean().optional(),
+        customCss: z.string().optional().describe('Per-post custom CSS injected at render time, scoped to the page.'),
+        customJs: z.string().optional().describe('Per-post custom JS injected at render time, scoped to the page.'),
       },
     },
     async (args) => {
@@ -1444,6 +1446,8 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
             postType: args.postType ?? 'blog',
             published: args.published ?? false,
             publishedAt: args.published ? new Date() : null,
+            customCss: args.customCss ?? null,
+            customJs: args.customJs ?? null,
           }).returning();
           return row;
         },
@@ -1467,6 +1471,8 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         blocks: z.array(z.any()).optional().describe('Array of Block objects matching the visual editor schema.'),
         excerpt: z.string().optional(),
         published: z.boolean().optional(),
+        customCss: z.string().nullable().optional().describe('Per-post custom CSS. Pass null to clear.'),
+        customJs: z.string().nullable().optional().describe('Per-post custom JS. Pass null to clear.'),
       },
     },
     async ({ id, ...rest }) => {
@@ -1487,7 +1493,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         entityId: id,
         summary: `Update post #${id}${rest.title ? ` → "${rest.title}"` : ''}${rest.published === true ? ' + publish' : ''}`,
         payload: { id, ...rest },
-        originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content },
+        originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content, customCss: post.customCss, customJs: post.customJs },
         apply: async () => {
           const patch: Record<string, unknown> = { updatedAt: new Date() };
           if (rest.title !== undefined) patch.title = rest.title;
@@ -1499,6 +1505,8 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
             patch.published = rest.published;
             if (rest.published) patch.publishedAt = new Date();
           }
+          if (rest.customCss !== undefined) patch.customCss = rest.customCss;
+          if (rest.customJs !== undefined) patch.customJs = rest.customJs;
           const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning();
           return row;
         },

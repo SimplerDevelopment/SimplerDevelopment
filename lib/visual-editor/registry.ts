@@ -129,6 +129,8 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'survey-input': SurveyInputBlockRender,
   'html-embed': HtmlEmbedBlockRender,
   'html-render': HtmlRenderBlockRender,
+  // 'post-content' is a marker block; the renderer handles it inline (see
+  // BlockRenderer dispatch). No dedicated component needed.
 };
 
 let _registry: BlockRegistry | null = null;

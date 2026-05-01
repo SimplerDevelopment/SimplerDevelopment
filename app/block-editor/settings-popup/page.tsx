@@ -70,6 +70,7 @@ const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
   'sticky-scroll-tabs': 'Sticky Scroll Tabs',
   'html-embed': 'HTML Embed',
   'html-render': 'HTML Render',
+  'post-content': 'Post Content',
 };
 
 function SettingsPopupContent() {

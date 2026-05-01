@@ -47,6 +47,8 @@ export function createDefaultBlock(
       return { ...base, type: 'code', code: '// Enter your code here...', language: 'javascript' };
     case 'html-render':
       return { ...base, type: 'html-render', html: '<div>Paste raw HTML here.</div>', width: 'full' };
+    case 'post-content':
+      return { ...base, type: 'post-content' };
     case 'spacer':
       return { ...base, type: 'spacer', height: 'md' };
     case 'divider':

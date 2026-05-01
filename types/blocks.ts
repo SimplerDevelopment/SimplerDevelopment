@@ -181,6 +181,15 @@ export interface HtmlRenderBlock extends BaseBlock {
   width?: 'full' | 'contained';
 }
 
+/**
+ * Placeholder block used inside a content type's template. At render time
+ * the post's own blocks are substituted in place of every PostContentBlock
+ * found in the template tree. Has no fields of its own — it's a marker.
+ */
+export interface PostContentBlock extends BaseBlock {
+  type: 'post-content';
+}
+
 export interface QuoteBlock extends BaseBlock {
   type: 'quote';
   content: string;
@@ -1184,7 +1193,8 @@ export type Block =
   | DeckNextSlideBlock
   | DeckJumpToBlock
   | SurveyInputBlock
-  | HtmlEmbedBlock;
+  | HtmlEmbedBlock
+  | PostContentBlock;
 
 export type BlockType = Block['type'];
 

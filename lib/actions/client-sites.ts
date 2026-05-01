@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains } from '@/lib/db/schema';
-import { eq, and, asc, isNull } from 'drizzle-orm';
+import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains, postTypes } from '@/lib/db/schema';
+import { eq, and, or, asc, isNull, sql } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
   // Try exact match on the legacy primary-domain column first
@@ -58,6 +58,28 @@ export async function getClientPage(websiteId: number, slug: string, preview = f
     .limit(1);
 
   return page ?? null;
+}
+
+/**
+ * Resolve the post_types row that matches a post (by slug) on this website,
+ * falling back to a built-in (websiteId IS NULL) row of the same slug. Used
+ * to apply per-CPT custom CSS / JS / template at render time.
+ */
+export async function getPostTypeForPost(websiteId: number, postType: string) {
+  if (!postType) return null;
+  const [row] = await db
+    .select()
+    .from(postTypes)
+    .where(and(
+      eq(postTypes.slug, postType),
+      or(eq(postTypes.websiteId, websiteId), isNull(postTypes.websiteId))
+    ))
+    // Site-specific overrides win over global built-ins. websiteId IS NULL
+    // for built-ins; we want non-NULL first → desc with NULLS-last semantics.
+    // Drizzle's `desc()` puts NULLs LAST in Postgres, which is what we want.
+    .orderBy(sql`${postTypes.websiteId} DESC NULLS LAST`)
+    .limit(1);
+  return row ?? null;
 }
 
 export async function getClientHomePage(websiteId: number, preview = false) {

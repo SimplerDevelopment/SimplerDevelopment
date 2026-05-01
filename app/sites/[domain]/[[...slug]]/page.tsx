@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts } from '@/lib/actions/client-sites';
+import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts, getPostTypeForPost } from '@/lib/actions/client-sites';
+import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
@@ -88,6 +89,9 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   // Load site branding once — shared by all BlockRenderer instances on this page
   const branding = await getBrandingByWebsiteId(site.id);
 
+  // Site-wide custom code (cascades before per-type and per-post layers).
+  const siteLayer = { customCss: site.customCss, customJs: site.customJs };
+
   // Home page
   if (!pageSlug || pageSlug === '') {
     const homePage = await getClientHomePage(site.id, preview);
@@ -102,8 +106,19 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       );
     }
 
-    const content = await prefetchHtmlEmbeds(homePage.content);
-    return <SiteBlockRenderer content={content} siteId={site.id} branding={branding} customCss={homePage.customCss} customJs={homePage.customJs} />;
+    const homeType = await getPostTypeForPost(site.id, homePage.postType);
+    const content = await prefetchHtmlEmbeds(wrapWithTypeTemplate(homePage.content, homeType?.template));
+    return (
+      <SiteBlockRenderer
+        content={content}
+        siteId={site.id}
+        branding={branding}
+        site={siteLayer}
+        type={{ customCss: homeType?.customCss, customJs: homeType?.customJs }}
+        customCss={homePage.customCss}
+        customJs={homePage.customJs}
+      />
+    );
   }
 
   // Shop listing
@@ -183,9 +198,18 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       notFound();
     }
 
+    const blogType = await getPostTypeForPost(site.id, post.postType);
     return (
       <div>
-        <SiteBlockRenderer content={await prefetchHtmlEmbeds(post.content)} siteId={site.id} branding={branding} customCss={post.customCss} customJs={post.customJs} />
+        <SiteBlockRenderer
+          content={await prefetchHtmlEmbeds(wrapWithTypeTemplate(post.content, blogType?.template))}
+          siteId={site.id}
+          branding={branding}
+          site={siteLayer}
+          type={{ customCss: blogType?.customCss, customJs: blogType?.customJs }}
+          customCss={post.customCss}
+          customJs={post.customJs}
+        />
       </div>
     );
   }
@@ -197,9 +221,19 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     notFound();
   }
 
+  const pageType = await getPostTypeForPost(site.id, page.postType);
+
   return (
     <div>
-      <SiteBlockRenderer content={await prefetchHtmlEmbeds(page.content)} siteId={site.id} branding={branding} customCss={page.customCss} customJs={page.customJs} />
+      <SiteBlockRenderer
+        content={await prefetchHtmlEmbeds(wrapWithTypeTemplate(page.content, pageType?.template))}
+        siteId={site.id}
+        branding={branding}
+        site={siteLayer}
+        type={{ customCss: pageType?.customCss, customJs: pageType?.customJs }}
+        customCss={page.customCss}
+        customJs={page.customJs}
+      />
     </div>
   );
 }

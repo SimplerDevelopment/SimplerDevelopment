@@ -93,6 +93,15 @@ export const postTypes = pgTable('post_types', {
   icon: varchar('icon', { length: 50 }).default('article'),
   active: boolean('active').default(true).notNull(),
   websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }), // null = global/admin
+  // Type-wide custom CSS/JS — applied to every post of this content type on
+  // this website. Cascades after site customCss/customJs and before per-post.
+  customCss: text('custom_css'),
+  customJs: text('custom_js'),
+  // Optional template wrapping every post of this type — same shape as
+  // posts.content (`{ blocks: Block[], version: '1.0' }`). At render time the
+  // post's own blocks are substituted in place of any `{ type: 'post-content' }`
+  // placeholder block. Null = no wrapper, render the post's blocks as-is.
+  template: text('template'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -789,6 +798,11 @@ export const clientWebsites = pgTable('client_websites', {
   customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
   publicAccess: boolean('public_access').default(false).notNull(), // false = gated (noindex, coming-soon wall); admin must enable
   brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles — resolved at runtime to avoid circular ref
+  // Site-wide custom CSS/JS — applied to every page on this website. Cascades
+  // before post-type custom code, which cascades before per-post custom code,
+  // so a page can override a CPT-level rule which can override a site rule.
+  customCss: text('custom_css'),
+  customJs: text('custom_js'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

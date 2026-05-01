@@ -123,6 +123,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'sticky-scroll-tabs': NotebookTabs,
   'html-embed': FileCode2,
   'html-render': FileCode2,
+  'post-content': FileText,
 };
 
 /**
@@ -167,6 +168,7 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'quote', label: 'Quote', icon: Quote, category: 'Media' },
   { type: 'code', label: 'Code Block', icon: Code2, category: 'Media' },
   { type: 'html-render', label: 'HTML Render', icon: FileCode2, category: 'Media' },
+  { type: 'post-content', label: 'Post Content', icon: FileText, category: 'Layout' },
   { type: 'video', label: 'Video', icon: Video, category: 'Media' },
   { type: 'youtube', label: 'YouTube', icon: Youtube, category: 'Media' },
 

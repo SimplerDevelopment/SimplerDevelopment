@@ -641,6 +641,14 @@ export async function GET() {
       ],
     },
     {
+      type: 'post-content',
+      name: 'Post Content',
+      description: 'Placeholder for the post body. Use inside a content-type template; replaced with the post’s own blocks at render time. Has no fields.',
+      icon: 'article',
+      category: 'layout',
+      inputs: [],
+    },
+    {
       type: 'html-render',
       name: 'HTML Render',
       description: 'Render raw HTML markup directly into the page DOM (no iframe). Scripts inside execute on mount; page-level styles/JS belong in the Custom CSS & JavaScript modal.',
