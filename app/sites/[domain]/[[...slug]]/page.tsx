@@ -170,7 +170,11 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     );
   }
 
-  // Blog post (blog/some-slug)
+  // Blog post (blog/some-slug) — render the same way as any other page so the
+  // post's own blocks/customCss decide layout. The previous max-w-4xl + title +
+  // date wrapper is gone: it injected a slender column and metadata that the
+  // post content was already responsible for, and broke when /blog/<x> was
+  // used to view a CPT (e.g. /blog/service/implementations).
   if (pageSlug.startsWith('blog/')) {
     const postSlug = pageSlug.replace('blog/', '');
     const post = await getClientPage(site.id, postSlug, preview);
@@ -180,17 +184,9 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     }
 
     return (
-      <article className="max-w-4xl mx-auto px-4 py-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">{post.title}</h1>
-          {post.publishedAt && (
-            <time className="text-sm text-gray-400 mt-2 block">
-              {new Date(post.publishedAt).toLocaleDateString()}
-            </time>
-          )}
-        </header>
+      <div>
         <SiteBlockRenderer content={await prefetchHtmlEmbeds(post.content)} siteId={site.id} branding={branding} customCss={post.customCss} customJs={post.customJs} />
-      </article>
+      </div>
     );
   }
 
