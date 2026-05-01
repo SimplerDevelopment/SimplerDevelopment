@@ -6,15 +6,20 @@
  * the post's own blocks before render — so this only shows up inside the
  * template editor's iframe (where the substitution hasn't happened) and lets
  * the author see + select + reposition the slot.
+ *
+ * Intrinsic styling here is deliberately minimal: any `bg`, `border`,
+ * `padding`, `margin`, `borderRadius`, etc. set on the block via the Style
+ * tab is applied by `BlockStyleWrapper` on an outer wrapper div, and any
+ * intrinsic Tailwind values here would silently mask the user's choice. The
+ * editor chrome (hover dashed outline / selection blue outline drawn by
+ * `SelectableBlock`) is enough to identify the slot.
  */
 export function PostContentPlaceholderRender() {
   return (
-    <div className="my-6 mx-auto max-w-4xl px-6 py-8 border-2 border-dashed border-primary/40 bg-primary/5 rounded-xl text-center">
-      <span className="material-icons text-primary/70 text-4xl">article</span>
-      <div className="mt-2 text-sm font-semibold text-foreground">Post Content</div>
-      <div className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-        Each post’s own blocks render here at runtime. This placeholder only appears in the template editor.
-      </div>
+    <div className="flex items-center gap-2 text-muted-foreground">
+      <span className="material-icons text-base">article</span>
+      <span className="text-xs uppercase tracking-wider font-semibold">Post Content</span>
+      <span className="text-xs">— each post’s own blocks render here at runtime.</span>
     </div>
   );
 }
