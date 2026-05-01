@@ -6,6 +6,12 @@ import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { POST_CONTENT_PICKER_ENTRY } from '@/lib/blocks/registry';
 import { createDefaultBlock } from '@/lib/blocks/defaults';
 import { findBlockById, removeBlockById, updateBlockById } from '@/lib/utils/blockHelpers';
+// Both providers are required by the shell — TokenColorPicker (color picker
+// inside the right-panel style settings) and ColumnsBlockPreview both throw if
+// useDesignTokens / useBlockEditor are called outside their providers, which
+// is what was breaking the template editor on first mount.
+import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
+import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 
 interface TemplateEditorProps {
   siteId: string;
@@ -106,7 +112,9 @@ export function TemplateEditor({ siteId, typeId, typeName, typeSlug, siteUrl, pr
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <DesignTokensProvider>
+      <BlockEditorProvider initialBlocks={blocks} onBlocksChange={setBlocks}>
+        <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border bg-background shrink-0">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -177,7 +185,9 @@ export function TemplateEditor({ siteId, typeId, typeName, typeSlug, siteUrl, pr
           />
         )}
       </div>
-    </div>
+        </div>
+      </BlockEditorProvider>
+    </DesignTokensProvider>
   );
 }
 
