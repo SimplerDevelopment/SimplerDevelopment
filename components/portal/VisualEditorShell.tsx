@@ -90,6 +90,10 @@ interface VisualEditorShellProps {
   customCss?: string;
   /** Custom JS — passed through but not live-injected (iframe reload required). */
   customJs?: string;
+  /** Post-type template JSON ({ blocks, version }) for the post being edited.
+   *  Forwarded to the iframe so it renders the type's wrapper chrome with the
+   *  post body substituted into the `post-content` slot. */
+  typeTemplate?: string | null;
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -119,6 +123,7 @@ export function VisualEditorShell({
   noSelectionPanel,
   customCss = '',
   customJs = '',
+  typeTemplate = null,
 }: VisualEditorShellProps) {
   const [internalSelectedBlockId, setInternalSelectedBlockId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
@@ -291,6 +296,7 @@ export function VisualEditorShell({
   } = useVisualEditorParent({
     blocks,
     selectedBlockId,
+    typeTemplate,
     onBlockClicked: selectBlock,
     onBlockHovered: handleBlockHovered,
     onBlocksReordered: (newBlocks: Block[]) => {

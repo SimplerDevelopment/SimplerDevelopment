@@ -1,13 +1,15 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Block, BlockEditorData } from '@/types/blocks';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { BlockRenderer } from './BlockRenderer';
 import { SelectableBlock } from '@/components/visual-editor/SelectableBlock';
 import { useEditorModeContext } from '@/components/visual-editor/EditorModeProvider';
 import { getBlockRegistry } from '@/lib/visual-editor/registry';
 import { sendToParent } from '@/lib/visual-editor/protocol';
 import { IFRAME_MESSAGES } from '@/types/visual-editor';
+import { PostContentSlotProvider } from '@/lib/visual-editor/post-content-slot';
 import {
   DndContext,
   pointerWithin,
@@ -51,6 +53,21 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
     return () => document.removeEventListener('click', preventNav, true);
   }, [editor.active]);
 
+  // Parse the template once per typeTemplate change. Used when active + a
+  // template is present to render the static chrome around the editable
+  // post-blocks slot.
+  const parsedTemplate = useMemo(() => {
+    if (!editor.typeTemplate) return null;
+    try {
+      const data = JSON.parse(editor.typeTemplate) as BlockEditorData;
+      const blocks = Array.isArray(data?.blocks) ? data.blocks : [];
+      if (blocks.length === 0) return null;
+      return { blocks, hasSlot: hasPostContentPlaceholder(blocks) };
+    } catch {
+      return null;
+    }
+  }, [editor.typeTemplate]);
+
   let blocks: Block[] = [];
 
   if (editor.active && editor.blocks.length > 0) {
@@ -66,6 +83,24 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
         </div>
       );
     }
+  }
+
+  if (editor.active && parsedTemplate) {
+    // The slot is the live post-block list. PostContentSlotProvider injects it
+    // into every `post-content` block encountered while rendering the template
+    // chrome via the static BlockRenderer.
+    const slot = <DraggableBlockList blocks={blocks} editor={editor} registry={registry} />;
+    const templateContent = JSON.stringify({ blocks: parsedTemplate.blocks, version: '1.0' });
+    return (
+      <PostContentSlotProvider slot={slot}>
+        <BlockRenderer content={templateContent} />
+        {/* If the template author forgot a `post-content` block, render the
+            editable region after the chrome so the post is still authorable. */}
+        {!parsedTemplate.hasSlot && (
+          <div className="block-content space-y-6 mt-6">{slot}</div>
+        )}
+      </PostContentSlotProvider>
+    );
   }
 
   if (blocks.length === 0) return null;
@@ -89,6 +124,20 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
       })}
     </div>
   );
+}
+
+function hasPostContentPlaceholder(blocks: Block[]): boolean {
+  for (const b of blocks) {
+    if (b?.type === 'post-content') return true;
+    if (b?.type === 'columns' && Array.isArray(b.columns)) {
+      for (const c of b.columns) if (Array.isArray(c?.blocks) && hasPostContentPlaceholder(c.blocks)) return true;
+    }
+    if (b?.type === 'tabs' && Array.isArray(b.tabs)) {
+      for (const t of b.tabs) if (Array.isArray(t?.blocks) && hasPostContentPlaceholder(t.blocks)) return true;
+    }
+    if (b?.type === 'section' && Array.isArray(b.blocks) && hasPostContentPlaceholder(b.blocks)) return true;
+  }
+  return false;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

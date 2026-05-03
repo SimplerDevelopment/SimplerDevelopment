@@ -41,6 +41,10 @@ server.registerTool(
 - `denied(scope)` → permission denied response with `isError: true`
 - `requireScope(ctx, scope)` → boolean check
 - `serializePostContent({ blocks?, content? })` → block-editor JSON
+- `postProjection(includeContent?)`, `deckProjection(includeSlides?)`, `campaignProjection(includeContent?)` → slim-by-default column projections for known heavy tables. Use these for any new tool that selects/returns from `posts`, `pitchDecks`, or `emailCampaigns`. See `simplerdev-mcp-token-budget` for the rules and the recipe for adding a new projection helper.
+
+### Token budget — critical for any tool returning bodies
+Before writing a `_list`, `_create`, or `_update` whose underlying table contains a text/json blob (>~10 KB typical), READ `simplerdev-mcp-token-budget`. Slim-by-default projections + opt-in `includeContent`/`includeSlides` flags are mandatory for new tools. A `_list` that returns multi-MB rows by default is a regression even if it works.
 
 ### Scope convention
 - Read tools: `domain:read` (e.g. `crm:read`, `tickets:read`, `sites:read`)

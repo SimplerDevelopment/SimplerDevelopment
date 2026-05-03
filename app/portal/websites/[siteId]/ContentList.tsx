@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -19,11 +19,10 @@ interface ContentTypeTab {
   icon: string;
 }
 
-const postTypeIcon: Record<string, string> = {
-  page: 'article',
-  blog: 'rss_feed',
-  landing: 'web',
-};
+type SortKey = 'title' | 'slug' | 'published' | 'updatedAt';
+type SortDir = 'asc' | 'desc';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function ContentList({
   siteId,
@@ -41,8 +40,13 @@ export default function ContentList({
   const [search, setSearch] = useState('');
   const [deleting, setDeleting] = useState<number | null>(null);
   const [, startTransition] = useTransition();
+  const [sortKey, setSortKey] = useState<SortKey>('updatedAt');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const setType = (type: string | null) => {
+    setPage(1);
     if (type) {
       router.push(`${pathname}?type=${type}`);
     } else {
@@ -68,12 +72,58 @@ export default function ContentList({
     }
   }
 
-  const filteredPosts = search
-    ? posts.filter(p =>
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.slug.toLowerCase().includes(search.toLowerCase())
-      )
-    : posts;
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'updatedAt' ? 'desc' : 'asc');
+    }
+    setPage(1);
+  };
+
+  const filteredPosts = useMemo(() => {
+    if (!search) return posts;
+    const q = search.toLowerCase();
+    return posts.filter(p =>
+      p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q)
+    );
+  }, [posts, search]);
+
+  const sortedPosts = useMemo(() => {
+    const copy = [...filteredPosts];
+    copy.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'title':
+          cmp = (a.title || '').localeCompare(b.title || '');
+          break;
+        case 'slug':
+          cmp = a.slug.localeCompare(b.slug);
+          break;
+        case 'published':
+          cmp = Number(a.published) - Number(b.published);
+          break;
+        case 'updatedAt':
+          cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return copy;
+  }, [filteredPosts, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedPosts.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedPosts = sortedPosts.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const startIdx = sortedPosts.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endIdx = Math.min(safePage * pageSize, sortedPosts.length);
+
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return 'unfold_more';
+    return sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  };
 
   return (
     <div className="space-y-4">
@@ -83,12 +133,12 @@ export default function ContentList({
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search pages..."
           className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
         />
         {search && (
-          <button type="button" onClick={() => setSearch('')} className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => { setSearch(''); setPage(1); }} className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-sm">close</span>
           </button>
         )}
@@ -125,8 +175,8 @@ export default function ContentList({
         </div>
       )}
 
-      {/* Post list */}
-      {filteredPosts.length === 0 ? (
+      {/* Table */}
+      {sortedPosts.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center text-center">
           <span className="material-icons text-4xl text-muted-foreground mb-2">{search ? 'search_off' : 'article'}</span>
           <h2 className="font-semibold text-foreground mb-1">
@@ -147,53 +197,174 @@ export default function ContentList({
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <ul className="divide-y divide-border">
-            {filteredPosts.map(post => (
-              <li key={post.id} className="flex items-stretch hover:bg-muted/20 transition-colors group">
-                <Link
-                  href={`/portal/websites/${siteId}/posts/${post.id}/edit`}
-                  className="flex-1 flex items-center gap-4 px-4 py-3 min-w-0"
-                >
-                  <span className="material-icons text-muted-foreground text-xl shrink-0">
-                    {postTypeIcon[post.postType] || 'description'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
-                      {post.title || 'Untitled'}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">/{post.slug}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                      post.published
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      <span className="material-icons text-xs">{post.published ? 'check_circle' : 'edit'}</span>
-                      {post.published ? 'Published' : 'Draft'}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <SortableHeader label="Title" sortKey="title" current={sortKey} icon={sortIcon('title')} onClick={toggleSort} />
+                  <SortableHeader label="Slug" sortKey="slug" current={sortKey} icon={sortIcon('slug')} onClick={toggleSort} />
+                  <SortableHeader label="Status" sortKey="published" current={sortKey} icon={sortIcon('published')} onClick={toggleSort} className="w-32" />
+                  <SortableHeader label="Updated" sortKey="updatedAt" current={sortKey} icon={sortIcon('updatedAt')} onClick={toggleSort} className="w-36" />
+                  <th className="w-12"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pagedPosts.map(post => (
+                  <tr key={post.id} className="group hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 min-w-0">
+                      <Link
+                        href={`/portal/websites/${siteId}/posts/${post.id}/edit`}
+                        className="font-medium text-foreground group-hover:text-primary transition-colors truncate block"
+                      >
+                        {post.title || 'Untitled'}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono truncate">
+                      /{post.slug}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        post.published
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <span className="material-icons text-xs">{post.published ? 'check_circle' : 'edit'}</span>
+                        {post.published ? 'Published' : 'Draft'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(post.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(post)}
-                  disabled={deleting === post.id}
-                  className="px-3 flex items-center text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 disabled:opacity-50 transition-opacity"
-                  title="Delete entry"
-                  aria-label={`Delete ${post.title || 'entry'}`}
+                    </td>
+                    <td className="px-2 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(post)}
+                        disabled={deleting === post.id}
+                        className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 disabled:opacity-50 transition-opacity"
+                        title="Delete entry"
+                        aria-label={`Delete ${post.title || 'entry'}`}
+                      >
+                        <span className="material-icons text-base">
+                          {deleting === post.id ? 'hourglass_top' : 'delete_outline'}
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 bg-muted/10">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {startIdx}–{endIdx} of {sortedPosts.length}
+              </span>
+              <span className="mx-1">&middot;</span>
+              <label className="flex items-center gap-1">
+                Rows
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  className="bg-card border border-border rounded px-1.5 py-0.5 text-xs text-foreground"
                 >
-                  <span className="material-icons text-base">
-                    {deleting === post.id ? 'hourglass_top' : 'delete_outline'}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  {PAGE_SIZE_OPTIONS.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex items-center gap-1">
+              <PagerButton
+                disabled={safePage === 1}
+                onClick={() => setPage(1)}
+                icon="first_page"
+                label="First page"
+              />
+              <PagerButton
+                disabled={safePage === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                icon="chevron_left"
+                label="Previous page"
+              />
+              <span className="text-xs text-muted-foreground px-2">
+                Page {safePage} of {totalPages}
+              </span>
+              <PagerButton
+                disabled={safePage === totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                icon="chevron_right"
+                label="Next page"
+              />
+              <PagerButton
+                disabled={safePage === totalPages}
+                onClick={() => setPage(totalPages)}
+                icon="last_page"
+                label="Last page"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  current,
+  icon,
+  onClick,
+  className = '',
+}: {
+  label: string;
+  sortKey: SortKey;
+  current: SortKey;
+  icon: string;
+  onClick: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = current === sortKey;
+  return (
+    <th className={`text-left font-semibold ${className}`}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`flex items-center gap-1 px-4 py-2.5 w-full text-left hover:text-foreground transition-colors ${
+          active ? 'text-foreground' : ''
+        }`}
+      >
+        {label}
+        <span className={`material-icons text-sm ${active ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+          {icon}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+function PagerButton({
+  disabled,
+  onClick,
+  icon,
+  label,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+    >
+      <span className="material-icons text-base">{icon}</span>
+    </button>
   );
 }

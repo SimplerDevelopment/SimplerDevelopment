@@ -174,6 +174,9 @@ export type NavItem = {
   sortOrder: number;
   openInNewTab: boolean;
   isButton: boolean;
+  description?: string | null;
+  icon?: string | null;
+  featuredImage?: string | null;
   children?: NavItem[];
 };
 
@@ -184,18 +187,10 @@ export async function getClientSiteNavItems(websiteId: number): Promise<NavItem[
     .where(eq(siteNavigation.websiteId, websiteId))
     .orderBy(asc(siteNavigation.sortOrder));
 
-  // Build tree: top-level items with nested children
-  const topLevel = rows.filter(r => !r.parentId);
-  return topLevel.map(item => ({
-    id: item.id,
-    label: item.label,
-    href: item.href,
-    parentId: item.parentId,
-    sortOrder: item.sortOrder,
-    openInNewTab: item.openInNewTab,
-    isButton: item.isButton,
-    children: rows
-      .filter(r => r.parentId === item.id)
+  // Build tree recursively so mega-menu columns can have their own items.
+  const buildChildren = (parentId: number): NavItem[] =>
+    rows
+      .filter(r => r.parentId === parentId)
       .map(child => ({
         id: child.id,
         label: child.label,
@@ -204,6 +199,25 @@ export async function getClientSiteNavItems(websiteId: number): Promise<NavItem[
         sortOrder: child.sortOrder,
         openInNewTab: child.openInNewTab,
         isButton: child.isButton,
-      })),
-  }));
+        description: child.description,
+        icon: child.icon,
+        featuredImage: child.featuredImage,
+        children: buildChildren(child.id),
+      }));
+
+  return rows
+    .filter(r => !r.parentId)
+    .map(item => ({
+      id: item.id,
+      label: item.label,
+      href: item.href,
+      parentId: item.parentId,
+      sortOrder: item.sortOrder,
+      openInNewTab: item.openInNewTab,
+      isButton: item.isButton,
+      description: item.description,
+      icon: item.icon,
+      featuredImage: item.featuredImage,
+      children: buildChildren(item.id),
+    }));
 }

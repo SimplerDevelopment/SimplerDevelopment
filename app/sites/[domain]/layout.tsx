@@ -111,6 +111,16 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   // Standard layout with branded nav
   const navItems = await getClientSiteNavItems(site.id);
+  // When the site is being accessed via the main app host (e.g. localhost:3000
+  // or the SimplerDevelopment portal domain), Next.js serves it under
+  // /sites/{domain}/... so all internal hrefs need that prefix. When the site
+  // is reached via its own host (e.g. postcaptain.simplerdevelopment.com),
+  // middleware rewrites internally and the public URLs are at the root.
+  const requestHost = headersList.get('host') || '';
+  // Strip port for comparison; domain in DB never includes a port.
+  const requestHostNoPort = requestHost.split(':')[0];
+  const isOnSiteHost = requestHostNoPort === domain;
+  const basePath = isOnSiteHost ? '' : `/sites/${domain}`;
   const isTransparent = branding.navTemplate === 'transparent';
   // The fixed nav is hidden when the branding template is 'none' OR when
   // we're rendering a template-preview iframe (the editor doesn't need
@@ -150,7 +160,9 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
             logoAlt={branding.logoAlt || site.name}
             buttonStyle={branding.buttonStyle}
             headingFont={branding.headingFont || undefined}
+            bodyFont={branding.bodyFont || undefined}
             navTemplate={branding.navTemplate || undefined}
+            basePath={basePath}
           />
         )}
 

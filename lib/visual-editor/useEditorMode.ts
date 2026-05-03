@@ -21,6 +21,12 @@ interface EditorState {
   hoveredBlockId: string | null;
   pageSettings?: PageSettings;
   externalDrag: ExternalDragState;
+  /**
+   * Post-type template JSON from the parent. When set, EditableBlockRenderer
+   * renders the template as static chrome with the post's blocks substituted
+   * into the `post-content` placeholder slot — matching production layout.
+   */
+  typeTemplate: string | null;
 }
 
 const MAX_HISTORY = 50;
@@ -33,6 +39,7 @@ export function useEditorMode() {
     selectedBlockIds: [],
     hoveredBlockId: null,
     externalDrag: { active: false, blockType: null, x: 0, y: 0 },
+    typeTemplate: null,
   });
 
   // Undo/redo history
@@ -121,12 +128,13 @@ export function useEditorMode() {
 
       switch (event.data.type) {
         case PARENT_MESSAGES.EDITOR_INIT: {
-          const { blocks, selectedBlockId, pageSettings } = event.data.payload as {
+          const { blocks, selectedBlockId, pageSettings, typeTemplate } = event.data.payload as {
             blocks: Block[];
             selectedBlockId: string | null;
             pageSettings?: PageSettings;
+            typeTemplate?: string | null;
           };
-          setState((s) => ({ ...s, blocks, selectedBlockId, pageSettings }));
+          setState((s) => ({ ...s, blocks, selectedBlockId, pageSettings, typeTemplate: typeTemplate ?? null }));
           break;
         }
         case PARENT_MESSAGES.BLOCKS_UPDATE: {

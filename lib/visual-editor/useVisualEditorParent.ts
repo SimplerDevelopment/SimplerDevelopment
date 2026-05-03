@@ -21,6 +21,9 @@ interface UseVisualEditorParentOptions {
   blocks: Block[];
   selectedBlockId: string | null;
   pageSettings?: PageSettings;
+  /** Post-type template JSON ({ blocks, version }) — forwarded to the iframe so
+   *  it renders the type's wrapper chrome with the post body in the slot. */
+  typeTemplate?: string | null;
   onBlockClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered?: (blocks: Block[]) => void;
@@ -37,6 +40,7 @@ export function useVisualEditorParent({
   blocks,
   selectedBlockId,
   pageSettings,
+  typeTemplate,
   onBlockClicked,
   onBlockHovered,
   onBlocksReordered,
@@ -57,6 +61,7 @@ export function useVisualEditorParent({
   const blocksRef = useRef(blocks);
   const selectedRef = useRef(selectedBlockId);
   const settingsRef = useRef(pageSettings);
+  const typeTemplateRef = useRef(typeTemplate ?? null);
   const onClickedRef = useRef(onBlockClicked);
   const onHoveredRef = useRef(onBlockHovered);
   const onReorderedRef = useRef(onBlocksReordered);
@@ -70,6 +75,7 @@ export function useVisualEditorParent({
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
+  typeTemplateRef.current = typeTemplate ?? null;
   onClickedRef.current = onBlockClicked;
   onHoveredRef.current = onBlockHovered;
   onReorderedRef.current = onBlocksReordered;
@@ -87,6 +93,7 @@ export function useVisualEditorParent({
       blocks: blocksRef.current,
       selectedBlockId: selectedRef.current,
       pageSettings: settingsRef.current,
+      typeTemplate: typeTemplateRef.current,
     } satisfies EditorInitPayload);
   }, []);
 

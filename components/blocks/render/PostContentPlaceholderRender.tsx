@@ -2,6 +2,7 @@
 
 import { PostContentBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
+import { usePostContentSlot } from '@/lib/visual-editor/post-content-slot';
 
 interface Props {
   block: PostContentBlock;
@@ -31,6 +32,12 @@ interface Props {
  *    competing with the user's chosen styling.
  */
 export function PostContentPlaceholderRender({ block }: Props) {
+  // When the post editor wraps the template, it injects the live, draggable
+  // post-blocks region via this context. Render that in the placeholder's
+  // position so the editor matches production layout.
+  const slot = usePostContentSlot();
+  if (slot) return <>{slot}</>;
+
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
         block.responsive.paddingTop,

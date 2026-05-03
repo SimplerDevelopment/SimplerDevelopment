@@ -16,6 +16,14 @@ export interface EditorInitPayload {
   blocks: Block[];
   selectedBlockId: string | null;
   pageSettings?: PageSettings;
+  /**
+   * Post-type template JSON ({ blocks, version }) for the post being edited.
+   * When present, the iframe renders the template as static chrome with the
+   * `post-content` placeholder swapped for the editable post-blocks slot —
+   * matching what the public site shows. Null/undefined for posts without a
+   * template (or for the template editor itself).
+   */
+  typeTemplate?: string | null;
 }
 
 export interface BlocksUpdatePayload {

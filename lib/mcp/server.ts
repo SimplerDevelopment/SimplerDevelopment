@@ -37,9 +37,12 @@ import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from './blocks-schema';
 import { registerBrandingToolsOnSdk } from '@/lib/branding/mcp-sdk-adapter';
 import { registerStoreToolsOnSdk } from '@/lib/storefront/mcp-sdk-adapter';
 import { registerBrainToolsOnSdk } from '@/lib/brain/mcp-sdk-adapter';
+import { registerPostTypeToolsOnSdk } from '@/lib/post-types/mcp-sdk-adapter';
 import { registerApprovalToolsOnSdk } from './approvals';
 import { stageOrApply } from './pending-changes';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { cleanEmbedHtml } from '@/lib/html-embed-clean';
+import { importHtmlAssets } from '@/lib/html-asset-import';
 import { renderBlocksToEmailHtml, resend, buildCampaignHtml, buildUnsubscribeUrl, generateUnsubscribeToken } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
 import {
@@ -55,7 +58,7 @@ import {
   aiConversations, aiMessages,
   kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardArtifacts,
   crmDealArtifacts,
-  siteNavigation, postRevisions, blockTemplates,
+  siteNavigation, postRevisions, blockTemplates, blockTemplateUsages,
   emailTemplates, emailSegments,
   giftCertificates,
   crmCustomFields, crmCustomFieldValues, crmSavedViews, crmScoringRules,
@@ -212,6 +215,106 @@ function revalidateForWrite(scope: 'portal' | 'posts' | 'sites') {
   } catch (err) {
     console.warn('[mcp] revalidatePath failed:', err);
   }
+}
+
+// Slim post projection — omits the multi-MB `content` blob plus per-page
+// CSS/JS/SEO long-text. posts_list / posts_create / posts_update default to
+// this so MCP callers don't pay the full body cost on every response. Pass
+// `includeContent: true` to opt into the full row (adds content, customCss,
+// customJs, seoDescription, ogImage, canonicalUrl).
+const SLIM_POST_COLUMNS = {
+  id: posts.id,
+  title: posts.title,
+  slug: posts.slug,
+  postType: posts.postType,
+  excerpt: posts.excerpt,
+  coverImage: posts.coverImage,
+  published: posts.published,
+  publishedAt: posts.publishedAt,
+  websiteId: posts.websiteId,
+  seoTitle: posts.seoTitle,
+  noIndex: posts.noIndex,
+  createdAt: posts.createdAt,
+  updatedAt: posts.updatedAt,
+} as const;
+
+const FULL_POST_COLUMNS = {
+  ...SLIM_POST_COLUMNS,
+  content: posts.content,
+  customCss: posts.customCss,
+  customJs: posts.customJs,
+  seoDescription: posts.seoDescription,
+  ogImage: posts.ogImage,
+  canonicalUrl: posts.canonicalUrl,
+} as const;
+
+function postProjection(includeContent?: boolean) {
+  return includeContent ? FULL_POST_COLUMNS : SLIM_POST_COLUMNS;
+}
+
+// Slim deck projection — omits the `slides` array (often hundreds of KB to
+// several MB after a long replace_slides call). decks_create / decks_update /
+// decks_replace_slides / decks_add_slide default to this so callers don't pay
+// the slide cost on every echo. Pass `includeSlides: true` to opt into the
+// full row (decks_get always includes slides — that's its purpose).
+const SLIM_DECK_COLUMNS = {
+  id: pitchDecks.id,
+  title: pitchDecks.title,
+  slug: pitchDecks.slug,
+  description: pitchDecks.description,
+  status: pitchDecks.status,
+  formatVersion: pitchDecks.formatVersion,
+  brandingProfileId: pitchDecks.brandingProfileId,
+  theme: pitchDecks.theme,
+  sourceUrl: pitchDecks.sourceUrl,
+  createdAt: pitchDecks.createdAt,
+  updatedAt: pitchDecks.updatedAt,
+} as const;
+
+const FULL_DECK_COLUMNS = {
+  ...SLIM_DECK_COLUMNS,
+  slides: pitchDecks.slides,
+} as const;
+
+function deckProjection(includeSlides?: boolean) {
+  return includeSlides ? FULL_DECK_COLUMNS : SLIM_DECK_COLUMNS;
+}
+
+// Slim email campaign projection — omits htmlContent (rendered HTML body) and
+// blockContent (block-editor JSON), both of which can be hundreds of KB.
+// Pass `includeContent: true` to opt into the full row.
+const SLIM_CAMPAIGN_COLUMNS = {
+  id: emailCampaigns.id,
+  name: emailCampaigns.name,
+  subject: emailCampaigns.subject,
+  previewText: emailCampaigns.previewText,
+  fromName: emailCampaigns.fromName,
+  fromEmail: emailCampaigns.fromEmail,
+  replyTo: emailCampaigns.replyTo,
+  listId: emailCampaigns.listId,
+  clientId: emailCampaigns.clientId,
+  status: emailCampaigns.status,
+  scheduledAt: emailCampaigns.scheduledAt,
+  sentAt: emailCampaigns.sentAt,
+  totalRecipients: emailCampaigns.totalRecipients,
+  totalSent: emailCampaigns.totalSent,
+  totalOpened: emailCampaigns.totalOpened,
+  totalClicked: emailCampaigns.totalClicked,
+  totalBounced: emailCampaigns.totalBounced,
+  totalUnsubscribed: emailCampaigns.totalUnsubscribed,
+  createdBy: emailCampaigns.createdBy,
+  createdAt: emailCampaigns.createdAt,
+  updatedAt: emailCampaigns.updatedAt,
+} as const;
+
+const FULL_CAMPAIGN_COLUMNS = {
+  ...SLIM_CAMPAIGN_COLUMNS,
+  htmlContent: emailCampaigns.htmlContent,
+  blockContent: emailCampaigns.blockContent,
+} as const;
+
+function campaignProjection(includeContent?: boolean) {
+  return includeContent ? FULL_CAMPAIGN_COLUMNS : SLIM_CAMPAIGN_COLUMNS;
 }
 
 // ─── server factory ───────────────────────────────────────────────────────
@@ -1379,15 +1482,17 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     'posts_list',
     {
       title: 'List posts',
-      description: 'List content posts for a website (or agency site if websiteId omitted).',
+      description:
+        'List content posts for a website (or agency site if websiteId omitted). Returns a SLIM projection by default (no content blob). Pass `includeContent: true` only when you genuinely need the full body — for block-rich pages each post can be multi-MB. To inspect a single post in full, prefer `posts_get`.',
       inputSchema: {
         websiteId: z.number().optional(),
         postType: z.string().optional().describe('blog, page, etc.'),
         publishedOnly: z.boolean().optional(),
         limit: z.number().default(50).optional(),
+        includeContent: z.boolean().default(false).optional().describe('Include the full content/customCss/customJs/SEO long-text fields. Default false — large pages can run multiple MB per row.'),
       },
     },
-    async ({ websiteId, postType, publishedOnly, limit = 50 }) => {
+    async ({ websiteId, postType, publishedOnly, limit = 50, includeContent }) => {
       if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
       if (websiteId) {
         const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
@@ -1398,10 +1503,37 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       if (websiteId) conds.push(eq(posts.websiteId, websiteId));
       if (postType) conds.push(eq(posts.postType, postType));
       if (publishedOnly) conds.push(eq(posts.published, true));
-      const rows = await db.select().from(posts)
+      const rows = await db.select(postProjection(includeContent)).from(posts)
         .where(conds.length ? and(...conds) : undefined)
         .orderBy(desc(posts.createdAt)).limit(limit);
       return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
+    'posts_get',
+    {
+      title: 'Get post',
+      description:
+        'Fetch a single post by id. Defaults to the slim projection (no content blob); pass `includeContent: true` to retrieve the full block payload. Use this — not posts_list — when you need a single page in full.',
+      inputSchema: {
+        id: z.number(),
+        includeContent: z.boolean().default(false).optional().describe('Include the full content/customCss/customJs/SEO long-text fields. Default false.'),
+      },
+    },
+    async ({ id, includeContent }) => {
+      if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
+      const [row] = await db.select(postProjection(includeContent)).from(posts)
+        .where(eq(posts.id, id)).limit(1);
+      if (!row) return json({ error: 'Post not found' });
+      if (row.websiteId) {
+        const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+          .where(and(eq(clientWebsites.id, row.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+        if (!site) return json({ error: 'Permission denied' });
+      } else {
+        return json({ error: 'Permission denied — agency post' });
+      }
+      return json(row);
     }
   );
 
@@ -1410,7 +1542,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Create post',
       description:
-        `Create a content post (blog entry or page) on a website. ${BLOCKS_SCHEMA_TLDR}`,
+        `Create a content post (blog entry or page) on a website. Returns the slim post projection by default (no content echo); pass \`includeContent: true\` only if you need the body in the response. ${BLOCKS_SCHEMA_TLDR}`,
       inputSchema: {
         websiteId: z.number(),
         title: z.string().min(1),
@@ -1422,6 +1554,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         published: z.boolean().optional(),
         customCss: z.string().optional().describe('Per-post custom CSS injected at render time, scoped to the page.'),
         customJs: z.string().optional().describe('Per-post custom JS injected at render time, scoped to the page.'),
+        includeContent: z.boolean().default(false).optional().describe('Echo back the full content/customCss/customJs/SEO long-text in the response. Default false — saves several MB per call for block-rich pages.'),
       },
     },
     async (args) => {
@@ -1429,26 +1562,27 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, args.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
+      const { includeContent, ...createArgs } = args;
       const result = await stageOrApply({
         ctx,
         entityType: 'post',
         operation: 'create',
         entityId: null,
-        summary: `Create post "${args.title}" on website ${args.websiteId}`,
-        payload: args,
+        summary: `Create post "${createArgs.title}" on website ${createArgs.websiteId}`,
+        payload: createArgs,
         apply: async () => {
           const [row] = await db.insert(posts).values({
-            websiteId: args.websiteId,
-            title: args.title,
-            slug: args.slug,
-            content: serializePostContent({ blocks: args.blocks, content: args.content }),
-            excerpt: args.excerpt ?? null,
-            postType: args.postType ?? 'blog',
-            published: args.published ?? false,
-            publishedAt: args.published ? new Date() : null,
-            customCss: args.customCss ?? null,
-            customJs: args.customJs ?? null,
-          }).returning();
+            websiteId: createArgs.websiteId,
+            title: createArgs.title,
+            slug: createArgs.slug,
+            content: serializePostContent({ blocks: createArgs.blocks, content: createArgs.content }),
+            excerpt: createArgs.excerpt ?? null,
+            postType: createArgs.postType ?? 'blog',
+            published: createArgs.published ?? false,
+            publishedAt: createArgs.published ? new Date() : null,
+            customCss: createArgs.customCss ?? null,
+            customJs: createArgs.customJs ?? null,
+          }).returning(postProjection(includeContent));
           return row;
         },
       });
@@ -1463,7 +1597,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Update post',
       description:
-        `Update a content post. ${BLOCKS_SCHEMA_TLDR}`,
+        `Update a content post. Returns the slim post projection by default (no content echo); pass \`includeContent: true\` only if you need the body in the response. ${BLOCKS_SCHEMA_TLDR}`,
       inputSchema: {
         id: z.number(),
         title: z.string().optional(),
@@ -1473,9 +1607,10 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         published: z.boolean().optional(),
         customCss: z.string().nullable().optional().describe('Per-post custom CSS. Pass null to clear.'),
         customJs: z.string().nullable().optional().describe('Per-post custom JS. Pass null to clear.'),
+        includeContent: z.boolean().default(false).optional().describe('Echo back the full content/customCss/customJs/SEO long-text in the response. Default false — saves several MB per call for block-rich pages.'),
       },
     },
-    async ({ id, ...rest }) => {
+    async ({ id, includeContent, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [post] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
       if (!post) return json({ error: 'Post not found' });
@@ -1507,7 +1642,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           }
           if (rest.customCss !== undefined) patch.customCss = rest.customCss;
           if (rest.customJs !== undefined) patch.customJs = rest.customJs;
-          const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning();
+          const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning(postProjection(includeContent));
           return row;
         },
       });
@@ -1551,6 +1686,113 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('posts');
       return json(result.data);
+    }
+  );
+
+  // Upload an HTML file as a draft `page` post wrapping a single html-embed
+  // block. Mirrors POST /api/portal/cms/websites/[siteId]/posts/upload-html:
+  // cleans the HTML, imports referenced assets to media, stores the file in
+  // S3, and emits a draft post pointing at it. Body must be base64 — MCP
+  // can't carry multipart.
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'posts_upload_html',
+    {
+      title: 'Upload HTML as page',
+      description: 'Upload an HTML/XHTML file (base64-encoded) as a draft `page` post wrapping a single html-embed block. The HTML is cleaned (nav/header stripped, head assets preserved), referenced assets are imported to media, and the file is stored in S3. Max 1 MB.',
+      inputSchema: {
+        websiteId: z.number().int().positive(),
+        filename: z.string().min(1).regex(/\.(html?|xhtml)$/i, 'File must be .html, .htm, or .xhtml'),
+        contentBase64: z.string().min(1).describe('Base64-encoded HTML body. Decoded size must be ≤ 1 MB.'),
+        sourceUrl: z.string().url().optional().describe('Original URL — used to resolve relative asset refs during import.'),
+      },
+    },
+    async ({ websiteId, filename, contentBase64, sourceUrl }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return json({ error: 'Site not found' });
+
+      let rawBuffer: Buffer;
+      try {
+        rawBuffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      const MAX_HTML_SIZE = 1_000_000;
+      if (rawBuffer.byteLength === 0) return json({ error: 'Empty file' });
+      if (rawBuffer.byteLength > MAX_HTML_SIZE) {
+        return json({ error: `File exceeds ${MAX_HTML_SIZE} bytes` });
+      }
+
+      const cleaned = cleanEmbedHtml(rawBuffer.toString('utf8'));
+      const imported = await importHtmlAssets(cleaned, {
+        websiteId: site.id,
+        clientId,
+        uploadedBy: ctx.userId,
+        baseUrl: sourceUrl,
+      });
+      const buffer = Buffer.from(imported.html, 'utf8');
+      const uploadResult = await uploadToS3(buffer, filename, 'text/html');
+
+      await db.insert(media).values({
+        filename,
+        storedFilename: uploadResult.storedFilename,
+        mimeType: 'text/html',
+        fileSize: uploadResult.fileSize,
+        url: uploadResult.url,
+        uploadedBy: ctx.userId,
+        clientId,
+        websiteId: site.id,
+      });
+
+      // Find a free slug — append numeric suffix on collision (matches the
+      // route's behavior so API + MCP yield identical post layouts).
+      const baseSlug = (filename.trim().toLowerCase()
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 80)) || 'page';
+      let slug = baseSlug;
+      for (let i = 2; i < 100; i++) {
+        const [collision] = await db.select({ id: posts.id }).from(posts)
+          .where(and(eq(posts.slug, slug), eq(posts.websiteId, site.id))).limit(1);
+        if (!collision) break;
+        slug = `${baseSlug}-${i}`;
+      }
+
+      const filenameNoExt = filename.replace(/\.[^.]+$/, '');
+      const ts = Date.now();
+      const blockContent = JSON.stringify({
+        blocks: [
+          {
+            id: `block-${ts}-html`,
+            type: 'html-embed',
+            order: 1,
+            url: uploadResult.url,
+            filename,
+            height: '100vh',
+            width: 'full',
+            sandbox: 'scripts',
+            iframeTitle: filenameNoExt,
+          },
+        ],
+      });
+
+      const [post] = await db.insert(posts).values({
+        title: filenameNoExt || 'Uploaded HTML',
+        slug,
+        postType: 'page',
+        content: blockContent,
+        published: false,
+        websiteId: site.id,
+      }).returning(SLIM_POST_COLUMNS);
+      revalidateForWrite('posts');
+      return json({
+        ...post,
+        importedAssets: imported.importedCount,
+        skippedAssets: imported.skippedCount,
+        url: uploadResult.url,
+      });
     }
   );
 
@@ -1666,16 +1908,17 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     'email_campaigns_list',
     {
       title: 'List email campaigns',
-      description: 'List email campaigns for the client.',
+      description: 'List email campaigns for the client. Returns the slim projection by default (no rendered HTML body or block JSON). Pass `includeContent: true` if you need to inspect the full body — but it can be hundreds of KB per row.',
       inputSchema: {
         status: z.string().optional(),
+        includeContent: z.boolean().default(false).optional().describe('Include the full htmlContent + blockContent fields. Default false.'),
       },
     },
-    async ({ status }) => {
+    async ({ status, includeContent }) => {
       if (!requireScope(ctx, 'email:read')) return denied('email:read');
       const conds = [eq(emailCampaigns.clientId, clientId)];
       if (status) conds.push(eq(emailCampaigns.status, status));
-      const rows = await db.select().from(emailCampaigns)
+      const rows = await db.select(campaignProjection(includeContent)).from(emailCampaigns)
         .where(and(...conds))
         .orderBy(desc(emailCampaigns.createdAt));
       return json(rows);
@@ -1687,7 +1930,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Create email campaign (draft)',
       description:
-        'Create a draft email campaign tied to a list. Provide either `htmlContent` directly or `blocks` (visual-editor Block array — see blocks://schema). Campaign starts in `draft` status; use the portal UI to send/schedule.',
+        'Create a draft email campaign tied to a list. Provide either `htmlContent` directly or `blocks` (visual-editor Block array — see blocks://schema). Campaign starts in `draft` status; use the portal UI to send/schedule. Returns the slim projection by default (no htmlContent / blockContent echo); pass `includeContent: true` only if you need the body in the response.',
       inputSchema: {
         name: z.string().min(1).describe('Internal name for the campaign.'),
         subject: z.string().min(1),
@@ -1698,6 +1941,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         previewText: z.string().optional(),
         htmlContent: z.string().optional().describe('Pre-rendered HTML body.'),
         blocks: z.array(z.any()).optional().describe('Array of Block objects; rendered to HTML server-side.'),
+        includeContent: z.boolean().default(false).optional().describe('Echo back htmlContent + blockContent in the response. Default false.'),
       },
     },
     async (args) => {
@@ -1706,6 +1950,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [list] = await db.select({ id: emailLists.id }).from(emailLists)
         .where(and(eq(emailLists.id, args.listId), eq(emailLists.clientId, clientId))).limit(1);
       if (!list) return json({ error: 'List not found' });
+      const includeContent = args.includeContent;
       const result = await stageOrApply({
         ctx,
         entityType: 'email_campaign',
@@ -1734,7 +1979,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
             blockContent,
             status: 'draft',
             createdBy: ctx.userId,
-          }).returning();
+          }).returning(campaignProjection(includeContent));
           return row;
         },
       });
@@ -2087,7 +2332,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Create pitch deck / presentation',
       description:
-        'Create a new pitch deck (presentation, slideshow, sales deck, proposal). Starts empty — immediately follow with decks_replace_slides (preferred: one round-trip with all slides) or decks_add_slide. The deck inherits the client\'s default branding profile automatically; do NOT pass `theme` unless the user explicitly wants to override brand colors. When authoring slides, READ blocks://schema first — it documents block `style` / `elementStyles` fields, per-slide `customCss`, and includes a styled-slide example. Unstyled `text`+`heading` blocks will look bare; always add an eyebrow + styled heading + body pattern, and fully populate Hero blocks (title + subtitle + description + CTA).',
+        'Create a new pitch deck (presentation, slideshow, sales deck, proposal). Starts empty — immediately follow with decks_replace_slides (preferred: one round-trip with all slides) or decks_add_slide. The deck inherits the client\'s default branding profile automatically; do NOT pass `theme` unless the user explicitly wants to override brand colors. When authoring slides, READ blocks://schema first — it documents block `style` / `elementStyles` fields, per-slide `customCss`, and includes a styled-slide example. Unstyled `text`+`heading` blocks will look bare; always add an eyebrow + styled heading + body pattern, and fully populate Hero blocks (title + subtitle + description + CTA). Returns the slim deck projection by default (no slides array); pass `includeSlides: true` if you need them echoed back.',
       inputSchema: {
         title: z.string().min(1),
         description: z.string().optional(),
@@ -2102,11 +2347,13 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           bodyFont: z.string().optional(),
           logo: z.string().optional(),
         }).partial().optional(),
+        includeSlides: z.boolean().default(false).optional().describe('Echo back the slides array. Default false — saves bandwidth on round-trips that already know slides=[].'),
       },
     },
     async (args) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
       if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+      const includeSlides = args.includeSlides;
       // Resolve branding profile:
       //   1. Explicit brandingProfileId → must exist for this client
       //   2. No ID passed → auto-pick the client's is_default profile
@@ -2166,7 +2413,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
             formatVersion: 2,
             slides: [],
             createdBy: ctx.userId,
-          }).returning();
+          }).returning(deckProjection(includeSlides));
           return deck;
         },
       });
@@ -2180,7 +2427,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     'decks_update',
     {
       title: 'Update pitch deck metadata / theme',
-      description: 'Update title, description, status, theme, or slug on a deck. For slide content use decks_replace_slides or decks_add_slide.',
+      description: 'Update title, description, status, theme, or slug on a deck. For slide content use decks_replace_slides or decks_add_slide. Returns the slim deck projection by default (no slides array); pass `includeSlides: true` to echo them back.',
       inputSchema: {
         id: z.number(),
         title: z.string().optional(),
@@ -2196,6 +2443,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           logo: z.string().optional(),
         }).partial().optional(),
         slug: z.string().optional(),
+        includeSlides: z.boolean().default(false).optional().describe('Echo back the full slides array. Default false — slides are unchanged here, so re-sending them wastes bandwidth.'),
       },
     },
     async (args) => {
@@ -2204,6 +2452,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       const [existing] = await db.select().from(pitchDecks)
         .where(and(eq(pitchDecks.id, args.id), eq(pitchDecks.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deck not found' });
+      const includeSlides = args.includeSlides;
       const result = await stageOrApply({
         ctx,
         entityType: 'pitch_deck',
@@ -2220,7 +2469,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           if (args.theme !== undefined) patch.theme = { ...existing.theme, ...args.theme };
           if (args.slug !== undefined) patch.slug = args.slug.trim();
           const [row] = await db.update(pitchDecks).set(patch)
-            .where(eq(pitchDecks.id, args.id)).returning();
+            .where(eq(pitchDecks.id, args.id)).returning(deckProjection(includeSlides));
           return row;
         },
       });
@@ -2235,7 +2484,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Replace all deck slides',
       description:
-        'Replace the entire slide array of a deck with a new V2 slide list. Each slide = { id, label, blocks[], notes?, pageSettings?, customCss? }. Blocks follow the visual-editor schema — you MUST read blocks://schema before calling this (it documents block `style`, `elementStyles`, and per-slide `customCss` used for polished slides). Rules: (1) use `heading` blocks with explicit `level` for titles — never a big `text` block; (2) pair every heading with a small uppercase eyebrow `text` block above it for branded feel; (3) if you use a hero block, populate title + subtitle + description + ctaText/ctaLink — a title-only hero looks broken; (4) apply `style` (color, fontSize, fontWeight, letterSpacing) to add visual hierarchy instead of relying on defaults.',
+        'Replace the entire slide array of a deck with a new V2 slide list. Each slide = { id, label, blocks[], notes?, pageSettings?, customCss? }. Blocks follow the visual-editor schema — you MUST read blocks://schema before calling this (it documents block `style`, `elementStyles`, and per-slide `customCss` used for polished slides). Rules: (1) use `heading` blocks with explicit `level` for titles — never a big `text` block; (2) pair every heading with a small uppercase eyebrow `text` block above it for branded feel; (3) if you use a hero block, populate title + subtitle + description + ctaText/ctaLink — a title-only hero looks broken; (4) apply `style` (color, fontSize, fontWeight, letterSpacing) to add visual hierarchy instead of relying on defaults. Returns the slim deck projection by default — pass `includeSlides: true` only if you need the slides echoed back (you just sent them, so usually you do not).',
       inputSchema: {
         id: z.number(),
         slides: z.array(z.object({
@@ -2245,9 +2494,10 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           notes: z.string().optional(),
           pageSettings: z.any().optional(),
         })),
+        includeSlides: z.boolean().default(false).optional().describe('Echo back the full slides array. Default false — the caller just supplied them, so re-sending is normally pure waste.'),
       },
     },
-    async ({ id, slides }) => {
+    async ({ id, slides, includeSlides }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
       if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
@@ -2268,7 +2518,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           })) as PitchDeckSlideV2[];
           const [row] = await db.update(pitchDecks)
             .set({ slides: normalizedSlides, formatVersion: 2, updatedAt: new Date() })
-            .where(eq(pitchDecks.id, id)).returning();
+            .where(eq(pitchDecks.id, id)).returning(deckProjection(includeSlides));
           return row;
         },
       });
@@ -2283,16 +2533,17 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Append a slide to a deck',
       description:
-        'Append a single V2 slide to the end of a deck. Slide = { label, blocks[], notes?, pageSettings?, customCss? }. An id will be generated if omitted. Blocks follow the visual-editor schema — read blocks://schema for `style`/`elementStyles`/`customCss` docs and a styled-slide example. Same styling rules as decks_replace_slides: use `heading` blocks (not styled text) for titles, pair with uppercase eyebrows, populate all hero fields, apply `style` for hierarchy.',
+        'Append a single V2 slide to the end of a deck. Slide = { label, blocks[], notes?, pageSettings?, customCss? }. An id will be generated if omitted. Blocks follow the visual-editor schema — read blocks://schema for `style`/`elementStyles`/`customCss` docs and a styled-slide example. Same styling rules as decks_replace_slides: use `heading` blocks (not styled text) for titles, pair with uppercase eyebrows, populate all hero fields, apply `style` for hierarchy. Returns the slim deck projection by default; pass `includeSlides: true` to echo the full slides array back.',
       inputSchema: {
         deckId: z.number(),
         label: z.string().min(1).describe('Slide name shown in the sidebar (e.g. "Cover", "Problem", "Solution").'),
         blocks: z.array(z.any()).describe('Array of Block objects (hero, text, columns, card-grid, etc.)'),
         notes: z.string().optional().describe('Speaker notes.'),
         id: z.string().optional(),
+        includeSlides: z.boolean().default(false).optional().describe('Echo back the full slides array (now including the new slide). Default false.'),
       },
     },
-    async ({ deckId, label, blocks, notes, id }) => {
+    async ({ deckId, label, blocks, notes, id, includeSlides }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
       if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
@@ -2316,7 +2567,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
           const nextSlides = [...currentSlides, newSlide] as PitchDeckSlideV2[];
           const [row] = await db.update(pitchDecks)
             .set({ slides: nextSlides, formatVersion: 2, updatedAt: new Date() })
-            .where(eq(pitchDecks.id, deckId)).returning();
+            .where(eq(pitchDecks.id, deckId)).returning(deckProjection(includeSlides));
           return row;
         },
       });
@@ -2355,6 +2606,102 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
       return json(result.data);
+    }
+  );
+
+  // Upload an HTML file as a single-slide pitch deck wrapping an html-embed
+  // block. Mirrors POST /api/portal/tools/pitch-decks/upload-html. Body must
+  // be base64 — MCP can't carry multipart. Slide-counter chrome is suppressed
+  // so the embedded HTML can present without overlay.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_upload_html',
+    {
+      title: 'Upload HTML as pitch deck',
+      description: 'Upload an HTML/XHTML file (base64-encoded) as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed so the embed can present full-bleed. Max 1 MB. Requires an active pitch-decks subscription.',
+      inputSchema: {
+        filename: z.string().min(1).regex(/\.(html?|xhtml)$/i, 'File must be .html, .htm, or .xhtml'),
+        contentBase64: z.string().min(1).describe('Base64-encoded HTML body. Decoded size must be ≤ 1 MB.'),
+        title: z.string().optional().describe('Override the deck title; defaults to the filename without extension.'),
+      },
+    },
+    async ({ filename, contentBase64, title }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      const MAX_HTML_SIZE = 1_000_000;
+      if (buffer.byteLength === 0) return json({ error: 'Empty file' });
+      if (buffer.byteLength > MAX_HTML_SIZE) {
+        return json({ error: `File exceeds ${MAX_HTML_SIZE} bytes` });
+      }
+
+      const uploadResult = await uploadToS3(buffer, filename, 'text/html');
+
+      await db.insert(media).values({
+        filename,
+        storedFilename: uploadResult.storedFilename,
+        mimeType: 'text/html',
+        fileSize: uploadResult.fileSize,
+        url: uploadResult.url,
+        uploadedBy: ctx.userId,
+        clientId,
+      });
+
+      const filenameNoExt = filename.replace(/\.[^.]+$/, '');
+      const deckTitle = title?.trim() || filenameNoExt || 'Uploaded HTML Deck';
+      const baseSlug = (filename.trim().toLowerCase()
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 80)) || 'deck';
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
+      const ts = Date.now();
+
+      const slide: PitchDeckSlideV2 = {
+        id: `slide-${ts}`,
+        label: filenameNoExt || 'HTML',
+        blocks: [
+          {
+            id: `block-${ts}-html`,
+            type: 'html-embed',
+            order: 1,
+            url: uploadResult.url,
+            filename,
+            height: '100vh',
+            width: 'full',
+            sandbox: 'scripts',
+            iframeTitle: filenameNoExt || 'Embedded HTML slide',
+          },
+        ],
+      };
+
+      const [deck] = await db.insert(pitchDecks).values({
+        clientId,
+        title: deckTitle,
+        slug,
+        description: null,
+        slides: [slide],
+        formatVersion: 2,
+        // Suppress slide-counter chrome — single uploaded HTML decks present
+        // full-bleed so the embed isn't visually overlapped.
+        theme: {
+          primaryColor: '#2563eb',
+          accentColor: '#60a5fa',
+          backgroundColor: '#0f172a',
+          textColor: '#f8fafc',
+          headingFont: 'Inter',
+          bodyFont: 'Inter',
+          showSlideNumber: false,
+        },
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+      revalidateForWrite('portal');
+      return json({ ...deck, url: uploadResult.url });
     }
   );
 
@@ -3401,6 +3748,58 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         .where(eq(clientWebsites.id, id)).returning();
       revalidateForWrite('sites');
       return json(row);
+    }
+  );
+
+  // ── SITE CUSTOM CODE ──────────────────────────────────────────────────
+  // Site-wide custom CSS/JS — applied to every page on the website.
+  // Cascade order: site code → CPT code → per-post code, so a page can
+  // override a CPT-level rule which can override a site rule.
+  hasScope(ctx.scopes, 'sites:read') && server.registerTool(
+    'sites_get_custom_code',
+    {
+      title: 'Get site custom CSS/JS',
+      description: 'Get the site-wide custom CSS and JS that injects on every page render. Cascades before CPT and per-post code.',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
+      const [site] = await db.select({
+        id: clientWebsites.id,
+        customCss: clientWebsites.customCss,
+        customJs: clientWebsites.customJs,
+      }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
+        .limit(1);
+      if (!site) return json({ error: 'Site not found' });
+      return json({ customCss: site.customCss || '', customJs: site.customJs || '' });
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'sites_update_custom_code',
+    {
+      title: 'Update site custom CSS/JS',
+      description: 'Update site-wide custom CSS/JS. Pass an empty string to clear; omit to leave unchanged. /sites/* renders are dynamic so changes apply on the next request.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        customCss: z.string().optional(),
+        customJs: z.string().optional(),
+      },
+    },
+    async ({ id, customCss, customJs }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [existing] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
+        .limit(1);
+      if (!existing) return json({ error: 'Site not found' });
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (customCss !== undefined) patch.customCss = customCss === '' ? null : customCss;
+      if (customJs !== undefined) patch.customJs = customJs === '' ? null : customJs;
+      const [row] = await db.update(clientWebsites).set(patch)
+        .where(eq(clientWebsites.id, id)).returning();
+      revalidateForWrite('sites');
+      return json({ customCss: row.customCss || '', customJs: row.customJs || '' });
     }
   );
 
@@ -4602,6 +5001,99 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     }
   );
 
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'block_templates_create',
+    {
+      title: 'Create block template',
+      description: 'Create a reusable CMS block template. `slug` must be unique across the agency. `scope: "global"` syncs the template back to every post that embeds it; `block` and `section` are copy-on-insert.',
+      inputSchema: {
+        name: z.string().min(1),
+        slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
+        description: z.string().optional(),
+        category: z.string().default('custom').optional(),
+        scope: z.enum(['block', 'section', 'global']).default('block').optional(),
+        blocks: z.array(z.any()).min(1),
+        thumbnail: z.string().url().nullable().optional(),
+        tags: z.array(z.string()).optional(),
+        lockedFields: z.array(z.string()).optional().describe('Field paths that can\'t be edited when the template is reused (e.g. "0.type", "0.style.backgroundColor").'),
+      },
+    },
+    async (args) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [collision] = await db.select({ id: blockTemplates.id }).from(blockTemplates)
+        .where(eq(blockTemplates.slug, args.slug)).limit(1);
+      if (collision) return json({ error: 'A template with this slug already exists' });
+      const [row] = await db.insert(blockTemplates).values({
+        name: args.name,
+        slug: args.slug,
+        description: args.description ?? null,
+        category: args.category ?? 'custom',
+        scope: args.scope ?? 'block',
+        blocks: args.blocks,
+        thumbnail: args.thumbnail ?? null,
+        tags: args.tags ?? [],
+        lockedFields: args.lockedFields ?? [],
+        createdBy: ctx.userId,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'block_templates_update',
+    {
+      title: 'Update block template',
+      description: 'Update a block template. If `blocks` is included the version is bumped — global-scope templates use that version to drive sync to embedded usages.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        name: z.string().min(1).optional(),
+        description: z.string().nullable().optional(),
+        category: z.string().optional(),
+        scope: z.enum(['block', 'section', 'global']).optional(),
+        blocks: z.array(z.any()).min(1).optional(),
+        thumbnail: z.string().url().nullable().optional(),
+        tags: z.array(z.string()).optional(),
+        lockedFields: z.array(z.string()).optional(),
+      },
+    },
+    async ({ id, ...rest }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
+      if (!existing) return json({ error: 'Template not found' });
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+      // Bump version when the block tree itself changes — global usages key
+      // off this to detect drift between embedded copy and the source.
+      if (rest.blocks !== undefined) patch.version = existing.version + 1;
+      const [row] = await db.update(blockTemplates).set(patch).where(eq(blockTemplates.id, id)).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'block_templates_delete',
+    {
+      title: 'Delete block template',
+      description: 'Delete a block template. Refuses to delete if any posts still embed it as a global template — remove or convert those usages first.',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [existing] = await db.select({ id: blockTemplates.id }).from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
+      if (!existing) return json({ error: 'Template not found' });
+      const usages = await db.select({ id: blockTemplateUsages.id }).from(blockTemplateUsages)
+        .where(eq(blockTemplateUsages.templateId, id));
+      if (usages.length > 0) {
+        return json({ error: `Cannot delete: template is used in ${usages.length} post(s). Remove usages first or convert to non-global.` });
+      }
+      await db.delete(blockTemplates).where(eq(blockTemplates.id, id));
+      revalidateForWrite('portal');
+      return json({ success: true, id });
+    }
+  );
+
   // ── EMAIL TEMPLATES ────────────────────────────────────────────────────
   hasScope(ctx.scopes, 'email:read') && server.registerTool(
     'email_templates_list',
@@ -4665,7 +5157,18 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
         htmlContent: finalHtml,
         blockContent,
         createdBy: ctx.userId,
-      }).returning();
+      }).returning({
+        id: emailTemplates.id,
+        name: emailTemplates.name,
+        category: emailTemplates.category,
+        subject: emailTemplates.subject,
+        description: emailTemplates.description,
+        thumbnailUrl: emailTemplates.thumbnailUrl,
+        isGlobal: emailTemplates.isGlobal,
+        usageCount: emailTemplates.usageCount,
+        createdAt: emailTemplates.createdAt,
+        updatedAt: emailTemplates.updatedAt,
+      });
       revalidateForWrite('portal');
       return json(row);
     }
@@ -5780,6 +6283,13 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
   // are gated on `brain:approve`. Reads need `brain:read`; writes
   // `brain:write`.
   registerBrainToolsOnSdk(server, ctx);
+
+  // ── CUSTOM POST TYPES ──────────────────────────────────────────────────
+  // post_types_list / get / create / update / delete plus dedicated
+  // template + custom-code + custom-fields surfaces. All gated on the
+  // existing sites:read / sites:write scopes — CPTs are part of the
+  // site's CMS surface.
+  registerPostTypeToolsOnSdk(server, ctx);
 
   // ── APPROVALS ──────────────────────────────────────────────────────────
   // approvals_list / get / approve / reject. Gated on approvals:read and

@@ -62,6 +62,13 @@ interface PortalPostFormProps {
    * Loaded server-side via getBrandDefaults().
    */
   brandDefaults?: BrandDefaultsContext;
+  /**
+   * Post-type template JSON for the post's content type (resolved server-side
+   * via getPostTypeForPost). When present, the visual editor iframe renders
+   * the type's wrapper chrome around the editable post-blocks slot — matching
+   * production layout. Null when the type has no template.
+   */
+  typeTemplate?: string | null;
 }
 
 const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
@@ -104,7 +111,7 @@ function generateSlug(title: string) {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain, brandDefaults }: PortalPostFormProps) {
+export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl, previewToken, siteDomain, brandDefaults, typeTemplate }: PortalPostFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -704,6 +711,7 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
                 siteId={siteId}
                 customCss={formData.customCss || ''}
                 customJs={formData.customJs || ''}
+                typeTemplate={typeTemplate}
               />
 
               {/* Settings slide-over panel */}

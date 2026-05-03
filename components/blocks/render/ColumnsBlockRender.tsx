@@ -38,6 +38,9 @@ import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
+import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
+import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
+import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 
 interface ColumnsBlockRenderProps {
@@ -235,6 +238,12 @@ function renderNestedBlock(block: Block) {
       return <DeckNextSlideBlockRender block={block} />;
     case 'deck-jump-to':
       return <DeckJumpToBlockRender block={block} />;
+    case 'post-content':
+      return <PostContentPlaceholderRender block={block as Extract<Block, { type: 'post-content' }>} />;
+    case 'html-render':
+      return <HtmlRenderBlockRender block={block as Extract<Block, { type: 'html-render' }>} />;
+    case 'html-embed':
+      return <HtmlEmbedBlockRender block={block as Extract<Block, { type: 'html-embed' }>} />;
     default:
       return null;
   }
