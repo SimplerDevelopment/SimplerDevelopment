@@ -53,6 +53,41 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
     return () => document.removeEventListener('click', preventNav, true);
   }, [editor.active]);
 
+  // Inject a one-time stylesheet that gives the inline-editable html-render
+  // fields a visible affordance (subtle dashed outline + focus ring). Lives
+  // here so it's only present when the visual editor is active.
+  useEffect(() => {
+    if (!editor.active) return;
+    const STYLE_ID = 'sd-field-editable-css';
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      .sd-field-editable {
+        outline: 1px dashed rgba(99, 102, 241, 0.35);
+        outline-offset: 2px;
+        border-radius: 2px;
+        transition: outline-color 120ms ease;
+      }
+      .sd-field-editable:hover { outline-color: rgba(99, 102, 241, 0.6); }
+      .sd-field-editable:focus {
+        outline: 2px solid rgb(99, 102, 241);
+        outline-offset: 2px;
+      }
+      img.sd-image-editable {
+        outline: 1px dashed rgba(99, 102, 241, 0.35);
+        outline-offset: 2px;
+        transition: outline-color 120ms ease;
+      }
+      img.sd-image-editable:hover {
+        outline: 2px solid rgb(99, 102, 241);
+        outline-offset: 2px;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, [editor.active]);
+
   // Parse the template once per typeTemplate change. Used when active + a
   // template is present to render the static chrome around the editable
   // post-blocks slot.
@@ -342,6 +377,22 @@ function DraggableBlockList({
           const updated = insertNearBlock(blocks, selectedId, 'after', dup);
           editor.onBlocksReordered(updated);
         }
+        return;
+      }
+
+      // Cmd+C / Cmd+V: forward to parent so the cross-post clipboard
+      // (parent localStorage) is the single source of truth. Skip when
+      // there's a real text selection — that's a regular text copy.
+      if (e.key === 'c' && selectedId) {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
+        e.preventDefault();
+        sendToParent(IFRAME_MESSAGES.COPY_BLOCKS, {});
+        return;
+      }
+      if (e.key === 'v') {
+        e.preventDefault();
+        sendToParent(IFRAME_MESSAGES.PASTE_BLOCKS, {});
         return;
       }
 

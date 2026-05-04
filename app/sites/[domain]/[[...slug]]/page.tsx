@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts, getPostTypeForPost } from '@/lib/actions/client-sites';
 import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
+import { expandLoopsInContent } from '@/lib/blocks/html-render-loops';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
@@ -107,7 +108,9 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     }
 
     const homeType = await getPostTypeForPost(site.id, homePage.postType);
-    const content = await prefetchHtmlEmbeds(wrapWithTypeTemplate(homePage.content, homeType?.template));
+    const content = await prefetchHtmlEmbeds(
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(homePage.content, homeType?.template), homePage.id),
+    );
     return (
       <SiteBlockRenderer
         content={content}
@@ -202,7 +205,9 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     return (
       <div>
         <SiteBlockRenderer
-          content={await prefetchHtmlEmbeds(wrapWithTypeTemplate(post.content, blogType?.template))}
+          content={await prefetchHtmlEmbeds(
+            await expandLoopsInContent(site.id, wrapWithTypeTemplate(post.content, blogType?.template), post.id),
+          )}
           siteId={site.id}
           branding={branding}
           site={siteLayer}
@@ -226,7 +231,9 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   return (
     <div>
       <SiteBlockRenderer
-        content={await prefetchHtmlEmbeds(wrapWithTypeTemplate(page.content, pageType?.template))}
+        content={await prefetchHtmlEmbeds(
+          await expandLoopsInContent(site.id, wrapWithTypeTemplate(page.content, pageType?.template), page.id),
+        )}
         siteId={site.id}
         branding={branding}
         site={siteLayer}

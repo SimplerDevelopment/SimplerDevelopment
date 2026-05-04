@@ -280,6 +280,37 @@ export default function PortalPostForm({ siteId, post, mode, siteUrl, publicUrl,
     savePost('manual');
   }, [formData.postType, mode, editorMode, savePost]);
 
+  // When any html-render block's `loop` config changes, force a manual save
+  // so the iframe reloads — loop expansion is server-only, so authors won't
+  // see new card-counts/post-type changes until the page is re-rendered.
+  // Static field/value edits still autosave silently and update via the
+  // postMessage channel, so this only fires for the rare loop-config edit.
+  const fingerprintLoops = useCallback((bs: Block[]): string => {
+    const out: string[] = [];
+    const visit = (list: Block[]) => {
+      for (const b of list) {
+        if (b.type === 'html-render') {
+          const loop = (b as { loop?: unknown }).loop;
+          if (loop) out.push(`${b.id}:${JSON.stringify(loop)}`);
+        }
+        if (b.type === 'columns') (b as { columns: { blocks: Block[] }[] }).columns.forEach(c => visit(c.blocks || []));
+        if (b.type === 'tabs') (b as { tabs: { blocks: Block[] }[] }).tabs.forEach(t => visit(t.blocks || []));
+        if (b.type === 'section') visit((b as { blocks: Block[] }).blocks || []);
+      }
+    };
+    visit(bs);
+    return out.join('|');
+  }, []);
+  const initialLoopFingerprintRef = useRef(fingerprintLoops(blocks));
+  useEffect(() => {
+    if (mode !== 'edit' || editorMode !== 'iframe') return;
+    const fp = fingerprintLoops(blocks);
+    if (fp === initialLoopFingerprintRef.current) return;
+    initialLoopFingerprintRef.current = fp;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    savePost('manual');
+  }, [blocks, mode, editorMode, savePost, fingerprintLoops]);
+
   // Debounced autosave on block changes (2s after last change)
   const initialBlocksRef = useRef(JSON.stringify(blocks));
   useEffect(() => {

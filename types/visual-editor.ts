@@ -134,4 +134,15 @@ export const IFRAME_MESSAGES = {
   EXTERNAL_DROP_COMPLETED: 'EXTERNAL_DROP_COMPLETED',
   BLOCK_CONTENT_UPDATED: 'BLOCK_CONTENT_UPDATED',
   BLOCK_CONTEXT_MENU: 'BLOCK_CONTEXT_MENU',
+  /** Iframe → parent: user pressed Cmd/Ctrl+C inside the iframe with one or
+   *  more blocks selected. Parent runs its localStorage copy of the selection. */
+  COPY_BLOCKS: 'COPY_BLOCKS',
+  /** Iframe → parent: user pressed Cmd/Ctrl+V inside the iframe. Parent
+   *  reads its clipboard and inserts the blocks at the current insertion point. */
+  PASTE_BLOCKS: 'PASTE_BLOCKS',
+  /** Iframe → parent: user clicked an `<img data-field-image="X">`. Parent
+   *  opens the MediaPicker modal targeting that field path. After selection,
+   *  the parent writes the new URL into block.values via the existing
+   *  BLOCK_CONTENT_UPDATED route. */
+  REQUEST_IMAGE_PICKER: 'REQUEST_IMAGE_PICKER',
 } as const;

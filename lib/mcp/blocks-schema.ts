@@ -215,6 +215,235 @@ Auto-feed of posts.
 ### code
   { id, type:"code", order, code: string, language?: string }
 
+### html-render
+A custom-HTML block with optional ACF-style content management. The simplest
+form is just \`{ html: "<raw markup/>" }\` — the markup renders verbatim.
+The richer form attaches a **field schema** to the markup so authors can
+edit named values in the right panel and inline in the iframe, without
+touching the HTML.
+
+  { id, type:"html-render", order,
+    html: string,                       // template — see annotations below
+    width?: "full"|"contained",
+    fields?: HtmlRenderField[],         // schema (right-panel form layout)
+    values?: Record<string, ScalarOrObjectOrArray>, // current values
+    loop?: HtmlRenderLoop }             // optional dynamic-post repeater
+
+**Three template annotations** turn raw HTML into editable fields:
+
+  1. \`{{name}}\` — substituted as a string anywhere (attributes, text, css).
+     HTML-escaped for safety. Dotted paths (\`{{cta.url}}\`) resolve against
+     group / link / post values.
+
+  2. \`<X data-field="name">…</X>\` — the element's INNER HTML becomes an
+     editable richtext region. The element keeps its tag + attributes; only
+     the inner content is replaced from \`values[name]\`. Authors can edit
+     these inline by clicking in the iframe.
+
+  3. \`<X data-repeat="name">…</X>\` — the element repeats once per item in
+     \`values[name]\` (an array of records). Inside: \`{{name.subfield}}\` for
+     attributes, \`data-field="subfield"\` for richtext sub-fields. Renders
+     nothing if the array is empty.
+
+  4. \`<X data-group="name">…</X>\` — like data-repeat but a SINGLE nested
+     object (no repetition). Inside: \`{{name.subfield}}\` + \`data-field="subfield"\`.
+     Useful for bundling related fields (testimonial = quote + author + role).
+
+  5. \`<X data-loop="posts">…</X>\` — server-side repeater that pulls posts
+     from this site (configured via the \`loop\` block property). Inside:
+     \`{{post.title}}\`, \`{{post.url}}\`, \`{{post.coverImage}}\`,
+     \`{{post.excerpt}}\`, \`{{post.publishedAt}}\`, \`{{post.values.X}}\` (pulls
+     from the target post's html-render values). Items are NOT editable
+     inline — the source of truth is the target post.
+
+**HtmlRenderField** schema entry:
+
+  { name: string,                       // matches the {{name}} / data-field
+    label?: string,                     // human label in the panel form
+    type: "text" | "textarea" | "number" | "richtext" | "boolean"
+        | "url" | "image" | "color" | "select" | "radio"
+        | "date" | "datetime" | "link" | "post"
+        | "array" | "group" | "tab",
+    options?: string[],                 // for select / radio
+    default?: string,                   // fallback value
+    help?: string,                      // instruction text under the label
+    itemFields?: HtmlRenderField[],     // for array / group — sub-field schema
+    min?: number, max?: number, step?: number,  // number input constraints
+
+    // Validation (informational; surfaces inline in the panel):
+    required?: boolean,
+    minLength?: number, maxLength?: number,
+    pattern?: string,                   // JS-regex source string
+    errorMessage?: string,              // override the per-rule default
+
+    // Conditional visibility — hides this field in the panel when condition
+    // fails. Doesn't affect template rendering; storage stays intact.
+    conditional?: {
+      field: string,                    // sibling field name to test
+      operator: "eq" | "neq" | "in" | "notIn" | "truthy" | "falsy",
+      value?: string,                   // for in/notIn: pipe-delimited "a|b|c"
+    },
+
+    postType?: string,                  // for type="post" — restrict picker
+  }
+
+**Field types — value shapes:**
+
+  text / textarea / url / color / select / radio / date / datetime — string
+  number   — string ("42")
+  boolean  — string ("true" / "false")
+  richtext — string of HTML
+  image    — string (image URL)
+  link     — { url: string, label: string, target: "_self"|"_blank" }
+  post     — string (post id) — server resolves to:
+             { id, title, slug, url, excerpt, coverImage, publishedAt, postType }
+  array    — Array<Record<string, string>> (each item per itemFields)
+  group    — Record<string, string> (one record per itemFields)
+  tab      — no value (purely organizational; splits the panel into tabs)
+
+**HtmlRenderLoop** (only when \`data-loop="posts"\` is present in the html):
+
+  { source: "posts",                    // only "posts" today
+    postType: string,                   // CPT slug (e.g. "case-study")
+    limit?: number,                     // max items, default 3, max 24
+    orderBy?: "recent" | "oldest" | "title",
+    exclude?: number[] }                // post ids to skip (current post auto)
+
+#### Worked example — CTA card with link + image
+
+  {
+    id: "block-cta-1", type: "html-render", order: 0,
+    html: \`
+      <section class="card" style="background: {{accent}}">
+        <img src="{{logo}}" alt="{{brand}}" />
+        <h3 data-field="title">Headline</h3>
+        <p data-field="body">Body</p>
+        <a href="{{cta.url}}" target="{{cta.target}}">{{cta.label}}</a>
+      </section>\`,
+    fields: [
+      { name: "logo",   type: "image",  label: "Logo" },
+      { name: "brand",  type: "text",   label: "Brand", required: true },
+      { name: "accent", type: "color",  label: "Accent color", default: "#004D80" },
+      { name: "title",  type: "richtext", label: "Headline", required: true },
+      { name: "body",   type: "richtext", label: "Body" },
+      { name: "cta",    type: "link",   label: "Call to action" },
+    ],
+    values: {
+      logo: "/uploads/logo.png",
+      brand: "Acme",
+      accent: "#5BA573",
+      title: "Get started",
+      body: "<p>The fastest way to <strong>ship</strong>.</p>",
+      cta: { url: "/contact", label: "Talk to us", target: "_self" },
+    },
+  }
+
+#### Worked example — repeater (stats)
+
+  {
+    id: "block-stats-1", type: "html-render", order: 1,
+    html: \`
+      <h2 data-field="heading">Heading</h2>
+      <ul>
+        <li data-repeat="stats">
+          <span class="num" data-field="number">0</span>
+          <span class="lbl" data-field="label">Label</span>
+        </li>
+      </ul>\`,
+    fields: [
+      { name: "heading", type: "richtext", label: "Heading", required: true },
+      { name: "stats", type: "array", label: "Stats",
+        itemFields: [
+          { name: "number", type: "text", required: true },
+          { name: "label",  type: "text", required: true },
+        ] },
+    ],
+    values: {
+      heading: "Our impact",
+      stats: [
+        { number: "$965K", label: "Raised" },
+        { number: "2,600+", label: "Donors" },
+      ],
+    },
+  }
+
+#### Worked example — dynamic post loop (related case studies)
+
+  {
+    id: "block-related-1", type: "html-render", order: 2,
+    html: \`
+      <h2 data-field="heading">More case studies</h2>
+      <div class="grid">
+        <a data-loop="posts" href="{{post.url}}" class="card">
+          <img src="{{post.values.universityLogoImage}}" alt="{{post.title}}" />
+          <span class="title">{{post.title}}</span>
+          <span class="stat">{{post.values.body}}</span>
+        </a>
+      </div>\`,
+    fields: [
+      { name: "heading", type: "richtext", label: "Section heading" },
+    ],
+    values: { heading: "More customer stories" },
+    loop: { source: "posts", postType: "case-study", limit: 3, orderBy: "recent" },
+  }
+
+#### Worked example — group + tabs + conditional
+
+  {
+    id: "block-hero-1", type: "html-render", order: 0,
+    html: \`
+      <section data-group="hero">
+        <h1 data-field="title">Title</h1>
+        <p data-field="subtitle">Subtitle</p>
+      </section>
+      <a href="{{cta.url}}">{{cta.label}}</a>\`,
+    fields: [
+      { name: "tab_main", type: "tab", label: "Main" },
+      { name: "hero",   type: "group", label: "Hero", help: "Title + subtitle bundle",
+        itemFields: [
+          { name: "title",    type: "richtext", required: true },
+          { name: "subtitle", type: "richtext" },
+        ] },
+      { name: "tab_cta", type: "tab", label: "CTA" },
+      { name: "showCta", type: "boolean", label: "Show CTA?", default: "true" },
+      { name: "cta",     type: "link", label: "Button",
+        conditional: { field: "showCta", operator: "eq", value: "true" } },
+    ],
+    values: {
+      hero: { title: "Welcome", subtitle: "We do things." },
+      showCta: "true",
+      cta: { url: "/contact", label: "Get in touch", target: "_self" },
+    },
+  }
+
+**Authoring rules:**
+
+- Use \`{{name}}\` for attributes (\`href\`, \`src\`, \`style\`); use \`data-field\`
+  for editable text/HTML regions. They're not interchangeable — \`data-field\`
+  on an \`<img>\` is a no-op (img is void).
+- Inside \`data-repeat\` and \`data-group\`: use \`{{groupName.subfield}}\` for
+  attributes and \`data-field="subfield"\` for inner-HTML regions.
+- Field \`name\` keys match the regex \`^[a-zA-Z_][a-zA-Z0-9_-]*$\`.
+- Don't put two top-level \`data-loop\` regions in one block — server expansion
+  resolves each independently but only one loop config per block is supported.
+- For long-form prose, prefer ONE \`data-field="body"\` over many siblings —
+  the richtext editor supports multi-paragraph content via \`<p>\` tags.
+
+### html-embed
+Iframe-sandboxed embed of an uploaded HTML file. Used for self-contained
+WordPress/Webflow exports or third-party widgets that need their own
+\`<style>\`/\`<script>\` scope. For inline HTML editable in the visual editor,
+use \`html-render\` instead.
+
+  { id, type:"html-embed", order,
+    url: string,                        // /api/portal/media/... URL
+    filename?: string,
+    mediaId?: number,
+    height?: string,                    // e.g. "600px" or "100vh"
+    sandbox?: "strict"|"scripts"|"scripts-forms",
+    iframeTitle?: string,
+    caption?: string }
+
 ## Authoring guidance
 
 - Always prefer typed component blocks (hero, cta, stats, columns, etc.) over

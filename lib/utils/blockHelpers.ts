@@ -1,5 +1,33 @@
 import { Block } from '@/types/blocks';
 
+/** Generate a fresh block id. Format mirrors what the editor + render layer
+ *  use elsewhere — `block-{ms}-{rand}` — so logs/back-traces stay consistent. */
+export function newBlockId(): string {
+  return `block-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/** Deep-clone a block with brand-new IDs at every level. Used for duplication
+ *  inside one post and for paste-from-clipboard across posts. Without ID
+ *  regeneration React would key duplicates against the originals and the
+ *  visual editor's selection model would mis-target. */
+export function deepCloneBlock(block: Block): Block {
+  const clone = { ...block, id: newBlockId() } as Block & {
+    columns?: Array<{ id: string; blocks: Block[] }>;
+    tabs?: Array<{ id: string; blocks: Block[] }>;
+    blocks?: Block[];
+  };
+  if (clone.type === 'columns' && Array.isArray(clone.columns)) {
+    clone.columns = clone.columns.map((c) => ({ ...c, id: newBlockId(), blocks: c.blocks.map(deepCloneBlock) }));
+  }
+  if (clone.type === 'tabs' && Array.isArray(clone.tabs)) {
+    clone.tabs = clone.tabs.map((t) => ({ ...t, id: newBlockId(), blocks: t.blocks.map(deepCloneBlock) }));
+  }
+  if (clone.type === 'section' && Array.isArray(clone.blocks)) {
+    clone.blocks = clone.blocks.map(deepCloneBlock);
+  }
+  return clone as Block;
+}
+
 /**
  * Recursively find a block by ID, searching through nested structures like columns and tabs
  */

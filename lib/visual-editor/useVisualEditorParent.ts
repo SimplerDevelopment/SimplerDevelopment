@@ -34,6 +34,12 @@ interface UseVisualEditorParentOptions {
   onGapChanged?: (blockId: string, gap: 'sm' | 'md' | 'lg') => void;
   onBlockContentUpdated?: (blockId: string, field: string, value: string) => void;
   onBlockContextMenu?: (blockId: string, x: number, y: number, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
+  /** Iframe forwarded a Cmd+C — parent runs its localStorage copy. */
+  onCopyBlocks?: () => void;
+  /** Iframe forwarded a Cmd+V — parent reads its clipboard and inserts. */
+  onPasteBlocks?: () => void;
+  /** Iframe clicked an editable image — parent opens MediaPicker for the field. */
+  onRequestImagePicker?: (blockId: string, field: string, currentValue: string) => void;
 }
 
 export function useVisualEditorParent({
@@ -51,6 +57,9 @@ export function useVisualEditorParent({
   onGapChanged,
   onBlockContentUpdated,
   onBlockContextMenu,
+  onCopyBlocks,
+  onPasteBlocks,
+  onRequestImagePicker,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -72,6 +81,9 @@ export function useVisualEditorParent({
   const onGapChangedRef = useRef(onGapChanged);
   const onContentUpdatedRef = useRef(onBlockContentUpdated);
   const onContextMenuRef = useRef(onBlockContextMenu);
+  const onCopyBlocksRef = useRef(onCopyBlocks);
+  const onPasteBlocksRef = useRef(onPasteBlocks);
+  const onRequestImagePickerRef = useRef(onRequestImagePicker);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
@@ -86,6 +98,9 @@ export function useVisualEditorParent({
   onGapChangedRef.current = onGapChanged;
   onContentUpdatedRef.current = onBlockContentUpdated;
   onContextMenuRef.current = onBlockContextMenu;
+  onCopyBlocksRef.current = onCopyBlocks;
+  onPasteBlocksRef.current = onPasteBlocks;
+  onRequestImagePickerRef.current = onRequestImagePicker;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -177,6 +192,19 @@ export function useVisualEditorParent({
         case IFRAME_MESSAGES.BLOCK_CONTEXT_MENU: {
           const payload = event.data.payload as { blockId: string; x: number; y: number; modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean } };
           onContextMenuRef.current?.(payload.blockId, payload.x, payload.y, payload.modifiers);
+          break;
+        }
+        case IFRAME_MESSAGES.COPY_BLOCKS: {
+          onCopyBlocksRef.current?.();
+          break;
+        }
+        case IFRAME_MESSAGES.PASTE_BLOCKS: {
+          onPasteBlocksRef.current?.();
+          break;
+        }
+        case IFRAME_MESSAGES.REQUEST_IMAGE_PICKER: {
+          const payload = event.data.payload as { blockId: string; field: string; currentValue: string };
+          onRequestImagePickerRef.current?.(payload.blockId, payload.field, payload.currentValue);
           break;
         }
       }

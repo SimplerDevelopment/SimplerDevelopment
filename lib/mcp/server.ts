@@ -339,7 +339,7 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
     {
       title: 'Visual editor block schema',
       description:
-        'Reference for the Block types accepted by posts_create and posts_update. Includes field shapes for hero, cta, stats, columns, card-grid, etc., plus a working example.',
+        'Reference for the Block types accepted by posts_create and posts_update. Includes field shapes for hero, cta, stats, columns, card-grid, html-render (ACF-style fields/values/loop with template annotations data-field/data-repeat/data-group/data-loop), etc., plus worked examples.',
       mimeType: 'text/markdown',
     },
     async (uri) => ({
