@@ -35,11 +35,21 @@ export type McpToolRegistrar = (server: McpServer, ctx: PortalMcpContext) => voi
 /** A scope identifier in `<resource>:<action>` form (e.g. `crm:read`). */
 export type ToolScope = string;
 
-/** Single text-content tool envelope returned by every handler. */
-export interface ToolEnvelope {
+/**
+ * Single text-content tool envelope returned by every handler.
+ *
+ * Note: this is intentionally a wide structural type — the MCP SDK's
+ * `registerTool` signature expects a result whose shape includes an open
+ * index signature (`[x: string]: unknown`). Constraining our handlers to a
+ * narrow `interface` here would cause every `json(...)` return to fail the
+ * SDK's stricter type check. We use a `type` alias so the return is treated
+ * structurally and stays assignable.
+ */
+export type ToolEnvelope = {
   content: { type: 'text'; text: string }[];
   isError?: boolean;
-}
+  [key: string]: unknown;
+};
 
 /** Shape of the JSON-stringified result every tool handler emits. */
 export function json(payload: unknown): ToolEnvelope {

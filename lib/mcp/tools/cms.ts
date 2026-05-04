@@ -121,6 +121,7 @@ import {
   postProjection,
   deckProjection,
   campaignProjection,
+  SLIM_POST_COLUMNS,
 } from '../projections';
 
 export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void {
