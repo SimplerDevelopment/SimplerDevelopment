@@ -113,15 +113,19 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
       // write to a phantom path that resolves to nothing.
       if (target.closest('[data-loop-item]')) continue;
 
-      // Detect array-item context. If this data-field lives inside a
-      // `data-repeat-item="name:index"` element, the field-update path is
-      // `name.index.subfield` so the parent writes into the array entry
-      // instead of a top-level field. Top-level fields keep their bare name.
-      const itemAncestor = target.closest('[data-repeat-item]') as HTMLElement | null;
-      const itemPath = itemAncestor?.dataset.repeatItem || ''; // e.g. "stats:2"
-      const fieldPath = itemPath
-        ? `${itemPath.replace(':', '.')}.${fieldName}`
-        : fieldName;
+      // Resolve the field path. Three nesting contexts:
+      //   - inside `data-repeat-item="name:index"` → `name.index.fieldName`
+      //   - inside `data-group-item="name"`        → `name.fieldName`
+      //   - top-level                              → `fieldName`
+      // Repeat wins over group when both are present (a group nested inside
+      // an array isn't supported today; the array path is the addressable one).
+      const repeatAncestor = target.closest('[data-repeat-item]') as HTMLElement | null;
+      const groupAncestor = repeatAncestor ? null : (target.closest('[data-group-item]') as HTMLElement | null);
+      const fieldPath = repeatAncestor
+        ? `${(repeatAncestor.dataset.repeatItem || '').replace(':', '.')}.${fieldName}`
+        : groupAncestor
+          ? `${groupAncestor.dataset.groupItem}.${fieldName}`
+          : fieldName;
 
       target.setAttribute('contenteditable', 'true');
       target.classList.add('sd-field-editable');
@@ -187,13 +191,26 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
       // Skip images inside a dynamic loop iteration — same reason as text
       // edits: their src came from a fetched post, not block values.
       if (target.closest('[data-loop-item]')) continue;
-      // Same item-context resolution as text edits: an img inside a
-      // [data-repeat-item="stats:2"] writes to `stats.2.<baseName>`.
-      const itemAncestor = target.closest('[data-repeat-item]') as HTMLElement | null;
-      const itemPath = itemAncestor?.dataset.repeatItem || '';
-      const fieldPath = itemPath
-        ? `${itemPath.replace(':', '.')}.${baseName}`
-        : baseName;
+      // Resolve the field path. baseName is whatever placeholder fed the
+      // `<img src="{{X}}">` (`annotateImageFields` snapshots it before
+      // expansion), so it can already be a dotted path like "cta.image" or
+      // "stats.value".
+      //   - inside `data-repeat-item="name:index"`: inject the index between
+      //     the array name and the rest, e.g. "stats.value" + "stats:2"
+      //     → "stats.2.value". If the dotted prefix doesn't match the array
+      //     name (unusual), fall back to baseName as-is.
+      //   - inside `data-group-item="name"` or at top level: baseName already
+      //     carries the right path; using it verbatim avoids "cta.cta.image".
+      const repeatAncestor = target.closest('[data-repeat-item]') as HTMLElement | null;
+      let fieldPath: string;
+      if (repeatAncestor) {
+        const [name, idx] = (repeatAncestor.dataset.repeatItem || '').split(':');
+        fieldPath = baseName.startsWith(name + '.')
+          ? `${name}.${idx}.${baseName.slice(name.length + 1)}`
+          : baseName;
+      } else {
+        fieldPath = baseName;
+      }
 
       target.style.cursor = 'pointer';
       target.classList.add('sd-image-editable');

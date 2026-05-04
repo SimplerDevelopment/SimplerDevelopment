@@ -412,6 +412,15 @@ export function VisualEditorShell({
             const item = { ...(arr[idx] || {}), [subKey]: value };
             arr[idx] = item;
             nextValues = { ...existing, [arrayName]: arr };
+          } else if (parts.length === 2) {
+            // groupName.subfield — group / link sub-fields. Without this branch
+            // the write would land in `values["groupName.subfield"]` (a literal
+            // dotted key) which the renderer never reads.
+            const [groupName, subKey] = parts;
+            const prev = existing[groupName];
+            const obj: Record<string, string> = (prev && typeof prev === 'object' && !Array.isArray(prev))
+              ? (prev as Record<string, string>) : {};
+            nextValues = { ...existing, [groupName]: { ...obj, [subKey]: value } };
           } else {
             nextValues = { ...existing, [field]: value };
           }

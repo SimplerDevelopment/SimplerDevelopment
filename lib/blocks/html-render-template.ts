@@ -400,9 +400,14 @@ export function expandGroups(template: string, fields: HtmlRenderField[], values
     }, {});
     const fullElement = out.slice(r.start, r.end);
     const cleanElement = fullElement.replace(/\s+data-group="[^"]+"/, '');
+    // Tag the wrapper with `data-group-item="<name>"` so the iframe inline-
+    // edit layer can resolve `[data-field]` descendants to the right
+    // `<group>.<sub>` path (without this, edits clobber a top-level field
+    // with the same name as the group's sub-field).
+    const tagged = cleanElement.replace(/^<([a-zA-Z][a-zA-Z0-9-]*)/, (_m, t) => `<${t} data-group-item="${r.name}"`);
     // Re-uses substituteRepeatItem since the per-item substitution semantics
     // are identical — a group is just an array entry that doesn't repeat.
-    const rendered = substituteRepeatItem(cleanElement, r.name, obj, subDefaults);
+    const rendered = substituteRepeatItem(tagged, r.name, obj, subDefaults);
     out = out.slice(0, r.start) + rendered + out.slice(r.end);
   }
   return out;
