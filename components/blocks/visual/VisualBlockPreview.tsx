@@ -52,6 +52,8 @@ import { BentoGridBlockPreview } from './BentoGridBlockPreview';
 import { SiteFooterBlockPreview } from './SiteFooterBlockPreview';
 import { BookingMenuBlockPreview } from './BookingMenuBlockPreview';
 import { HtmlEmbedBlockPreview } from './HtmlEmbedBlockPreview';
+import { HtmlRenderBlockRender } from '@/components/blocks/render/HtmlRenderBlockRender';
+import { StickyScrollTabsBlockRender } from '@/components/blocks/render/StickyScrollTabsBlockRender';
 
 interface VisualBlockPreviewProps {
   block: Block;
@@ -236,6 +238,13 @@ export function VisualBlockPreview({ block, isSelected, onChange, selectedBlockI
       return <BookingMenuBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
     case 'html-embed':
       return <HtmlEmbedBlockPreview block={block} isSelected={isSelected} onChange={onChange} />;
+    case 'html-render':
+      // Delegate to the production renderer — it already handles the empty-
+      // state placeholder and (when the editor context is active) wires
+      // inline `[data-field]` editing.
+      return <HtmlRenderBlockRender block={block} />;
+    case 'sticky-scroll-tabs':
+      return <StickyScrollTabsBlockRender block={block} />;
     case 'post-content':
       // Template editor only — substituted with the post's blocks at render
       // time. Render a clear placeholder card so authors can see the slot.

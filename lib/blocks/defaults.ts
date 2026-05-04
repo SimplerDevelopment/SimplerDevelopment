@@ -46,7 +46,25 @@ export function createDefaultBlock(
     case 'code':
       return { ...base, type: 'code', code: '// Enter your code here...', language: 'javascript' };
     case 'html-render':
-      return { ...base, type: 'html-render', html: '<div>Paste raw HTML here.</div>', width: 'full' };
+      // Starter template demonstrates the two main authoring patterns —
+      // `data-field` for inline-editable richtext, `{{name}}` for attribute/
+      // text substitution — so the feature is discoverable on first drop.
+      // Authors edit the HTML to add more fields; reconcileFields() keeps
+      // the schema in sync. fields[] is pre-populated so the right-panel
+      // form has rows immediately (no "edit the template once to populate"
+      // step).
+      return {
+        ...base, type: 'html-render', width: 'full',
+        html: '<div style="padding:3rem 1.5rem;text-align:center;">\n'
+          + '  <h2 data-field="title" style="font-size:2rem;font-weight:700;margin:0 0 0.75rem;">Custom HTML, fully editable</h2>\n'
+          + '  <p data-field="body" style="max-width:42rem;margin:0 auto;color:#4b5563;line-height:1.6;">Click any text in the visual editor to edit inline. Add <code>data-field="name"</code> to make any element editable, or use <code>{{name}}</code> in attributes and text. <code>data-repeat</code> repeats per array item; <code>data-group</code> wraps a single nested object.</p>\n'
+          + '</div>',
+        fields: [
+          { name: 'title', label: 'Title', type: 'richtext' },
+          { name: 'body', label: 'Body', type: 'richtext' },
+        ],
+        values: {},
+      };
     case 'post-content':
       return { ...base, type: 'post-content' };
     case 'spacer':
