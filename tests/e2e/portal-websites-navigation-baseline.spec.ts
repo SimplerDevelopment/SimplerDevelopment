@@ -130,18 +130,20 @@ test.describe('Portal Websites Navigation Page — refactor baseline @navigation
     expect(putEdit.status).toBe(200);
 
     const afterEdit = await clientApi.get(`/api/portal/websites/${siteId}/navigation`);
-    const editedHome = (afterEdit.data.data as Array<{ label: string }>).find(
+    const editedHome = (afterEdit.data.data as Array<{ id: number; label: string }>).find(
       (i) => i.label === editedHomeLabel,
     );
     expect(editedHome).toBeTruthy();
     // Old label is gone
     expect(
-      (afterEdit.data.data as Array<{ label: string }>).find((i) => i.label === homeLabel),
+      (afterEdit.data.data as Array<{ id: number; label: string }>).find(
+        (i) => i.label === homeLabel,
+      ),
     ).toBeUndefined();
 
     // ── Add a sub-item nested under the first (parentId)
     const subLabel = `${PREFIX}Sub-${ts}`;
-    const newHomeId = editedHome!.id as unknown as number;
+    const newHomeId = editedHome!.id;
     const newAboutId = (afterEdit.data.data as Array<{ id: number; label: string }>).find(
       (i) => i.label === aboutLabel,
     )!.id;
