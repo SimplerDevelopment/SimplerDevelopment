@@ -110,7 +110,14 @@ export async function applyTestSchema(): Promise<void> {
         await withRetry(() => getSql().unsafe(stmt));
       } catch (err) {
         const msg = (err as Error).message;
+        // "already exists" / "does not exist" — direct DDL conflicts that mean
+        // the prior idempotent replay already covered this statement.
+        // "duplicate key value violates unique constraint" with pg_class_/pg_type_
+        // names — same situation, just surfaced as a catalog uniqueness error
+        // (e.g. CREATE UNIQUE INDEX or CREATE TABLE row-type collision when
+        // a prior partial run left some objects behind).
         if (/already exists|does not exist/i.test(msg)) continue;
+        if (/duplicate key value violates unique constraint "(pg_class_|pg_type_|pg_constraint_|pg_namespace_)/i.test(msg)) continue;
         throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 240)}`);
       }
     }
