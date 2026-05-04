@@ -6,6 +6,7 @@ import { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
 import MediaPicker from '@/components/admin/MediaPicker';
 import { StyleSettings } from './StyleSettings';
+import { LayoutPanel } from './block-settings/panels/LayoutPanel';
 import { TokenColorPicker } from './TokenColorPicker';
 import { RichTextEditable } from './RichTextEditable';
 
@@ -375,9 +376,9 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
             case 'button':
               return <ButtonBlockSettings block={block as ButtonBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'spacer':
-              return <SpacerBlockSettings block={block as SpacerBlock} onChange={onChange} currentViewport={currentViewport} />;
+              return <LayoutPanel block={block} onChange={onChange} currentViewport={currentViewport} />;
             case 'divider':
-              return <DividerBlockSettings block={block as DividerBlock} onChange={onChange} currentViewport={currentViewport} />;
+              return <LayoutPanel block={block} onChange={onChange} currentViewport={currentViewport} />;
             case 'quote':
               return <QuoteBlockSettings block={block as QuoteBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'code':
@@ -387,7 +388,7 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
             case 'youtube':
               return <YoutubeBlockSettings block={block as YoutubeBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'columns':
-              return <ColumnsBlockSettings block={block as ColumnsBlock} onChange={onChange} currentViewport={currentViewport} />;
+              return <LayoutPanel block={block} onChange={onChange} currentViewport={currentViewport} />;
             case 'hero':
               return <HeroBlockSettings block={block as HeroBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'hero-slideshow':
@@ -409,7 +410,7 @@ function GeneralSettings({ block, onChange, currentViewport }: BlockSettingsProp
             case 'accordion':
               return <AccordionBlockSettings block={block as AccordionBlock} onChange={onChange} currentViewport={currentViewport} />;
             case 'section':
-              return <SectionBlockSettings block={block as SectionBlock} onChange={onChange} />;
+              return <LayoutPanel block={block} onChange={onChange} currentViewport={currentViewport} />;
             case 'gallery':
               return <GalleryBlockSettings block={block as GalleryBlock} onChange={onChange} />;
             case 'product-grid':
@@ -819,45 +820,6 @@ function ButtonBlockSettings({ block, onChange, currentViewport }: { block: Butt
   );
 }
 
-function SpacerBlockSettings({ block, onChange, currentViewport }: { block: SpacerBlock; onChange: (updates: Partial<SpacerBlock>) => void; currentViewport: Breakpoint }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Height</label>
-        <select
-          value={block.height}
-          onChange={(e) => onChange({ height: e.target.value as SpacerBlock['height'] })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="sm">Small (1rem)</option>
-          <option value="md">Medium (2rem)</option>
-          <option value="lg">Large (4rem)</option>
-          <option value="xl">Extra Large (6rem)</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
-function DividerBlockSettings({ block, onChange, currentViewport }: { block: DividerBlock; onChange: (updates: Partial<DividerBlock>) => void; currentViewport: Breakpoint }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Line Style</label>
-        <select
-          value={block.lineStyle || 'solid'}
-          onChange={(e) => onChange({ lineStyle: e.target.value as DividerBlock['lineStyle'] })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
 function QuoteBlockSettings({ block, onChange, currentViewport }: { block: QuoteBlock; onChange: (updates: Partial<QuoteBlock>) => void; currentViewport: Breakpoint }) {
   return (
     <div className="space-y-4">
@@ -1035,168 +997,6 @@ function YoutubeBlockSettings({ block, onChange, currentViewport }: { block: You
           placeholder="Video caption..."
         />
       </div>
-    </div>
-  );
-}
-
-function ColumnsBlockSettings({ block, onChange, currentViewport }: { block: ColumnsBlock; onChange: (updates: Partial<ColumnsBlock>) => void; currentViewport: Breakpoint }) {
-  const [expandedColumnId, setExpandedColumnId] = useState<string | null>(null);
-
-  const updateColumn = (columnId: string, updates: Partial<typeof block.columns[0]>) => {
-    onChange({
-      columns: block.columns.map(col =>
-        col.id === columnId ? { ...col, ...updates } : col
-      ),
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Layout</label>
-        <p className="text-sm text-muted-foreground mb-2">{block.columns.length} columns</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Gap Between Columns</label>
-        <select
-          value={block.gap || 'md'}
-          onChange={(e) => onChange({ gap: e.target.value as ColumnsBlock['gap'] })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="sm">Small</option>
-          <option value="md">Medium</option>
-          <option value="lg">Large</option>
-        </select>
-      </div>
-
-      {/* Per-Column Settings */}
-      <div className="border-t border-border pt-4">
-        <label className="block text-sm font-medium text-foreground mb-3">Column Settings</label>
-        <div className="space-y-2">
-          {block.columns.map((column, index) => (
-            <div key={column.id} className="border border-border rounded-md overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setExpandedColumnId(expandedColumnId === column.id ? null : column.id)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-accent transition-colors"
-              >
-                <span className="font-medium">Column {index + 1} ({Math.round(parseFloat(String(column.width)))}%)</span>
-                <svg
-                  className={`w-4 h-4 text-muted-foreground transition-transform ${expandedColumnId === column.id ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {expandedColumnId === column.id && (
-                <div className="px-3 pb-3 space-y-3 border-t border-border">
-                  <div className="pt-3">
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">Width (%)</label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={95}
-                      value={Math.round(parseFloat(String(column.width)))}
-                      onChange={(e) => updateColumn(column.id, { width: Math.max(5, Math.min(95, parseInt(e.target.value) || 5)) })}
-                      className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <TokenColorPicker
-                      label="Background"
-                      value={column.backgroundColor || ''}
-                      onChange={(v) => updateColumn(column.id, { backgroundColor: v || undefined })}
-                      placeholder="transparent"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">Padding</label>
-                      <select
-                        value={column.padding || 'none'}
-                        onChange={(e) => updateColumn(column.id, { padding: e.target.value as any })}
-                        className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                      >
-                        <option value="none">None</option>
-                        <option value="sm">Small</option>
-                        <option value="md">Medium</option>
-                        <option value="lg">Large</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-muted-foreground mb-1">V. Align</label>
-                      <select
-                        value={column.verticalAlign || 'top'}
-                        onChange={(e) => updateColumn(column.id, { verticalAlign: e.target.value as any })}
-                        className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                      >
-                        <option value="top">Top</option>
-                        <option value="center">Center</option>
-                        <option value="bottom">Bottom</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1">CSS Class</label>
-                    <input
-                      type="text"
-                      value={column.cssClass || ''}
-                      onChange={(e) => updateColumn(column.id, { cssClass: e.target.value || undefined })}
-                      placeholder="e.g., rounded-lg shadow-sm"
-                      className="w-full text-sm rounded border border-border bg-background px-2 py-1 text-foreground"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Responsive Stacking */}
-      <div className="border-t border-border pt-4">
-        <label className="block text-sm font-medium text-foreground mb-3">Responsive Stacking</label>
-        <div className="space-y-3">
-          <label className="flex items-start gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={block.stackOnMobile !== false}
-              onChange={(e) => onChange({ stackOnMobile: e.target.checked })}
-              className="rounded border-border mt-0.5"
-            />
-            <div>
-              <div className="font-medium">Stack on Mobile</div>
-              <div className="text-xs text-muted-foreground">Columns display vertically on screens &le; 767px</div>
-            </div>
-          </label>
-          <label className="flex items-start gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={block.stackOnTablet === true}
-              onChange={(e) => onChange({ stackOnTablet: e.target.checked })}
-              className="rounded border-border mt-0.5"
-            />
-            <div>
-              <div className="font-medium">Stack on Tablet</div>
-              <div className="text-xs text-muted-foreground">Columns display vertically on screens 768px - 1023px</div>
-            </div>
-          </label>
-          <label className="flex items-start gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={block.reverseOnStack === true}
-              onChange={(e) => onChange({ reverseOnStack: e.target.checked })}
-              className="rounded border-border mt-0.5"
-            />
-            <div>
-              <div className="font-medium">Reverse on Stack</div>
-              <div className="text-xs text-muted-foreground">Show last column first when stacked vertically</div>
-            </div>
-          </label>
-        </div>
-      </div>
-
     </div>
   );
 }
@@ -1907,76 +1707,6 @@ function AccordionBlockSettings({ block, onChange, currentViewport }: { block: A
       <div className="border-t border-border pt-4">
       <p className="text-xs text-muted-foreground">Use the controls in the editor to add, remove, or edit accordion items.</p>
       </div>
-    </div>
-  );
-}
-
-function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChange: (updates: Partial<SectionBlock>) => void }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">HTML Tag</label>
-        <select
-          value={block.htmlTag || 'section'}
-          onChange={(e) => onChange({ htmlTag: e.target.value as SectionBlock['htmlTag'] })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="section">section</option>
-          <option value="div">div</option>
-          <option value="article">article</option>
-          <option value="aside">aside</option>
-          <option value="header">header</option>
-          <option value="footer">footer</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Max Width</label>
-        <input
-          type="text"
-          value={block.maxWidth || ''}
-          onChange={(e) => onChange({ maxWidth: e.target.value })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-          placeholder="e.g. 1280px, 100%"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">CSS Class</label>
-        <input
-          type="text"
-          value={block.cssClass || ''}
-          onChange={(e) => onChange({ cssClass: e.target.value })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-          placeholder="e.g. rounded-lg shadow-md"
-        />
-      </div>
-      <div className="border-t border-border pt-4 space-y-3">
-        <label className="block text-sm font-medium text-foreground">Diagonal Split (advanced)</label>
-        <p className="text-xs text-muted-foreground">
-          Optional second-color overlay rendered with a clip-path. Leave blank to disable.
-        </p>
-        <TokenColorPicker
-          label="Split Color"
-          value={block.splitColor || ''}
-          onChange={(v) => onChange({ splitColor: v || undefined })}
-          placeholder="transparent"
-        />
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">Clip Path</label>
-          <input
-            type="text"
-            value={block.splitClipPath || ''}
-            onChange={(e) => onChange({ splitClipPath: e.target.value || undefined })}
-            placeholder="polygon(55% 0, 100% 0, 100% 100%, 45% 100%)"
-            className="w-full text-xs font-mono rounded border border-border bg-background px-2 py-1.5 text-foreground"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Defaults to a right-side diagonal when Split Color is set.
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground">{block.blocks.length} nested block{block.blocks.length !== 1 ? 's' : ''}</p>
-      <p className="text-xs text-muted-foreground italic">Use the Style tab for colors, padding, borders, and other visual properties.</p>
     </div>
   );
 }
