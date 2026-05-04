@@ -17,12 +17,15 @@
 
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
 
-interface Props {
+export interface ConditionalLogicPanelProps {
   // Accepts a survey field for forward-compat; intentionally unused today.
   field: SurveyField;
 }
 
-export default function ConditionalLogicPanel(_props: Props) {
+export default function ConditionalLogicPanel(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _props: ConditionalLogicPanelProps,
+) {
   // Intentionally renders nothing — SurveyBuilder shows the static
   // "Conditional: depends on field {id}" badge inline in the question header.
   return null;

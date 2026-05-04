@@ -64,9 +64,12 @@ export default function SurveyDetailPage() {
   const [editStyling, setEditStyling] = useState<Record<string, string | boolean | undefined>>({});
   const [copied, setCopied] = useState(false);
 
-  // Hydrate editable fields whenever the survey reloads.
+  // Hydrate editable fields whenever the survey reloads. The set-state-in-
+  // effect lint warning is unavoidable for this "snapshot loaded server data
+  // into local edit buffers" pattern — same shape the page used pre-refactor.
   useEffect(() => {
     if (!survey) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setEditTitle(survey.title);
     setEditDescription(survey.description || '');
     setEditFields(survey.fields || []);
@@ -82,6 +85,7 @@ export default function SurveyDetailPage() {
     setEditClosesAt(survey.closesAt ? survey.closesAt.slice(0, 16) : '');
     setEditMaxResponses(survey.maxResponses ? String(survey.maxResponses) : '');
     setEditStyling((survey.styling as Record<string, string | boolean | undefined>) || {});
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [survey]);
 
   // Refetch responses when the tabs that surface them are visited.
