@@ -36,6 +36,9 @@ export const test = base.extend({
     if (enabled) {
       await page.coverage.startJSCoverage({ resetOnNavigation: false });
     }
+    // Playwright fixture API — `use` here is the test runner's continuation,
+    // not React's `use` hook. The lint rule misfires on the lowercase name.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
     if (enabled) {
       const entries = await page.coverage.stopJSCoverage();
