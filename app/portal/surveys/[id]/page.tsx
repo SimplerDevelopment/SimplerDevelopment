@@ -1,76 +1,57 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import SurveyBuilder, { SurveyField } from '@/components/admin/SurveyBuilder';
 import Link from 'next/link';
+import type { SurveyField } from '@/components/admin/SurveyBuilder';
 import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
-import type { SurveyRecommendationConfig } from '@/lib/db/schema';
+import EditTab from './_components/EditTab';
 import ResponseAnalytics from './_components/ResponseAnalytics';
+import ResponsesTab from './_components/ResponsesTab';
+import ShareTab from './_components/ShareTab';
+import SurveyHeader from './_components/SurveyHeader';
+import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
-
-interface Survey {
-  id: number;
-  title: string;
-  slug: string;
-  description: string | null;
-  fields: SurveyField[];
-  status: string;
-  color: string;
-  thankYouTitle: string;
-  thankYouMessage: string;
-  redirectUrl: string | null;
-  requireEmail: boolean;
-  allowMultiple: boolean;
-  notifyOnResponse: boolean;
-  notifyDigest: string;
-  closesAt: string | null;
-  maxResponses: number | null;
-  linkedType: string | null;
-  linkedId: number | null;
-  recommendation: SurveyRecommendationConfig | null;
-  responseCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SurveyResponse {
-  id: number;
-  answers: Record<string, unknown>;
-  respondentEmail: string | null;
-  respondentName: string | null;
-  source: string;
-  completedAt: string | null;
-  createdAt: string;
-}
+import { useSurvey } from './_hooks/useSurvey';
 
 type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
 
-const statusColors: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  closed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-};
+const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
+  { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
+  { key: 'edit', label: () => 'Edit', icon: 'edit' },
+  { key: 'recommendation', label: () => 'Recommendation', icon: 'recommend' },
+  { key: 'responses', label: (n) => `Responses (${n})`, icon: 'people' },
+  { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
+  { key: 'share', label: () => 'Share & Embed', icon: 'share' },
+  { key: 'settings', label: () => 'Settings', icon: 'settings' },
+];
 
 export default function SurveyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [survey, setSurvey] = useState<Survey | null>(null);
-  const [responses, setResponses] = useState<SurveyResponse[]>([]);
-  const [stats, setStats] = useState({ total: 0, completed: 0, withEmail: 0 });
-  const [tab, setTab] = useState<Tab>('overview');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [loading, setLoading] = useState(true);
+  const {
+    survey,
+    responses,
+    stats,
+    brandingProfiles,
+    loading,
+    saving,
+    error,
+    setError,
+    successMsg,
+    refreshResponses,
+    save,
+    remove,
+  } = useSurvey(id);
 
-  // Editable fields
+  const [tab, setTab] = useState<Tab>('overview');
+
+  // Editable fields hydrated from the loaded survey.
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editFields, setEditFields] = useState<SurveyField[]>([]);
   const [editColor, setEditColor] = useState('#2563eb');
   const [editBrandingProfileId, setEditBrandingProfileId] = useState<number | null>(null);
-  const [brandingProfiles, setBrandingProfiles] = useState<Array<{ id: number; name: string; isDefault: boolean; primaryColor: string | null; logoUrl: string | null }>>([]);
   const [editRequireEmail, setEditRequireEmail] = useState(false);
   const [editAllowMultiple, setEditAllowMultiple] = useState(true);
   const [editNotify, setEditNotify] = useState(true);
@@ -83,63 +64,32 @@ export default function SurveyDetailPage() {
   const [editStyling, setEditStyling] = useState<Record<string, string | boolean | undefined>>({});
   const [copied, setCopied] = useState(false);
 
-  const fetchSurvey = useCallback(async () => {
-    const res = await fetch(`/api/portal/surveys/${id}`);
-    const data = await res.json();
-    if (data.success) {
-      setSurvey(data.data);
-      setEditTitle(data.data.title);
-      setEditDescription(data.data.description || '');
-      setEditFields(data.data.fields || []);
-      setEditColor(data.data.color || '#2563eb');
-      setEditBrandingProfileId(data.data.brandingProfileId || null);
-      setEditRequireEmail(data.data.requireEmail);
-      setEditAllowMultiple(data.data.allowMultiple);
-      setEditNotify(data.data.notifyOnResponse);
-      setEditDigest(data.data.notifyDigest || 'off');
-      setEditThankYouTitle(data.data.thankYouTitle || 'Thank you!');
-      setEditThankYouMessage(data.data.thankYouMessage || '');
-      setEditRedirectUrl(data.data.redirectUrl || '');
-      setEditClosesAt(data.data.closesAt ? data.data.closesAt.slice(0, 16) : '');
-      setEditMaxResponses(data.data.maxResponses ? String(data.data.maxResponses) : '');
-      setEditStyling((data.data as Record<string, unknown>).styling as Record<string, string | boolean | undefined> || {});
-    }
-    setLoading(false);
-  }, [id]);
-
-  const fetchResponses = useCallback(async () => {
-    const res = await fetch(`/api/portal/surveys/${id}/responses`);
-    const data = await res.json();
-    if (data.success) {
-      setResponses(data.data.responses);
-      setStats(data.data.stats);
-    }
-  }, [id]);
-
-  useEffect(() => { fetchSurvey(); }, [fetchSurvey]);
-  useEffect(() => { if (tab === 'responses' || tab === 'overview' || tab === 'analytics') fetchResponses(); }, [tab, fetchResponses]);
+  // Hydrate editable fields whenever the survey reloads.
   useEffect(() => {
-    fetch('/api/portal/branding/profiles').then(r => r.json()).then(d => {
-      if (d.success) setBrandingProfiles(d.data || []);
-    }).catch(() => {});
-  }, []);
+    if (!survey) return;
+    setEditTitle(survey.title);
+    setEditDescription(survey.description || '');
+    setEditFields(survey.fields || []);
+    setEditColor(survey.color || '#2563eb');
+    setEditBrandingProfileId(survey.brandingProfileId ?? null);
+    setEditRequireEmail(survey.requireEmail);
+    setEditAllowMultiple(survey.allowMultiple);
+    setEditNotify(survey.notifyOnResponse);
+    setEditDigest(survey.notifyDigest || 'off');
+    setEditThankYouTitle(survey.thankYouTitle || 'Thank you!');
+    setEditThankYouMessage(survey.thankYouMessage || '');
+    setEditRedirectUrl(survey.redirectUrl || '');
+    setEditClosesAt(survey.closesAt ? survey.closesAt.slice(0, 16) : '');
+    setEditMaxResponses(survey.maxResponses ? String(survey.maxResponses) : '');
+    setEditStyling((survey.styling as Record<string, string | boolean | undefined>) || {});
+  }, [survey]);
 
-  async function save(updates: Record<string, unknown>) {
-    setSaving(true);
-    setError('');
-    const res = await fetch(`/api/portal/surveys/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!data.success) { setError(data.message || 'Failed to save'); return false; }
-    setSurvey(data.data);
-    setSuccessMsg('Saved');
-    setTimeout(() => setSuccessMsg(''), 2000);
-    return true;
-  }
+  // Refetch responses when the tabs that surface them are visited.
+  useEffect(() => {
+    if (tab === 'responses' || tab === 'overview' || tab === 'analytics') {
+      refreshResponses();
+    }
+  }, [tab, refreshResponses]);
 
   async function toggleStatus(newStatus: string) {
     if (newStatus === 'active' && (!survey?.fields || (survey.fields as unknown[]).length === 0)) {
@@ -151,21 +101,20 @@ export default function SurveyDetailPage() {
 
   async function handleDelete() {
     if (!confirm('Delete this survey and all responses? This cannot be undone.')) return;
-    const res = await fetch(`/api/portal/surveys/${id}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) router.push('/portal/surveys');
-    else setError(data.message || 'Failed to delete');
+    const result = await remove();
+    if (result.success) router.push('/portal/surveys');
   }
 
   function copyLink() {
-    const url = `${window.location.origin}/s/${survey?.slug}`;
-    navigator.clipboard.writeText(url);
+    if (!survey) return;
+    navigator.clipboard.writeText(`${window.location.origin}/s/${survey.slug}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   function copyEmbed() {
-    const url = `${window.location.origin}/s/${survey?.slug}`;
+    if (!survey) return;
+    const url = `${window.location.origin}/s/${survey.slug}`;
     const code = `<iframe src="${url}?embed=1" width="100%" height="600" frameborder="0" style="border:none;border-radius:12px;"></iframe>`;
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -185,79 +134,28 @@ export default function SurveyDetailPage() {
       <div className="max-w-5xl mx-auto text-center py-20">
         <span className="material-icons text-5xl text-muted-foreground/50">error_outline</span>
         <p className="mt-3 text-muted-foreground">Survey not found</p>
-        <Link href="/portal/surveys" className="text-primary text-sm mt-2 inline-block">Back to Surveys</Link>
+        <Link href="/portal/surveys" className="text-primary text-sm mt-2 inline-block">
+          Back to Surveys
+        </Link>
       </div>
     );
   }
 
-  const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'overview', label: 'Overview', icon: 'dashboard' },
-    { key: 'edit', label: 'Edit', icon: 'edit' },
-    { key: 'recommendation', label: 'Recommendation', icon: 'recommend' },
-    { key: 'responses', label: `Responses (${survey.responseCount})`, icon: 'people' },
-    { key: 'analytics', label: 'Analytics', icon: 'bar_chart' },
-    { key: 'share', label: 'Share & Embed', icon: 'share' },
-    { key: 'settings', label: 'Settings', icon: 'settings' },
-  ];
-
-  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/s/${survey.slug}` : `/s/${survey.slug}`;
+  const publicUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/s/${survey.slug}` : `/s/${survey.slug}`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/portal/surveys" className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-            <span className="material-icons text-xl text-muted-foreground">arrow_back</span>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-xl" style={{ color: survey.color || '#2563eb' }}>poll</span>
-              <h1 className="text-2xl font-bold text-foreground">{survey.title}</h1>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[survey.status]}`}>
-                {survey.status}
-              </span>
-            </div>
-            {survey.description && <p className="text-muted-foreground text-sm mt-1">{survey.description}</p>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {survey.status === 'draft' && (
-            <button
-              onClick={() => toggleStatus('active')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              <span className="material-icons text-lg">publish</span>
-              Publish
-            </button>
-          )}
-          {survey.status === 'active' && (
-            <button
-              onClick={() => toggleStatus('closed')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <span className="material-icons text-lg">block</span>
-              Close
-            </button>
-          )}
-          {survey.status === 'closed' && (
-            <button
-              onClick={() => toggleStatus('active')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              <span className="material-icons text-lg">play_arrow</span>
-              Reopen
-            </button>
-          )}
-        </div>
-      </div>
+      <SurveyHeader survey={survey} onToggleStatus={toggleStatus} />
 
       {/* Messages */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
           <span className="material-icons text-lg">error</span>
           {error}
-          <button onClick={() => setError('')} className="ml-auto"><span className="material-icons text-lg">close</span></button>
+          <button onClick={() => setError('')} className="ml-auto">
+            <span className="material-icons text-lg">close</span>
+          </button>
         </div>
       )}
       {successMsg && (
@@ -269,7 +167,7 @@ export default function SurveyDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-border flex gap-1 overflow-x-auto">
-        {tabs.map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -280,141 +178,28 @@ export default function SurveyDetailPage() {
             }`}
           >
             <span className="material-icons text-lg">{t.icon}</span>
-            {t.label}
+            {t.label(survey.responseCount)}
           </button>
         ))}
       </div>
 
-      {/* ─── Overview Tab ─── */}
       {tab === 'overview' && (
-        <div className="space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Responses</p>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.completed}</p>
-              <p className="text-xs text-muted-foreground">Completed</p>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.withEmail}</p>
-              <p className="text-xs text-muted-foreground">With Email</p>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{(survey.fields as unknown[])?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">Questions</p>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid sm:grid-cols-3 gap-4">
-            <button
-              onClick={() => setTab('share')}
-              className="bg-card border border-border rounded-xl p-4 text-left hover:border-primary/50 transition-all"
-            >
-              <span className="material-icons text-xl text-primary mb-2">share</span>
-              <p className="font-medium text-foreground text-sm">Share Survey</p>
-              <p className="text-xs text-muted-foreground">Get link, embed code, or email integration</p>
-            </button>
-            <button
-              onClick={() => setTab('edit')}
-              className="bg-card border border-border rounded-xl p-4 text-left hover:border-primary/50 transition-all"
-            >
-              <span className="material-icons text-xl text-primary mb-2">edit</span>
-              <p className="font-medium text-foreground text-sm">Edit Questions</p>
-              <p className="text-xs text-muted-foreground">Add, remove, or reorder questions</p>
-            </button>
-            <button
-              onClick={() => setTab('responses')}
-              className="bg-card border border-border rounded-xl p-4 text-left hover:border-primary/50 transition-all"
-            >
-              <span className="material-icons text-xl text-primary mb-2">analytics</span>
-              <p className="font-medium text-foreground text-sm">View Responses</p>
-              <p className="text-xs text-muted-foreground">See individual answers and analytics</p>
-            </button>
-          </div>
-
-          {/* Recent Responses */}
-          {responses.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                <span className="material-icons text-lg text-primary">schedule</span>
-                Recent Responses
-              </h3>
-              <div className="space-y-2">
-                {responses.slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                    <span className="material-icons text-muted-foreground">person</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground">{r.respondentEmail || r.respondentName || 'Anonymous'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.source} &middot; {new Date(r.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {r.completedAt && <span className="material-icons text-green-500 text-sm">check_circle</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <SurveyOverviewTab survey={survey} responses={responses} stats={stats} setTab={setTab} />
       )}
 
-      {/* ─── Edit Tab ─── */}
       {tab === 'edit' && (
-        <div className="space-y-6">
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Title</label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <span className="material-icons text-primary">quiz</span>
-              Questions
-            </h3>
-            <SurveyBuilder fields={editFields} onChange={setEditFields} />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              onClick={() => save({ title: editTitle, description: editDescription, fields: editFields })}
-              disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {saving ? (
-                <><span className="material-icons text-lg animate-spin">progress_activity</span>Saving...</>
-              ) : (
-                <><span className="material-icons text-lg">save</span>Save Changes</>
-              )}
-            </button>
-          </div>
-        </div>
+        <EditTab
+          saving={saving}
+          editTitle={editTitle}
+          setEditTitle={setEditTitle}
+          editDescription={editDescription}
+          setEditDescription={setEditDescription}
+          editFields={editFields}
+          setEditFields={setEditFields}
+          onSave={() => save({ title: editTitle, description: editDescription, fields: editFields })}
+        />
       )}
 
-      {/* ─── Recommendation Tab ─── */}
-      {/* Drives the dynamic result slide rendered after the survey thank-you
-          everywhere this survey is embedded (pitch decks today, /s/<slug>
-          standalone surveys later). The editor saves directly to
-          surveys.recommendation. */}
       {tab === 'recommendation' && (
         <SurveyRecommendationEditor
           config={survey.recommendation ?? undefined}
@@ -423,172 +208,20 @@ export default function SurveyDetailPage() {
         />
       )}
 
-      {/* ─── Responses Tab ─── */}
-      {tab === 'responses' && (
-        <div className="space-y-4">
-          {responses.length > 0 && (
-            <div className="flex justify-end">
-              <a
-                href={`/api/portal/surveys/${id}/export`}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                <span className="material-icons text-lg">download</span>
-                Export CSV
-              </a>
-            </div>
-          )}
-          {responses.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-10 text-center">
-              <span className="material-icons text-4xl text-muted-foreground/50">inbox</span>
-              <p className="text-muted-foreground mt-2 text-sm">No responses yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Share your survey to start collecting responses</p>
-            </div>
-          ) : (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50">
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">#</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Respondent</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Source</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Answers</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {responses.map((r, i) => (
-                      <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
-                        <td className="px-4 py-3 text-foreground">
-                          {r.respondentEmail || r.respondentName || <span className="text-muted-foreground italic">Anonymous</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                            {r.source}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{new Date(r.createdAt).toLocaleString()}</td>
-                        <td className="px-4 py-3">
-                          <details className="cursor-pointer">
-                            <summary className="text-primary text-xs hover:underline">View answers</summary>
-                            <div className="mt-2 space-y-1">
-                              {Object.entries(r.answers).map(([key, val]) => {
-                                const field = (survey.fields as SurveyField[])?.find(f => f.id === key);
-                                return (
-                                  <div key={key} className="text-xs">
-                                    <span className="font-medium text-foreground">{field?.label || key}:</span>{' '}
-                                    <span className="text-muted-foreground">{String(val)}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </details>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {tab === 'responses' && <ResponsesTab surveyId={id} survey={survey} responses={responses} />}
 
-      {/* Analytics Tab */}
-      {tab === "analytics" && (
-        <ResponseAnalytics survey={survey} responses={responses} stats={stats} />
-      )}
+      {tab === 'analytics' && <ResponseAnalytics survey={survey} responses={responses} stats={stats} />}
 
-      {/* ─── Share & Embed Tab ─── */}
       {tab === 'share' && (
-        <div className="space-y-6">
-          {/* Direct Link */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">link</span>
-              Public Link
-            </h3>
-            <p className="text-sm text-muted-foreground">Share this link with anyone to collect responses</p>
-            <div className="flex items-center gap-2">
-              <input
-                readOnly
-                value={publicUrl}
-                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground font-mono"
-              />
-              <button
-                onClick={copyLink}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-              >
-                <span className="material-icons text-lg">{copied ? 'check' : 'content_copy'}</span>
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-          </div>
-
-          {/* Embed Code */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">code</span>
-              Embed on Website
-            </h3>
-            <p className="text-sm text-muted-foreground">Embed this survey on any website or your client sites</p>
-            <div className="bg-muted border border-border rounded-lg p-3">
-              <code className="text-xs text-foreground font-mono break-all">
-                {`<iframe src="${publicUrl}?embed=1" width="100%" height="600" frameborder="0" style="border:none;border-radius:12px;"></iframe>`}
-              </code>
-            </div>
-            <button
-              onClick={copyEmbed}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <span className="material-icons text-lg">{copied ? 'check' : 'content_copy'}</span>
-              {copied ? 'Copied!' : 'Copy Embed Code'}
-            </button>
-          </div>
-
-          {/* Integration Links */}
-          <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="material-icons text-primary">hub</span>
-              Integrations
-            </h3>
-            <p className="text-sm text-muted-foreground">Connect this survey to other tools for automatic distribution</p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-icons text-lg text-primary">email</span>
-                  <p className="font-medium text-foreground text-sm">Email Campaigns</p>
-                </div>
-                <p className="text-xs text-muted-foreground">Include survey link in email campaigns. Add <code className="bg-muted px-1 rounded">{`{{survey:${survey.slug}}}`}</code> to any email template.</p>
-              </div>
-              <div className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-icons text-lg text-primary">handshake</span>
-                  <p className="font-medium text-foreground text-sm">CRM Deals & Proposals</p>
-                </div>
-                <p className="text-xs text-muted-foreground">Attach to a deal or proposal. Responses are linked to the contact record for follow-up.</p>
-              </div>
-              <div className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-icons text-lg text-primary">calendar_month</span>
-                  <p className="font-medium text-foreground text-sm">Booking Follow-up</p>
-                </div>
-                <p className="text-xs text-muted-foreground">Send survey after a booking is completed. Set up in Automations with the &ldquo;booking.completed&rdquo; trigger.</p>
-              </div>
-              <div className="border border-border rounded-lg p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-icons text-lg text-primary">web</span>
-                  <p className="font-medium text-foreground text-sm">Website Embed</p>
-                </div>
-                <p className="text-xs text-muted-foreground">Use the embed code above or add to your site via the website builder&apos;s custom HTML block.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ShareTab
+          survey={survey}
+          publicUrl={publicUrl}
+          copied={copied}
+          onCopyLink={copyLink}
+          onCopyEmbed={copyEmbed}
+        />
       )}
 
-      {/* Settings Tab */}
       {tab === 'settings' && (
         <SurveySettings
           saving={saving}
