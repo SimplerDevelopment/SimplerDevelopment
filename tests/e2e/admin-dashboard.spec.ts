@@ -7,7 +7,7 @@
 import { test, expect } from './setup/coverage-fixture';
 
 test.describe('Admin Dashboard @admin @dashboard @critical', () => {
-  test('GET /dashboard returns 200 with all expected data fields', async ({ adminApi }) => {
+  test('GET /dashboard returns 200 with all expected data fields @smoke', async ({ adminApi }) => {
     const res = await adminApi.get('/api/admin/dashboard');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
