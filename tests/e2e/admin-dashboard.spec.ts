@@ -4,7 +4,7 @@
  * Tests for /api/admin/dashboard
  * Returns aggregated stats across all clients.
  */
-import { test, expect } from './setup/fixtures';
+import { test, expect } from './setup/coverage-fixture';
 
 test.describe('Admin Dashboard @admin @dashboard @critical', () => {
   test('GET /dashboard returns 200 with all expected data fields', async ({ adminApi }) => {
