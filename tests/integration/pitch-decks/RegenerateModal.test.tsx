@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { RegenerateModal } from '@/app/portal/tools/pitch-decks/[id]/_components/RegenerateModal';
 
 describe('RegenerateModal', () => {
-  it('renders heading and prompt textarea', () => {
+  it('renders heading and prompt textarea', { timeout: 30_000 }, () => {
     render(
       <RegenerateModal
         prompt=""

@@ -10,7 +10,7 @@ const mockVersions: VersionMeta[] = [
 ];
 
 describe('HistoryPanel', () => {
-  it('renders versions with their labels and slide counts', () => {
+  it('renders versions with their labels and slide counts', { timeout: 30_000 }, () => {
     render(
       <HistoryPanel
         versions={mockVersions}

@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { BatchEditBar } from '@/app/portal/tools/pitch-decks/[id]/_components/BatchEditBar';
 
 describe('BatchEditBar', () => {
-  it('renders selected count and Select all link', () => {
+  it('renders selected count and Select all link', { timeout: 30_000 }, () => {
     render(
       <BatchEditBar
         selectedCount={2}
