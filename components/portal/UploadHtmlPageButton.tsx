@@ -39,7 +39,7 @@ export default function UploadHtmlPageButton({ siteId }: UploadHtmlPageButtonPro
       <input
         ref={inputRef}
         type="file"
-        accept=".html,.htm,.xhtml,text/html"
+        accept=".html,.htm,.xhtml,.zip,text/html,application/zip,application/x-zip-compressed"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -51,10 +51,11 @@ export default function UploadHtmlPageButton({ siteId }: UploadHtmlPageButtonPro
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
+        title="Upload a single .html file, or a .zip containing the .html plus its sibling assets (images, CSS, fonts)."
         className="flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
       >
         <span className="material-icons text-base">upload_file</span>
-        {uploading ? 'Uploading…' : 'Upload HTML'}
+        {uploading ? 'Uploading…' : 'Upload HTML / Zip'}
       </button>
     </>
   );
