@@ -1,6 +1,6 @@
 // Companies, contacts, pipelines, deals, proposals, contracts, and CRM-side custom fields.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 
@@ -338,7 +338,12 @@ export const crmCustomFieldValues = pgTable('crm_custom_field_values', {
   value: text('value'), // stored as text, parsed by fieldType
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // Required for the route handler's onConflictDoUpdate upsert (see
+  // app/api/portal/crm/custom-fields/values/route.ts PUT). Without this
+  // unique index, a non-empty values map raises 23P10.
+  uniqueIndex('crm_custom_field_values_unique_idx').on(t.customFieldId, t.entityId, t.entityType),
+]);
 
 export const crmScoringRules = pgTable('crm_scoring_rules', {
   id: serial('id').primaryKey(),
