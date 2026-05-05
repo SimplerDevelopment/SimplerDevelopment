@@ -1,11 +1,9 @@
 /**
  * Integration tests for portal CRM contracts routes.
  *
- * Caveat: the DELETE handler currently returns 200 unconditionally — it does
- * NOT return 404 when the contract is missing or owned by another tenant. The
- * cross-tenant case is still safe because the WHERE clause includes
- * `clientId = caller.client.id`, so a B-owned contract is preserved. The test
- * therefore asserts on DB state rather than on status code for cross-tenant.
+ * DELETE now enforces auth + tenant scope and returns proper status codes
+ * (401 unauthenticated, 404 missing-or-cross-tenant). Cross-tenant tests
+ * assert on status AND on DB-row preservation.
  */
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import crypto from 'node:crypto';
@@ -173,17 +171,15 @@ describe('DELETE /api/portal/crm/contracts/[id] @crm @tenancy', () => {
     expect(res.status).toBe(401);
   });
 
-  // Note: the route currently returns 200 even when the WHERE matches nothing.
-  // We assert on DB state to enforce the tenancy contract — B's row must
-  // NEVER be removed by an A-authenticated DELETE.
-  it('cross-tenant: A cannot delete B\'s contract (DB row preserved)', async () => {
+  it('cross-tenant: A cannot delete B\'s contract (404, preserved)', async () => {
     const id = await seedContract(B.client.id, 'Preserve-Me');
     await asTenant(A);
     const route = await import('@/app/api/portal/crm/contracts/[id]/route');
-    await callHandler(
+    const res = await callHandler(
       route as unknown as Record<string, unknown>, 'DELETE',
       { params: { id: String(id) } },
     );
+    expect(res.status).toBe(404);
 
     const sql = getTestSql();
     const rows = await sql<{ id: number; title: string }[]>`
@@ -191,5 +187,15 @@ describe('DELETE /api/portal/crm/contracts/[id] @crm @tenancy', () => {
     `;
     expect(rows.length).toBe(1);
     expect(rows[0].title).toBe('Preserve-Me');
+  });
+
+  it('returns 404 for missing contract', async () => {
+    await asTenant(A);
+    const route = await import('@/app/api/portal/crm/contracts/[id]/route');
+    const res = await callHandler(
+      route as unknown as Record<string, unknown>, 'DELETE',
+      { params: { id: '99999' } },
+    );
+    expect(res.status).toBe(404);
   });
 });
