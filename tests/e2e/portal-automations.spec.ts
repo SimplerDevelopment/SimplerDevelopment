@@ -3,7 +3,7 @@
  *
  * Tests for /api/portal/automations CRUD, NLP parse, and execution logs
  */
-import { test, expect } from './setup/fixtures';
+import { test, expect } from './setup/coverage-fixture';
 import { runCleanups } from './setup/helpers';
 
 test.describe('Portal Automations @automations @critical', () => {

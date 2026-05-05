@@ -74,6 +74,9 @@ export default defineConfig({
           //   setup-api.ts drops the worker's schema in afterAll.
           //   global-setup drops orphans from crashed runs at startup.
           //   scripts/cleanup-test-schemas.ts sweeps manually.
+          // TODO: revisit once integration-api specs grow — current cap is
+          // conservative for DB schema isolation. Bumping requires either
+          // a larger test-DB disk quota or a thinner per-schema footprint.
           maxWorkers: 2,
           // Vitest 4.x requires a unique `sequence.groupOrder` for projects
           // that override `maxWorkers`; otherwise startup fails with

@@ -4,7 +4,7 @@
  * Tests for custom taxonomies and taxonomy terms.
  * All tests are rerunnable.
  */
-import { test, expect } from './setup/fixtures';
+import { test, expect } from './setup/coverage-fixture';
 import { runCleanups, createTestWebsite, createTestTaxonomy } from './setup/helpers';
 
 test.describe.configure({ mode: 'serial' });
