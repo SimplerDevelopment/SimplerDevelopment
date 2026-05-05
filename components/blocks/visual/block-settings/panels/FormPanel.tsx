@@ -1,0 +1,566 @@
+'use client';
+
+// FormPanel: dispatcher for related block types' settings panels.
+import type { Block, ButtonBlock, SurveyBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock, BookingMenuBlock, SurveyResultsBlock, BookingBlock } from '@/types/blocks';
+import type { Breakpoint } from '@/types/responsive';
+import { useState, useEffect, useRef } from 'react';
+import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
+import { SurveyResultsBlockSettings } from './SurveyResultsSettings';
+import { BookingBlockSettings } from './BookingSettings';
+
+interface PanelProps {
+  block: Block;
+  onChange: (updates: Partial<Block>) => void;
+  currentViewport: Breakpoint;
+}
+
+export function FormPanel({ block, onChange, currentViewport }: PanelProps) {
+  switch (block.type) {
+    case 'button':
+      return <ButtonBlockSettings block={block as ButtonBlock} onChange={onChange as (u: Partial<ButtonBlock>) => void} currentViewport={currentViewport} />;
+    case 'booking':
+      return <BookingBlockSettings block={block as BookingBlock} onChange={onChange as (u: Partial<BookingBlock>) => void} />;
+    case 'survey':
+      return <SurveyBlockSettings block={block as SurveyBlock} onChange={onChange as (u: Partial<SurveyBlock>) => void} />;
+    case 'survey-results':
+      return <SurveyResultsBlockSettings block={block as SurveyResultsBlock} onChange={onChange as (u: Partial<SurveyResultsBlock>) => void} />;
+    case 'booking-menu':
+      return <BookingMenuBlockSettings block={block as BookingMenuBlock} onChange={onChange as (u: Partial<BookingMenuBlock>) => void} />;
+    case 'survey-input':
+      return <SurveyInputBlockSettings block={block as SurveyInputBlock} onChange={onChange as (u: Partial<SurveyInputBlock>) => void} />;
+    case 'email-header':
+      return <EmailHeaderBlockSettings block={block as EmailHeaderBlock} onChange={onChange as (u: Partial<EmailHeaderBlock>) => void} />;
+    case 'email-footer':
+      return <EmailFooterBlockSettings block={block as EmailFooterBlock} onChange={onChange as (u: Partial<EmailFooterBlock>) => void} />;
+    default:
+      return null;
+  }
+}
+
+function ButtonBlockSettings({ block, onChange, currentViewport }: { block: ButtonBlock; onChange: (updates: Partial<ButtonBlock>) => void; currentViewport: Breakpoint }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Button Text</label>
+        <input
+          type="text"
+          value={block.text}
+          onChange={(e) => onChange({ text: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Click me"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Link URL</label>
+        <input
+          type="text"
+          value={block.url}
+          onChange={(e) => onChange({ url: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="https://..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Variant</label>
+        <select
+          value={block.variant || 'primary'}
+          onChange={(e) => onChange({ variant: e.target.value as ButtonBlock['variant'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="primary">Primary</option>
+          <option value="secondary">Secondary</option>
+          <option value="outline">Outline</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Size</label>
+        <select
+          value={block.size || 'md'}
+          onChange={(e) => onChange({ size: e.target.value as ButtonBlock['size'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="sm">Small</option>
+          <option value="md">Medium</option>
+          <option value="lg">Large</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Alignment</label>
+        <div className="flex gap-2">
+          {(['left', 'center', 'right'] as const).map((align) => (
+            <button
+              key={align}
+              type="button"
+              onClick={() => onChange({ alignment: align })}
+              className={`flex-1 px-3 py-2 text-sm rounded ${
+                (block.alignment || 'left') === align
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background border border-border text-foreground hover:bg-accent'
+              }`}
+            >
+              {align === 'left' && <span className="material-icons text-base">format_align_left</span>}
+              {align === 'center' && <span className="material-icons text-base">format_align_center</span>}
+              {align === 'right' && <span className="material-icons text-base">format_align_right</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="openInNewTab"
+          checked={block.openInNewTab || false}
+          onChange={(e) => onChange({ openInNewTab: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+        />
+        <label htmlFor="openInNewTab" className="ml-2 text-sm text-foreground">
+          Open in new tab
+        </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Icon (Material Icon name)</label>
+        <input
+          type="text"
+          value={block.icon || ''}
+          onChange={(e) => onChange({ icon: e.target.value || undefined })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="e.g. arrow_forward"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Browse names at <span className="font-mono">fonts.google.com/icons</span>
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Icon Position</label>
+        <select
+          value={block.iconPosition || 'left'}
+          onChange={(e) => onChange({ iconPosition: e.target.value as ButtonBlock['iconPosition'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          disabled={!block.icon}
+        >
+          <option value="left">Left of text</option>
+          <option value="right">Right of text</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Hover Effect</label>
+        <select
+          value={block.hoverEffect || 'none'}
+          onChange={(e) => onChange({ hoverEffect: e.target.value as ButtonBlock['hoverEffect'] })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+        >
+          <option value="none">None</option>
+          <option value="lift">Lift (translate up)</option>
+          <option value="glow">Glow</option>
+          <option value="fill">Fill (subtle wash)</option>
+          <option value="slide">Slide (light sweep)</option>
+          <option value="pulse">Pulse</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Brand Preset (optional)</label>
+        <input
+          type="text"
+          value={block.presetId || ''}
+          onChange={(e) => onChange({ presetId: e.target.value || undefined })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
+          placeholder="Preset ID from brand presets"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Preset key from brand presets. Configure presets in the site Branding panel; preset styles apply first, this block&apos;s style overrides on top.
+        </p>
+      </div>
+
+    </div>
+  );
+}
+
+function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange: (updates: Partial<SurveyBlock>) => void }) {
+  const [surveys, setSurveys] = useState<Array<{ id: number; slug: string; title: string; status: string; responseCount: number }>>([]);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/portal/surveys')
+      .then(r => r.json())
+      .then(json => { if (json.success) setSurveys(json.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = search
+    ? surveys.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.slug.toLowerCase().includes(search.toLowerCase()))
+    : surveys;
+  const selected = surveys.find(s => s.slug === block.slug);
+
+  return (
+    <div className="space-y-4">
+      <div ref={ref} className="relative">
+        <label className="block text-sm font-medium text-foreground mb-1">Survey</label>
+        {selected && !open ? (
+          <button type="button" onClick={() => setOpen(true)}
+            className="w-full flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm text-left hover:border-primary transition-colors">
+            <span className="material-icons text-primary text-base">assignment</span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate font-medium">{selected.title}</div>
+              <div className="text-xs text-muted-foreground">{selected.slug} &middot; {selected.responseCount} responses</div>
+            </div>
+            <span className="material-icons text-sm text-muted-foreground">unfold_more</span>
+          </button>
+        ) : (
+          <input type="text" value={open ? search : block.slug || ''}
+            onChange={(e) => { setSearch(e.target.value); if (!open) onChange({ slug: e.target.value }); }}
+            onFocus={() => setOpen(true)}
+            placeholder={loading ? 'Loading...' : 'Search surveys...'}
+            className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground focus:border-primary focus:ring-1 focus:ring-primary" />
+        )}
+        {open && (
+          <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                {loading ? 'Loading...' : surveys.length === 0 ? 'No surveys found' : 'No matches'}
+              </div>
+            ) : filtered.map(s => (
+              <button key={s.slug} type="button"
+                onClick={() => { onChange({ slug: s.slug }); setOpen(false); setSearch(''); }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-primary/5 ${s.slug === block.slug ? 'bg-primary/10' : ''}`}>
+                <span className="material-icons text-primary text-base">assignment</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {s.slug} {s.status !== 'active' && <span className="text-amber-500">({s.status})</span>}
+                  </div>
+                </div>
+                {s.slug === block.slug && <span className="material-icons text-primary text-sm">check</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Title</label>
+        <input type="text" value={block.title || ''} onChange={(e) => onChange({ title: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="Take Our Survey" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <input type="text" value={block.description || ''} onChange={(e) => onChange({ description: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="We'd love to hear your feedback" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Embed Height</label>
+        <input type="text" value={block.height || '700px'} onChange={(e) => onChange({ height: e.target.value })}
+          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground" placeholder="700px" />
+      </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="surveyShowPageTitle" checked={block.showPageTitle !== false}
+          onChange={(e) => onChange({ showPageTitle: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="surveyShowPageTitle" className="ml-2 text-sm text-foreground">Show Survey Title</label>
+      </div>
+    </div>
+  );
+}
+
+function SurveyInputBlockSettings({ block, onChange }: { block: SurveyInputBlock; onChange: (updates: Partial<SurveyInputBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  const FIELD_TYPES = ['text', 'textarea', 'email', 'phone', 'url', 'number', 'date', 'select', 'radio', 'checkbox', 'toggle', 'rating', 'slider', 'heading'];
+  const showOptions = ['select', 'radio', 'checkbox'].includes(block.fieldType);
+  const showSliderConfig = block.fieldType === 'slider';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Field Type</label>
+        <select
+          value={block.fieldType}
+          onChange={(e) => onChange({ fieldType: e.target.value })}
+          className={inputClass}
+        >
+          {FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Field Label</label>
+        <input
+          type="text"
+          value={block.fieldLabel}
+          onChange={(e) => onChange({ fieldLabel: e.target.value })}
+          className={inputClass}
+          placeholder="Question or label"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Placeholder</label>
+        <input
+          type="text"
+          value={block.placeholder || ''}
+          onChange={(e) => onChange({ placeholder: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Placeholder text (optional)"
+        />
+      </div>
+      {showOptions && (
+        <div className="border-t border-border pt-4 space-y-2">
+          <label className="block text-sm font-medium text-foreground">Options</label>
+          {(block.options || []).map((opt, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                type="text"
+                value={opt}
+                onChange={(e) => {
+                  const next = [...(block.options || [])];
+                  next[i] = e.target.value;
+                  onChange({ options: next });
+                }}
+                className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+                placeholder="Option value"
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ options: (block.options || []).filter((_, j) => j !== i) })}
+                className="px-2 text-xs text-destructive hover:underline"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => onChange({ options: [...(block.options || []), ''] })}
+            className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+          >
+            + Add Option
+          </button>
+        </div>
+      )}
+      {showSliderConfig && (
+        <div className="grid grid-cols-3 gap-3 border-t border-border pt-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Min</label>
+            <input
+              type="number"
+              value={block.min ?? 0}
+              onChange={(e) => onChange({ min: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Max</label>
+            <input
+              type="number"
+              value={block.max ?? 100}
+              onChange={(e) => onChange({ max: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Step</label>
+            <input
+              type="number"
+              value={block.step ?? 1}
+              onChange={(e) => onChange({ step: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmailHeaderBlockSettings({ block, onChange }: { block: EmailHeaderBlock; onChange: (updates: Partial<EmailHeaderBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Logo URL</label>
+        <input
+          type="url"
+          value={block.logoUrl || ''}
+          onChange={(e) => onChange({ logoUrl: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="https://..."
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo Width (px)</label>
+          <input
+            type="number"
+            value={block.logoWidth ?? 180}
+            onChange={(e) => onChange({ logoWidth: Number(e.target.value) || undefined })}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Alignment</label>
+          <select
+            value={block.alignment || 'center'}
+            onChange={(e) => onChange({ alignment: e.target.value as EmailHeaderBlock['alignment'] })}
+            className={inputClass}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Tagline</label>
+        <input
+          type="text"
+          value={block.tagline || ''}
+          onChange={(e) => onChange({ tagline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Optional tagline below the logo"
+        />
+      </div>
+    </div>
+  );
+}
+
+function EmailFooterBlockSettings({ block, onChange }: { block: EmailFooterBlock; onChange: (updates: Partial<EmailFooterBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Company Name</label>
+        <input
+          type="text"
+          value={block.companyName || ''}
+          onChange={(e) => onChange({ companyName: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Your Company"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Address</label>
+        <textarea
+          value={block.address || ''}
+          onChange={(e) => onChange({ address: e.target.value || undefined })}
+          className={`${inputClass} min-h-[60px] resize-y`}
+          placeholder="123 Main St, City, ST 00000"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.showUnsubscribe !== false}
+            onChange={(e) => onChange({ showUnsubscribe: e.target.checked })}
+            className="rounded border-border"
+          />
+          Show unsubscribe link
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={block.showViewInBrowser ?? false}
+            onChange={(e) => onChange({ showViewInBrowser: e.target.checked })}
+            className="rounded border-border"
+          />
+          Show "View in browser" link
+        </label>
+      </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Social Links</label>
+        {(block.socialLinks || []).map((link, i) => (
+          <div key={i} className="flex gap-1">
+            <input
+              type="text"
+              value={link.platform}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], platform: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Platform (e.g. linkedin)"
+            />
+            <input
+              type="url"
+              value={link.url}
+              onChange={(e) => {
+                const next = [...(block.socialLinks || [])];
+                next[i] = { ...next[i], url: e.target.value };
+                onChange({ socialLinks: next });
+              }}
+              className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="https://..."
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ socialLinks: (block.socialLinks || []).filter((_, j) => j !== i) })}
+              className="px-2 text-xs text-destructive hover:underline"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ socialLinks: [...(block.socialLinks || []), { platform: '', url: '' }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Social Link
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BookingMenuBlockSettings({ block, onChange }: { block: BookingMenuBlock; onChange: (updates: Partial<BookingMenuBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.title || ''} onChange={(html) => onChange({ title: html || undefined })} singleLine placeholder="Optional section title..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable html={block.description || ''} onChange={(html) => onChange({ description: html || undefined })} singleLine placeholder="Optional description..." className="text-sm text-foreground" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">Columns</label>
+        <select
+          value={block.columns || 3}
+          onChange={(e) => onChange({ columns: Number(e.target.value) as BookingMenuBlock['columns'] })}
+          className={inputClass}
+        >
+          <option value={2}>2 Columns</option>
+          <option value={3}>3 Columns</option>
+          <option value={4}>4 Columns</option>
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Booking pages are pulled live from this site's published bookings. Add booking pages from the Bookings admin to populate the grid.
+      </p>
+    </div>
+  );
+}
+
