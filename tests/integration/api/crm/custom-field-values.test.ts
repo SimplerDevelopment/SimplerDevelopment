@@ -125,12 +125,8 @@ describe('PUT /api/portal/crm/custom-fields/values @crm @tenancy', () => {
   });
 
   it('happy path: writes own values for an empty values map (no-op success)', async () => {
-    // Note: the route's PUT path uses `onConflictDoUpdate` against the
-    // (custom_field_id, entity_id, entity_type) tuple. The underlying table
-    // has NO matching UNIQUE constraint in the current schema, so any non-empty
-    // values map raises 23P10. We exercise the early-return success path
-    // (empty fieldIds short-circuit) instead, which still validates the
-    // entity-belongs-to-tenant gate and the auth/envelope contract.
+    // Empty values map short-circuits before the upsert. Still validates
+    // the entity-belongs-to-tenant gate and the auth/envelope contract.
     const contactA = await seedContact(A.client.id);
     await asTenant(A);
     const route = await import('@/app/api/portal/crm/custom-fields/values/route');
@@ -141,6 +137,54 @@ describe('PUT /api/portal/crm/custom-fields/values @crm @tenancy', () => {
     expect(res.status).toBe(200);
     expect(res.data?.success).toBe(true);
     expect(res.data?.data).toEqual([]);
+  });
+
+  it('happy path: upserts non-empty values, then updates on re-post (no duplicate row)', async () => {
+    // Exercises the onConflictDoUpdate branch — relies on the
+    // (custom_field_id, entity_id, entity_type) UNIQUE index on
+    // crm_custom_field_values.
+    const fieldA = await seedField(A.client.id, 'contact');
+    const contactA = await seedContact(A.client.id);
+    await asTenant(A);
+    const route = await import('@/app/api/portal/crm/custom-fields/values/route');
+
+    // First PUT: insert
+    const insertRes = await callHandler<{ success: boolean; data: Array<{ value: string | null }> }>(
+      route as unknown as Record<string, unknown>, 'PUT',
+      { body: {
+          entityType: 'contact',
+          entityId: contactA,
+          values: { [String(fieldA)]: 'red' },
+        } },
+    );
+    expect(insertRes.status).toBe(200);
+    expect(insertRes.data?.success).toBe(true);
+    expect(insertRes.data?.data.length).toBe(1);
+    expect(insertRes.data?.data[0].value).toBe('red');
+
+    // Second PUT: same key, different value → update
+    const updateRes = await callHandler<{ success: boolean; data: Array<{ value: string | null }> }>(
+      route as unknown as Record<string, unknown>, 'PUT',
+      { body: {
+          entityType: 'contact',
+          entityId: contactA,
+          values: { [String(fieldA)]: 'blue' },
+        } },
+    );
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.data?.data.length).toBe(1);
+    expect(updateRes.data?.data[0].value).toBe('blue');
+
+    // Verify single row, latest value
+    const sql = getTestSql();
+    const rows = await sql<{ id: number; value: string | null }[]>`
+      SELECT id, value FROM ${sql(TEST_SCHEMA)}.crm_custom_field_values
+      WHERE custom_field_id = ${fieldA}
+        AND entity_id = ${contactA}
+        AND entity_type = 'contact'
+    `;
+    expect(rows.length).toBe(1);
+    expect(rows[0].value).toBe('blue');
   });
 
   it('rejects unauthenticated (401)', async () => {
