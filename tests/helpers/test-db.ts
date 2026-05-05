@@ -117,7 +117,7 @@ export async function applyTestSchema(): Promise<void> {
         // (e.g. CREATE UNIQUE INDEX or CREATE TABLE row-type collision when
         // a prior partial run left some objects behind).
         if (/already exists|does not exist/i.test(msg)) continue;
-        if (/duplicate key value violates unique constraint "(pg_class_|pg_type_|pg_constraint_|pg_namespace_)/i.test(msg)) continue;
+        if (/duplicate key value violates unique constraint "(pg_class_|pg_type_|pg_constraint_|pg_namespace_|pg_proc_|pg_extension_)/i.test(msg)) continue;
         throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 240)}`);
       }
     }
