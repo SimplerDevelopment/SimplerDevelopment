@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains } from '@/lib/db/schema';
-import { eq, and, or, asc, isNull } from 'drizzle-orm';
+import { clientWebsites, posts, categories, postCategories, pitchDecks, clients, siteNavigation, websiteDomains, postTypes } from '@/lib/db/schema';
+import { eq, and, or, asc, isNull, sql } from 'drizzle-orm';
 
 export async function getClientWebsiteByDomain(domain: string) {
   // Try exact match on the legacy primary-domain column first
@@ -40,10 +40,14 @@ export async function getClientWebsiteByDomain(domain: string) {
 }
 
 export async function getClientPage(websiteId: number, slug: string, preview = false) {
+  // Match any post type — pages, blog posts, and any custom post type
+  // (solution, service, case-study, guide, portal-demo, …) can all live at
+  // /<slug>. The slug is the full URL path (e.g. "solution/admissions") for
+  // CPTs whose WordPress URLs include a type prefix; this preserves the
+  // original site structure when mirroring.
   const conditions = [
     eq(posts.websiteId, websiteId),
     eq(posts.slug, slug),
-    or(eq(posts.postType, 'page'), eq(posts.postType, 'blog')),
   ];
   if (!preview) conditions.push(eq(posts.published, true));
 
@@ -54,6 +58,28 @@ export async function getClientPage(websiteId: number, slug: string, preview = f
     .limit(1);
 
   return page ?? null;
+}
+
+/**
+ * Resolve the post_types row that matches a post (by slug) on this website,
+ * falling back to a built-in (websiteId IS NULL) row of the same slug. Used
+ * to apply per-CPT custom CSS / JS / template at render time.
+ */
+export async function getPostTypeForPost(websiteId: number, postType: string) {
+  if (!postType) return null;
+  const [row] = await db
+    .select()
+    .from(postTypes)
+    .where(and(
+      eq(postTypes.slug, postType),
+      or(eq(postTypes.websiteId, websiteId), isNull(postTypes.websiteId))
+    ))
+    // Site-specific overrides win over global built-ins. websiteId IS NULL
+    // for built-ins; we want non-NULL first → desc with NULLS-last semantics.
+    // Drizzle's `desc()` puts NULLs LAST in Postgres, which is what we want.
+    .orderBy(sql`${postTypes.websiteId} DESC NULLS LAST`)
+    .limit(1);
+  return row ?? null;
 }
 
 export async function getClientHomePage(websiteId: number, preview = false) {
@@ -148,6 +174,9 @@ export type NavItem = {
   sortOrder: number;
   openInNewTab: boolean;
   isButton: boolean;
+  description?: string | null;
+  icon?: string | null;
+  featuredImage?: string | null;
   children?: NavItem[];
 };
 
@@ -158,18 +187,10 @@ export async function getClientSiteNavItems(websiteId: number): Promise<NavItem[
     .where(eq(siteNavigation.websiteId, websiteId))
     .orderBy(asc(siteNavigation.sortOrder));
 
-  // Build tree: top-level items with nested children
-  const topLevel = rows.filter(r => !r.parentId);
-  return topLevel.map(item => ({
-    id: item.id,
-    label: item.label,
-    href: item.href,
-    parentId: item.parentId,
-    sortOrder: item.sortOrder,
-    openInNewTab: item.openInNewTab,
-    isButton: item.isButton,
-    children: rows
-      .filter(r => r.parentId === item.id)
+  // Build tree recursively so mega-menu columns can have their own items.
+  const buildChildren = (parentId: number): NavItem[] =>
+    rows
+      .filter(r => r.parentId === parentId)
       .map(child => ({
         id: child.id,
         label: child.label,
@@ -178,6 +199,25 @@ export async function getClientSiteNavItems(websiteId: number): Promise<NavItem[
         sortOrder: child.sortOrder,
         openInNewTab: child.openInNewTab,
         isButton: child.isButton,
-      })),
-  }));
+        description: child.description,
+        icon: child.icon,
+        featuredImage: child.featuredImage,
+        children: buildChildren(child.id),
+      }));
+
+  return rows
+    .filter(r => !r.parentId)
+    .map(item => ({
+      id: item.id,
+      label: item.label,
+      href: item.href,
+      parentId: item.parentId,
+      sortOrder: item.sortOrder,
+      openInNewTab: item.openInNewTab,
+      isButton: item.isButton,
+      description: item.description,
+      icon: item.icon,
+      featuredImage: item.featuredImage,
+      children: buildChildren(item.id),
+    }));
 }

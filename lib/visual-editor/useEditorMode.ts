@@ -21,6 +21,12 @@ interface EditorState {
   hoveredBlockId: string | null;
   pageSettings?: PageSettings;
   externalDrag: ExternalDragState;
+  /**
+   * Post-type template JSON from the parent. When set, EditableBlockRenderer
+   * renders the template as static chrome with the post's blocks substituted
+   * into the `post-content` placeholder slot — matching production layout.
+   */
+  typeTemplate: string | null;
 }
 
 const MAX_HISTORY = 50;
@@ -33,18 +39,29 @@ export function useEditorMode() {
     selectedBlockIds: [],
     hoveredBlockId: null,
     externalDrag: { active: false, blockType: null, x: 0, y: 0 },
+    typeTemplate: null,
   });
 
   // Undo/redo history
   const historyRef = useRef<Block[][]>([]);
   const futureRef = useRef<Block[][]>([]);
-  const skipHistoryRef = useRef(false);
   // Ref to current blocks so the stable message handler can access them
   const blocksRef = useRef<Block[]>(state.blocks);
   blocksRef.current = state.blocks;
-  // Track drag sessions so only one history entry is created per drag
+  // Track drag/slider sessions so only one history entry is created per
+  // continuous interaction. Used by both iframe-originated drag handlers
+  // (resize, margin/padding handles) and parent-originated coalesced updates
+  // (panel sliders, color pickers). Reset after a 300 ms quiet period or
+  // explicitly when a non-coalesced update arrives.
   const dragSessionRef = useRef<Block[] | null>(null);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endDragSession = useCallback(() => {
+    if (dragTimerRef.current) {
+      clearTimeout(dragTimerRef.current);
+      dragTimerRef.current = null;
+    }
+    dragSessionRef.current = null;
+  }, []);
 
   const pushHistory = useCallback((blocks: Block[]) => {
     historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), blocks];
@@ -59,20 +76,22 @@ export function useEditorMode() {
     const prev = historyRef.current[historyRef.current.length - 1];
     historyRef.current = historyRef.current.slice(0, -1);
     futureRef.current = [...futureRef.current, state.blocks];
-    skipHistoryRef.current = true;
+    // Close any in-flight drag session so the next user edit starts a fresh
+    // history entry rather than collapsing into the just-undone batch.
+    endDragSession();
     setState((s) => ({ ...s, blocks: prev }));
     sendToParent(IFRAME_MESSAGES.BLOCKS_REORDERED, { blocks: prev });
-  }, [state.blocks]);
+  }, [state.blocks, endDragSession]);
 
   const redo = useCallback(() => {
     if (futureRef.current.length === 0) return;
     const next = futureRef.current[futureRef.current.length - 1];
     futureRef.current = futureRef.current.slice(0, -1);
     historyRef.current = [...historyRef.current, state.blocks];
-    skipHistoryRef.current = true;
+    endDragSession();
     setState((s) => ({ ...s, blocks: next }));
     sendToParent(IFRAME_MESSAGES.BLOCKS_REORDERED, { blocks: next });
-  }, [state.blocks]);
+  }, [state.blocks, endDragSession]);
 
   // Store undo/redo in refs so the message handler can call them
   const undoRef = useRef(undo);
@@ -109,34 +128,50 @@ export function useEditorMode() {
 
       switch (event.data.type) {
         case PARENT_MESSAGES.EDITOR_INIT: {
-          const { blocks, selectedBlockId, pageSettings } = event.data.payload as {
+          const { blocks, selectedBlockId, pageSettings, typeTemplate } = event.data.payload as {
             blocks: Block[];
             selectedBlockId: string | null;
             pageSettings?: PageSettings;
+            typeTemplate?: string | null;
           };
-          setState((s) => ({ ...s, blocks, selectedBlockId, pageSettings }));
+          setState((s) => ({ ...s, blocks, selectedBlockId, pageSettings, typeTemplate: typeTemplate ?? null }));
           break;
         }
         case PARENT_MESSAGES.BLOCKS_UPDATE: {
-          const { blocks } = event.data.payload as { blocks: Block[] };
-          // Don't overwrite local state during undo/redo
-          if (skipHistoryRef.current) {
-            skipHistoryRef.current = false;
-            setState((s) => ({ ...s, blocks }));
-            return;
-          }
-          // Push current state to history so parent-initiated changes are undoable
-          // But only once per rapid sequence (drag batching)
+          const payload = event.data.payload as { blocks: Block[]; coalesce?: boolean };
+          const { blocks, coalesce } = payload;
           const currentBlocks = blocksRef.current;
-          if (currentBlocks.length > 0 && JSON.stringify(currentBlocks) !== JSON.stringify(blocks)) {
-            if (!dragSessionRef.current) {
-              dragSessionRef.current = currentBlocks;
+          const changed = currentBlocks.length > 0
+            && JSON.stringify(currentBlocks) !== JSON.stringify(blocks);
+          if (changed) {
+            if (coalesce) {
+              // Slider/color-picker session — push pre-session state once,
+              // suppress subsequent coalesce-true updates within the quiet
+              // window. Final value at pointerup is already in current state,
+              // so no extra entry is needed when the session ends.
+              if (!dragSessionRef.current) {
+                dragSessionRef.current = currentBlocks;
+                historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), currentBlocks];
+                futureRef.current = [];
+              }
+              if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
+              dragTimerRef.current = setTimeout(() => {
+                dragSessionRef.current = null;
+                dragTimerRef.current = null;
+              }, 300);
+            } else {
+              // Discrete panel change — every checkbox, dropdown, button, or
+              // committed text edit gets its own undo entry. Close any pending
+              // coalesce session first so this entry doesn't bury the
+              // pre-drag snapshot from a slider drag that just finished.
+              if (dragTimerRef.current) {
+                clearTimeout(dragTimerRef.current);
+                dragTimerRef.current = null;
+              }
+              dragSessionRef.current = null;
               historyRef.current = [...historyRef.current.slice(-MAX_HISTORY), currentBlocks];
               futureRef.current = [];
             }
-            // Reset drag session after quiet period
-            if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
-            dragTimerRef.current = setTimeout(() => { dragSessionRef.current = null; }, 300);
           }
           setState((s) => ({ ...s, blocks }));
           break;

@@ -51,20 +51,12 @@ export default async function WebsiteSettingsPage({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Breadcrumb */}
-      <Link
-        href={`/portal/websites/${site.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span className="material-icons text-base">arrow_back</span>
-        Back to {site.name}
-      </Link>
-
-      {/* Header */}
+      {/* Header — site identity + back lives in WebsiteSubNav, this is just the
+          page title. */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Manage deployment, domain, repository access, and general settings for {site.name}.
+          Manage deployment, domain, repository access, and general settings.
         </p>
       </div>
 

@@ -21,6 +21,9 @@ interface UseVisualEditorParentOptions {
   blocks: Block[];
   selectedBlockId: string | null;
   pageSettings?: PageSettings;
+  /** Post-type template JSON ({ blocks, version }) — forwarded to the iframe so
+   *  it renders the type's wrapper chrome with the post body in the slot. */
+  typeTemplate?: string | null;
   onBlockClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered?: (blocks: Block[]) => void;
@@ -31,12 +34,19 @@ interface UseVisualEditorParentOptions {
   onGapChanged?: (blockId: string, gap: 'sm' | 'md' | 'lg') => void;
   onBlockContentUpdated?: (blockId: string, field: string, value: string) => void;
   onBlockContextMenu?: (blockId: string, x: number, y: number, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
+  /** Iframe forwarded a Cmd+C — parent runs its localStorage copy. */
+  onCopyBlocks?: () => void;
+  /** Iframe forwarded a Cmd+V — parent reads its clipboard and inserts. */
+  onPasteBlocks?: () => void;
+  /** Iframe clicked an editable image — parent opens MediaPicker for the field. */
+  onRequestImagePicker?: (blockId: string, field: string, currentValue: string) => void;
 }
 
 export function useVisualEditorParent({
   blocks,
   selectedBlockId,
   pageSettings,
+  typeTemplate,
   onBlockClicked,
   onBlockHovered,
   onBlocksReordered,
@@ -47,6 +57,9 @@ export function useVisualEditorParent({
   onGapChanged,
   onBlockContentUpdated,
   onBlockContextMenu,
+  onCopyBlocks,
+  onPasteBlocks,
+  onRequestImagePicker,
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -57,6 +70,7 @@ export function useVisualEditorParent({
   const blocksRef = useRef(blocks);
   const selectedRef = useRef(selectedBlockId);
   const settingsRef = useRef(pageSettings);
+  const typeTemplateRef = useRef(typeTemplate ?? null);
   const onClickedRef = useRef(onBlockClicked);
   const onHoveredRef = useRef(onBlockHovered);
   const onReorderedRef = useRef(onBlocksReordered);
@@ -67,9 +81,13 @@ export function useVisualEditorParent({
   const onGapChangedRef = useRef(onGapChanged);
   const onContentUpdatedRef = useRef(onBlockContentUpdated);
   const onContextMenuRef = useRef(onBlockContextMenu);
+  const onCopyBlocksRef = useRef(onCopyBlocks);
+  const onPasteBlocksRef = useRef(onPasteBlocks);
+  const onRequestImagePickerRef = useRef(onRequestImagePicker);
   blocksRef.current = blocks;
   selectedRef.current = selectedBlockId;
   settingsRef.current = pageSettings;
+  typeTemplateRef.current = typeTemplate ?? null;
   onClickedRef.current = onBlockClicked;
   onHoveredRef.current = onBlockHovered;
   onReorderedRef.current = onBlocksReordered;
@@ -80,6 +98,9 @@ export function useVisualEditorParent({
   onGapChangedRef.current = onGapChanged;
   onContentUpdatedRef.current = onBlockContentUpdated;
   onContextMenuRef.current = onBlockContextMenu;
+  onCopyBlocksRef.current = onCopyBlocks;
+  onPasteBlocksRef.current = onPasteBlocks;
+  onRequestImagePickerRef.current = onRequestImagePicker;
 
   // Send EDITOR_INIT to the iframe
   const sendInit = useCallback(() => {
@@ -87,6 +108,7 @@ export function useVisualEditorParent({
       blocks: blocksRef.current,
       selectedBlockId: selectedRef.current,
       pageSettings: settingsRef.current,
+      typeTemplate: typeTemplateRef.current,
     } satisfies EditorInitPayload);
   }, []);
 
@@ -172,6 +194,19 @@ export function useVisualEditorParent({
           onContextMenuRef.current?.(payload.blockId, payload.x, payload.y, payload.modifiers);
           break;
         }
+        case IFRAME_MESSAGES.COPY_BLOCKS: {
+          onCopyBlocksRef.current?.();
+          break;
+        }
+        case IFRAME_MESSAGES.PASTE_BLOCKS: {
+          onPasteBlocksRef.current?.();
+          break;
+        }
+        case IFRAME_MESSAGES.REQUEST_IMAGE_PICKER: {
+          const payload = event.data.payload as { blockId: string; field: string; currentValue: string };
+          onRequestImagePickerRef.current?.(payload.blockId, payload.field, payload.currentValue);
+          break;
+        }
       }
     }
 
@@ -189,12 +224,17 @@ export function useVisualEditorParent({
     }, 500);
   }, [sendInit]);
 
-  // Send block updates when blocks change
+  // Send block updates when blocks change. Pass `coalesce: true` for updates
+  // generated mid-drag (slider thumb moving, color picker tracking) so the
+  // iframe collapses the burst into a single undo entry. Default (false /
+  // omitted) treats each call as a discrete history entry — one per panel
+  // checkbox, dropdown, button, or text-input commit.
   const sendBlocksUpdate = useCallback(
-    (updatedBlocks: Block[]) => {
+    (updatedBlocks: Block[], options?: { coalesce?: boolean }) => {
       if (!iframeReady) return;
       sendToIframe(iframeRef.current, PARENT_MESSAGES.BLOCKS_UPDATE, {
         blocks: updatedBlocks,
+        coalesce: options?.coalesce ?? false,
       } satisfies BlocksUpdatePayload);
     },
     [iframeReady],

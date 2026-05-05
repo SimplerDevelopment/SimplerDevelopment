@@ -219,6 +219,7 @@ export function SurveyFormInline({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        formName: 'main',
         answers,
         email: email || undefined,
         name: name || undefined,

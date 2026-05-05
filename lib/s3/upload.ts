@@ -9,17 +9,37 @@ export interface UploadResult {
   fileSize: number;
 }
 
+export interface UploadToS3Options {
+  /**
+   * Explicit S3 key (without the bucket). When provided, this exact key is
+   * used instead of the default `media/<uuid>.<ext>`. Used by zip uploads so
+   * sibling assets share a common prefix and the html-embed url can resolve
+   * relative refs (e.g. logos/x.png) via the path-based proxy.
+   */
+  key?: string;
+}
+
 export async function uploadToS3(
   file: Buffer,
   originalFilename: string,
-  mimeType: string
+  mimeType: string,
+  options: UploadToS3Options = {}
 ): Promise<UploadResult> {
   const s3Client = getS3Client();
   const bucketName = getBucketName();
 
-  const extension = originalFilename.split('.').pop() || '';
-  const storedFilename = `${randomUUID()}.${extension}`;
-  const key = `media/${storedFilename}`;
+  let key: string;
+  let storedFilename: string;
+  if (options.key) {
+    key = options.key.replace(/^\/+/, '');
+    // For multi-file uploads (zip), `storedFilename` doubles as the
+    // proxy-relative path so callers can reconstruct sibling URLs.
+    storedFilename = key.replace(/^media\//, '');
+  } else {
+    const extension = originalFilename.split('.').pop() || '';
+    storedFilename = `${randomUUID()}.${extension}`;
+    key = `media/${storedFilename}`;
+  }
 
   const command = new PutObjectCommand({
     Bucket: bucketName,

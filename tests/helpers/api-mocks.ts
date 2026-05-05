@@ -29,6 +29,32 @@ const stripeHandlers = [
   http.post('https://api.stripe.com/v1/subscriptions', () =>
     HttpResponse.json({ id: 'sub_test_mock', status: 'active' }),
   ),
+  // Stripe Connect — onboarding flow used by /portal/websites/[siteId]/store/stripe-connect
+  http.post('https://api.stripe.com/v1/accounts', () =>
+    HttpResponse.json({
+      id: 'acct_test_mock',
+      object: 'account',
+      type: 'standard',
+      charges_enabled: false,
+      payouts_enabled: false,
+    }),
+  ),
+  http.post('https://api.stripe.com/v1/account_links', () =>
+    HttpResponse.json({
+      object: 'account_link',
+      created: Math.floor(Date.now() / 1000),
+      expires_at: Math.floor(Date.now() / 1000) + 600,
+      url: 'https://connect.stripe.test/setup/acct_test_mock',
+    }),
+  ),
+  http.get('https://api.stripe.com/v1/accounts/:id', ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      object: 'account',
+      charges_enabled: true,
+      payouts_enabled: true,
+    }),
+  ),
 ];
 
 // ── Resend (email) ───────────────────────────────────────────────────────

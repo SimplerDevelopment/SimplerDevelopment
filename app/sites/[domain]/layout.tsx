@@ -64,9 +64,18 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // Bare layout for preview pages and pitch decks (no nav/footer chrome)
   const headersList = await headers();
   const sitePathname = headersList.get('x-site-pathname') || '';
-  if (sitePathname.includes('/nav-preview') || sitePathname.startsWith('/pitch-deck')) {
+  if (
+    sitePathname.includes('/nav-preview') ||
+    sitePathname.startsWith('/pitch-deck')
+  ) {
     return <>{children}</>;
   }
+  // Template preview keeps the layout wrapper so customCss / customJs cascade
+  // identically to the live site (a `body { background: red }` rule on a
+  // type, for example, has to contend with the same wrapping div on both
+  // sides). The fixed nav is still hidden — the full-screen editor doesn't
+  // need it and it'd cover the post-content slot.
+  const isTemplatePreview = sitePathname.startsWith('/template-preview');
 
   const branding = await getBrandingByWebsiteId(site.id);
 
@@ -102,8 +111,21 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   // Standard layout with branded nav
   const navItems = await getClientSiteNavItems(site.id);
+  // When the site is being accessed via the main app host (e.g. localhost:3000
+  // or the SimplerDevelopment portal domain), Next.js serves it under
+  // /sites/{domain}/... so all internal hrefs need that prefix. When the site
+  // is reached via its own host (e.g. postcaptain.simplerdevelopment.com),
+  // middleware rewrites internally and the public URLs are at the root.
+  const requestHost = headersList.get('host') || '';
+  // Strip port for comparison; domain in DB never includes a port.
+  const requestHostNoPort = requestHost.split(':')[0];
+  const isOnSiteHost = requestHostNoPort === domain;
+  const basePath = isOnSiteHost ? '' : `/sites/${domain}`;
   const isTransparent = branding.navTemplate === 'transparent';
-  const hideNav = branding.navTemplate === 'none';
+  // The fixed nav is hidden when the branding template is 'none' OR when
+  // we're rendering a template-preview iframe (the editor doesn't need
+  // chrome and the fixed nav would cover the post-content slot).
+  const hideNav = branding.navTemplate === 'none' || isTemplatePreview;
   const navBg = isTransparent ? 'transparent' : (branding.navBackground || '#ffffff');
   const navText = isTransparent ? '#ffffff' : (branding.navTextColor || '#1e293b');
   const primaryColor = branding.primaryColor || '#cfa122';
@@ -138,7 +160,9 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
             logoAlt={branding.logoAlt || site.name}
             buttonStyle={branding.buttonStyle}
             headingFont={branding.headingFont || undefined}
+            bodyFont={branding.bodyFont || undefined}
             navTemplate={branding.navTemplate || undefined}
+            basePath={basePath}
           />
         )}
 

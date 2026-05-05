@@ -6,6 +6,30 @@ import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
 import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
 
+// CORS — public survey submit needs to accept POST from sandboxed iframes
+// (their effective origin is `null`, so `*` matches). The endpoint is
+// already public (no auth, no credentials), so opening it cross-origin
+// doesn't expand the trust surface.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+// Wraps NextResponse.json with CORS headers — the actual POST/GET responses
+// need to echo `Access-Control-Allow-Origin` for browsers to let the iframe
+// read them. Wrapping at every call site is noisy, so we shadow the helper.
+function corsJson(body: unknown, init?: ResponseInit) {
+  const res = NextResponse.json(body, init);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) res.headers.set(k, v);
+  return res;
+}
+
 // Public GET — fetch survey for rendering
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -31,15 +55,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     .from(surveys)
     .where(eq(surveys.slug, slug));
 
-  if (!survey) return NextResponse.json({ success: false, message: 'Survey not found' }, { status: 404 });
-  if (survey.status !== 'active') return NextResponse.json({ success: false, message: 'Survey is not active' }, { status: 403 });
-  if (survey.closesAt && new Date(survey.closesAt) < new Date()) return NextResponse.json({ success: false, message: 'Survey is closed' }, { status: 403 });
-  if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return NextResponse.json({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
+  if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
+  if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
+  if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
+  if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
   const branding = await getBrandingBySurveySlug(slug);
   const cssVars = branding ? brandingToCssVars(branding) : undefined;
 
-  return NextResponse.json({
+  return corsJson({
     success: true,
     data: {
       ...survey,
@@ -65,25 +89,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const { slug } = await params;
 
   const [survey] = await db.select().from(surveys).where(eq(surveys.slug, slug));
-  if (!survey) return NextResponse.json({ success: false, message: 'Survey not found' }, { status: 404 });
-  if (survey.status !== 'active') return NextResponse.json({ success: false, message: 'Survey is not active' }, { status: 403 });
-  if (survey.closesAt && new Date(survey.closesAt) < new Date()) return NextResponse.json({ success: false, message: 'Survey is closed' }, { status: 403 });
-  if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return NextResponse.json({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
+  if (!survey) return corsJson({ success: false, message: 'Survey not found' }, { status: 404 });
+  if (survey.status !== 'active') return corsJson({ success: false, message: 'Survey is not active' }, { status: 403 });
+  if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
+  if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
-  const { answers, email, name, source, sourceId } = await req.json();
-  if (!answers || typeof answers !== 'object') return NextResponse.json({ success: false, message: 'Answers are required' }, { status: 400 });
+  const { answers, email, name, source, sourceId, formName } = await req.json();
+  if (!answers || typeof answers !== 'object') return corsJson({ success: false, message: 'Answers are required' }, { status: 400 });
 
-  if (survey.requireEmail && !email?.trim()) {
-    return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
+  // formName is required so the dashboard can segment custom-form submissions
+  // from structured-survey submissions on the same survey row.
+  const trimmedFormName = typeof formName === 'string' ? formName.trim() : '';
+  if (!trimmedFormName) {
+    return corsJson({ success: false, message: 'formName is required' }, { status: 400 });
+  }
+  if (trimmedFormName.length > 100) {
+    return corsJson({ success: false, message: 'formName must be 100 characters or fewer' }, { status: 400 });
   }
 
-  // Validate required fields
+  if (survey.requireEmail && !email?.trim()) {
+    return corsJson({ success: false, message: 'Email is required' }, { status: 400 });
+  }
+
+  // Validate required fields against the survey's structured schema. Custom-
+  // form submissions skip this — when the survey has no schema, the payload
+  // shape is opaque to us, so we trust the caller and store as-is.
   const fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
-  for (const field of fields) {
-    if (field.required && field.type !== 'heading') {
-      const val = answers[field.id];
-      if (val === undefined || val === null || val === '') {
-        return NextResponse.json({ success: false, message: `${field.label} is required` }, { status: 400 });
+  if (fields.length > 0) {
+    for (const field of fields) {
+      if (field.required && field.type !== 'heading') {
+        const val = answers[field.id];
+        if (val === undefined || val === null || val === '') {
+          return corsJson({ success: false, message: `${field.label} is required` }, { status: 400 });
+        }
       }
     }
   }
@@ -99,6 +137,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const [response] = await db.transaction(async (tx) => {
     const [inserted] = await tx.insert(surveyResponses).values({
       surveyId: survey.id,
+      formName: trimmedFormName,
       answers,
       respondentEmail: email?.trim() || null,
       respondentName: name?.trim() || null,
@@ -122,13 +161,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     surveyId: survey.id,
     responseId: response.id,
     surveyTitle: survey.title,
+    formName: response.formName,
     respondentName: response.respondentName,
     respondentEmail: response.respondentEmail,
     source: response.source,
     answers: response.answers,
   });
 
-  return NextResponse.json({
+  return corsJson({
     success: true,
     data: {
       thankYouTitle: survey.thankYouTitle,

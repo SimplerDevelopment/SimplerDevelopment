@@ -76,6 +76,14 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastErr;
 }
 
+// Postgres session-scoped advisory lock key for migration replay. Constant
+// across all workers so they serialize on the same lock — derived from the
+// FNV-1a 64-bit hash of 'sd2026-test-schema-init' (interpreted as signed
+// bigint to fit pg_advisory_lock(bigint)). Hard-coded so the value is stable
+// without needing a hash impl at import time. String form + BigInt() because
+// the tsconfig targets ES2017 (no `123n` literal syntax).
+const MIGRATION_LOCK_KEY = BigInt('-1037281771467175158');
+
 export async function applyTestSchema(): Promise<void> {
   const sql = getSql();
 
@@ -92,27 +100,66 @@ export async function applyTestSchema(): Promise<void> {
     return;
   }
 
-  await withRetry(() => getSql().unsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`));
-  await withRetry(() => getSql().unsafe(`CREATE SCHEMA "${TEST_SCHEMA}"`));
-  await withRetry(() => getSql().unsafe(`SET search_path TO "${TEST_SCHEMA}", public`));
+  // Serialize migration replay across parallel-fork workers. Each worker has
+  // its own schema, but `CREATE EXTENSION vector` and the embedding-trigger
+  // CREATE FUNCTION statements touch shared catalogs (pg_extension, pg_proc) —
+  // concurrent workers race there and either deadlock or surface
+  // pg_proc_*/pg_extension_* unique-constraint errors. Holding a session-scoped
+  // advisory lock keyed by a constant forces strict ordering. Released in
+  // `finally` so a thrown migration error doesn't strand the lock.
+  await withRetry(() => getSql().unsafe(`SELECT pg_advisory_lock(${MIGRATION_LOCK_KEY})`));
+  try {
+    // Re-check after acquiring the lock: a sibling worker may have already
+    // populated this exact schema name while we were blocked (rare — schemas
+    // are per-worker — but possible if test_e2e_<id> collides across reruns).
+    const recheck = await getSql()<{ tablename: string }[]>`
+      SELECT tablename FROM pg_tables
+      WHERE schemaname = ${TEST_SCHEMA} AND tablename = 'users'
+      LIMIT 1
+    `;
+    if (recheck.length > 0) {
+      await getSql().unsafe(`SET search_path TO "${TEST_SCHEMA}", public`);
+      return;
+    }
 
-  const dir = path.resolve(__dirname, '../../drizzle');
-  const files = fs.readdirSync(dir)
-    .filter(f => /^\d{4}_.+\.sql$/.test(f))
-    .sort();
+    await withRetry(() => getSql().unsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`));
+    await withRetry(() => getSql().unsafe(`CREATE SCHEMA "${TEST_SCHEMA}"`));
+    await withRetry(() => getSql().unsafe(`SET search_path TO "${TEST_SCHEMA}", public`));
 
-  for (const file of files) {
-    const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-    const rewritten = rewriteForTestSchema(raw);
-    const statements = rewritten.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
-    for (const stmt of statements) {
-      try {
-        await withRetry(() => getSql().unsafe(stmt));
-      } catch (err) {
-        const msg = (err as Error).message;
-        if (/already exists|does not exist/i.test(msg)) continue;
-        throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 240)}`);
+    const dir = path.resolve(__dirname, '../../drizzle');
+    const files = fs.readdirSync(dir)
+      .filter(f => /^\d{4}_.+\.sql$/.test(f))
+      .sort();
+
+    for (const file of files) {
+      const raw = fs.readFileSync(path.join(dir, file), 'utf8');
+      const rewritten = rewriteForTestSchema(raw);
+      const statements = rewritten.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
+      for (const stmt of statements) {
+        try {
+          await withRetry(() => getSql().unsafe(stmt));
+        } catch (err) {
+          const msg = (err as Error).message;
+          // "already exists" / "does not exist" — direct DDL conflicts that mean
+          // the prior idempotent replay already covered this statement.
+          // "duplicate key value violates unique constraint" with pg_class_/pg_type_
+          // names — same situation, just surfaced as a catalog uniqueness error
+          // (e.g. CREATE UNIQUE INDEX or CREATE TABLE row-type collision when
+          // a prior partial run left some objects behind).
+          if (/already exists|does not exist/i.test(msg)) continue;
+          if (/duplicate key value violates unique constraint "(pg_class_|pg_type_|pg_constraint_|pg_namespace_|pg_proc_|pg_extension_)/i.test(msg)) continue;
+          throw new Error(`Migration ${file} failed: ${msg}\nStatement: ${stmt.slice(0, 240)}`);
+        }
       }
+    }
+  } finally {
+    // pg_advisory_unlock returns boolean; ignore false (lock not held — e.g.
+    // if the connection was reset by withRetry mid-replay, Postgres already
+    // released it on session close, and we just skip the explicit unlock).
+    try {
+      await getSql().unsafe(`SELECT pg_advisory_unlock(${MIGRATION_LOCK_KEY})`);
+    } catch {
+      // Best-effort: connection may already be gone.
     }
   }
 }

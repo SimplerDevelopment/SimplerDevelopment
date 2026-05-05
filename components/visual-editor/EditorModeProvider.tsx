@@ -13,6 +13,7 @@ interface EditorModeContextValue {
   hoveredBlockId: string | null;
   pageSettings?: PageSettings;
   externalDrag: ExternalDragState;
+  typeTemplate: string | null;
   onBlockClicked: (blockId: string, modifiers?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onBlockHovered: (blockId: string | null) => void;
   onBlocksReordered: (blocks: Block[]) => void;
@@ -32,6 +33,7 @@ const EditorModeContext = createContext<EditorModeContextValue>({
   selectedBlockIds: [],
   hoveredBlockId: null,
   externalDrag: { active: false, blockType: null, x: 0, y: 0 },
+  typeTemplate: null,
   onBlockClicked: () => {},
   onBlockHovered: () => {},
   onBlocksReordered: () => {},

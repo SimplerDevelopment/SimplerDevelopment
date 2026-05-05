@@ -59,6 +59,8 @@ import { MetricCardsBlockRender } from './MetricCardsBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { SurveyInputBlockRender } from './SurveyInputBlockRender';
 import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
+import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
+import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
@@ -101,6 +103,8 @@ export function BlockRenderer({ content, siteId, branding }: BlockRendererProps)
     // html-embed manages its own width via block.width ('full' | 'contained');
     // keep it out of the default max-w-7xl wrapper so 'full' really is full.
     'html-embed',
+    // html-render does the same — caller-controlled width, no outer constraint.
+    'html-render',
   ]);
 
   const rendered = (
@@ -266,6 +270,14 @@ function renderBlock(block: Block, siteId?: number) {
       return <DeckJumpToBlockRender block={normalized} />;
     case 'html-embed':
       return <HtmlEmbedBlockRender block={normalized} />;
+    case 'html-render':
+      return <HtmlRenderBlockRender block={normalized} />;
+    case 'post-content':
+      // wrapWithTypeTemplate() substitutes this block with the post body
+      // before render in production, so reaching this case means we're
+      // rendering a template preview directly — show the visible placeholder
+      // so the editor can see the slot.
+      return <PostContentPlaceholderRender block={normalized} />;
     default:
       return <UnknownBlockFallback block={normalized} />;
   }

@@ -43,6 +43,9 @@ import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
+import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
+import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
+import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
 
@@ -193,6 +196,9 @@ function renderNestedBlock(block: Block) {
     case 'flip-card-grid': return <FlipCardGridBlockRender block={block} />;
     case 'deck-next-slide': return <DeckNextSlideBlockRender block={block} />;
     case 'deck-jump-to': return <DeckJumpToBlockRender block={block} />;
+    case 'post-content': return <PostContentPlaceholderRender block={block as Extract<Block, { type: 'post-content' }>} />;
+    case 'html-render': return <HtmlRenderBlockRender block={block as Extract<Block, { type: 'html-render' }>} />;
+    case 'html-embed': return <HtmlEmbedBlockRender block={block as Extract<Block, { type: 'html-embed' }>} />;
     default: return null;
   }
 }

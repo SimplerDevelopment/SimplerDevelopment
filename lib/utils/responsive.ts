@@ -181,32 +181,27 @@ export function getViewportWidth(breakpoint: Breakpoint): number {
 }
 
 /**
- * Combine all responsive classes
+ * Combine all responsive classes.
+ *
+ * Deprecated: superseded by `BlockStyleWrapper` + `lib/utils/responsiveCss.ts`,
+ * which emits a real <style> tag scoped to the block. The Tailwind class path
+ * silently dropped raw px/% values (e.g. `lg:mt-87px` is not a real class)
+ * and double-applied with the wrapper's CSS for SpacingSize tokens.
+ *
+ * Returns an empty string so existing call sites become no-ops without
+ * requiring a rename across ~30 renderers.
  */
 export function combineResponsiveClasses(
-  paddingTop?: ResponsiveSpacing,
-  paddingBottom?: ResponsiveSpacing,
-  paddingLeft?: ResponsiveSpacing,
-  paddingRight?: ResponsiveSpacing,
-  marginTop?: ResponsiveSpacing,
-  marginBottom?: ResponsiveSpacing,
-  marginLeft?: ResponsiveSpacing,
-  marginRight?: ResponsiveSpacing,
-  visibility?: ResponsiveVisibility,
-  fontSize?: ResponsiveTypography
+  _paddingTop?: ResponsiveSpacing,
+  _paddingBottom?: ResponsiveSpacing,
+  _paddingLeft?: ResponsiveSpacing,
+  _paddingRight?: ResponsiveSpacing,
+  _marginTop?: ResponsiveSpacing,
+  _marginBottom?: ResponsiveSpacing,
+  _marginLeft?: ResponsiveSpacing,
+  _marginRight?: ResponsiveSpacing,
+  _visibility?: ResponsiveVisibility,
+  _fontSize?: ResponsiveTypography
 ): string {
-  const classes: string[] = [];
-
-  classes.push(generateResponsivePaddingClasses('top', paddingTop));
-  classes.push(generateResponsivePaddingClasses('bottom', paddingBottom));
-  classes.push(generateResponsivePaddingClasses('left', paddingLeft));
-  classes.push(generateResponsivePaddingClasses('right', paddingRight));
-  classes.push(generateResponsiveMarginClasses('top', marginTop));
-  classes.push(generateResponsiveMarginClasses('bottom', marginBottom));
-  classes.push(generateResponsiveMarginClasses('left', marginLeft));
-  classes.push(generateResponsiveMarginClasses('right', marginRight));
-  classes.push(generateResponsiveVisibilityClasses(visibility));
-  classes.push(generateResponsiveTypographyClasses(fontSize));
-
-  return classes.filter(c => c).join(' ');
+  return '';
 }

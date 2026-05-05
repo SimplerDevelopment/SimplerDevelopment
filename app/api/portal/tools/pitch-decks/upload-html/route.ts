@@ -6,10 +6,20 @@ import type { PitchDeckSlideV2 } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { unpackAndUploadZip, isHttpError, MAX_ZIP_TOTAL_BYTES } from '@/lib/html-zip-upload';
 
 const MAX_HTML_SIZE = 1_000_000; // 1 MB
-const ALLOWED_MIME = new Set(['text/html', 'application/xhtml+xml']);
-const ALLOWED_EXT = /\.(html?|xhtml)$/i;
+const ALLOWED_HTML_MIME = new Set(['text/html', 'application/xhtml+xml']);
+const ALLOWED_HTML_EXT = /\.(html?|xhtml)$/i;
+const ALLOWED_ZIP_MIME = new Set([
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-zip',
+  'multipart/x-zip',
+]);
+const ALLOWED_ZIP_EXT = /\.zip$/i;
+
+export const maxDuration = 120;
 
 function slugify(input: string): string {
   return input
@@ -51,28 +61,80 @@ export async function POST(request: NextRequest) {
   const filename = (file as File).name || 'deck.html';
   const reportedType = file.type || '';
 
-  if (!ALLOWED_EXT.test(filename)) {
-    return NextResponse.json({ success: false, message: 'File must be .html, .htm, or .xhtml' }, { status: 400 });
+  const isZip = ALLOWED_ZIP_EXT.test(filename) || ALLOWED_ZIP_MIME.has(reportedType);
+  const isHtml = ALLOWED_HTML_EXT.test(filename);
+
+  if (!isZip && !isHtml) {
+    return NextResponse.json(
+      { success: false, message: 'File must be .html, .htm, .xhtml, or .zip' },
+      { status: 400 }
+    );
   }
-  if (reportedType && !ALLOWED_MIME.has(reportedType)) {
-    return NextResponse.json({ success: false, message: `MIME type ${reportedType} is not allowed` }, { status: 400 });
+  if (!isZip && reportedType && !ALLOWED_HTML_MIME.has(reportedType)) {
+    return NextResponse.json(
+      { success: false, message: `MIME type ${reportedType} is not allowed` },
+      { status: 400 }
+    );
   }
-  if (file.size > MAX_HTML_SIZE) {
-    return NextResponse.json({ success: false, message: `File exceeds ${MAX_HTML_SIZE} bytes` }, { status: 400 });
+  if (isZip && file.size > MAX_ZIP_TOTAL_BYTES) {
+    return NextResponse.json(
+      { success: false, message: `Zip exceeds ${MAX_ZIP_TOTAL_BYTES} bytes` },
+      { status: 400 }
+    );
+  }
+  if (!isZip && file.size > MAX_HTML_SIZE) {
+    return NextResponse.json(
+      { success: false, message: `File exceeds ${MAX_HTML_SIZE} bytes` },
+      { status: 400 }
+    );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const uploadResult = await uploadToS3(buffer, filename, 'text/html');
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  let embedUrl: string;
+  let embedFilename: string;
 
-  await db.insert(media).values({
-    filename,
-    storedFilename: uploadResult.storedFilename,
-    mimeType: 'text/html',
-    fileSize: uploadResult.fileSize,
-    url: uploadResult.url,
-    uploadedBy: userId,
-    clientId: client.id,
-  });
+  if (isZip) {
+    let unpacked;
+    try {
+      unpacked = await unpackAndUploadZip(rawBuffer);
+    } catch (err) {
+      if (isHttpError(err)) {
+        return NextResponse.json(
+          { success: false, message: err.message },
+          { status: err.statusCode }
+        );
+      }
+      throw err;
+    }
+    // Insert one media row per uploaded file. The index is the entry point
+    // shown in the html-embed block; siblings live at the same `media/<uuid>/`
+    // S3 prefix and resolve through the path-based proxy.
+    const rows = unpacked.entries.map((entry) => ({
+      filename: entry.relativePath,
+      storedFilename: entry.upload.storedFilename,
+      mimeType: entry.mimeType,
+      fileSize: entry.upload.fileSize,
+      url: entry.upload.url,
+      uploadedBy: userId,
+      clientId: client.id,
+    }));
+    await db.insert(media).values(rows);
+    embedUrl = unpacked.index.upload.url;
+    embedFilename = unpacked.index.relativePath;
+  } else {
+    const uploadResult = await uploadToS3(rawBuffer, filename, 'text/html');
+    await db.insert(media).values({
+      filename,
+      storedFilename: uploadResult.storedFilename,
+      mimeType: 'text/html',
+      fileSize: uploadResult.fileSize,
+      url: uploadResult.url,
+      uploadedBy: userId,
+      clientId: client.id,
+    });
+    embedUrl = uploadResult.url;
+    embedFilename = filename;
+  }
 
   const filenameNoExt = filename.replace(/\.[^.]+$/, '');
   const title = filenameNoExt || 'Uploaded HTML Deck';
@@ -87,8 +149,8 @@ export async function POST(request: NextRequest) {
         id: `block-${ts}-html`,
         type: 'html-embed',
         order: 1,
-        url: uploadResult.url,
-        filename,
+        url: embedUrl,
+        filename: embedFilename,
         height: '100vh',
         width: 'full',
         sandbox: 'scripts',

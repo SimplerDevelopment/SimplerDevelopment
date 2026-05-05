@@ -49,28 +49,15 @@ export default async function PortalCmsDashboardPage({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      {/* Page header — the shared layout (WebsiteSubNav) owns the site name +
+          domain + +Entry button; this page is the dashboard, so its title
+          reflects that. */}
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{site.name}</h1>
-          {site.subdomain && (
-            <p className="text-muted-foreground font-mono text-sm mt-1">
-              {site.subdomain}.simplerdevelopment.com
-              {site.domain && <span className="text-muted-foreground/60"> | {site.domain}</span>}
-            </p>
-          )}
-          {!site.subdomain && site.domain && <p className="text-muted-foreground font-mono text-sm mt-1">{site.domain}</p>}
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Overview of your content, types, and entries.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <UploadHtmlPageButton siteId={site.id} />
-          <Link
-            href={`/portal/websites/${site.id}/posts/new`}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <span className="material-icons text-base">add</span>
-            New Entry
-          </Link>
-        </div>
+        <UploadHtmlPageButton siteId={site.id} />
       </div>
 
       {created === '1' && (
@@ -103,28 +90,41 @@ export default async function PortalCmsDashboardPage({
         </div>
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { href: `/portal/websites/${site.id}/entries`, icon: 'article', label: 'Entries' },
-          { href: '/portal/media', icon: 'perm_media', label: 'Media' },
-          { href: `/portal/websites/${site.id}/navigation`, icon: 'menu', label: 'Navigation' },
-          { href: `/portal/websites/${site.id}/store`, icon: 'shopping_cart', label: 'Store' },
-          { href: `/portal/websites/${site.id}/taxonomy`, icon: 'account_tree', label: 'Taxonomy' },
-          { href: `/portal/websites/${site.id}/content-types`, icon: 'description', label: 'Content Types' },
-          { href: `/portal/websites/${site.id}/calendar`, icon: 'calendar_month', label: 'Calendar' },
-          { href: `/portal/websites/${site.id}/settings`, icon: 'settings', label: 'Settings' },
-          { href: `#api-keys`, icon: 'code', label: 'Developer' },
-        ].map(link => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/30 hover:bg-accent/50 transition-colors"
-          >
-            <span className="material-icons text-xl text-muted-foreground">{link.icon}</span>
-            <span className="text-sm font-medium text-foreground">{link.label}</span>
-          </Link>
-        ))}
+      {/* Quick links — grouped so authors find related areas together. */}
+      <div className="space-y-5">
+        <DashboardLinkGroup
+          title="Content"
+          links={[
+            { href: `/portal/websites/${site.id}/entries`, icon: 'article', label: 'Entries', desc: 'All posts, pages and CPT entries' },
+            { href: `/portal/websites/${site.id}/content-types`, icon: 'description', label: 'Content Types', desc: 'Templates, fields, and code per type' },
+            { href: `/portal/websites/${site.id}/taxonomy`, icon: 'account_tree', label: 'Taxonomy', desc: 'Categories, tags, custom taxonomies' },
+            { href: `/portal/websites/${site.id}/calendar`, icon: 'calendar_month', label: 'Calendar', desc: 'Schedule and publish view' },
+            { href: '/portal/media', icon: 'perm_media', label: 'Media', desc: 'Shared media library' },
+          ]}
+        />
+        <DashboardLinkGroup
+          title="Design"
+          links={[
+            { href: `/portal/websites/${site.id}/branding`, icon: 'palette', label: 'Branding', desc: 'Logo, colors, fonts, button styles' },
+            { href: `/portal/websites/${site.id}/navigation`, icon: 'menu', label: 'Navigation', desc: 'Site nav menu and footer links' },
+            { href: `/portal/websites/${site.id}/code`, icon: 'code', label: 'Custom Code', desc: 'Site-wide CSS & JS' },
+          ]}
+        />
+        <DashboardLinkGroup
+          title="Engagement"
+          links={[
+            { href: `/portal/websites/${site.id}/automations`, icon: 'bolt', label: 'Automations', desc: 'Notifications and workflow triggers' },
+            { href: `/portal/websites/${site.id}/email`, icon: 'mail', label: 'Email', desc: 'Transactional & marketing templates' },
+            { href: `/portal/websites/${site.id}/store`, icon: 'shopping_cart', label: 'Store', desc: 'Products, orders, checkout' },
+          ]}
+        />
+        <DashboardLinkGroup
+          title="System"
+          links={[
+            { href: `/portal/websites/${site.id}/settings`, icon: 'settings', label: 'Settings', desc: 'Domains, deployments, environments' },
+            { href: '#api-keys', icon: 'vpn_key', label: 'Developer', desc: 'API keys for SDK / REST access' },
+          ]}
+        />
       </div>
 
       {/* Recent entries */}
@@ -214,5 +214,41 @@ export default async function PortalCmsDashboardPage({
         </div>
       )}
     </div>
+  );
+}
+
+interface DashboardLink {
+  href: string;
+  icon: string;
+  label: string;
+  desc: string;
+}
+
+function DashboardLinkGroup({ title, links }: { title: string; links: DashboardLink[] }) {
+  return (
+    <section>
+      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="group flex items-start gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/30 hover:bg-accent/40 transition-colors"
+          >
+            <span className="material-icons text-xl text-muted-foreground group-hover:text-primary transition-colors shrink-0">
+              {link.icon}
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                {link.label}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">{link.desc}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

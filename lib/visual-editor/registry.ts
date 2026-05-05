@@ -59,6 +59,8 @@ import { SiteFooterBlockRender } from '@/components/blocks/render/SiteFooterBloc
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from '@/components/blocks/render/DeckNavBlockRender';
 import { SurveyInputBlockRender } from '@/components/blocks/render/SurveyInputBlockRender';
 import { HtmlEmbedBlockRender } from '@/components/blocks/render/HtmlEmbedBlockRender';
+import { HtmlRenderBlockRender } from '@/components/blocks/render/HtmlRenderBlockRender';
+import { PostContentPlaceholderRender } from '@/components/blocks/render/PostContentPlaceholderRender';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BlockComponent = React.ComponentType<{ block: any }>;
@@ -127,6 +129,11 @@ const BUILT_IN: Record<string, BlockComponent> = {
   'deck-jump-to': DeckJumpToBlockRender,
   'survey-input': SurveyInputBlockRender,
   'html-embed': HtmlEmbedBlockRender,
+  'html-render': HtmlRenderBlockRender,
+  // post-content renders a visible placeholder inside the template-editor
+  // iframe. wrapWithTypeTemplate() substitutes it with the post body before
+  // render in production, so this component is only seen in the editor.
+  'post-content': PostContentPlaceholderRender,
 };
 
 let _registry: BlockRegistry | null = null;

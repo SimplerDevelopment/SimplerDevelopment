@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import PortalPostForm from '@/components/portal/PortalPostForm';
 import { generatePreviewToken } from '@/lib/preview-token';
 import { getBrandDefaults } from '@/lib/branding';
+import { getPostTypeForPost } from '@/lib/actions/client-sites';
 
 export default async function PortalEditPostPage({
   params,
@@ -69,6 +70,12 @@ export default async function PortalEditPostPage({
     brandingProfileId: site.brandingProfileId,
   });
 
+  // Resolve the post type's template so the visual editor can render the
+  // type's wrapper chrome around the editable post body — without it, the
+  // iframe loses the templated layout the public site shows.
+  const postType = await getPostTypeForPost(site.id, post.postType);
+  const typeTemplate = postType?.template ?? null;
+
   return (
     <PortalPostForm
       siteId={site.id}
@@ -78,6 +85,7 @@ export default async function PortalEditPostPage({
       previewToken={previewToken}
       siteDomain={site.domain || subdomain || undefined}
       brandDefaults={brandDefaults}
+      typeTemplate={typeTemplate}
       post={{
         id: post.id,
         title: post.title,

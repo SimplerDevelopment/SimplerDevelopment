@@ -1,0 +1,121 @@
+/**
+ * Shared types for CardDetailModal and its section components.
+ *
+ * Extracted verbatim from the pre-refactor components/portal/CardDetailModal.tsx
+ * so the dispatcher and the per-section components agree on shapes without
+ * importing each other.
+ */
+
+export interface CardDetail {
+  id: number;
+  columnId: number;
+  projectId: number;
+  title: string;
+  description: string | null;
+  priority: string | null;
+  dueDate: string | null;
+  order: number;
+  number?: number | null;
+  key?: string | null;
+  projectKey?: string | null;
+}
+
+export interface Label {
+  id: number;
+  name: string;
+  color: string;
+}
+
+export interface Activity {
+  id: number;
+  type: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  userId: number | null;
+  userName: string | null;
+}
+
+export interface ChecklistItem {
+  id: number;
+  text: string;
+  completed: boolean;
+  order: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface Assignee {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface DependencyRef {
+  id: number;
+  title: string;
+  number: number | null;
+  key: string | null;
+  columnIsDone: boolean | null;
+}
+
+export interface FileAttachment {
+  id: number;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  url: string;
+  commentId: number | null;
+  userId: number | null;
+  userName: string | null;
+  createdAt: string;
+}
+
+export interface Comment {
+  id: number;
+  body: string;
+  mentions: number[] | null;
+  createdAt: string;
+  userId: number | null;
+  userName: string | null;
+  files: FileAttachment[];
+}
+
+export interface TimeLog {
+  id: number;
+  minutes: number;
+  note: string | null;
+  loggedAt: string;
+  userId: number | null;
+  userName: string | null;
+}
+
+export interface MentionUser {
+  id: number;
+  name: string;
+}
+
+export interface Artifact {
+  id: number;
+  cardId: number;
+  artifactType: string;
+  artifactId: number;
+  displayTitle: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
+export interface AvailableArtifact {
+  type: string;
+  id: number;
+  title: string;
+}
+
+export interface CardDetailModalProps {
+  cardId: number;
+  isStaff: boolean;
+  canEdit: boolean;
+  currentUserId: number;
+  onClose: () => void;
+  onDeleted: (cardId: number) => void;
+  onUpdated: (update: { id: number } & Partial<CardDetail>) => void;
+}
