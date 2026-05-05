@@ -90,15 +90,26 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json({ success: true, data: updated });
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false }, { status: 401 });
+  if (!session?.user?.id)
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   const client = await getPortalClient(parseInt(session.user.id, 10));
-  if (!client) return NextResponse.json({ success: false }, { status: 404 });
+  if (!client)
+    return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const { id } = await params;
-  await db.delete(crmContracts)
-    .where(and(eq(crmContracts.id, parseInt(id, 10)), eq(crmContracts.clientId, client.id)));
+  const contractId = parseInt(id, 10);
+  if (isNaN(contractId))
+    return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  return NextResponse.json({ success: true });
+  const [deleted] = await db
+    .delete(crmContracts)
+    .where(and(eq(crmContracts.id, contractId), eq(crmContracts.clientId, client.id)))
+    .returning();
+
+  if (!deleted)
+    return NextResponse.json({ success: false, message: 'Contract not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: deleted });
 }
