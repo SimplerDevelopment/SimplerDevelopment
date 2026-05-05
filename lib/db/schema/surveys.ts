@@ -156,6 +156,10 @@ export const surveys = pgTable('surveys', {
 export const surveyResponses = pgTable('survey_responses', {
   id: serial('id').primaryKey(),
   surveyId: integer('survey_id').notNull().references(() => surveys.id, { onDelete: 'cascade' }),
+  // Logical sub-grouping — required so the dashboard can segment custom-form
+  // submissions (e.g. multiple HTML qualifier variants posting to the same
+  // survey row). Defaults to 'main' for structured-survey submissions.
+  formName: varchar('form_name', { length: 100 }).default('main').notNull(),
   answers: json('answers').$type<Record<string, unknown>>().notNull(),
   respondentEmail: varchar('respondent_email', { length: 255 }),
   respondentName: varchar('respondent_name', { length: 255 }),

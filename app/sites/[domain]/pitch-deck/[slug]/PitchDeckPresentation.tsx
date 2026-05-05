@@ -324,6 +324,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          formName: 'main',
           answers: allAnswers,
           email: email || undefined,
           name: name || undefined,

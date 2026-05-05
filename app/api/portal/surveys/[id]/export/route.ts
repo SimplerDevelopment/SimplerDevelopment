@@ -37,22 +37,45 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const fields = (survey.fields || []) as SurveyFieldDef[];
   const questionFields = fields.filter(f => f.type !== 'heading' && f.type !== 'page_break');
 
+  // Union of every answer key seen across responses that ISN'T covered by the
+  // structured field schema — these become extra CSV columns so custom-form
+  // submissions still export usefully. Keeps a stable order: structured field
+  // columns first, then custom keys in first-seen order.
+  const knownIds = new Set(questionFields.map(f => f.id));
+  const customKeys: string[] = [];
+  const seenCustom = new Set<string>();
+  for (const r of responses) {
+    const a = (r.answers || {}) as Record<string, unknown>;
+    for (const k of Object.keys(a)) {
+      if (knownIds.has(k) || seenCustom.has(k)) continue;
+      seenCustom.add(k);
+      customKeys.push(k);
+    }
+  }
+
   // Build CSV header
-  const headers = ['#', 'Date', 'Email', 'Name', 'Source', ...questionFields.map(f => f.label)];
+  const headers = [
+    '#', 'Date', 'Form', 'Email', 'Name', 'Source',
+    ...questionFields.map(f => f.label),
+    ...customKeys,
+  ];
   const rows = responses.map((r, i) => {
     const answers = (r.answers || {}) as Record<string, unknown>;
+    const formatVal = (val: unknown): string => {
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join('; ');
+      if (typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    };
     return [
       String(i + 1),
       r.createdAt ? new Date(r.createdAt).toISOString() : '',
+      r.formName || 'main',
       r.respondentEmail || '',
       r.respondentName || '',
       r.source || 'link',
-      ...questionFields.map(f => {
-        const val = answers[f.id];
-        if (val === undefined || val === null) return '';
-        if (Array.isArray(val)) return val.join('; ');
-        return String(val);
-      }),
+      ...questionFields.map(f => formatVal(answers[f.id])),
+      ...customKeys.map(k => formatVal(answers[k])),
     ];
   });
 

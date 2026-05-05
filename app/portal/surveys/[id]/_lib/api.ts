@@ -37,6 +37,7 @@ export interface Survey {
 
 export interface SurveyResponse {
   id: number;
+  formName: string;
   answers: Record<string, unknown>;
   respondentEmail: string | null;
   respondentName: string | null;
