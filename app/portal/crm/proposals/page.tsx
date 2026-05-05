@@ -172,6 +172,14 @@ function ProposalsAndDecksPage() {
   const [decks, setDecks] = useState<PitchDeck[]>([]);
   const [decksLoading, setDecksLoading] = useState(true);
 
+  // Decks search / filter / sort
+  const [deckSearchInput, setDeckSearchInput] = useState('');
+  const [deckSearch, setDeckSearch] = useState('');
+  const [deckStatusFilter, setDeckStatusFilter] = useState<'all' | 'draft' | 'published' | 'archived'>('all');
+  const [deckSort, setDeckSort] = useState<'updated-desc' | 'updated-asc' | 'title-asc' | 'title-desc'>('updated-desc');
+  const [deletingDeckId, setDeletingDeckId] = useState<number | null>(null);
+  const [deckDeleteError, setDeckDeleteError] = useState('');
+
   // ─── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchProposals = useCallback(async () => {
@@ -222,6 +230,34 @@ function ProposalsAndDecksPage() {
     const t = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // Debounce deck search the same way as proposal search
+  useEffect(() => {
+    const t = setTimeout(() => setDeckSearch(deckSearchInput), 300);
+    return () => clearTimeout(t);
+  }, [deckSearchInput]);
+
+  // Derived: filter + sort decks client-side. The list is bounded by tenant
+  // size and almost always small, so server-side params would be overkill.
+  const filteredDecks = (() => {
+    const q = deckSearch.trim().toLowerCase();
+    const filtered = decks.filter(deck => {
+      if (deckStatusFilter !== 'all' && deck.status !== deckStatusFilter) return false;
+      if (!q) return true;
+      const hay = `${deck.title} ${deck.description ?? ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+    const sorted = [...filtered].sort((a, b) => {
+      switch (deckSort) {
+        case 'updated-desc': return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        case 'updated-asc':  return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+        case 'title-asc':    return a.title.localeCompare(b.title);
+        case 'title-desc':   return b.title.localeCompare(a.title);
+        default: return 0;
+      }
+    });
+    return sorted;
+  })();
 
   // ─── Proposal actions ──────────────────────────────────────────────────────
 
@@ -292,6 +328,22 @@ function ProposalsAndDecksPage() {
     const d = await res.json();
     if (d.success) {
       router.push(`/portal/crm/proposals/${d.data.id}`);
+    }
+  }
+
+  async function handleDeleteDeck(deckId: number) {
+    setDeckDeleteError('');
+    try {
+      const res = await fetch(`/api/portal/tools/pitch-decks/${deckId}`, { method: 'DELETE' });
+      const d = await res.json();
+      if (!d.success) {
+        setDeckDeleteError(d.message ?? 'Failed to delete deck.');
+        return;
+      }
+      setDecks(prev => prev.filter(deck => deck.id !== deckId));
+      setDeletingDeckId(null);
+    } catch {
+      setDeckDeleteError('Failed to delete deck.');
     }
   }
 
@@ -633,6 +685,78 @@ function ProposalsAndDecksPage() {
       {/* ─── Pitch Decks Tab ────────────────────────────────────────────────── */}
       {activeTab === 'decks' && (
         <>
+          {/* Toolbar — search, status filter, sort, create button. Hidden until
+              we know there's at least one deck so the empty-state stays clean. */}
+          {!decksLoading && decks.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              {/* Search */}
+              <div className="relative flex-1 min-w-0">
+                <span className="material-icons text-base text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2">search</span>
+                <input
+                  value={deckSearchInput}
+                  onChange={e => setDeckSearchInput(e.target.value)}
+                  placeholder="Search decks by title or description..."
+                  className="w-full pl-10 pr-9 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                {deckSearchInput && (
+                  <button
+                    onClick={() => setDeckSearchInput('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground"
+                    title="Clear search"
+                  >
+                    <span className="material-icons text-base">close</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Status filter pills */}
+              <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-0.5">
+                {(['all', 'draft', 'published', 'archived'] as const).map(status => {
+                  const count = status === 'all'
+                    ? decks.length
+                    : decks.filter(d => d.status === status).length;
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => setDeckStatusFilter(status)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        deckStatusFilter === status
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
+                      }`}
+                    >
+                      {status[0].toUpperCase() + status.slice(1)}
+                      <span className={`ml-1.5 text-[10px] ${
+                        deckStatusFilter === status ? 'opacity-80' : 'opacity-60'
+                      }`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sort dropdown */}
+              <select
+                value={deckSort}
+                onChange={e => setDeckSort(e.target.value as typeof deckSort)}
+                className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="updated-desc">Last updated (newest)</option>
+                <option value="updated-asc">Last updated (oldest)</option>
+                <option value="title-asc">Title A → Z</option>
+                <option value="title-desc">Title Z → A</option>
+              </select>
+
+              {/* Create */}
+              <button
+                onClick={() => router.push('/portal/tools/pitch-decks/new')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
+              >
+                <span className="material-icons text-base">add</span>
+                New Deck
+              </button>
+            </div>
+          )}
+
           {decksLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <span className="material-icons animate-spin mr-2">progress_activity</span>
@@ -654,9 +778,38 @@ function ProposalsAndDecksPage() {
                 Create Your First Deck
               </button>
             </div>
+          ) : filteredDecks.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-10 text-center space-y-3">
+              <span className="material-icons text-4xl text-muted-foreground/50">search_off</span>
+              <h2 className="text-base font-semibold text-foreground">No decks match your filters</h2>
+              <p className="text-muted-foreground text-sm">
+                {deckSearch && <>No deck titles or descriptions contain &ldquo;<span className="font-medium">{deckSearch}</span>&rdquo;. </>}
+                {deckStatusFilter !== 'all' && <>No <span className="font-medium">{deckStatusFilter}</span> decks. </>}
+                Adjust your search or filters above.
+              </p>
+              <button
+                onClick={() => { setDeckSearchInput(''); setDeckStatusFilter('all'); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-foreground rounded-md text-xs font-medium hover:bg-accent/70 transition-colors"
+              >
+                <span className="material-icons text-sm">refresh</span>
+                Reset filters
+              </button>
+            </div>
           ) : (
+            <>
+              <div className="text-xs text-muted-foreground">
+                Showing {filteredDecks.length} of {decks.length} {decks.length === 1 ? 'deck' : 'decks'}
+                {(deckSearch || deckStatusFilter !== 'all') && (
+                  <button
+                    onClick={() => { setDeckSearchInput(''); setDeckStatusFilter('all'); }}
+                    className="ml-2 underline hover:text-foreground transition-colors"
+                  >
+                    clear filters
+                  </button>
+                )}
+              </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {decks.map((deck) => {
+              {filteredDecks.map((deck) => {
                 const slides = Array.isArray(deck.slides) ? deck.slides : [];
                 return (
                   <div
@@ -671,9 +824,18 @@ function ProposalsAndDecksPage() {
                           {deck.title}
                         </h3>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${deckStatusColor[deck.status] || deckStatusColor.draft}`}>
-                        {deck.status}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${deckStatusColor[deck.status] || deckStatusColor.draft}`}>
+                          {deck.status}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeckDeleteError(''); setDeletingDeckId(deck.id); }}
+                          className="p-1 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete deck"
+                        >
+                          <span className="material-icons text-base">delete</span>
+                        </button>
+                      </div>
                     </div>
                     {deck.description && (
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{deck.description}</p>
@@ -692,9 +854,49 @@ function ProposalsAndDecksPage() {
                 );
               })}
             </div>
+            </>
           )}
         </>
       )}
+
+      {/* ─── Delete Deck Dialog ─────────────────────────────────────────────── */}
+      {deletingDeckId !== null && (() => {
+        const deck = decks.find(d => d.id === deletingDeckId);
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <span className="material-icons text-destructive">delete_forever</span>
+                Delete Pitch Deck
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete{' '}
+                <strong className="text-foreground">{deck?.title ?? 'this deck'}</strong>? This cannot be undone.
+              </p>
+              {deckDeleteError && (
+                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                  <span className="material-icons text-base">error</span>
+                  {deckDeleteError}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setDeletingDeckId(null); setDeckDeleteError(''); }}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteDeck(deletingDeckId)}
+                  className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ─── Send Dialog ──────────────────────────────────────────────────── */}
       {sendDialogId !== null && (
