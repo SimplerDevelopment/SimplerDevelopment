@@ -38,6 +38,8 @@ interface CollectOpts {
   userId: number;
   isStaff: boolean;
   openOnly: boolean;
+  /** When set (non-empty), only return groups for these project ids (kanban only). */
+  projectIds?: number[];
 }
 
 // ── Kanban collector (extracted from app/api/portal/my-tasks/route.ts) ───────
@@ -48,7 +50,7 @@ interface CollectOpts {
  * same filter, same sort.
  */
 export async function collectKanbanTasks(opts: CollectOpts): Promise<MyTaskGroup[]> {
-  const { userId, isStaff, openOnly } = opts;
+  const { userId, isStaff, openOnly, projectIds: projectFilter } = opts;
 
   // Cards where I'm an assignee
   const assignments = await db
@@ -97,11 +99,31 @@ export async function collectKanbanTasks(opts: CollectOpts): Promise<MyTaskGroup
       .where(inArray(kanbanCards.id, cardIds));
   }
 
-  const filtered = openOnly ? visibleCards.filter((c) => !c.columnIsDone) : visibleCards;
+  const projectScoped = projectFilter && projectFilter.length > 0
+    ? visibleCards.filter((c) => projectFilter.includes(c.projectId))
+    : visibleCards;
+  const filtered = openOnly ? projectScoped.filter((c) => !c.columnIsDone) : projectScoped;
   if (filtered.length === 0) return [];
 
   const visibleCardIds = filtered.map((c) => c.id);
   const projectIds = Array.from(new Set(filtered.map((c) => c.projectId)));
+
+  // Look up the "done" column id (if any) per project, so the page's inline-
+  // complete checkbox can PATCH `/api/portal/cards/[id]/move` without an extra
+  // GET. Lowest-order is_done column wins when there are multiple (matches the
+  // visible "first done column" heuristic on the project board).
+  const doneColumnRows = await db
+    .select({
+      projectId: kanbanColumns.projectId,
+      id: kanbanColumns.id,
+      order: kanbanColumns.order,
+    })
+    .from(kanbanColumns)
+    .where(and(inArray(kanbanColumns.projectId, projectIds), eq(kanbanColumns.isDone, true)));
+  const doneColumnByProject = new Map<number, number>();
+  for (const r of doneColumnRows.sort((a, b) => a.order - b.order)) {
+    if (!doneColumnByProject.has(r.projectId)) doneColumnByProject.set(r.projectId, r.id);
+  }
 
   // Project info
   const projectRows = await db
@@ -168,6 +190,7 @@ export async function collectKanbanTasks(opts: CollectOpts): Promise<MyTaskGroup
       labels: labelsByCard[c.id] ?? [],
       checklist: checklistByCard[c.id] ?? null,
       linkUrl: kanbanCardLinkUrl(c.projectId, c.id),
+      doneColumnId: doneColumnByProject.get(c.projectId) ?? null,
     });
   }
 
@@ -280,6 +303,7 @@ export async function collectBrainTasks(opts: CollectOpts): Promise<MyTaskGroup[
       labels: [],
       checklist: null,
       linkUrl: brainTaskLinkUrl(t.id),
+      doneColumnId: null,
     });
   }
 
