@@ -42,21 +42,23 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export default function NoteHistoryPanel({ noteId }: NoteHistoryPanelProps) {
+  if (noteId === null) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Select a note to see its history.
+      </div>
+    );
+  }
+  return <NoteHistoryPanelInner key={noteId} noteId={noteId} />;
+}
+
+function NoteHistoryPanelInner({ noteId }: { noteId: number }) {
   const [items, setItems] = useState<AuditLogItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (noteId === null) {
-      setItems([]);
-      setError(null);
-      return;
-    }
     let cancelled = false;
     (async () => {
-      if (!cancelled) {
-        setItems(null);
-        setError(null);
-      }
       try {
         const r = await fetch(`/api/portal/brain/knowledge/${noteId}/history`);
         const json = await r.json().catch(() => ({}));
