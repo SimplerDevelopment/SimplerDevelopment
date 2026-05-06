@@ -59,7 +59,7 @@
     "clsx": "^2.1.1",
     "d3-delaunay": "^6.0.4",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "expo": "~54.0.33",
     "framer-motion": "^12.26.2",
     "googleapis": "^171.4.0",
@@ -136,5 +136,8 @@
     "typescript": "^5",
     "vitest": "^4.0.18",
     "wait-on": "^9.0.5"
+  },
+  "overrides": {
+    "fast-xml-parser": ">=4.5.0"
   }
 }
