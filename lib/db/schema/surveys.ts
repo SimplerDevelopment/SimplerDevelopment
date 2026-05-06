@@ -200,6 +200,32 @@ export const surveyWebhooks = pgTable('survey_webhooks', {
   secret: varchar('secret', { length: 64 }),
   events: json('events').$type<string[]>().notNull().default(['response.submitted']),
   enabled: boolean('enabled').default(true).notNull(),
+  // Delivery tracking — updated by the dispatcher after each attempt sequence.
+  lastFiredAt: timestamp('last_fired_at'),
+  lastStatus: integer('last_status'),
+  failureCount: integer('failure_count').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+/**
+ * Delivery audit log for survey webhooks. One row per HTTP attempt — multiple
+ * rows per logical event when the dispatcher retries. The pair (webhookId,
+ * createdAt) gives the timeline; `attempt` is 1..N within a single dispatch.
+ */
+export const surveyWebhookDeliveries = pgTable('survey_webhook_deliveries', {
+  id: serial('id').primaryKey(),
+  webhookId: integer('webhook_id').notNull().references(() => surveyWebhooks.id, { onDelete: 'cascade' }),
+  event: varchar('event', { length: 50 }).notNull(),
+  attempt: integer('attempt').notNull().default(1),
+  // 'success' | 'failed' | 'pending' — `pending` reserved for the future
+  // BullMQ job pickup; today we only persist terminal states.
+  status: varchar('status', { length: 20 }).notNull(),
+  statusCode: integer('status_code'),
+  requestBody: json('request_body').$type<Record<string, unknown>>(),
+  responseBody: text('response_body'),
+  error: text('error'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
