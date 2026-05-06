@@ -154,6 +154,7 @@ export async function POST(req: Request) {
       token,
       wsUrl,
       expiresAt: exp * 1000,
+      docKey: dk,
     },
   });
 }
