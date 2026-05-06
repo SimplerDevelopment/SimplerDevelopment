@@ -12,7 +12,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
-import { notifyAllClientUsers } from '@/lib/crm/notifications';
+import { createCrmNotification, notifyAllClientUsers } from '@/lib/crm/notifications';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -117,7 +117,7 @@ export async function PUT(
     return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
   const [existing] = await db
-    .select({ id: crmDeals.id })
+    .select({ id: crmDeals.id, ownerId: crmDeals.ownerId })
     .from(crmDeals)
     .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, client.id)));
 
@@ -171,6 +171,24 @@ export async function PUT(
       excludeUserId: result.userId,
       type: 'deal_stage_changed',
       title: `Deal '${updated.title}' moved to stage '${stageName}'`,
+      entityType: 'deal',
+      entityId: updated.id,
+    });
+  }
+
+  // Notify the new owner when a deal is (re)assigned (only if owner actually
+  // changed, and the new owner isn't the actor making the change).
+  if (
+    body.ownerId !== undefined &&
+    updated.ownerId &&
+    updated.ownerId !== existing.ownerId &&
+    updated.ownerId !== result.userId
+  ) {
+    createCrmNotification({
+      clientId: client.id,
+      userId: updated.ownerId,
+      type: 'deal_assigned',
+      title: `You were assigned to deal: ${updated.title}`,
       entityType: 'deal',
       entityId: updated.id,
     });

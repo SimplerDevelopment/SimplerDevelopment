@@ -10,6 +10,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, desc, sql, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
+import { notifyAllClientUsers } from '@/lib/crm/notifications';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 
 export async function GET(req: NextRequest) {
@@ -224,6 +225,18 @@ export async function POST(req: Request) {
   }
 
   emitEvent('crm.contact.created', client.id, userId, { id: contact.id, name: `${contact.firstName} ${contact.lastName || ''}`.trim(), email: contact.email, phone: contact.phone, source: contact.source });
+
+  // Notify other client members that a contact was created (skip the creator).
+  const displayName = `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim();
+  const fallback = contact.email || `Contact #${contact.id}`;
+  notifyAllClientUsers({
+    clientId: client.id,
+    excludeUserId: userId,
+    type: 'contact_created',
+    title: `New contact: ${displayName || fallback}`,
+    entityType: 'contact',
+    entityId: contact.id,
+  });
 
   return NextResponse.json({ success: true, data: contact }, { status: 201 });
 }
