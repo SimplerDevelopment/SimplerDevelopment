@@ -11,6 +11,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   type BrandingProfile,
+  EMPTY_RESPONSE_FILTERS,
+  type ResponseFilters,
   type Survey,
   type SurveyResponse,
   type SurveyResponseStats,
@@ -25,6 +27,7 @@ export interface UseSurveyResult {
   survey: Survey | null;
   responses: SurveyResponse[];
   stats: SurveyResponseStats;
+  sourcesPresent: string[];
   brandingProfiles: BrandingProfile[];
   loading: boolean;
   saving: boolean;
@@ -32,7 +35,7 @@ export interface UseSurveyResult {
   setError: (msg: string) => void;
   successMsg: string;
   refresh: () => Promise<void>;
-  refreshResponses: () => Promise<void>;
+  refreshResponses: (filters?: ResponseFilters) => Promise<void>;
   save: (updates: Record<string, unknown>) => Promise<boolean>;
   remove: () => Promise<{ success: boolean; message?: string }>;
 }
@@ -41,6 +44,7 @@ export function useSurvey(id: string | number): UseSurveyResult {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
   const [stats, setStats] = useState<SurveyResponseStats>({ total: 0, completed: 0, withEmail: 0 });
+  const [sourcesPresent, setSourcesPresent] = useState<string[]>([]);
   const [brandingProfiles, setBrandingProfiles] = useState<BrandingProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,11 +57,12 @@ export function useSurvey(id: string | number): UseSurveyResult {
     setLoading(false);
   }, [id]);
 
-  const refreshResponses = useCallback(async () => {
-    const data = await fetchSurveyResponses(id);
+  const refreshResponses = useCallback(async (filters: ResponseFilters = EMPTY_RESPONSE_FILTERS) => {
+    const data = await fetchSurveyResponses(id, filters);
     if (data) {
       setResponses(data.responses);
       setStats(data.stats);
+      setSourcesPresent(data.sourcesPresent);
     }
   }, [id]);
 
@@ -97,6 +102,7 @@ export function useSurvey(id: string | number): UseSurveyResult {
     survey,
     responses,
     stats,
+    sourcesPresent,
     brandingProfiles,
     loading,
     saving,

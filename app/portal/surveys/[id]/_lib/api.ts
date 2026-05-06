@@ -52,6 +52,34 @@ export interface SurveyResponseStats {
   withEmail: number;
 }
 
+/** Filter inputs for the responses tab — kept stringly-typed so they can be
+ *  shoved straight into URLSearchParams. `null`/empty means "not filtered". */
+export interface ResponseFilters {
+  from: string | null;
+  to: string | null;
+  source: string | null;
+  q: string | null;
+}
+
+export const EMPTY_RESPONSE_FILTERS: ResponseFilters = {
+  from: null,
+  to: null,
+  source: null,
+  q: null,
+};
+
+/** Convert filters into a URLSearchParams instance, skipping unset keys.
+ *  Used for both the API call and the export-link href so both ends always
+ *  agree on what's being filtered. */
+export function responseFiltersToQuery(f: ResponseFilters): URLSearchParams {
+  const sp = new URLSearchParams();
+  if (f.from) sp.set('from', f.from);
+  if (f.to) sp.set('to', f.to);
+  if (f.source) sp.set('source', f.source);
+  if (f.q) sp.set('q', f.q);
+  return sp;
+}
+
 export interface BrandingProfile {
   id: number;
   name: string;
@@ -68,13 +96,20 @@ export async function fetchSurvey(id: string | number): Promise<Survey | null> {
 
 export async function fetchSurveyResponses(
   id: string | number,
-): Promise<{ responses: SurveyResponse[]; stats: SurveyResponseStats } | null> {
-  const res = await fetch(`/api/portal/surveys/${id}/responses`);
+  filters: ResponseFilters = EMPTY_RESPONSE_FILTERS,
+): Promise<{
+  responses: SurveyResponse[];
+  stats: SurveyResponseStats;
+  sourcesPresent: string[];
+} | null> {
+  const qs = responseFiltersToQuery(filters).toString();
+  const res = await fetch(`/api/portal/surveys/${id}/responses${qs ? `?${qs}` : ''}`);
   const data = await res.json();
   if (!data.success) return null;
   return {
     responses: data.data.responses as SurveyResponse[],
     stats: data.data.stats as SurveyResponseStats,
+    sourcesPresent: (data.data.sourcesPresent as string[] | undefined) ?? [],
   };
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
 import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
@@ -13,6 +13,7 @@ import SurveyHeader from './_components/SurveyHeader';
 import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
 import { useSurvey } from './_hooks/useSurvey';
+import { type ResponseFilters } from './_lib/api';
 
 type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
 
@@ -29,10 +30,13 @@ const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }
 export default function SurveyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const {
     survey,
     responses,
     stats,
+    sourcesPresent,
     brandingProfiles,
     loading,
     saving,
@@ -43,6 +47,26 @@ export default function SurveyDetailPage() {
     save,
     remove,
   } = useSurvey(id);
+
+  // Response filters live in the URL so refresh + share works. The page
+  // serves as the single source of truth — useSurvey is told to refetch
+  // whenever filters change.
+  const filters = useMemo<ResponseFilters>(() => ({
+    from: searchParams?.get('from') || null,
+    to: searchParams?.get('to') || null,
+    source: searchParams?.get('source') || null,
+    q: searchParams?.get('q') || null,
+  }), [searchParams]);
+
+  const setFilters = useCallback((next: ResponseFilters) => {
+    const sp = new URLSearchParams(searchParams?.toString() ?? '');
+    if (next.from) sp.set('from', next.from); else sp.delete('from');
+    if (next.to) sp.set('to', next.to); else sp.delete('to');
+    if (next.source) sp.set('source', next.source); else sp.delete('source');
+    if (next.q) sp.set('q', next.q); else sp.delete('q');
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -88,12 +112,17 @@ export default function SurveyDetailPage() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [survey]);
 
-  // Refetch responses when the tabs that surface them are visited.
+  // Refetch responses when the tabs that surface them are visited and when
+  // the URL-driven filters change. Overview + analytics intentionally pass
+  // unfiltered fetches (they show survey-wide totals), while the responses
+  // tab fetches with the current filter set.
   useEffect(() => {
-    if (tab === 'responses' || tab === 'overview' || tab === 'analytics') {
+    if (tab === 'responses') {
+      refreshResponses(filters);
+    } else if (tab === 'overview' || tab === 'analytics') {
       refreshResponses();
     }
-  }, [tab, refreshResponses]);
+  }, [tab, refreshResponses, filters]);
 
   async function toggleStatus(newStatus: string) {
     if (newStatus === 'active' && (!survey?.fields || (survey.fields as unknown[]).length === 0)) {
@@ -212,7 +241,16 @@ export default function SurveyDetailPage() {
         />
       )}
 
-      {tab === 'responses' && <ResponsesTab surveyId={id} survey={survey} responses={responses} />}
+      {tab === 'responses' && (
+        <ResponsesTab
+          surveyId={id}
+          survey={survey}
+          responses={responses}
+          filters={filters}
+          onFiltersChange={setFilters}
+          sourcesPresent={sourcesPresent}
+        />
+      )}
 
       {tab === 'analytics' && <ResponseAnalytics survey={survey} responses={responses} stats={stats} />}
 
