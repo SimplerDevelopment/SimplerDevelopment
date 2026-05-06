@@ -276,8 +276,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Webhook error';
-    console.error('eCommerce webhook error:', message);
-    return NextResponse.json({ error: message }, { status: 400 });
+    console.error('[stripe/webhook/ecommerce] error:', err instanceof Error ? err.stack ?? err.message : err);
+    return NextResponse.json({ error: 'webhook_error' }, { status: 400 });
   }
 }
