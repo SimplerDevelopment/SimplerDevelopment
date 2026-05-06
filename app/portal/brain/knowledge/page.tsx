@@ -38,11 +38,18 @@ import CommandPalette from '@/components/brain/CommandPalette';
 import { pushRecentNoteId } from '@/lib/brain/recent-notes';
 
 type SidePanel = 'outline' | 'backlinks' | 'fields' | 'history';
+type MobileTab = 'list' | 'editor' | 'side';
 
 interface BrainNote {
   id: number;
   title: string;
 }
+
+const MOBILE_TABS: Array<{ id: MobileTab; icon: string; label: string }> = [
+  { id: 'list',   icon: 'list',         label: 'List' },
+  { id: 'editor', icon: 'edit_note',    label: 'Editor' },
+  { id: 'side',   icon: 'view_sidebar', label: 'Side' },
+];
 
 const SIDE_TABS: Array<{ id: SidePanel; icon: string; label: string }> = [
   { id: 'outline',   icon: 'segment', label: 'Outline' },
@@ -62,13 +69,16 @@ export default function BrainKnowledgePage() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [body, setBody] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('list');
   const editorViewRef = useRef<EditorView | null>(null);
+  const isNarrow = useIsNarrow();
 
   const handleSelect = useCallback((id: number) => {
     pushRecentNoteId(id);
     const params = new URLSearchParams(searchParams.toString());
     params.set('id', String(id));
     router.push(`/portal/brain/knowledge?${params.toString()}`, { scroll: false });
+    setMobileTab('editor');
   }, [router, searchParams]);
 
   const handleCreate = useCallback(async () => {
@@ -130,63 +140,122 @@ export default function BrainKnowledgePage() {
 
   return (
     <div className="fixed inset-0 top-[var(--portal-header-height,3.5rem)]">
-      <PanelGroup direction="horizontal" autoSaveId="brain.knowledge.shell">
-        <Panel
-          defaultSize={20}
-          minSize={14}
-          maxSize={40}
-          className="overflow-hidden"
-        >
-          <NoteListPane
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            onCreate={handleCreate}
-            onTemplateApplied={handleTemplateApplied}
-            refreshTick={refreshTick}
-          />
-        </Panel>
-
-        <PanelResizeHandle className="w-px bg-border hover:bg-primary/40 transition-colors data-[resize-handle-active]:bg-primary" />
-
-        <Panel defaultSize={rightCollapsed ? 80 : 55} minSize={30}>
-          <NoteEditorPane
-            noteId={selectedId}
-            onEditorReady={handleEditorReady}
-            onSaved={handleSaved}
-            onDeleted={handleDeleted}
-            onBodyChange={setBody}
-            onCreate={handleCreate}
-          />
-        </Panel>
-
-        {!rightCollapsed && (
-          <>
-            <PanelResizeHandle className="w-px bg-border hover:bg-primary/40 transition-colors data-[resize-handle-active]:bg-primary" />
-            <Panel
-              defaultSize={25}
-              minSize={16}
-              maxSize={40}
-              className="overflow-hidden"
-            >
+      {isNarrow ? (
+        <div className="h-full flex flex-col">
+          <div className="flex-1 min-h-0 overflow-hidden pb-[calc(3rem+env(safe-area-inset-bottom))]">
+            <div className={`h-full ${mobileTab === 'list' ? 'block' : 'hidden'}`}>
+              <NoteListPane
+                selectedId={selectedId}
+                onSelect={handleSelect}
+                onCreate={handleCreate}
+                onTemplateApplied={handleTemplateApplied}
+                refreshTick={refreshTick}
+              />
+            </div>
+            <div className={`h-full ${mobileTab === 'editor' ? 'block' : 'hidden'}`}>
+              <NoteEditorPane
+                noteId={selectedId}
+                onEditorReady={handleEditorReady}
+                onSaved={handleSaved}
+                onDeleted={handleDeleted}
+                onBodyChange={setBody}
+                onCreate={handleCreate}
+              />
+            </div>
+            <div className={`h-full ${mobileTab === 'side' ? 'block' : 'hidden'}`}>
               <SidePanelHost
                 noteId={selectedId}
                 body={body}
                 getEditorView={getEditorView}
                 active={activePanel}
                 onChangeActive={setActivePanel}
-                onCollapse={() => setRightCollapsed(true)}
+                onCollapse={() => setMobileTab('editor')}
               />
-            </Panel>
-          </>
-        )}
+            </div>
+          </div>
+          <nav
+            role="tablist"
+            aria-label="Knowledge pane"
+            className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-card pb-[env(safe-area-inset-bottom)]"
+          >
+            {MOBILE_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === t.id}
+                onClick={() => setMobileTab(t.id)}
+                className={`flex-1 inline-flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
+                  mobileTab === t.id
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span className="material-icons text-[20px]">{t.icon}</span>
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      ) : (
+        <PanelGroup direction="horizontal" autoSaveId="brain.knowledge.shell">
+          <Panel
+            defaultSize={20}
+            minSize={14}
+            maxSize={40}
+            className="overflow-hidden"
+          >
+            <NoteListPane
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onCreate={handleCreate}
+              onTemplateApplied={handleTemplateApplied}
+              refreshTick={refreshTick}
+            />
+          </Panel>
 
-        {rightCollapsed && (
-          <CollapsedRightRail
-            active={activePanel}
-            onSelect={(id) => { setActivePanel(id); setRightCollapsed(false); }}
-          />
-        )}
-      </PanelGroup>
+          <PanelResizeHandle className="w-px bg-border hover:bg-primary/40 transition-colors data-[resize-handle-active]:bg-primary" />
+
+          <Panel defaultSize={rightCollapsed ? 80 : 55} minSize={30}>
+            <NoteEditorPane
+              noteId={selectedId}
+              onEditorReady={handleEditorReady}
+              onSaved={handleSaved}
+              onDeleted={handleDeleted}
+              onBodyChange={setBody}
+              onCreate={handleCreate}
+            />
+          </Panel>
+
+          {!rightCollapsed && (
+            <>
+              <PanelResizeHandle className="w-px bg-border hover:bg-primary/40 transition-colors data-[resize-handle-active]:bg-primary" />
+              <Panel
+                defaultSize={25}
+                minSize={16}
+                maxSize={40}
+                className="overflow-hidden"
+              >
+                <SidePanelHost
+                  noteId={selectedId}
+                  body={body}
+                  getEditorView={getEditorView}
+                  active={activePanel}
+                  onChangeActive={setActivePanel}
+                  onCollapse={() => setRightCollapsed(true)}
+                />
+              </Panel>
+            </>
+          )}
+
+          {rightCollapsed && (
+            <CollapsedRightRail
+              active={activePanel}
+              onSelect={(id) => { setActivePanel(id); setRightCollapsed(false); }}
+            />
+          )}
+        </PanelGroup>
+      )}
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -267,6 +336,18 @@ function SidePanelHost({
       </div>
     </div>
   );
+}
+
+function useIsNarrow(): boolean {
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsNarrow(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+  return isNarrow;
 }
 
 function CollapsedRightRail({
