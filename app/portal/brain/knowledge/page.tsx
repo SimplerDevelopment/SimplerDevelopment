@@ -282,32 +282,34 @@ function SidePanelHost({
   onCollapse: () => void;
 }) {
   return (
-    <div className="h-full flex flex-col bg-card border-l border-border">
-      <div className="flex border-b border-border bg-muted/30">
-        {SIDE_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={active === t.id}
-            onClick={() => onChangeActive(t.id)}
-            title={t.label}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium transition-colors ${
-              active === t.id
-                ? 'text-foreground bg-background border-b-2 border-primary'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
-            }`}
-          >
-            <span className="material-icons text-sm">{t.icon}</span>
-            <span className="hidden xl:inline">{t.label}</span>
-          </button>
-        ))}
+    <div className="h-full flex flex-col bg-card border-l border-border min-w-0">
+      <div className="flex border-b border-border bg-muted/30 min-w-0">
+        <div className="flex-1 flex overflow-x-auto scrollbar-thin">
+          {SIDE_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active === t.id}
+              onClick={() => onChangeActive(t.id)}
+              title={t.label}
+              className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+                active === t.id
+                  ? 'text-foreground bg-background border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+              }`}
+            >
+              <span className="material-icons text-sm">{t.icon}</span>
+              <span className="hidden xl:inline">{t.label}</span>
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={onCollapse}
           title="Collapse panel"
           aria-label="Collapse right panel"
-          className="px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-background/60"
+          className="shrink-0 px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-background/60"
         >
           <span className="material-icons text-sm">chevron_right</span>
         </button>
