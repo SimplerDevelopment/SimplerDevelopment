@@ -85,6 +85,23 @@ interface SurveyData {
 export interface SurveyFormInlineProps {
   slug: string;
   showPageTitle?: boolean;
+  showDescription?: boolean;
+  /** Show the survey's logo above the form. Defaults to true. */
+  showLogo?: boolean;
+  /** Block-level overrides — take precedence over survey.styling and branding. */
+  styleOverrides?: {
+    primaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    formBg?: string;
+    inputBg?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonBg?: string;
+    buttonText?: string;
+    buttonBorderRadius?: string;
+    borderRadius?: string;
+  };
   /** Optional source tracking */
   source?: string;
   sourceId?: string;
@@ -93,6 +110,9 @@ export interface SurveyFormInlineProps {
 export function SurveyFormInline({
   slug,
   showPageTitle = true,
+  showDescription = true,
+  showLogo = true,
+  styleOverrides,
   source = 'block',
   sourceId = '',
 }: SurveyFormInlineProps) {
@@ -267,29 +287,30 @@ export function SurveyFormInline({
 
   const br = survey.branding;
   const st = survey.styling || {};
-  // Per-survey styling overrides take precedence over branding profile.
-  const accent = st.primaryColor || br?.primaryColor || survey.color || '#2563eb';
+  const so = styleOverrides;
+  // Cascade: block-level overrides → survey.styling → branding profile → defaults.
+  const accent = so?.primaryColor || st.primaryColor || br?.primaryColor || survey.color || '#2563eb';
   const secondaryColor = st.secondaryColor || br?.secondaryColor;
   const accentColor = st.accentColor || br?.accentColor;
-  const bgColor = st.backgroundColor || br?.backgroundColor;
-  const txtColor = st.textColor || br?.textColor;
-  const logoUrl = br?.logoUrl;
-  const headingFont = st.headingFont || br?.headingFont;
-  const bodyFont = st.bodyFont || br?.bodyFont;
-  const btnRadius = st.buttonBorderRadius || br?.buttonStyle?.borderRadius || st.borderRadius || br?.borderRadius;
-  const btnBg = st.buttonPrimaryBg || br?.buttonStyle?.primaryBg || accent;
-  const btnText = st.buttonPrimaryText || br?.buttonStyle?.primaryText || '#ffffff';
+  const bgColor = so?.backgroundColor || st.backgroundColor || br?.backgroundColor;
+  const txtColor = so?.textColor || st.textColor || br?.textColor;
+  const logoUrl = showLogo ? br?.logoUrl : undefined;
+  const headingFont = so?.headingFont || st.headingFont || br?.headingFont;
+  const bodyFont = so?.bodyFont || st.bodyFont || br?.bodyFont;
+  const btnRadius = so?.buttonBorderRadius || st.buttonBorderRadius || br?.buttonStyle?.borderRadius || so?.borderRadius || st.borderRadius || br?.borderRadius;
+  const btnBg = so?.buttonBg || st.buttonPrimaryBg || br?.buttonStyle?.primaryBg || accent;
+  const btnText = so?.buttonText || st.buttonPrimaryText || br?.buttonStyle?.primaryText || '#ffffff';
   const inputOptionTextColor = st.inputOptionTextColor;
   const inputTextColor = st.inputTextColor || txtColor;
-  const hasBranding = !!br || Object.keys(st).length > 0;
+  const hasBranding = !!br || Object.keys(st).length > 0 || !!so;
 
-  const cardBg = st.formBg
+  const cardBg = so?.formBg || st.formBg
     || (hasBranding
       ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
       : undefined);
   const cardBorder = secondaryColor ? `${secondaryColor}30` : undefined;
   const inputBorder = accentColor ? `${accentColor}40` : undefined;
-  const inputBg = st.inputBg
+  const inputBg = so?.inputBg || st.inputBg
     || (hasBranding ? (bgColor === '#ffffff' ? '#ffffff' : bgColor ? lightenColor(bgColor, 0.08) : undefined) : undefined);
 
   const wrapperStyle: React.CSSProperties = {
@@ -382,7 +403,7 @@ export function SurveyFormInline({
           <div className="bg-white dark:bg-gray-900 rounded-t-2xl shadow-sm border border-gray-200 dark:border-gray-800 border-b-0 p-6" style={cardStyle}>
             <div className="h-1.5 rounded-full mb-6" style={{ backgroundColor: accent }} />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{survey.title}</h1>
-            {survey.description && (
+            {showDescription && survey.description && (
               <p className="text-gray-600 dark:text-gray-400 mt-2" style={txtColor ? { color: `${txtColor}bb` } : undefined}>{survey.description}</p>
             )}
 

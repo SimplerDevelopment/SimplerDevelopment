@@ -56,7 +56,24 @@ export interface SurveyBlock extends BaseBlock {
   title?: string;
   description?: string;
   showPageTitle?: boolean;
+  showDescription?: boolean;
+  /** Show the survey's logo above the form. Defaults to true. */
+  showLogo?: boolean;
   height?: string;
+  // Style overrides — take precedence over the survey's own styling and the site branding.
+  styleOverrides?: {
+    primaryColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    formBg?: string; // card/form body background color
+    inputBg?: string; // input field background color
+    headingFont?: string;
+    bodyFont?: string;
+    buttonBg?: string;
+    buttonText?: string;
+    buttonBorderRadius?: string;
+    borderRadius?: string;
+  };
 }
 
 export type SurveyResultsChartType = 'bar' | 'pie' | 'donut' | 'list' | 'number';
