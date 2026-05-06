@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { listRelationships, createOverlay } from '@/lib/brain/relationships';
 import type { BrainRelationshipPriority, BrainRelationshipStatus } from '@/lib/db/schema';
 
@@ -7,8 +8,8 @@ const VALID_PRIORITIES = new Set(['low', 'medium', 'high', 'critical']);
 const VALID_STATUS = new Set(['active', 'paused', 'archived']);
 
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const type = url.searchParams.get('type');
