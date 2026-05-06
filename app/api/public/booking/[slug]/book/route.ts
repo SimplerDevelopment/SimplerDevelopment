@@ -188,6 +188,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       .where(and(
         eq(giftCertificates.code, rawGiftCertCode.toUpperCase()),
         eq(giftCertificates.status, 'active'),
+        eq(giftCertificates.clientId, page.clientId),
         sql`${giftCertificates.redeemableAt} IN ('booking', 'both')`,
       ))
       .limit(1);
@@ -292,7 +293,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // Redeem gift certificate (partial)
   if (appliedGiftCertCode && giftCertAmount > 0) {
     const [cert] = await db.select().from(giftCertificates)
-      .where(eq(giftCertificates.code, appliedGiftCertCode)).limit(1);
+      .where(and(
+        eq(giftCertificates.code, appliedGiftCertCode),
+        eq(giftCertificates.clientId, page.clientId),
+      )).limit(1);
     if (cert) {
       const newRemaining = cert.remainingAmount - giftCertAmount;
       await db.update(giftCertificates)

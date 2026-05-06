@@ -46,9 +46,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }).returning();
 
   if (fileIds?.length) {
+    // Only re-parent files that already belong to this card; never adopt a file
+    // by ID alone — that would let any tenant hijack another tenant's file.
     await db.update(kanbanCardFiles)
       .set({ commentId: comment.id })
-      .where(inArray(kanbanCardFiles.id, fileIds));
+      .where(and(
+        inArray(kanbanCardFiles.id, fileIds),
+        eq(kanbanCardFiles.cardId, cardId),
+      ));
   }
 
   await logCardActivity(cardId, parseInt(session.user.id, 10), 'card.commented', { commentId: comment.id });
