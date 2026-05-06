@@ -14,7 +14,10 @@ if (!process.env.ANTHROPIC_API_KEY) {
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Shared secret between CF Worker and this endpoint
-const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET || 'sd-inbound-secret-change-me';
+const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET;
+if (!INBOUND_SECRET || INBOUND_SECRET === 'sd-inbound-secret-change-me') {
+  throw new Error('INBOUND_EMAIL_SECRET env var is required and must not be the placeholder.');
+}
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant for Simpler Development. A client is contacting you via email. You have access to tools that query and modify their portal data — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, CRM, and more.
 
@@ -170,8 +173,13 @@ export async function POST(req: Request) {
       { role: 'user', content: userMessage },
     ];
 
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    const MAX_LOOPS = 8;
+    const MAX_TOOL_CALLS = 20;
+    let loopCount = 0;
+    let toolCallCount = 0;
+    let stopReason: string | null = null;
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 2048,
@@ -182,11 +190,17 @@ export async function POST(req: Request) {
 
       totalInputTokens += response.usage.input_tokens;
       totalOutputTokens += response.usage.output_tokens;
+      stopReason = response.stop_reason;
 
       if (response.stop_reason === 'tool_use') {
         const toolUseBlocks = response.content.filter(
           (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
         );
+
+        toolCallCount += toolUseBlocks.length;
+        if (toolCallCount > MAX_TOOL_CALLS) {
+          throw new Error('Tool-call cap exceeded');
+        }
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
@@ -216,6 +230,9 @@ export async function POST(req: Request) {
           .join('');
         break;
       }
+    }
+    if (loopCount >= MAX_LOOPS && stopReason === 'tool_use') {
+      console.warn('[inbound-email] LLM loop hit MAX_LOOPS cap');
     }
 
     // Save messages to conversation
