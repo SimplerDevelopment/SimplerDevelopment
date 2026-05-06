@@ -1298,4 +1298,429 @@ test.describe('Visual Editor — Block Type Editing @visual-editor @blocks', () 
     expect(updatedContent.blocks[0].showViewInBrowser).toBe(true);
     expect(updatedContent.blocks[0].socialLinks).toHaveLength(1);
   });
+
+  // ── HTML Render Block ──────────────────────────────────────────────────────
+
+  test('html-render block: create, verify, update', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-html-render-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'hr1',
+        type: 'html-render',
+        order: 0,
+        html: '<div data-field="title">Original</div>',
+        fields: [{ name: 'title', type: 'text', label: 'Title', default: 'Hello' }],
+        values: { title: 'Hello' },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].type).toBe('html-render');
+    expect(content.blocks[0].html).toBe('<div data-field="title">Original</div>');
+    expect(content.blocks[0].values.title).toBe('Hello');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'hr1',
+        type: 'html-render',
+        order: 0,
+        html: '<section data-field="title">Updated</section>',
+        fields: [{ name: 'title', type: 'text', label: 'Title', default: 'Hi' }],
+        values: { title: 'Updated value' },
+        width: 'contained',
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].html).toContain('Updated');
+    expect(updatedContent.blocks[0].values.title).toBe('Updated value');
+    expect(updatedContent.blocks[0].width).toBe('contained');
+  });
+
+  // ── HTML Embed Block ───────────────────────────────────────────────────────
+
+  test('html-embed block: create, verify, update', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-html-embed-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'he1',
+        type: 'html-embed',
+        order: 0,
+        url: '/api/media/proxy/example.html',
+        filename: 'example.html',
+        height: '600px',
+        width: 'full',
+        sandbox: 'scripts',
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].type).toBe('html-embed');
+    expect(content.blocks[0].url).toBe('/api/media/proxy/example.html');
+    expect(content.blocks[0].height).toBe('600px');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'he1',
+        type: 'html-embed',
+        order: 0,
+        url: '/api/media/proxy/updated.html',
+        filename: 'updated.html',
+        height: '800px',
+        width: 'contained',
+        sandbox: 'scripts-forms',
+        iframeTitle: 'Updated demo',
+        caption: 'Caption text',
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].url).toBe('/api/media/proxy/updated.html');
+    expect(updatedContent.blocks[0].height).toBe('800px');
+    expect(updatedContent.blocks[0].width).toBe('contained');
+    expect(updatedContent.blocks[0].sandbox).toBe('scripts-forms');
+    expect(updatedContent.blocks[0].caption).toBe('Caption text');
+  });
+
+  // ── Sticky Scroll Tabs Block ───────────────────────────────────────────────
+
+  test('sticky-scroll-tabs block: create, verify, update', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-sticky-tabs-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'sst1',
+        type: 'sticky-scroll-tabs',
+        order: 0,
+        title: 'Original Section',
+        panels: [
+          { id: 'p1', label: 'Panel One', blocks: [
+            { id: 'h1', type: 'heading', order: 0, content: 'Panel 1 Heading', level: 2 },
+          ] },
+          { id: 'p2', label: 'Panel Two', blocks: [
+            { id: 'h2', type: 'heading', order: 0, content: 'Panel 2 Heading', level: 2 },
+          ] },
+        ],
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].type).toBe('sticky-scroll-tabs');
+    expect(content.blocks[0].title).toBe('Original Section');
+    expect(content.blocks[0].panels).toHaveLength(2);
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'sst1',
+        type: 'sticky-scroll-tabs',
+        order: 0,
+        overline: 'OVERVIEW',
+        title: 'Updated Section',
+        description: 'A description',
+        stickyTopOffset: '80px',
+        activeTabBackground: '#0a0a0a',
+        activeTabColor: '#ffffff',
+        panels: [
+          { id: 'p1', label: 'Updated Panel', blocks: [
+            { id: 'h1', type: 'heading', order: 0, content: 'Updated heading', level: 3 },
+          ] },
+        ],
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].title).toBe('Updated Section');
+    expect(updatedContent.blocks[0].overline).toBe('OVERVIEW');
+    expect(updatedContent.blocks[0].stickyTopOffset).toBe('80px');
+    expect(updatedContent.blocks[0].activeTabBackground).toBe('#0a0a0a');
+    expect(updatedContent.blocks[0].panels).toHaveLength(1);
+    expect(updatedContent.blocks[0].panels[0].label).toBe('Updated Panel');
+  });
+
+  // ── block.style and elementStyles round-trip ───────────────────────────────
+  // v2 acceptance criteria #4: prove that style.* and elementStyles[*] survive
+  // create -> fetch -> update -> fetch end-to-end. One representative test
+  // covers the style serialization invariant; the per-block tests above
+  // cover the content-field invariants.
+
+  test('block.style and elementStyles survive round trip (hero)', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-styles-hero-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'h1',
+        type: 'hero',
+        order: 0,
+        title: 'Styled Hero',
+        ctaText: 'Get Started',
+        ctaLink: '/start',
+        style: {
+          backgroundColor: '#0f172a',
+          color: '#f1f5f9',
+          paddingTop: '120px',
+          borderRadius: '24px',
+          fontWeight: '700',
+        },
+        elementStyles: {
+          title: { color: '#facc15', fontSize: '64px' },
+          cta: { backgroundColor: '#22c55e' },
+        },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].style.backgroundColor).toBe('#0f172a');
+    expect(content.blocks[0].style.color).toBe('#f1f5f9');
+    expect(content.blocks[0].style.borderRadius).toBe('24px');
+    expect(content.blocks[0].elementStyles.title.color).toBe('#facc15');
+    expect(content.blocks[0].elementStyles.title.fontSize).toBe('64px');
+    expect(content.blocks[0].elementStyles.cta.backgroundColor).toBe('#22c55e');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'h1',
+        type: 'hero',
+        order: 0,
+        title: 'Updated Hero',
+        ctaText: 'Go',
+        ctaLink: '/x',
+        style: {
+          backgroundColor: '#1e293b',
+          color: '#e2e8f0',
+          paddingTop: '80px',
+          borderRadius: '12px',
+          fontSize: '20px',
+        },
+        elementStyles: {
+          title: { color: '#a78bfa', fontSize: '48px' },
+          subtitle: { color: '#94a3b8' },
+        },
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].style.backgroundColor).toBe('#1e293b');
+    expect(updatedContent.blocks[0].style.borderRadius).toBe('12px');
+    expect(updatedContent.blocks[0].style.fontSize).toBe('20px');
+    expect(updatedContent.blocks[0].elementStyles.title.color).toBe('#a78bfa');
+    expect(updatedContent.blocks[0].elementStyles.subtitle.color).toBe('#94a3b8');
+    // cta element style cleared in update — verify it didn't persist
+    expect(updatedContent.blocks[0].elementStyles.cta).toBeUndefined();
+  });
+
+  test('block.style and elementStyles survive round trip (services-grid with serviceImage element)', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-styles-services-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'sg1',
+        type: 'services-grid',
+        order: 0,
+        title: 'Our Services',
+        services: [
+          { id: 's1', title: 'Design', description: 'Beautiful design', image: 'https://example.com/d.png' },
+          { id: 's2', title: 'Build', description: 'Solid code', image: 'https://example.com/b.png' },
+        ],
+        accentColor: '#6366f1',
+        style: { backgroundColor: '#fafafa', paddingTop: '64px' },
+        elementStyles: {
+          serviceImage: { width: '80px', height: '80px' },
+          serviceTitle: { color: '#111827' },
+        },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].elementStyles.serviceImage.width).toBe('80px');
+    expect(content.blocks[0].elementStyles.serviceTitle.color).toBe('#111827');
+    expect(content.blocks[0].style.backgroundColor).toBe('#fafafa');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'sg1',
+        type: 'services-grid',
+        order: 0,
+        title: 'Updated Services',
+        services: [
+          { id: 's1', title: 'Design', description: 'Beautiful design', image: 'https://example.com/d.png' },
+        ],
+        accentColor: '#10b981',
+        style: { backgroundColor: '#ffffff', paddingTop: '96px' },
+        elementStyles: {
+          serviceImage: { width: '120px', height: '120px', borderRadius: '16px' },
+        },
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].elementStyles.serviceImage.width).toBe('120px');
+    expect(updatedContent.blocks[0].elementStyles.serviceImage.borderRadius).toBe('16px');
+    expect(updatedContent.blocks[0].accentColor).toBe('#10b981');
+    expect(updatedContent.blocks[0].style.paddingTop).toBe('96px');
+  });
+
+  // ── Site Footer with new fields (wordmark, brandSize, ctaText, ctaUrl) ─────
+
+  test('site-footer block: wordmark/brandSize/cta round trip', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-footer-cta-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'sf1',
+        type: 'site-footer',
+        order: 0,
+        logoUrl: 'https://example.com/logo.svg',
+        wordmark: 'EXAMPLE CO',
+        brandSize: 'sm',
+        tagline: 'Software for builders',
+        ctaText: 'Get a demo',
+        ctaUrl: 'https://example.com/demo',
+        backgroundColor: '#0a0a0a',
+        textColor: '#fafafa',
+        accentColor: '#22d3ee',
+        elementStyles: {
+          wordmark: { fontSize: '14px', letterSpacing: '0.2em' },
+        },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].wordmark).toBe('EXAMPLE CO');
+    expect(content.blocks[0].brandSize).toBe('sm');
+    expect(content.blocks[0].ctaText).toBe('Get a demo');
+    expect(content.blocks[0].ctaUrl).toBe('https://example.com/demo');
+    expect(content.blocks[0].elementStyles.wordmark.fontSize).toBe('14px');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'sf1',
+        type: 'site-footer',
+        order: 0,
+        logoUrl: 'https://example.com/logo.svg',
+        wordmark: 'NEW BRAND',
+        brandSize: 'lg',
+        tagline: 'Updated tagline',
+        ctaText: 'Sign up',
+        ctaUrl: 'https://example.com/signup',
+        backgroundColor: '#111827',
+        textColor: '#e5e7eb',
+        accentColor: '#f59e0b',
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].wordmark).toBe('NEW BRAND');
+    expect(updatedContent.blocks[0].brandSize).toBe('lg');
+    expect(updatedContent.blocks[0].ctaText).toBe('Sign up');
+    expect(updatedContent.blocks[0].ctaUrl).toBe('https://example.com/signup');
+  });
+
+  // ── Metric Cards new fields (logoColumnWidth, labelMaxWidth) ───────────────
+
+  test('metric-cards block: logoColumnWidth/labelMaxWidth round trip', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-metric-cols-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'mc1',
+        type: 'metric-cards',
+        order: 0,
+        title: 'Outcomes',
+        columns: 3,
+        logoColumnWidth: '240px',
+        labelMaxWidth: '32rem',
+        metrics: [
+          { id: 'm1', value: '42%', label: 'Improvement', institution: 'Example U' },
+        ],
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].logoColumnWidth).toBe('240px');
+    expect(content.blocks[0].labelMaxWidth).toBe('32rem');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'mc1',
+        type: 'metric-cards',
+        order: 0,
+        title: 'Outcomes',
+        columns: 4,
+        logoColumnWidth: '180px',
+        labelMaxWidth: '24rem',
+        metrics: [
+          { id: 'm1', value: '83%', label: 'Bigger Improvement', institution: 'Example U' },
+        ],
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].logoColumnWidth).toBe('180px');
+    expect(updatedContent.blocks[0].labelMaxWidth).toBe('24rem');
+  });
+
+  // ── Survey Results elementStyles (title/description) round trip ────────────
+
+  test('survey-results block: title/description elementStyles round trip', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-survey-results-elem-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'sr1',
+        type: 'survey-results',
+        order: 0,
+        surveySlug: 'feedback-2026',
+        title: 'Survey Results',
+        description: 'How our customers feel',
+        chartType: 'bar',
+        accentColor: '#ec4899',
+        elementStyles: {
+          title: { color: '#0f172a', fontWeight: '800' },
+          description: { color: '#475569', fontSize: '18px' },
+        },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].elementStyles.title.color).toBe('#0f172a');
+    expect(content.blocks[0].elementStyles.description.fontSize).toBe('18px');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'sr1',
+        type: 'survey-results',
+        order: 0,
+        surveySlug: 'feedback-2026',
+        title: 'Updated Results',
+        description: 'Updated description',
+        chartType: 'donut',
+        accentColor: '#06b6d4',
+        elementStyles: {
+          title: { color: '#dc2626', fontSize: '36px' },
+        },
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].elementStyles.title.color).toBe('#dc2626');
+    expect(updatedContent.blocks[0].chartType).toBe('donut');
+  });
 });

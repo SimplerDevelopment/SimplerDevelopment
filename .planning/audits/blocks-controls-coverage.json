@@ -1,0 +1,2128 @@
+{
+  "generatedAt": "2026-05-06T02:00:43.611Z",
+  "totalBlocks": 47,
+  "blocksWithMissingFields": 1,
+  "blocksWithDeadElementKeys": 0,
+  "blocksWithoutE2E": 0,
+  "totals": {
+    "missingFieldsFromBoth": 6,
+    "missingFieldsFromPanelsOnly": 6,
+    "missingFieldsFromContentEditorOnly": 4,
+    "deadElementKeys": 0
+  },
+  "reports": [
+    {
+      "type": "heading",
+      "interfaceFields": [
+        "content",
+        "level",
+        "alignment"
+      ],
+      "fieldsInPanels": [
+        "level",
+        "alignment"
+      ],
+      "fieldsInContentEditor": [
+        "level",
+        "alignment"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "text",
+      "interfaceFields": [
+        "content",
+        "alignment",
+        "size"
+      ],
+      "fieldsInPanels": [
+        "alignment",
+        "size"
+      ],
+      "fieldsInContentEditor": [
+        "alignment",
+        "size"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "image",
+      "interfaceFields": [
+        "url",
+        "alt",
+        "caption",
+        "width",
+        "alignment"
+      ],
+      "fieldsInPanels": [
+        "url",
+        "alt",
+        "caption",
+        "width",
+        "alignment"
+      ],
+      "fieldsInContentEditor": [
+        "url",
+        "alt",
+        "caption",
+        "width",
+        "alignment"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "caption"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "caption"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "button",
+      "interfaceFields": [
+        "text",
+        "url",
+        "variant",
+        "size",
+        "alignment",
+        "openInNewTab",
+        "icon",
+        "iconPosition",
+        "hoverEffect",
+        "presetId"
+      ],
+      "fieldsInPanels": [
+        "text",
+        "url",
+        "variant",
+        "size",
+        "alignment",
+        "openInNewTab",
+        "icon",
+        "iconPosition",
+        "hoverEffect",
+        "presetId"
+      ],
+      "fieldsInContentEditor": [
+        "text",
+        "url",
+        "variant",
+        "size",
+        "alignment",
+        "openInNewTab",
+        "icon",
+        "iconPosition",
+        "hoverEffect",
+        "presetId"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "spacer",
+      "interfaceFields": [
+        "height"
+      ],
+      "fieldsInPanels": [
+        "height"
+      ],
+      "fieldsInContentEditor": [
+        "height"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "divider",
+      "interfaceFields": [
+        "lineStyle"
+      ],
+      "fieldsInPanels": [
+        "lineStyle"
+      ],
+      "fieldsInContentEditor": [
+        "lineStyle"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "quote",
+      "interfaceFields": [
+        "content",
+        "author",
+        "citation"
+      ],
+      "fieldsInPanels": [
+        "author",
+        "citation"
+      ],
+      "fieldsInContentEditor": [
+        "author",
+        "citation"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "quoteText",
+        "author"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "quoteText",
+        "author"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "code",
+      "interfaceFields": [
+        "code",
+        "language"
+      ],
+      "fieldsInPanels": [
+        "language"
+      ],
+      "fieldsInContentEditor": [
+        "language"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "video",
+      "interfaceFields": [
+        "url",
+        "caption",
+        "autoplay",
+        "controls"
+      ],
+      "fieldsInPanels": [
+        "url",
+        "caption",
+        "autoplay",
+        "controls"
+      ],
+      "fieldsInContentEditor": [
+        "url",
+        "caption",
+        "autoplay",
+        "controls"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "youtube",
+      "interfaceFields": [
+        "url",
+        "caption"
+      ],
+      "fieldsInPanels": [
+        "url",
+        "caption"
+      ],
+      "fieldsInContentEditor": [
+        "url",
+        "caption"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "columns",
+      "interfaceFields": [
+        "columns",
+        "gap",
+        "stackOnMobile",
+        "stackOnTablet",
+        "reverseOnStack"
+      ],
+      "fieldsInPanels": [
+        "gap",
+        "stackOnMobile",
+        "stackOnTablet",
+        "reverseOnStack"
+      ],
+      "fieldsInContentEditor": [
+        "gap",
+        "stackOnMobile",
+        "reverseOnStack"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [
+        "stackOnTablet"
+      ],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "tabs",
+      "interfaceFields": [
+        "tabs"
+      ],
+      "fieldsInPanels": [],
+      "fieldsInContentEditor": [],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "tab",
+        "activeTab",
+        "tabPanel"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "tab",
+        "activeTab",
+        "tabPanel"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "accordion",
+      "interfaceFields": [
+        "title",
+        "items"
+      ],
+      "fieldsInPanels": [
+        "title"
+      ],
+      "fieldsInContentEditor": [
+        "title"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "itemTitle",
+        "itemContent"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "itemTitle",
+        "itemContent"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "section",
+      "interfaceFields": [
+        "blocks",
+        "backgroundColor",
+        "backgroundImage",
+        "backgroundSize",
+        "backgroundPosition",
+        "maxWidth",
+        "paddingTop",
+        "paddingBottom",
+        "paddingLeft",
+        "paddingRight",
+        "color",
+        "fontFamily",
+        "htmlTag",
+        "splitColor",
+        "splitClipPath"
+      ],
+      "fieldsInPanels": [
+        "backgroundColor",
+        "backgroundImage",
+        "maxWidth",
+        "htmlTag",
+        "splitColor",
+        "splitClipPath"
+      ],
+      "fieldsInContentEditor": [
+        "backgroundColor",
+        "backgroundImage",
+        "maxWidth",
+        "color",
+        "fontFamily",
+        "htmlTag",
+        "splitColor",
+        "splitClipPath"
+      ],
+      "fieldsMissingFromPanels": [
+        "backgroundSize",
+        "backgroundPosition",
+        "paddingTop",
+        "paddingBottom",
+        "paddingLeft",
+        "paddingRight",
+        "color",
+        "fontFamily"
+      ],
+      "fieldsMissingFromContentEditor": [
+        "backgroundSize",
+        "backgroundPosition",
+        "paddingTop",
+        "paddingBottom",
+        "paddingLeft",
+        "paddingRight"
+      ],
+      "fieldsMissingFromBoth": [
+        "backgroundSize",
+        "backgroundPosition",
+        "paddingTop",
+        "paddingBottom",
+        "paddingLeft",
+        "paddingRight"
+      ],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "hero",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "description",
+        "ctaText",
+        "ctaLink",
+        "secondaryCtaText",
+        "secondaryCtaLink",
+        "backgroundImage",
+        "backgroundVideo",
+        "blocks"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "description",
+        "ctaText",
+        "ctaLink",
+        "secondaryCtaText",
+        "secondaryCtaLink",
+        "backgroundImage",
+        "backgroundVideo"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "description",
+        "ctaText",
+        "ctaLink",
+        "secondaryCtaText",
+        "secondaryCtaLink",
+        "backgroundImage",
+        "backgroundVideo"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "subtitle",
+        "description",
+        "cta",
+        "secondaryCta"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "subtitle",
+        "description",
+        "cta",
+        "secondaryCta"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "hero-slideshow",
+      "interfaceFields": [
+        "slides",
+        "autoplay",
+        "interval",
+        "transition",
+        "transitionDuration",
+        "showDots",
+        "showArrows",
+        "pauseOnHover",
+        "height",
+        "kenBurns",
+        "backgroundVideo",
+        "backgroundVideoOpacity",
+        "arrowColor",
+        "arrowBackground",
+        "arrowBorderColor",
+        "dotColor",
+        "dotActiveColor",
+        "progressBarColor",
+        "stats"
+      ],
+      "fieldsInPanels": [
+        "slides",
+        "autoplay",
+        "interval",
+        "transition",
+        "transitionDuration",
+        "pauseOnHover",
+        "height",
+        "backgroundVideo",
+        "backgroundVideoOpacity",
+        "arrowColor",
+        "arrowBackground",
+        "arrowBorderColor",
+        "dotColor",
+        "dotActiveColor",
+        "progressBarColor",
+        "stats"
+      ],
+      "fieldsInContentEditor": [
+        "slides",
+        "autoplay",
+        "interval",
+        "transition",
+        "showDots",
+        "showArrows",
+        "pauseOnHover",
+        "height",
+        "kenBurns",
+        "backgroundVideo",
+        "arrowColor",
+        "arrowBackground",
+        "arrowBorderColor",
+        "dotColor",
+        "dotActiveColor",
+        "progressBarColor",
+        "stats"
+      ],
+      "fieldsMissingFromPanels": [
+        "showDots",
+        "showArrows",
+        "kenBurns"
+      ],
+      "fieldsMissingFromContentEditor": [
+        "transitionDuration",
+        "backgroundVideoOpacity"
+      ],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "subtitle",
+        "description",
+        "cta",
+        "secondaryCta",
+        "statValue",
+        "statLabel"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "subtitle",
+        "description",
+        "cta",
+        "secondaryCta",
+        "statValue",
+        "statLabel"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "marquee",
+      "interfaceFields": [
+        "items",
+        "direction",
+        "speed",
+        "pauseOnHover",
+        "pauseOnClick",
+        "gradient",
+        "gradientColor",
+        "gradientWidth",
+        "autoFill",
+        "gap",
+        "height",
+        "loop"
+      ],
+      "fieldsInPanels": [
+        "items",
+        "direction",
+        "speed",
+        "pauseOnHover",
+        "pauseOnClick",
+        "gradient",
+        "gradientColor",
+        "gradientWidth",
+        "autoFill",
+        "gap",
+        "height",
+        "loop"
+      ],
+      "fieldsInContentEditor": [
+        "items",
+        "direction",
+        "speed",
+        "pauseOnHover",
+        "pauseOnClick",
+        "gradient",
+        "gradientColor",
+        "gradientWidth",
+        "autoFill",
+        "gap",
+        "height",
+        "loop"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "services-grid",
+      "interfaceFields": [
+        "overline",
+        "title",
+        "description",
+        "services",
+        "columns",
+        "accentColor"
+      ],
+      "fieldsInPanels": [
+        "overline",
+        "title",
+        "description",
+        "columns",
+        "accentColor"
+      ],
+      "fieldsInContentEditor": [
+        "overline",
+        "title",
+        "description",
+        "services",
+        "columns",
+        "accentColor"
+      ],
+      "fieldsMissingFromPanels": [
+        "services"
+      ],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "description",
+        "card",
+        "serviceTitle",
+        "serviceDescription",
+        "serviceIcon",
+        "serviceLink",
+        "serviceImage",
+        "bullet"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "description",
+        "card",
+        "serviceTitle",
+        "serviceDescription",
+        "serviceIcon",
+        "serviceLink",
+        "serviceImage",
+        "bullet"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "cta",
+      "interfaceFields": [
+        "title",
+        "description",
+        "primaryButtonText",
+        "primaryButtonUrl",
+        "secondaryButtonText",
+        "secondaryButtonUrl",
+        "backgroundStyle"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "primaryButtonText",
+        "primaryButtonUrl",
+        "secondaryButtonText",
+        "secondaryButtonUrl",
+        "backgroundStyle"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "primaryButtonText",
+        "primaryButtonUrl",
+        "secondaryButtonText",
+        "secondaryButtonUrl",
+        "backgroundStyle"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description",
+        "primaryButton",
+        "secondaryButton"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description",
+        "primaryButton",
+        "secondaryButton"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "card-grid",
+      "interfaceFields": [
+        "title",
+        "description",
+        "cards",
+        "columns",
+        "iconSize"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "columns",
+        "iconSize"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "columns",
+        "iconSize"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description",
+        "card",
+        "cardTitle",
+        "cardDescription",
+        "cardIcon",
+        "cardLink",
+        "cardImage"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description",
+        "card",
+        "cardTitle",
+        "cardDescription",
+        "cardIcon",
+        "cardLink",
+        "cardImage"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "flip-card-grid",
+      "interfaceFields": [
+        "overline",
+        "title",
+        "description",
+        "cards",
+        "columns",
+        "flipTrigger",
+        "flipAxis",
+        "cardHeight",
+        "accentColor"
+      ],
+      "fieldsInPanels": [
+        "overline",
+        "title",
+        "description",
+        "cards",
+        "columns",
+        "flipTrigger",
+        "flipAxis",
+        "cardHeight",
+        "accentColor"
+      ],
+      "fieldsInContentEditor": [
+        "overline",
+        "title",
+        "description",
+        "cards",
+        "columns",
+        "flipTrigger",
+        "flipAxis",
+        "cardHeight",
+        "accentColor"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "description",
+        "frontCard",
+        "frontTitle",
+        "frontSubtitle",
+        "frontIcon",
+        "backCard",
+        "backText",
+        "backLink"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "description",
+        "frontCard",
+        "frontTitle",
+        "frontSubtitle",
+        "frontIcon",
+        "backCard",
+        "backText",
+        "backLink"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "metric-cards",
+      "interfaceFields": [
+        "overline",
+        "title",
+        "description",
+        "metrics",
+        "columns",
+        "accentColor",
+        "logoColumnWidth",
+        "labelMaxWidth"
+      ],
+      "fieldsInPanels": [
+        "overline",
+        "title",
+        "description",
+        "metrics",
+        "columns",
+        "accentColor",
+        "logoColumnWidth",
+        "labelMaxWidth"
+      ],
+      "fieldsInContentEditor": [
+        "overline",
+        "title",
+        "description",
+        "metrics",
+        "columns",
+        "accentColor",
+        "logoColumnWidth",
+        "labelMaxWidth"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "description",
+        "card",
+        "value",
+        "label",
+        "institution",
+        "link"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "description",
+        "card",
+        "value",
+        "label",
+        "institution",
+        "link"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "logo-strip",
+      "interfaceFields": [
+        "overline",
+        "logos",
+        "columns",
+        "grayscale",
+        "logoHeight",
+        "gap",
+        "alignment"
+      ],
+      "fieldsInPanels": [
+        "overline",
+        "logos",
+        "columns",
+        "grayscale",
+        "logoHeight",
+        "gap",
+        "alignment"
+      ],
+      "fieldsInContentEditor": [
+        "overline",
+        "logos",
+        "columns",
+        "grayscale",
+        "logoHeight",
+        "gap",
+        "alignment"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "logo"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "logo"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "stats",
+      "interfaceFields": [
+        "title",
+        "stats",
+        "columns"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "stats",
+        "columns"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "stats",
+        "columns"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "statValue",
+        "statLabel"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "statValue",
+        "statLabel"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "testimonial",
+      "interfaceFields": [
+        "quote",
+        "author",
+        "role",
+        "company",
+        "avatar"
+      ],
+      "fieldsInPanels": [
+        "quote",
+        "author",
+        "role",
+        "company",
+        "avatar"
+      ],
+      "fieldsInContentEditor": [
+        "quote",
+        "author",
+        "role",
+        "company",
+        "avatar"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "quoteIcon",
+        "quote",
+        "author"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "quoteIcon",
+        "quote",
+        "author"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "blog-posts",
+      "interfaceFields": [
+        "title",
+        "description",
+        "postType",
+        "categorySlug",
+        "limit",
+        "showExcerpt",
+        "columns"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "postType",
+        "categorySlug",
+        "limit",
+        "showExcerpt",
+        "columns"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "postType",
+        "categorySlug",
+        "limit",
+        "showExcerpt",
+        "columns"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description",
+        "postTitle",
+        "postExcerpt"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description",
+        "postTitle",
+        "postExcerpt"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "featured-content",
+      "interfaceFields": [
+        "title",
+        "description",
+        "imageUrl",
+        "imagePosition",
+        "buttonText",
+        "buttonUrl",
+        "stats"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "imageUrl",
+        "imagePosition",
+        "buttonText",
+        "buttonUrl",
+        "stats"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "imageUrl",
+        "imagePosition",
+        "buttonText",
+        "buttonUrl",
+        "stats"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description",
+        "button",
+        "statValue",
+        "statLabel"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description",
+        "button",
+        "statValue",
+        "statLabel"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "gallery",
+      "interfaceFields": [
+        "images",
+        "layout",
+        "columns",
+        "lightbox",
+        "gap"
+      ],
+      "fieldsInPanels": [
+        "images",
+        "layout",
+        "columns",
+        "lightbox",
+        "gap"
+      ],
+      "fieldsInContentEditor": [
+        "images",
+        "layout",
+        "columns",
+        "lightbox",
+        "gap"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "caption"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "caption"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "product-grid",
+      "interfaceFields": [
+        "title",
+        "description",
+        "categorySlug",
+        "sort",
+        "limit",
+        "columns",
+        "showPrice",
+        "showDescription",
+        "showCategory",
+        "buttonText"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "categorySlug",
+        "sort",
+        "limit",
+        "columns",
+        "showPrice",
+        "showDescription",
+        "showCategory",
+        "buttonText"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "categorySlug",
+        "sort",
+        "limit",
+        "columns",
+        "showPrice",
+        "showDescription",
+        "showCategory",
+        "buttonText"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "featured-products",
+      "interfaceFields": [
+        "title",
+        "description",
+        "limit",
+        "columns",
+        "showPrice",
+        "showBadge",
+        "badgeText",
+        "buttonText"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "limit",
+        "columns",
+        "showPrice",
+        "showBadge",
+        "badgeText",
+        "buttonText"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "limit",
+        "columns",
+        "showPrice",
+        "showBadge",
+        "badgeText",
+        "buttonText"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "product-categories",
+      "interfaceFields": [
+        "title",
+        "description",
+        "columns",
+        "showProductCount",
+        "showImage",
+        "layout"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "columns",
+        "showProductCount",
+        "showImage",
+        "layout"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "columns",
+        "showProductCount",
+        "showImage",
+        "layout"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "shopping-cart",
+      "interfaceFields": [
+        "variant",
+        "showSubtotal",
+        "checkoutButtonText",
+        "emptyCartMessage"
+      ],
+      "fieldsInPanels": [
+        "variant",
+        "showSubtotal",
+        "checkoutButtonText",
+        "emptyCartMessage"
+      ],
+      "fieldsInContentEditor": [
+        "variant",
+        "showSubtotal",
+        "checkoutButtonText",
+        "emptyCartMessage"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "store-banner",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "discountCode",
+        "buttonText",
+        "buttonUrl",
+        "backgroundImage",
+        "backgroundStyle",
+        "accentColor",
+        "countdownDate"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "discountCode",
+        "buttonText",
+        "buttonUrl",
+        "backgroundImage",
+        "backgroundStyle",
+        "accentColor",
+        "countdownDate"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "discountCode",
+        "buttonText",
+        "buttonUrl",
+        "backgroundImage",
+        "backgroundStyle",
+        "accentColor",
+        "countdownDate"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "subtitle",
+        "discountCode",
+        "button"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "subtitle",
+        "discountCode",
+        "button"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "product-detail",
+      "interfaceFields": [
+        "productSlug",
+        "layout",
+        "showGallery",
+        "showDescription",
+        "showVariants",
+        "showAddToCart",
+        "showBulkPricing",
+        "showBreadcrumb",
+        "showTags"
+      ],
+      "fieldsInPanels": [
+        "productSlug",
+        "layout",
+        "showGallery",
+        "showDescription",
+        "showVariants",
+        "showAddToCart",
+        "showBulkPricing",
+        "showBreadcrumb",
+        "showTags"
+      ],
+      "fieldsInContentEditor": [
+        "productSlug",
+        "layout",
+        "showGallery",
+        "showDescription",
+        "showVariants",
+        "showAddToCart",
+        "showBulkPricing",
+        "showBreadcrumb",
+        "showTags"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "breadcrumb",
+        "gallery",
+        "badge",
+        "productName",
+        "price",
+        "comparePrice",
+        "shortDescription",
+        "optionLabel",
+        "optionButton",
+        "addToCartButton",
+        "sku",
+        "sectionTitle"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "breadcrumb",
+        "gallery",
+        "badge",
+        "productName",
+        "price",
+        "comparePrice",
+        "shortDescription",
+        "optionLabel",
+        "optionButton",
+        "addToCartButton",
+        "sku",
+        "sectionTitle"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "booking",
+      "interfaceFields": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "showDescription",
+        "showSteps",
+        "showLogo",
+        "height",
+        "styleOverrides"
+      ],
+      "fieldsInPanels": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "showDescription",
+        "showSteps",
+        "showLogo",
+        "height",
+        "styleOverrides"
+      ],
+      "fieldsInContentEditor": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "showDescription",
+        "showSteps",
+        "showLogo",
+        "height",
+        "styleOverrides"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "booking-menu",
+      "interfaceFields": [
+        "title",
+        "description",
+        "columns"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "description",
+        "columns"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "description",
+        "columns"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description",
+        "card",
+        "cardTitle",
+        "cardDescription",
+        "button"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description",
+        "card",
+        "cardTitle",
+        "cardDescription",
+        "button"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "survey",
+      "interfaceFields": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "height"
+      ],
+      "fieldsInPanels": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "height"
+      ],
+      "fieldsInContentEditor": [
+        "slug",
+        "title",
+        "description",
+        "showPageTitle",
+        "height"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "survey-results",
+      "interfaceFields": [
+        "surveySlug",
+        "title",
+        "description",
+        "fieldIds",
+        "chartType",
+        "showResponseCount",
+        "showTextResponses",
+        "textResponseLimit",
+        "accentColor",
+        "layout"
+      ],
+      "fieldsInPanels": [
+        "surveySlug",
+        "title",
+        "description",
+        "fieldIds",
+        "chartType",
+        "showResponseCount",
+        "showTextResponses",
+        "textResponseLimit",
+        "accentColor",
+        "layout"
+      ],
+      "fieldsInContentEditor": [
+        "surveySlug",
+        "title",
+        "description",
+        "fieldIds",
+        "chartType",
+        "showResponseCount",
+        "showTextResponses",
+        "textResponseLimit",
+        "accentColor",
+        "layout"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "title",
+        "description"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "title",
+        "description"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "social-links",
+      "interfaceFields": [
+        "links",
+        "iconSize",
+        "alignment"
+      ],
+      "fieldsInPanels": [
+        "links",
+        "iconSize",
+        "alignment"
+      ],
+      "fieldsInContentEditor": [
+        "links",
+        "iconSize",
+        "alignment"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "icon",
+        "link"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "icon",
+        "link"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "timeline",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "overline",
+        "steps",
+        "lineColor",
+        "numberColor",
+        "nodeColor",
+        "layout"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "overline",
+        "steps",
+        "lineColor",
+        "numberColor",
+        "nodeColor",
+        "layout"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "overline",
+        "steps",
+        "lineColor",
+        "numberColor",
+        "nodeColor",
+        "layout"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "subtitle",
+        "stepTitle",
+        "stepDescription"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "subtitle",
+        "stepTitle",
+        "stepDescription"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "team-showcase",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "bioPanelColor",
+        "accentColor",
+        "photoFilter"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "bioPanelColor",
+        "accentColor",
+        "photoFilter"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "bioPanelColor",
+        "accentColor",
+        "photoFilter"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "subtitle",
+        "memberName",
+        "memberTitle",
+        "memberCredentials",
+        "memberBio",
+        "specialtyTag"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "subtitle",
+        "memberName",
+        "memberTitle",
+        "memberCredentials",
+        "memberBio",
+        "specialtyTag"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "team-flip-grid",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "columns",
+        "backBgColor",
+        "backTextColor",
+        "nameColor",
+        "titleColor"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "columns",
+        "backBgColor",
+        "backTextColor",
+        "nameColor",
+        "titleColor"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "overline",
+        "members",
+        "columns",
+        "backBgColor",
+        "backTextColor",
+        "nameColor",
+        "titleColor"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "memberName",
+        "memberTitle",
+        "memberBio",
+        "question",
+        "answer",
+        "frontCard",
+        "backCard"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "memberName",
+        "memberTitle",
+        "memberBio",
+        "question",
+        "answer",
+        "frontCard",
+        "backCard"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "bento-grid",
+      "interfaceFields": [
+        "title",
+        "subtitle",
+        "overline",
+        "cards",
+        "darkBg",
+        "lightBorder",
+        "accentColor",
+        "columns"
+      ],
+      "fieldsInPanels": [
+        "title",
+        "subtitle",
+        "overline",
+        "cards",
+        "darkBg",
+        "lightBorder",
+        "accentColor",
+        "columns"
+      ],
+      "fieldsInContentEditor": [
+        "title",
+        "subtitle",
+        "overline",
+        "cards",
+        "darkBg",
+        "lightBorder",
+        "accentColor",
+        "columns"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "overline",
+        "title",
+        "subtitle",
+        "cardTitle",
+        "cardTitleDark",
+        "cardTitleLight",
+        "cardLead",
+        "cardLeadDark",
+        "cardLeadLight"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "overline",
+        "title",
+        "subtitle",
+        "cardTitle",
+        "cardTitleDark",
+        "cardTitleLight",
+        "cardLead",
+        "cardLeadDark",
+        "cardLeadLight"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "site-footer",
+      "interfaceFields": [
+        "logoUrl",
+        "logoAlt",
+        "wordmark",
+        "brandSize",
+        "tagline",
+        "ctaText",
+        "ctaUrl",
+        "linkGroups",
+        "contactInfo",
+        "socialLinks",
+        "copyright",
+        "disclaimer",
+        "backgroundColor",
+        "textColor",
+        "accentColor"
+      ],
+      "fieldsInPanels": [
+        "logoUrl",
+        "logoAlt",
+        "wordmark",
+        "brandSize",
+        "tagline",
+        "ctaText",
+        "ctaUrl",
+        "linkGroups",
+        "contactInfo",
+        "socialLinks",
+        "copyright",
+        "disclaimer",
+        "backgroundColor",
+        "textColor",
+        "accentColor"
+      ],
+      "fieldsInContentEditor": [
+        "logoUrl",
+        "logoAlt",
+        "wordmark",
+        "brandSize",
+        "tagline",
+        "ctaText",
+        "ctaUrl",
+        "linkGroups",
+        "contactInfo",
+        "socialLinks",
+        "copyright",
+        "disclaimer",
+        "backgroundColor",
+        "textColor",
+        "accentColor"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [
+        "logo",
+        "wordmark",
+        "tagline",
+        "linkGroupLabel",
+        "link",
+        "socialIcon",
+        "contactLine",
+        "copyright"
+      ],
+      "elementKeysWithRendererCallSite": [
+        "logo",
+        "wordmark",
+        "tagline",
+        "linkGroupLabel",
+        "link",
+        "socialIcon",
+        "contactLine",
+        "copyright"
+      ],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "sticky-scroll-tabs",
+      "interfaceFields": [
+        "overline",
+        "title",
+        "description",
+        "panels",
+        "stickyTopOffset",
+        "panelMinHeight",
+        "tabBorderRadius",
+        "activeTabBackground",
+        "activeTabColor",
+        "inactiveTabBackground",
+        "inactiveTabColor",
+        "mobileActiveTabBackground",
+        "mobileActiveTabColor",
+        "mobileInactiveTabBackground",
+        "mobileInactiveTabColor",
+        "mobileTabsBehavior"
+      ],
+      "fieldsInPanels": [
+        "overline",
+        "title",
+        "description",
+        "panels",
+        "stickyTopOffset",
+        "panelMinHeight",
+        "tabBorderRadius",
+        "activeTabBackground",
+        "activeTabColor",
+        "inactiveTabBackground",
+        "inactiveTabColor",
+        "mobileActiveTabBackground",
+        "mobileActiveTabColor",
+        "mobileInactiveTabBackground",
+        "mobileInactiveTabColor",
+        "mobileTabsBehavior"
+      ],
+      "fieldsInContentEditor": [
+        "overline",
+        "title",
+        "description",
+        "panels",
+        "stickyTopOffset",
+        "panelMinHeight",
+        "tabBorderRadius",
+        "activeTabBackground",
+        "activeTabColor",
+        "inactiveTabBackground",
+        "inactiveTabColor",
+        "mobileActiveTabBackground",
+        "mobileActiveTabColor",
+        "mobileInactiveTabBackground",
+        "mobileInactiveTabColor",
+        "mobileTabsBehavior"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "html-embed",
+      "interfaceFields": [
+        "url",
+        "filename",
+        "mediaId",
+        "inlineHtml",
+        "height",
+        "width",
+        "sandbox",
+        "iframeTitle",
+        "caption"
+      ],
+      "fieldsInPanels": [
+        "url",
+        "filename",
+        "mediaId",
+        "height",
+        "width",
+        "sandbox",
+        "iframeTitle",
+        "caption"
+      ],
+      "fieldsInContentEditor": [
+        "url",
+        "filename",
+        "mediaId",
+        "height",
+        "width",
+        "sandbox",
+        "iframeTitle",
+        "caption"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "html-render",
+      "interfaceFields": [
+        "html",
+        "width",
+        "fields",
+        "values",
+        "loop"
+      ],
+      "fieldsInPanels": [
+        "html",
+        "width",
+        "loop"
+      ],
+      "fieldsInContentEditor": [
+        "width",
+        "loop"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [
+        "html"
+      ],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    }
+  ]
+}

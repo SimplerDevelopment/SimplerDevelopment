@@ -29,6 +29,7 @@ const SLUG_TO_CATEGORY: Record<string, 'LayoutPanel' | 'ContentPanel' | 'FormPan
   'divider': 'LayoutPanel',
   'spacer': 'LayoutPanel',
   'columns': 'LayoutPanel',
+  'sticky-scroll-tabs': 'LayoutPanel',
   'text': 'ContentPanel',
   'heading': 'ContentPanel',
   'quote': 'ContentPanel',
