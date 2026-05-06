@@ -36,6 +36,13 @@ async function handle(req: Request): Promise<Response> {
   }
 }
 
-export async function GET(req: Request)    { return handle(req); }
+// Stateless + JSON-response mode (enableJsonResponse=true) — there are no
+// server-pushed notifications to stream on GET. Vercel serverless can't
+// hold an idle SSE stream open: the function returns immediately with
+// content-length: 0, and mcp-remote interprets the empty stream as a
+// failure, then re-runs OAuth in a loop. Returning 405 makes mcp-remote
+// skip the SSE channel (per its code: `if (response.status === 405) return;`)
+// and use POST-only, which is what JSON-response mode expects.
+export async function GET()                { return new Response(null, { status: 405, headers: { Allow: 'POST, DELETE' } }); }
 export async function POST(req: Request)   { return handle(req); }
 export async function DELETE(req: Request) { return handle(req); }
