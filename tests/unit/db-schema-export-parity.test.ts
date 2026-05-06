@@ -505,13 +505,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (168)', () => {
+  it('reports the recorded number of tables (169)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(168);
+    expect(count).toBe(169);
   });
 });
