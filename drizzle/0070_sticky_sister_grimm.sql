@@ -1,4 +1,4 @@
-ALTER TABLE "brain_notes" ADD COLUMN "deleted_at" timestamp;
+ALTER TABLE "brain_notes" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp;
 
 CREATE INDEX IF NOT EXISTS "brain_notes_tags_gin_idx"
   ON "brain_notes" USING gin ((tags::jsonb) jsonb_path_ops);
