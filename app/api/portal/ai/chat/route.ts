@@ -145,8 +145,15 @@ export async function POST(req: Request) {
 
     let currentMessages = [...anthropicMessages];
 
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    // Guardrails to prevent runaway agentic loops / tool-call storms.
+    const MAX_LOOPS = 8;
+    const MAX_TOOL_CALLS = 20;
+    let loopCount = 0;
+    let toolCallCount = 0;
+    let hitLoopCap = false;
+
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
       const response = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 2048,
@@ -162,6 +169,14 @@ export async function POST(req: Request) {
         const toolUseBlocks = response.content.filter(
           (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
         );
+
+        toolCallCount += toolUseBlocks.length;
+        if (toolCallCount > MAX_TOOL_CALLS) {
+          return NextResponse.json(
+            { success: false, error: 'tool_call_cap_exceeded' },
+            { status: 400 },
+          );
+        }
 
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of toolUseBlocks) {
@@ -184,6 +199,15 @@ export async function POST(req: Request) {
           { role: 'assistant', content: response.content },
           { role: 'user', content: toolResults },
         ];
+
+        if (loopCount >= MAX_LOOPS) {
+          hitLoopCap = true;
+          finalText = response.content
+            .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+            .map(b => b.text)
+            .join('');
+          break;
+        }
       } else {
         // end_turn or max_tokens — extract text
         finalText = response.content
@@ -192,6 +216,13 @@ export async function POST(req: Request) {
           .join('');
         break;
       }
+    }
+
+    if (hitLoopCap) {
+      return NextResponse.json(
+        { success: false, error: 'loop_cap_exceeded' },
+        { status: 400 },
+      );
     }
 
     // Save user message
