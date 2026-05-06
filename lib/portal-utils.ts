@@ -20,6 +20,7 @@ export function ticketStatusColor(status: string): string {
     open: 'bg-blue-100 text-blue-700',
     in_progress: 'bg-yellow-100 text-yellow-700',
     waiting: 'bg-orange-100 text-orange-700',
+    waiting_on_customer: 'bg-orange-100 text-orange-700',
     resolved: 'bg-green-100 text-green-700',
     closed: 'bg-gray-100 text-gray-500',
   };
