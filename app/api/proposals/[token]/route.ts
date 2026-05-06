@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { crmProposals, crmContacts, crmCompanies } from '@/lib/db/schema';
+import { crmProposals, crmContacts, crmCompanies, crmDeals } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { createCrmNotification } from '@/lib/crm/notifications';
 
 export async function GET(
   req: NextRequest,
@@ -16,6 +17,9 @@ export async function GET(
   const [proposal] = await db
     .select({
       id: crmProposals.id,
+      clientId: crmProposals.clientId,
+      dealId: crmProposals.dealId,
+      createdBy: crmProposals.createdBy,
       title: crmProposals.title,
       summary: crmProposals.summary,
       status: crmProposals.status,
@@ -60,8 +64,9 @@ export async function GET(
     viewCount: sql`${crmProposals.viewCount} + 1`,
   };
 
-  // Set firstViewedAt only if not already set
-  if (proposal.status === 'sent') {
+  // Detect first view: status === 'sent' means we've never recorded a view.
+  const isFirstView = proposal.status === 'sent';
+  if (isFirstView) {
     viewUpdates.status = 'viewed';
     viewUpdates.firstViewedAt = now;
   }
@@ -70,6 +75,35 @@ export async function GET(
     .update(crmProposals)
     .set(viewUpdates)
     .where(eq(crmProposals.clientToken, token));
+
+  // Notify the proposal creator on first view only. The bell maps `proposal`
+  // entityType to /portal/crm/deals/<entityId>, so prefer dealId for the entity
+  // link; fall back to the proposal id if the proposal isn't tied to a deal.
+  if (isFirstView) {
+    let recipientUserId = proposal.createdBy;
+    if (!recipientUserId && proposal.dealId) {
+      const [deal] = await db
+        .select({ ownerId: crmDeals.ownerId })
+        .from(crmDeals)
+        .where(eq(crmDeals.id, proposal.dealId));
+      if (deal?.ownerId) recipientUserId = deal.ownerId;
+    }
+    if (recipientUserId) {
+      const recipient = [proposal.contactFirstName, proposal.contactLastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || proposal.contactEmail || null;
+      createCrmNotification({
+        clientId: proposal.clientId,
+        userId: recipientUserId,
+        type: 'proposal_viewed',
+        title: `Your proposal was viewed: ${proposal.title}`,
+        body: recipient ? `Viewed by ${recipient}` : undefined,
+        entityType: 'proposal',
+        entityId: proposal.dealId ?? proposal.id,
+      });
+    }
+  }
 
   return NextResponse.json({ success: true, data: proposal });
 }
