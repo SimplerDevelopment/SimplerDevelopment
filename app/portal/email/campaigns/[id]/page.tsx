@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
@@ -394,7 +395,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
           ) : (
             <div className="p-5">
               <div className="border border-border rounded-md p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"
-                dangerouslySetInnerHTML={{ __html: campaign.htmlContent }} />
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(campaign.htmlContent) }} />
             </div>
           )}
         </div>

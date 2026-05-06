@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -827,7 +828,7 @@ export default function ProposalEditorPage() {
                         </h2>
                       )}
                       {section.type === 'text' && (
-                        <div className="text-sm text-foreground prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: section.content || '<p class="text-muted-foreground italic">Text content...</p>' }} />
+                        <div className="text-sm text-foreground prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(section.content || '<p class="text-muted-foreground italic">Text content...</p>') }} />
                       )}
                       {section.type === 'image' && section.content && (
                         <img src={section.content} alt="Section" className="w-full rounded-lg" />
