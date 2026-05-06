@@ -93,6 +93,7 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   renderBlocksToEmailHtml,
   resend,
@@ -886,9 +887,17 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
+      try {
+        await assertSafeUrl(url);
+      } catch (err) {
+        return json({ error: `URL rejected: ${(err as Error).message}` });
+      }
       let resp: Response;
       try {
-        resp = await fetch(url);
+        resp = await fetch(url, { redirect: 'manual' });
+        if (resp.status >= 300 && resp.status < 400) {
+          return json({ error: 'Refusing to follow redirects on remote upload (SSRF guard).' });
+        }
       } catch (err) {
         return json({ error: `Fetch failed: ${(err as Error).message}` });
       }
