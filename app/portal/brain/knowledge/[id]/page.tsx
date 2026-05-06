@@ -32,6 +32,8 @@ import MarkdownEditor from '@/components/brain/MarkdownEditor';
 import NoteOutlinePanel from '@/components/brain/NoteOutlinePanel';
 import NoteBacklinksPanel from '@/components/brain/NoteBacklinksPanel';
 import NoteCustomFieldsPanel from '@/components/brain/NoteCustomFieldsPanel';
+import CommandPalette from '@/components/brain/CommandPalette';
+import { pushRecentNoteId } from '@/lib/brain/recent-notes';
 
 interface BrainNote {
   id: number;
@@ -70,6 +72,7 @@ export default function BrainNoteDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<SidePanel>('outline');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Hold the EditorView so the outline panel can call `view.dispatch` to scroll.
   // Using a ref (rather than state) prevents a re-render of the whole page
@@ -153,6 +156,36 @@ export default function BrainNoteDetailPage() {
     const id = window.setTimeout(() => setSaveState('idle'), 2000);
     return () => window.clearTimeout(id);
   }, [saveState]);
+
+  // Track this note in the recent ring so it shows up under "Recent" in the
+  // Cmd-K palette next time.
+  useEffect(() => {
+    if (Number.isFinite(noteId)) pushRecentNoteId(noteId);
+  }, [noteId]);
+
+  // Global Cmd-K / Ctrl-K to open the palette from zen mode too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const handleCreate = useCallback(async () => {
+    const r = await fetch('/api/portal/brain/knowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled', body: '' }),
+    });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.success && json.data?.id) {
+      router.push(`/portal/brain/knowledge?id=${json.data.id}`);
+    }
+  }, [router]);
 
   const handleEditorReady = useCallback((view: EditorView | null) => {
     editorViewRef.current = view;
@@ -263,6 +296,12 @@ export default function BrainNoteDetailPage() {
           </div>
         </aside>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onCreate={handleCreate}
+        selectedNoteId={Number.isFinite(noteId) ? noteId : null}
+      />
     </div>
   );
 }

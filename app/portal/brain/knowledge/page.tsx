@@ -33,8 +33,11 @@ import NoteEditorPane from '@/components/brain/NoteEditorPane';
 import NoteOutlinePanel from '@/components/brain/NoteOutlinePanel';
 import NoteBacklinksPanel from '@/components/brain/NoteBacklinksPanel';
 import NoteCustomFieldsPanel from '@/components/brain/NoteCustomFieldsPanel';
+import NoteHistoryPanel from '@/components/brain/NoteHistoryPanel';
+import CommandPalette from '@/components/brain/CommandPalette';
+import { pushRecentNoteId } from '@/lib/brain/recent-notes';
 
-type SidePanel = 'outline' | 'backlinks' | 'fields';
+type SidePanel = 'outline' | 'backlinks' | 'fields' | 'history';
 
 interface BrainNote {
   id: number;
@@ -45,6 +48,7 @@ const SIDE_TABS: Array<{ id: SidePanel; icon: string; label: string }> = [
   { id: 'outline',   icon: 'segment', label: 'Outline' },
   { id: 'backlinks', icon: 'link',    label: 'Backlinks' },
   { id: 'fields',    icon: 'tune',    label: 'Fields' },
+  { id: 'history',   icon: 'history', label: 'History' },
 ];
 
 export default function BrainKnowledgePage() {
@@ -57,9 +61,11 @@ export default function BrainKnowledgePage() {
   const [activePanel, setActivePanel] = useState<SidePanel>('outline');
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [body, setBody] = useState('');
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const editorViewRef = useRef<EditorView | null>(null);
 
   const handleSelect = useCallback((id: number) => {
+    pushRecentNoteId(id);
     const params = new URLSearchParams(searchParams.toString());
     params.set('id', String(id));
     router.push(`/portal/brain/knowledge?${params.toString()}`, { scroll: false });
@@ -84,6 +90,11 @@ export default function BrainKnowledgePage() {
     setRefreshTick(t => t + 1);
   }, []);
 
+  const handleTemplateApplied = useCallback((id: number) => {
+    setRefreshTick(t => t + 1);
+    handleSelect(id);
+  }, [handleSelect]);
+
   const handleDeleted = useCallback((deletedId: number) => {
     setRefreshTick(t => t + 1);
     if (selectedId === deletedId) {
@@ -105,6 +116,18 @@ export default function BrainKnowledgePage() {
     setActivePanel('outline');
   }, [selectedId]);
 
+  // Global Cmd-K / Ctrl-K to open the palette.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="fixed inset-0 top-[var(--portal-header-height,3.5rem)]">
       <PanelGroup direction="horizontal" autoSaveId="brain.knowledge.shell">
@@ -118,6 +141,7 @@ export default function BrainKnowledgePage() {
             selectedId={selectedId}
             onSelect={handleSelect}
             onCreate={handleCreate}
+            onTemplateApplied={handleTemplateApplied}
             refreshTick={refreshTick}
           />
         </Panel>
@@ -163,6 +187,12 @@ export default function BrainKnowledgePage() {
           />
         )}
       </PanelGroup>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onCreate={handleCreate}
+        selectedNoteId={selectedId}
+      />
     </div>
   );
 }
@@ -225,6 +255,9 @@ function SidePanelHost({
             )}
             {active === 'backlinks' && (
               <NoteBacklinksPanel noteId={noteId} />
+            )}
+            {active === 'history' && (
+              <NoteHistoryPanel noteId={noteId} />
             )}
             {active === 'fields' && (
               <NoteCustomFieldsPanel noteId={noteId} />
