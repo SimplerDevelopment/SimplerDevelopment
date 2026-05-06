@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { listNotes, countNotes, createNote, listAllTags } from '@/lib/brain/notes';
 
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const wantTags = url.searchParams.get('tags') === 'true';
@@ -54,8 +54,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object' || typeof body.title !== 'string' || !body.title.trim()) {
