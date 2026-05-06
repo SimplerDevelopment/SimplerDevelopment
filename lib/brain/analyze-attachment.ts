@@ -13,6 +13,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createHmac } from 'crypto';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 
 const ATTACHMENT_WORKER_URL = process.env.BRAIN_ATTACHMENT_WORKER_URL
   || 'https://sd-email-inbound.lingering-bush-dcd7.workers.dev';
@@ -56,7 +57,14 @@ function signedUrl(key: string): string {
 }
 
 async function fetchBytes(url: string): Promise<Buffer> {
-  const res = await fetch(url);
+  // Defense-in-depth: ATTACHMENT_WORKER_URL is normally a fixed CF Worker URL,
+  // but if the env var is misconfigured or someone edits this code to accept a
+  // user URL, assertSafeUrl rejects private/loopback/metadata addresses.
+  await assertSafeUrl(url);
+  const res = await fetch(url, { redirect: 'manual' });
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error('Refusing to follow redirects on attachment fetch (SSRF guard).');
+  }
   if (!res.ok) throw new Error(`Worker returned ${res.status} for attachment fetch`);
   const buf = Buffer.from(await res.arrayBuffer());
   return buf;
