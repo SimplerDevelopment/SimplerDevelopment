@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
-import { bindEmailToYjs, type EmailYjsBinding } from '@/lib/realtime/email-binding';
-import {
-  EmailCollaborationProvider,
-  useEmailPresence,
-} from './_components/EmailCollaborationProvider';
-import { EmailPresenceBar } from './_components/EmailPresenceBar';
-import { EmailFieldFocusIndicator } from './_components/EmailFieldFocusIndicator';
 
 interface Campaign {
   id: number;
@@ -58,15 +51,6 @@ const statusColor: Record<string, string> = {
 
 export default function PortalCampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  return (
-    <EmailCollaborationProvider entityId={id}>
-      <PortalCampaignDetailPageInner id={id} />
-    </EmailCollaborationProvider>
-  );
-}
-
-function PortalCampaignDetailPageInner({ id }: { id: string }) {
-  const presence = useEmailPresence();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [sends, setSends] = useState<Send[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,52 +86,6 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   }, []);
 
   const hasBlockContent = !!campaign?.blockContent?.blocks;
-
-  // ── Yjs binding for the blocks variant ───────────────────────────────
-  // Only attach when (a) the campaign uses blockContent (not htmlContent),
-  // (b) we're in edit mode, and (c) the realtime ydoc is available. The
-  // binding seeds the Y.Doc with local state on first connect, and routes
-  // subsequent local edits through `applyLocalBlocks` so peers receive
-  // them. Remote edits flow back through onRemoteBlocks → setEditBlocks.
-  const bindingRef = useRef<EmailYjsBinding | null>(null);
-  const editingRef = useRef(false);
-  editingRef.current = editing;
-
-  useEffect(() => {
-    bindingRef.current = null;
-    if (!editing || !hasBlockContent) return;
-    const ydoc = presence.ydoc;
-    if (!ydoc) return;
-    const binding = bindEmailToYjs({
-      ydoc,
-      initialBlocks: editBlocks,
-      onRemoteBlocks: (remote) => {
-        // Skip remote echoes after we've already left edit mode.
-        if (!editingRef.current) return;
-        setEditBlocks(remote);
-      },
-    });
-    bindingRef.current = binding;
-    return () => {
-      binding.unbind();
-      if (bindingRef.current === binding) bindingRef.current = null;
-    };
-    // editBlocks intentionally omitted — we only (re)bind when the editor
-    // opens, the doc rotates, or the variant changes. Subsequent edits
-    // flow through handleEditBlocksChange.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, hasBlockContent, presence.ydoc]);
-
-  /**
-   * Single funnel for any local block-array mutation made from the visual
-   * editor. When a binding is attached, push the new state through Yjs so
-   * peers sync; when unbound (realtime disabled / not yet connected), fall
-   * through to a plain setState so editing still works offline.
-   */
-  function handleEditBlocksChange(next: Block[]) {
-    setEditBlocks(next);
-    bindingRef.current?.applyLocalBlocks(next);
-  }
 
   function startEdit() {
     if (!campaign) return;
@@ -220,8 +158,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
             <p className="text-muted-foreground text-sm mt-0.5">{campaign.subject}</p>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0 items-center">
-          <EmailPresenceBar />
+        <div className="flex gap-2 shrink-0">
           {campaign.status === 'draft' && !editing && (
             <button onClick={startEdit}
               className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors">
@@ -312,28 +249,11 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Subject *</label>
-                    <EmailFieldFocusIndicator fieldPath="subject">
-                      <input
-                        required
-                        value={editForm.subject}
-                        onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))}
-                        onFocus={() => presence.setFocusedField('subject')}
-                        onBlur={() => presence.setFocusedField(null)}
-                        className={inputClass}
-                      />
-                    </EmailFieldFocusIndicator>
+                    <input required value={editForm.subject} onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))} className={inputClass} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Preview Text</label>
-                    <EmailFieldFocusIndicator fieldPath="previewText">
-                      <input
-                        value={editForm.previewText}
-                        onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))}
-                        onFocus={() => presence.setFocusedField('previewText')}
-                        onBlur={() => presence.setFocusedField(null)}
-                        className={inputClass}
-                      />
-                    </EmailFieldFocusIndicator>
+                    <input value={editForm.previewText} onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))} className={inputClass} />
                   </div>
                 </div>
               </div>
@@ -350,18 +270,16 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                         previewMode={false}
                         initialZoom={100}
                         iframeSrc="/portal/email/editor-preview?_edit=true"
-                        onBlocksChange={handleEditBlocksChange}
-                        onSelectBlock={(blockId) => {
-                          presence.setSelection(blockId ? { blockId } : null);
-                        }}
+                        onBlocksChange={setEditBlocks}
+                        onSelectBlock={() => {}}
                         onAddBlock={(type: string) => {
                           const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                           let newBlock = { id, type: type as BlockType, order: editBlocks.length + 1, content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined, level: type === 'heading' ? 2 : undefined } as Block;
                           if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
-                          handleEditBlocksChange([...editBlocks, newBlock]);
+                          setEditBlocks([...editBlocks, newBlock]);
                         }}
-                        onDeleteBlock={(blockId: string) => handleEditBlocksChange(removeBlockById(editBlocks, blockId))}
-                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => handleEditBlocksChange(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
+                        onDeleteBlock={(blockId: string) => setEditBlocks(removeBlockById(editBlocks, blockId))}
+                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => setEditBlocks(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
                         siteId={undefined}
                       />
                     </div>

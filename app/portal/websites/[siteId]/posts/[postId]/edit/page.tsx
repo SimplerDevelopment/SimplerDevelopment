@@ -76,16 +76,6 @@ export default async function PortalEditPostPage({
   const postType = await getPostTypeForPost(site.id, post.postType);
   const typeTemplate = postType?.template ?? null;
 
-  // Forward a minimal user identity into PortalPostForm so the realtime
-  // CollaborationProvider can publish presence (name + color + avatar) to
-  // peers. The `users` table doesn't carry an avatar URL today; we pass
-  // null and let PresenceAvatars fall back to a Material Icons glyph.
-  const currentUser = {
-    id: session.user.id,
-    name: session.user.name || session.user.email || 'Editor',
-    image: null,
-  };
-
   return (
     <PortalPostForm
       siteId={site.id}
@@ -96,7 +86,6 @@ export default async function PortalEditPostPage({
       siteDomain={site.domain || subdomain || undefined}
       brandDefaults={brandDefaults}
       typeTemplate={typeTemplate}
-      currentUser={currentUser}
       post={{
         id: post.id,
         title: post.title,

@@ -13,7 +13,6 @@ import { eq } from 'drizzle-orm';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { notifyApprovers } from '@/lib/crm/notifications';
 import { sendApprovalEmails } from '@/lib/email/mcp-approval-email';
-import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
 
 export type EntityType =
   | 'post'
@@ -82,15 +81,6 @@ export async function stageOrApply<T>(opts: StageOrApplyOpts<T>): Promise<StageO
   const mustStage = await keyRequiresApproval(ctx.keyId);
   if (!mustStage) {
     const data = await apply();
-    // Fan out to any open editors for this entity. Fire-and-forget — we
-    // don't block the MCP response on the realtime hop, and the publisher
-    // never throws (returns { ok: false, reason } on failure).
-    void publishEntityFromDb({
-      entityType,
-      entityId: entityIdFromApplyResult(entityId, data),
-    }).catch((err) => {
-      console.warn('[mcp/pending-changes] realtime publish failed:', err);
-    });
     return { pending: false, data };
   }
 
@@ -143,25 +133,4 @@ export async function stageOrApply<T>(opts: StageOrApplyOpts<T>): Promise<StageO
     summary,
     status: 'pending',
   };
-}
-
-/**
- * For `create`-style mutations the row's `id` is unknown until apply
- * returns. Prefer the apply result's `id` (when present) over the staged
- * `entityId`.
- */
-function entityIdFromApplyResult(
-  staged: number | null,
-  applyResult: unknown,
-): number | string | null {
-  if (
-    applyResult &&
-    typeof applyResult === 'object' &&
-    'id' in applyResult &&
-    (typeof (applyResult as { id: unknown }).id === 'number' ||
-      typeof (applyResult as { id: unknown }).id === 'string')
-  ) {
-    return (applyResult as { id: number | string }).id;
-  }
-  return staged;
 }

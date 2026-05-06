@@ -3,9 +3,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type * as Y from 'yjs';
 import type { Block } from '@/types/blocks';
-import { bindPostToYjs, type BoundPost } from '@/lib/realtime/post-binding';
 import { createPost, fetchCategories, fetchTags, updatePost } from '../_lib/api';
 import {
   fingerprintLoops,
@@ -20,14 +18,6 @@ interface UsePostFormArgs {
   mode: 'create' | 'edit';
   /** Editor mode driven by the orchestrator (visual / classic / iframe). */
   editorMode: 'visual' | 'classic' | 'iframe';
-  /**
-   * When provided, blocks are mirrored into the Yjs doc and remote updates
-   * are routed back into React state. Autosave is disabled while a doc is
-   * connected — the realtime-server persists snapshots to Postgres on its
-   * own schedule, so a parallel REST autosave would race the snapshot
-   * write and cause double-saves / lost edits.
-   */
-  ydoc?: Y.Doc | null;
 }
 
 export interface UsePostFormReturn {
@@ -54,82 +44,10 @@ export interface UsePostFormReturn {
  * helpers (handleTitleChange / handleSubmit / savePost) are stable callbacks
  * the orchestrator and section components can call without re-deriving them.
  */
-export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFormArgs): UsePostFormReturn {
+export function usePostForm({ siteId, post, mode, editorMode }: UsePostFormArgs): UsePostFormReturn {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [blocks, setBlocksState] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
-
-  // ── Realtime binding (Yjs) ─────────────────────────────────────────────
-  // When a `ydoc` is provided we route user-driven setBlocks calls through
-  // post-binding so they replicate to peers, and let the binding push
-  // remote updates back into React state.
-  const bindingRef = useRef<BoundPost | null>(null);
-  const blocksStateRef = useRef<Block[]>(blocks);
-  blocksStateRef.current = blocks;
-  const localUpdateInFlightRef = useRef(false);
-
-  // setBlocks wrapper: when ydoc is connected, the canonical write is into
-  // the Y doc; React state is the projection. When ydoc is null, behave
-  // exactly like the bare React setState the rest of the editor expects.
-  const setBlocks = useCallback<React.Dispatch<React.SetStateAction<Block[]>>>(
-    (action) => {
-      const cur = blocksStateRef.current;
-      const next =
-        typeof action === 'function'
-          ? (action as (prev: Block[]) => Block[])(cur)
-          : action;
-      if (next === cur) return;
-      // Mirror into React state immediately so the editor stays responsive.
-      setBlocksState(next);
-      blocksStateRef.current = next;
-      // If realtime is connected, also publish the change to peers.
-      if (bindingRef.current) {
-        localUpdateInFlightRef.current = true;
-        try {
-          bindingRef.current.applyLocalBlocks(next);
-        } finally {
-          localUpdateInFlightRef.current = false;
-        }
-      }
-    },
-    [],
-  );
-
-  // Connect / reconnect the binding when the ydoc reference changes.
-  useEffect(() => {
-    if (!ydoc) {
-      bindingRef.current = null;
-      return;
-    }
-    const bound = bindPostToYjs({
-      ydoc,
-      initialBlocks: blocksStateRef.current,
-      onRemoteBlocks: (next) => {
-        // Apply remote-origin updates into React state without re-broadcasting.
-        // The setter below uses setBlocksState directly — bindingRef.applyLocalBlocks
-        // is intentionally bypassed.
-        blocksStateRef.current = next;
-        setBlocksState(next);
-      },
-      isLocalUpdate: () => localUpdateInFlightRef.current,
-      markLocalUpdate: () => {
-        localUpdateInFlightRef.current = true;
-      },
-    });
-    bindingRef.current = bound;
-    // Realtime is now the source of truth — disable REST autosave to avoid
-    // double-writing while the realtime-server's snapshot persister runs.
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.debug(
-        '[usePostForm] Yjs doc attached — REST autosave disabled (server snapshots persist).',
-      );
-    }
-    return () => {
-      bound.unbind();
-      if (bindingRef.current === bound) bindingRef.current = null;
-    };
-  }, [ydoc]);
+  const [blocks, setBlocks] = useState<Block[]>(parseContentToBlocks(post?.content || ''));
   const [postSaveStatus, setPostSaveStatus] = useState<SaveStatus['status']>('idle');
   const [iframeSaveVersion, setIframeSaveVersion] = useState(0);
   const postSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -252,14 +170,10 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
     savePost('manual');
   }, [blocks, mode, editorMode, savePost]);
 
-  // Debounced autosave on block changes (2s after last change). Skipped
-  // entirely when a Yjs doc is connected — the realtime-server persists
-  // snapshots to Postgres independently and a parallel REST autosave would
-  // race that write.
+  // Debounced autosave on block changes (2s after last change)
   const initialBlocksRef = useRef(JSON.stringify(blocks));
   useEffect(() => {
     if (mode !== 'edit' || editorMode !== 'iframe') return;
-    if (ydoc) return; // realtime owns persistence
     const currentContent = JSON.stringify(blocks);
     if (currentContent === initialBlocksRef.current) return;
     initialBlocksRef.current = currentContent;
@@ -270,7 +184,7 @@ export function usePostForm({ siteId, post, mode, editorMode, ydoc }: UsePostFor
     }, 2000);
 
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
-  }, [blocks, mode, editorMode, savePost, ydoc]);
+  }, [blocks, mode, editorMode, savePost]);
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
