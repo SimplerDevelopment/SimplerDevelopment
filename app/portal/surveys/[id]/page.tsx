@@ -12,10 +12,11 @@ import ShareTab from './_components/ShareTab';
 import SurveyHeader from './_components/SurveyHeader';
 import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
+import WebhooksPanel from './_components/WebhooksPanel';
 import { useSurvey } from './_hooks/useSurvey';
 import { type ResponseFilters } from './_lib/api';
 
-type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
+type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'settings';
 
 const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
   { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
@@ -24,6 +25,7 @@ const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }
   { key: 'responses', label: (n) => `Responses (${n})`, icon: 'people' },
   { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
   { key: 'share', label: () => 'Share & Embed', icon: 'share' },
+  { key: 'webhooks', label: () => 'Webhooks', icon: 'webhook' },
   { key: 'settings', label: () => 'Settings', icon: 'settings' },
 ];
 
@@ -263,6 +265,8 @@ export default function SurveyDetailPage() {
           onCopyEmbed={copyEmbed}
         />
       )}
+
+      {tab === 'webhooks' && <WebhooksPanel surveyId={id} />}
 
       {tab === 'settings' && (
         <SurveySettings
