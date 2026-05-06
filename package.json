@@ -98,6 +98,9 @@
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
     "unified": "^11.0.5",
+    "y-protocols": "^1.0.6",
+    "y-websocket": "^2.0.0",
+    "yjs": "^13.6.20",
     "zod": "^4.3.5"
   },
   "devDependencies": {
