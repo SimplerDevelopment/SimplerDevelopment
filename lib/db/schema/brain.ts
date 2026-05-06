@@ -396,6 +396,7 @@ export const brainNotes = pgTable('brain_notes', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
 });
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via

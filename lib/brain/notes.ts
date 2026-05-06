@@ -1,10 +1,14 @@
 import { db } from '@/lib/db';
 import { brainNotes } from '@/lib/db/schema';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, isNotNull, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { deleteFromS3 } from '@/lib/s3/delete';
+import { extractAndSyncWikiLinks } from './extract-wikilinks';
 
 export type BrainNote = typeof brainNotes.$inferSelect;
+
+export type NoteSort = 'updated' | 'created' | 'title';
+export type NoteOrder = 'asc' | 'desc';
 
 interface ListOpts {
   relationshipOverlayId?: number;
@@ -19,14 +23,19 @@ interface ListOpts {
   sourceUrl?: string;
   /** Prefix match on source URL — find all notes ingested from a given site. */
   sourceUrlStartsWith?: string;
+  /** When true, only return soft-deleted (trashed) notes. Default false. */
+  trashed?: boolean;
   limit?: number;
   /** Pagination offset; pairs with `limit`. Default 0. */
   offset?: number;
+  sort?: NoteSort;
+  order?: NoteOrder;
 }
 
 /** Build the WHERE conditions shared by listNotes and countNotes. */
 function buildNoteFilters(clientId: number, opts: ListOpts) {
   const conds = [eq(brainNotes.clientId, clientId)];
+  conds.push(opts.trashed ? isNotNull(brainNotes.deletedAt) : isNull(brainNotes.deletedAt));
   if (opts.relationshipOverlayId !== undefined) conds.push(eq(brainNotes.relationshipOverlayId, opts.relationshipOverlayId));
   if (opts.companyId !== undefined) conds.push(eq(brainNotes.companyId, opts.companyId));
   if (opts.dealId !== undefined) conds.push(eq(brainNotes.dealId, opts.dealId));
@@ -50,9 +59,23 @@ function buildNoteFilters(clientId: number, opts: ListOpts) {
 
 export async function listNotes(clientId: number, opts: ListOpts = {}): Promise<BrainNote[]> {
   const conds = buildNoteFilters(clientId, opts);
+  const sort: NoteSort = opts.sort ?? 'updated';
+  const order: NoteOrder = opts.order ?? (sort === 'title' ? 'asc' : 'desc');
+  const dir = order === 'asc' ? asc : desc;
+
+  const orderBy = (() => {
+    if (sort === 'updated') {
+      return [desc(brainNotes.pinned), dir(brainNotes.updatedAt)];
+    }
+    if (sort === 'created') {
+      return [desc(brainNotes.pinned), dir(brainNotes.createdAt)];
+    }
+    return [desc(brainNotes.pinned), order === 'asc' ? sql`lower(${brainNotes.title}) asc` : sql`lower(${brainNotes.title}) desc`];
+  })();
+
   return db.select().from(brainNotes)
     .where(and(...conds))
-    .orderBy(desc(brainNotes.pinned), desc(brainNotes.updatedAt))
+    .orderBy(...orderBy)
     .limit(opts.limit ?? 200)
     .offset(opts.offset ?? 0);
 }
@@ -111,10 +134,11 @@ interface CreateNoteInput {
 }
 
 export async function createNote(input: CreateNoteInput): Promise<BrainNote> {
+  const body = (input.body ?? '').slice(0, 50_000);
   const [created] = await db.insert(brainNotes).values({
     clientId: input.clientId,
     title: input.title.trim().slice(0, 255),
-    body: (input.body ?? '').slice(0, 50_000),
+    body,
     tags: input.tags ?? [],
     meetingId: input.meetingId ?? null,
     relationshipOverlayId: input.relationshipOverlayId ?? null,
@@ -133,6 +157,10 @@ export async function createNote(input: CreateNoteInput): Promise<BrainNote> {
     attachmentStoredKey: input.attachmentStoredKey ?? null,
     createdBy: input.createdBy ?? null,
   }).returning();
+
+  await extractAndSyncWikiLinks(input.clientId, created.id, body).catch((err) => {
+    console.warn('[brain.notes] wikilink sync failed', { noteId: created.id, err });
+  });
 
   await logAudit({
     clientId: input.clientId,
@@ -186,6 +214,11 @@ export async function updateNote(
     .returning();
 
   if (updated) {
+    if (input.body !== undefined) {
+      await extractAndSyncWikiLinks(clientId, noteId, patch.body ?? '').catch((err) => {
+        console.warn('[brain.notes] wikilink sync failed', { noteId, err });
+      });
+    }
     await logAudit({
       clientId,
       actorId,
@@ -198,14 +231,35 @@ export async function updateNote(
   return updated ?? null;
 }
 
-export async function deleteNote(clientId: number, noteId: number, actorId: number | null): Promise<boolean> {
+export async function deleteNote(
+  clientId: number,
+  noteId: number,
+  actorId: number | null,
+  opts: { force?: boolean } = {},
+): Promise<boolean> {
   const before = await getNote(clientId, noteId);
   if (!before) return false;
+
+  const alreadySoftDeleted = before.deletedAt !== null;
+  const hardDelete = opts.force === true || alreadySoftDeleted;
+
+  if (!hardDelete) {
+    await db.update(brainNotes)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)));
+
+    await logAudit({
+      clientId,
+      actorId,
+      action: 'soft_deleted',
+      entityType: 'brain_note',
+      entityId: noteId,
+    });
+    return true;
+  }
+
   await db.delete(brainNotes).where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)));
 
-  // Best-effort S3 cleanup. Don't fail the API call if the object is already
-  // gone or the bucket is briefly unreachable — the row is gone and that's
-  // what the user expects.
   if (before.attachmentStoredKey) {
     deleteFromS3(before.attachmentStoredKey).catch((err) => {
       console.warn('[brain.notes] failed to delete S3 object', before.attachmentStoredKey, err);
@@ -215,12 +269,185 @@ export async function deleteNote(clientId: number, noteId: number, actorId: numb
   await logAudit({
     clientId,
     actorId,
-    action: 'note.deleted',
+    action: 'hard_deleted',
     entityType: 'brain_note',
     entityId: noteId,
     metadata: before.attachmentStoredKey ? { hadAttachment: true, key: before.attachmentStoredKey } : undefined,
   });
   return true;
+}
+
+export async function restoreNote(
+  clientId: number,
+  noteId: number,
+  actorId: number | null,
+): Promise<BrainNote | null> {
+  const before = await getNote(clientId, noteId);
+  if (!before) return null;
+  if (before.deletedAt === null) return before;
+
+  const [restored] = await db.update(brainNotes)
+    .set({ deletedAt: null, updatedAt: new Date() })
+    .where(and(eq(brainNotes.id, noteId), eq(brainNotes.clientId, clientId)))
+    .returning();
+
+  await logAudit({
+    clientId,
+    actorId,
+    action: 'restored',
+    entityType: 'brain_note',
+    entityId: noteId,
+  });
+  return restored ?? null;
+}
+
+export type BulkOp =
+  | { kind: 'soft_delete' }
+  | { kind: 'restore' }
+  | { kind: 'hard_delete' }
+  | { kind: 'add_tags'; tags: string[] }
+  | { kind: 'remove_tags'; tags: string[] }
+  | { kind: 'replace_tag_prefix'; from: string; to: string };
+
+export async function bulkUpdateNotes(
+  clientId: number,
+  noteIds: number[],
+  op: BulkOp,
+  actorId: number | null,
+): Promise<{ updated: number; failed: number[] }> {
+  const uniqueIds = Array.from(new Set(noteIds.filter((n) => Number.isFinite(n))));
+  if (uniqueIds.length === 0) return { updated: 0, failed: [] };
+
+  const owned = await db.select({ id: brainNotes.id, tags: brainNotes.tags, attachmentStoredKey: brainNotes.attachmentStoredKey })
+    .from(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, uniqueIds)));
+
+  const ownedIds = new Set(owned.map((r) => r.id));
+  const failed = uniqueIds.filter((id) => !ownedIds.has(id));
+  const validIds = uniqueIds.filter((id) => ownedIds.has(id));
+
+  if (validIds.length === 0) return { updated: 0, failed };
+
+  const now = new Date();
+  let updated = 0;
+
+  switch (op.kind) {
+    case 'soft_delete': {
+      const res = await db.update(brainNotes)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, validIds)))
+        .returning({ id: brainNotes.id });
+      updated = res.length;
+      for (const r of res) {
+        await logAudit({
+          clientId, actorId, action: 'soft_deleted', entityType: 'brain_note', entityId: r.id,
+          metadata: { bulk: true },
+        });
+      }
+      break;
+    }
+    case 'restore': {
+      const res = await db.update(brainNotes)
+        .set({ deletedAt: null, updatedAt: now })
+        .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, validIds)))
+        .returning({ id: brainNotes.id });
+      updated = res.length;
+      for (const r of res) {
+        await logAudit({
+          clientId, actorId, action: 'restored', entityType: 'brain_note', entityId: r.id,
+          metadata: { bulk: true },
+        });
+      }
+      break;
+    }
+    case 'hard_delete': {
+      const keysToDelete = owned
+        .filter((r) => validIds.includes(r.id) && r.attachmentStoredKey)
+        .map((r) => r.attachmentStoredKey!) as string[];
+      const res = await db.delete(brainNotes)
+        .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, validIds)))
+        .returning({ id: brainNotes.id });
+      updated = res.length;
+      for (const key of keysToDelete) {
+        deleteFromS3(key).catch((err) => {
+          console.warn('[brain.notes] failed to delete S3 object', key, err);
+        });
+      }
+      for (const r of res) {
+        await logAudit({
+          clientId, actorId, action: 'hard_deleted', entityType: 'brain_note', entityId: r.id,
+          metadata: { bulk: true },
+        });
+      }
+      break;
+    }
+    case 'add_tags': {
+      const additions = op.tags.filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim());
+      for (const row of owned) {
+        if (!validIds.includes(row.id)) continue;
+        const existing = Array.isArray(row.tags) ? row.tags : [];
+        const merged = Array.from(new Set([...existing, ...additions]));
+        if (merged.length === existing.length && merged.every((t, i) => existing[i] === t)) continue;
+        await db.update(brainNotes)
+          .set({ tags: merged, updatedAt: now })
+          .where(and(eq(brainNotes.id, row.id), eq(brainNotes.clientId, clientId)));
+        updated++;
+        await logAudit({
+          clientId, actorId, action: 'note.tags_added', entityType: 'brain_note', entityId: row.id,
+          metadata: { bulk: true, added: additions },
+        });
+      }
+      break;
+    }
+    case 'remove_tags': {
+      const removals = new Set(op.tags.filter((t) => typeof t === 'string'));
+      for (const row of owned) {
+        if (!validIds.includes(row.id)) continue;
+        const existing = Array.isArray(row.tags) ? row.tags : [];
+        const next = existing.filter((t) => !removals.has(t));
+        if (next.length === existing.length) continue;
+        await db.update(brainNotes)
+          .set({ tags: next, updatedAt: now })
+          .where(and(eq(brainNotes.id, row.id), eq(brainNotes.clientId, clientId)));
+        updated++;
+        await logAudit({
+          clientId, actorId, action: 'note.tags_removed', entityType: 'brain_note', entityId: row.id,
+          metadata: { bulk: true, removed: Array.from(removals) },
+        });
+      }
+      break;
+    }
+    case 'replace_tag_prefix': {
+      const from = op.from;
+      const to = op.to;
+      for (const row of owned) {
+        if (!validIds.includes(row.id)) continue;
+        const existing = Array.isArray(row.tags) ? row.tags : [];
+        let changed = false;
+        const next = existing.map((t) => {
+          if (t === from) { changed = true; return to; }
+          if (t.startsWith(`${from}/`) || t.startsWith(from)) {
+            changed = true;
+            return `${to}${t.slice(from.length)}`;
+          }
+          return t;
+        });
+        if (!changed) continue;
+        const deduped = Array.from(new Set(next));
+        await db.update(brainNotes)
+          .set({ tags: deduped, updatedAt: now })
+          .where(and(eq(brainNotes.id, row.id), eq(brainNotes.clientId, clientId)));
+        updated++;
+        await logAudit({
+          clientId, actorId, action: 'note.tags_prefix_replaced', entityType: 'brain_note', entityId: row.id,
+          metadata: { bulk: true, from, to },
+        });
+      }
+      break;
+    }
+  }
+
+  return { updated, failed };
 }
 
 /**
@@ -262,10 +489,11 @@ export async function clearAttachment(
 /** All distinct tags this client has used, for tag-filter UIs. */
 export async function listAllTags(clientId: number): Promise<string[]> {
   const rows = await db.select({ tags: brainNotes.tags }).from(brainNotes)
-    .where(eq(brainNotes.clientId, clientId));
+    .where(and(eq(brainNotes.clientId, clientId), isNull(brainNotes.deletedAt)));
   const set = new Set<string>();
   for (const r of rows) {
     for (const t of r.tags ?? []) set.add(t);
   }
   return Array.from(set).sort();
 }
+
