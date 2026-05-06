@@ -92,6 +92,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'BrainReviewItemStatus',
   'BrainReviewItemTaskPayload',
   'BrainReviewItemType',
+  'BrainSavedSearchFilters',
   'BrainTaskStatus',
   'ContractClause',
   'DnsInstruction',
@@ -152,6 +153,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'brainNotes',
   'brainProfiles',
   'brainRelationshipOverlays',
+  'brainSavedSearches',
   'brainTasks',
   'brandingMessaging',
   'brandingProfiles',
@@ -325,6 +327,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   brainNotes: 'brain_notes',
   brainProfiles: 'brain_profiles',
   brainRelationshipOverlays: 'brain_relationship_overlays',
+  brainSavedSearches: 'brain_saved_searches',
   brainTasks: 'brain_tasks',
   brandingMessaging: 'branding_messaging',
   brandingProfiles: 'branding_profiles',
@@ -469,7 +472,7 @@ describe('lib/db/schema export parity', () => {
     expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
   });
 
-  it('exports the recorded number of names (222)', () => {
+  it('exports the recorded number of names (224)', () => {
     expect(collectSchemaExportNames()).toHaveLength(EXPECTED_EXPORTS.length);
   });
 
@@ -495,13 +498,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (166)', () => {
+  it('reports the recorded number of tables (167)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(166);
+    expect(count).toBe(167);
   });
 });
