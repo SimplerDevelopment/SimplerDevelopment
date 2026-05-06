@@ -4,6 +4,7 @@ import { microsoftTeamsUserConnections } from '@/lib/db/schema';
 import { auth } from '@/lib/auth';
 import { exchangeCode, getEnvMicrosoftCredentials } from '@/lib/microsoft/oauth';
 import { verifyState, StateInvalidError } from '@/lib/microsoft/oauth-state';
+import { createTranscriptsSubscription } from '@/lib/microsoft/transcripts-watch';
 
 /**
  * Microsoft's OAuth redirect lands here after the user grants/declines consent.
@@ -87,6 +88,42 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Best-effort: try to create the change-notification subscription right
+  // here so the user starts receiving transcripts immediately. Mirrors the
+  // Google flow's startGmailWatch on connect. Fails silently in local dev
+  // where notificationUrl isn't reachable from Graph; the renewal cron
+  // creates it later in production.
+  let subscriptionId: string | null = null;
+  let subscriptionResource: string | null = null;
+  let subscriptionExpiration: Date | null = null;
+  let subscriptionClientState: string | null = null;
+  let postSubscribeAccessToken = exchanged.accessToken;
+  let postSubscribeRefreshToken = exchanged.refreshToken;
+  let postSubscribeExpiresAt = exchanged.expiresAt;
+  try {
+    const sub = await createTranscriptsSubscription({
+      connection: {
+        accessToken: exchanged.accessToken,
+        refreshToken: exchanged.refreshToken,
+        expiresAt: exchanged.expiresAt,
+      },
+      credentials,
+      microsoftUserId: exchanged.microsoftUserId,
+      originHint: url.origin,
+    });
+    subscriptionId = sub.subscriptionId;
+    subscriptionResource = sub.subscriptionResource;
+    subscriptionExpiration = sub.subscriptionExpiration;
+    subscriptionClientState = sub.subscriptionClientState;
+    if (sub.refreshed) {
+      postSubscribeAccessToken = sub.connection.accessToken;
+      postSubscribeRefreshToken = sub.connection.refreshToken;
+      postSubscribeExpiresAt = sub.connection.expiresAt;
+    }
+  } catch (err) {
+    console.warn('[microsoft-callback] subscription create failed (cron will retry)', err);
+  }
+
   await db
     .insert(microsoftTeamsUserConnections)
     .values({
@@ -95,10 +132,14 @@ export async function GET(req: NextRequest) {
       microsoftTenantId: exchanged.microsoftTenantId,
       microsoftUserId: exchanged.microsoftUserId,
       microsoftAccountEmail: exchanged.microsoftAccountEmail,
-      accessToken: exchanged.accessToken,
-      refreshToken: exchanged.refreshToken,
-      expiresAt: exchanged.expiresAt,
+      accessToken: postSubscribeAccessToken,
+      refreshToken: postSubscribeRefreshToken,
+      expiresAt: postSubscribeExpiresAt,
       scopes: exchanged.scopes,
+      subscriptionId,
+      subscriptionResource,
+      subscriptionExpiration,
+      subscriptionClientState,
     })
     .onConflictDoUpdate({
       target: [
@@ -109,11 +150,17 @@ export async function GET(req: NextRequest) {
         microsoftTenantId: exchanged.microsoftTenantId,
         microsoftUserId: exchanged.microsoftUserId,
         microsoftAccountEmail: exchanged.microsoftAccountEmail,
-        accessToken: exchanged.accessToken,
-        refreshToken: exchanged.refreshToken,
-        expiresAt: exchanged.expiresAt,
+        accessToken: postSubscribeAccessToken,
+        refreshToken: postSubscribeRefreshToken,
+        expiresAt: postSubscribeExpiresAt,
         scopes: exchanged.scopes,
         revokedAt: null,
+        // Only overwrite subscription fields if a new one was successfully
+        // created. Otherwise keep prior values so the renewal cron can find
+        // the row and act on it.
+        ...(subscriptionId
+          ? { subscriptionId, subscriptionResource, subscriptionExpiration, subscriptionClientState }
+          : {}),
         updatedAt: new Date(),
       },
     });

@@ -44,6 +44,10 @@
     {
       "path": "/api/cron/stuck-booking-holds",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/renew-microsoft-subscriptions",
+      "schedule": "*/25 * * * *"
     }
   ]
 }

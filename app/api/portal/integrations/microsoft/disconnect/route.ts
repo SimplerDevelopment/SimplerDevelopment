@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { microsoftTeamsUserConnections } from '@/lib/db/schema';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
+import { getEnvMicrosoftCredentials } from '@/lib/microsoft/oauth';
+import { deleteTranscriptsSubscription } from '@/lib/microsoft/transcripts-watch';
 
 /**
  * Disconnect the calling portal user's Microsoft Teams grant.
@@ -45,8 +47,29 @@ export async function POST() {
     return NextResponse.json({ success: true, data: { alreadyDisconnected: true } });
   }
 
-  // TODO(pr2): if row.subscriptionId is set, DELETE /subscriptions/{id} via Graph
-  // before scrubbing the row, so we stop receiving notifications for it.
+  // If a Graph subscription exists, tell Graph to stop sending notifications
+  // before we scrub the row's tokens. Best-effort — a failure here just leaves
+  // an orphan subscription on Graph that will expire in ≤60 minutes anyway,
+  // and notifications coming in for an unknown subscriptionId 404 cleanly.
+  if (row.subscriptionId) {
+    try {
+      const credentials = getEnvMicrosoftCredentials(
+        // redirectUri is unused for /subscriptions calls but the helper requires it
+        'https://www.simplerdevelopment.com/api/portal/integrations/microsoft/callback',
+      );
+      await deleteTranscriptsSubscription({
+        connection: {
+          accessToken: row.accessToken,
+          refreshToken: row.refreshToken,
+          expiresAt: row.expiresAt,
+        },
+        credentials,
+        subscriptionId: row.subscriptionId,
+      });
+    } catch (err) {
+      console.warn('[microsoft-disconnect] subscription delete failed (will expire ≤60min)', err);
+    }
+  }
 
   await db
     .update(microsoftTeamsUserConnections)
