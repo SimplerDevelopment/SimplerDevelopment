@@ -28,6 +28,22 @@
     {
       "path": "/api/cron/brain-daily-notes",
       "schedule": "5 6 * * *"
+    },
+    {
+      "path": "/api/cron/failing-automations-notify",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/surveys-zero-responses",
+      "schedule": "30 10 * * 1"
+    },
+    {
+      "path": "/api/cron/stale-crm-deals",
+      "schedule": "0 11 * * 1"
+    },
+    {
+      "path": "/api/cron/stuck-booking-holds",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
