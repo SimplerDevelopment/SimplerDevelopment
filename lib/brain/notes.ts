@@ -19,6 +19,11 @@ interface ListOpts {
   pinnedOnly?: boolean;
   search?: string;
   tag?: string;
+  /**
+   * Tag-prefix match — treats `/` as a folder separator. Prefix `kb/marketing`
+   * matches `kb/marketing` and `kb/marketing/seo` but NOT `kb/marketing-old`.
+   */
+  tagPrefix?: string;
   /** Exact source URL match — used by MCP crawlers to dedupe before re-saving. */
   sourceUrl?: string;
   /** Prefix match on source URL — find all notes ingested from a given site. */
@@ -48,6 +53,13 @@ function buildNoteFilters(clientId: number, opts: ListOpts) {
   }
   if (opts.tag) {
     conds.push(sql`${brainNotes.tags}::jsonb @> ${JSON.stringify([opts.tag])}::jsonb`);
+  }
+  if (opts.tagPrefix) {
+    const prefix = opts.tagPrefix;
+    const prefixWithSlash = `${prefix}/%`;
+    conds.push(
+      sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${brainNotes.tags}::jsonb) AS t WHERE t = ${prefix} OR t LIKE ${prefixWithSlash})`,
+    );
   }
   if (opts.sourceUrl) conds.push(eq(brainNotes.sourceUrl, opts.sourceUrl));
   if (opts.sourceUrlStartsWith) {

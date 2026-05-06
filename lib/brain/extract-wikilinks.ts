@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { brainNotes, brainKbLinks } from '@/lib/db/schema';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 export interface ParsedWikiLink {
   rawTarget: string;
@@ -60,6 +60,7 @@ export async function extractAndSyncWikiLinks(
     ? await db.select({ id: brainNotes.id, title: brainNotes.title }).from(brainNotes)
         .where(and(
           eq(brainNotes.clientId, clientId),
+          isNull(brainNotes.deletedAt),
           sql`lower(${brainNotes.title}) IN (${sql.join(targets.map((t) => sql`${t}`), sql`, `)})`,
         ))
     : [];

@@ -142,6 +142,8 @@ export async function POST(
         body: snippet || undefined,
         entityType: 'deal',
         entityId: result.deal.id,
+      }).catch((err) => {
+        console.error('[notif] deal-comment mention failed', err);
       });
     }
   }

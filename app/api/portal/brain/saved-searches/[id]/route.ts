@@ -4,6 +4,7 @@ import {
   getSavedSearch,
   updateSavedSearch,
   deleteSavedSearch,
+  SavedSearchForbiddenError,
   type BrainSavedSearchFilters,
 } from '@/lib/brain/saved-searches';
 
@@ -98,6 +99,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!updated) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
+    if (err instanceof SavedSearchForbiddenError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    }
     console.error('[brain.saved-searches] update failed', { savedId, clientId: result.client.id, err });
     const message = err instanceof Error ? err.message : 'Update failed';
     return NextResponse.json({ success: false, message }, { status: 500 });
@@ -119,6 +123,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     if (!ok) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (err) {
+    if (err instanceof SavedSearchForbiddenError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    }
     console.error('[brain.saved-searches] delete failed', { savedId, clientId: result.client.id, err });
     const message = err instanceof Error ? err.message : 'Delete failed';
     return NextResponse.json({ success: false, message }, { status: 500 });

@@ -88,6 +88,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
 
   const [search, setSearch] = useState('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [tagPrefix, setTagPrefix] = useState<string>('');
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -157,6 +158,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     if (pinnedOnly) params.set('pinned', 'true');
     if (activeTags[0]) params.set('tag', activeTags[0]);
+    if (tagPrefix.trim()) params.set('tagPrefix', tagPrefix.trim());
     if (trashed) params.set('trashed', 'true');
     params.set('sort', sortField);
     params.set('order', sortOrder);
@@ -189,7 +191,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     } finally {
       if (myReq === reqIdRef.current) setLoading(false);
     }
-  }, [debouncedSearch, pinnedOnly, activeTags, trashed, sortField, sortOrder]);
+  }, [debouncedSearch, pinnedOnly, activeTags, tagPrefix, trashed, sortField, sortOrder]);
 
   // Initial + filter-change reload.
   useEffect(() => {
@@ -236,7 +238,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     return s;
   }, [notes]);
 
-  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || pinnedOnly);
+  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || tagPrefix.trim() || pinnedOnly);
 
   const tree = useMemo(() => buildTagTree(notes, pinnedIdsSet, trashed), [notes, pinnedIdsSet, trashed]);
 
@@ -330,6 +332,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     const f = s.filters ?? {};
     setSearch(f.search ?? '');
     setActiveTags(Array.isArray(f.tags) ? f.tags : []);
+    setTagPrefix(typeof f.tagPrefix === 'string' ? f.tagPrefix : '');
     setPinnedOnly(!!f.pinnedOnly);
     setSortField(f.sort ?? 'updated');
     setSortOrder(f.order ?? 'desc');
@@ -339,11 +342,12 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const currentFilters = useMemo<SavedSearchFilters>(() => ({
     search: debouncedSearch.trim() || undefined,
     tags: activeTags.length > 0 ? activeTags : undefined,
+    tagPrefix: tagPrefix.trim() || undefined,
     pinnedOnly: pinnedOnly || undefined,
     trashed: trashed || undefined,
     sort: sortField,
     order: sortOrder,
-  }), [debouncedSearch, activeTags, pinnedOnly, trashed, sortField, sortOrder]);
+  }), [debouncedSearch, activeTags, tagPrefix, pinnedOnly, trashed, sortField, sortOrder]);
 
   const matchedSavedId = useMemo(() => {
     for (const s of savedSearches) {
@@ -666,10 +670,10 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
                 </button>
               </div>
             )}
-            {(activeTags.length > 0 || pinnedOnly || debouncedSearch) && (
+            {(activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || debouncedSearch) && (
               <button
                 type="button"
-                onClick={() => { setActiveTags([]); setPinnedOnly(false); setSearch(''); }}
+                onClick={() => { setActiveTags([]); setTagPrefix(''); setPinnedOnly(false); setSearch(''); }}
                 className="text-xs text-muted-foreground hover:text-foreground"
                 title="Clear filters"
               >
@@ -1327,6 +1331,7 @@ function savedSearchMatches(stored: SavedSearchFilters, current: SavedSearchFilt
   const a = stored ?? {};
   const b = current ?? {};
   if ((a.search ?? '') !== (b.search ?? '')) return false;
+  if ((a.tagPrefix ?? '') !== (b.tagPrefix ?? '')) return false;
   if (!!a.pinnedOnly !== !!b.pinnedOnly) return false;
   if (!!a.trashed !== !!b.trashed) return false;
   if ((a.sort ?? 'updated') !== (b.sort ?? 'updated')) return false;

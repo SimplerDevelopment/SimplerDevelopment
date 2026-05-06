@@ -101,6 +101,8 @@ export async function GET(
         body: recipient ? `Viewed by ${recipient}` : undefined,
         entityType: 'proposal',
         entityId: proposal.dealId ?? proposal.id,
+      }).catch((err) => {
+        console.error('[notif] proposal_viewed failed', err);
       });
     }
   }

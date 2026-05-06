@@ -23,6 +23,7 @@ export async function GET(request: Request) {
   const contactId = url.searchParams.get('contactId');
   const meetingId = url.searchParams.get('meetingId');
   const tag = url.searchParams.get('tag');
+  const tagPrefix = url.searchParams.get('tagPrefix');
   const search = url.searchParams.get('search');
   const pinnedOnly = url.searchParams.get('pinned') === 'true';
   const sourceUrl = url.searchParams.get('sourceUrl');
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
     contactId: contactId ? parseInt(contactId, 10) : undefined,
     meetingId: meetingId ? parseInt(meetingId, 10) : undefined,
     tag: tag ?? undefined,
+    tagPrefix: tagPrefix && tagPrefix.trim() ? tagPrefix.trim() : undefined,
     search: search ?? undefined,
     pinnedOnly,
     sourceUrl: sourceUrl ?? undefined,

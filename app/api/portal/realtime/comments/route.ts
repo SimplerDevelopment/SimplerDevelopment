@@ -10,12 +10,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { documentComments } from '@/lib/db/schema';
+import { clientMembers, documentComments } from '@/lib/db/schema';
 import type { CommentAnchor } from '@/lib/db/schema/collab';
 import { getPortalClient } from '@/lib/portal-client';
+import { createCrmNotification } from '@/lib/crm/notifications';
 
 const ENTITY_TYPES = ['post', 'deck', 'email'] as const;
 type EntityType = (typeof ENTITY_TYPES)[number];
@@ -126,6 +127,57 @@ export async function POST(req: Request) {
   }
 
   const userId = parseInt(session.user.id, 10);
+  // Capture validated, narrowed locals for the inner notify closure (TS
+  // doesn't preserve the !null narrowing into a nested function scope).
+  const validEntityType: EntityType = entityType;
+  const validEntityId: string = entityId;
+  const clientId: number = client.id;
+
+  async function notifyMentions(): Promise<void> {
+    const raw = body.mentionedUserIds ?? [];
+    const mentioned = Array.from(
+      new Set(raw.filter((n): n is number => typeof n === 'number' && Number.isFinite(n))),
+    ).filter((id) => id !== userId);
+    if (mentioned.length === 0) return;
+
+    // Restrict to members of this tenant so a crafted payload can't notify
+    // arbitrary users.
+    const validMembers = await db
+      .select({ userId: clientMembers.userId })
+      .from(clientMembers)
+      .where(
+        and(
+          eq(clientMembers.clientId, clientId),
+          inArray(clientMembers.userId, mentioned),
+        ),
+      );
+    const recipients = validMembers.map((m) => m.userId);
+    if (recipients.length === 0) return;
+
+    const snippet = text.slice(0, 120);
+    // crm_notifications.entityId is integer; document_comments.entity_id is
+    // text. Coerce when numeric, otherwise leave undefined (link still works
+    // via entityType in the notif drawer).
+    const n = Number(validEntityId);
+    const notifEntityId = Number.isFinite(n) && Number.isInteger(n) ? n : undefined;
+    const titlePrefix =
+      validEntityType === 'post' ? 'page'
+      : validEntityType === 'deck' ? 'deck'
+      : 'email';
+    for (const recipientId of recipients) {
+      createCrmNotification({
+        clientId,
+        userId: recipientId,
+        type: 'document_comment_mention',
+        title: `You were mentioned on a ${titlePrefix}`,
+        body: snippet || undefined,
+        entityType: validEntityType,
+        entityId: notifEntityId,
+      }).catch((err) => {
+        console.error('[notif] documentComments mention failed', err);
+      });
+    }
+  }
 
   // If replying, validate the thread root exists in this client + entity.
   let threadId = body.threadId ?? null;
@@ -174,6 +226,9 @@ export async function POST(req: Request) {
         anchor: body.anchor ?? null,
       })
       .returning();
+    notifyMentions().catch((err) => {
+      console.error('[notif] documentComments mention dispatch failed', err);
+    });
     return NextResponse.json({ success: true, data: row });
   }
 
@@ -192,6 +247,10 @@ export async function POST(req: Request) {
       anchor: body.anchor ?? null,
     })
     .returning();
+
+  notifyMentions().catch((err) => {
+    console.error('[notif] documentComments mention dispatch failed', err);
+  });
 
   return NextResponse.json({ success: true, data: row });
 }

@@ -89,6 +89,34 @@ interface UpdateInput {
   userId?: number | null;
 }
 
+/**
+ * Thrown when a non-owner attempts to mutate someone else's personal pin.
+ * Helpers that catch it should map it to 403 (or 404 if a route prefers to
+ * stay opaque about existence — matches what the rest of the brain portal
+ * uses in similar permission cases).
+ */
+export class SavedSearchForbiddenError extends Error {
+  code = 'forbidden' as const;
+  constructor(message = 'Not allowed to modify this saved search') {
+    super(message);
+    this.name = 'SavedSearchForbiddenError';
+  }
+}
+
+/**
+ * If the row has a non-null userId (personal pin), only the actor that owns
+ * it may mutate. Shared pins (userId IS NULL) are mutable by any tenant
+ * member, since portal authorization already enforces tenant + write scope.
+ */
+function assertSavedSearchMutable(
+  row: Pick<BrainSavedSearch, 'userId'>,
+  actorId: number | null,
+): void {
+  if (row.userId !== null && row.userId !== actorId) {
+    throw new SavedSearchForbiddenError();
+  }
+}
+
 export async function updateSavedSearch(
   clientId: number,
   id: number,
@@ -97,6 +125,7 @@ export async function updateSavedSearch(
 ): Promise<BrainSavedSearch | null> {
   const before = await getSavedSearch(clientId, id);
   if (!before) return null;
+  assertSavedSearchMutable(before, actorId);
 
   const set: Partial<typeof brainSavedSearches.$inferInsert> = { updatedAt: new Date() };
   if (patch.name !== undefined) set.name = patch.name.trim().slice(0, 150);
@@ -130,6 +159,7 @@ export async function deleteSavedSearch(
 ): Promise<boolean> {
   const before = await getSavedSearch(clientId, id);
   if (!before) return false;
+  assertSavedSearchMutable(before, actorId);
   await db.delete(brainSavedSearches)
     .where(and(eq(brainSavedSearches.id, id), eq(brainSavedSearches.clientId, clientId)));
 

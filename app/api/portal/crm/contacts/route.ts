@@ -236,6 +236,8 @@ export async function POST(req: Request) {
     title: `New contact: ${displayName || fallback}`,
     entityType: 'contact',
     entityId: contact.id,
+  }).catch((err) => {
+    console.error('[notif] contact_created broadcast failed', err);
   });
 
   return NextResponse.json({ success: true, data: contact }, { status: 201 });
