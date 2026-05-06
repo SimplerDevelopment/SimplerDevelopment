@@ -35,6 +35,28 @@ interface ListResponse {
   offset: number;
 }
 
+interface SavedSearchFilters {
+  search?: string;
+  tagPrefix?: string;
+  tags?: string[];
+  pinnedOnly?: boolean;
+  trashed?: boolean;
+  sort?: SortField;
+  order?: SortOrder;
+}
+
+interface SavedSearch {
+  id: number;
+  name: string;
+  icon: string;
+  filters: SavedSearchFilters;
+  userId: number | null;
+  sortOrder: number;
+}
+
+const SAVED_SEARCH_ICONS = ['bookmark', 'star', 'today', 'lightbulb', 'inbox'] as const;
+type SavedSearchIcon = (typeof SAVED_SEARCH_ICONS)[number];
+
 const PAGE_SIZE = 50;
 
 const COLLAPSED_KEY = 'brain.knowledge.list.collapsed';
@@ -84,6 +106,16 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const [internalRefresh, setInternalRefresh] = useState(0);
+
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedFormOpen, setSavedFormOpen] = useState(false);
+  const [savedFormName, setSavedFormName] = useState('');
+  const [savedFormIcon, setSavedFormIcon] = useState<SavedSearchIcon>('bookmark');
+  const [savedFormScope, setSavedFormScope] = useState<'personal' | 'shared'>('personal');
+  const [savedFormBusy, setSavedFormBusy] = useState(false);
+  const [savedRowMenu, setSavedRowMenu] = useState<number | null>(null);
+  const [savedRenameId, setSavedRenameId] = useState<number | null>(null);
+  const [savedRenameValue, setSavedRenameValue] = useState('');
 
   // Load persisted prefs once.
   useEffect(() => {
@@ -173,6 +205,19 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       })
       .catch(() => { /* non-fatal */ });
   }, [internalRefresh]);
+
+  // Saved searches inventory.
+  const loadSavedSearches = useCallback(async () => {
+    try {
+      const r = await fetch('/api/portal/brain/saved-searches');
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j?.success) setSavedSearches(j.data?.items ?? []);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => {
+    loadSavedSearches();
+  }, [loadSavedSearches]);
 
   // Clear selection when leaving select mode or when filter context changes.
   useEffect(() => {
@@ -281,6 +326,103 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     }
   }
 
+  function applySavedSearch(s: SavedSearch) {
+    const f = s.filters ?? {};
+    setSearch(f.search ?? '');
+    setActiveTags(Array.isArray(f.tags) ? f.tags : []);
+    setPinnedOnly(!!f.pinnedOnly);
+    setSortField(f.sort ?? 'updated');
+    setSortOrder(f.order ?? 'desc');
+    setTrashed(!!f.trashed);
+  }
+
+  const currentFilters = useMemo<SavedSearchFilters>(() => ({
+    search: debouncedSearch.trim() || undefined,
+    tags: activeTags.length > 0 ? activeTags : undefined,
+    pinnedOnly: pinnedOnly || undefined,
+    trashed: trashed || undefined,
+    sort: sortField,
+    order: sortOrder,
+  }), [debouncedSearch, activeTags, pinnedOnly, trashed, sortField, sortOrder]);
+
+  const matchedSavedId = useMemo(() => {
+    for (const s of savedSearches) {
+      if (savedSearchMatches(s.filters, currentFilters)) return s.id;
+    }
+    return null;
+  }, [savedSearches, currentFilters]);
+
+  async function createSavedFromCurrent() {
+    if (!savedFormName.trim() || savedFormBusy) return;
+    setSavedFormBusy(true);
+    try {
+      const r = await fetch('/api/portal/brain/saved-searches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: savedFormName.trim(),
+          icon: savedFormIcon,
+          scope: savedFormScope,
+          filters: currentFilters,
+        }),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || !json.success) {
+        setError(json.message || `Save failed (${r.status}).`);
+        return;
+      }
+      setSavedFormOpen(false);
+      setSavedFormName('');
+      setSavedFormIcon('bookmark');
+      setSavedFormScope('personal');
+      await loadSavedSearches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setSavedFormBusy(false);
+    }
+  }
+
+  async function renameSavedSearch(id: number, name: string) {
+    if (!name.trim()) return;
+    try {
+      const r = await fetch(`/api/portal/brain/saved-searches/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || !json.success) {
+        setError(json.message || `Rename failed (${r.status}).`);
+        return;
+      }
+      await loadSavedSearches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setSavedRenameId(null);
+      setSavedRenameValue('');
+      setSavedRowMenu(null);
+    }
+  }
+
+  async function deleteSavedSearch(id: number) {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this saved search?')) return;
+    try {
+      const r = await fetch(`/api/portal/brain/saved-searches/${id}`, { method: 'DELETE' });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || !json.success) {
+        setError(json.message || `Delete failed (${r.status}).`);
+        return;
+      }
+      await loadSavedSearches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setSavedRowMenu(null);
+    }
+  }
+
   function expandAll() {
     setCollapsed({});
   }
@@ -381,6 +523,84 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
               </>
             )}
           </div>
+          {filtersActive && !matchedSavedId && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSavedFormOpen(o => !o)}
+                title="Save current view"
+                aria-label="Save current view"
+                className={`h-8 w-8 inline-flex items-center justify-center rounded-md border transition-colors ${
+                  savedFormOpen ? 'border-primary bg-primary/10 text-primary' : 'border-border text-foreground hover:bg-accent'
+                }`}
+              >
+                <span className="material-icons text-base">bookmark_add</span>
+              </button>
+              {savedFormOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSavedFormOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 w-64 rounded-md border border-border bg-popover shadow-md p-3 text-xs space-y-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Save current view</div>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={savedFormName}
+                      onChange={(e) => setSavedFormName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') createSavedFromCurrent(); }}
+                      placeholder="Pin name"
+                      className="w-full px-2 py-1 rounded border border-border bg-background"
+                    />
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Icon</div>
+                      <div className="flex items-center gap-1">
+                        {SAVED_SEARCH_ICONS.map(ic => (
+                          <button
+                            key={ic}
+                            type="button"
+                            onClick={() => setSavedFormIcon(ic)}
+                            className={`h-7 w-7 inline-flex items-center justify-center rounded border ${
+                              savedFormIcon === ic ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                            }`}
+                            aria-label={`Icon ${ic}`}
+                          >
+                            <span className="material-icons text-sm">{ic}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setSavedFormScope('personal')}
+                        className={`flex-1 px-2 py-1 rounded border text-[11px] ${
+                          savedFormScope === 'personal' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        Personal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSavedFormScope('shared')}
+                        className={`flex-1 px-2 py-1 rounded border text-[11px] ${
+                          savedFormScope === 'shared' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        Team
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={createSavedFromCurrent}
+                      disabled={!savedFormName.trim() || savedFormBusy}
+                      className="w-full px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      {savedFormBusy ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setSelectMode(s => !s)}
@@ -488,6 +708,23 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
           <div className="m-2 bg-destructive/10 border border-destructive/30 rounded-md p-2 text-xs text-destructive">
             {error}
           </div>
+        )}
+
+        {!trashed && (
+          <SavedSearchesSection
+            items={savedSearches}
+            matchedId={matchedSavedId}
+            onApply={applySavedSearch}
+            openMenuId={savedRowMenu}
+            setOpenMenuId={setSavedRowMenu}
+            renamingId={savedRenameId}
+            renameValue={savedRenameValue}
+            onStartRename={(id, name) => { setSavedRenameId(id); setSavedRenameValue(name); }}
+            onChangeRename={setSavedRenameValue}
+            onCommitRename={renameSavedSearch}
+            onCancelRename={() => { setSavedRenameId(null); setSavedRenameValue(''); }}
+            onDelete={deleteSavedSearch}
+          />
         )}
 
         {!loading && notes.length === 0 && !error && (
@@ -1082,4 +1319,152 @@ function iconForNode(node: TagNode): string {
   if (node.path === PINNED_PATH) return 'push_pin';
   if (node.path === UNTAGGED_PATH) return 'inbox';
   return node.children.length > 0 ? 'folder' : 'tag';
+}
+
+// ─── Saved searches ────────────────────────────────────────────────────────
+
+function savedSearchMatches(stored: SavedSearchFilters, current: SavedSearchFilters): boolean {
+  const a = stored ?? {};
+  const b = current ?? {};
+  if ((a.search ?? '') !== (b.search ?? '')) return false;
+  if (!!a.pinnedOnly !== !!b.pinnedOnly) return false;
+  if (!!a.trashed !== !!b.trashed) return false;
+  if ((a.sort ?? 'updated') !== (b.sort ?? 'updated')) return false;
+  if ((a.order ?? 'desc') !== (b.order ?? 'desc')) return false;
+  const at = (a.tags ?? []).slice().sort();
+  const bt = (b.tags ?? []).slice().sort();
+  if (at.length !== bt.length) return false;
+  for (let i = 0; i < at.length; i++) if (at[i] !== bt[i]) return false;
+  return true;
+}
+
+interface SavedSearchesSectionProps {
+  items: SavedSearch[];
+  matchedId: number | null;
+  onApply: (s: SavedSearch) => void;
+  openMenuId: number | null;
+  setOpenMenuId: (id: number | null) => void;
+  renamingId: number | null;
+  renameValue: string;
+  onStartRename: (id: number, name: string) => void;
+  onChangeRename: (v: string) => void;
+  onCommitRename: (id: number, name: string) => void;
+  onCancelRename: () => void;
+  onDelete: (id: number) => void;
+}
+
+function SavedSearchesSection({
+  items,
+  matchedId,
+  onApply,
+  openMenuId,
+  setOpenMenuId,
+  renamingId,
+  renameValue,
+  onStartRename,
+  onChangeRename,
+  onCommitRename,
+  onCancelRename,
+  onDelete,
+}: SavedSearchesSectionProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="border-b border-border/40">
+      <button
+        type="button"
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-muted/40"
+      >
+        <span className="material-icons text-sm">{collapsed ? 'chevron_right' : 'expand_more'}</span>
+        <span className="material-icons text-sm">bookmark</span>
+        <span className="flex-1 text-left">Saved</span>
+        <span className="text-[10px] text-muted-foreground">{items.length}</span>
+      </button>
+      {!collapsed && (
+        items.length === 0 ? (
+          <div className="px-3 py-2 text-[11px] text-muted-foreground italic">
+            No saved searches yet — apply filters and click <span className="material-icons text-[13px] align-middle">bookmark_add</span> to save this view.
+          </div>
+        ) : (
+          <ul>
+            {items.map(s => {
+              const isActive = matchedId === s.id;
+              const isRenaming = renamingId === s.id;
+              return (
+                <li key={s.id} className="relative">
+                  <div
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 group transition-colors cursor-pointer ${
+                      isActive ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/40'
+                    }`}
+                    onClick={() => { if (!isRenaming) onApply(s); }}
+                  >
+                    <span className="material-icons text-sm opacity-70 group-hover:opacity-100">{s.icon || 'bookmark'}</span>
+                    {isRenaming ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => onChangeRename(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') onCommitRename(s.id, renameValue);
+                          else if (e.key === 'Escape') onCancelRename();
+                        }}
+                        onBlur={() => onCommitRename(s.id, renameValue)}
+                        className="flex-1 px-1 py-0 text-sm border-b border-border bg-transparent focus:outline-none"
+                      />
+                    ) : (
+                      <span className="flex-1 truncate text-sm">
+                        {s.name}
+                        {s.userId === null && <span className="ml-1 text-[9px] uppercase tracking-wider text-muted-foreground">team</span>}
+                      </span>
+                    )}
+                    {!isRenaming && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === s.id ? null : s.id);
+                        }}
+                        title="More"
+                        aria-label="More"
+                        className="h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-accent"
+                      >
+                        <span className="material-icons text-sm">more_horiz</span>
+                      </button>
+                    )}
+                  </div>
+                  {openMenuId === s.id && !isRenaming && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                      <div className="absolute right-2 top-full z-20 w-32 rounded-md border border-border bg-popover shadow-md py-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStartRename(s.id, s.name);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full text-left px-3 py-1 hover:bg-accent"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                          className="w-full text-left px-3 py-1 text-destructive hover:bg-destructive/10"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )
+      )}
+    </div>
+  );
 }

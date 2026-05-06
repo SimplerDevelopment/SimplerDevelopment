@@ -36,6 +36,13 @@
       "when": 1778041679920,
       "tag": "0070_sticky_sister_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778051906277,
+      "tag": "0071_bent_weapon_omega",
+      "breakpoints": true
     }
   ]
 }
