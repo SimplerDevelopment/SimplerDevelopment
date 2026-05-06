@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { microsoftTeamsUserConnections } from '@/lib/db/schema';
+import {
+  syncTranscriptForSubscription,
+  parseTranscriptResource,
+  NotConnectedError,
+} from '@/lib/microsoft/transcripts-sync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -123,14 +128,49 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // PR 3 hooks in here: enqueue a sync job for (clientId, userId,
-    // resourceData.id). For now, just log + count.
-    console.log(
-      `[microsoft-webhook] transcript notification: ` +
-        `connection=${conn.id} change=${n.changeType ?? '?'} ` +
-        `resource=${n.resource ?? '?'} transcriptId=${n.resourceData?.id ?? '?'}`,
-    );
-    processed++;
+    // Parse the resource path to extract (meetingId, transcriptId), then
+    // run the sync inline. We're inside the 30s Graph budget — a typical
+    // transcript fetch + parse + insert is well under 5s. If we exceed the
+    // budget, Graph treats the notification as failed and retries (which
+    // would just re-process; sync is idempotent on (clientId, sourceRef)).
+    const parsed = n.resource ? parseTranscriptResource(n.resource) : null;
+    if (!parsed) {
+      rejected++;
+      console.warn(
+        `[microsoft-webhook] could not parse resource path "${n.resource}" for subscription ${n.subscriptionId}`,
+      );
+      continue;
+    }
+
+    try {
+      const result = await syncTranscriptForSubscription({
+        subscriptionId: n.subscriptionId,
+        meetingId: parsed.meetingId,
+        transcriptId: parsed.transcriptId,
+      });
+      console.log(
+        `[microsoft-webhook] ingested: connection=${conn.id} ` +
+          `meeting=${result.brainMeetingId} reimport=${result.reimported} bytes=${result.byteCount}`,
+      );
+      processed++;
+    } catch (err) {
+      // Always ack the webhook (continue rather than throw) so Graph
+      // doesn't redeliver. The sync is idempotent so transient failures
+      // get retried by the next notification or by PR 4's delta sweep.
+      if (err instanceof NotConnectedError) {
+        rejected++;
+        console.warn(
+          `[microsoft-webhook] sync skipped — ${err.message}`,
+        );
+      } else {
+        rejected++;
+        console.error(
+          `[microsoft-webhook] sync failed for subscription ${n.subscriptionId} ` +
+            `meeting=${parsed.meetingId} transcript=${parsed.transcriptId}:`,
+          err,
+        );
+      }
+    }
   }
 
   // 202 Accepted — we've taken responsibility, processing is async.
