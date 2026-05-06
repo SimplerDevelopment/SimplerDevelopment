@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { hash } from 'bcryptjs';
@@ -12,7 +13,33 @@ const createUserSchema = z.object({
   active: z.boolean().default(true),
 });
 
+/**
+ * Auth gate for users CRUD: admin or editor role required.
+ * Returns null on unauthenticated, false on insufficient role, session otherwise.
+ */
+async function requireAdminOrEditor() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'unauth' as const };
+  const role = (session.user as { role?: string })?.role;
+  if (role !== 'admin' && role !== 'editor') return { error: 'forbidden' as const };
+  return { session };
+}
+
+function gateResponse(result: Awaited<ReturnType<typeof requireAdminOrEditor>>) {
+  if ('error' in result) {
+    if (result.error === 'unauth') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET() {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const allUsers = await db.select({
       id: users.id,
@@ -38,6 +65,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const validatedData = createUserSchema.parse(body);
