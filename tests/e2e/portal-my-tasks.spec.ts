@@ -10,11 +10,13 @@
  *  - tenancy: brain task on another client never bleeds into my response
  *
  * Brain tasks need direct DB writes for the dealId/companyId/linkedKanbanCardId
- * fields (the REST API doesn't expose them). We use `@/lib/db` which loads
- * DATABASE_URL from .env at test start.
+ * fields (the REST API doesn't expose them). We use the postgres.js driver
+ * directly here — Playwright doesn't load Next.js's `@/` path alias, so we
+ * cannot just `import('@/lib/db')` from a spec.
  */
 import { test, expect } from './setup/fixtures';
 import { runCleanups, createTestKanbanProject, createTestKanbanCard } from './setup/helpers';
+import postgres from 'postgres';
 import 'dotenv/config';
 
 interface MyTaskCardShape {
@@ -34,13 +36,39 @@ interface MyTaskGroupShape {
   cards: MyTaskCardShape[];
 }
 
-async function getMeId(api: ReturnType<typeof Object> & { get: (p: string) => Promise<{ data: { user?: { id?: string } } | null }> }) {
-  const session = await api.get('/api/auth/session');
-  return parseInt(session.data?.user?.id ?? '0', 10);
+let sql: ReturnType<typeof postgres> | null = null;
+function db() {
+  if (!sql) {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set; required for brain-task DB inserts.');
+    sql = postgres(process.env.DATABASE_URL, { max: 2, idle_timeout: 5 });
+  }
+  return sql;
 }
 
-/** Insert a brain task directly. Returns the row + a cleanup. */
-async function insertBrainTaskDirect(input: {
+test.afterAll(async () => {
+  if (sql) {
+    await sql.end({ timeout: 5 });
+    sql = null;
+  }
+});
+
+interface ApiClientLike {
+  get: (path: string) => Promise<{ data: unknown; status: number }>;
+}
+
+async function getMeId(api: ApiClientLike): Promise<number> {
+  const res = await api.get('/api/auth/session') as { data: { user?: { id?: string } } | null };
+  return parseInt(res.data?.user?.id ?? '0', 10);
+}
+
+async function getActiveClientId(api: ApiClientLike): Promise<number> {
+  const res = await api.get('/api/portal/clients') as { data: { activeClientId: number | null } | null };
+  const id = res.data?.activeClientId;
+  if (!id) throw new Error('No activeClientId returned for clientApi');
+  return id;
+}
+
+interface BrainTaskInsert {
   clientId: number;
   ownerId: number | null;
   title: string;
@@ -49,36 +77,25 @@ async function insertBrainTaskDirect(input: {
   dealId?: number | null;
   companyId?: number | null;
   linkedKanbanCardId?: number | null;
-}) {
-  const { db } = await import('@/lib/db');
-  const { brainTasks } = await import('@/lib/db/schema');
-  const [row] = await db.insert(brainTasks).values({
-    clientId: input.clientId,
-    ownerId: input.ownerId,
-    title: input.title,
-    status: input.status ?? 'open',
-    priority: input.priority ?? 'medium',
-    dealId: input.dealId ?? null,
-    companyId: input.companyId ?? null,
-    linkedKanbanCardId: input.linkedKanbanCardId ?? null,
-    source: 'manual',
-    createdByAi: false,
-    needsReview: false,
-    complianceFlag: false,
-  }).returning();
-  const cleanup = async () => {
-    const { eq } = await import('drizzle-orm');
-    await db.delete(brainTasks).where(eq(brainTasks.id, row.id)).catch(() => {});
-  };
-  return { row, cleanup };
 }
 
-/** Resolve the active client id for the logged-in fixture client. */
-async function getActiveClientId(api: { get: (p: string) => Promise<{ data: unknown }> }): Promise<number> {
-  const res = await api.get('/api/portal/clients') as { data: { activeClientId: number | null } | null };
-  const id = res.data?.activeClientId;
-  if (!id) throw new Error('No activeClientId returned for clientApi');
-  return id;
+async function insertBrainTaskDirect(input: BrainTaskInsert) {
+  const s = db();
+  const rows = await s<{ id: number }[]>`
+    INSERT INTO brain_tasks (
+      client_id, owner_id, title, status, priority, deal_id, company_id, linked_kanban_card_id, source, created_by_ai, needs_review, compliance_flag
+    ) VALUES (
+      ${input.clientId}, ${input.ownerId}, ${input.title}, ${input.status ?? 'open'}, ${input.priority ?? 'medium'},
+      ${input.dealId ?? null}, ${input.companyId ?? null}, ${input.linkedKanbanCardId ?? null},
+      'manual', false, false, false
+    )
+    RETURNING id
+  `;
+  const id = rows[0].id;
+  const cleanup = async () => {
+    try { await s`DELETE FROM brain_tasks WHERE id = ${id}` } catch {}
+  };
+  return { id, cleanup };
 }
 
 test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
@@ -90,7 +107,7 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     if (!meId) { test.skip(); return; }
     const clientId = await getActiveClientId(clientApi);
 
-    const { row: task, cleanup } = await insertBrainTaskDirect({
+    const { id: taskId, cleanup } = await insertBrainTaskDirect({
       clientId,
       ownerId: meId,
       title: `E2E Brain Task ${Date.now()}`,
@@ -102,12 +119,12 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     expect(res.status).toBe(200);
     const groups = res.data.data.projects as MyTaskGroupShape[];
     const allCards = groups.flatMap((g) => g.cards.map((c) => ({ ...c, groupId: g.id, groupSource: g.source })));
-    const found = allCards.find((c) => c.source === 'brain' && c.id === task.id);
-    expect(found).toBeTruthy();
-    expect(found!.key).toBe(`BRAIN-${task.id}`);
+    const found = allCards.find((c) => c.source === 'brain' && c.id === taskId);
+    expect(found, 'expected brain task to appear in /my-tasks response').toBeTruthy();
+    expect(found!.key).toBe(`BRAIN-${taskId}`);
     expect(found!.columnName).toBe('Open');
     expect(found!.columnIsDone).toBe(false);
-    expect(found!.linkUrl).toBe(`/portal/brain/tasks?task=${task.id}`);
+    expect(found!.linkUrl).toBe(`/portal/brain/tasks?task=${taskId}`);
   });
 
   test('brain task linked to a kanban card is deduped (kanban side appears)', async ({ clientApi }) => {
@@ -121,7 +138,7 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     cleanups.push(cardCleanup);
     await clientApi.post(`/api/portal/cards/${card.id}/assignees`, { userId: meId });
 
-    const { row: brainTask, cleanup: bCleanup } = await insertBrainTaskDirect({
+    const { id: brainTaskId, cleanup: bCleanup } = await insertBrainTaskDirect({
       clientId,
       ownerId: meId,
       title: 'Already-promoted brain task',
@@ -135,10 +152,10 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
 
     // Kanban card should be present
     const kanbanFound = allCards.find((c) => c.source === 'kanban' && c.id === card.id);
-    expect(kanbanFound).toBeTruthy();
+    expect(kanbanFound, 'expected kanban card to appear').toBeTruthy();
     // Brain task should NOT be present (deduped)
-    const brainFound = allCards.find((c) => c.source === 'brain' && c.id === brainTask.id);
-    expect(brainFound).toBeFalsy();
+    const brainFound = allCards.find((c) => c.source === 'brain' && c.id === brainTaskId);
+    expect(brainFound, 'brain task with linkedKanbanCardId should be deduped from response').toBeFalsy();
   });
 
   test('openOnly filter excludes status=done brain tasks', async ({ clientApi }) => {
@@ -146,11 +163,11 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     if (!meId) { test.skip(); return; }
     const clientId = await getActiveClientId(clientApi);
 
-    const { row: openTask, cleanup: c1 } = await insertBrainTaskDirect({
+    const { id: openId, cleanup: c1 } = await insertBrainTaskDirect({
       clientId, ownerId: meId, title: 'Brain open task', status: 'open',
     });
     cleanups.push(c1);
-    const { row: doneTask, cleanup: c2 } = await insertBrainTaskDirect({
+    const { id: doneId, cleanup: c2 } = await insertBrainTaskDirect({
       clientId, ownerId: meId, title: 'Brain done task', status: 'done',
     });
     cleanups.push(c2);
@@ -158,14 +175,14 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     const open = await clientApi.get('/api/portal/my-tasks?openOnly=1');
     const openCards = (open.data.data.projects as MyTaskGroupShape[]).flatMap((g) => g.cards);
     const openHas = (id: number) => openCards.some((c) => c.source === 'brain' && c.id === id);
-    expect(openHas(openTask.id)).toBe(true);
-    expect(openHas(doneTask.id)).toBe(false);
+    expect(openHas(openId)).toBe(true);
+    expect(openHas(doneId)).toBe(false);
 
     const all = await clientApi.get('/api/portal/my-tasks?openOnly=0');
     const allCards = (all.data.data.projects as MyTaskGroupShape[]).flatMap((g) => g.cards);
     const allHas = (id: number) => allCards.some((c) => c.source === 'brain' && c.id === id);
-    expect(allHas(openTask.id)).toBe(true);
-    expect(allHas(doneTask.id)).toBe(true);
+    expect(allHas(openId)).toBe(true);
+    expect(allHas(doneId)).toBe(true);
   });
 
   test('brain task linked to a CRM deal lands in a brain-deal group', async ({ clientApi }) => {
@@ -189,7 +206,7 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     const deal = dealRes.data.data as { id: number };
     cleanups.push(async () => { await clientApi.delete(`/api/portal/crm/deals/${deal.id}`).catch(() => {}); });
 
-    const { row: brainTask, cleanup: bCleanup } = await insertBrainTaskDirect({
+    const { id: brainTaskId, cleanup: bCleanup } = await insertBrainTaskDirect({
       clientId, ownerId: meId, title: 'Deal-linked brain task', dealId: deal.id,
     });
     cleanups.push(bCleanup);
@@ -197,10 +214,10 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     const res = await clientApi.get('/api/portal/my-tasks?openOnly=1');
     const groups = res.data.data.projects as MyTaskGroupShape[];
     const dealGroup = groups.find((g) => g.id === `brain-deal-${deal.id}`);
-    expect(dealGroup).toBeTruthy();
+    expect(dealGroup, `expected group brain-deal-${deal.id}`).toBeTruthy();
     expect(dealGroup!.source).toBe('brain');
     expect(dealGroup!.name).toBe(`${dealTitle} · CRM Deal`);
-    expect(dealGroup!.cards.some((c) => c.id === brainTask.id)).toBe(true);
+    expect(dealGroup!.cards.some((c) => c.id === brainTaskId)).toBe(true);
   });
 
   test('uncategorized brain task lands in brain-uncategorized', async ({ clientApi }) => {
@@ -208,7 +225,7 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     if (!meId) { test.skip(); return; }
     const clientId = await getActiveClientId(clientApi);
 
-    const { row: brainTask, cleanup } = await insertBrainTaskDirect({
+    const { id: brainTaskId, cleanup } = await insertBrainTaskDirect({
       clientId, ownerId: meId, title: 'Uncategorized brain task',
     });
     cleanups.push(cleanup);
@@ -216,33 +233,31 @@ test.describe('Portal /my-tasks unified inbox @portal @my-tasks @brain', () => {
     const res = await clientApi.get('/api/portal/my-tasks?openOnly=1');
     const groups = res.data.data.projects as MyTaskGroupShape[];
     const uncat = groups.find((g) => g.id === 'brain-uncategorized');
-    expect(uncat).toBeTruthy();
+    expect(uncat, 'expected brain-uncategorized group').toBeTruthy();
     expect(uncat!.source).toBe('brain');
     expect(uncat!.name).toBe('Brain tasks');
-    expect(uncat!.cards.some((c) => c.id === brainTask.id)).toBe(true);
+    expect(uncat!.cards.some((c) => c.id === brainTaskId)).toBe(true);
   });
 
   test('tenancy: brain task on another client does not appear in my response', async ({ clientApi }) => {
     const meId = await getMeId(clientApi);
     if (!meId) { test.skip(); return; }
 
-    // Find another client distinct from the active one. If none, skip.
     const myClientId = await getActiveClientId(clientApi);
-    const { db } = await import('@/lib/db');
-    const { clients } = await import('@/lib/db/schema');
-    const { ne } = await import('drizzle-orm');
-    const [other] = await db.select({ id: clients.id }).from(clients).where(ne(clients.id, myClientId)).limit(1);
-    if (!other?.id) { test.skip(); return; }
+    const s = db();
+    const others = await s<{ id: number }[]>`SELECT id FROM clients WHERE id <> ${myClientId} LIMIT 1`;
+    if (others.length === 0) { test.skip(); return; }
+    const otherClientId = others[0].id;
 
-    const { row: foreignTask, cleanup } = await insertBrainTaskDirect({
-      clientId: other.id, ownerId: meId, title: 'Foreign-tenant brain task',
+    const { id: foreignId, cleanup } = await insertBrainTaskDirect({
+      clientId: otherClientId, ownerId: meId, title: 'Foreign-tenant brain task',
     });
     cleanups.push(cleanup);
 
     const res = await clientApi.get('/api/portal/my-tasks?openOnly=0');
     const groups = res.data.data.projects as MyTaskGroupShape[];
     const allCards = groups.flatMap((g) => g.cards);
-    const leaked = allCards.find((c) => c.source === 'brain' && c.id === foreignTask.id);
-    expect(leaked).toBeFalsy();
+    const leaked = allCards.find((c) => c.source === 'brain' && c.id === foreignId);
+    expect(leaked, 'foreign-client brain task must NOT appear in my response').toBeFalsy();
   });
 });
