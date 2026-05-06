@@ -5,6 +5,7 @@ import { surveys, surveyResponses, SurveyFieldDef } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { buildResponseWhere, parseResponseFilters } from '@/lib/surveys/response-filters';
 
 function escapeCsv(val: string): string {
   if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -13,7 +14,7 @@ function escapeCsv(val: string): string {
   return val;
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
@@ -30,8 +31,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .where(and(eq(surveys.id, surveyId), eq(surveys.clientId, client.id)));
   if (!survey) return NextResponse.json({ success: false, message: 'Survey not found' }, { status: 404 });
 
+  // Apply the same filter params as GET /responses so the CSV the user
+  // downloads matches what they see on screen.
+  const filters = parseResponseFilters(new URL(req.url));
   const responses = await db.select().from(surveyResponses)
-    .where(eq(surveyResponses.surveyId, surveyId))
+    .where(buildResponseWhere(surveyId, filters))
     .orderBy(desc(surveyResponses.createdAt));
 
   const fields = (survey.fields || []) as SurveyFieldDef[];
