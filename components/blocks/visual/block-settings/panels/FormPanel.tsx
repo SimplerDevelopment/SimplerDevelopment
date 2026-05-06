@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
 import { SurveyResultsBlockSettings } from './SurveyResultsSettings';
 import { BookingBlockSettings } from './BookingSettings';
+import { TokenColorPicker } from '@/components/blocks/visual/TokenColorPicker';
 
 interface PanelProps {
   block: Block;
@@ -278,6 +279,77 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
           className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
         <label htmlFor="surveyShowPageTitle" className="ml-2 text-sm text-foreground">Show Survey Title</label>
       </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="surveyShowDescription" checked={block.showDescription !== false}
+          onChange={(e) => onChange({ showDescription: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="surveyShowDescription" className="ml-2 text-sm text-foreground">Show Description</label>
+      </div>
+      <div className="flex items-center">
+        <input type="checkbox" id="surveyShowLogo" checked={block.showLogo !== false}
+          onChange={(e) => onChange({ showLogo: e.target.checked })}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
+        <label htmlFor="surveyShowLogo" className="ml-2 text-sm text-foreground">Show Logo</label>
+      </div>
+
+      {/* Advanced styling overrides — take precedence over the survey's own styling and the site branding. */}
+      <details className="border border-border rounded">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground hover:bg-accent/40">
+          Advanced styling overrides
+        </summary>
+        <div className="px-3 pb-3 pt-2 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            These take precedence over the survey&apos;s own styling and the site branding. Leave blank to use defaults.
+          </p>
+          {(() => {
+            const so = block.styleOverrides || {};
+            const update = (patch: Partial<NonNullable<SurveyBlock['styleOverrides']>>) =>
+              onChange({ styleOverrides: { ...so, ...patch } });
+            const inputClass = 'w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground';
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker label="Primary Color" value={so.primaryColor || ''} onChange={(v) => update({ primaryColor: v || undefined })} />
+                  <TokenColorPicker label="Background" value={so.backgroundColor || ''} onChange={(v) => update({ backgroundColor: v || undefined })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker label="Text Color" value={so.textColor || ''} onChange={(v) => update({ textColor: v || undefined })} />
+                  <TokenColorPicker label="Form / Card Background" value={so.formBg || ''} onChange={(v) => update({ formBg: v || undefined })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TokenColorPicker label="Input Background" value={so.inputBg || ''} onChange={(v) => update({ inputBg: v || undefined })} />
+                  <TokenColorPicker label="Button Background" value={so.buttonBg || ''} onChange={(v) => update({ buttonBg: v || undefined })} />
+                </div>
+                <TokenColorPicker label="Button Text" value={so.buttonText || ''} onChange={(v) => update({ buttonText: v || undefined })} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>
+                    <input type="text" value={so.headingFont || ''} onChange={(e) => update({ headingFont: e.target.value || undefined })}
+                      className={inputClass} placeholder="e.g. Inter, sans-serif" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Body Font</label>
+                    <input type="text" value={so.bodyFont || ''} onChange={(e) => update({ bodyFont: e.target.value || undefined })}
+                      className={inputClass} placeholder="e.g. system-ui, sans-serif" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Border Radius</label>
+                    <input type="text" value={so.borderRadius || ''} onChange={(e) => update({ borderRadius: e.target.value || undefined })}
+                      className={inputClass} placeholder="e.g. 8px" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted-foreground mb-1">Button Border Radius</label>
+                    <input type="text" value={so.buttonBorderRadius || ''} onChange={(e) => update({ buttonBorderRadius: e.target.value || undefined })}
+                      className={inputClass} placeholder="e.g. 6px" />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </details>
     </div>
   );
 }

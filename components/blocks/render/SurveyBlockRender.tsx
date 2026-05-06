@@ -41,6 +41,9 @@ export function SurveyBlockRender({ block }: SurveyBlockRenderProps) {
       <SurveyFormInline
         slug={block.slug}
         showPageTitle={block.showPageTitle !== false}
+        showDescription={block.showDescription !== false}
+        showLogo={block.showLogo !== false}
+        styleOverrides={block.styleOverrides}
       />
     </div>
   );
