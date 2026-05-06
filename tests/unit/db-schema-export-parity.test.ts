@@ -94,12 +94,15 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'BrainReviewItemType',
   'BrainSavedSearchFilters',
   'BrainTaskStatus',
+  'CommentAnchor',
   'ContractClause',
   'DnsInstruction',
+  'DocumentComment',
   'EmailTemplateVariable',
   'GoogleWorkspaceClientConnection',
   'GoogleWorkspaceTenantCredentials',
   'GoogleWorkspaceUserConnection',
+  'NewDocumentComment',
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
@@ -189,6 +192,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'crmTags',
   'customFields',
   'discountCodes',
+  'documentComments',
   'emailCampaignSends',
   'emailCampaigns',
   'emailLists',
@@ -363,6 +367,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   crmTags: 'crm_tags',
   customFields: 'custom_fields',
   discountCodes: 'discount_codes',
+  documentComments: 'document_comments',
   emailCampaignSends: 'email_campaign_sends',
   emailCampaigns: 'email_campaigns',
   emailLists: 'email_lists',
@@ -472,7 +477,7 @@ describe('lib/db/schema export parity', () => {
     expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
   });
 
-  it('exports the recorded number of names (224)', () => {
+  it('exports the recorded number of names (228)', () => {
     expect(collectSchemaExportNames()).toHaveLength(EXPECTED_EXPORTS.length);
   });
 
@@ -498,13 +503,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (167)', () => {
+  it('reports the recorded number of tables (168)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(167);
+    expect(count).toBe(168);
   });
 });
