@@ -2,6 +2,7 @@ import { parse } from 'node-html-parser';
 import { db } from '@/lib/db';
 import { media } from '@/lib/db/schema';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 
 interface AssetImportOpts {
   websiteId: number;
@@ -139,10 +140,15 @@ export async function importHtmlAssets(
         let bytes: ArrayBuffer;
         let contentType: string;
         try {
+          // SSRF guard — re-resolve DNS at fetch time and reject private/loopback.
+          await assertSafeUrl(resolved.toString());
           const res = await fetch(resolved.toString(), {
-            redirect: 'follow',
+            redirect: 'manual',
             signal: AbortSignal.timeout(timeoutMs),
           });
+          if (res.status >= 300 && res.status < 400) {
+            throw new Error('Refusing to follow redirect (SSRF guard).');
+          }
           if (!res.ok) throw new Error(`status ${res.status}`);
           const len = Number(res.headers.get('content-length') ?? 0);
           if (len > maxBytes) throw new Error(`asset > ${maxBytes} bytes`);

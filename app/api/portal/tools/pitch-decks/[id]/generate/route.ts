@@ -8,6 +8,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { saveVersionSnapshot } from '@/lib/pitch-deck-versions';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
 import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme } from '@/lib/branding';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { brandingMessaging } from '@/lib/db/schema';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -169,10 +170,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     } else if (websiteUrl?.trim()) {
       // No siteBranding configured — fall back to AI extraction from URL
       try {
-        const siteRes = await fetch(websiteUrl.trim(), {
+        const trimmedUrl = websiteUrl.trim();
+        // SSRF guard — re-resolve DNS at fetch time, reject private/loopback.
+        await assertSafeUrl(trimmedUrl);
+        const siteRes = await fetch(trimmedUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SimplerDev/1.0)' },
+          redirect: 'manual',
           signal: AbortSignal.timeout(10000),
         });
+        if (siteRes.status >= 300 && siteRes.status < 400) {
+          throw new Error('Refusing to follow redirect (SSRF guard).');
+        }
         const html = await siteRes.text();
         const truncatedHtml = html.slice(0, 15000);
 

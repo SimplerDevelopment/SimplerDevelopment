@@ -93,6 +93,7 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   renderBlocksToEmailHtml,
   resend,
@@ -507,9 +508,17 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ url, filename, alt, caption, websiteId, brandingProfileId }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      try {
+        await assertSafeUrl(url);
+      } catch (err) {
+        return json({ error: `URL rejected: ${(err as Error).message}` });
+      }
       let resp: Response;
       try {
-        resp = await fetch(url);
+        resp = await fetch(url, { redirect: 'manual' });
+        if (resp.status >= 300 && resp.status < 400) {
+          return json({ error: 'Refusing to follow redirects on remote upload (SSRF guard).' });
+        }
       } catch (err) {
         return json({ error: `Fetch failed: ${(err as Error).message}` });
       }
