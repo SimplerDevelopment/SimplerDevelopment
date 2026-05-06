@@ -16,7 +16,8 @@
  * a flat result list so users can see actual matches.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import TemplatesPickerButton from '@/components/brain/TemplatesPickerButton';
 
 interface BrainNote {
@@ -97,6 +98,8 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const [sortField, setSortField] = useState<SortField>('updated');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [sortOpen, setSortOpen] = useState(false);
+  const sortBtnRef = useRef<HTMLButtonElement | null>(null);
+  const saveBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [trashed, setTrashed] = useState(false);
   // Total trashed-note count for the tab badge + retention warning. Tracked
@@ -534,6 +537,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
           </div>
           <div className="relative">
             <button
+              ref={sortBtnRef}
               type="button"
               onClick={() => setSortOpen(o => !o)}
               title="Sort"
@@ -542,46 +546,42 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
             >
               <span className="material-icons text-base">tune</span>
             </button>
-            {sortOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-md border border-border bg-popover shadow-md p-2 text-xs">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Sort by</div>
-                  {(['updated', 'created', 'title'] as SortField[]).map(f => (
-                    <label key={f} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-accent cursor-pointer">
-                      <input
-                        type="radio"
-                        name="sortField"
-                        checked={sortField === f}
-                        onChange={() => setSortField(f)}
-                        className="h-3 w-3"
-                      />
-                      <span className="capitalize">{f}</span>
-                    </label>
-                  ))}
-                  <div className="mt-2 pt-2 border-t border-border flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setSortOrder('asc')}
-                      className={`flex-1 px-2 py-1 rounded ${sortOrder === 'asc' ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
-                    >
-                      Asc
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSortOrder('desc')}
-                      className={`flex-1 px-2 py-1 rounded ${sortOrder === 'desc' ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
-                    >
-                      Desc
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            <PortalPopover open={sortOpen} onClose={() => setSortOpen(false)} triggerRef={sortBtnRef} width={176}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Sort by</div>
+              {(['updated', 'created', 'title'] as SortField[]).map(f => (
+                <label key={f} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-accent cursor-pointer">
+                  <input
+                    type="radio"
+                    name="sortField"
+                    checked={sortField === f}
+                    onChange={() => setSortField(f)}
+                    className="h-3 w-3"
+                  />
+                  <span className="capitalize">{f}</span>
+                </label>
+              ))}
+              <div className="mt-2 pt-2 border-t border-border flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('asc')}
+                  className={`flex-1 px-2 py-1 rounded ${sortOrder === 'asc' ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                >
+                  Asc
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('desc')}
+                  className={`flex-1 px-2 py-1 rounded ${sortOrder === 'desc' ? 'bg-primary/10 text-primary' : 'hover:bg-accent'}`}
+                >
+                  Desc
+                </button>
+              </div>
+            </PortalPopover>
           </div>
           {filtersActive && !matchedSavedId && (
             <div className="relative">
               <button
+                ref={saveBtnRef}
                 type="button"
                 onClick={() => setSavedFormOpen(o => !o)}
                 title="Save current view"
@@ -592,69 +592,66 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
               >
                 <span className="material-icons text-base">bookmark_add</span>
               </button>
-              {savedFormOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setSavedFormOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-20 w-64 rounded-md border border-border bg-popover shadow-md p-3 text-xs space-y-2">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Save current view</div>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={savedFormName}
-                      onChange={(e) => setSavedFormName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') createSavedFromCurrent(); }}
-                      placeholder="Pin name"
-                      className="w-full px-2 py-1 rounded border border-border bg-background"
-                    />
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Icon</div>
-                      <div className="flex items-center gap-1">
-                        {SAVED_SEARCH_ICONS.map(ic => (
-                          <button
-                            key={ic}
-                            type="button"
-                            onClick={() => setSavedFormIcon(ic)}
-                            className={`h-7 w-7 inline-flex items-center justify-center rounded border ${
-                              savedFormIcon === ic ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
-                            }`}
-                            aria-label={`Icon ${ic}`}
-                          >
-                            <span className="material-icons text-sm">{ic}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+              <PortalPopover open={savedFormOpen} onClose={() => setSavedFormOpen(false)} triggerRef={saveBtnRef} width={256}>
+                <div className="space-y-2 p-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Save current view</div>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={savedFormName}
+                    onChange={(e) => setSavedFormName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') createSavedFromCurrent(); }}
+                    placeholder="Pin name"
+                    className="w-full px-2 py-1 rounded border border-border bg-background"
+                  />
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Icon</div>
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setSavedFormScope('personal')}
-                        className={`flex-1 px-2 py-1 rounded border text-[11px] ${
-                          savedFormScope === 'personal' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
-                        }`}
-                      >
-                        Personal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSavedFormScope('shared')}
-                        className={`flex-1 px-2 py-1 rounded border text-[11px] ${
-                          savedFormScope === 'shared' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
-                        }`}
-                      >
-                        Team
-                      </button>
+                      {SAVED_SEARCH_ICONS.map(ic => (
+                        <button
+                          key={ic}
+                          type="button"
+                          onClick={() => setSavedFormIcon(ic)}
+                          className={`h-7 w-7 inline-flex items-center justify-center rounded border ${
+                            savedFormIcon === ic ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                          }`}
+                          aria-label={`Icon ${ic}`}
+                        >
+                          <span className="material-icons text-sm">{ic}</span>
+                        </button>
+                      ))}
                     </div>
+                  </div>
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={createSavedFromCurrent}
-                      disabled={!savedFormName.trim() || savedFormBusy}
-                      className="w-full px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                      onClick={() => setSavedFormScope('personal')}
+                      className={`flex-1 px-2 py-1 rounded border text-[11px] ${
+                        savedFormScope === 'personal' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                      }`}
                     >
-                      {savedFormBusy ? 'Saving…' : 'Save'}
+                      Personal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSavedFormScope('shared')}
+                      className={`flex-1 px-2 py-1 rounded border text-[11px] ${
+                        savedFormScope === 'shared' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-accent'
+                      }`}
+                    >
+                      Team
                     </button>
                   </div>
-                </>
-              )}
+                  <button
+                    type="button"
+                    onClick={createSavedFromCurrent}
+                    disabled={!savedFormName.trim() || savedFormBusy}
+                    className="w-full px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savedFormBusy ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </PortalPopover>
             </div>
           )}
           <button
@@ -1612,5 +1609,54 @@ function SavedSearchesSection({
         )
       )}
     </div>
+  );
+}
+
+// Portal-rendered popover anchored to the bottom-right of `triggerRef`.
+// Escapes ancestor `overflow:hidden` (e.g. the resizable Panel) by rendering
+// at document.body with position: fixed.
+function PortalPopover({
+  open,
+  onClose,
+  triggerRef,
+  width,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  width: number;
+  children: ReactNode;
+}) {
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const compute = () => {
+      const r = triggerRef.current?.getBoundingClientRect();
+      if (r) setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('scroll', compute, true);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', compute, true);
+    };
+  }, [open, triggerRef]);
+
+  if (!open || !pos || typeof document === 'undefined') return null;
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-[60]" onClick={onClose} />
+      <div
+        style={{ top: pos.top, right: pos.right, width }}
+        className="fixed z-[61] rounded-md border border-border bg-popover shadow-md p-2 text-xs"
+      >
+        {children}
+      </div>
+    </>,
+    document.body,
   );
 }
