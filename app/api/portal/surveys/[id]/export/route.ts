@@ -8,10 +8,13 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { buildResponseWhere, parseResponseFilters } from '@/lib/surveys/response-filters';
 
 function escapeCsv(val: string): string {
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return `"${val.replace(/"/g, '""')}"`;
+  let s = val;
+  // Neutralize spreadsheet formula injection (Excel, Sheets, Numbers).
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return `"${s.replace(/"/g, '""')}"`;
   }
-  return val;
+  return s;
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
