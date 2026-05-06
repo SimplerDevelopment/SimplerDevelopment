@@ -10,9 +10,17 @@ interface Portal {
   subdomain: string | null;
 }
 
+function safeCallbackUrl(raw: string | null | undefined): string {
+  if (!raw) return '/portal/dashboard';
+  // Reject absolute URLs and protocol-relative URLs.
+  if (raw.startsWith('//') || /^[a-z]+:/i.test(raw)) return '/portal/dashboard';
+  if (!raw.startsWith('/')) return '/portal/dashboard';
+  return raw;
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/portal/dashboard';
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
