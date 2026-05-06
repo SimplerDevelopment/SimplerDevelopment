@@ -107,6 +107,11 @@ import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-cre
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
+  assertColumnInProject,
+  assertProjectInClient,
+  OwnershipError,
+} from '@/lib/security/assert-owned';
+import {
   json,
   serializePostContent,
   denied,
@@ -197,9 +202,13 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     },
     async (args) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
-      const [proj] = await db.select({ id: projects.id }).from(projects)
-        .where(and(eq(projects.id, args.projectId), eq(projects.clientId, clientId))).limit(1);
-      if (!proj) return json({ error: 'Project not found' });
+      try {
+        await assertProjectInClient(args.projectId, clientId);
+        await assertColumnInProject(args.columnId, args.projectId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       if (args.sprintId != null) {
         const [sprint] = await db.select({ projectId: sprints.projectId })
           .from(sprints).where(eq(sprints.id, args.sprintId)).limit(1);
@@ -241,6 +250,12 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const [proj] = await db.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, card.projectId), eq(projects.clientId, clientId))).limit(1);
       if (!proj) return json({ error: 'Permission denied' });
+      try {
+        await assertColumnInProject(columnId, card.projectId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const [row] = await db.update(kanbanCards)
         .set({ columnId, order: order ?? 0, updatedAt: new Date() })
         .where(eq(kanbanCards.id, cardId))

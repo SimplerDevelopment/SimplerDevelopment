@@ -76,6 +76,7 @@ import { getDashboardSummary } from './dashboard';
 import { db } from '@/lib/db';
 import { brainAiReviewItems, brainAuditLogs, users } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { assertUserVisibleToClient, OwnershipError } from '@/lib/security/assert-owned';
 
 function json(payload: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
@@ -385,6 +386,12 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        if (args.ownerId != null) await assertUserVisibleToClient(args.ownerId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const task = await createTask({
         clientId,
         title: args.title,

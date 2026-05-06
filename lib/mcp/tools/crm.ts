@@ -109,6 +109,13 @@ import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import { extractMentions } from '@/lib/crm/extract-mentions';
 import { createCrmNotification } from '@/lib/crm/notifications';
 import {
+  assertStageInClient,
+  assertContactInClient,
+  assertCompanyInClient,
+  assertUserVisibleToClient,
+  OwnershipError,
+} from '@/lib/security/assert-owned';
+import {
   json,
   serializePostContent,
   denied,
@@ -405,6 +412,12 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, stageId, status }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      try {
+        if (stageId != null) await assertStageInClient(stageId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       if (stageId !== undefined) patch.stageId = stageId;
       if (status !== undefined) {
@@ -444,6 +457,14 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
       const [existing] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, id), eq(crmDeals.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deal not found' });
+      try {
+        if (rest.contactId != null) await assertContactInClient(rest.contactId, clientId);
+        if (rest.companyId != null) await assertCompanyInClient(rest.companyId, clientId);
+        if (rest.ownerId != null) await assertUserVisibleToClient(rest.ownerId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       if (expectedCloseDate !== undefined) {

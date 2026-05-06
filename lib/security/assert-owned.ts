@@ -3,7 +3,8 @@ import {
   crmPipelines, crmPipelineStages, crmContacts, crmCompanies,
 } from '@/lib/db/schema/crm';
 import { kanbanColumns, projects } from '@/lib/db/schema';
-import { clientMembers, users } from '@/lib/db/schema/auth';
+import { clientMembers } from '@/lib/db/schema/sites';
+import { users } from '@/lib/db/schema/auth';
 import { and, eq } from 'drizzle-orm';
 
 /**
