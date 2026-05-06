@@ -12,12 +12,14 @@ type ResendEvent =
 
 export async function POST(req: Request) {
   // Verify webhook signature in production
+  // TODO(W2.1 security-fix-plan.md): add full Svix signature verification using the
+  // `svix` package — Wave 2 (requires new dep + prod env coordination).
   const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (secret) {
-    const signature = req.headers.get('svix-signature');
-    if (!signature) return new NextResponse('Unauthorized', { status: 401 });
-    // Full Svix signature verification can be added here with the `svix` package
+  if (!secret) {
+    return new NextResponse('Unauthorized', { status: 401 });
   }
+  const signature = req.headers.get('svix-signature');
+  if (!signature) return new NextResponse('Unauthorized', { status: 401 });
 
   const event = (await req.json()) as ResendEvent;
 
