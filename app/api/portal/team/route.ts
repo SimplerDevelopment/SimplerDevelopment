@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { sendInviteEmail } from '@/lib/email/invite-email';
+import { hashToken } from '@/lib/security/token-hash';
 
 const VALID_ROLES = ['admin', 'member', 'viewer'] as const;
 
@@ -99,7 +100,10 @@ export async function POST(req: Request) {
 
   const [existing] = await db.select().from(users).where(eq(users.email, email.trim())).limit(1);
 
-  const inviteToken = randomBytes(32).toString('hex');
+  // Raw token is emailed to the recipient; only the SHA-256 hash is stored.
+  // A read-only DB compromise can't be used to take over pending invites.
+  const rawInviteToken = randomBytes(32).toString('hex');
+  const inviteTokenHash = hashToken(rawInviteToken);
   const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   let invitedUser = existing;
@@ -113,13 +117,13 @@ export async function POST(req: Request) {
       password: placeholder,
       role: 'client',
       active: true,
-      inviteToken,
+      inviteToken: inviteTokenHash,
       inviteExpiresAt,
     }).returning();
     isNewUser = true;
   } else {
     // Existing user — set invite token so they can also use the link (optional convenience)
-    await db.update(users).set({ inviteToken, inviteExpiresAt }).where(eq(users.id, invitedUser.id));
+    await db.update(users).set({ inviteToken: inviteTokenHash, inviteExpiresAt }).where(eq(users.id, invitedUser.id));
   }
 
   const [alreadyMember] = await db
@@ -147,7 +151,7 @@ export async function POST(req: Request) {
       companyName: client.company || 'Your Team',
       inviterName,
       role: assignRole,
-      inviteToken,
+      inviteToken: rawInviteToken,
     });
   } catch (emailError) {
     console.error('Failed to send invite email:', emailError);
