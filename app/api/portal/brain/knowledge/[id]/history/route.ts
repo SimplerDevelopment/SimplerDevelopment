@@ -3,6 +3,7 @@ import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { db } from '@/lib/db';
 import { brainAuditLogs } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
+import { getNote } from '@/lib/brain/notes';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const result = await authorizePortal({ action: 'read' });
@@ -13,6 +14,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (Number.isNaN(noteId)) {
     return NextResponse.json({ success: false, message: 'Invalid note id' }, { status: 400 });
   }
+
+  // Tenant ownership check — keeps history 404 consistent with the rest of the
+  // /knowledge/[id]/* surface (backlinks, fields, restore). Without it a caller
+  // gets an empty 200 for a foreign id, which masks the leak attempt.
+  const note = await getNote(result.client.id, noteId);
+  if (!note) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const rows = await db.select().from(brainAuditLogs)
     .where(and(

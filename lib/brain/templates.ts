@@ -52,8 +52,16 @@ export class DuplicateTemplateNameError extends Error {
 }
 
 function isUniqueViolation(err: unknown): boolean {
-  // Postgres unique_violation. Drizzle/pg surfaces the underlying code on the error.
-  return typeof err === 'object' && err !== null && 'code' in err && (err as { code: unknown }).code === '23505';
+  // Postgres unique_violation. Drizzle wraps the original PostgresError in a
+  // DrizzleQueryError, putting the code on `.cause.code` rather than `.code`,
+  // so we have to walk one level. Keep the direct `.code` check as a fallback
+  // for code paths that don't go through Drizzle.
+  if (typeof err !== 'object' || err === null) return false;
+  const direct = (err as { code?: unknown }).code;
+  if (direct === '23505') return true;
+  const cause = (err as { cause?: unknown }).cause;
+  if (cause && typeof cause === 'object' && (cause as { code?: unknown }).code === '23505') return true;
+  return false;
 }
 
 export async function createTemplate(input: CreateTemplateInput): Promise<BrainNoteTemplate> {
