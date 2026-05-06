@@ -58,13 +58,18 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
   const className = `${alignmentClass} ${headingClasses} ${block.style?.color ? '' : 'text-foreground'}`;
   const tag = `h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 
-  const hasHtml = block.content.includes('<');
+  // Compatibility alias — some LLM-authored content (notably MCP-generated
+  // posts) uses `text` instead of the canonical `content`. Accept both so
+  // historical posts still render; canonical wins when both present.
+  const raw = block as unknown as { content?: string; text?: string };
+  const text = raw.content ?? raw.text ?? '';
+  const hasHtml = text.includes('<');
 
   return (
     <div className={responsiveClasses}>
       {hasHtml
-        ? React.createElement(tag, { className, 'data-editable-field': 'content', dangerouslySetInnerHTML: { __html: block.content } })
-        : React.createElement(tag, { className, 'data-editable-field': 'content' }, block.content)
+        ? React.createElement(tag, { className, 'data-editable-field': 'content', dangerouslySetInnerHTML: { __html: text } })
+        : React.createElement(tag, { className, 'data-editable-field': 'content' }, text)
       }
     </div>
   );
