@@ -1,5 +1,10 @@
 import { db } from '@/lib/db';
-import { brainNotes } from '@/lib/db/schema';
+import {
+  brainNotes,
+  brainKbLinks,
+  brainCustomFieldValues,
+  brainAuditLogs,
+} from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, isNull, isNotNull, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { deleteFromS3 } from '@/lib/s3/delete';
@@ -507,5 +512,101 @@ export async function listAllTags(clientId: number): Promise<string[]> {
     for (const t of r.tags ?? []) set.add(t);
   }
   return Array.from(set).sort();
+}
+
+/**
+ * Count the soft-deleted (trashed) notes for a tenant. Used by the trash
+ * counter badge so we don't have to fetch the full list to render a number.
+ */
+export async function countTrashedNotes(clientId: number): Promise<number> {
+  const [row] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), isNotNull(brainNotes.deletedAt)));
+  return row?.count ?? 0;
+}
+
+/**
+ * Permanently purge every soft-deleted (trashed) note for a tenant.
+ *
+ * Cascade behaviour:
+ *   - brain_notes rows are removed.
+ *   - brain_kb_links with `from_note_id` in the set are removed via FK CASCADE.
+ *   - brain_kb_links with `to_note_id` in the set (incoming backlinks) are
+ *     hard-deleted explicitly so we don't leave orphan link rows pointing at
+ *     a now-nonexistent note (the FK only sets them to null).
+ *   - brain_custom_field_values for entityType='note' are not FK-bound (the
+ *     table uses a polymorphic (entityType, entityId)), so we delete them
+ *     explicitly.
+ *   - brain_audit_logs entries for these notes are removed — the trash-empty
+ *     action is the user's explicit "I never want to see this again" signal.
+ *     A single tenant-level audit row is written for the empty-trash event.
+ *   - S3 attachments for any note that had one are queued for deletion (best
+ *     effort; we don't fail the operation on a stuck object).
+ *
+ * Tenant-scoped on every query: a `clientId` mismatch on any FK candidate
+ * would be filtered out at the SELECT step. Returns the number of notes
+ * actually purged (0 if trash was already empty).
+ */
+export async function emptyTrash(
+  clientId: number,
+  actorId: number | null,
+): Promise<{ deleted: number }> {
+  const trashed = await db.select({
+    id: brainNotes.id,
+    attachmentStoredKey: brainNotes.attachmentStoredKey,
+  }).from(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), isNotNull(brainNotes.deletedAt)));
+
+  if (trashed.length === 0) return { deleted: 0 };
+
+  const ids = trashed.map((r) => r.id);
+  const keysToDelete = trashed
+    .map((r) => r.attachmentStoredKey)
+    .filter((k): k is string => typeof k === 'string' && k.length > 0);
+
+  // Incoming backlinks — FK is ON DELETE SET NULL, so without this they would
+  // linger as orphans pointing at a vanished target.
+  await db.delete(brainKbLinks)
+    .where(and(eq(brainKbLinks.clientId, clientId), inArray(brainKbLinks.toNoteId, ids)));
+
+  // Custom field values for these notes (polymorphic, no FK to brain_notes).
+  await db.delete(brainCustomFieldValues)
+    .where(and(
+      eq(brainCustomFieldValues.entityType, 'note'),
+      inArray(brainCustomFieldValues.entityId, ids),
+    ));
+
+  // Per-note audit history. Tenant-scoped so a misuse can't reach across.
+  await db.delete(brainAuditLogs)
+    .where(and(
+      eq(brainAuditLogs.clientId, clientId),
+      eq(brainAuditLogs.entityType, 'brain_note'),
+      inArray(brainAuditLogs.entityId, ids),
+    ));
+
+  // The notes themselves — outgoing brain_kb_links (from_note_id) cascade.
+  const res = await db.delete(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, ids)))
+    .returning({ id: brainNotes.id });
+
+  for (const key of keysToDelete) {
+    deleteFromS3(key).catch((err) => {
+      console.warn('[brain.notes] failed to delete S3 object', key, err);
+    });
+  }
+
+  // Single tenant-level audit row — entityId omitted (the entity is gone).
+  await logAudit({
+    clientId,
+    actorId,
+    action: 'trash_emptied',
+    entityType: 'brain_note',
+    metadata: {
+      count: res.length,
+      hadAttachments: keysToDelete.length,
+    },
+  });
+
+  return { deleted: res.length };
 }
 

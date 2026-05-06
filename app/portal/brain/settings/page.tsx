@@ -290,6 +290,50 @@ export default function BrainSettingsPage() {
           disabled={saving}
         />
       </Section>
+
+      {/* Retention policy. Anchor `retention` is linked from the trash banner
+          in components/brain/NoteListPane.tsx — keep the id stable. */}
+      <Section title="Retention policy" icon="schedule">
+        <div id="retention" className="scroll-mt-24 space-y-3 text-xs text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Trashed notes</strong> — deleting a
+            note from the knowledge IDE moves it to trash. Trashed notes stay
+            recoverable until you click <strong className="text-foreground">Empty
+            trash</strong> on the trash tab. There is no automatic purge today.
+          </p>
+          <p>
+            We may auto-purge trashed notes that have been in trash for longer than{' '}
+            <strong className="text-foreground">90 days</strong> in a future release.
+            Until then, the trash will keep growing — empty it periodically to
+            reclaim attachment storage and keep audit history compact.
+          </p>
+          <p>
+            <strong className="text-foreground">What empty trash removes:</strong>{' '}
+            the note row, its attachment in object storage, custom-field values
+            attached to it, incoming wiki-style backlinks, and the per-note audit
+            history. A single tenant-level <code className="px-1 rounded bg-muted">trash_emptied</code>{' '}
+            audit entry is retained.
+          </p>
+          <p className="italic">
+            Active (non-trashed) notes are never auto-deleted.
+          </p>
+        </div>
+        {/*
+          TODO(brain): wire automatic 90-day purge of trashed notes. Suggested
+          implementation:
+            - add an API route at app/api/cron/brain-empty-old-trash/route.ts
+              that iterates clients and calls a `purgeOldTrash(clientId, 90)`
+              helper in lib/brain/notes.ts (mirrors emptyTrash but filters by
+              `deletedAt < now() - 90 days`).
+            - register it in vercel.json's `crons` array running daily, or
+              enqueue a recurring BullMQ job in lib/queue/.
+            - per-tenant override via brain_profiles.retentionDays once the
+              schema gains the column; falls back to the 90-day default when
+              null.
+            - emit a tenant-scoped notification ("we purged N trashed notes
+              from your brain") so this isn't silent.
+        */}
+      </Section>
     </div>
   );
 }

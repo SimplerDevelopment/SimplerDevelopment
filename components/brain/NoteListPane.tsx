@@ -99,6 +99,12 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const [sortOpen, setSortOpen] = useState(false);
 
   const [trashed, setTrashed] = useState(false);
+  // Total trashed-note count for the tab badge + retention warning. Tracked
+  // separately from `total` because that mirrors the *current* tab; we want
+  // the badge to be visible from the Notes tab too.
+  const [trashCount, setTrashCount] = useState(0);
+  const [emptyTrashBusy, setEmptyTrashBusy] = useState(false);
+  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkPopover, setBulkPopover] = useState<null | 'tag' | 'move'>(null);
@@ -207,6 +213,20 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       })
       .catch(() => { /* non-fatal */ });
   }, [internalRefresh]);
+
+  // Trash count for the tab badge + retention warning. Cheap (`limit=1`)
+  // because we only need `total`, not the rows.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/portal/brain/knowledge?trashed=true&limit=1')
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        if (j?.success) setTrashCount(j.data?.total ?? 0);
+      })
+      .catch(() => { /* non-fatal */ });
+    return () => { cancelled = true; };
+  }, [internalRefresh, refreshTick, trashed]);
 
   // Saved searches inventory.
   const loadSavedSearches = useCallback(async () => {
@@ -325,6 +345,26 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       setInternalRefresh(t => t + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
+    }
+  }
+
+  async function runEmptyTrash() {
+    setEmptyTrashBusy(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/portal/brain/knowledge/trash/empty', { method: 'POST' });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || !json.success) {
+        setError(json.message || `Empty trash failed (${r.status}).`);
+        return;
+      }
+      setEmptyTrashConfirm(false);
+      setTrashCount(0);
+      setInternalRefresh(t => t + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setEmptyTrashBusy(false);
     }
   }
 
@@ -464,6 +504,18 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
         >
           <span className="material-icons text-sm">delete</span>
           Trash
+          {trashCount > 0 && (
+            <span
+              className={`inline-flex items-center justify-center min-w-[1.25rem] h-4 px-1 rounded-full text-[10px] font-semibold leading-none ${
+                trashCount > 500
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+              title={trashCount > 500 ? 'Trash is large — empty it to free space.' : `${trashCount} in trash`}
+            >
+              {trashCount > 999 ? '999+' : trashCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -702,6 +754,45 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
             {allTags.length === 0 && (
               <span className="text-xs text-muted-foreground italic">No tags yet.</span>
             )}
+          </div>
+        )}
+
+        {/* Trash actions: Empty trash button + retention warning. Only shown
+            on the Trash tab. The button no-ops when the trash is empty. */}
+        {trashed && (
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="material-icons text-sm">history_toggle_off</span>
+              <span>
+                Trashed notes are kept until you empty trash.{' '}
+                <a
+                  href="/portal/brain/settings#retention"
+                  className="underline hover:text-foreground"
+                >
+                  Retention policy
+                </a>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEmptyTrashConfirm(true)}
+              disabled={trashCount === 0 || emptyTrashBusy}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-destructive/30 text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              title={trashCount === 0 ? 'Trash is already empty' : 'Permanently delete every note in trash'}
+            >
+              <span className="material-icons text-sm">delete_sweep</span>
+              Empty trash
+            </button>
+          </div>
+        )}
+
+        {trashed && trashCount > 500 && (
+          <div className="flex items-start gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+            <span className="material-icons text-sm shrink-0">warning</span>
+            <span>
+              Your trash holds {trashCount} notes. Retention isn&apos;t automatic yet —
+              empty trash to reclaim space.
+            </span>
           </div>
         )}
       </div>
@@ -954,6 +1045,56 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
         <span>{total} {total === 1 ? 'note' : 'notes'}{trashed ? ' in trash' : ''}</span>
         {loading && <span className="material-icons text-sm animate-spin">progress_activity</span>}
       </div>
+
+      {/* Empty-trash confirmation. Modal-style overlay scoped to the pane —
+          doesn't reach for a portal so we don't take a dep on a dialog lib. */}
+      {emptyTrashConfirm && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => !emptyTrashBusy && setEmptyTrashConfirm(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-sm rounded-lg border border-border bg-popover shadow-xl p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="material-icons text-destructive">delete_forever</span>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Empty trash?</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Permanently delete{' '}
+                    <strong className="text-foreground">
+                      {trashCount} {trashCount === 1 ? 'note' : 'notes'}
+                    </strong>
+                    . This will also remove their attachments, custom field values,
+                    and per-note history. This cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEmptyTrashConfirm(false)}
+                  disabled={emptyTrashBusy}
+                  className="px-3 py-1.5 text-xs rounded border border-border text-foreground hover:bg-accent disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={runEmptyTrash}
+                  disabled={emptyTrashBusy || trashCount === 0}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {emptyTrashBusy && (
+                    <span className="material-icons text-sm animate-spin">progress_activity</span>
+                  )}
+                  Empty trash
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
