@@ -20,6 +20,7 @@ import Link from 'next/link';
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -183,8 +184,10 @@ export default function NoteEditorPane({
     onEditorReady?.(view);
   }, [onEditorReady]);
 
-  // Plug the dataview override in.
-  const editorExtraComponents = { code: makeDataviewCodeOverride() };
+  const editorExtraComponents = useMemo(
+    () => ({ code: makeDataviewCodeOverride() }),
+    [],
+  );
 
   // ── Patch helpers for the metadata strip ──────────────────────────────
   async function patchMeta(patch: Partial<BrainNote>) {
