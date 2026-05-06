@@ -82,17 +82,35 @@ async function getDeck(slug: string, allowDraft: boolean) {
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const { preview } = await searchParams;
-  // Only expose metadata in authenticated preview mode. Public access on the
-  // main app host is blocked — pitch decks must be viewed on the owning
-  // tenant's subdomain (routed via /sites/[domain]/pitch-deck/[slug]).
-  if (preview !== '1') return { title: 'Not Found', robots: { index: false } };
-  const deck = await getDeck(slug, true);
-  if (!deck) return { title: 'Not Found' };
-  return {
-    title: deck.title,
-    description: deck.description || `${deck.title} - Pitch Deck`,
+  const isPreview = preview === '1';
+
+  // On the main app host, non-preview requests for a published deck either get
+  // redirected to the tenant subdomain (prod) or rendered inline (local dev).
+  // Local-dev inline rendering needs real metadata so the browser tab + share
+  // cards reflect the deck instead of "Not Found".
+  const headersList = await headers();
+  const reqHost = headersList.get('host') || '';
+  const isLocal = reqHost.startsWith('localhost') || reqHost.startsWith('127.0.0.1');
+
+  if (!isPreview && !isLocal) {
+    return { title: 'Not Found', robots: { index: false } };
+  }
+
+  const deck = await getDeck(slug, isPreview);
+  if (!deck) return { title: 'Not Found', robots: { index: false } };
+
+  const title = deck.title?.trim() || deck.slug;
+  const description = deck.description?.trim() || `${title} - Pitch Deck`;
+  const branding = deck.brandingProfileId
+    ? await getBrandingByProfileId(deck.brandingProfileId)
+    : await getBrandingByClientId(deck.clientId);
+  const metadata: Metadata = {
+    title,
+    description,
     robots: { index: false },
   };
+  if (branding?.faviconUrl) metadata.icons = { icon: branding.faviconUrl };
+  return metadata;
 }
 
 /**
