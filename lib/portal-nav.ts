@@ -157,6 +157,7 @@ export function buildPortalNavItems(
       : []
     ),
     { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
+    { href: '/portal/experiments', label: 'A/B Experiments', icon: 'science', keywords: ['ab', 'a/b', 'split test', 'variant', 'experiment'] },
     // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
     // at /portal/approvals still renders for direct URL access.
     { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team', 'billing'] },
