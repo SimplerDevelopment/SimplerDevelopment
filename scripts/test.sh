@@ -10,7 +10,7 @@ set -euo pipefail
 
 LAYER="all"          # unit | integration | e2e | all
 MODE="dev"           # dev | prod  (prod = next build + start; CI authority)
-TAG=""               # playwright grep (--grep)
+TAG=""               # playwright --grep (e2e) and vitest --testNamePattern (integration)
 SHARD=""
 RESET_DB=0
 NO_COVERAGE=0
@@ -53,12 +53,23 @@ fi
 
 FAIL=0
 
+# Full per-step logs go to coverage/test-output.log so failure output is never
+# truncated, regardless of how the caller redirects/pipes our stdout.
+TEST_OUTPUT_LOG="$ROOT/coverage/test-output.log"
+: > "$TEST_OUTPUT_LOG"
+
 run_step() {
   local name="$1"; shift
   echo ""
   echo "==> $name"
-  if ! "$@"; then
-    echo "FAIL: $name"
+  echo "" >> "$TEST_OUTPUT_LOG"
+  echo "==> $name" >> "$TEST_OUTPUT_LOG"
+  # Tee preserves the live stream to the terminal AND captures the full,
+  # untruncated run output to coverage/test-output.log for post-hoc review.
+  # PIPESTATUS is bash-specific; we set -o pipefail above so any non-zero
+  # exit from the test command still propagates.
+  if ! "$@" 2>&1 | tee -a "$TEST_OUTPUT_LOG"; then
+    echo "FAIL: $name (full log: $TEST_OUTPUT_LOG)"
     FAIL=1
   fi
 }
@@ -75,10 +86,20 @@ fi
 
 # ── Layer 2: Integration (UI + API) ─────────────────────────────────────
 if [[ "$LAYER" == "all" || "$LAYER" == "integration" ]]; then
+  # vitest doesn't have first-class tag filtering; we route --tag to
+  # --testNamePattern so e.g. `--tag=tenancy` only runs describe/it blocks
+  # whose full name contains `@tenancy` (the convention in tests/integration).
+  INT_VITEST_ARGS=(--project=integration-ui --project=integration-api)
+  if [[ -n "$TAG" ]]; then
+    # Strip any leading '@' so both `--tag=tenancy` and `--tag=@tenancy`
+    # work, then re-prefix to match the in-test convention (`@tenancy`).
+    INT_TAG="${TAG#@}"
+    INT_VITEST_ARGS+=(--testNamePattern "@${INT_TAG}")
+  fi
   if [[ "$NO_COVERAGE" == "1" ]]; then
-    run_step "integration" npx vitest run --project=integration-ui --project=integration-api
+    run_step "integration" npx vitest run "${INT_VITEST_ARGS[@]}"
   else
-    run_step "integration" npx vitest run --project=integration-ui --project=integration-api \
+    run_step "integration" npx vitest run "${INT_VITEST_ARGS[@]}" \
       --coverage --coverage.reportsDirectory=coverage/vitest/integration
   fi
 fi
@@ -111,8 +132,8 @@ if [[ "$LAYER" == "all" || "$LAYER" == "e2e" ]]; then
 
   echo ">> waiting for health endpoint"
   if ! npx wait-on http://localhost:3000/api/health -t 120000; then
-    echo "server never became healthy; tail:"
-    tail -60 coverage/server.log
+    echo "server never became healthy; last 200 lines (full log: coverage/server.log):"
+    tail -200 coverage/server.log
     exit 1
   fi
 
@@ -162,6 +183,11 @@ if [[ "${CI:-}" == "1" && "$NO_COVERAGE" != "1" ]]; then
     npx c8 check-coverage --lines 75 --functions 70 --branches 60 \
       --temp-directory coverage/.v8-merged || FAIL=1
   fi
+fi
+
+if [[ -f "$TEST_OUTPUT_LOG" ]]; then
+  echo ""
+  echo "Full test output captured at: $TEST_OUTPUT_LOG"
 fi
 
 exit "$FAIL"
