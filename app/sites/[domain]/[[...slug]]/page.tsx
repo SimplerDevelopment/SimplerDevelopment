@@ -31,7 +31,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const pageSlug = slug?.join('/');
 
   if (!pageSlug || pageSlug === '') {
-    return { title: site.name };
+    // Home page — let the layout's default title (site.name) be used.
+    // Returning { title: site.name } here would re-trigger the layout's
+    // `%s | ${site.name}` template and produce a duplicated title.
+    return {};
   }
 
   if (pageSlug === 'shop') {
