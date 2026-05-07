@@ -13,15 +13,11 @@
  *   2. `process.env.VITEST` / `VITEST_POOL_ID` set — vitest runtime, treat as
  *      bypassed so existing brain integration specs pass without seeding the
  *      `brain` SKU into every test schema.
- *   3. Active `clientServices` row joined to a `services` row whose category is
+ *   3. `clients.brainTrialUntil` is non-null and `> now()` — self-serve trials
+ *      and product-led-growth sign-ups get brain access without an explicit
+ *      `clientServices` row. Expired trials fall through to the next check.
+ *   4. Active `clientServices` row joined to a `services` row whose category is
  *      `'brain'` or `'bundle'`.
- *
- * TODO(brain-trial): Phase-2 of GA — honor a `clients.brainTrialUntil` column
- * (or similar) for self-serve trials and product-led-growth sign-ups. See
- * `.planning/audits/companyBrain-adjusted.md` §11.8 for the open question on
- * trial vs day-one paid. Skipped here because adding a column requires a
- * migration and the layout-level gate already lets us upsell unentitled users
- * without breaking their experience.
  *
  * Rollout complete: every authenticated `/api/portal/brain/**` route now calls
  * `requireBrainEntitlement` directly. The cron handler at
@@ -53,10 +49,22 @@ function isTestRuntime(): boolean {
 
 /**
  * Returns true if the client has an active subscription to the `brain` service
- * (or an active `bundle` that includes brain), or if a runtime bypass is set.
+ * (or an active `bundle` that includes brain), is on an active self-serve
+ * trial (`clients.brainTrialUntil > now()`), or if a runtime bypass is set.
  */
 export async function isBrainEntitled(clientId: number): Promise<boolean> {
   if (isTestRuntime()) return true;
+
+  // Active self-serve trial — wins over the absence of a clientServices row.
+  // Expired trials silently fall through to the paid-subscription check.
+  const [trialRow] = await db
+    .select({ brainTrialUntil: clients.brainTrialUntil })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+  if (trialRow?.brainTrialUntil && trialRow.brainTrialUntil > new Date()) {
+    return true;
+  }
 
   const rows = await db
     .select({ category: services.category })
