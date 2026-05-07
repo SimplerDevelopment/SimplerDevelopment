@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardDependencies, users, sprints } from '@/lib/db/schema';
+import { projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardDependencies, users, sprints } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
 import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SprintPlanning from '@/components/portal/SprintPlanning';
 import { isPortalStaff } from '@/lib/portal';
+import { getPortalClient } from '@/lib/portal-client';
 
 export default async function ProjectKanbanPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const session = await auth();
@@ -22,10 +23,12 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
   const projectId = parseInt(id, 10);
   const [staff, userId] = [await isPortalStaff(), parseInt(session.user.id, 10)];
 
-  // Get client (clients see only their projects; staff can see any)
+  // Get client (clients see only their projects; staff can see any).
+  // Use getPortalClient so team-membership users (clientMembers) resolve too,
+  // and the active-client cookie is respected for multi-client users.
   let clientId: number | null = null;
   if (!staff) {
-    const [client] = await db.select().from(clients).where(eq(clients.userId, userId)).limit(1);
+    const client = await getPortalClient(userId);
     if (!client) redirect('/portal/dashboard');
     clientId = client.id;
   }
