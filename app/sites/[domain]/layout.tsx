@@ -31,14 +31,21 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   // metadataBase so client sites never leak the agency's simplerdevelopment.com.
   const canonicalUrl = `https://${site.domain}`;
   const description = site.description || undefined;
-  const ogImages = branding.ogImageUrl ? [{ url: branding.ogImageUrl }] : undefined;
+  // OG image fallback chain — prefer an explicit OG image, then any logo
+  // the site has uploaded so X/Facebook share previews always have an image.
+  const ogImageUrl =
+    branding.ogImageUrl ||
+    branding.logoUrl ||
+    branding.logoSquareUrl ||
+    undefined;
+  const ogImages = ogImageUrl ? [{ url: ogImageUrl }] : undefined;
 
   const metadata: Metadata = {
     metadataBase: new URL(canonicalUrl),
-    title: {
-      default: site.name,
-      template: `%s | ${site.name}`,
-    },
+    // `absolute` prevents the root layout's `%s | SimplerDevelopment`
+    // template from being applied to this site layout's title. Pages
+    // override this with their own absolute title via generateMetadata.
+    title: { absolute: site.name },
     description,
     // Explicitly reset agency-level fields from the root layout's defaultSEO
     // so SimplerDevelopment branding never leaks into client sites.
@@ -59,7 +66,7 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
       card: 'summary_large_image',
       title: site.name,
       description,
-      images: branding.ogImageUrl ? [branding.ogImageUrl] : undefined,
+      images: ogImageUrl ? [ogImageUrl] : undefined,
     },
   };
 
