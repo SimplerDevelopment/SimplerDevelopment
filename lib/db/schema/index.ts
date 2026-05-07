@@ -16,4 +16,5 @@ export * from './billing';
 export * from './approvals';
 export * from './audit';
 export * from './collab';
+export * from './snapshots';
 export * from './trigger-links';
