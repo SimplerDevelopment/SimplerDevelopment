@@ -38,12 +38,9 @@ import { findCompanyByDomain } from '@/lib/crm/companies';
 import { domainFromEmail, parseDisplayName, isPersonalDomain, capitalize } from '@/lib/crm/parse';
 import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
 import type { MeetingExtraction } from '@/lib/ai/meeting-processor';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
-}
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 2048;
@@ -149,7 +146,11 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
     return { jobId: -1, reviewItemIds: [], appliedLinks: {}, skipped: 'no_sender_email' };
   }
 
-  if (!(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
+  // Resolve BYOK vs platform; only require credits when on platform.
+  const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
+  const anthropic = new Anthropic({ apiKey: resolved.key });
+
+  if (resolved.source === 'platform' && !(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
     return { jobId: -1, reviewItemIds: [], appliedLinks: {}, skipped: 'no_credits' };
   }
 
@@ -402,9 +403,12 @@ export async function classifyAndLinkCrm(args: ClassifyAndLinkCrmArgs): Promise<
     reviewItemIds = inserted.map((r) => r.id);
   }
 
-  // Charge credits — same heuristic as transcript pipeline.
+  // Charge credits — same heuristic as transcript pipeline. BYOK skips this.
   const credits = Math.max(1, Math.round(inputTokens / 1000) + Math.round(outputTokens / 250));
-  await deductCredits(args.clientId, credits, 'brain_crm_classify', `meeting:${args.meetingId}`, `Classified CRM links for meeting ${args.meetingId}`);
+  if (resolved.source === 'platform') {
+    await deductCredits(args.clientId, credits, 'brain_crm_classify', `meeting:${args.meetingId}`, `Classified CRM links for meeting ${args.meetingId}`);
+  }
+  void recordAiUsage({ clientId: args.clientId, source: resolved.source, tokens: inputTokens + outputTokens });
 
   await db.update(brainAiJobs).set({
     status: 'completed' as BrainAiJobStatus,

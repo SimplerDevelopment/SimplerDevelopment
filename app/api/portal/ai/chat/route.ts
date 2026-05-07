@@ -8,11 +8,9 @@ import { eq, asc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { hasCredits, deductCredits, getBalance } from '@/lib/ai-credits';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
-}
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant embedded in the Simpler Development client portal. You can help clients with EVERYTHING in their portal — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, team management, services, hosting, CRM, and more.
 
@@ -93,15 +91,33 @@ export async function POST(req: Request) {
     const { message, conversationId } = await req.json();
     if (!message?.trim()) return NextResponse.json({ success: false, message: 'message is required' }, { status: 400 });
 
-    // Check AI credit balance before processing
-    const canProceed = await hasCredits(client.id);
-    if (!canProceed) {
-      const bal = await getBalance(client.id);
+    // Plan-gate first: Starter without BYOK is blocked before any other check.
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
       return NextResponse.json({
         success: false,
-        message: 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go in your dashboard.',
-        creditsRemaining: bal.balance,
+        message: gate.message ?? 'AI access is not available on the current plan.',
+        reason: gate.reason,
       }, { status: 402 });
+    }
+
+    // Resolve which key to use (BYOK > platform). Cached per request via the
+    // 60s in-memory cache inside resolveClientApiKey.
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
+
+    // Credit balance check only matters for platform-keyed calls. BYOK clients
+    // pay their provider directly so we don't gate on internal credits.
+    if (resolved.source === 'platform') {
+      const canProceed = await hasCredits(client.id);
+      if (!canProceed) {
+        const bal = await getBalance(client.id);
+        return NextResponse.json({
+          success: false,
+          message: 'Insufficient AI credits. Purchase more credits, enable pay-as-you-go, or add a BYOK key in Settings → API Keys.',
+          creditsRemaining: bal.balance,
+        }, { status: 402 });
+      }
     }
 
     // Get or create conversation
@@ -251,9 +267,17 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     }).where(eq(aiConversations.id, convId));
 
-    // Deduct AI credits
+    // Deduct AI credits — only for platform-keyed calls. BYOK skips internal
+    // credit deduction (the client paid their own provider directly).
     const totalTokens = totalInputTokens + totalOutputTokens;
-    const creditResult = await deductCredits(client.id, totalTokens, 'ai', String(convId), `Chat conversation #${convId}`);
+    let creditsRemaining: number | null = null;
+    if (resolved.source === 'platform') {
+      const creditResult = await deductCredits(client.id, totalTokens, 'ai', String(convId), `Chat conversation #${convId}`);
+      creditsRemaining = creditResult.newBalance;
+    }
+
+    // Audit row for the call (best-effort).
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     return NextResponse.json({
       success: true,
@@ -262,7 +286,8 @@ export async function POST(req: Request) {
         reply: finalText,
         toolCalls: allToolCalls.map(tc => ({ name: tc.name, input: tc.input })),
         tokensUsed: totalTokens,
-        creditsRemaining: creditResult.newBalance,
+        keySource: resolved.source,
+        creditsRemaining,
       },
     });
   } catch (err) {

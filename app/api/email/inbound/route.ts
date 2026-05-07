@@ -7,11 +7,9 @@ import { PORTAL_TOOLS, executePortalTool } from '@/lib/ai/portal-tools';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { resend } from '@/lib/email';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY is not set');
-}
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 // Shared secret between CF Worker and this endpoint
 const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET;
@@ -138,18 +136,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'rejected', reason: 'sender not authorized' });
     }
 
-    // Check AI credits
-    const canProceed = await hasCredits(client.id);
-    if (!canProceed) {
-      // Send a reply saying they're out of credits
+    // Plan-gate first: Starter without BYOK is blocked.
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
       await resend.emails.send({
         from: `Simpler Development <${process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com'}>`,
         to: senderEmail,
         subject: `Re: ${subject}`,
-        text: `Your AI credits are depleted. Please purchase more credits or enable pay-as-you-go at https://simplerdevelopment.com/portal/dashboard to continue using the email assistant.`,
+        text: gate.message ?? 'AI access is not available on the current plan.',
         ...(messageId ? { headers: { 'In-Reply-To': messageId, 'References': messageId } } : {}),
       });
-      return NextResponse.json({ status: 'replied', reason: 'insufficient credits' });
+      return NextResponse.json({ status: 'replied', reason: 'plan_gate' });
+    }
+
+    // Resolve which key to use (BYOK > platform).
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
+
+    // Check AI credits — only relevant for platform-keyed calls.
+    if (resolved.source === 'platform') {
+      const canProceed = await hasCredits(client.id);
+      if (!canProceed) {
+        // Send a reply saying they're out of credits
+        await resend.emails.send({
+          from: `Simpler Development <${process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com'}>`,
+          to: senderEmail,
+          subject: `Re: ${subject}`,
+          text: `Your AI credits are depleted. Please purchase more credits or enable pay-as-you-go at https://simplerdevelopment.com/portal/dashboard, or add a BYOK key at https://simplerdevelopment.com/portal/integrations/api-keys, to continue using the email assistant.`,
+          ...(messageId ? { headers: { 'In-Reply-To': messageId, 'References': messageId } } : {}),
+        });
+        return NextResponse.json({ status: 'replied', reason: 'insufficient credits' });
+      }
     }
 
     // Create or find conversation (use subject as thread key)
@@ -260,9 +277,12 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     }).where(eq(aiConversations.id, convId));
 
-    // Deduct credits
+    // Deduct credits — only for platform-keyed calls. BYOK skips internal credit accounting.
     const totalTokens = totalInputTokens + totalOutputTokens;
-    await deductCredits(client.id, totalTokens, 'ai', String(convId), `Email assistant: "${subject?.slice(0, 40) || 'No subject'}"`);
+    if (resolved.source === 'platform') {
+      await deductCredits(client.id, totalTokens, 'ai', String(convId), `Email assistant: "${subject?.slice(0, 40) || 'No subject'}"`);
+    }
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     // Send reply via Resend
     const replyFrom = `${client.company || 'Simpler Development'} AI <${process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com'}>`;
