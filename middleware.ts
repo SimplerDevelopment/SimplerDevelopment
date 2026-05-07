@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { resolveCustomDomain } from '@/lib/agency/custom-domain';
 
 // Hostnames that belong to the app itself (not client sites)
 const APP_HOSTNAMES = new Set([
@@ -127,8 +128,33 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
+    // ── White-label custom domain ────────────────────────────────────────────
+    // If the host doesn't belong to *.simplerdevelopment.com, before falling
+    // through to the public-site renderer we check whether some agency has
+    // claimed + DNS-verified this hostname as their portal custom domain.
+    // If so, rewrite as if the request had arrived at /portal on the
+    // matching client's app subdomain (so existing portal auth + active-
+    // client cookie resolution all keep working).
+    const bareHost = host.split(':')[0];
+    const customMatch = await resolveCustomDomain(bareHost);
+    if (customMatch && customMatch.clientId > 0) {
+      // Custom-domain agencies expect their domain to be "the portal" — root
+      // requests go to /portal, and any path that already starts with /portal
+      // stays there. Public-website paths are not exposed on a portal custom
+      // domain (the public site continues to live on its own canonical
+      // hostname).
+      const url = req.nextUrl.clone();
+      if (!pathname.startsWith('/portal') && !pathname.startsWith('/book')) {
+        url.pathname = pathname === '/' ? '/portal' : `/portal${pathname}`;
+      }
+      const response = NextResponse.rewrite(url);
+      response.headers.set('x-agency-client-id', String(customMatch.clientId));
+      response.headers.set('x-custom-portal-domain', bareHost);
+      return response;
+    }
+
     // Rewrite to internal /sites/[domain]/[...slug] route
-    const domain = host.split(':')[0]; // strip port
+    const domain = bareHost;
     const url = req.nextUrl.clone();
     const slug = pathname === '/' ? '' : pathname;
     url.pathname = `/sites/${domain}${slug}`;

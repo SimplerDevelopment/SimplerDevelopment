@@ -6,6 +6,7 @@ import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKPalette from '@/components/CmdKPalette';
+import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -57,12 +58,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   if (isLoginPage || isIframePage) {
     return (
       <SessionProvider>
-        <PortalTitle />
-        {isIframePage ? children : (
-          <div className="min-h-screen flex items-center justify-center bg-background">
-            {children}
-          </div>
-        )}
+        <AgencyChromeProvider>
+          <PortalTitle />
+          {isIframePage ? children : (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+              {children}
+            </div>
+          )}
+        </AgencyChromeProvider>
       </SessionProvider>
     );
   }
@@ -74,20 +77,22 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
 
   return (
     <SessionProvider>
-      <PortalTitle />
-      <div className="min-h-screen bg-background">
-        {!previewMode && <PortalSidebar />}
-        <div>
-          {!previewMode && (
-            <div className="flex justify-end items-center px-6 pt-4 pb-0">
-              <CrmNotificationBell />
-            </div>
-          )}
-          <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-6'}`}>{children}</main>
+      <AgencyChromeProvider>
+        <PortalTitle />
+        <div className="min-h-screen bg-background">
+          {!previewMode && <PortalSidebar />}
+          <div>
+            {!previewMode && (
+              <div className="flex justify-end items-center px-6 pt-4 pb-0">
+                <CrmNotificationBell />
+              </div>
+            )}
+            <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-6'}`}>{children}</main>
+          </div>
+          {!previewMode && <AIChatWidget />}
         </div>
-        {!previewMode && <AIChatWidget />}
-      </div>
-      <CmdKPalette />
+        <CmdKPalette />
+      </AgencyChromeProvider>
     </SessionProvider>
   );
 }

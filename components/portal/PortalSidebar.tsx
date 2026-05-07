@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 import { buildPortalNavItems, type PortalNavChild, type PortalNavItem } from '@/lib/portal-nav';
+import { useAgencyChrome } from './AgencyChromeProvider';
 
 type Theme = 'light' | 'dark' | 'system';
 const themeOrder: Theme[] = ['system', 'light', 'dark'];
@@ -81,6 +82,7 @@ function activeExpandChain(items: NavChild[], pathname: string): string[] {
 
 export default function PortalSidebar() {
   const pathname = usePathname();
+  const { brandName, brandLogoUrl } = useAgencyChrome();
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>('system');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -291,8 +293,8 @@ export default function PortalSidebar() {
           </button>
           <Link href="/portal" className="absolute top-4 left-16 z-50 flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/iconLogo.png" alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
-            <span className="text-sm text-foreground font-heading"><b>Simpler</b> Development</span>
+            <img src={brandLogoUrl} alt="" className="nav-logo-icon" style={{ height: '2rem', width: '2rem', marginRight: '-0.25rem' }} />
+            <span className="text-sm text-foreground font-heading">{brandName === 'Simpler Development' ? (<><b>Simpler</b> Development</>) : brandName}</span>
           </Link>
         </>
       )}

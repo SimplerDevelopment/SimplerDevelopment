@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
+import { useAgencyChrome } from '@/components/portal/AgencyChromeProvider';
 
 interface Portal {
   clientId: number;
@@ -21,6 +22,7 @@ function safeCallbackUrl(raw: string | null | undefined): string {
 function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
+  const { brandName } = useAgencyChrome();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -106,7 +108,7 @@ function LoginForm() {
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">Simpler Development</h1>
+          <h1 className="text-2xl font-bold text-foreground">{brandName}</h1>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
@@ -156,7 +158,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Client Portal</p>
-          <h1 className="text-2xl font-bold text-foreground">Simpler Development</h1>
+          <h1 className="text-2xl font-bold text-foreground">{brandName}</h1>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
