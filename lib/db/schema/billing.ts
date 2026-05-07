@@ -1,6 +1,6 @@
 // Billing artifacts: AI credit ledger, usage metering, invoices, AI conversations.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients, services } from './sites';
 import { projects } from './pm';
@@ -100,6 +100,60 @@ export const aiMessages = pgTable('ai_messages', {
   outputTokens: integer('output_tokens').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ── BYOK (Bring Your Own Key) ─────────────────────────────────────────────────
+//
+// Foundation for the pricing pivot away from managed AI credits. A client
+// connects their own Anthropic / OpenAI key and we proxy through it instead of
+// metering tokens against an internal ledger. The `encryptedKey` column holds
+// AES-256-GCM ciphertext produced by lib/crypto/api-key.ts (NOT the raw key).
+// `lastUsedAt` is bumped opportunistically by call sites — it is NOT a strict
+// audit log; for that, see future BYOK call-site telemetry.
+//
+// Multi-tenant: every row is keyed by `clientId`. Cascading delete keeps key
+// rows from outliving their tenant. A single client may store multiple keys
+// per provider (e.g. one for prod and one for staging) — `label` is the human
+// disambiguator.
+
+export const clientApiKeys = pgTable('client_api_keys', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 32 }).notNull(), // 'anthropic' | 'openai'
+  encryptedKey: text('encrypted_key').notNull(), // AES-256-GCM blob — NEVER the raw key
+  label: varchar('label', { length: 100 }), // human disambiguator: "prod", "staging", etc.
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('client_api_keys_client_id_idx').on(table.clientId),
+  index('client_api_keys_provider_idx').on(table.clientId, table.provider),
+]);
+
+// ── Usage Meter Events ────────────────────────────────────────────────────────
+//
+// Event-shaped sibling to the older aggregated `usage_meters` table (which
+// stores running totals + included/overage rates against a hand-coded
+// category vocabulary in lib/usage-metering.ts).
+//
+// `usage_meter_events` is intentionally a different shape and was added as
+// part of the pricing-tier / BYOK foundation: rows here are append-only
+// observations from external sources (Resend, Vercel, Railway) bucketed by
+// YYYY-MM period. The cron sync workers upsert one row per (clientId,
+// period, resource) so totals can be rebuilt by SUM(amount). Numeric column
+// instead of integer so fractional GB / token counts survive without
+// scaling tricks.
+
+export const usageMeterEvents = pgTable('usage_meter_events', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  resource: varchar('resource', { length: 50 }).notNull(), // 'email_send' | 'hosting_bandwidth_gb' | 'hosting_invocations' | 'ai_tokens'
+  period: varchar('period', { length: 7 }).notNull(), // YYYY-MM
+  amount: numeric('amount', { precision: 18, scale: 4 }).default('0').notNull(),
+  source: varchar('source', { length: 32 }).notNull(), // 'resend' | 'vercel' | 'railway' | 'manual'
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+}, (table) => [
+  index('usage_meter_events_client_period_resource_idx').on(table.clientId, table.period, table.resource),
+]);
 
 // ─── EMAIL MARKETING ──────────────────────────────────────────────────────────
 
