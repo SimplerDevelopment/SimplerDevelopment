@@ -16,6 +16,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['html', 'lcov', 'text-summary', 'json'],
       reportsDirectory: 'coverage/vitest',
+      // vitest >=2.x defaults `reportOnFailure` to `false` — meaning that if
+      // even one test fails, the coverage report is silently suppressed. The
+      // sd2026 integration suite is in active development and rarely 100%
+      // green, so without this we can't measure coverage at all. Re-enable.
+      // See https://vitest.dev/config/#coverage-reportonfailure
+      reportOnFailure: true,
       include: [
         'app/**/*.{ts,tsx}',
         'lib/**/*.{ts,tsx}',

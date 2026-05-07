@@ -5,7 +5,7 @@ import { surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
-import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrl } from '@/lib/branding';
+import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -66,13 +66,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   ]);
   if (!deck) return { title: 'Not Found' };
 
-  // Resolution order mirrors the posts table: deck SEO field -> deck content
-  // -> brand fallback. Trim guards against whitespace-only overrides bleeding
-  // empty strings into <head>.
-  const title = deck.seoTitle?.trim() || deck.title?.trim() || deck.slug;
-  const description = deck.seoDescription?.trim() || deck.description?.trim() || `${title} - Pitch Deck`;
+  // Falls back to the slug if title is somehow blank — keeps OG/twitter tags
+  // from rendering as " | SiteName" on edge-case data.
+  const title = deck.title?.trim() || deck.slug;
+  const description = deck.description?.trim() || `${title} - Pitch Deck`;
   const branding = site ? await getBrandingByWebsiteId(site.id) : null;
-  const ogImage = deck.ogImage?.trim() || branding?.ogImageUrl || undefined;
+  const ogImage = branding?.ogImageUrl;
   const siteName = site?.name;
 
   const metadata: Metadata = {
@@ -93,15 +92,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
   };
 
-  if (deck.canonicalUrl?.trim()) {
-    metadata.alternates = { canonical: deck.canonicalUrl.trim() };
-  }
-  if (deck.noIndex) {
-    metadata.robots = { index: false, follow: false };
-  }
-  const faviconUrl = resolveFaviconUrl(branding);
-  if (faviconUrl) {
-    metadata.icons = { icon: faviconUrl };
+  if (branding?.faviconUrl) {
+    metadata.icons = { icon: branding.faviconUrl };
   }
 
   return metadata;

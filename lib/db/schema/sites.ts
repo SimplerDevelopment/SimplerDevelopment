@@ -15,10 +15,6 @@ export const clients = pgTable('clients', {
   emailPrefix: varchar('email_prefix', { length: 50 }), // prefix@simplerdevelopment.com for AI email gateway
   defaultWebsiteId: integer('default_website_id'), // which website determines the portal subdomain
   notes: text('notes'), // internal staff notes
-  // Self-serve / PLG brain trial — when non-null and > now() the entitlement
-  // helper grants brain access without requiring an explicit clientServices
-  // row. Expired trials simply fall through to the paid-subscription check.
-  brainTrialUntil: timestamp('brain_trial_until'),
   // ── White-label / SaaS Mode (Tier 3 "Scale") ───────────────────────────────
   // Agencies on the Scale tier can map their own domain to the portal, override
   // brand chrome with their own agencyName/logo/colors, and (later) resell
@@ -31,6 +27,10 @@ export const clients = pgTable('clients', {
   agencyName: varchar('agency_name', { length: 255 }), // overrides "Simpler Development" in portal chrome
   agencyLogoUrl: varchar('agency_logo_url', { length: 500 }), // overrides /iconLogo.png and login wordmark
   agencyPrimaryColor: varchar('agency_primary_color', { length: 20 }), // optional accent for portal chrome
+  // Self-serve / PLG brain trial — when non-null and > now() the entitlement
+  // helper grants brain access without requiring an explicit clientServices
+  // row. Expired trials simply fall through to the paid-subscription check.
+  brainTrialUntil: timestamp('brain_trial_until'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
