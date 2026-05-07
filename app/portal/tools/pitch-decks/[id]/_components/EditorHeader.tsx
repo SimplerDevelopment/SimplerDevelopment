@@ -25,6 +25,7 @@ export interface EditorHeaderProps {
   onToggleTheme: () => void;
   onToggleRegenerate: () => void;
   onToggleHistory: () => void;
+  onToggleSeo: () => void;
   onSave: () => void;
   onTogglePublish: () => void;
   onPresent: () => void;
@@ -38,7 +39,7 @@ export function EditorHeader(props: EditorHeaderProps) {
     editingTitle, titleDraft, editingSlug, slugDraft, slugError,
     onStartEditTitle, onTitleDraftChange, onSaveTitle, onCancelEditTitle,
     onStartEditSlug, onSlugDraftChange, onSaveSlug, onCancelEditSlug,
-    onToggleTheme, onToggleRegenerate, onToggleHistory, onSave, onTogglePublish,
+    onToggleTheme, onToggleRegenerate, onToggleHistory, onToggleSeo, onSave, onTogglePublish,
     onPresent, onDelete, presenterUrl,
   } = props;
 
@@ -152,6 +153,14 @@ export function EditorHeader(props: EditorHeaderProps) {
         >
           <span className="material-icons text-base">history</span>
           History
+        </button>
+        <button
+          onClick={onToggleSeo}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="SEO settings (title, description, OG image, canonical, noindex)"
+        >
+          <span className="material-icons text-base">search</span>
+          SEO
         </button>
         <button
           onClick={onSave}

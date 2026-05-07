@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
-import { getPitchDeckByDomainAndSlug } from '@/lib/actions/client-sites';
+import { getClientWebsiteByDomain, getPitchDeckByDomainAndSlug } from '@/lib/actions/client-sites';
 import { db } from '@/lib/db';
 import { surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
-import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
+import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -60,13 +60,50 @@ async function fetchSurveyData(deckSlides: PitchDeckSlideV2[]): Promise<Record<n
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { domain, slug } = await params;
-  const deck = await getPitchDeckByDomainAndSlug(domain, slug);
+  const [deck, site] = await Promise.all([
+    getPitchDeckByDomainAndSlug(domain, slug),
+    getClientWebsiteByDomain(domain),
+  ]);
   if (!deck) return { title: 'Not Found' };
 
-  return {
-    title: deck.title,
-    description: deck.description || `${deck.title} - Pitch Deck`,
+  // Resolution order mirrors the posts table: deck SEO field -> deck content
+  // -> brand fallback. Trim guards against whitespace-only overrides bleeding
+  // empty strings into <head>.
+  const title = deck.seoTitle?.trim() || deck.title?.trim() || deck.slug;
+  const description = deck.seoDescription?.trim() || deck.description?.trim() || `${title} - Pitch Deck`;
+  const branding = site ? await getBrandingByWebsiteId(site.id) : null;
+  const ogImage = deck.ogImage?.trim() || branding?.ogImageUrl || undefined;
+  const siteName = site?.name;
+
+  const metadata: Metadata = {
+    title,
+    description,
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      ...(siteName ? { siteName } : {}),
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: ogImage ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
   };
+
+  if (deck.canonicalUrl?.trim()) {
+    metadata.alternates = { canonical: deck.canonicalUrl.trim() };
+  }
+  if (deck.noIndex) {
+    metadata.robots = { index: false, follow: false };
+  }
+  if (branding?.faviconUrl) {
+    metadata.icons = { icon: branding.faviconUrl };
+  }
+
+  return metadata;
 }
 
 export default async function PublicPitchDeckPage({ params }: PageProps) {
