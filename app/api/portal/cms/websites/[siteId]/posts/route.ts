@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { posts, postCategories, postTags } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
+import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const session = await auth();
@@ -35,6 +36,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
 
   if (!title || !slug || !content) {
     return NextResponse.json({ success: false, message: 'title, slug, and content are required' }, { status: 400 });
+  }
+
+  // Gate raw-HTML / raw-script block types to admin/editor staff only.
+  try {
+    assertBlocksAllowedForRole(content, (session.user as { role?: string }).role);
+  } catch (err) {
+    if (err instanceof BlockGateError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    }
+    throw err;
   }
 
   // Check slug uniqueness within this website

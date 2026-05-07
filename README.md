@@ -56,6 +56,9 @@ Edit `.env.local` and add your configuration:
 - `DATABASE_URL`: Your Postgres connection string
 - `RESEND_API_KEY`: Your Resend API key (optional, for contact form)
 - `NEXT_PUBLIC_SITE_URL`: Your site URL
+- `DROPBOX_SIGN_API_KEY`: DropboxSign (formerly HelloSign) API key for contract e-signatures (required to send contracts for signature; dev/staging defaults to test_mode=1 so signature credits aren't burned)
+- `DROPBOX_SIGN_WEBHOOK_SECRET`: HMAC secret used to verify `/api/webhooks/dropbox-sign` POST callbacks (defaults to `DROPBOX_SIGN_API_KEY` if unset)
+- `DROPBOX_SIGN_CLIENT_ID`: DropboxSign embedded app client id (required for embedded signing flows)
 
 ### Development
 
@@ -161,6 +164,51 @@ The app can be deployed to any platform supporting Next.js 16:
 - Cloudflare Pages
 - AWS Amplify
 - Self-hosted with Node.js or Docker
+
+## Bring Your Own Key (BYOK)
+
+Clients can connect their own Anthropic and/or OpenAI API keys instead of
+metering against bundled platform AI credits. Keys are stored AES-256-GCM
+encrypted at rest (`client_api_keys.encrypted_key`, see
+`lib/crypto/api-key.ts`) and resolved per call via
+`lib/ai/resolve-client-key.ts` — BYOK first, platform env fallback second.
+
+### How clients add keys
+
+Portal → **Integrations → API Keys** (`/portal/integrations/api-keys`):
+
+1. Click **Add key**, pick a provider, paste the key, label it (e.g. `prod`).
+2. The raw key is encrypted on the server and never returned in any
+   subsequent API response. The list view shows only a masked preview
+   (`sk-ant-…AbC1`).
+3. Remove a key to fall back to platform credits, or rotate by removing +
+   re-adding.
+
+### Supported providers
+
+- **Anthropic** — Claude chat. Used by branding generation, pitch deck
+  generation, the portal AI chat widget, the email assistant, automation
+  NLP parsing, brain meeting/CRM classification.
+- **OpenAI** — Chat (where applicable) AND brain RAG embeddings
+  (`text-embedding-3-small`). One OpenAI key covers both buckets.
+
+### How billing changes with BYOK
+
+- BYOK calls bypass the internal AI credit ledger entirely — the client
+  pays their provider directly. No credit deduction, no payg trigger.
+- A row is appended to `usage_meter_events` per call with
+  `resource='ai_tokens'` and `source='byok'` (vs. `'platform'`) so
+  staff can see per-tenant usage in either column.
+- Tier-aware gating (`lib/ai/plan-gate.ts`): the **Starter** tier
+  requires a BYOK key for the relevant provider. Growth and Scale tiers
+  work with BYOK or bundled platform credits.
+
+### Operator config
+
+Server requires `ENCRYPTION_KEY` (64 hex chars) for the BYOK envelope.
+Generate with `openssl rand -hex 32`. This is independent of the platform
+provider env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) which remain the
+fallback when no BYOK row exists.
 
 ## License
 

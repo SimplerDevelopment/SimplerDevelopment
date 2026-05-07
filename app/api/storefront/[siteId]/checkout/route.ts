@@ -265,6 +265,7 @@ export async function POST(
         .where(and(
           eq(giftCertificates.code, giftCertificateCode.toUpperCase()),
           eq(giftCertificates.status, 'active'),
+          eq(giftCertificates.websiteId, websiteId),
           sql`${giftCertificates.redeemableAt} IN ('store', 'both')`,
         ))
         .limit(1);

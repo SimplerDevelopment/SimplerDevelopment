@@ -640,6 +640,59 @@ html, body {
   .pc-name { font-size: 20px; }
 }
 
+/* ---- Identity capture form (lives inline on terminal screens) ---- */
+.id-form {
+  margin-top: 28px; padding: 22px 24px;
+  border-radius: 12px;
+  background: rgba(0,86,82,0.06);
+  border: 1px solid rgba(0,86,82,0.18);
+  display: flex; flex-direction: column; gap: 10px;
+  max-width: 460px;
+}
+div#identity-form {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+.id-form-title { font-size: 15px; font-weight: 700; color: var(--dark-teal); }
+.id-form-sub   { font-size: 13px; color: #4a5c5a; line-height: 1.5; margin-bottom: 6px; }
+.id-form input {
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid rgba(0,86,82,0.2);
+  background: white; font-size: 14px; font-family: inherit;
+  color: var(--dark-black);
+}
+.id-form input:focus { outline: none; border-color: var(--dark-teal); box-shadow: 0 0 0 3px rgba(0,86,82,0.12); }
+.id-submit {
+  padding: 10px 18px; border-radius: 8px;
+  background: var(--dark-teal); color: var(--off-white);
+  border: none; cursor: pointer;
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  transition: opacity 0.15s;
+}
+.id-submit:hover    { opacity: 0.9; }
+.id-submit:disabled { opacity: 0.5; cursor: default; }
+.id-status         { font-size: 13px; min-height: 18px; }
+.id-status.error   { color: var(--rust); }
+.id-status.success { color: var(--dark-teal); font-weight: 600; }
+
+/* Submit status banner — injected on terminal screens after auto-submit */
+.submit-status {
+  margin-bottom: 18px; padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(0,86,82,0.06);
+  border: 1px solid rgba(0,86,82,0.18);
+  font-size: 13.5px; color: var(--dark-teal); font-weight: 600;
+}
+.submit-status.success {
+  background: rgba(0,86,82,0.1);
+  border-color: rgba(0,86,82,0.3);
+}
+.submit-status.error {
+  background: rgba(196,106,61,0.08);
+  border-color: rgba(196,106,61,0.3);
+  color: var(--rust);
+}
+
 </style>
 </head>
 <body>
@@ -674,6 +727,29 @@ html, body {
           </div>
           <span class="route-arrow">&#8594;</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== IDENTITY (slide 2 in both paths — captures contact info upfront) ===== -->
+  <div class="screen has-progress" id="screen-identity">
+    <div class="screen-inner">
+      <div class="s-eyebrow">First, a quick intro</div>
+      <div class="s-question">Who am I talking to?</div>
+      <div class="s-subtext">Drop your name, email, and company. I'll only use these to follow up after you finish.</div>
+      <!-- Note: not a real <form> submit because the iframe sandbox is
+           `allow-scripts` only (no allow-forms). We capture via onclick + an
+           Enter-key handler installed below. -->
+      <div id="identity-form" class="id-form">
+        <input name="name"    type="text"  placeholder="Your name" />
+        <input name="email"   type="email" placeholder="Email *" required />
+        <input name="company" type="text"  placeholder="Company" />
+        <button type="button" class="id-submit" onclick="continueFromIdentity()">Continue &rarr;</button>
+        <div data-id-status class="id-status"></div>
+      </div>
+      <div class="nav-pair" style="margin-top:16px">
+        <button class="back-btn" onclick="goBack()">&#8592; Back</button>
+        <button class="start-over-btn" onclick="startOver()">Start over</button>
       </div>
     </div>
   </div>
@@ -968,6 +1044,7 @@ html, body {
     route: 1,
     scopeContext: 'route1',
     route2Selection: null,
+    identity: null,  // { name, email, company } — captured on screen-identity
     history: []
   };
 
@@ -1083,12 +1160,22 @@ html, body {
   }
 
   // ---- Show screen ----
+  // Terminal screens — reaching one auto-submits the captured answers + identity
+  // to the survey endpoint. Submit is fire-and-forget and idempotent: only fires
+  // once per qualifier session (reset by startOver).
+  var TERMINAL_SCREENS = ['screen-results', 'screen-hybrid', 'screen-offering-detail'];
+  var __submitted = false;
+
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
     var el = document.getElementById(id);
     if (el) el.classList.add('active');
     updateProgress(id);
     window.scrollTo(0, 0);
+    if (TERMINAL_SCREENS.indexOf(id) >= 0 && !__submitted) {
+      __submitted = true;
+      submitAnswers();
+    }
   }
 
   window.showScreen = showScreen;
@@ -1099,26 +1186,67 @@ html, body {
   }
 
   // ---- Navigation ----
+  // Both route entry points now go to the identity slide first; the route is
+  // captured on state and continueFromIdentity() advances to the appropriate
+  // next screen (Q1 for route 1, the offering picker for route 2).
   window.startRoute1 = function() {
     state.route = 1;
     state.q1 = null; state.q2 = null; state.q3 = null;
     state.scopeRoadmap = null; state.scopeBlueprint = null;
     state.history = ['screen-welcome'];
-    showScreen('screen-q1');
+    showScreen('screen-identity');
   };
 
   window.startRoute2 = function() {
     state.route = 2;
     state.history = ['screen-welcome'];
-    showScreen('screen-route2');
+    showScreen('screen-identity');
   };
+
+  window.continueFromIdentity = function() {
+    var formEl = document.getElementById('identity-form');
+    if (!formEl) return;
+    var get = function(name) {
+      var el = formEl.querySelector('input[name="' + name + '"]');
+      return el ? (el.value || '').trim() : '';
+    };
+    var email = get('email'), name = get('name'), company = get('company');
+    var statusEl = formEl.querySelector('[data-id-status]');
+    if (!email) {
+      if (statusEl) { statusEl.textContent = 'Email is required.'; statusEl.className = 'id-status error'; }
+      var emailInput = formEl.querySelector('input[name="email"]');
+      if (emailInput) emailInput.focus();
+      return;
+    }
+    state.identity = { name: name, email: email, company: company };
+    state.history.push('screen-identity');
+    if (state.route === 2) showScreen('screen-route2');
+    else showScreen('screen-q1');
+  };
+
+  // Submit the identity form on Enter from any of its inputs.
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var target = e.target;
+    if (!target || target.tagName !== 'INPUT') return;
+    var inForm = target.closest && target.closest('#identity-form');
+    if (!inForm) return;
+    e.preventDefault();
+    continueFromIdentity();
+  });
 
   window.startOver = function() {
     state.q1 = null; state.q2 = null; state.q3 = null;
     state.scopeRoadmap = null; state.scopeBlueprint = null;
     state.scopeContext = 'route1';
     state.route2Selection = null;
+    state.identity = null;
     state.history = [];
+    __submitted = false;
+    var idForm = document.getElementById('identity-form');
+    if (idForm) idForm.querySelectorAll('input').forEach(function(i) { i.value = ''; });
+    var idStatus = idForm && idForm.querySelector('[data-id-status]');
+    if (idStatus) { idStatus.textContent = ''; idStatus.className = 'id-status'; }
     showScreen('screen-welcome');
   };
 
@@ -1319,6 +1447,75 @@ html, body {
     document.getElementById('od-book-note').textContent = d.bookNote;
 
     showScreen('screen-offering-detail');
+  }
+
+  // ---- Identity capture + survey submit ----
+  // POSTs the current quiz state + identity to the SimplerDevelopment public
+  // survey endpoint. The endpoint serves CORS headers so this works from a
+  // sandboxed iframe (effective origin = null).
+  var SURVEY_SLUG = 'tf2-qualifier-mot1ix7h';
+  var FORM_NAME   = 'tf2_qualifier_v4';
+
+  // Resolve the parent origin so the fetch URL is absolute. document.referrer
+  // is the iframe's parent document URL (set even with sandbox=allow-scripts).
+  // Falls back to relative — which works when the iframe was loaded from the
+  // same origin we're posting to.
+  function endpointUrl() {
+    try {
+      var ref = document.referrer || '';
+      if (ref) {
+        var u = new URL(ref);
+        return u.origin + '/api/surveys/' + SURVEY_SLUG;
+      }
+    } catch (e) { /* fall through */ }
+    return '/api/surveys/' + SURVEY_SLUG;
+  }
+
+  // Banner that injects at the top of whichever terminal screen is active so
+  // the user gets feedback that their answers were recorded.
+  function showSubmitStatus(msg, kind) {
+    var current = document.querySelector('.screen.active .screen-inner');
+    if (!current) return;
+    var existing = current.querySelector('.submit-status');
+    if (existing) existing.remove();
+    var el = document.createElement('div');
+    el.className = 'submit-status' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+    current.insertBefore(el, current.firstChild);
+  }
+
+  async function submitAnswers() {
+    var id = state.identity || {};
+    if (!id.email) return;  // shouldn't happen — identity slide gates entry
+    showSubmitStatus('Recording your answers...', '');
+
+    var answers = {};
+    Object.keys(state).forEach(function(k) {
+      if (k === 'history' || k === 'identity') return;
+      if (state[k] !== null && state[k] !== undefined) answers[k] = state[k];
+    });
+    if (id.company) answers.company = id.company;
+
+    try {
+      var res = await fetch(endpointUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formName: FORM_NAME,
+          answers: answers,
+          email: id.email,
+          name: id.name || undefined,
+          source: 'pitch_deck',
+          sourceId: '271',
+        }),
+      });
+      var json = await res.json();
+      if (!json.success) throw new Error(json.message || 'Submit failed');
+      showSubmitStatus("Got it — I'll be in touch shortly.", 'success');
+    } catch (err) {
+      showSubmitStatus('Could not record your answers — try again later.', 'error');
+      __submitted = false;  // allow retry on next terminal entry / startOver
+    }
   }
 
   showScreen('screen-welcome');

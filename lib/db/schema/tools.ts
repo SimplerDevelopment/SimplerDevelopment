@@ -169,6 +169,13 @@ export const pitchDecks = pgTable('pitch_decks', {
   }),
   sourceUrl: varchar('source_url', { length: 500 }), // website used for branding
   brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles
+  // SEO metadata (parity with posts table). When unset, the public renderer
+  // falls back to title / description / branding.ogImageUrl.
+  seoTitle: varchar('seo_title', { length: 255 }),
+  seoDescription: text('seo_description'),
+  ogImage: varchar('og_image', { length: 500 }),
+  canonicalUrl: varchar('canonical_url', { length: 500 }),
+  noIndex: boolean('no_index').default(false).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -265,6 +272,18 @@ export const bookingPages = pgTable('booking_pages', {
   // Staff assignment
   allowStaffSelection: boolean('allow_staff_selection').default(false).notNull(), // let customers pick a staff member
   assignedMembers: json('assigned_members').$type<number[]>().default([]), // user IDs of staff who handle this page
+  // Round-robin / load-balanced assignment
+  // 'fixed' — single owner; 'round_robin' — fewest bookings in next 7 days
+  // (tiebreaker: longest since last booking); 'fewest_upcoming' — fewest
+  // total upcoming bookings.
+  assignmentMode: varchar('assignment_mode', { length: 20 }).default('fixed').notNull(),
+  // Optional manual round-robin pool. When null, all booking_page_members
+  // (active) are eligible. Each entry can carry a weight for weighted RR.
+  roundRobinPool: json('round_robin_pool').$type<{ userId: number; weight: number }[]>(),
+  // Group / class bookings. 'individual' — one booking per slot;
+  // 'group' — one slot accepts multiple attendees (capped by groupCapacity).
+  bookingType: varchar('booking_type', { length: 20 }).default('individual').notNull(),
+  groupCapacity: integer('group_capacity'), // null when bookingType = 'individual'
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -304,6 +323,12 @@ export const bookings = pgTable('bookings', {
   cancelledAt: timestamp('cancelled_at'),
   // Staff assignment
   assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  // Round-robin/fewest-upcoming assignment result. Distinct from assignedTo:
+  // assignedTo can be set by staff selection or manual reassignment, while
+  // assignedUserId records which user the auto-assigner chose at create time
+  // (null when assignmentMode = 'fixed'). assignedTo is the source of truth
+  // for the calendar; this column is the audit trail.
+  assignedUserId: integer('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
   // Capacity
   groupSize: integer('group_size').default(1).notNull(),
   // Payment
@@ -323,6 +348,25 @@ export const bookings = pgTable('bookings', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── BOOKING ATTENDEES (group / class bookings) ───────────────────────────
+// Used only when the parent booking_pages.bookingType = 'group'. For
+// individual bookings, the bookings row IS the single attendee — no row
+// is created here. For group bookings, one bookings row represents the
+// slot ("class") and N attendee rows represent the registrants.
+export const bookingAttendees = pgTable('booking_attendees', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  notes: text('notes'),
+  status: varchar('status', { length: 20 }).default('confirmed').notNull(), // 'confirmed' | 'cancelled' | 'waitlist'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BookingAttendee = typeof bookingAttendees.$inferSelect;
+export type NewBookingAttendee = typeof bookingAttendees.$inferInsert;
 
 export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   id: serial('id').primaryKey(),
@@ -442,6 +486,55 @@ export const googleWorkspaceTenantCredentials = pgTable('google_workspace_tenant
 export type GoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCredentials.$inferSelect;
 
 export type NewGoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCredentials.$inferInsert;
+
+// ─── MICROSOFT TEAMS ────────────────────────────────────────────────────────
+// Per-user delegated OAuth grants for Microsoft 365 / Teams. Mirrors
+// googleWorkspaceUserConnections in shape — multi-tenant by design (Azure AD
+// app registration uses signInAudience: AzureADMultipleOrgs). Subscription
+// columns are populated by the renewal cron + webhook flow (PR 2). Delegated
+// transcripts permission only sees meetings where the user is organizer or
+// co-organizer; a participant-only path requires app-only + RSC and isn't
+// part of the MVP.
+
+export const microsoftTeamsUserConnections = pgTable('microsoft_teams_user_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Microsoft Entra ID (Azure AD) tenant the connected user lives in. Distinct
+  // from our own SimplerDevelopment clientId — this is the customer's M365
+  // tenant.
+  microsoftTenantId: varchar('microsoft_tenant_id', { length: 64 }).notNull(),
+  // Stable Graph user object id (oid claim) — preferred over UPN/email for
+  // referencing the user across token refreshes and tenant changes.
+  microsoftUserId: varchar('microsoft_user_id', { length: 64 }).notNull(),
+  microsoftAccountEmail: varchar('microsoft_account_email', { length: 320 }).notNull(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  // Graph change-notification subscription state. Subscriptions for transcripts
+  // expire ≤ 60 minutes (Microsoft hard cap) — a 25-minute renewal cron must
+  // re-subscribe before expiration. clientState is the secret we hand to Graph;
+  // webhook handler validates the body's `clientState` field against it.
+  subscriptionId: varchar('subscription_id', { length: 64 }),
+  subscriptionResource: text('subscription_resource'),
+  subscriptionExpiration: timestamp('subscription_expiration'),
+  subscriptionClientState: varchar('subscription_client_state', { length: 64 }),
+  // Delta token watermark — fallback when notifications are missed and we
+  // need to re-page through transcripts since last successful sync.
+  deltaToken: text('delta_token'),
+  lastSyncAt: timestamp('last_sync_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clientUserUnique: uniqueIndex('microsoft_teams_user_connections_client_user_unique').on(table.clientId, table.userId),
+  subscriptionIdIdx: uniqueIndex('microsoft_teams_user_connections_subscription_id').on(table.subscriptionId),
+}));
+
+export type MicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferSelect;
+
+export type NewMicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferInsert;
 
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),

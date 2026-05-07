@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chromium, Browser, Page } from 'playwright';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { auth } from '@/lib/auth';
 
 // Configure route for longer execution time (Railway default is 60s)
 export const maxDuration = 60; // seconds
@@ -352,17 +353,30 @@ async function analyzeWebsite(url: string): Promise<AnalysisResult> {
 }
 
 export async function POST(request: NextRequest) {
+  // Auth: previously unauthenticated. POST drives a Playwright Chromium
+  // navigation, which is both an SSRF primitive (can probe internal services)
+  // and an unbounded resource sink. Limit to staff for now; SSRF blocklist on
+  // the resolved IP belongs to W2 — see .planning/audits/security-fix-plan.md.
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  const role = (session.user as { role?: string } | undefined)?.role;
+  if (role !== 'admin' && role !== 'editor' && role !== 'employee') {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { url } = body;
-    
+
     if (!url) {
       return NextResponse.json(
         { error: 'URL is required' },
         { status: 400 }
       );
     }
-    
+
     // Validate URL
     let validatedUrl: string;
     try {
@@ -374,15 +388,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     const result = await analyzeWebsite(validatedUrl);
-    
+
     return NextResponse.json(result);
-    
+
   } catch (error) {
     console.error('Analysis error:', error);
     return NextResponse.json(
-      { error: 'Failed to analyze website', details: String(error) },
+      { error: 'Failed to analyze website' },
       { status: 500 }
     );
   }

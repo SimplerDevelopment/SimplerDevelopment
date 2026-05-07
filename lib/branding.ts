@@ -25,6 +25,20 @@ import { messagingRowToContext, type BrandDefaultsContext, type BrandMessagingCo
 export type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
 import type { ResolvedBranding, BrandingProfileSummary } from './branding-types';
 
+/**
+ * Pick the best favicon URL from a resolved branding bundle. Prefers a
+ * dedicated favicon, then the square logo (which clients tend to set even
+ * when they skip the favicon-specific upload), then the icon-mark logo.
+ * Returns undefined when none are configured so callers can omit the
+ * `<link rel="icon">` instead of emitting an empty href.
+ */
+export function resolveFaviconUrl(
+  branding: Pick<ResolvedBranding, 'faviconUrl' | 'logoSquareUrl' | 'logoIconUrl'> | null | undefined,
+): string | undefined {
+  if (!branding) return undefined;
+  return branding.faviconUrl || branding.logoSquareUrl || branding.logoIconUrl || undefined;
+}
+
 const DEFAULTS: ResolvedBranding = {
   primaryColor: '#2563eb',
   secondaryColor: '#1e40af',

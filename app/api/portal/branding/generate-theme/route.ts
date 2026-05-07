@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 const SYSTEM = `You are an expert brand designer. Given a brand description, generate a complete visual identity.
 
@@ -63,12 +64,22 @@ export async function POST(req: Request) {
     const { description } = await req.json();
     if (!description?.trim()) return NextResponse.json({ success: false, message: 'Description is required' }, { status: 400 });
 
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
+
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: SYSTEM,
       messages: [{ role: 'user', content: `Brand description: ${description.trim()}` }],
     });
+
+    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')

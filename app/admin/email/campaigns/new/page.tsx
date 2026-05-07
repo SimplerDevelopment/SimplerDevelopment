@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface EmailList {
   id: number;
@@ -143,7 +144,7 @@ export default function NewCampaignPage() {
           {preview ? (
             <div
               className="border border-border rounded-md p-4 min-h-64 bg-white text-sm overflow-auto"
-              dangerouslySetInnerHTML={{ __html: form.htmlContent }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(form.htmlContent) }}
             />
           ) : (
             <textarea

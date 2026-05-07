@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+// Hidden form field — bots fill it; humans don't. Drop silently with a 200
+// so the bot doesn't learn it's been detected. Defense in depth before this
+// route gets wired to Resend (TODO below); pair with a CAPTCHA when sending
+// is enabled.
+const HONEYPOT_FIELD = 'website';
+
 const contactSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  subject: z.string().optional(),
-  message: z.string().min(10),
+  name: z.string().min(2).max(200),
+  email: z.string().email().max(320),
+  subject: z.string().max(300).optional(),
+  message: z.string().min(10).max(5000),
+  // honeypot — must be empty/absent
+  [HONEYPOT_FIELD]: z.string().max(0).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Honeypot check first — silently 200 so bots don't probe.
+    if (typeof body[HONEYPOT_FIELD] === 'string' && body[HONEYPOT_FIELD].length > 0) {
+      return NextResponse.json({ message: 'Message sent successfully' }, { status: 200 });
+    }
 
     // Validate the request body
     const validatedData = contactSchema.parse(body);

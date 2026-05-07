@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { clearAttachment } from '@/lib/brain/notes';
 
 /**
@@ -8,8 +8,8 @@ import { clearAttachment } from '@/lib/brain/notes';
  * on the note. Note row stays — only the file is detached.
  */
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const noteId = parseInt(id, 10);

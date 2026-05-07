@@ -26,8 +26,9 @@ export async function createTestTeamMember(
 
   const inviteRes = await ownerApi.post('/api/portal/settings/team', { name, email });
   if (!inviteRes.data?.success) throw new Error(`Invite failed: ${inviteRes.data?.message}`);
-  const member = inviteRes.data.data as { memberId: number; tempPassword: string };
-  const memberId = member.memberId ?? (inviteRes.data.data as { id: number }).id;
+  const member = inviteRes.data.data as { memberId?: number; id?: number; userId?: number; tempPassword: string };
+  const memberId = member.memberId ?? member.id!;
+  const userId = member.userId!;
   const tempPassword = member.tempPassword;
   if (!tempPassword) throw new Error('Expected tempPassword from invite response');
 
@@ -48,7 +49,7 @@ export async function createTestTeamMember(
     await memberApi.dispose().catch(() => {});
     await ownerApi.delete(`/api/portal/settings/team/${memberId}`).catch(() => {});
   };
-  return { memberApi, email, name, memberId, cleanup };
+  return { memberApi, email, name, memberId, userId, cleanup };
 }
 
 /** Create a portal API key and return the raw key string + metadata. Deletes on cleanup. */

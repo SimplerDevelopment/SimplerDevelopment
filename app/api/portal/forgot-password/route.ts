@@ -4,6 +4,7 @@ import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { resend } from '@/lib/email';
+import { hashToken } from '@/lib/security/token-hash';
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@simplerdevelopment.com';
 const BASE_URL = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
@@ -28,16 +29,18 @@ export async function POST(req: Request) {
 
   if (!user || !user.active) return successResponse;
 
-  // Generate token (64 hex chars)
-  const token = randomBytes(32).toString('hex');
+  // Generate token (64 hex chars). The raw token is emailed to the user;
+  // only the SHA-256 hash is persisted so a DB compromise can't be used to
+  // take over accounts. See lib/security/token-hash.ts for rationale.
+  const rawToken = randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
   await db.update(users).set({
-    passwordResetToken: token,
+    passwordResetToken: hashToken(rawToken),
     passwordResetExpires: expires,
   }).where(eq(users.id, user.id));
 
-  const resetUrl = `${BASE_URL}/portal/reset-password?token=${token}`;
+  const resetUrl = `${BASE_URL}/portal/reset-password?token=${rawToken}`;
 
   try {
     const result = await resend.emails.send({

@@ -17,6 +17,12 @@ export interface BlockRegistryEntry {
   icon: string;
   category: string;
   description: string;
+  /**
+   * When true, this entry only appears in the email-campaign block picker —
+   * never in page/site editors. Page-side filtering should drop entries
+   * with `emailOnly === true` from the picker list.
+   */
+  emailOnly?: boolean;
 }
 
 export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
@@ -67,6 +73,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'booking-menu', label: 'Booking Menu', icon: 'event_available', category: 'Interactive', description: 'Grid of bookable services' },
   { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
   { type: 'survey-results', label: 'Survey Results', icon: 'analytics', category: 'Interactive', description: 'Charts of survey responses' },
+  { type: 'popup', label: 'Popup', icon: 'notifications_active', category: 'Interactive', description: 'Modal popup with configurable trigger (page-load, time-delay, scroll, exit-intent)' },
 ];
 
 /**
@@ -82,3 +89,30 @@ export const POST_CONTENT_PICKER_ENTRY: BlockRegistryEntry = {
   category: 'Layout',
   description: 'Placeholder for the post body. The post’s own blocks render here at runtime. Use this only inside a content-type template.',
 };
+
+/**
+ * Email-only block entries. These do NOT belong in `BUILT_IN_BLOCK_TYPES` —
+ * page editors must not surface them — but the email campaign editor (and any
+ * email-template surface) imports this list to extend its picker.
+ *
+ * Render mappings live in `lib/email/render-blocks-to-email.ts`. Page-side
+ * production renderers should treat these as no-ops or graceful fallbacks.
+ */
+export const EMAIL_ONLY_BLOCK_TYPES: BlockRegistryEntry[] = [
+  {
+    type: 'email-header',
+    label: 'Email Header',
+    icon: 'top_panel_open',
+    category: 'Layout',
+    description: 'Logo + tagline header — only valid as the first block in an email.',
+    emailOnly: true,
+  },
+  {
+    type: 'email-footer',
+    label: 'Email Footer',
+    icon: 'bottom_panel_open',
+    category: 'Layout',
+    description: 'Address / legal / unsubscribe footer. Auto-injected at send time if missing.',
+    emailOnly: true,
+  },
+];

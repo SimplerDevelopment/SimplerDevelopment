@@ -6,6 +6,7 @@ export type MeetingSourceId =
   | 'google_doc'
   | 'google_drive_watch'
   | 'google_meet_recording'
+  | 'teams_transcript'
   | 'zoom';
 
 export interface NormalizedMeetingInput {
@@ -35,6 +36,7 @@ export interface MeetingSourceAdapter<Input = unknown> {
 import { pasteAdapter } from './paste';
 import { uploadAdapter } from './upload';
 import { googleMeetRecordingAdapter } from './google-meet-recording';
+import { teamsTranscriptAdapter } from './teams-transcript';
 
 const ADAPTERS: Record<MeetingSourceId, MeetingSourceAdapter | null> = {
   paste: pasteAdapter as MeetingSourceAdapter,
@@ -42,6 +44,7 @@ const ADAPTERS: Record<MeetingSourceId, MeetingSourceAdapter | null> = {
   google_doc: null,             // Phase 2c
   google_drive_watch: null,     // Phase 5.5 — superseded by google_meet_recording
   google_meet_recording: googleMeetRecordingAdapter as MeetingSourceAdapter,
+  teams_transcript: teamsTranscriptAdapter as MeetingSourceAdapter,
   zoom: null,                   // backlog
 };
 

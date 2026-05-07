@@ -26,6 +26,7 @@ import {
   crmContacts,
   crmCompanies,
   crmDeals,
+  crmDealComments,
   crmPipelines,
   crmPipelineStages,
   posts,
@@ -105,6 +106,15 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { extractMentions } from '@/lib/crm/extract-mentions';
+import { createCrmNotification } from '@/lib/crm/notifications';
+import {
+  assertStageInClient,
+  assertContactInClient,
+  assertCompanyInClient,
+  assertUserVisibleToClient,
+  OwnershipError,
+} from '@/lib/security/assert-owned';
 import {
   json,
   serializePostContent,
@@ -402,6 +412,12 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, stageId, status }) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      try {
+        if (stageId != null) await assertStageInClient(stageId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       if (stageId !== undefined) patch.stageId = stageId;
       if (status !== undefined) {
@@ -441,6 +457,14 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
       const [existing] = await db.select({ id: crmDeals.id }).from(crmDeals)
         .where(and(eq(crmDeals.id, id), eq(crmDeals.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Deal not found' });
+      try {
+        if (rest.contactId != null) await assertContactInClient(rest.contactId, clientId);
+        if (rest.companyId != null) await assertCompanyInClient(rest.companyId, clientId);
+        if (rest.ownerId != null) await assertUserVisibleToClient(rest.ownerId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       if (expectedCloseDate !== undefined) {
@@ -450,6 +474,242 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
         .where(eq(crmDeals.id, id)).returning();
       revalidateForWrite('portal');
       return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
+    'crm_deals_get',
+    {
+      title: 'Get CRM deal',
+      description: 'Fetch a single deal with joined contact/company/stage display fields. Pass includeCustomFields=true to also receive the deal\'s custom-field map ({ [fieldId]: { name, type, value } }).',
+      inputSchema: {
+        dealId: z.number().int().positive(),
+        includeCustomFields: z.boolean().optional(),
+      },
+    },
+    async ({ dealId, includeCustomFields }) => {
+      if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
+      const [deal] = await db
+        .select({
+          id: crmDeals.id,
+          clientId: crmDeals.clientId,
+          pipelineId: crmDeals.pipelineId,
+          stageId: crmDeals.stageId,
+          contactId: crmDeals.contactId,
+          companyId: crmDeals.companyId,
+          title: crmDeals.title,
+          value: crmDeals.value,
+          currency: crmDeals.currency,
+          status: crmDeals.status,
+          priority: crmDeals.priority,
+          expectedCloseDate: crmDeals.expectedCloseDate,
+          closedAt: crmDeals.closedAt,
+          notes: crmDeals.notes,
+          sortOrder: crmDeals.sortOrder,
+          recurringValue: crmDeals.recurringValue,
+          billingCycle: crmDeals.billingCycle,
+          ownerId: crmDeals.ownerId,
+          createdAt: crmDeals.createdAt,
+          updatedAt: crmDeals.updatedAt,
+          contactFirstName: crmContacts.firstName,
+          contactLastName: crmContacts.lastName,
+          contactEmail: crmContacts.email,
+          companyName: crmCompanies.name,
+          stageName: crmPipelineStages.name,
+          stageColor: crmPipelineStages.color,
+        })
+        .from(crmDeals)
+        .leftJoin(crmContacts, eq(crmDeals.contactId, crmContacts.id))
+        .leftJoin(crmCompanies, eq(crmDeals.companyId, crmCompanies.id))
+        .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId)));
+      if (!deal) return json({ error: 'Deal not found' });
+
+      if (!includeCustomFields) return json(deal);
+
+      const customFieldRows = await db
+        .select({
+          fieldId: crmCustomFields.id,
+          fieldName: crmCustomFields.fieldName,
+          fieldType: crmCustomFields.fieldType,
+          value: crmCustomFieldValues.value,
+        })
+        .from(crmCustomFields)
+        .leftJoin(
+          crmCustomFieldValues,
+          and(
+            eq(crmCustomFieldValues.customFieldId, crmCustomFields.id),
+            eq(crmCustomFieldValues.entityId, dealId),
+            eq(crmCustomFieldValues.entityType, 'deal'),
+          ),
+        )
+        .where(and(
+          eq(crmCustomFields.clientId, clientId),
+          eq(crmCustomFields.entityType, 'deal'),
+        ));
+      const customFields: Record<number, { name: string; type: string; value: string | null }> = {};
+      for (const row of customFieldRows) {
+        customFields[row.fieldId] = { name: row.fieldName, type: row.fieldType, value: row.value };
+      }
+      return json({ ...deal, customFields });
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deals_delete',
+    {
+      title: 'Delete CRM deal',
+      description: 'Permanently delete a CRM deal. Cascades to deal artifacts and comments via FK ON DELETE CASCADE.',
+      inputSchema: {
+        dealId: z.number().int().positive(),
+      },
+    },
+    async ({ dealId }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deleted] = await db.delete(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId)))
+        .returning({ id: crmDeals.id });
+      if (!deleted) return json({ error: 'Deal not found' });
+      revalidateForWrite('portal');
+      return json({ id: deleted.id, deleted: true });
+    }
+  );
+
+
+  // ── CRM DEAL COMMENTS ──────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'crm:read') && server.registerTool(
+    'crm_deal_comments_list',
+    {
+      title: 'List comments on a CRM deal',
+      description: 'List comments (with author name and attachments) on a deal. Bodies may contain @[name](userId) mention tokens.',
+      inputSchema: {
+        dealId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(200).optional(),
+      },
+    },
+    async ({ dealId, limit = 50 }) => {
+      if (!requireScope(ctx, 'crm:read')) return denied('crm:read');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+      const rows = await db
+        .select({
+          id: crmDealComments.id,
+          dealId: crmDealComments.dealId,
+          authorId: crmDealComments.authorId,
+          authorName: users.name,
+          body: crmDealComments.body,
+          attachments: crmDealComments.attachments,
+          createdAt: crmDealComments.createdAt,
+        })
+        .from(crmDealComments)
+        .leftJoin(users, eq(crmDealComments.authorId, users.id))
+        .where(eq(crmDealComments.dealId, dealId))
+        .orderBy(desc(crmDealComments.createdAt))
+        .limit(limit);
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deal_comments_create',
+    {
+      title: 'Comment on a CRM deal',
+      description: 'Add a comment to a deal. Use @[name](userId) tokens for mentions — mentioned users get an in-app notification, scoped to members of the same client. The portal route\'s notification call was previously fire-and-forget; this handler awaits it so MCP-driven comments don\'t silently miss notifications.',
+      inputSchema: {
+        dealId: z.number().int().positive(),
+        body: z.string().min(1),
+        mentionedUserIds: z.array(z.number().int().positive()).optional().describe('Optional explicit list of user IDs to notify. Merged with any @[name](userId) tokens parsed from the body. Filtered to client members.'),
+      },
+    },
+    async ({ dealId, body, mentionedUserIds }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deal] = await db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+
+      const trimmed = body.trim();
+      if (!trimmed) return json({ error: 'body is required' });
+
+      const [comment] = await db.insert(crmDealComments).values({
+        dealId,
+        authorId: ctx.userId,
+        body: trimmed,
+        attachments: [],
+      }).returning({
+        id: crmDealComments.id,
+        dealId: crmDealComments.dealId,
+        authorId: crmDealComments.authorId,
+        createdAt: crmDealComments.createdAt,
+      });
+
+      const mentionedFromBody = extractMentions(trimmed);
+      const allMentioned = Array.from(new Set([
+        ...mentionedFromBody,
+        ...(mentionedUserIds ?? []),
+      ])).filter((id) => id !== ctx.userId);
+
+      if (allMentioned.length > 0) {
+        const validMembers = await db
+          .select({ userId: clientMembers.userId })
+          .from(clientMembers)
+          .where(and(
+            eq(clientMembers.clientId, clientId),
+            inArray(clientMembers.userId, allMentioned),
+          ));
+        const [actor] = await db.select({ name: users.name, email: users.email })
+          .from(users).where(eq(users.id, ctx.userId)).limit(1);
+        const authorName = actor?.name?.trim() || actor?.email || 'Someone';
+        const snippet = trimmed.slice(0, 120);
+        // Sequential awaits keep the floating-promise tidy (no fire-and-forget).
+        // Volume is bounded by the mention count, which is small in practice.
+        for (const recipient of validMembers) {
+          try {
+            await createCrmNotification({
+              clientId,
+              userId: recipient.userId,
+              type: 'mention',
+              title: `${authorName} mentioned you on deal: ${deal.title}`,
+              body: snippet || undefined,
+              entityType: 'deal',
+              entityId: deal.id,
+            });
+          } catch (notifyErr) {
+            console.warn('[mcp.crm_deal_comments_create] notify failed', { recipient: recipient.userId, err: notifyErr });
+          }
+        }
+      }
+
+      revalidateForWrite('portal');
+      return json(comment);
+    }
+  );
+
+  hasScope(ctx.scopes, 'crm:write') && server.registerTool(
+    'crm_deal_comments_delete',
+    {
+      title: 'Delete a CRM deal comment',
+      description: 'Delete one of the caller\'s own comments on a deal. Matches the portal route — cannot delete other users\' comments.',
+      inputSchema: {
+        dealId: z.number().int().positive(),
+        commentId: z.number().int().positive(),
+      },
+    },
+    async ({ dealId, commentId }) => {
+      if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+        .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+      if (!deal) return json({ error: 'Deal not found' });
+      const [deleted] = await db.delete(crmDealComments)
+        .where(and(
+          eq(crmDealComments.id, commentId),
+          eq(crmDealComments.dealId, dealId),
+          eq(crmDealComments.authorId, ctx.userId),
+        ))
+        .returning({ id: crmDealComments.id });
+      if (!deleted) return json({ error: 'Comment not found or not yours' });
+      revalidateForWrite('portal');
+      return json({ id: deleted.id, deleted: true });
     }
   );
 

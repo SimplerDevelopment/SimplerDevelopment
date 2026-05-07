@@ -27,6 +27,10 @@ export const clients = pgTable('clients', {
   agencyName: varchar('agency_name', { length: 255 }), // overrides "Simpler Development" in portal chrome
   agencyLogoUrl: varchar('agency_logo_url', { length: 500 }), // overrides /iconLogo.png and login wordmark
   agencyPrimaryColor: varchar('agency_primary_color', { length: 20 }), // optional accent for portal chrome
+  // Self-serve / PLG brain trial — when non-null and > now() the entitlement
+  // helper grants brain access without requiring an explicit clientServices
+  // row. Expired trials simply fall through to the paid-subscription check.
+  brainTrialUntil: timestamp('brain_trial_until'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

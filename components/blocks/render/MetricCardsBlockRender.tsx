@@ -4,6 +4,7 @@ import { MetricCardsBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { Icon } from '@/components/ui/Icon';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface MetricCardsBlockRenderProps {
   block: MetricCardsBlock;
@@ -68,7 +69,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
               data-editable-field="overline"
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-3"
               style={{ color: accentColor, ...getElementCSS(block.elementStyles, 'overline') }}
-              dangerouslySetInnerHTML={{ __html: block.overline }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
           {block.title && (
@@ -76,7 +77,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
               data-editable-field="title"
               className="font-heading text-3xl md:text-5xl font-bold mb-4"
               style={getElementCSS(block.elementStyles, 'title')}
-              dangerouslySetInnerHTML={{ __html: block.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
           {block.description && (
@@ -84,7 +85,7 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
               data-editable-field="description"
               className="text-lg text-muted-foreground"
               style={getElementCSS(block.elementStyles, 'description')}
-              dangerouslySetInnerHTML={{ __html: block.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.description) }}
             />
           )}
         </div>
@@ -105,12 +106,12 @@ export function MetricCardsBlockRender({ block }: MetricCardsBlockRenderProps) {
                     fontSize: 'clamp(2.5rem, 4vw, 3.5rem)',
                     ...valueStyle,
                   }}
-                  dangerouslySetInnerHTML={{ __html: metric.value }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(metric.value) }}
                 />
                 <div
                   className="text-[11px] font-semibold tracking-[0.15em] uppercase text-gray-600 leading-snug"
                   style={{ ...labelMaxWidthStyle, ...labelStyle }}
-                  dangerouslySetInnerHTML={{ __html: metric.label }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(metric.label) }}
                 />
               </div>
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { getMeeting } from '@/lib/brain/meetings';
 
 const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET || '';
@@ -33,8 +33,8 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string; idx: string }> },
 ) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { id, idx } = await params;
   const meetingId = parseInt(id, 10);

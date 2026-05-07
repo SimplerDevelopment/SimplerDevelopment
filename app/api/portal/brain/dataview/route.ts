@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import {
   DataviewError,
   listSupportedTypes,
@@ -17,8 +17,8 @@ import {
  * from the portal session, never from the body.
  */
 export async function POST(request: Request) {
-  const auth = await authorizePortal({ action: 'read' });
-  if (isAuthError(auth)) return auth.response;
+  const auth = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in auth) return auth.response;
 
   const raw = await request.json().catch(() => null);
   let query;
@@ -53,6 +53,9 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+  const auth = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in auth) return auth.response;
+
   // Convenience: clients can introspect supported types.
   return NextResponse.json({
     success: true,

@@ -58,6 +58,7 @@ next-env.d.ts
 
 # DB backup dumps (large, sensitive)
 /.migration-backup/
+/.backups/
 
 # one-off debug scripts and editor snapshots
 _tmp-*

@@ -53,6 +53,41 @@ function extractSubdomain(host: string): string | null {
   return null;
 }
 
+/**
+ * Hardening for the tenant-rewrite path: reject Host headers that don't look
+ * like real hostnames before we trust them as a tenant identifier. This
+ * narrows the surface for Next 16.1.1 GHSA-ggv3-7p47-pfv8 (request
+ * smuggling in rewrites) and stops obvious SSRF-via-Host probes
+ * ("169.254.169.254", "localhost.attacker.tld" with unusual chars, etc.).
+ *
+ * NOTE: a fuller fix is to look up the host in clientSites/clientWebsites and
+ * 404 unknown ones. Doing that requires moving middleware to the Node runtime
+ * (Drizzle/postgres.js are not Edge-safe). Tracked as Wave 3.
+ */
+function isPlausibleTenantHost(host: string): boolean {
+  const bare = host.split(':')[0].toLowerCase();
+  if (!bare) return false;
+  // No raw IPs — they should never reach this branch (isAppHostname catches
+  // localhost / 127.0.0.1; tenant rewrites must be FQDNs).
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(bare)) return false;
+  if (bare.includes(':')) return false; // IPv6 literal
+  // Must contain a dot (TLD).
+  if (!bare.includes('.')) return false;
+  // Each label: 1-63 chars, alphanumeric / hyphen, no leading/trailing hyphen.
+  // TLD must be at least 2 chars and all-alpha (allowing IDN puny `xn--`).
+  const labels = bare.split('.');
+  if (labels.length < 2) return false;
+  for (const label of labels) {
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) return false;
+  }
+  const tld = labels[labels.length - 1];
+  if (tld.length < 2) return false;
+  if (!/^[a-z]{2,}$|^xn--[a-z0-9-]{2,}$/.test(tld)) return false;
+  // Block metadata-style suspicious literals.
+  if (bare === 'metadata.google.internal') return false;
+  return true;
+}
+
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
 
@@ -67,6 +102,13 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith('/favicon.ico')
     ) {
       return NextResponse.next();
+    }
+
+    // Reject obviously-non-tenant Host headers before we use the host as a
+    // tenant identifier in the rewrite path. (Defense-in-depth alongside any
+    // upstream proxy validation.)
+    if (!isPlausibleTenantHost(host)) {
+      return new NextResponse('Not Found', { status: 404 });
     }
 
     // Bypass rewrite for requests to files in /public/ (e.g. /iconLogo.png,

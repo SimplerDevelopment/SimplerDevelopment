@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { suggestCrmTargets } from '@/lib/brain/relationships';
 
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const q = url.searchParams.get('q') ?? '';

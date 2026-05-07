@@ -65,6 +65,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.theme !== undefined) updates.theme = body.theme;
   if (body.sourceUrl !== undefined) updates.sourceUrl = body.sourceUrl?.trim() || null;
 
+  // SEO fields — mirror the posts table so the public renderer can fall back
+  // through deck.seoTitle -> deck.title -> branding when generating <head>.
+  if (body.seoTitle !== undefined) updates.seoTitle = body.seoTitle?.trim() || null;
+  if (body.seoDescription !== undefined) updates.seoDescription = body.seoDescription?.trim() || null;
+  if (body.ogImage !== undefined) updates.ogImage = body.ogImage?.trim() || null;
+  if (body.canonicalUrl !== undefined) updates.canonicalUrl = body.canonicalUrl?.trim() || null;
+  if (body.noIndex !== undefined) updates.noIndex = !!body.noIndex;
+
   if (body.slug !== undefined) {
     const normalized = slugify(String(body.slug ?? ''));
     if (!normalized) {

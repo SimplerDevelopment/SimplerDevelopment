@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, use } from 'react';
+import { sanitizeHtml } from '@/lib/security/sanitize-html';
 
 interface ContractClause {
   id: string;
@@ -279,7 +280,7 @@ export default function ContractSigningPage({ params }: { params: Promise<{ toke
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     {i + 1}. {clause.title}
                   </h3>
-                  <div className="text-gray-700 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: clause.content }} />
+                  <div className="text-gray-700 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: sanitizeHtml(clause.content) }} />
                   {clause.required && canSign && (
                     <label className="flex items-center gap-2 mt-3 cursor-pointer">
                       <input

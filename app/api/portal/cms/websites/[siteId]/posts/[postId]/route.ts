@@ -5,6 +5,7 @@ import { posts, postCategories, postTags, postRevisions } from '@/lib/db/schema'
 import { and, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
+import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 
 export async function GET(
   _req: Request,
@@ -53,6 +54,18 @@ export async function PUT(
 
   const body = await req.json();
   const { title, slug, postType, excerpt, content, coverImage, published, categoryIds, tagIds, seoTitle, seoDescription, ogImage, noIndex, canonicalUrl, customCss, customJs, revisionTrigger } = body;
+
+  // Gate raw-HTML / raw-script block types to admin/editor staff only.
+  if (content !== undefined) {
+    try {
+      assertBlocksAllowedForRole(content, (session.user as { role?: string }).role);
+    } catch (err) {
+      if (err instanceof BlockGateError) {
+        return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+      }
+      throw err;
+    }
+  }
 
   // If slug changed, check uniqueness within this website
   if (slug) {

@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { auth } from '@/lib/auth';
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const FORBIDDEN_MIME_PREFIXES = ['text/html', 'application/xhtml', 'application/javascript', 'text/javascript'];
+const FORBIDDEN_MIMES = new Set(['image/svg+xml']);
+
+function isForbiddenMime(mime: string): boolean {
+  const m = mime.toLowerCase().split(';')[0].trim();
+  if (FORBIDDEN_MIMES.has(m)) return true;
+  return FORBIDDEN_MIME_PREFIXES.some(p => m.startsWith(p));
+}
 
 export async function POST(request: NextRequest) {
+  // Auth: this used to be unauthenticated, which let any internet user dump
+  // arbitrary content (incl. attacker HTML/SVG) into our S3 bucket and serve
+  // it back through /api/media/proxy on the app origin — stored XSS.
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
+  }
+
   try {
     const contentType = request.headers.get('content-type') || '';
 
@@ -81,6 +100,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Unsupported content type. Use multipart/form-data or application/json' },
         { status: 400 }
+      );
+    }
+
+    if (fileBuffer.byteLength > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { success: false, error: `File exceeds ${MAX_UPLOAD_BYTES} byte cap` },
+        { status: 413 }
+      );
+    }
+    if (isForbiddenMime(mimeType)) {
+      return NextResponse.json(
+        { success: false, error: 'Content type not allowed (HTML/JS/SVG)' },
+        { status: 415 }
       );
     }
 
