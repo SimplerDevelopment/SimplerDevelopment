@@ -1,6 +1,6 @@
 // Billing artifacts: AI credit ledger, usage metering, invoices, AI conversations.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients, services } from './sites';
 import { projects } from './pm';
@@ -153,6 +153,58 @@ export const usageMeterEvents = pgTable('usage_meter_events', {
   recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 }, (table) => [
   index('usage_meter_events_client_period_resource_idx').on(table.clientId, table.period, table.resource),
+]);
+
+// ── Metered Stripe Billing ────────────────────────────────────────────────────
+//
+// Stripe pass-through resale of usage-based costs (Vercel hosting + Resend
+// email). The agency tier is a flat monthly Stripe Subscription; on top of
+// that we attach metered Subscription Items keyed by `resource`. Each row
+// here corresponds to ONE Stripe Subscription Item — the bridge between an
+// internal resource counter (rolled up from `usage_meter_events`) and the
+// Stripe item we report `usage_records` against.
+//
+// `includedQuantity` is the per-period free allowance (e.g. first 50GB of
+// hosting bandwidth bundled with the tier). The rollup worker subtracts it
+// before pushing usage. `unitPriceCents` is captured at config time as a
+// hint / audit; the actual price lives on the Stripe Price the
+// Subscription Item points at.
+
+export const meteredSubscriptionItems = pgTable('metered_subscription_items', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }).notNull(),
+  stripeSubscriptionItemId: varchar('stripe_subscription_item_id', { length: 255 }).notNull(),
+  resource: varchar('resource', { length: 50 }).notNull(), // 'hosting_bandwidth_gb' | 'email_send' | 'hosting_invocations' | ...
+  unitPriceCents: integer('unit_price_cents').notNull(),
+  includedQuantity: numeric('included_quantity', { precision: 18, scale: 4 }).default('0').notNull(),
+  status: varchar('status', { length: 20 }).default('active').notNull(), // 'active' | 'paused' | 'cancelled'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('metered_subscription_items_client_status_resource_idx').on(table.clientId, table.status, table.resource),
+]);
+
+// Per-period audit row: one entry per (clientId, period, resource) capturing
+// the rollup result. `stripeUsageRecordId` is null when the Stripe push
+// failed — re-running the rollup will retry. The unique index lets us
+// upsert idempotently without double-pushing usage on re-run.
+
+export const usageBillingPeriods = pgTable('usage_billing_periods', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  period: varchar('period', { length: 7 }).notNull(), // YYYY-MM
+  resource: varchar('resource', { length: 50 }).notNull(),
+  totalQuantity: numeric('total_quantity', { precision: 18, scale: 4 }).default('0').notNull(),
+  includedQuantity: numeric('included_quantity', { precision: 18, scale: 4 }).default('0').notNull(),
+  billableQuantity: numeric('billable_quantity', { precision: 18, scale: 4 }).default('0').notNull(),
+  unitPriceCents: integer('unit_price_cents').default(0).notNull(),
+  billedAmountCents: integer('billed_amount_cents').default(0).notNull(),
+  stripeUsageRecordId: varchar('stripe_usage_record_id', { length: 255 }),
+  reportedAt: timestamp('reported_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('usage_billing_periods_client_period_resource_unique').on(table.clientId, table.period, table.resource),
 ]);
 
 // ─── EMAIL MARKETING ──────────────────────────────────────────────────────────

@@ -237,6 +237,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'mcpPendingChanges',
   'media',
   'mediaVersions',
+  'meteredSubscriptionItems',
   'microsoftTeamsUserConnections',
   'notificationPreferences',
   'oauthAccessTokens',
@@ -297,6 +298,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'ticketMessages',
   'triggerLinkClicks',
   'triggerLinks',
+  'usageBillingPeriods',
   'usageMeterEvents',
   'usageMeters',
   'users',
@@ -420,6 +422,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   mcpPendingChanges: 'mcp_pending_changes',
   media: 'media',
   mediaVersions: 'media_versions',
+  meteredSubscriptionItems: 'metered_subscription_items',
   microsoftTeamsUserConnections: 'microsoft_teams_user_connections',
   notificationPreferences: 'notification_preferences',
   oauthAccessTokens: 'oauth_access_tokens',
@@ -480,6 +483,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   ticketMessages: 'ticket_messages',
   triggerLinkClicks: 'trigger_link_clicks',
   triggerLinks: 'trigger_links',
+  usageBillingPeriods: 'usage_billing_periods',
   usageMeterEvents: 'usage_meter_events',
   usageMeters: 'usage_meters',
   users: 'users',
@@ -525,13 +529,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (176)', () => {
+  it('reports the recorded number of tables (177)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(176);
+    expect(count).toBe(177);
   });
 });
