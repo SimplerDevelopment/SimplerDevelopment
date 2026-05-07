@@ -11,6 +11,9 @@ import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
 import { classifyEdit, minimizePayload, applyPatchResponse, isPatchResponse } from '@/lib/ai/slide-edit-optimizer';
 import { getBrandingByClientId } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 /** Extract a short text summary from a slide's blocks for AI context. */
 function summarizeSlide(slide: PitchDeckSlideV2): string {
@@ -25,8 +28,6 @@ function summarizeSlide(slide: PitchDeckSlideV2): string {
   const summary = texts.join(' | ').slice(0, 250);
   return summary || '(empty)';
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string; slideIndex: string }> }) {
   try {
@@ -53,6 +54,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { prompt, history } = await req.json() as { prompt?: string; history?: Array<{ role: 'user' | 'assistant'; content: string }> };
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
+
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Auto-save current state before AI slide edit
     await saveVersionSnapshot(
@@ -144,6 +152,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       messages,
     });
 
+    let totalInput = response.usage?.input_tokens ?? 0;
+    let totalOutput = response.usage?.output_tokens ?? 0;
     let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
@@ -159,10 +169,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           { role: 'assistant' as const, content: text },
         ],
       });
+      totalInput += continuation.usage?.input_tokens ?? 0;
+      totalOutput += continuation.usage?.output_tokens ?? 0;
       text += continuation.content
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map(b => b.text).join('');
     }
+
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalInput + totalOutput });
 
     // Strip markdown code fences
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();

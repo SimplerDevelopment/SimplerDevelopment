@@ -203,6 +203,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'emailCampaignSends',
   'emailCampaigns',
   'emailLists',
+  'emailRenders',
   'emailSegments',
   'emailSubscriberTagAssignments',
   'emailSubscriberTags',
@@ -387,6 +388,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   emailCampaignSends: 'email_campaign_sends',
   emailCampaigns: 'email_campaigns',
   emailLists: 'email_lists',
+  emailRenders: 'email_renders',
   emailSegments: 'email_segments',
   emailSubscriberTagAssignments: 'email_subscriber_tag_assignments',
   emailSubscriberTags: 'email_subscriber_tags',
@@ -527,13 +529,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (177)', () => {
+  it('reports the recorded number of tables (178)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(177);
+    expect(count).toBe(178);
   });
 });

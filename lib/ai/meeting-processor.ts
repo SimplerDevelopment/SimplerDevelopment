@@ -11,11 +11,8 @@ import { eq } from 'drizzle-orm';
 import { setMeetingAiSummary, updateMeetingStatus } from '@/lib/brain/meetings';
 import { logAudit } from '@/lib/brain/audit';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
-}
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
 
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TRANSCRIPT_CHARS = 60_000; // hard cap to keep costs bounded
@@ -109,10 +106,15 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
     startedAt: new Date(),
   }).returning();
 
+  // Resolve BYOK vs platform key for this client.
+  const resolved = await resolveClientApiKey({ clientId: args.clientId, provider: 'anthropic' });
+  const anthropic = new Anthropic({ apiKey: resolved.key });
+
   // Credit pre-flight. If insufficient, mark the freshly-created job as
-  // failed and bubble up — same shape as any other AI failure.
-  if (!(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
-    const message = 'Insufficient AI credits. Purchase more credits or enable pay-as-you-go.';
+  // failed and bubble up — same shape as any other AI failure. BYOK skips
+  // this since the client pays their provider directly.
+  if (resolved.source === 'platform' && !(await hasCredits(args.clientId, ESTIMATED_CREDITS))) {
+    const message = 'Insufficient AI credits. Purchase more credits, enable pay-as-you-go, or add a BYOK key.';
     await db.update(brainAiJobs).set({
       status: 'failed' as BrainAiJobStatus,
       error: message,
@@ -227,8 +229,12 @@ export async function processMeetingTranscript(args: ProcessMeetingArgs): Promis
 
   // Charge credits based on actual token usage. Rough heuristic: 1 credit per
   // 1k input tokens + 4 credits per 1k output tokens (output is more expensive).
+  // Skip when using BYOK — the client already paid their provider.
   const credits = Math.max(1, Math.round(inputTokens / 1000) + Math.round(outputTokens / 250));
-  await deductCredits(args.clientId, credits, 'brain_meeting_processing', `meeting:${args.meetingId}`, `Processed meeting ${args.meetingId}`);
+  if (resolved.source === 'platform') {
+    await deductCredits(args.clientId, credits, 'brain_meeting_processing', `meeting:${args.meetingId}`, `Processed meeting ${args.meetingId}`);
+  }
+  void recordAiUsage({ clientId: args.clientId, source: resolved.source, tokens: inputTokens + outputTokens });
 
   // Mark job complete.
   await db.update(brainAiJobs).set({

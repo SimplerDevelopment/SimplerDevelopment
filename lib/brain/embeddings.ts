@@ -14,6 +14,8 @@
 
 import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
 
 export type EmbeddingProvider = 'openai' | 'voyage' | 'cohere';
 export type EntityType =
@@ -47,15 +49,27 @@ interface EmbedResult {
  */
 export async function embedText(
   inputs: string[],
-  opts: { provider?: EmbeddingProvider; model?: string } = {},
+  opts: { provider?: EmbeddingProvider; model?: string; clientId?: number } = {},
 ): Promise<EmbedResult[]> {
   const provider = opts.provider ?? 'openai';
   if (provider !== 'openai') {
     throw new Error(`Embedding provider "${provider}" not yet implemented`);
   }
   const model = opts.model ?? DEFAULT_MODEL;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+
+  // Resolve BYOK > platform key. If no clientId is passed (legacy / system),
+  // fall back to env directly. Embeddings share the OpenAI bucket with chat.
+  let apiKey: string;
+  let source: 'byok' | 'platform' = 'platform';
+  if (typeof opts.clientId === 'number') {
+    const resolved = await resolveClientApiKey({ clientId: opts.clientId, provider: 'embedding' });
+    apiKey = resolved.key;
+    source = resolved.source;
+  } else {
+    const envKey = process.env.OPENAI_API_KEY;
+    if (!envKey) throw new Error('OPENAI_API_KEY not set');
+    apiKey = envKey;
+  }
 
   const results: EmbedResult[] = [];
   const BATCH_SIZE = 100;
@@ -88,6 +102,9 @@ export async function embedText(
         vector: item.embedding,
         tokens: Math.round(json.usage.total_tokens * charShare),
       });
+    }
+    if (typeof opts.clientId === 'number') {
+      void recordAiUsage({ clientId: opts.clientId, source, tokens: json.usage.total_tokens });
     }
   }
 
@@ -223,7 +240,7 @@ export async function embedEntity(args: {
   const provider = args.provider ?? 'openai';
   const dim = DEFAULT_DIM;
 
-  const results = await embedText(chunks, { provider, model });
+  const results = await embedText(chunks, { provider, model, clientId: args.clientId });
 
   // Replace strategy: delete all existing chunks for this entity, then bulk
   // insert. Done in a single transaction so a partial failure doesn't leave
@@ -318,7 +335,7 @@ export async function embedManyEntities(args: {
 
   // Pass 2: embed all chunks across all entities in a single (batched) call.
   // embedText handles its own internal batching at 100 inputs per request.
-  const results = await embedText(flatChunks.map(c => c.text), { provider, model });
+  const results = await embedText(flatChunks.map(c => c.text), { provider, model, clientId: args.clientId });
 
   // Pass 3: replace existing chunks for these entities, bulk insert new ones.
   // Single transaction so a failure mid-batch leaves the queue in a clean
@@ -418,6 +435,7 @@ export async function searchSemantic(args: {
   const [{ vector }] = await embedText([args.query], {
     provider: args.provider,
     model: args.model,
+    clientId: args.clientId,
   });
   const vectorLiteral = `[${vector.join(',')}]`;
 
