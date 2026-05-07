@@ -9,8 +9,8 @@ import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
-import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
-import type { SurveyDataForDeck } from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
+import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
+import type { SurveyDataForDeck } from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
 
 /** Convert v1 slides on read if needed */
 function resolveSlides(raw: unknown, theme: PitchDeckTheme): PitchDeckSlideV2[] {
@@ -84,7 +84,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const { preview } = await searchParams;
   // Only expose metadata in authenticated preview mode. Public access on the
   // main app host is blocked — pitch decks must be viewed on the owning
-  // tenant's subdomain (routed via /sites/[domain]/pitch-deck/[slug]).
+  // tenant's subdomain (routed via /sites/[domain]/slides/[slug]).
   if (preview !== '1') return { title: 'Not Found', robots: { index: false } };
   const deck = await getDeck(slug, true);
   if (!deck) return { title: 'Not Found' };
@@ -145,7 +145,7 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
 
   // Non-preview: the main-app host never renders published decks — it
   // redirects to the owning tenant's subdomain so the tenant-scoped
-  // /sites/[domain]/pitch-deck/[slug] route handles rendering. Guessing a
+  // /sites/[domain]/slides/[slug] route handles rendering. Guessing a
   // slug on the apex domain can never leak cross-tenant content — at worst
   // it redirects to the correct tenant, which will only render if the
   // deck belongs to that tenant (already enforced by getPitchDeckByDomainAndSlug).
@@ -170,5 +170,5 @@ export default async function PublicPitchDeckPage({ params, searchParams }: Page
   const host = await getTenantHostForDeck(deck.clientId);
   if (!host) notFound();
 
-  redirect(`https://${host}/pitch-deck/${slug}`);
+  redirect(`https://${host}/slides/${slug}`);
 }

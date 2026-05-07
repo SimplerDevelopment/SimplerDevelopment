@@ -75,7 +75,7 @@ export function EditorHeader(props: EditorHeaderProps) {
             <span>·</span>
             {editingSlug ? (
               <span className="inline-flex items-center gap-1">
-                <span className="text-muted-foreground/70">/pitch-deck/</span>
+                <span className="text-muted-foreground/70">/slides/</span>
                 <input
                   autoFocus
                   value={slugDraft}
@@ -97,7 +97,7 @@ export function EditorHeader(props: EditorHeaderProps) {
                 title="Click to edit slug"
               >
                 <span className="material-icons text-xs">link</span>
-                <span className="font-mono">/pitch-deck/{deck.slug}</span>
+                <span className="font-mono">/slides/{deck.slug}</span>
                 <span className="material-icons text-[0.875em] opacity-0 group-hover:opacity-60">edit</span>
               </button>
             )}
@@ -170,7 +170,7 @@ export function EditorHeader(props: EditorHeaderProps) {
           {saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}
         </button>
         <Link
-          href={`/pitch-deck/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
+          href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
           target="_blank"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
