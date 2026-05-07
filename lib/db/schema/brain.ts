@@ -122,7 +122,7 @@ export const brainMeetings = pgTable('brain_meetings', {
   reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewed_at'),
   confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
-  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'zoom'
+  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'teams_transcript' | 'zoom'
   sourceRef: varchar('source_ref', { length: 500 }).notNull(), // adapter-supplied dedupe key; (clientId, sourceRef) unique
   sourceMetadata: json('source_metadata').$type<Record<string, unknown>>().default({}),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),

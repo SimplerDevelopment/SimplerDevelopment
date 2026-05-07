@@ -443,6 +443,55 @@ export type GoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCrede
 
 export type NewGoogleWorkspaceTenantCredentials = typeof googleWorkspaceTenantCredentials.$inferInsert;
 
+// ─── MICROSOFT TEAMS ────────────────────────────────────────────────────────
+// Per-user delegated OAuth grants for Microsoft 365 / Teams. Mirrors
+// googleWorkspaceUserConnections in shape — multi-tenant by design (Azure AD
+// app registration uses signInAudience: AzureADMultipleOrgs). Subscription
+// columns are populated by the renewal cron + webhook flow (PR 2). Delegated
+// transcripts permission only sees meetings where the user is organizer or
+// co-organizer; a participant-only path requires app-only + RSC and isn't
+// part of the MVP.
+
+export const microsoftTeamsUserConnections = pgTable('microsoft_teams_user_connections', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Microsoft Entra ID (Azure AD) tenant the connected user lives in. Distinct
+  // from our own SimplerDevelopment clientId — this is the customer's M365
+  // tenant.
+  microsoftTenantId: varchar('microsoft_tenant_id', { length: 64 }).notNull(),
+  // Stable Graph user object id (oid claim) — preferred over UPN/email for
+  // referencing the user across token refreshes and tenant changes.
+  microsoftUserId: varchar('microsoft_user_id', { length: 64 }).notNull(),
+  microsoftAccountEmail: varchar('microsoft_account_email', { length: 320 }).notNull(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+  // Graph change-notification subscription state. Subscriptions for transcripts
+  // expire ≤ 60 minutes (Microsoft hard cap) — a 25-minute renewal cron must
+  // re-subscribe before expiration. clientState is the secret we hand to Graph;
+  // webhook handler validates the body's `clientState` field against it.
+  subscriptionId: varchar('subscription_id', { length: 64 }),
+  subscriptionResource: text('subscription_resource'),
+  subscriptionExpiration: timestamp('subscription_expiration'),
+  subscriptionClientState: varchar('subscription_client_state', { length: 64 }),
+  // Delta token watermark — fallback when notifications are missed and we
+  // need to re-page through transcripts since last successful sync.
+  deltaToken: text('delta_token'),
+  lastSyncAt: timestamp('last_sync_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  clientUserUnique: uniqueIndex('microsoft_teams_user_connections_client_user_unique').on(table.clientId, table.userId),
+  subscriptionIdIdx: uniqueIndex('microsoft_teams_user_connections_subscription_id').on(table.subscriptionId),
+}));
+
+export type MicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferSelect;
+
+export type NewMicrosoftTeamsUserConnection = typeof microsoftTeamsUserConnections.$inferInsert;
+
 export const zoomTokens = pgTable('zoom_tokens', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
