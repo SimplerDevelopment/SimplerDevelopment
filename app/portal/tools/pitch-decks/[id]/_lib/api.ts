@@ -12,6 +12,11 @@ export interface DeckPayload {
   theme: PitchDeckTheme;
   sourceUrl: string | null;
   brandingProfileId: number | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  ogImage: string | null;
+  canonicalUrl: string | null;
+  noIndex: boolean;
   updatedAt: string;
 }
 
