@@ -9,6 +9,8 @@ import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
 import { auth } from '@/lib/auth';
 import { verifyPreviewToken } from '@/lib/preview-token';
+import { applyAbToPostContent } from '@/lib/ab/render';
+import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -121,19 +123,31 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     }
 
     const homeType = await getPostTypeForPost(site.id, homePage.postType);
+    const ab = await applyAbToPostContent({ postId: homePage.id, content: homePage.content, skip: preview });
     const content = await prefetchHtmlEmbeds(
-      await expandLoopsInContent(site.id, wrapWithTypeTemplate(homePage.content, homeType?.template), homePage.id),
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id),
     );
     return (
-      <SiteBlockRenderer
-        content={content}
-        siteId={site.id}
-        branding={branding}
-        site={siteLayer}
-        type={{ customCss: homeType?.customCss, customJs: homeType?.customJs }}
-        customCss={homePage.customCss}
-        customJs={homePage.customJs}
-      />
+      <>
+        <SiteBlockRenderer
+          content={content}
+          siteId={site.id}
+          branding={branding}
+          site={siteLayer}
+          type={{ customCss: homeType?.customCss, customJs: homeType?.customJs }}
+          customCss={homePage.customCss}
+          customJs={homePage.customJs}
+        />
+        {ab.ab && ab.visitorId ? (
+          <AbGoalTracker
+            experimentId={ab.ab.experimentId}
+            variantKey={ab.ab.variantKey}
+            goalMetric={ab.ab.goalMetric}
+            goalSelector={ab.ab.goalSelector}
+            visitorId={ab.visitorId}
+          />
+        ) : null}
+      </>
     );
   }
 
@@ -215,11 +229,12 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     }
 
     const blogType = await getPostTypeForPost(site.id, post.postType);
+    const ab = await applyAbToPostContent({ postId: post.id, content: post.content, skip: preview });
     return (
       <div>
         <SiteBlockRenderer
           content={await prefetchHtmlEmbeds(
-            await expandLoopsInContent(site.id, wrapWithTypeTemplate(post.content, blogType?.template), post.id),
+            await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id),
           )}
           siteId={site.id}
           branding={branding}
@@ -228,6 +243,15 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
           customCss={post.customCss}
           customJs={post.customJs}
         />
+        {ab.ab && ab.visitorId ? (
+          <AbGoalTracker
+            experimentId={ab.ab.experimentId}
+            variantKey={ab.ab.variantKey}
+            goalMetric={ab.ab.goalMetric}
+            goalSelector={ab.ab.goalSelector}
+            visitorId={ab.visitorId}
+          />
+        ) : null}
       </div>
     );
   }
@@ -240,12 +264,13 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   }
 
   const pageType = await getPostTypeForPost(site.id, page.postType);
+  const ab = await applyAbToPostContent({ postId: page.id, content: page.content, skip: preview });
 
   return (
     <div>
       <SiteBlockRenderer
         content={await prefetchHtmlEmbeds(
-          await expandLoopsInContent(site.id, wrapWithTypeTemplate(page.content, pageType?.template), page.id),
+          await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id),
         )}
         siteId={site.id}
         branding={branding}
@@ -254,6 +279,15 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
         customCss={page.customCss}
         customJs={page.customJs}
       />
+      {ab.ab && ab.visitorId ? (
+        <AbGoalTracker
+          experimentId={ab.ab.experimentId}
+          variantKey={ab.ab.variantKey}
+          goalMetric={ab.ab.goalMetric}
+          goalSelector={ab.ab.goalSelector}
+          visitorId={ab.visitorId}
+        />
+      ) : null}
     </div>
   );
 }
