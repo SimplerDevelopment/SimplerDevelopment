@@ -18,6 +18,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TemplatesPickerButton from '@/components/brain/TemplatesPickerButton';
 
 interface BrainNote {
@@ -87,11 +89,28 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [search, setSearch] = useState('');
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [tagPrefix, setTagPrefix] = useState<string>('');
+  const [untaggedOnly, setUntaggedOnly] = useState(false);
   const [pinnedOnly, setPinnedOnly] = useState(false);
+  const [orphansOnly, setOrphansOnly] = useState(false);
+  // Total orphan count for the sidebar pin badge. Cheap (`limit=1`) — we only
+  // need `total`, not the rows. Refreshed alongside other counts so a wikilink
+  // edit (which can mint or eliminate orphans) updates the badge.
+  const [orphansCount, setOrphansCount] = useState(0);
   const [allTags, setAllTags] = useState<string[]>([]);
+  // Tag-first landing view: list of tags + per-tag note counts. Drives
+  // the default pane when the user hasn't drilled into a tag, searched, or
+  // applied any other filter. Counts are aggregated server-side so they're
+  // accurate across the whole tenant (not just the paginated note slice).
+  const [tagCounts, setTagCounts] = useState<Array<{ tag: string; count: number }>>([]);
+  const [untaggedCount, setUntaggedCount] = useState(0);
+  const [totalNotesCount, setTotalNotesCount] = useState(0);
+  const [tagCountsLoading, setTagCountsLoading] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [tagDrawerOpen, setTagDrawerOpen] = useState(false);
 
@@ -161,11 +180,28 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
   const reqIdRef = useRef(0);
 
   const load = useCallback(async (offset: number, replace: boolean) => {
+    // Tag-index mode (no filters, no active tag, not trashed): skip the
+    // notes fetch — the landing view shows tag counts only. Reset list
+    // state so a stale fetch doesn't bleed into the next drill-in.
+    const noFilters =
+      !debouncedSearch.trim() && activeTags.length === 0 && !tagPrefix.trim() && !pinnedOnly && !untaggedOnly && !orphansOnly && !trashed;
+    if (noFilters) {
+      if (replace) {
+        setNotes([]);
+        setTotal(0);
+        setLoaded(0);
+      }
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     const params = new URLSearchParams();
     if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     if (pinnedOnly) params.set('pinned', 'true');
+    if (untaggedOnly) params.set('untagged', 'true');
+    if (orphansOnly) params.set('orphans', 'true');
     if (activeTags[0]) params.set('tag', activeTags[0]);
     if (tagPrefix.trim()) params.set('tagPrefix', tagPrefix.trim());
     if (trashed) params.set('trashed', 'true');
@@ -200,7 +236,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     } finally {
       if (myReq === reqIdRef.current) setLoading(false);
     }
-  }, [debouncedSearch, pinnedOnly, activeTags, tagPrefix, trashed, sortField, sortOrder]);
+  }, [debouncedSearch, pinnedOnly, untaggedOnly, orphansOnly, activeTags, tagPrefix, trashed, sortField, sortOrder]);
 
   // Initial + filter-change reload.
   useEffect(() => {
@@ -217,6 +253,27 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       .catch(() => { /* non-fatal */ });
   }, [internalRefresh]);
 
+  // Tag counts for the landing view. Refreshed whenever a save/create/delete
+  // bumps the parent or internal refresh tick — counts must stay accurate as
+  // the user moves notes between tags.
+  useEffect(() => {
+    let cancelled = false;
+    setTagCountsLoading(true);
+    fetch('/api/portal/brain/knowledge?tags=counts')
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        if (j?.success) {
+          setTagCounts(j.data?.tags ?? []);
+          setUntaggedCount(j.data?.untagged ?? 0);
+          setTotalNotesCount(j.data?.total ?? 0);
+        }
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => { if (!cancelled) setTagCountsLoading(false); });
+    return () => { cancelled = true; };
+  }, [internalRefresh, refreshTick]);
+
   // Trash count for the tab badge + retention warning. Cheap (`limit=1`)
   // because we only need `total`, not the rows.
   useEffect(() => {
@@ -230,6 +287,48 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
       .catch(() => { /* non-fatal */ });
     return () => { cancelled = true; };
   }, [internalRefresh, refreshTick, trashed]);
+
+  // Orphan count for the sidebar pin badge. Same `limit=1` trick — we only
+  // need the aggregate. Refreshes when notes/wikilinks change.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/portal/brain/knowledge?orphans=true&limit=1')
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        if (j?.success) setOrphansCount(j.data?.total ?? 0);
+      })
+      .catch(() => { /* non-fatal */ });
+    return () => { cancelled = true; };
+  }, [internalRefresh, refreshTick]);
+
+  // URL-param drill-in: the parallel-built Tag Treemap navigates here with
+  // ?tag=X / ?orphans=true / ?untagged=true to seed a filter on landing.
+  // Strip the params after applying so back-button + refresh behave sanely
+  // and a refresh doesn't re-fire the same drill. The `?id=` param is owned
+  // by the parent shell and intentionally untouched.
+  const didDrillRef = useRef(false);
+  useEffect(() => {
+    if (didDrillRef.current) return;
+    if (!searchParams) return;
+    const tagParam = searchParams.get('tag');
+    const orphansParam = searchParams.get('orphans') === 'true';
+    const untaggedParam = searchParams.get('untagged') === 'true';
+    if (!tagParam && !orphansParam && !untaggedParam) {
+      didDrillRef.current = true;
+      return;
+    }
+    didDrillRef.current = true;
+    if (tagParam) setActiveTags([tagParam]);
+    if (orphansParam) setOrphansOnly(true);
+    if (untaggedParam) setUntaggedOnly(true);
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('tag');
+    next.delete('orphans');
+    next.delete('untagged');
+    const qs = next.toString();
+    router.replace(`/portal/brain/knowledge${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [searchParams, router]);
 
   // Saved searches inventory.
   const loadSavedSearches = useCallback(async () => {
@@ -261,7 +360,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     return s;
   }, [notes]);
 
-  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || tagPrefix.trim() || pinnedOnly);
+  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly);
 
   const tree = useMemo(() => buildTagTree(notes, pinnedIdsSet, trashed), [notes, pinnedIdsSet, trashed]);
 
@@ -377,6 +476,8 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     setActiveTags(Array.isArray(f.tags) ? f.tags : []);
     setTagPrefix(typeof f.tagPrefix === 'string' ? f.tagPrefix : '');
     setPinnedOnly(!!f.pinnedOnly);
+    setUntaggedOnly(false);
+    setOrphansOnly(false);
     setSortField(f.sort ?? 'updated');
     setSortOrder(f.order ?? 'desc');
     setTrashed(!!f.trashed);
@@ -482,6 +583,32 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
 
   return (
     <div className="h-full flex flex-col bg-card border-r border-border relative">
+      {/* View-mode links: list (current) / graph / treemap. Mirrors the
+          knowledge IDE's other surfaces so a user can flip between
+          structural views without leaving the rail. */}
+      <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/40 text-[11px]">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-foreground font-medium">
+          <span className="material-icons text-sm">list</span>
+          List
+        </span>
+        <Link
+          href="/portal/brain/knowledge/graph"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="Graph view"
+        >
+          <span className="material-icons text-sm">hub</span>
+          Graph
+        </Link>
+        <Link
+          href="/portal/brain/knowledge/treemap"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="Tag treemap"
+        >
+          <span className="material-icons text-sm">dashboard</span>
+          Treemap
+        </Link>
+      </div>
+
       {/* Tabs: Notes / Trash */}
       <div className="flex border-b border-border bg-muted/30">
         <button
@@ -719,14 +846,15 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
                 </button>
               </div>
             )}
-            {(activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || debouncedSearch) && (
+            {(activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly || debouncedSearch) && (
               <button
                 type="button"
-                onClick={() => { setActiveTags([]); setTagPrefix(''); setPinnedOnly(false); setSearch(''); }}
-                className="text-xs text-muted-foreground hover:text-foreground"
-                title="Clear filters"
+                onClick={() => { setActiveTags([]); setTagPrefix(''); setPinnedOnly(false); setUntaggedOnly(false); setOrphansOnly(false); setSearch(''); }}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                title="Back to all tags"
               >
-                clear
+                <span className="material-icons text-sm">arrow_back</span>
+                all tags
               </button>
             )}
           </div>
@@ -868,24 +996,41 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            sectionLabel={`Results (${notes.length})`}
-            sectionIcon="search"
+            sectionLabel={
+              orphansOnly
+                ? `Orphans (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
+                : untaggedOnly
+                ? `Untagged (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
+                : activeTags.length === 1
+                ? `${activeTags[0]} (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
+                : `Results (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
+            }
+            sectionIcon={
+              orphansOnly
+                ? 'link_off'
+                : untaggedOnly
+                ? 'label_off'
+                : activeTags.length === 1
+                ? 'sell'
+                : 'search'
+            }
             collapsed={false}
           />
         ) : (
-          <TreeView
-            tree={tree}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            selectMode={selectMode}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
+          <TagIndexView
+            tags={tagCounts}
+            untaggedCount={untaggedCount}
+            orphansCount={orphansCount}
+            totalCount={totalNotesCount}
+            loading={tagCountsLoading}
+            onPickTag={(tag) => { setActiveTags([tag]); setOrphansOnly(false); setUntaggedOnly(false); setPinnedOnly(false); }}
+            onPickUntagged={() => { setUntaggedOnly(true); setOrphansOnly(false); setActiveTags([]); setPinnedOnly(false); }}
+            onPickOrphans={() => { setOrphansOnly(true); setUntaggedOnly(false); setActiveTags([]); setPinnedOnly(false); }}
+            onShowAllPinned={() => setPinnedOnly(true)}
           />
         )}
 
-        {hasMore && (
+        {(filtersActive || trashed) && hasMore && (
           <div className="p-2">
             <button
               type="button"
@@ -1316,6 +1461,142 @@ function NoteRow({ n, depth, selectedId, onSelect, selectMode, selectedIds, onTo
         {trailingActions && trailingActions(n)}
       </div>
     </li>
+  );
+}
+
+/**
+ * Tag-first landing view. Replaces the old "all loaded notes in a folder
+ * tree, paginated with Load More" experience. The user picks a tag → drills
+ * in via the existing FlatList + filter machinery.
+ *
+ * Tags are server-aggregated, so counts are accurate across the whole
+ * tenant — not just the page we happened to load. Nested slash-tags are
+ * shown verbatim (`kb/marketing/seo`) with indentation reflecting depth.
+ */
+interface TagIndexViewProps {
+  tags: Array<{ tag: string; count: number }>;
+  untaggedCount: number;
+  orphansCount: number;
+  totalCount: number;
+  loading: boolean;
+  onPickTag: (tag: string) => void;
+  onPickUntagged: () => void;
+  onPickOrphans: () => void;
+  onShowAllPinned: () => void;
+}
+
+function TagIndexView({
+  tags,
+  untaggedCount,
+  orphansCount,
+  totalCount,
+  loading,
+  onPickTag,
+  onPickUntagged,
+  onPickOrphans,
+  onShowAllPinned: _onShowAllPinned,
+}: TagIndexViewProps) {
+  if (loading && tags.length === 0 && untaggedCount === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground">
+        Loading tags…
+      </div>
+    );
+  }
+
+  if (!loading && tags.length === 0 && untaggedCount === 0 && orphansCount === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground">
+        No notes yet. Create one to get started.
+      </div>
+    );
+  }
+
+  // Sort: highest count first, alphabetical tiebreaker. Server already
+  // returns this order; we re-sort defensively in case the parent reshuffled.
+  const sorted = [...tags].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+
+  return (
+    <div className="py-1">
+      <div className="px-3 py-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="material-icons text-sm">sell</span>
+        <span>Tags</span>
+        <span className="ml-auto text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70">
+          {totalCount} {totalCount === 1 ? 'note' : 'notes'}
+        </span>
+      </div>
+      <ul className="px-1 pb-2">
+        {sorted.map(({ tag, count }) => {
+          const depth = tag.split('/').length - 1;
+          // Truncate display at the deepest segment so nested tags read clean,
+          // but keep the full path as the title-attribute for hover clarity.
+          const segments = tag.split('/');
+          const last = segments[segments.length - 1];
+          return (
+            <li key={tag}>
+              <button
+                type="button"
+                onClick={() => onPickTag(tag)}
+                title={tag}
+                style={{ paddingLeft: 12 + depth * 14 }}
+                className="group w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-sm hover:bg-accent/60 transition-colors"
+              >
+                <span className="material-icons text-base text-muted-foreground/60 group-hover:text-primary transition-colors">
+                  {depth > 0 ? 'subdirectory_arrow_right' : 'sell'}
+                </span>
+                <span className="flex-1 truncate text-foreground">
+                  {depth > 0 && (
+                    <span className="text-muted-foreground/60">
+                      {segments.slice(0, -1).join('/')}/
+                    </span>
+                  )}
+                  <span className="font-medium">{last}</span>
+                </span>
+                <span className="shrink-0 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded text-[11px] font-medium tabular-nums bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  {count}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+        {untaggedCount > 0 && (
+          <li className="mt-1 pt-1 border-t border-border/60">
+            <button
+              type="button"
+              onClick={onPickUntagged}
+              className="group w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-sm hover:bg-accent/60 transition-colors"
+              title="Notes with no tags"
+            >
+              <span className="material-icons text-base text-muted-foreground/60 group-hover:text-primary transition-colors">
+                label_off
+              </span>
+              <span className="flex-1 truncate text-foreground italic">Untagged</span>
+              <span className="shrink-0 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded text-[11px] font-medium tabular-nums bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                {untaggedCount}
+              </span>
+            </button>
+          </li>
+        )}
+        {orphansCount > 0 && (
+          <li className={untaggedCount > 0 ? '' : 'mt-1 pt-1 border-t border-border/60'}>
+            <button
+              type="button"
+              onClick={onPickOrphans}
+              className="group w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-sm hover:bg-accent/60 transition-colors"
+              title="Stranded notes — nothing links to them"
+            >
+              <span className="material-icons text-base text-muted-foreground/60 group-hover:text-primary transition-colors">
+                link_off
+              </span>
+              <span className="flex-1 truncate text-foreground italic">Orphans</span>
+              <span className="shrink-0 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded text-[11px] font-medium tabular-nums bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                {orphansCount}
+              </span>
+            </button>
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }
 

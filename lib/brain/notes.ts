@@ -33,6 +33,13 @@ interface ListOpts {
   sourceUrl?: string;
   /** Prefix match on source URL — find all notes ingested from a given site. */
   sourceUrlStartsWith?: string;
+  /** When true, only return notes whose `tags` is null or an empty array.
+   *  Powers the "Untagged" bucket in the tag-first landing view. */
+  untagged?: boolean;
+  /** When true, only return notes with zero inbound wikilinks ("orphans" /
+   *  stranded knowledge). Powers the Orphans pin in the sidebar and the
+   *  Tag Treemap drill-in. */
+  orphans?: boolean;
   /** When true, only return soft-deleted (trashed) notes. Default false. */
   trashed?: boolean;
   limit?: number;
@@ -65,6 +72,20 @@ function buildNoteFilters(clientId: number, opts: ListOpts) {
     conds.push(
       sql`EXISTS (SELECT 1 FROM jsonb_array_elements_text(${brainNotes.tags}::jsonb) AS t WHERE t = ${prefix} OR t LIKE ${prefixWithSlash})`,
     );
+  }
+  if (opts.untagged) {
+    conds.push(sql`(${brainNotes.tags} IS NULL OR jsonb_array_length(${brainNotes.tags}::jsonb) = 0)`);
+  }
+  if (opts.orphans) {
+    // A note is "orphaned" when no row in brain_kb_links has it as the
+    // resolved target. NB: outer-table refs in correlated subqueries must be
+    // hard-coded `brain_notes.id` — using `${brainNotes.id}` would emit
+    // `id` unqualified and silently match the inner table, returning 0 rows.
+    conds.push(sql`brain_notes.id NOT IN (
+      SELECT brain_kb_links.to_note_id FROM brain_kb_links
+      WHERE brain_kb_links.client_id = ${clientId}
+        AND brain_kb_links.to_note_id IS NOT NULL
+    )`);
   }
   if (opts.sourceUrl) conds.push(eq(brainNotes.sourceUrl, opts.sourceUrl));
   if (opts.sourceUrlStartsWith) {
@@ -512,6 +533,57 @@ export async function listAllTags(clientId: number): Promise<string[]> {
     for (const t of r.tags ?? []) set.add(t);
   }
   return Array.from(set).sort();
+}
+
+export interface TagWithCount {
+  tag: string;
+  count: number;
+}
+
+/**
+ * Tag inventory with per-tag note counts. Drives the tag-first landing view
+ * in the knowledge pane. Returns one row per distinct tag plus a synthetic
+ * `__untagged__` bucket for notes that have no tags. Trashed notes are
+ * excluded.
+ */
+export async function listTagsWithCounts(clientId: number): Promise<{
+  tags: TagWithCount[];
+  untagged: number;
+  total: number;
+}> {
+  const rows = await db.execute<{ tag: string; count: number }>(sql`
+    SELECT
+      jsonb_array_elements_text(brain_notes.tags::jsonb) AS tag,
+      count(*)::int AS count
+    FROM ${brainNotes}
+    WHERE brain_notes.client_id = ${clientId}
+      AND brain_notes.deleted_at IS NULL
+      AND jsonb_typeof(brain_notes.tags::jsonb) = 'array'
+      AND jsonb_array_length(brain_notes.tags::jsonb) > 0
+    GROUP BY 1
+    ORDER BY count DESC, tag ASC
+  `);
+
+  const [untaggedRow] = await db.execute<{ count: number }>(sql`
+    SELECT count(*)::int AS count FROM ${brainNotes}
+    WHERE brain_notes.client_id = ${clientId}
+      AND brain_notes.deleted_at IS NULL
+      AND (brain_notes.tags IS NULL OR jsonb_array_length(brain_notes.tags::jsonb) = 0)
+  `);
+
+  const [totalRow] = await db.execute<{ count: number }>(sql`
+    SELECT count(*)::int AS count FROM ${brainNotes}
+    WHERE brain_notes.client_id = ${clientId} AND brain_notes.deleted_at IS NULL
+  `);
+
+  const tags: TagWithCount[] = (rows as unknown as Array<{ tag: string; count: number }>)
+    .map((r) => ({ tag: r.tag, count: Number(r.count) }));
+
+  return {
+    tags,
+    untagged: Number(untaggedRow?.count ?? 0),
+    total: Number(totalRow?.count ?? 0),
+  };
 }
 
 /**
