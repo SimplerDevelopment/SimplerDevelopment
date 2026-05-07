@@ -20,3 +20,4 @@ export * from './trigger-links';
 export * from './ab';
 export * from './snapshots';
 export * from './workflows';
+export * from './chat';
