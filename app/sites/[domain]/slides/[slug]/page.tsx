@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     getPitchDeckByDomainAndSlug(domain, slug),
     getClientWebsiteByDomain(domain),
   ]);
-  if (!deck) return { title: 'Not Found' };
+  if (!deck) return { title: { absolute: 'Not Found' } };
 
   // Resolution order mirrors the posts table: deck SEO field -> deck content
   // -> brand fallback. Trim guards against whitespace-only overrides bleeding
@@ -72,16 +72,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = deck.seoTitle?.trim() || deck.title?.trim() || deck.slug;
   const description = deck.seoDescription?.trim() || deck.description?.trim() || `${title} - Pitch Deck`;
   const branding = site ? await getBrandingByWebsiteId(site.id) : null;
-  const ogImage = deck.ogImage?.trim() || branding?.ogImageUrl || undefined;
+  // OG image fallback chain — match the site layout's chain so X / Facebook /
+  // LinkedIn always have a share image even when a deck-specific one isn't set.
+  const ogImage =
+    deck.ogImage?.trim() ||
+    branding?.ogImageUrl ||
+    branding?.logoUrl ||
+    branding?.logoSquareUrl ||
+    undefined;
   const siteName = site?.name;
+  const canonicalUrl = site ? `https://${site.domain}/slides/${slug}` : undefined;
 
   const metadata: Metadata = {
-    title,
+    // Absolute title bypasses the root layout's `%s | SimplerDevelopment`
+    // template so deck titles render as authored, with no agency suffix.
+    title: { absolute: title },
     description,
     openGraph: {
       type: 'website',
+      locale: 'en_US',
       title,
       description,
+      ...(canonicalUrl ? { url: canonicalUrl } : {}),
       ...(siteName ? { siteName } : {}),
       ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
@@ -95,6 +107,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (deck.canonicalUrl?.trim()) {
     metadata.alternates = { canonical: deck.canonicalUrl.trim() };
+  } else if (canonicalUrl) {
+    metadata.alternates = { canonical: canonicalUrl };
   }
   if (deck.noIndex) {
     metadata.robots = { index: false, follow: false };
