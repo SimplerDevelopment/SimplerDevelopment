@@ -2,8 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { useAgencyChrome } from './AgencyChromeProvider';
 
-const APP = 'SimplerDevelopment';
+const DEFAULT_APP = 'SimplerDevelopment';
 
 // Order matters: more-specific patterns must come before broader ones.
 const ROUTES: { match: RegExp; title: string }[] = [
@@ -130,6 +131,11 @@ const ROUTES: { match: RegExp; title: string }[] = [
   { match: /^\/portal\/branding\/profiles\/\d+$/,                  title: 'Brand Profile' },
   { match: /^\/portal\/branding$/,                                 title: 'Branding' },
 
+  // ─── Agency / White-Label ────────────────────────────────────────────────
+  { match: /^\/portal\/agency\/custom-domain$/,                    title: 'Custom Portal Domain' },
+  { match: /^\/portal\/agency\/branding$/,                         title: 'Agency Branding' },
+  { match: /^\/portal\/agency$/,                                   title: 'Agency' },
+
   // ─── Top-level ───────────────────────────────────────────────────────────
   { match: /^\/portal\/dashboard$/,                title: 'Dashboard' },
   { match: /^\/portal\/approvals$/,                title: 'Approvals' },
@@ -151,8 +157,10 @@ export function resolvePortalTitle(pathname: string): string {
 
 export default function PortalTitle() {
   const pathname = usePathname();
+  const { agencyName, whiteLabelEnabled } = useAgencyChrome();
   useEffect(() => {
-    document.title = `${resolvePortalTitle(pathname)} | ${APP}`;
-  }, [pathname]);
+    const app = whiteLabelEnabled && agencyName ? agencyName : DEFAULT_APP;
+    document.title = `${resolvePortalTitle(pathname)} | ${app}`;
+  }, [pathname, agencyName, whiteLabelEnabled]);
   return null;
 }

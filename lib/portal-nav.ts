@@ -158,6 +158,18 @@ export function buildPortalNavItems(
     { href: '/portal/media', label: 'Media', icon: 'perm_media', keywords: ['images', 'files', 'uploads'] },
     // MCP Approvals is intentionally hidden from sidebar + cmd-k. The page
     // at /portal/approvals still renders for direct URL access.
+    {
+      href: '/portal/agency',
+      label: 'Agency',
+      icon: 'storefront',
+      exact: true,
+      keywords: ['white label', 'white-label', 'reseller', 'custom domain', 'agency branding', 'saas mode', 'scale'],
+      children: [
+        { href: '/portal/agency', label: 'Overview', icon: 'storefront', exact: true },
+        { href: '/portal/agency/custom-domain', label: 'Custom Domain', icon: 'dns', keywords: ['dns', 'cname', 'verify'] },
+        { href: '/portal/agency/branding', label: 'Agency Branding', icon: 'palette', keywords: ['logo', 'wordmark', 'agency name'] },
+      ],
+    },
     { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team', 'billing'] },
   ];
 }
