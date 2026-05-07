@@ -21,8 +21,18 @@ import {
   clientWebsites,
   users,
 } from '@/lib/db/schema';
-import { getPortalClient, getPortalClients } from '@/lib/portal-client';
+import { getPortalClient, getPortalClients, getPortalRole } from '@/lib/portal-client';
 import { docKey, type EntityType } from '@/lib/realtime/doc-model';
+
+/**
+ * Map a portal role to the realtime collab scope. `viewer` is the only
+ * read-only role today; everyone else (member / admin / owner) edits.
+ * The realtime-server enforces the scope on /internal/apply and on
+ * peer-to-peer Y.update broadcasts.
+ */
+function scopeForRole(role: 'owner' | 'admin' | 'member' | 'viewer' | null): 'read' | 'write' {
+  return role === 'viewer' ? 'read' : 'write';
+}
 
 const TOKEN_TTL_SECONDS = 5 * 60; // 5 minutes
 const DEFAULT_WS_URL = 'ws://localhost:3030';
@@ -127,6 +137,9 @@ export async function POST(req: Request) {
     .where(eq(users.id, userId))
     .limit(1);
 
+  const role = await getPortalRole(userId, clientId);
+  const scope = scopeForRole(role);
+
   const dk = docKey(entityType as EntityType, entityId);
   const now = Math.floor(Date.now() / 1000);
   const exp = now + TOKEN_TTL_SECONDS;
@@ -139,7 +152,7 @@ export async function POST(req: Request) {
       color: colorFromUserId(userId),
       clientId,
       docKey: dk,
-      scope: 'write' as const,
+      scope,
       iat: now,
       exp,
     },
@@ -155,6 +168,7 @@ export async function POST(req: Request) {
       wsUrl,
       expiresAt: exp * 1000,
       docKey: dk,
+      scope,
     },
   });
 }

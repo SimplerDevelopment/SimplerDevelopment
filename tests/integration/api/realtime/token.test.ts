@@ -219,6 +219,51 @@ describe('POST /api/realtime/token — entityType=post @realtime @realtime-token
     expect(ttl).toBeGreaterThan(60);
     expect(ttl).toBeLessThanOrEqual(5 * 60 + 5);
   });
+
+  it('viewer-role member gets scope=read; owner/admin/member get write', async () => {
+    const post = await seedPost(A);
+    const sql = getTestSql();
+
+    // The default A user is owner (write). Add a second user to A's tenant
+    // with role=viewer and confirm their token has scope=read.
+    const viewerEmail = `viewer-${Date.now()}-${Math.floor(Math.random() * 9999)}@test.local`;
+    const [viewer] = await sql<{ id: number }[]>`
+      INSERT INTO ${sql(TEST_SCHEMA)}.users (name, email, password, role, active)
+      VALUES (${'viewer'}, ${viewerEmail}, ${'x'}, ${'editor'}, true)
+      RETURNING id
+    `;
+    await sql`
+      INSERT INTO ${sql(TEST_SCHEMA)}.client_members (client_id, user_id, role)
+      VALUES (${A.client.id}, ${viewer.id}, 'viewer')
+    `;
+
+    mockedAuth.mockResolvedValue({
+      user: { id: String(viewer.id), name: 'viewer', email: viewerEmail, role: 'editor' },
+      expires: new Date(Date.now() + 3600_000).toISOString(),
+    });
+
+    const route = await import('@/app/api/realtime/token/route');
+    const res = await callHandler<{ data: { token: string; scope: string } }>(
+      route as unknown as Record<string, unknown>,
+      'POST',
+      { body: { entityType: 'post', entityId: post.id } },
+    );
+    expect(res.status).toBe(200);
+    expect(res.data?.data.scope).toBe('read');
+
+    const decoded = jwt.verify(res.data!.data.token, SECRET) as JwtPayload;
+    expect(decoded.scope).toBe('read');
+
+    // Owner (default A) still gets write — re-mint with the original session
+    // and confirm the mapping isn't accidentally clamping everyone to read.
+    mockedAuth.mockResolvedValue(A.session);
+    const ownerRes = await callHandler<{ data: { scope: string } }>(
+      route as unknown as Record<string, unknown>,
+      'POST',
+      { body: { entityType: 'post', entityId: post.id } },
+    );
+    expect(ownerRes.data?.data.scope).toBe('write');
+  });
 });
 
 describe('POST /api/realtime/token — entityType=deck @realtime @realtime-token', () => {
