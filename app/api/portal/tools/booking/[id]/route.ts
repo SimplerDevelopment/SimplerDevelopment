@@ -75,6 +75,26 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.thumbnail !== undefined) updates.thumbnail = body.thumbnail || null;
   if (body.allowStaffSelection !== undefined) updates.allowStaffSelection = body.allowStaffSelection;
   if (body.assignedMembers !== undefined) updates.assignedMembers = body.assignedMembers;
+  // Round-robin / group bookings
+  if (body.assignmentMode !== undefined) {
+    const mode = String(body.assignmentMode);
+    if (['fixed', 'round_robin', 'fewest_upcoming'].includes(mode)) {
+      updates.assignmentMode = mode;
+    }
+  }
+  if (body.roundRobinPool !== undefined) {
+    updates.roundRobinPool = Array.isArray(body.roundRobinPool) ? body.roundRobinPool : null;
+  }
+  if (body.bookingType !== undefined) {
+    const t = String(body.bookingType);
+    if (['individual', 'group'].includes(t)) {
+      updates.bookingType = t;
+    }
+  }
+  if (body.groupCapacity !== undefined) {
+    const v = body.groupCapacity == null ? null : parseInt(String(body.groupCapacity), 10);
+    updates.groupCapacity = Number.isFinite(v) && (v as number) > 0 ? v : null;
+  }
 
   const [updated] = await db.update(bookingPages)
     .set(updates)

@@ -265,6 +265,18 @@ export const bookingPages = pgTable('booking_pages', {
   // Staff assignment
   allowStaffSelection: boolean('allow_staff_selection').default(false).notNull(), // let customers pick a staff member
   assignedMembers: json('assigned_members').$type<number[]>().default([]), // user IDs of staff who handle this page
+  // Round-robin / load-balanced assignment
+  // 'fixed' — single owner; 'round_robin' — fewest bookings in next 7 days
+  // (tiebreaker: longest since last booking); 'fewest_upcoming' — fewest
+  // total upcoming bookings.
+  assignmentMode: varchar('assignment_mode', { length: 20 }).default('fixed').notNull(),
+  // Optional manual round-robin pool. When null, all booking_page_members
+  // (active) are eligible. Each entry can carry a weight for weighted RR.
+  roundRobinPool: json('round_robin_pool').$type<{ userId: number; weight: number }[]>(),
+  // Group / class bookings. 'individual' — one booking per slot;
+  // 'group' — one slot accepts multiple attendees (capped by groupCapacity).
+  bookingType: varchar('booking_type', { length: 20 }).default('individual').notNull(),
+  groupCapacity: integer('group_capacity'), // null when bookingType = 'individual'
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -304,6 +316,12 @@ export const bookings = pgTable('bookings', {
   cancelledAt: timestamp('cancelled_at'),
   // Staff assignment
   assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  // Round-robin/fewest-upcoming assignment result. Distinct from assignedTo:
+  // assignedTo can be set by staff selection or manual reassignment, while
+  // assignedUserId records which user the auto-assigner chose at create time
+  // (null when assignmentMode = 'fixed'). assignedTo is the source of truth
+  // for the calendar; this column is the audit trail.
+  assignedUserId: integer('assigned_user_id').references(() => users.id, { onDelete: 'set null' }),
   // Capacity
   groupSize: integer('group_size').default(1).notNull(),
   // Payment
@@ -323,6 +341,25 @@ export const bookings = pgTable('bookings', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ─── BOOKING ATTENDEES (group / class bookings) ───────────────────────────
+// Used only when the parent booking_pages.bookingType = 'group'. For
+// individual bookings, the bookings row IS the single attendee — no row
+// is created here. For group bookings, one bookings row represents the
+// slot ("class") and N attendee rows represent the registrants.
+export const bookingAttendees = pgTable('booking_attendees', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  notes: text('notes'),
+  status: varchar('status', { length: 20 }).default('confirmed').notNull(), // 'confirmed' | 'cancelled' | 'waitlist'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BookingAttendee = typeof bookingAttendees.$inferSelect;
+export type NewBookingAttendee = typeof bookingAttendees.$inferInsert;
 
 export const googleCalendarTokens = pgTable('google_calendar_tokens', {
   id: serial('id').primaryKey(),
