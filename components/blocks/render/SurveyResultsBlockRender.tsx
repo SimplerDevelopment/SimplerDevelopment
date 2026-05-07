@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SurveyResultsBlock, SurveyResultsChartType } from '@/types/blocks';
+import { getElementCSS } from '@/lib/utils/elementStyles';
 
 interface QuestionResult {
   fieldId: string;
@@ -249,8 +250,8 @@ export function SurveyResultsBlockRender({ block }: { block: SurveyResultsBlock 
 
   return (
     <div className="py-8 px-4 max-w-4xl mx-auto">
-      {block.title && <h2 className="font-heading text-3xl font-bold mb-2">{block.title}</h2>}
-      {block.description && <p className="text-lg text-muted-foreground mb-6">{block.description}</p>}
+      {block.title && <h2 className="font-heading text-3xl font-bold mb-2" style={getElementCSS(block.elementStyles, 'title')}>{block.title}</h2>}
+      {block.description && <p className="text-lg text-muted-foreground mb-6" style={getElementCSS(block.elementStyles, 'description')}>{block.description}</p>}
 
       {block.showResponseCount !== false && (
         <div className="flex items-center gap-2 mb-6 text-sm text-muted-foreground">

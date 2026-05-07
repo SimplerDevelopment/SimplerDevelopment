@@ -43,16 +43,38 @@ import { DecisionSlideEditor } from './_components/DecisionSlideEditor';
 import { SurveySlideQuestionList, SurveyFieldEditorView } from './_components/SurveySlideEditor';
 import { SlideSettingsPanel } from './_components/SlideSettingsPanel';
 import { SlideContentEditor } from './_components/SlideContentEditor';
+import {
+  DeckCollaborationProvider,
+  useDeckCollab,
+} from './_components/DeckCollaborationProvider';
+import { DeckPresenceBar } from './_components/DeckPresenceBar';
+import { DeckSlideCursors } from './_components/DeckSlideCursors';
+import { DeckSlideThumbnailIndicators } from './_components/DeckSlideThumbnailIndicators';
 
 export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  return (
+    <DeckCollaborationProvider deckId={id}>
+      <PitchDeckEditorContent id={id} />
+    </DeckCollaborationProvider>
+  );
+}
+
+function PitchDeckEditorContent({ id }: { id: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Realtime collab — supplies the Y.Doc once connected, plus awareness API.
+  const collab = useDeckCollab();
 
   const {
     deck, setDeck, loading, error, setError,
     hasUnsavedChanges, setHasUnsavedChanges, saving, setSaving, publishing, setPublishing,
-  } = usePitchDeckState(id);
+  } = usePitchDeckState(id, { ydoc: collab.ydoc });
+
+  // Container for the active slide's preview area — DeckSlideCursors uses
+  // its bounding rect to normalize cursor coordinates.
+  const slideCanvasRef = useRef<HTMLDivElement | null>(null);
 
   // ─── Local UI state ─────────────────────────────────────────────────────────
   const [activeSlide, setActiveSlide] = useState(0);
@@ -105,6 +127,11 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
   // Clear survey field editing when switching slides
   // eslint-disable-next-line react-hooks/set-state-in-effect -- preserving pre-refactor pattern; switching slides resets the survey-field selection synchronously
   useEffect(() => { setEditingSurveyFieldId(null); }, [activeSlide]);
+
+  // Broadcast local active-slide via awareness so peers can see where we are.
+  useEffect(() => {
+    collab.awareness.setActiveSlide(activeSlide);
+  }, [collab.awareness, activeSlide]);
 
   // Surveys + nav-service detection.
   useEffect(() => {
@@ -465,7 +492,17 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
 
   async function saveDeck() {
     if (!deck) return;
+    // When realtime collab is connected, the server-side snapshot persister
+    // owns durable saves of `slides` — patch theme via the existing PATCH
+    // endpoint so theme/non-slide fields still flush, but skip pushing the
+    // slides blob.
     setSaving(true);
+    if (collab.enabled) {
+      await patchDeck(id, { theme: deck.theme });
+      setSaving(false);
+      setHasUnsavedChanges(false);
+      return;
+    }
     const data = await apiSaveDeck(id, deck.slides, deck.theme);
     setSaving(false);
     if (data.success) setHasUnsavedChanges(false);
@@ -720,6 +757,9 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="w-full space-y-4 px-2">
+      <div className="flex items-center justify-end pt-1 -mb-2">
+        <DeckPresenceBar onJumpToSlide={setActiveSlide} />
+      </div>
       <EditorHeader
         deck={deck}
         saving={saving}
@@ -850,38 +890,44 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
         </div>
       ) : (
         <div className="flex gap-4">
-          <SlideList
-            slides={deck.slides}
-            activeSlide={activeSlide}
-            selectedSlides={selectedSlides}
-            collapsed={slidePanelCollapsed}
-            pathGroups={pathGroups}
-            hasSurveyService={hasSurveyService}
-            showSurveyPicker={showSurveyPicker}
-            surveyListLoaded={surveyListLoaded}
-            surveyList={surveyList}
-            getSurveyFieldCount={getSurveyFieldCount}
-            onSetActive={setActiveSlide}
-            onSetCollapsed={setSlidePanelCollapsed}
-            onOpenBoardView={() => setBoardView(true)}
-            onAddSlide={addSlide}
-            onUploadHtmlSlide={() => htmlSlideFileInputRef.current?.click()}
-            onRenameSlide={(idx, label) => {
-              const newSlides = [...deck.slides];
-              newSlides[idx] = { ...newSlides[idx], label };
-              setDeck({ ...deck, slides: newSlides });
-              setHasUnsavedChanges(true);
-            }}
-            onDuplicateSlide={duplicateSlide}
-            onRemoveSlide={removeSlide}
-            onToggleSelect={toggleSlideSelection}
-            onAddDecisionSlide={addDecisionSlide}
-            onAddPathGroup={addPathGroup}
-            onAddSlideToPathGroup={addSlideToPathGroup}
-            onToggleSurveyPicker={() => setShowSurveyPicker(!showSurveyPicker)}
-            onAddSurveySlide={addSurveySlide}
-            onDragEnd={handleSlideDragEnd}
-          />
+          <div className="flex flex-col gap-2">
+            <SlideList
+              slides={deck.slides}
+              activeSlide={activeSlide}
+              selectedSlides={selectedSlides}
+              collapsed={slidePanelCollapsed}
+              pathGroups={pathGroups}
+              hasSurveyService={hasSurveyService}
+              showSurveyPicker={showSurveyPicker}
+              surveyListLoaded={surveyListLoaded}
+              surveyList={surveyList}
+              getSurveyFieldCount={getSurveyFieldCount}
+              onSetActive={setActiveSlide}
+              onSetCollapsed={setSlidePanelCollapsed}
+              onOpenBoardView={() => setBoardView(true)}
+              onAddSlide={addSlide}
+              onUploadHtmlSlide={() => htmlSlideFileInputRef.current?.click()}
+              onRenameSlide={(idx, label) => {
+                const newSlides = [...deck.slides];
+                newSlides[idx] = { ...newSlides[idx], label };
+                setDeck({ ...deck, slides: newSlides });
+                setHasUnsavedChanges(true);
+              }}
+              onDuplicateSlide={duplicateSlide}
+              onRemoveSlide={removeSlide}
+              onToggleSelect={toggleSlideSelection}
+              onAddDecisionSlide={addDecisionSlide}
+              onAddPathGroup={addPathGroup}
+              onAddSlideToPathGroup={addSlideToPathGroup}
+              onToggleSurveyPicker={() => setShowSurveyPicker(!showSurveyPicker)}
+              onAddSurveySlide={addSurveySlide}
+              onDragEnd={handleSlideDragEnd}
+            />
+            <DeckSlideThumbnailIndicators
+              slideCount={deck.slides.length}
+              onJumpToSlide={setActiveSlide}
+            />
+          </div>
 
           {selectedSlides.size > 0 && (
             <BatchEditBar
@@ -900,7 +946,11 @@ export default function PitchDeckEditorPage({ params }: { params: Promise<{ id: 
           )}
 
           {/* Slide preview + editor */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 space-y-4 relative" ref={slideCanvasRef}>
+            <DeckSlideCursors
+              activeSlideIndex={activeSlide}
+              trackedRef={slideCanvasRef}
+            />
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
                 Slide {activeSlide + 1} of {deck.slides.length} · {currentSlide.label || 'Untitled'}

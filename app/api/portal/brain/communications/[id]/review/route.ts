@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { listReviewItems } from '@/lib/brain/review';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const meetingId = parseInt(id, 10);

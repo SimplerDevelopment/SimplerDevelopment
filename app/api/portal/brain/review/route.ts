@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { listReviewItems } from '@/lib/brain/review';
 import { db } from '@/lib/db';
 import { brainMeetings, type BrainReviewItemStatus } from '@/lib/db/schema';
@@ -14,8 +14,8 @@ const VALID_STATUSES: ReadonlySet<string> = new Set(['pending', 'approved', 'rej
  * to filter; `all` (or omitted) returns everything.
  */
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const statusParam = url.searchParams.get('status') ?? 'pending';

@@ -47,13 +47,29 @@ export async function GET(
       );
     }
     const buffer = Buffer.from(cached.body, 'base64');
-    return new NextResponse(buffer, {
-      headers: {
-        'Content-Type': cached.contentType,
-        'Content-Length': cached.contentLength.toString(),
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    });
+    // Only allow inline rendering for known-safe content types. Stored S3
+    // Content-Type is attacker-controllable on tenant-uploaded objects, and
+    // serving HTML/SVG inline on the app origin would enable stored XSS.
+    const SAFE_INLINE = new Set([
+      'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/avif',
+      'application/pdf',
+      'video/mp4', 'video/webm', 'video/quicktime',
+      'audio/mpeg', 'audio/ogg', 'audio/wav',
+      'font/woff', 'font/woff2', 'application/font-woff',
+    ]);
+    const ct = cached.contentType || 'application/octet-stream';
+    const inline = SAFE_INLINE.has(ct.toLowerCase().split(';')[0].trim());
+    const headers: Record<string, string> = {
+      'Content-Type': inline ? ct : 'application/octet-stream',
+      'Content-Length': cached.contentLength.toString(),
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    };
+    if (!inline) {
+      const filename = key.split('/').pop() || 'download';
+      headers['Content-Disposition'] = `attachment; filename="${encodeURIComponent(filename)}"`;
+    }
+    return new NextResponse(buffer, { headers });
   } catch (error) {
     console.error('Error proxying media:', error);
     return NextResponse.json(

@@ -1,22 +1,36 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+import { resolveClientSite } from '@/lib/portal-client';
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { params }: { params: Promise<{ siteId: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { siteId: siteIdRaw } = await params;
+  const siteId = parseInt(siteIdRaw, 10);
+  if (!Number.isFinite(siteId)) {
+    return NextResponse.json({ success: false, message: 'Invalid siteId' }, { status: 400 });
+  }
+  const site = await resolveClientSite(parseInt(session.user.id, 10), siteId);
+  if (!site) {
+    return NextResponse.json({ success: false, message: 'Site not found' }, { status: 404 });
+  }
 
   const { description } = await req.json();
   if (!description || typeof description !== 'string' || description.trim().length < 10) {
     return NextResponse.json({ success: false, message: 'Please provide a brand description (at least 10 characters).' }, { status: 400 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ success: false, message: 'AI service not configured.' }, { status: 503 });
+  const gate = await checkAiPlanGate({ clientId: site.clientId, provider: 'anthropic' });
+  if (!gate.allowed) {
+    return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
   }
-
-  const client = new Anthropic({ apiKey });
+  const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'anthropic' });
+  const client = new Anthropic({ apiKey: resolved.key });
 
   const systemPrompt = `You are a world-class brand designer. Given a brand description, generate a complete brand theme as JSON.
 
@@ -94,6 +108,8 @@ Guidelines:
     }
 
     const generated = JSON.parse(jsonMatch[0]);
+    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    void recordAiUsage({ clientId: site.clientId, source: resolved.source, tokens: totalTokens });
     return NextResponse.json({ success: true, data: generated });
   } catch (error) {
     console.error('AI branding generation error:', error);

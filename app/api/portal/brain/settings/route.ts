@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import {
   getOrCreateBrainProfile,
   applyIndustryTemplateDefaults,
@@ -11,8 +11,8 @@ const VALID_TEMPLATES = new Set(listIndustryTemplates().map(t => t.id));
 const VALID_CONFIDENTIALITY = new Set(['standard', 'restricted', 'confidential'] as const);
 
 export async function GET() {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { client } = result;
   const profile = await getOrCreateBrainProfile(client.id, client.company || 'Company Brain');
@@ -29,8 +29,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const result = await authorizePortal({ action: 'admin' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'admin' });
+  if ('response' in result) return result.response;
 
   const { client } = result;
   const body = await request.json().catch(() => null);

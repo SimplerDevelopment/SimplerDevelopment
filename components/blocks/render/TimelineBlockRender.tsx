@@ -2,6 +2,7 @@
 
 import { TimelineBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface TimelineBlockRenderProps {
   block: TimelineBlock;
@@ -22,7 +23,7 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
             <p
               className="text-sm tracking-[0.3em] uppercase mb-4"
               style={getElementCSS(block.elementStyles, 'overline')}
-              dangerouslySetInnerHTML={{ __html: block.overline }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
           {block.title && (
@@ -30,14 +31,14 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
               data-editable-field="title"
               className="text-4xl md:text-5xl font-light mb-4"
               style={getElementCSS(block.elementStyles, 'title')}
-              dangerouslySetInnerHTML={{ __html: block.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
           {block.subtitle && (
             <p
               className="max-w-2xl mx-auto"
               style={getElementCSS(block.elementStyles, 'subtitle')}
-              dangerouslySetInnerHTML={{ __html: block.subtitle }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.subtitle) }}
             />
           )}
         </div>
@@ -105,12 +106,12 @@ export function TimelineBlockRender({ block }: TimelineBlockRenderProps) {
                   <h3
                     className="text-2xl mb-3"
                     style={getElementCSS(block.elementStyles, 'stepTitle')}
-                    dangerouslySetInnerHTML={{ __html: stepTitle }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(stepTitle) }}
                   />
                   <p
                     className="text-sm leading-relaxed"
                     style={getElementCSS(block.elementStyles, 'stepDescription')}
-                    dangerouslySetInnerHTML={{ __html: stepDescription }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(stepDescription) }}
                   />
                 </div>
               </div>

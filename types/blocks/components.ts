@@ -453,3 +453,35 @@ export interface EmailFooterBlock extends BaseBlock {
   showViewInBrowser?: boolean;
   socialLinks?: Array<{ platform: string; url: string }>;
 }
+
+// ============================================================================
+// Popup / Exit-intent — funnel-builder closer
+// ============================================================================
+//
+// `trigger` controls when the modal first appears; `frequency` controls how
+// often we should re-show it across page visits (persisted in localStorage
+// keyed by `block.id`). `ctaUrl` is just a link — the popup does not yet
+// capture form submissions; pair with a /go/<slug> trigger link if you
+// want click tracking + downstream automations.
+
+export interface PopupBlock extends BaseBlock {
+  type: 'popup';
+  /** When the modal first becomes visible. */
+  trigger: 'page-load' | 'time-delay' | 'scroll-percent' | 'exit-intent';
+  /** Seconds to wait before showing when trigger is 'time-delay'. */
+  delaySeconds?: number;
+  /** Page-scroll percentage (0-100) when trigger is 'scroll-percent'. */
+  scrollPercent?: number;
+  /** How often the popup is allowed to reappear across visits. */
+  frequency: 'always' | 'once-per-session' | 'once-per-week';
+  /** Headline text — rendered as <h2>. */
+  headline: string;
+  /** Body — rich text (HTML). */
+  body?: string;
+  /** Primary CTA label. Hidden when ctaLabel is empty. */
+  ctaLabel?: string;
+  /** Primary CTA URL. Supports trigger-link slugs (`/go/...`). */
+  ctaUrl?: string;
+  /** Whether the user can close the modal. Default true. */
+  dismissable?: boolean;
+}

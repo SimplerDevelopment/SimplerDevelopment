@@ -290,6 +290,41 @@ export default function BrainSettingsPage() {
           disabled={saving}
         />
       </Section>
+
+      {/* Retention policy. Anchor `retention` is linked from the trash banner
+          in components/brain/NoteListPane.tsx — keep the id stable. */}
+      <Section title="Retention policy" icon="schedule">
+        <div id="retention" className="scroll-mt-24 space-y-3 text-xs text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Trashed notes</strong> — deleting a
+            note from the knowledge IDE moves it to trash. Trashed notes stay
+            recoverable until you click <strong className="text-foreground">Empty
+            trash</strong> on the trash tab. There is no automatic purge today.
+          </p>
+          <p>
+            Trashed notes that have been in trash for longer than{' '}
+            <strong className="text-foreground">90 days</strong> are automatically
+            purged by a daily background job. You can still empty the trash
+            manually at any time to reclaim attachment storage sooner.
+          </p>
+          <p>
+            <strong className="text-foreground">What empty trash removes:</strong>{' '}
+            the note row, its attachment in object storage, custom-field values
+            attached to it, incoming wiki-style backlinks, and the per-note audit
+            history. A single tenant-level <code className="px-1 rounded bg-muted">trash_emptied</code>{' '}
+            audit entry is retained.
+          </p>
+          <p className="italic">
+            Active (non-trashed) notes are never auto-deleted.
+          </p>
+        </div>
+        {/*
+          Auto-purge of trashed notes >90 days old runs daily via the cron at
+          app/api/cron/brain-empty-old-trash/route.ts (registered in
+          vercel.json). The per-note `auto_purged` audit row is what users see
+          in the audit feed when this fires.
+        */}
+      </Section>
     </div>
   );
 }

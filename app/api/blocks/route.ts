@@ -694,6 +694,24 @@ export async function GET() {
         { name: 'layout', type: 'select', options: ['stacked', 'tabbed'], default: 'stacked', description: 'Stack or tab the questions' },
       ],
     },
+    {
+      type: 'popup',
+      name: 'Popup',
+      description: 'Fixed-position modal that triggers on page load, after a delay, on scroll, or on exit-intent. CTA is just a link — pair with /go/<slug> trigger links to track clicks.',
+      icon: 'notifications_active',
+      category: 'forms',
+      inputs: [
+        { name: 'trigger', type: 'select', options: ['page-load', 'time-delay', 'scroll-percent', 'exit-intent'], default: 'time-delay', description: 'When the modal first appears' },
+        { name: 'delaySeconds', type: 'number', default: 5, description: 'Seconds to wait when trigger is time-delay' },
+        { name: 'scrollPercent', type: 'number', default: 50, description: 'Scroll percentage (0-100) when trigger is scroll-percent' },
+        { name: 'frequency', type: 'select', options: ['always', 'once-per-session', 'once-per-week'], default: 'once-per-session', description: 'Re-show cap, persisted in localStorage by block id' },
+        { name: 'headline', type: 'string', required: true, description: 'Modal headline (h2)' },
+        { name: 'body', type: 'string', description: 'Body text — rich text HTML' },
+        { name: 'ctaLabel', type: 'string', description: 'Primary CTA label' },
+        { name: 'ctaUrl', type: 'string', description: 'Primary CTA URL — supports /go/<slug> trigger links' },
+        { name: 'dismissable', type: 'boolean', default: true, description: 'Show close button + allow Esc/backdrop close' },
+      ],
+    },
   ];
 
   return NextResponse.json({

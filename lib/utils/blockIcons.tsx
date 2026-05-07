@@ -38,6 +38,7 @@ import {
   ArrowRight,
   CornerDownRight,
   FileCode2,
+  BellRing,
 } from 'lucide-react';
 import { BlockType } from '@/types/blocks';
 import { LucideIcon } from 'lucide-react';
@@ -123,6 +124,7 @@ export const BLOCK_ICONS: Record<BlockType, LucideIcon> = {
   'sticky-scroll-tabs': NotebookTabs,
   'html-embed': FileCode2,
   'html-render': FileCode2,
+  popup: BellRing,
   'post-content': FileText,
 };
 
@@ -200,6 +202,7 @@ export const BLOCK_TYPES: BlockTypeMetadata[] = [
   { type: 'booking', label: 'Booking', icon: CalendarCheck, category: 'Interactive' },
   { type: 'survey', label: 'Survey', icon: ClipboardList, category: 'Interactive' },
   { type: 'survey-results', label: 'Survey Results', icon: BarChart3, category: 'Interactive' },
+  { type: 'popup', label: 'Popup', icon: BellRing, category: 'Interactive' },
 
   // Email
   { type: 'social-links', label: 'Social Links', icon: Share2, category: 'Email' },

@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { sql } from 'drizzle-orm';
 
-const startedAt = Date.now();
-
 export async function GET() {
   let dbOk = false;
   try {
@@ -12,10 +10,10 @@ export async function GET() {
   } catch {
     dbOk = false;
   }
+  // Don't expose uptimeMs (signals last redeploy) or any other internal state.
   const body = {
     ok: dbOk,
     db: dbOk ? 'up' : 'down',
-    uptimeMs: Date.now() - startedAt,
     time: new Date().toISOString(),
   };
   return NextResponse.json(body, { status: dbOk ? 200 : 503 });

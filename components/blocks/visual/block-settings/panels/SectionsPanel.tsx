@@ -550,6 +550,30 @@ function MetricCardsBlockSettings({ block, onChange }: { block: MetricCardsBlock
           <TokenColorPicker value={block.accentColor || ''} onChange={(color) => onChange({ accentColor: color || undefined })} />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Logo Column Width</label>
+          <input
+            type="text"
+            value={block.logoColumnWidth || ''}
+            onChange={(e) => onChange({ logoColumnWidth: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="auto, 240px, 16rem…"
+          />
+          <p className="text-xs text-muted-foreground mt-1">CSS width for the institution-logo column. Leave blank for default.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Label Max Width</label>
+          <input
+            type="text"
+            value={block.labelMaxWidth || ''}
+            onChange={(e) => onChange({ labelMaxWidth: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="32rem, 480px…"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Caps the metric label width. Leave blank for default.</p>
+        </div>
+      </div>
       <div className="border-t border-border pt-4 space-y-2">
         <label className="block text-sm font-medium text-foreground">Metrics</label>
         {(block.metrics || []).map((metric, i) => (

@@ -5,6 +5,7 @@ import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, k
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
+import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -222,7 +223,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
   if (body.assignedTo !== undefined) {
-    await replaceCardAssignees(cardId, actorId, body.assignedTo);
+    let next: number | null = body.assignedTo ?? null;
+    // For non-staff (per-tenant) callers, drop foreign user ids silently so a
+    // client cannot mass-assign cards to users outside their tenancy.
+    const role = getRole(session);
+    const isStaff = role === 'admin' || role === 'employee' || role === 'editor';
+    if (!isStaff && typeof next === 'number') {
+      const client = await getPortalClient(actorId);
+      if (!client) {
+        return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+      }
+      const allowed = await filterUserIdsVisibleToClient([next], client.id);
+      next = allowed.length > 0 ? allowed[0] : null;
+    }
+    await replaceCardAssignees(cardId, actorId, next);
   }
   if (body.sprintId !== undefined && (body.sprintId ?? null) !== before.sprintId) {
     await logCardActivity(cardId, actorId, 'card.sprint_changed', { from: before.sprintId, to: card.sprintId });

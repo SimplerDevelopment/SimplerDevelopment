@@ -283,6 +283,8 @@ export function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; 
           <RichTextField label="Description" value={b.description as string} onChange={(v) => onUpdate({ description: v } as Partial<Block>)} />
           <SelectField label="Columns" value={String(b.columns || 4)} options={['2','3','4']} onChange={(v) => onUpdate({ columns: Number(v) } as Partial<Block>)} />
           <ColorField label="Accent Color" value={(b.accentColor as string) || ''} onChange={(v) => onUpdate({ accentColor: v } as Partial<Block>)} />
+          <Field label="Logo Column Width" value={(b.logoColumnWidth as string) || ''} onChange={(v) => onUpdate({ logoColumnWidth: v || undefined } as Partial<Block>)} />
+          <Field label="Label Max Width" value={(b.labelMaxWidth as string) || ''} onChange={(v) => onUpdate({ labelMaxWidth: v || undefined } as Partial<Block>)} />
           <ListEditor
             label="Metrics"
             items={(block.metrics || []).map(m => ({ id: m.id, fields: { value: m.value, label: m.label, institution: m.institution || '', institutionLogo: m.institutionLogo || '', link: m.link || '', linkText: m.linkText || '' } }))}
@@ -431,6 +433,45 @@ export function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; 
             onReorder={(ids) => onUpdate({ tabs: ids.map(id => block.tabs.find(t => t.id === id)!).filter(Boolean) } as Partial<Block>)}
           />
           <p className="text-xs text-muted-foreground">Edit tab content via the layers panel.</p>
+        </>
+      )}
+
+      {/* ── Sticky Scroll Tabs Block ── */}
+      {block.type === 'sticky-scroll-tabs' && (
+        <>
+          <RichTextField label="Overline" value={(b.overline as string) || ''} onChange={(v) => onUpdate({ overline: v || undefined } as Partial<Block>)} singleLine />
+          <RichTextField label="Title" value={(b.title as string) || ''} onChange={(v) => onUpdate({ title: v || undefined } as Partial<Block>)} singleLine />
+          <RichTextField label="Description" value={(b.description as string) || ''} onChange={(v) => onUpdate({ description: v || undefined } as Partial<Block>)} />
+          <ListEditor
+            label="Panels"
+            items={(block.panels || []).map(p => ({ id: p.id, fields: { label: p.label, icon: p.icon || '' } }))}
+            fieldDefs={[
+              { name: 'label', label: 'Panel Label', placeholder: 'Panel name' },
+              { name: 'icon', label: 'Material Icon (optional)', placeholder: 'rocket_launch' },
+            ]}
+            onAdd={() => onUpdate({ panels: [...(block.panels || []), { id: uid(), label: 'New Panel', blocks: [] }] } as Partial<Block>)}
+            onRemove={(id) => onUpdate({ panels: block.panels.filter(p => p.id !== id) } as Partial<Block>)}
+            onItemChange={(id, field, value) => onUpdate({ panels: block.panels.map(p => p.id === id ? { ...p, [field]: value || undefined } : p) } as Partial<Block>)}
+            onReorder={(ids) => onUpdate({ panels: ids.map(id => block.panels.find(p => p.id === id)!).filter(Boolean) } as Partial<Block>)}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Sticky Top Offset (px)" value={String(b.stickyTopOffset ?? 80)} onChange={(v) => { const n = Number(v); onUpdate({ stickyTopOffset: Number.isNaN(n) ? undefined : n } as Partial<Block>); }} />
+            <Field label="Panel Min Height" value={(b.panelMinHeight as string) || ''} onChange={(v) => onUpdate({ panelMinHeight: v || undefined } as Partial<Block>)} />
+          </div>
+          <Field label="Tab Border Radius" value={(b.tabBorderRadius as string) || ''} onChange={(v) => onUpdate({ tabBorderRadius: v || undefined } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField label="Active Tab Background" value={(b.activeTabBackground as string) || ''} onChange={(v) => onUpdate({ activeTabBackground: v || undefined } as Partial<Block>)} />
+            <ColorField label="Active Tab Text" value={(b.activeTabColor as string) || ''} onChange={(v) => onUpdate({ activeTabColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Inactive Tab Background" value={(b.inactiveTabBackground as string) || ''} onChange={(v) => onUpdate({ inactiveTabBackground: v || undefined } as Partial<Block>)} />
+            <ColorField label="Inactive Tab Text" value={(b.inactiveTabColor as string) || ''} onChange={(v) => onUpdate({ inactiveTabColor: v || undefined } as Partial<Block>)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <ColorField label="Mobile Active Background" value={(b.mobileActiveTabBackground as string) || ''} onChange={(v) => onUpdate({ mobileActiveTabBackground: v || undefined } as Partial<Block>)} />
+            <ColorField label="Mobile Active Text" value={(b.mobileActiveTabColor as string) || ''} onChange={(v) => onUpdate({ mobileActiveTabColor: v || undefined } as Partial<Block>)} />
+            <ColorField label="Mobile Inactive Background" value={(b.mobileInactiveTabBackground as string) || ''} onChange={(v) => onUpdate({ mobileInactiveTabBackground: v || undefined } as Partial<Block>)} />
+            <ColorField label="Mobile Inactive Text" value={(b.mobileInactiveTabColor as string) || ''} onChange={(v) => onUpdate({ mobileInactiveTabColor: v || undefined } as Partial<Block>)} />
+          </div>
+          <SelectField label="Mobile Tab Behavior" value={(b.mobileTabsBehavior as string) || 'carousel'} options={['carousel', 'hide']} onChange={(v) => onUpdate({ mobileTabsBehavior: v } as Partial<Block>)} />
         </>
       )}
 
@@ -829,7 +870,11 @@ export function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; 
         <>
           <Field label="Logo URL" value={(b.logoUrl as string) || ''} onChange={(v) => onUpdate({ logoUrl: v || undefined } as Partial<Block>)} />
           <Field label="Logo Alt" value={(b.logoAlt as string) || ''} onChange={(v) => onUpdate({ logoAlt: v || undefined } as Partial<Block>)} />
+          <Field label="Wordmark" value={(b.wordmark as string) || ''} onChange={(v) => onUpdate({ wordmark: v || undefined } as Partial<Block>)} />
+          <SelectField label="Brand Size" value={(b.brandSize as string) || 'md'} options={['sm','md','lg']} onChange={(v) => onUpdate({ brandSize: v } as Partial<Block>)} />
           <Field label="Tagline" value={(b.tagline as string) || ''} onChange={(v) => onUpdate({ tagline: v || undefined } as Partial<Block>)} />
+          <Field label="CTA Text" value={(b.ctaText as string) || ''} onChange={(v) => onUpdate({ ctaText: v || undefined } as Partial<Block>)} />
+          <Field label="CTA URL" value={(b.ctaUrl as string) || ''} onChange={(v) => onUpdate({ ctaUrl: v || undefined } as Partial<Block>)} />
           <div className="grid grid-cols-3 gap-2">
             <ColorField label="Background" value={(b.backgroundColor as string) || ''} onChange={(v) => onUpdate({ backgroundColor: v || undefined } as Partial<Block>)} />
             <ColorField label="Text" value={(b.textColor as string) || ''} onChange={(v) => onUpdate({ textColor: v || undefined } as Partial<Block>)} />

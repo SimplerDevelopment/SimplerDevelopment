@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { projects, kanbanCards, kanbanColumns, kanbanCardAssignees, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, clients } from '@/lib/db/schema';
-import { and, asc, eq, inArray } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { collectKanbanTasks, collectBrainTasks } from '@/lib/portal/my-tasks-collect';
+import {
+  cardMatchesFilters,
+  compareCardsByDue,
+  groupKey,
+  parseMyTasksParams,
+  type MyTaskCard,
+  type MyTaskGroup,
+} from '@/lib/portal/my-tasks-shape';
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -14,126 +19,88 @@ export async function GET(req: Request) {
   const isStaff = role === 'admin' || role === 'employee';
 
   const url = new URL(req.url);
-  const openOnly = url.searchParams.get('openOnly') !== '0';
+  const params = parseMyTasksParams(url.searchParams);
 
-  // Cards where I'm an assignee
-  const assignments = await db
-    .select({ cardId: kanbanCardAssignees.cardId })
-    .from(kanbanCardAssignees)
-    .where(eq(kanbanCardAssignees.userId, userId));
-  const cardIds = assignments.map(a => a.cardId);
+  // Source filter at the collector level — saves work for single-source views.
+  const wantKanban = params.source === 'all' || params.source === 'kanban';
+  const wantBrain = params.source === 'all' || params.source === 'brain';
 
-  if (cardIds.length === 0) return NextResponse.json({ success: true, data: { projects: [] } });
+  const [kanbanGroupsRaw, brainGroupsRaw] = await Promise.all([
+    wantKanban
+      ? collectKanbanTasks({ userId, isStaff, openOnly: params.openOnly, projectIds: params.projectIds })
+      : Promise.resolve([] as MyTaskGroup[]),
+    wantBrain
+      ? collectBrainTasks({ userId, isStaff, openOnly: params.openOnly })
+      : Promise.resolve([] as MyTaskGroup[]),
+  ]);
 
-  // Staff can see any card; clients only their own projects
-  let visibleCards;
-  if (isStaff) {
-    visibleCards = await db
-      .select({
-        id: kanbanCards.id,
-        projectId: kanbanCards.projectId,
-        columnId: kanbanCards.columnId,
-        columnName: kanbanColumns.name,
-        columnIsDone: kanbanColumns.isDone,
-        number: kanbanCards.number,
-        title: kanbanCards.title,
-        priority: kanbanCards.priority,
-        dueDate: kanbanCards.dueDate,
-      })
-      .from(kanbanCards)
-      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-      .where(inArray(kanbanCards.id, cardIds));
-  } else {
-    const client = await getPortalClient(userId);
-    if (!client) return NextResponse.json({ success: true, data: { projects: [] } });
-    visibleCards = await db
-      .select({
-        id: kanbanCards.id,
-        projectId: kanbanCards.projectId,
-        columnId: kanbanCards.columnId,
-        columnName: kanbanColumns.name,
-        columnIsDone: kanbanColumns.isDone,
-        number: kanbanCards.number,
-        title: kanbanCards.title,
-        priority: kanbanCards.priority,
-        dueDate: kanbanCards.dueDate,
-      })
-      .from(kanbanCards)
-      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-      .innerJoin(projects, and(eq(projects.id, kanbanCards.projectId), eq(projects.clientId, client.id)))
-      .where(inArray(kanbanCards.id, cardIds));
+  // The full set of kanban projects this user has tasks in — used to populate
+  // the project filter dropdown on the page. Always derived from the unfiltered
+  // kanban result (so the user can re-select a project they just filtered out).
+  const allProjects = wantKanban
+    ? (params.projectIds.length > 0
+        ? await collectKanbanTasks({ userId, isStaff, openOnly: params.openOnly })
+        : kanbanGroupsRaw
+      )
+    : [];
+  const projectsAvailable = allProjects
+    .filter((g) => g.source === 'kanban' && typeof g.id === 'number')
+    .map((g) => ({ id: g.id as number, name: g.name, projectKey: g.projectKey }));
+
+  // Apply card-level filters (priority / overdue) and reassemble groups.
+  const allGroups = [...kanbanGroupsRaw, ...brainGroupsRaw];
+  type IndexedCard = MyTaskCard & { __groupKey: string; __group: MyTaskGroup };
+  const indexedCards: IndexedCard[] = [];
+  for (const g of allGroups) {
+    for (const c of g.cards) {
+      if (!cardMatchesFilters(c, { priorities: params.priorities, overdue: params.overdue })) continue;
+      indexedCards.push({ ...c, __groupKey: groupKey(g), __group: g });
+    }
   }
 
-  const filtered = openOnly ? visibleCards.filter(c => !c.columnIsDone) : visibleCards;
-  if (filtered.length === 0) return NextResponse.json({ success: true, data: { projects: [] } });
+  // Stable global ordering (mirrors per-group sort but applied across the
+  // unified inbox so pagination is deterministic).
+  indexedCards.sort(compareCardsByDue);
 
-  const visibleCardIds = filtered.map(c => c.id);
-  const projectIds = Array.from(new Set(filtered.map(c => c.projectId)));
+  const total = indexedCards.length;
+  const start = Math.min(params.cursor, total);
+  const end = Math.min(start + params.limit, total);
+  const slice = indexedCards.slice(start, end);
 
-  // Project info
-  const projectRows = await db
-    .select({ id: projects.id, name: projects.name, projectKey: projects.projectKey, clientId: projects.clientId, clientName: clients.company })
-    .from(projects)
-    .leftJoin(clients, eq(clients.id, projects.clientId))
-    .where(inArray(projects.id, projectIds));
-
-  // Labels
-  const labelRows = await db
-    .select({ cardId: kanbanCardLabels.cardId, id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
-    .from(kanbanCardLabels)
-    .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
-    .where(inArray(kanbanCardLabels.cardId, visibleCardIds));
-  const labelsByCard = labelRows.reduce<Record<number, { id: number; name: string; color: string }[]>>((acc, l) => {
-    (acc[l.cardId] ??= []).push({ id: l.id, name: l.name, color: l.color });
-    return acc;
-  }, {});
-
-  // Checklist progress
-  const checklistRows = await db
-    .select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
-    .from(kanbanCardChecklistItems)
-    .where(inArray(kanbanCardChecklistItems.cardId, visibleCardIds));
-  const checklistByCard = checklistRows.reduce<Record<number, { total: number; done: number }>>((acc, i) => {
-    const r = (acc[i.cardId] ??= { total: 0, done: 0 });
-    r.total += 1;
-    if (i.completed) r.done += 1;
-    return acc;
-  }, {});
-
-  const byProject = new Map<number, { project: typeof projectRows[number]; cards: unknown[] }>();
-  for (const p of projectRows) byProject.set(p.id, { project: p, cards: [] });
-  for (const c of filtered.sort((a, b) => {
-    const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-    const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-    return ad - bd;
-  })) {
-    const slot = byProject.get(c.projectId);
-    if (!slot) continue;
-    slot.cards.push({
-      id: c.id,
-      key: slot.project.projectKey && c.number != null ? `${slot.project.projectKey}-${c.number}` : null,
-      title: c.title,
-      priority: c.priority,
-      dueDate: c.dueDate,
-      columnName: c.columnName,
-      columnIsDone: c.columnIsDone,
-      labels: labelsByCard[c.id] ?? [],
-      checklist: checklistByCard[c.id] ?? null,
-    });
+  // Reassemble groups for just the page slice, preserving group order based on
+  // first-card position within the slice. This keeps the visual grouping the
+  // page expects without inventing a new shape.
+  const groupOrder: string[] = [];
+  const groupBuckets = new Map<string, MyTaskGroup>();
+  for (const c of slice) {
+    if (!groupBuckets.has(c.__groupKey)) {
+      groupOrder.push(c.__groupKey);
+      groupBuckets.set(c.__groupKey, { ...c.__group, cards: [] });
+    }
+    const bucket = groupBuckets.get(c.__groupKey)!;
+    // strip private indexing fields before serializing
+    const { __groupKey: _gk, __group: _g, ...card } = c;
+    void _gk; void _g;
+    bucket.cards.push(card);
   }
+  const projects: MyTaskGroup[] = groupOrder.map((k) => groupBuckets.get(k)!);
+
+  const nextCursor = end < total ? end : null;
 
   return NextResponse.json({
     success: true,
     data: {
-      projects: Array.from(byProject.values())
-        .filter(p => p.cards.length > 0)
-        .map(p => ({
-          id: p.project.id,
-          name: p.project.name,
-          projectKey: p.project.projectKey,
-          clientName: p.project.clientName,
-          cards: p.cards,
-        })),
+      projects,
+      nextCursor,
+      total,
+      projectsAvailable,
+      filters: {
+        source: params.source,
+        projectIds: params.projectIds,
+        priorities: params.priorities,
+        overdue: params.overdue,
+        openOnly: params.openOnly,
+      },
     },
   });
 }

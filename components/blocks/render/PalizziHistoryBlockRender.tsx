@@ -2,6 +2,7 @@
 
 import { PalizziHistoryBlock } from '@/types/blocks';
 import Image from 'next/image';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface PalizziHistoryBlockRenderProps {
   block: PalizziHistoryBlock;
@@ -80,7 +81,7 @@ export function PalizziHistoryBlockRender({ block }: PalizziHistoryBlockRenderPr
                   lineHeight: 1.75,
                   fontSize: 'clamp(1rem, 2vw, 1.125rem)',
                 }}
-                dangerouslySetInnerHTML={{ __html: p }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(p) }}
               />
               {i < block.paragraphs.length - 1 && (
                 <div

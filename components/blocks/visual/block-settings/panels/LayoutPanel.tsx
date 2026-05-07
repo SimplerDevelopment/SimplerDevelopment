@@ -1,7 +1,7 @@
 'use client';
 
 // LayoutPanel: dispatcher for related block types' settings panels.
-import type { Block, SectionBlock, DividerBlock, SpacerBlock, ColumnsBlock } from '@/types/blocks';
+import type { Block, SectionBlock, DividerBlock, SpacerBlock, ColumnsBlock, StickyScrollTabsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import { TokenColorPicker } from '@/components/blocks/visual/TokenColorPicker';
 import { ColumnsBlockSettings } from './ColumnsSettings';
@@ -22,9 +22,170 @@ export function LayoutPanel({ block, onChange, currentViewport }: PanelProps) {
       return <ColumnsBlockSettings block={block as ColumnsBlock} onChange={onChange as (u: Partial<ColumnsBlock>) => void} currentViewport={currentViewport} />;
     case 'section':
       return <SectionBlockSettings block={block as SectionBlock} onChange={onChange as (u: Partial<SectionBlock>) => void} />;
+    case 'sticky-scroll-tabs':
+      return <StickyScrollTabsBlockSettings block={block as StickyScrollTabsBlock} onChange={onChange as (u: Partial<StickyScrollTabsBlock>) => void} />;
     default:
       return null;
   }
+}
+
+function StickyScrollTabsBlockSettings({ block, onChange }: { block: StickyScrollTabsBlock; onChange: (updates: Partial<StickyScrollTabsBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Overline</label>
+        <input
+          type="text"
+          value={block.overline || ''}
+          onChange={(e) => onChange({ overline: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Optional eyebrow"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Section Title</label>
+        <input
+          type="text"
+          value={block.title || ''}
+          onChange={(e) => onChange({ title: e.target.value || undefined })}
+          className={inputClass}
+          placeholder="Optional heading above the tabs"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <textarea
+          value={block.description || ''}
+          onChange={(e) => onChange({ description: e.target.value || undefined })}
+          rows={2}
+          className={inputClass}
+          placeholder="Optional supporting paragraph"
+        />
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Panels ({(block.panels || []).length})</label>
+        {(block.panels || []).map((panel, i) => (
+          <div key={panel.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={panel.label}
+              onChange={(e) => {
+                const next = [...(block.panels || [])];
+                next[i] = { ...next[i], label: e.target.value };
+                onChange({ panels: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Panel label"
+            />
+            <input
+              type="text"
+              value={panel.icon || ''}
+              onChange={(e) => {
+                const next = [...(block.panels || [])];
+                next[i] = { ...next[i], icon: e.target.value || undefined };
+                onChange({ panels: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Material Icon name (optional)"
+            />
+            <p className="text-xs text-muted-foreground">{(panel.blocks || []).length} nested block(s) — edit on canvas.</p>
+            <button
+              type="button"
+              onClick={() => onChange({ panels: (block.panels || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove panel
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({
+            panels: [
+              ...(block.panels || []),
+              { id: `panel-${Date.now()}`, label: 'New Panel', blocks: [] },
+            ],
+          })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Panel
+        </button>
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Layout</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Sticky Top Offset</label>
+            <input
+              type="number"
+              value={block.stickyTopOffset ?? 80}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                onChange({ stickyTopOffset: Number.isNaN(n) ? undefined : n });
+              }}
+              className={inputClass}
+              placeholder="80"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Panel Min Height</label>
+            <input
+              type="text"
+              value={block.panelMinHeight || ''}
+              onChange={(e) => onChange({ panelMinHeight: e.target.value || undefined })}
+              className={inputClass}
+              placeholder="60vh"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Tab Border Radius</label>
+          <input
+            type="text"
+            value={block.tabBorderRadius || ''}
+            onChange={(e) => onChange({ tabBorderRadius: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="999px"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Tab Colors (Desktop)</label>
+        <div className="grid grid-cols-2 gap-3">
+          <TokenColorPicker label="Active Background" value={block.activeTabBackground || ''} onChange={(v) => onChange({ activeTabBackground: v || undefined })} />
+          <TokenColorPicker label="Active Text" value={block.activeTabColor || ''} onChange={(v) => onChange({ activeTabColor: v || undefined })} />
+          <TokenColorPicker label="Inactive Background" value={block.inactiveTabBackground || ''} onChange={(v) => onChange({ inactiveTabBackground: v || undefined })} />
+          <TokenColorPicker label="Inactive Text" value={block.inactiveTabColor || ''} onChange={(v) => onChange({ inactiveTabColor: v || undefined })} />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <label className="block text-sm font-medium text-foreground">Tab Colors (Mobile, optional)</label>
+        <p className="text-xs text-muted-foreground">Leave blank to inherit from desktop colors.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <TokenColorPicker label="Active Background" value={block.mobileActiveTabBackground || ''} onChange={(v) => onChange({ mobileActiveTabBackground: v || undefined })} />
+          <TokenColorPicker label="Active Text" value={block.mobileActiveTabColor || ''} onChange={(v) => onChange({ mobileActiveTabColor: v || undefined })} />
+          <TokenColorPicker label="Inactive Background" value={block.mobileInactiveTabBackground || ''} onChange={(v) => onChange({ mobileInactiveTabBackground: v || undefined })} />
+          <TokenColorPicker label="Inactive Text" value={block.mobileInactiveTabColor || ''} onChange={(v) => onChange({ mobileInactiveTabColor: v || undefined })} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Mobile Tab Behavior</label>
+          <select
+            value={block.mobileTabsBehavior || 'carousel'}
+            onChange={(e) => onChange({ mobileTabsBehavior: e.target.value as StickyScrollTabsBlock['mobileTabsBehavior'] })}
+            className={inputClass}
+          >
+            <option value="carousel">Carousel — sticky horizontal-scroll tabs</option>
+            <option value="hide">Hide — panels stack, no mobile tab strip</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SectionBlockSettings({ block, onChange }: { block: SectionBlock; onChange: (updates: Partial<SectionBlock>) => void }) {

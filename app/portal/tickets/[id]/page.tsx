@@ -6,6 +6,9 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ticketStatusColor, priorityColor } from '@/lib/portal';
 import TicketReplyForm from '@/components/portal/TicketReplyForm';
+import TicketStatusControl from '@/components/portal/TicketStatusControl';
+import TicketSlaBadge from '@/components/portal/TicketSlaBadge';
+import { SLA_BY_PRIORITY, type TicketPriority } from '@/lib/tickets/sla';
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -30,6 +33,20 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   const [ticket] = await ticketQuery;
   if (!ticket) notFound();
+
+  // Resolve assignee name for the header badge (cheap join — ticket is already loaded).
+  let assigneeName: string | null = null;
+  if (ticket.assignedTo) {
+    const [assigneeRow] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, ticket.assignedTo))
+      .limit(1);
+    assigneeName = assigneeRow?.name ?? null;
+  }
+
+  const slaPolicy = SLA_BY_PRIORITY[(ticket.priority as TicketPriority) ?? 'medium']
+    ?? SLA_BY_PRIORITY.medium;
 
   // Fetch messages (hide internal notes from clients)
   const messageFilter = isStaff
@@ -60,12 +77,21 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Ticket Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-foreground">{ticket.subject}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Opened {new Date(ticket.createdAt).toLocaleDateString()} &bull; {ticket.category} &bull; #{ticket.number}
+              {assigneeName && (
+                <>
+                  {' '}&bull;{' '}
+                  <span className="inline-flex items-center gap-1">
+                    <span className="material-icons text-sm align-middle">person</span>
+                    {assigneeName}
+                  </span>
+                </>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -73,11 +99,33 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               {ticket.priority}
             </span>
             <span className={`text-xs px-2 py-1 rounded-full font-medium ${ticketStatusColor(ticket.status)}`}>
-              {ticket.status.replace('_', ' ')}
+              {ticket.status.replace(/_/g, ' ')}
             </span>
           </div>
         </div>
+
+        {/* SLA badges */}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/60">
+          <div className="text-xs text-muted-foreground">
+            SLA: <span className="text-foreground font-medium">{slaPolicy.label}</span>
+          </div>
+          <TicketSlaBadge
+            status={ticket.status}
+            firstResponseDueAt={ticket.firstResponseDueAt}
+            resolutionDueAt={ticket.resolutionDueAt}
+            resolvedAt={ticket.resolvedAt}
+          />
+        </div>
       </div>
+
+      {/* Staff-only status + assignment controls */}
+      {isStaff && (
+        <TicketStatusControl
+          ticketId={ticketId}
+          initialStatus={ticket.status}
+          initialAssigneeId={ticket.assignedTo}
+        />
+      )}
 
       {/* Thread */}
       <div className="space-y-4">

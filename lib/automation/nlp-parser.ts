@@ -8,11 +8,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AUTOMATION_EVENTS } from './event-bus';
 import { PORTAL_TOOLS } from '@/lib/ai/portal-tools';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
-}
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
 
 export interface ParsedAutomation {
   name: string;
@@ -102,7 +99,24 @@ Return ONLY valid JSON (no markdown, no explanation) with this shape:
 
 export async function parseAutomationDescription(
   description: string,
-): Promise<{ parsed: ParsedAutomation; inputTokens: number; outputTokens: number }> {
+  opts: { clientId?: number } = {},
+): Promise<{ parsed: ParsedAutomation; inputTokens: number; outputTokens: number; source: 'byok' | 'platform' }> {
+  // Resolve BYOK > platform key. If clientId is omitted (legacy callers),
+  // fall back to env directly to preserve existing behaviour.
+  let apiKey: string;
+  let source: 'byok' | 'platform' = 'platform';
+  if (typeof opts.clientId === 'number') {
+    const resolved = await resolveClientApiKey({ clientId: opts.clientId, provider: 'anthropic' });
+    apiKey = resolved.key;
+    source = resolved.source;
+  } else {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not set in environment variables.');
+    }
+    apiKey = process.env.ANTHROPIC_API_KEY;
+  }
+  const anthropic = new Anthropic({ apiKey });
+
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6-20250514',
     max_tokens: 1024,
@@ -122,9 +136,18 @@ export async function parseAutomationDescription(
 
   const parsed = JSON.parse(text) as ParsedAutomation;
 
+  if (typeof opts.clientId === 'number') {
+    void recordAiUsage({
+      clientId: opts.clientId,
+      source,
+      tokens: response.usage.input_tokens + response.usage.output_tokens,
+    });
+  }
+
   return {
     parsed,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
+    source,
   };
 }

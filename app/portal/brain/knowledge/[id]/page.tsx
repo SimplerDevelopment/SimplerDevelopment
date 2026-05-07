@@ -32,27 +32,11 @@ import MarkdownEditor from '@/components/brain/MarkdownEditor';
 import NoteOutlinePanel from '@/components/brain/NoteOutlinePanel';
 import NoteBacklinksPanel from '@/components/brain/NoteBacklinksPanel';
 import NoteCustomFieldsPanel from '@/components/brain/NoteCustomFieldsPanel';
-
-interface BrainNote {
-  id: number;
-  title: string;
-  body: string;
-  tags: string[];
-  meetingId: number | null;
-  relationshipOverlayId: number | null;
-  companyId: number | null;
-  dealId: number | null;
-  contactId: number | null;
-  confidentialityLevel: 'standard' | 'restricted' | 'confidential';
-  pinned: boolean;
-  source: string;
-  attachmentUrl: string | null;
-  attachmentFilename: string | null;
-  attachmentMimeType: string | null;
-  attachmentFileSize: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import NoteActionButtons from '@/components/brain/NoteActionButtons';
+import NoteMetaStrip from '@/components/brain/NoteMetaStrip';
+import CommandPalette from '@/components/brain/CommandPalette';
+import { pushRecentNoteId } from '@/lib/brain/recent-notes';
+import type { BrainNote } from '@/lib/brain/types';
 
 type SidePanel = 'outline' | 'backlinks' | 'fields';
 
@@ -70,6 +54,7 @@ export default function BrainNoteDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<SidePanel>('outline');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Hold the EditorView so the outline panel can call `view.dispatch` to scroll.
   // Using a ref (rather than state) prevents a re-render of the whole page
@@ -154,11 +139,68 @@ export default function BrainNoteDetailPage() {
     return () => window.clearTimeout(id);
   }, [saveState]);
 
+  // Track this note in the recent ring so it shows up under "Recent" in the
+  // Cmd-K palette next time.
+  useEffect(() => {
+    if (Number.isFinite(noteId)) pushRecentNoteId(noteId);
+  }, [noteId]);
+
+  // Global Cmd-K / Ctrl-K to open the palette from zen mode too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const handleCreate = useCallback(async () => {
+    const r = await fetch('/api/portal/brain/knowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Untitled', body: '' }),
+    });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.success && json.data?.id) {
+      router.push(`/portal/brain/knowledge?id=${json.data.id}`);
+    }
+  }, [router]);
+
   const handleEditorReady = useCallback((view: EditorView | null) => {
     editorViewRef.current = view;
   }, []);
 
   const getEditorView = useCallback(() => editorViewRef.current, []);
+
+  const patchMeta = useCallback(async (patch: Partial<BrainNote>) => {
+    if (Number.isNaN(noteId)) return;
+    const r = await fetch(`/api/portal/brain/knowledge/${noteId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.success) {
+      setNote(json.data as BrainNote);
+    } else {
+      setError(json.message || 'Update failed.');
+    }
+  }, [noteId]);
+
+  const handleDelete = useCallback(async () => {
+    if (Number.isNaN(noteId) || !note) return;
+    if (!confirm(`Delete "${note.title}"? This can't be undone.`)) return;
+    const r = await fetch(`/api/portal/brain/knowledge/${noteId}`, { method: 'DELETE' });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.success) {
+      router.push('/portal/brain/knowledge');
+    } else {
+      setError(json.message || 'Delete failed.');
+    }
+  }, [noteId, note, router]);
 
   if (Number.isNaN(noteId)) {
     return (
@@ -226,7 +268,15 @@ export default function BrainNoteDetailPage() {
           <span className="material-icons text-base">save</span>
           Save
         </button>
+        <NoteActionButtons
+          note={note}
+          onPatch={patchMeta}
+          onDelete={handleDelete}
+          showZenLink={false}
+        />
       </div>
+
+      <NoteMetaStrip note={note} onPatch={patchMeta} />
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
@@ -263,6 +313,12 @@ export default function BrainNoteDetailPage() {
           </div>
         </aside>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onCreate={handleCreate}
+        selectedNoteId={Number.isFinite(noteId) ? noteId : null}
+      />
     </div>
   );
 }

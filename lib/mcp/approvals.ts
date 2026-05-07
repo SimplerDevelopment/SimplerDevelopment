@@ -31,6 +31,7 @@ import type { PitchDeckSlideV2, ProposalSection, ProposalLineItem, ProposalFee }
 import { hasScope, type PortalMcpContext } from '@/lib/mcp-auth';
 import { renderBlocksToEmailHtml } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
+import { publishEntityFromDb } from '@/lib/realtime/internal-publisher';
 
 function json(payload: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
@@ -417,6 +418,21 @@ export function registerApprovalToolsOnSdk(server: McpServer, ctx: PortalMcpCont
           })
           .where(eq(mcpPendingChanges.id, id)).returning();
         try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ }
+        // Fan out to any open editors. The applied row may have a fresh id
+        // (create) or match `change.entityId` (update). Prefer the apply
+        // result's id when present. Fire-and-forget — never block approve.
+        const realtimeEntityId =
+          (result && typeof result === 'object' && 'id' in result &&
+            (typeof (result as { id: unknown }).id === 'number' ||
+              typeof (result as { id: unknown }).id === 'string'))
+            ? (result as { id: number | string }).id
+            : change.entityId;
+        void publishEntityFromDb({
+          entityType: change.entityType,
+          entityId: realtimeEntityId,
+        }).catch((err) => {
+          console.warn('[mcp/approvals] realtime publish failed:', err);
+        });
         return json({ change: row, result });
       } catch (err) {
         const msg = (err as Error).message;
