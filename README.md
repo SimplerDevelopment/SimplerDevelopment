@@ -56,6 +56,9 @@ Edit `.env.local` and add your configuration:
 - `DATABASE_URL`: Your Postgres connection string
 - `RESEND_API_KEY`: Your Resend API key (optional, for contact form)
 - `NEXT_PUBLIC_SITE_URL`: Your site URL
+- `DROPBOX_SIGN_API_KEY`: DropboxSign (formerly HelloSign) API key for contract e-signatures (required to send contracts for signature; dev/staging defaults to test_mode=1 so signature credits aren't burned)
+- `DROPBOX_SIGN_WEBHOOK_SECRET`: HMAC secret used to verify `/api/webhooks/dropbox-sign` POST callbacks (defaults to `DROPBOX_SIGN_API_KEY` if unset)
+- `DROPBOX_SIGN_CLIENT_ID`: DropboxSign embedded app client id (required for embedded signing flows)
 
 ### Development
 
