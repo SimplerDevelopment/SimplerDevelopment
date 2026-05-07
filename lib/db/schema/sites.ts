@@ -19,8 +19,32 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // ── White-label / SaaS Mode (Tier 3 "Scale") ───────────────────────────────
+  // Agencies on the Scale tier can map their own domain to the portal, override
+  // brand chrome with their own agencyName/logo/colors, and (later) resell
+  // sub-accounts. White-label cannot be enabled until customDomainVerifiedAt
+  // is set — the API enforces this; the UI disables the toggle accordingly.
+  customDomain: varchar('custom_domain', { length: 255 }).unique(), // e.g. "portal.acme-agency.com"
+  customDomainVerifiedAt: timestamp('custom_domain_verified_at'),
+  customDomainVerificationToken: varchar('custom_domain_verification_token', { length: 64 }), // DNS TXT verification value
+  whiteLabelEnabled: boolean('white_label_enabled').default(false).notNull(),
+  agencyName: varchar('agency_name', { length: 255 }), // overrides "Simpler Development" in portal chrome
+  agencyLogoUrl: varchar('agency_logo_url', { length: 500 }), // overrides /iconLogo.png and login wordmark
+  agencyPrimaryColor: varchar('agency_primary_color', { length: 20 }), // optional accent for portal chrome
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Audit trail for custom-domain mutations on the agency (clients) record.
+// Independent of clients.* so admin/security can review domain history even
+// after a client row is updated or the domain is reset.
+export const customDomainHistory = pgTable('custom_domain_history', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  domain: varchar('domain', { length: 255 }).notNull(),
+  action: varchar('action', { length: 20 }).notNull(), // added, verified, removed
+  byUserId: integer('by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  occurredAt: timestamp('occurred_at').defaultNow().notNull(),
 });
 
 // Team members with access to a client account (many users → one client)
