@@ -169,6 +169,13 @@ export const pitchDecks = pgTable('pitch_decks', {
   }),
   sourceUrl: varchar('source_url', { length: 500 }), // website used for branding
   brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles
+  // SEO metadata (parity with posts table). When unset, the public renderer
+  // falls back to title / description / branding.ogImageUrl.
+  seoTitle: varchar('seo_title', { length: 255 }),
+  seoDescription: text('seo_description'),
+  ogImage: varchar('og_image', { length: 500 }),
+  canonicalUrl: varchar('canonical_url', { length: 500 }),
+  noIndex: boolean('no_index').default(false).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

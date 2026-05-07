@@ -35,6 +35,7 @@ import { EditorHeader } from './_components/EditorHeader';
 import { ThemePanel } from './_components/ThemePanel';
 import { RegenerateModal } from './_components/RegenerateModal';
 import { HistoryPanel } from './_components/HistoryPanel';
+import { SeoPanel } from './_components/SeoPanel';
 import { SlideList } from './_components/SlideList';
 import { BatchEditBar } from './_components/BatchEditBar';
 import { BoardView } from './_components/BoardView';
@@ -84,6 +85,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const [showRegenerate, setShowRegenerate] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSeo, setShowSeo] = useState(false);
   const [versions, setVersions] = useState<VersionMeta[]>([]);
   const [restoring, setRestoring] = useState(false);
   const [savingVersion, setSavingVersion] = useState(false);
@@ -779,6 +781,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
         onToggleTheme={() => setShowTheme(!showTheme)}
         onToggleRegenerate={() => setShowRegenerate(!showRegenerate)}
         onToggleHistory={() => { const next = !showHistory; setShowHistory(next); if (next) loadVersions(); }}
+        onToggleSeo={() => setShowSeo(!showSeo)}
         onSave={saveDeck}
         onTogglePublish={togglePublish}
         onPresent={() => {
@@ -831,6 +834,14 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           onClose={() => setShowHistory(false)}
           onSaveCheckpoint={saveCheckpoint}
           onRestore={handleRestoreVersion}
+        />
+      )}
+
+      {showSeo && (
+        <SeoPanel
+          deck={deck}
+          onUpdateDeck={(updates) => setDeck((prev) => prev ? { ...prev, ...updates } : prev)}
+          onClose={() => setShowSeo(false)}
         />
       )}
 

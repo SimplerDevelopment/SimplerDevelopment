@@ -25,6 +25,7 @@ export interface EditorHeaderProps {
   onToggleTheme: () => void;
   onToggleRegenerate: () => void;
   onToggleHistory: () => void;
+  onToggleSeo: () => void;
   onSave: () => void;
   onTogglePublish: () => void;
   onPresent: () => void;
@@ -38,7 +39,7 @@ export function EditorHeader(props: EditorHeaderProps) {
     editingTitle, titleDraft, editingSlug, slugDraft, slugError,
     onStartEditTitle, onTitleDraftChange, onSaveTitle, onCancelEditTitle,
     onStartEditSlug, onSlugDraftChange, onSaveSlug, onCancelEditSlug,
-    onToggleTheme, onToggleRegenerate, onToggleHistory, onSave, onTogglePublish,
+    onToggleTheme, onToggleRegenerate, onToggleHistory, onToggleSeo, onSave, onTogglePublish,
     onPresent, onDelete, presenterUrl,
   } = props;
 
@@ -75,7 +76,7 @@ export function EditorHeader(props: EditorHeaderProps) {
             <span>·</span>
             {editingSlug ? (
               <span className="inline-flex items-center gap-1">
-                <span className="text-muted-foreground/70">/pitch-deck/</span>
+                <span className="text-muted-foreground/70">/slides/</span>
                 <input
                   autoFocus
                   value={slugDraft}
@@ -97,7 +98,7 @@ export function EditorHeader(props: EditorHeaderProps) {
                 title="Click to edit slug"
               >
                 <span className="material-icons text-xs">link</span>
-                <span className="font-mono">/pitch-deck/{deck.slug}</span>
+                <span className="font-mono">/slides/{deck.slug}</span>
                 <span className="material-icons text-[0.875em] opacity-0 group-hover:opacity-60">edit</span>
               </button>
             )}
@@ -154,6 +155,14 @@ export function EditorHeader(props: EditorHeaderProps) {
           History
         </button>
         <button
+          onClick={onToggleSeo}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="SEO settings (title, description, OG image, canonical, noindex)"
+        >
+          <span className="material-icons text-base">search</span>
+          SEO
+        </button>
+        <button
           onClick={onSave}
           disabled={saving || !hasUnsavedChanges}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
@@ -170,7 +179,7 @@ export function EditorHeader(props: EditorHeaderProps) {
           {saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}
         </button>
         <Link
-          href={`/pitch-deck/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
+          href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
           target="_blank"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
