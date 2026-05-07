@@ -2,9 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Mock node:dns/promises *before* importing the module under test so the
 // module picks up the mock when it captures `resolveTxt` at import time.
-vi.mock('node:dns/promises', () => ({
-  resolveTxt: vi.fn(),
-}));
+// Vitest 4 requires a `default` key on factory mocks of modules that have
+// a default export (node:dns/promises has both default and named exports).
+vi.mock('node:dns/promises', () => {
+  const resolveTxt = vi.fn();
+  return {
+    default: { resolveTxt },
+    resolveTxt,
+  };
+});
 
 import { resolveTxt } from 'node:dns/promises';
 import {
