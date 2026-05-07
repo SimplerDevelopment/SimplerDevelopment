@@ -41,6 +41,11 @@ const nextConfig: NextConfig = {
       { source: '/portal/team', destination: '/portal/settings/team', permanent: false },
       { source: '/portal/tickets', destination: '/portal/settings/support', permanent: false },
       { source: '/portal/tools/pitch-decks', destination: '/portal/crm/proposals?tab=decks', permanent: false },
+      // Public pitch-deck route renamed to /slides/. Keeps already-shared
+      // /pitch-deck/<slug> URLs working on apex + every tenant host (this
+      // runs before middleware, so the tenant rewrite never sees the old
+      // path).
+      { source: '/pitch-deck/:slug', destination: '/slides/:slug', permanent: true },
     ];
   },
 };
