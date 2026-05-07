@@ -67,6 +67,7 @@ export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'booking-menu', label: 'Booking Menu', icon: 'event_available', category: 'Interactive', description: 'Grid of bookable services' },
   { type: 'survey', label: 'Survey', icon: 'assignment', category: 'Interactive', description: 'Embed a survey form' },
   { type: 'survey-results', label: 'Survey Results', icon: 'analytics', category: 'Interactive', description: 'Charts of survey responses' },
+  { type: 'popup', label: 'Popup', icon: 'notifications_active', category: 'Interactive', description: 'Modal popup with configurable trigger (page-load, time-delay, scroll, exit-intent)' },
 ];
 
 /**

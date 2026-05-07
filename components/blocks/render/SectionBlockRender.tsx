@@ -45,6 +45,7 @@ import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
 import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
 import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
+import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import React from 'react';
@@ -199,6 +200,7 @@ function renderNestedBlock(block: Block) {
     case 'post-content': return <PostContentPlaceholderRender block={block as Extract<Block, { type: 'post-content' }>} />;
     case 'html-render': return <HtmlRenderBlockRender block={block as Extract<Block, { type: 'html-render' }>} />;
     case 'html-embed': return <HtmlEmbedBlockRender block={block as Extract<Block, { type: 'html-embed' }>} />;
+    case 'popup': return <PopupBlockRender block={block as Extract<Block, { type: 'popup' }>} />;
     default: return null;
   }
 }
