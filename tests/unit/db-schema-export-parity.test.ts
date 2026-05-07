@@ -104,10 +104,12 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'GoogleWorkspaceUserConnection',
   'NOTIFICATION_DELIVERIES',
   'NOTIFICATION_TYPES',
+  'MicrosoftTeamsUserConnection',
   'NewDocumentComment',
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
+  'NewMicrosoftTeamsUserConnection',
   'NotificationDelivery',
   'NotificationType',
   'PitchDeckDecisionCover',
@@ -233,6 +235,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'mcpPendingChanges',
   'media',
   'mediaVersions',
+  'microsoftTeamsUserConnections',
   'notificationPreferences',
   'oauthAccessTokens',
   'oauthAuthorizationCodes',
@@ -290,6 +293,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'taxonomies',
   'taxonomyTerms',
   'ticketMessages',
+  'triggerLinkClicks',
+  'triggerLinks',
   'usageMeters',
   'users',
   'websiteBackups',
@@ -410,6 +415,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   mcpPendingChanges: 'mcp_pending_changes',
   media: 'media',
   mediaVersions: 'media_versions',
+  microsoftTeamsUserConnections: 'microsoft_teams_user_connections',
   notificationPreferences: 'notification_preferences',
   oauthAccessTokens: 'oauth_access_tokens',
   oauthAuthorizationCodes: 'oauth_authorization_codes',
@@ -467,6 +473,8 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   taxonomies: 'taxonomies',
   taxonomyTerms: 'taxonomy_terms',
   ticketMessages: 'ticket_messages',
+  triggerLinkClicks: 'trigger_link_clicks',
+  triggerLinks: 'trigger_links',
   usageMeters: 'usage_meters',
   users: 'users',
   websiteBackups: 'website_backups',
@@ -485,7 +493,7 @@ describe('lib/db/schema export parity', () => {
     expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
   });
 
-  it('exports the recorded number of names (233)', () => {
+  it('exports the recorded number of names', () => {
     expect(collectSchemaExportNames()).toHaveLength(EXPECTED_EXPORTS.length);
   });
 
@@ -511,13 +519,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (170)', () => {
+  it('reports the recorded number of tables (173)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(170);
+    expect(count).toBe(173);
   });
 });
