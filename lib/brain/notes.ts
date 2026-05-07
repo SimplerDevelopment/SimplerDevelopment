@@ -610,3 +610,99 @@ export async function emptyTrash(
   return { deleted: res.length };
 }
 
+/**
+ * Auto-purge soft-deleted (trashed) notes whose `deletedAt` is older than
+ * `retentionDays`. Mirrors {@link emptyTrash} but filters by retention window
+ * instead of nuking the whole trash. Tenant-scoped on every query.
+ *
+ * Per-note audit rows (`auto_purged`) are written so the user has a record of
+ * what disappeared and why — different from `emptyTrash`, which collapses to a
+ * single tenant-level `trash_emptied` row because the user explicitly asked
+ * for the wipe. Auto-purge happens silently from the user's perspective, so
+ * preserving per-note breadcrumbs matters.
+ *
+ * Returns counts so the cron can roll up totals across tenants.
+ */
+export async function purgeOldTrash(
+  clientId: number,
+  retentionDays: number = 90,
+): Promise<{ purged: number; attachmentsDeleted: number }> {
+  const cutoffSql = sql`now() - (${retentionDays}::int * INTERVAL '1 day')`;
+
+  const stale = await db.select({
+    id: brainNotes.id,
+    deletedAt: brainNotes.deletedAt,
+    attachmentStoredKey: brainNotes.attachmentStoredKey,
+  }).from(brainNotes)
+    .where(and(
+      eq(brainNotes.clientId, clientId),
+      isNotNull(brainNotes.deletedAt),
+      sql`${brainNotes.deletedAt} < ${cutoffSql}`,
+    ));
+
+  if (stale.length === 0) return { purged: 0, attachmentsDeleted: 0 };
+
+  const ids = stale.map((r) => r.id);
+  const keysToDelete = stale
+    .map((r) => r.attachmentStoredKey)
+    .filter((k): k is string => typeof k === 'string' && k.length > 0);
+
+  // Capture deletedAt per id for audit metadata before we drop the rows.
+  const deletedAtById = new Map<number, Date | null>(
+    stale.map((r) => [r.id, r.deletedAt] as const),
+  );
+
+  // Incoming backlinks — FK is ON DELETE SET NULL, so without this they would
+  // linger as orphans pointing at a vanished target.
+  await db.delete(brainKbLinks)
+    .where(and(eq(brainKbLinks.clientId, clientId), inArray(brainKbLinks.toNoteId, ids)));
+
+  // Custom field values for these notes (polymorphic, no FK to brain_notes).
+  await db.delete(brainCustomFieldValues)
+    .where(and(
+      eq(brainCustomFieldValues.entityType, 'note'),
+      inArray(brainCustomFieldValues.entityId, ids),
+    ));
+
+  // Per-note audit history. Tenant-scoped so a misuse can't reach across.
+  await db.delete(brainAuditLogs)
+    .where(and(
+      eq(brainAuditLogs.clientId, clientId),
+      eq(brainAuditLogs.entityType, 'brain_note'),
+      inArray(brainAuditLogs.entityId, ids),
+    ));
+
+  // The notes themselves — outgoing brain_kb_links (from_note_id) cascade.
+  const res = await db.delete(brainNotes)
+    .where(and(eq(brainNotes.clientId, clientId), inArray(brainNotes.id, ids)))
+    .returning({ id: brainNotes.id, attachmentStoredKey: brainNotes.attachmentStoredKey });
+
+  for (const key of keysToDelete) {
+    deleteFromS3(key).catch((err) => {
+      console.warn('[brain.notes] failed to delete S3 object', key, err);
+    });
+  }
+
+  // Per-note audit rows so the user has breadcrumbs of what was auto-removed.
+  // Note: the per-note rows we just deleted above were the OLD trail for these
+  // notes. These new `auto_purged` rows are written AFTER that deletion so they
+  // survive as the surviving record.
+  for (const r of res) {
+    const originalDeletedAt = deletedAtById.get(r.id) ?? null;
+    await logAudit({
+      clientId,
+      actorId: null,
+      action: 'auto_purged',
+      entityType: 'brain_note',
+      entityId: r.id,
+      metadata: {
+        retentionDays,
+        deletedAt: originalDeletedAt ? originalDeletedAt.toISOString() : null,
+        hadAttachment: typeof r.attachmentStoredKey === 'string' && r.attachmentStoredKey.length > 0,
+      },
+    });
+  }
+
+  return { purged: res.length, attachmentsDeleted: keysToDelete.length };
+}
+

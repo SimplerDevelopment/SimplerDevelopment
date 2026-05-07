@@ -302,10 +302,10 @@ export default function BrainSettingsPage() {
             trash</strong> on the trash tab. There is no automatic purge today.
           </p>
           <p>
-            We may auto-purge trashed notes that have been in trash for longer than{' '}
-            <strong className="text-foreground">90 days</strong> in a future release.
-            Until then, the trash will keep growing — empty it periodically to
-            reclaim attachment storage and keep audit history compact.
+            Trashed notes that have been in trash for longer than{' '}
+            <strong className="text-foreground">90 days</strong> are automatically
+            purged by a daily background job. You can still empty the trash
+            manually at any time to reclaim attachment storage sooner.
           </p>
           <p>
             <strong className="text-foreground">What empty trash removes:</strong>{' '}
@@ -319,19 +319,10 @@ export default function BrainSettingsPage() {
           </p>
         </div>
         {/*
-          TODO(brain): wire automatic 90-day purge of trashed notes. Suggested
-          implementation:
-            - add an API route at app/api/cron/brain-empty-old-trash/route.ts
-              that iterates clients and calls a `purgeOldTrash(clientId, 90)`
-              helper in lib/brain/notes.ts (mirrors emptyTrash but filters by
-              `deletedAt < now() - 90 days`).
-            - register it in vercel.json's `crons` array running daily, or
-              enqueue a recurring BullMQ job in lib/queue/.
-            - per-tenant override via brain_profiles.retentionDays once the
-              schema gains the column; falls back to the 90-day default when
-              null.
-            - emit a tenant-scoped notification ("we purged N trashed notes
-              from your brain") so this isn't silent.
+          Auto-purge of trashed notes >90 days old runs daily via the cron at
+          app/api/cron/brain-empty-old-trash/route.ts (registered in
+          vercel.json). The per-note `auto_purged` audit row is what users see
+          in the audit feed when this fires.
         */}
       </Section>
     </div>

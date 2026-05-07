@@ -30,6 +30,10 @@
       "schedule": "5 6 * * *"
     },
     {
+      "path": "/api/cron/brain-empty-old-trash",
+      "schedule": "15 7 * * *"
+    },
+    {
       "path": "/api/cron/failing-automations-notify",
       "schedule": "0 12 * * *"
     },
