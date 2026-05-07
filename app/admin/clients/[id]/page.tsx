@@ -41,13 +41,37 @@ const recordStatusColor: Record<string, string> = {
   pending: 'text-yellow-500', failed: 'text-red-500',
 };
 
-const TAB_LABELS: Record<string, string> = { overview: 'Overview', email: 'Email Marketing', settings: 'Settings', team: 'Team' };
+const TAB_LABELS: Record<string, string> = { overview: 'Overview', email: 'Email Marketing', billing: 'Billing', settings: 'Settings', team: 'Team' };
+
+interface MeteredItem {
+  id: number; clientId: number; resource: string;
+  stripeSubscriptionId: string; stripeSubscriptionItemId: string;
+  unitPriceCents: number; includedQuantity: string; status: string;
+  createdAt: string; updatedAt: string;
+}
+interface BillingDryRun {
+  resource: string; total: number; included: number; billable: number;
+  billedCents: number; stripeUsageRecordId: string | null;
+  stripeSubscriptionItemId: string | null; error?: string;
+}
+interface BillingHistory {
+  id: number; clientId: number; period: string; resource: string;
+  totalQuantity: string; includedQuantity: string; billableQuantity: string;
+  unitPriceCents: number; billedAmountCents: number;
+  stripeUsageRecordId: string | null; reportedAt: string | null; createdAt: string;
+}
+interface BillingUsage {
+  period: string;
+  liveTotals: { resource: string; total: number }[];
+  dryRun: BillingDryRun[];
+  history: BillingHistory[];
+}
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const clientId = parseInt(id);
   const [client, setClient] = useState<Client | null>(null);
-  const [tab, setTab] = useState<'overview' | 'email' | 'settings' | 'team'>('overview');
+  const [tab, setTab] = useState<'overview' | 'email' | 'billing' | 'settings' | 'team'>('overview');
   const [lists, setLists] = useState<EmailList[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +99,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [memberForm, setMemberForm] = useState({ name: '', email: '', password: '' });
   const [memberSaving, setMemberSaving] = useState(false);
   const [memberError, setMemberError] = useState('');
+
+  // Billing: metered Stripe items + usage preview
+  const [billingLoaded, setBillingLoaded] = useState(false);
+  const [meteredItems, setMeteredItems] = useState<MeteredItem[]>([]);
+  const [billingUsage, setBillingUsage] = useState<BillingUsage | null>(null);
+  const [showMeteredForm, setShowMeteredForm] = useState(false);
+  const [meteredForm, setMeteredForm] = useState({
+    resource: 'hosting_bandwidth_gb',
+    unitPriceCents: '',
+    includedQuantity: '0',
+    stripeSubscriptionId: '',
+    stripeSubscriptionItemId: '',
+    stripePriceId: '',
+  });
+  const [meteredSaving, setMeteredSaving] = useState(false);
+  const [meteredError, setMeteredError] = useState('');
+  const [rollupRunning, setRollupRunning] = useState(false);
+  const [rollupMessage, setRollupMessage] = useState('');
 
   // Settings: profile edit
   const [settingsForm, setSettingsForm] = useState({ name: '', company: '', phone: '', website: '', notes: '', active: true });
@@ -132,6 +174,103 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       });
     }
   }, [tab, teamLoaded, clientId]);
+
+  // Billing: load metered items + usage preview when the tab opens
+  useEffect(() => {
+    if (tab !== 'billing' || billingLoaded) return;
+    let cancelled = false;
+    Promise.all([
+      fetch(`/api/admin/portal/clients/${clientId}/billing/metered-items`).then(r => r.json()),
+      fetch(`/api/admin/portal/clients/${clientId}/billing/usage`).then(r => r.json()),
+    ]).then(([items, usage]) => {
+      if (cancelled) return;
+      setMeteredItems(items.data ?? []);
+      setBillingUsage(usage.data ?? null);
+      setBillingLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [tab, billingLoaded, clientId]);
+
+  async function refreshBilling() {
+    const [items, usage] = await Promise.all([
+      fetch(`/api/admin/portal/clients/${clientId}/billing/metered-items`).then(r => r.json()),
+      fetch(`/api/admin/portal/clients/${clientId}/billing/usage`).then(r => r.json()),
+    ]);
+    setMeteredItems(items.data ?? []);
+    setBillingUsage(usage.data ?? null);
+  }
+
+  async function addMeteredItem(e: React.FormEvent) {
+    e.preventDefault();
+    setMeteredSaving(true);
+    setMeteredError('');
+    const unitPriceCents = parseInt(meteredForm.unitPriceCents, 10);
+    const includedQuantity = parseFloat(meteredForm.includedQuantity || '0');
+    if (!Number.isFinite(unitPriceCents) || unitPriceCents < 0) {
+      setMeteredError('unitPriceCents must be a non-negative integer');
+      setMeteredSaving(false);
+      return;
+    }
+    const body: Record<string, unknown> = {
+      resource: meteredForm.resource,
+      unitPriceCents,
+      includedQuantity,
+      stripeSubscriptionId: meteredForm.stripeSubscriptionId,
+    };
+    if (meteredForm.stripePriceId) body.stripePriceId = meteredForm.stripePriceId;
+    if (meteredForm.stripeSubscriptionItemId) body.stripeSubscriptionItemId = meteredForm.stripeSubscriptionItemId;
+    const res = await fetch(`/api/admin/portal/clients/${clientId}/billing/metered-items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    setMeteredSaving(false);
+    if (!data.success) {
+      setMeteredError(data.message ?? 'Failed');
+      return;
+    }
+    setShowMeteredForm(false);
+    setMeteredForm({
+      resource: 'hosting_bandwidth_gb', unitPriceCents: '', includedQuantity: '0',
+      stripeSubscriptionId: '', stripeSubscriptionItemId: '', stripePriceId: '',
+    });
+    await refreshBilling();
+  }
+
+  async function patchMeteredStatus(itemId: number, status: string) {
+    await fetch(`/api/admin/portal/clients/${clientId}/billing/metered-items/${itemId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    await refreshBilling();
+  }
+
+  async function deleteMeteredItemAdmin(itemId: number) {
+    if (!confirm('Remove this metered item? Stripe Subscription Item is left untouched.')) return;
+    await fetch(`/api/admin/portal/clients/${clientId}/billing/metered-items/${itemId}`, {
+      method: 'DELETE',
+    });
+    await refreshBilling();
+  }
+
+  async function runRollupNow(force: boolean) {
+    setRollupRunning(true);
+    setRollupMessage('');
+    const res = await fetch(`/api/admin/portal/clients/${clientId}/billing/usage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force, dryRun: !force }),
+    });
+    const data = await res.json();
+    setRollupRunning(false);
+    if (!data.success) {
+      setRollupMessage(data.message ?? 'Rollup failed');
+      return;
+    }
+    setRollupMessage(force
+      ? `Pushed ${data.data.result.length} resource(s) to Stripe`
+      : `Dry-run computed ${data.data.result.length} resource(s) — Stripe NOT touched`);
+    await refreshBilling();
+  }
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -336,7 +475,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Tabs */}
       <div className="border-b border-border flex gap-1">
-        {(['overview', 'email', 'settings', 'team'] as const).map(t => (
+        {(['overview', 'email', 'billing', 'settings', 'team'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
             {TAB_LABELS[t]}
@@ -361,6 +500,287 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <span className="text-sm text-foreground">{row.value}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Billing */}
+      {tab === 'billing' && (
+        <div className="space-y-6">
+          {!billingLoaded && (
+            <div className="text-sm text-muted-foreground">Loading billing…</div>
+          )}
+
+          {/* Live totals */}
+          <section className="bg-card border border-border rounded-lg">
+            <header className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Current period totals</h2>
+                <p className="text-xs text-muted-foreground">
+                  Period {billingUsage?.period ?? '—'} — raw observations from <code>usage_meter_events</code>.
+                </p>
+              </div>
+            </header>
+            {billingUsage && billingUsage.liveTotals.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">No usage observed for this period.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {(billingUsage?.liveTotals ?? []).map(t => (
+                  <li key={t.resource} className="flex items-center justify-between px-5 py-3 text-sm">
+                    <span className="font-mono text-xs text-muted-foreground">{t.resource}</span>
+                    <span className="font-medium text-foreground">{t.total.toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Stripe metered items */}
+          <section className="bg-card border border-border rounded-lg">
+            <header className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Stripe metered items</h2>
+                <p className="text-xs text-muted-foreground">Per-resource Subscription Items wired to this client.</p>
+              </div>
+              <button
+                onClick={() => setShowMeteredForm(v => !v)}
+                className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-md border border-border hover:bg-accent"
+              >
+                <span className="material-icons text-base">{showMeteredForm ? 'close' : 'add'}</span>
+                {showMeteredForm ? 'Cancel' : 'Add metered item'}
+              </button>
+            </header>
+            {showMeteredForm && (
+              <form onSubmit={addMeteredItem} className="px-5 py-4 border-b border-border space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="text-xs text-muted-foreground">
+                    Resource
+                    <select
+                      value={meteredForm.resource}
+                      onChange={e => setMeteredForm({ ...meteredForm, resource: e.target.value })}
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="hosting_bandwidth_gb">hosting_bandwidth_gb</option>
+                      <option value="hosting_invocations">hosting_invocations</option>
+                      <option value="email_send">email_send</option>
+                      <option value="ai_tokens">ai_tokens</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Unit price (cents)
+                    <input
+                      type="number" min={0}
+                      value={meteredForm.unitPriceCents}
+                      onChange={e => setMeteredForm({ ...meteredForm, unitPriceCents: e.target.value })}
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      required
+                    />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Included quantity
+                    <input
+                      type="number" min={0} step="any"
+                      value={meteredForm.includedQuantity}
+                      onChange={e => setMeteredForm({ ...meteredForm, includedQuantity: e.target.value })}
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Stripe Subscription ID
+                    <input
+                      value={meteredForm.stripeSubscriptionId}
+                      onChange={e => setMeteredForm({ ...meteredForm, stripeSubscriptionId: e.target.value })}
+                      placeholder="sub_..."
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+                      required
+                    />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Stripe Price ID (creates new sub item)
+                    <input
+                      value={meteredForm.stripePriceId}
+                      onChange={e => setMeteredForm({ ...meteredForm, stripePriceId: e.target.value })}
+                      placeholder="price_..."
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+                    />
+                  </label>
+                  <label className="text-xs text-muted-foreground">
+                    Or existing Stripe Subscription Item ID
+                    <input
+                      value={meteredForm.stripeSubscriptionItemId}
+                      onChange={e => setMeteredForm({ ...meteredForm, stripeSubscriptionItemId: e.target.value })}
+                      placeholder="si_..."
+                      className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+                    />
+                  </label>
+                </div>
+                {meteredError && <p className="text-xs text-red-500">{meteredError}</p>}
+                <div className="flex justify-end">
+                  <button
+                    type="submit" disabled={meteredSaving}
+                    className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                  >
+                    <span className="material-icons text-base">save</span>
+                    {meteredSaving ? 'Saving…' : 'Save metered item'}
+                  </button>
+                </div>
+              </form>
+            )}
+            {meteredItems.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">No metered items configured.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-2 font-medium">Resource</th>
+                    <th className="text-left px-5 py-2 font-medium">Stripe Item</th>
+                    <th className="text-right px-5 py-2 font-medium">Unit (¢)</th>
+                    <th className="text-right px-5 py-2 font-medium">Included</th>
+                    <th className="text-left px-5 py-2 font-medium">Status</th>
+                    <th className="px-5 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {meteredItems.map(it => (
+                    <tr key={it.id}>
+                      <td className="px-5 py-2 font-mono text-xs">{it.resource}</td>
+                      <td className="px-5 py-2 font-mono text-xs text-muted-foreground">{it.stripeSubscriptionItemId}</td>
+                      <td className="px-5 py-2 text-right">{it.unitPriceCents}</td>
+                      <td className="px-5 py-2 text-right">{parseFloat(it.includedQuantity).toLocaleString()}</td>
+                      <td className="px-5 py-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          it.status === 'active' ? 'bg-green-100 text-green-700'
+                            : it.status === 'paused' ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>{it.status}</span>
+                      </td>
+                      <td className="px-5 py-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {it.status === 'active' ? (
+                            <button onClick={() => patchMeteredStatus(it.id, 'paused')}
+                              className="p-1 text-muted-foreground hover:text-foreground" title="Pause">
+                              <span className="material-icons text-base">pause</span>
+                            </button>
+                          ) : (
+                            <button onClick={() => patchMeteredStatus(it.id, 'active')}
+                              className="p-1 text-muted-foreground hover:text-foreground" title="Resume">
+                              <span className="material-icons text-base">play_arrow</span>
+                            </button>
+                          )}
+                          <button onClick={() => deleteMeteredItemAdmin(it.id)}
+                            className="p-1 text-muted-foreground hover:text-red-500" title="Delete">
+                            <span className="material-icons text-base">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          {/* Dry-run preview + run rollup */}
+          <section className="bg-card border border-border rounded-lg">
+            <header className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Rollup preview (dry run)</h2>
+                <p className="text-xs text-muted-foreground">What would be pushed to Stripe right now.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => runRollupNow(false)}
+                  disabled={rollupRunning}
+                  className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-md border border-border hover:bg-accent disabled:opacity-50"
+                >
+                  <span className="material-icons text-base">refresh</span>
+                  {rollupRunning ? 'Running…' : 'Re-run dry run'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Push usage to Stripe NOW for this client? This is a real billing action.')) {
+                      runRollupNow(true);
+                    }
+                  }}
+                  disabled={rollupRunning}
+                  className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+                >
+                  <span className="material-icons text-base">cloud_upload</span>
+                  Run rollup now
+                </button>
+              </div>
+            </header>
+            {rollupMessage && (
+              <div className="px-5 py-2 text-xs text-muted-foreground border-b border-border">{rollupMessage}</div>
+            )}
+            {(billingUsage?.dryRun ?? []).length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No active metered items — nothing to roll up.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-2 font-medium">Resource</th>
+                    <th className="text-right px-5 py-2 font-medium">Total</th>
+                    <th className="text-right px-5 py-2 font-medium">Included</th>
+                    <th className="text-right px-5 py-2 font-medium">Billable</th>
+                    <th className="text-right px-5 py-2 font-medium">Billed (¢)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(billingUsage?.dryRun ?? []).map(r => (
+                    <tr key={r.resource}>
+                      <td className="px-5 py-2 font-mono text-xs">{r.resource}</td>
+                      <td className="px-5 py-2 text-right">{r.total.toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{r.included.toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{r.billable.toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{r.billedCents.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          {/* History */}
+          <section className="bg-card border border-border rounded-lg">
+            <header className="px-5 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Recent rollups</h2>
+              <p className="text-xs text-muted-foreground">Latest <code>usage_billing_periods</code> rows for this client.</p>
+            </header>
+            {(billingUsage?.history ?? []).length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">No rollup history yet.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-5 py-2 font-medium">Period</th>
+                    <th className="text-left px-5 py-2 font-medium">Resource</th>
+                    <th className="text-right px-5 py-2 font-medium">Billable</th>
+                    <th className="text-right px-5 py-2 font-medium">Billed (¢)</th>
+                    <th className="text-left px-5 py-2 font-medium">Stripe record</th>
+                    <th className="text-left px-5 py-2 font-medium">Reported at</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(billingUsage?.history ?? []).map(h => (
+                    <tr key={h.id}>
+                      <td className="px-5 py-2 font-mono text-xs">{h.period}</td>
+                      <td className="px-5 py-2 font-mono text-xs">{h.resource}</td>
+                      <td className="px-5 py-2 text-right">{parseFloat(h.billableQuantity).toLocaleString()}</td>
+                      <td className="px-5 py-2 text-right">{h.billedAmountCents.toLocaleString()}</td>
+                      <td className="px-5 py-2 font-mono text-xs text-muted-foreground">
+                        {h.stripeUsageRecordId ?? <span className="text-red-500">—</span>}
+                      </td>
+                      <td className="px-5 py-2 text-xs text-muted-foreground">
+                        {h.reportedAt ? new Date(h.reportedAt).toLocaleString() : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
         </div>
       )}
 

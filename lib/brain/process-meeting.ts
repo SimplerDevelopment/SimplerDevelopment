@@ -91,7 +91,7 @@ export async function processBrainMeeting(args: {
   // independent and best-effort. Failures are recorded inline rather than
   // surfaced as exceptions.
   const [attachmentResult, linkResult] = await Promise.all([
-    hasAttachments ? analyzeMeetingAttachments(attachments) : Promise.resolve(null),
+    hasAttachments ? analyzeMeetingAttachments(attachments, { clientId }) : Promise.resolve(null),
     hasTranscript
       ? extractAndFetchLinks(meeting.transcript!, existingLinks).catch(() => existingLinks)
       : Promise.resolve(existingLinks),

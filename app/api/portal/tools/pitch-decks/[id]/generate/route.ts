@@ -11,8 +11,9 @@ import { getBrandingByClientId, getBrandingByProfileId, brandingToPitchDeckTheme
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { brandingMessaging } from '@/lib/db/schema';
 import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 const GENERATE_SYSTEM = `You are an expert pitch deck creator. You produce professional, compelling pitch decks using a block-based content system.
 
@@ -121,8 +122,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { prompt, websiteUrl } = await req.json();
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
 
-    // Check AI credits (skip in development)
-    if (process.env.NODE_ENV === 'production') {
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
+
+    // Check AI credits (skip in development; skip when BYOK — client pays directly)
+    if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
       const canProceed = await hasCredits(client.id, 5000);
       if (!canProceed) {
         const bal = await getBalance(client.id);
@@ -333,11 +341,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       outputTokens: totalOutput,
     });
 
-    // Deduct AI credits
-    if (process.env.NODE_ENV === 'production') {
-      const totalTokens = totalInput + totalOutput;
+    // Deduct AI credits — only for platform-keyed calls. BYOK clients pay
+    // their provider directly so internal credit deduction is skipped.
+    const totalTokens = totalInput + totalOutput;
+    if (process.env.NODE_ENV === 'production' && resolved.source === 'platform') {
       await deductCredits(client.id, totalTokens, 'pitch-decks', String(deckId), `Pitch deck: ${deck.title}`);
     }
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {

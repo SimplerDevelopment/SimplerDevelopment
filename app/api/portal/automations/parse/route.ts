@@ -4,6 +4,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { hasCredits, deductCredits } from '@/lib/ai-credits';
 import { parseAutomationDescription } from '@/lib/automation';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 // POST /api/portal/automations/parse — NLP parse a description into a rule
 export async function POST(req: Request) {
@@ -17,13 +18,9 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
-  // Check AI credits
-  const canUse = await hasCredits(client.id, 500);
-  if (!canUse) {
-    return NextResponse.json({
-      success: false,
-      error: 'Insufficient AI credits. Purchase more or enable pay-as-you-go.',
-    }, { status: 402 });
+  const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+  if (!gate.allowed) {
+    return NextResponse.json({ success: false, error: gate.message, reason: gate.reason }, { status: 402 });
   }
 
   const { description } = await req.json();
@@ -32,13 +29,22 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { parsed, inputTokens, outputTokens } = await parseAutomationDescription(description);
+    const { parsed, inputTokens, outputTokens, source } = await parseAutomationDescription(description, { clientId: client.id });
 
-    // Deduct AI credits
     const totalTokens = inputTokens + outputTokens;
-    await deductCredits(client.id, totalTokens, 'automation_parse', 'nlp-parse', `NLP automation parse: "${description.slice(0, 50)}..."`);
+    if (source === 'platform') {
+      // Only check / deduct credits for platform-keyed calls.
+      const canUse = await hasCredits(client.id, 500);
+      if (!canUse) {
+        return NextResponse.json({
+          success: false,
+          error: 'Insufficient AI credits. Purchase more, enable pay-as-you-go, or add a BYOK key in Settings → API Keys.',
+        }, { status: 402 });
+      }
+      await deductCredits(client.id, totalTokens, 'automation_parse', 'nlp-parse', `NLP automation parse: "${description.slice(0, 50)}..."`);
+    }
 
-    return NextResponse.json({ success: true, parsed, tokensUsed: totalTokens });
+    return NextResponse.json({ success: true, parsed, tokensUsed: totalTokens, keySource: source });
   } catch (err) {
     console.error('[automation/parse] Error:', err);
     return NextResponse.json({

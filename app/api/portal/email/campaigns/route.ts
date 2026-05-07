@@ -57,12 +57,18 @@ export async function POST(req: Request) {
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { name, subject, previewText, fromName, fromEmail, replyTo, listId, htmlContent, blockContent } = body;
+  const {
+    name, subject, previewText, fromName, fromEmail, replyTo, listId,
+    htmlContent, blockContent, contentBlocks, useBlockEditor,
+  } = body;
 
-  // If blockContent provided, render to HTML; otherwise htmlContent is required
+  // If blockContent or contentBlocks provided, render to HTML; otherwise htmlContent is required
   let finalHtml = htmlContent?.trim() || '';
   if (blockContent?.blocks) {
     finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
+  if (Array.isArray(contentBlocks)) {
+    finalHtml = renderBlocksToEmailHtml(contentBlocks);
   }
 
   if (!name?.trim() || !subject?.trim() || !fromName?.trim() || !fromEmail?.trim() || !listId || !finalHtml) {
@@ -91,6 +97,8 @@ export async function POST(req: Request) {
       clientId: client.id,
       htmlContent: finalHtml,
       blockContent: blockContent ?? null,
+      contentBlocks: Array.isArray(contentBlocks) ? contentBlocks : null,
+      useBlockEditor: typeof useBlockEditor === 'boolean' ? useBlockEditor : false,
     })
     .returning();
 

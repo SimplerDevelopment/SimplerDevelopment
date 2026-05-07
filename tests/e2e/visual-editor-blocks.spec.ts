@@ -1723,4 +1723,56 @@ test.describe('Visual Editor — Block Type Editing @visual-editor @blocks', () 
     expect(updatedContent.blocks[0].elementStyles.title.color).toBe('#dc2626');
     expect(updatedContent.blocks[0].chartType).toBe('donut');
   });
+
+  // ── Popup Block ────────────────────────────────────────────────────────────
+
+  test('popup block: create, verify, update, verify', async ({ clientApi, unauthApi }) => {
+    const slug = `ve-popup-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'p1',
+        type: 'popup',
+        order: 0,
+        trigger: 'time-delay',
+        delaySeconds: 10,
+        frequency: 'once-per-session',
+        headline: 'Welcome aboard',
+        body: '<p>Original popup body</p>',
+        ctaLabel: 'Get started',
+        ctaUrl: '/go/welcome',
+        dismissable: true,
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    expect(content.blocks[0].type).toBe('popup');
+    expect(content.blocks[0].trigger).toBe('time-delay');
+    expect(content.blocks[0].delaySeconds).toBe(10);
+    expect(content.blocks[0].headline).toBe('Welcome aboard');
+    expect(content.blocks[0].ctaUrl).toBe('/go/welcome');
+
+    await updatePost(clientApi, post.id, [
+      {
+        id: 'p1',
+        type: 'popup',
+        order: 0,
+        trigger: 'exit-intent',
+        frequency: 'once-per-week',
+        headline: 'Don\'t leave yet',
+        body: '<p>Updated body</p>',
+        ctaLabel: 'Stay',
+        ctaUrl: 'https://example.com/stay',
+        dismissable: false,
+      },
+    ]);
+
+    const updated = await getPublicPost(unauthApi, slug);
+    const updatedContent = JSON.parse(updated.data.data.content);
+    expect(updatedContent.blocks[0].trigger).toBe('exit-intent');
+    expect(updatedContent.blocks[0].frequency).toBe('once-per-week');
+    expect(updatedContent.blocks[0].headline).toBe('Don\'t leave yet');
+    expect(updatedContent.blocks[0].dismissable).toBe(false);
+  });
 });

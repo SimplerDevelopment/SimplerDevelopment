@@ -28,6 +28,8 @@ interface Campaign {
   listName: string | null;
   htmlContent: string;
   blockContent: BlockEditorData | null;
+  contentBlocks: Block[] | null;
+  useBlockEditor: boolean;
   status: string;
   scheduledAt: string | null;
   sentAt: string | null;
@@ -82,6 +84,8 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/portal/email/campaigns/${id}`)
@@ -102,7 +106,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       .catch(() => {});
   }, []);
 
-  const hasBlockContent = !!campaign?.blockContent?.blocks;
+  const hasBlockContent = !!campaign?.blockContent?.blocks || !!(campaign?.contentBlocks && campaign.contentBlocks.length > 0);
 
   // ── Yjs binding for the blocks variant ───────────────────────────────
   // Only attach when (a) the campaign uses blockContent (not htmlContent),
@@ -153,7 +157,9 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   function startEdit() {
     if (!campaign) return;
     setEditForm({ subject: campaign.subject, previewText: campaign.previewText ?? '', htmlContent: campaign.htmlContent });
-    if (campaign.blockContent?.blocks) {
+    if (campaign.contentBlocks && campaign.contentBlocks.length > 0) {
+      setEditBlocks(campaign.contentBlocks);
+    } else if (campaign.blockContent?.blocks) {
       setEditBlocks(campaign.blockContent.blocks);
     }
     setEditing(true);
@@ -168,6 +174,10 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     const payload: Record<string, unknown> = { ...editForm };
     if (hasBlockContent) {
       payload.blockContent = { blocks: editBlocks, version: '1' };
+      // Also store as the new flat contentBlocks tree so the cached
+      // block-builder send path picks it up. useBlockEditor stays whatever
+      // the user opted into; default keeps existing template flow intact.
+      payload.contentBlocks = editBlocks;
     }
 
     const res = await fetch(`/api/portal/email/campaigns/${id}`, {
@@ -178,8 +188,65 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
     const data = await res.json();
     setEditSaving(false);
     if (!data.success) { setEditError(data.message ?? 'Save failed'); return; }
-    setCampaign(prev => prev ? { ...prev, ...editForm, blockContent: hasBlockContent ? { blocks: editBlocks, version: '1' } : prev.blockContent } : prev);
+    setCampaign(prev => prev ? {
+      ...prev,
+      ...editForm,
+      blockContent: hasBlockContent ? { blocks: editBlocks, version: '1' } : prev.blockContent,
+      contentBlocks: hasBlockContent ? editBlocks : prev.contentBlocks,
+    } : prev);
     setEditing(false);
+  }
+
+  async function toggleUseBlockEditor() {
+    if (!campaign) return;
+    const next = !campaign.useBlockEditor;
+    const res = await fetch(`/api/portal/email/campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ useBlockEditor: next }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setCampaign(prev => prev ? { ...prev, useBlockEditor: next } : prev);
+    }
+  }
+
+  async function sendTestEmail() {
+    if (!campaign) return;
+    setSendingTest(true);
+    setTestResult(null);
+    const blocks = hasBlockContent && editBlocks.length > 0
+      ? editBlocks
+      : campaign.contentBlocks ?? campaign.blockContent?.blocks ?? [];
+    if (!blocks || blocks.length === 0) {
+      setTestResult('No blocks to render');
+      setSendingTest(false);
+      return;
+    }
+    const res = await fetch('/api/portal/email/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaignId: campaign.id,
+        subject: editing ? editForm.subject : campaign.subject,
+        preheader: editing ? editForm.previewText : campaign.previewText,
+        blocks,
+        sendTest: true,
+      }),
+    });
+    const data = await res.json();
+    setSendingTest(false);
+    if (!data.success) {
+      setTestResult(data.message ?? 'Failed to send test');
+      return;
+    }
+    if (data.data?.testSent?.ok) {
+      setTestResult(`Test sent to ${data.data.testSent.to}`);
+    } else if (data.data?.testSent) {
+      setTestResult(`Test failed to send to ${data.data.testSent.to}`);
+    } else {
+      setTestResult('Test rendered (no recipient)');
+    }
   }
 
   async function sendCampaign() {
@@ -230,6 +297,17 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
               Edit
             </button>
           )}
+          {campaign.status === 'draft' && (campaign.useBlockEditor || hasBlockContent) && (
+            <button
+              onClick={sendTestEmail}
+              disabled={sendingTest}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              title="Send the rendered email to your own address"
+            >
+              <span className="material-icons text-base">science</span>
+              {sendingTest ? 'Sending…' : 'Send test'}
+            </button>
+          )}
           {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
             <button onClick={sendCampaign} disabled={sending}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
@@ -243,6 +321,15 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       {sendResult && (
         <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-lg">
           Sent successfully: {sendResult.sent} delivered{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ''}.
+        </div>
+      )}
+
+      {testResult && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{testResult}</span>
+          <button onClick={() => setTestResult(null)} className="text-blue-700 hover:text-blue-900">
+            <span className="material-icons text-base">close</span>
+          </button>
         </div>
       )}
 
@@ -291,6 +378,24 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
               <span className="text-sm text-foreground">{row.value}</span>
             </div>
           ))}
+          {campaign.status === 'draft' && (
+            <div className="flex px-5 py-3 gap-4 items-center">
+              <span className="text-sm text-muted-foreground w-28 shrink-0">Editor</span>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-sm text-foreground">
+                  {campaign.useBlockEditor ? 'Block builder (cached MJML-style render)' : 'Template / HTML'}
+                </span>
+                <button
+                  onClick={toggleUseBlockEditor}
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-xs hover:bg-accent"
+                  title="Toggle between the legacy template flow and the new block builder"
+                >
+                  <span className="material-icons text-sm">swap_horiz</span>
+                  Switch to {campaign.useBlockEditor ? 'template' : 'block builder'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

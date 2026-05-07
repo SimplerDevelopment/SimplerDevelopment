@@ -44,6 +44,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       listId: emailCampaigns.listId,
       htmlContent: emailCampaigns.htmlContent,
       blockContent: emailCampaigns.blockContent,
+      contentBlocks: emailCampaigns.contentBlocks,
+      useBlockEditor: emailCampaigns.useBlockEditor,
       status: emailCampaigns.status,
       scheduledAt: emailCampaigns.scheduledAt,
       sentAt: emailCampaigns.sentAt,
@@ -89,12 +91,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!existing) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
   if (existing.status === 'sent') return NextResponse.json({ success: false, message: 'Cannot edit a sent campaign' }, { status: 400 });
 
-  const { name, subject, previewText, fromName, fromEmail, replyTo, htmlContent, blockContent, scheduledAt } = await req.json();
+  const {
+    name,
+    subject,
+    previewText,
+    fromName,
+    fromEmail,
+    replyTo,
+    htmlContent,
+    blockContent,
+    contentBlocks,
+    useBlockEditor,
+    scheduledAt,
+  } = await req.json();
 
   // If blockContent provided, render to HTML
   let finalHtml = htmlContent?.trim() || undefined;
   if (blockContent?.blocks) {
     finalHtml = renderBlocksToEmailHtml(blockContent.blocks);
+  }
+  // If the new contentBlocks (Block[]) array is provided, also render it
+  // into htmlContent so legacy consumers (preview rendering, sites that
+  // don't yet read useBlockEditor) keep working. The send path consults
+  // useBlockEditor + contentBlocks first, and falls back to htmlContent.
+  if (Array.isArray(contentBlocks)) {
+    finalHtml = renderBlocksToEmailHtml(contentBlocks);
   }
 
   const [updated] = await db
@@ -108,6 +129,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       replyTo: replyTo?.trim() || null,
       ...(finalHtml && { htmlContent: finalHtml }),
       ...(blockContent !== undefined && { blockContent }),
+      ...(contentBlocks !== undefined && { contentBlocks }),
+      ...(typeof useBlockEditor === 'boolean' && { useBlockEditor }),
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       status: scheduledAt ? 'scheduled' : 'draft',
       updatedAt: new Date(),
