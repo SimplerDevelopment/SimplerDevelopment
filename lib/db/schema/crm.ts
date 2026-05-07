@@ -214,6 +214,13 @@ export interface ContractClause {
   required: boolean; // must be explicitly accepted
 }
 
+export interface ContractEsignWebhookEvent {
+  eventType: string;
+  receivedAt: string; // ISO timestamp
+  signatureRequestId?: string | null;
+  signatureId?: string | null;
+}
+
 export const crmContracts = pgTable('crm_contracts', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -241,8 +248,29 @@ export const crmContracts = pgTable('crm_contracts', {
   voidedAt: timestamp('voided_at'),
   voidReason: text('void_reason'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  // E-signature provider integration (DropboxSign, future-proofed for swaps)
+  esignProvider: varchar('esign_provider', { length: 20 }), // 'dropboxsign' | null
+  esignProviderRequestId: varchar('esign_provider_request_id', { length: 255 }),
+  esignSignerEmail: varchar('esign_signer_email', { length: 255 }),
+  esignSignerName: varchar('esign_signer_name', { length: 255 }),
+  esignStatus: varchar('esign_status', { length: 20 }).default('not_sent'), // 'not_sent' | 'sent' | 'viewed' | 'signed' | 'declined' | 'canceled'
+  esignSentAt: timestamp('esign_sent_at'),
+  esignSignedAt: timestamp('esign_signed_at'),
+  esignDeclinedAt: timestamp('esign_declined_at'),
+  esignAuditFileUrl: text('esign_audit_file_url'), // link to the signed PDF / audit trail
+  esignWebhookEvents: json('esign_webhook_events').$type<ContractEsignWebhookEvent[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const crmContractSigningEvents = pgTable('crm_contract_signing_events', {
+  id: serial('id').primaryKey(),
+  contractId: integer('contract_id').notNull().references(() => crmContracts.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  kind: varchar('kind', { length: 50 }).notNull(), // 'sent' | 'opened' | 'viewed' | 'signed' | 'declined' | 'canceled' | 'webhook'
+  actorEmail: varchar('actor_email', { length: 255 }),
+  payload: json('payload').$type<Record<string, unknown>>().default({}),
+  occurredAt: timestamp('occurred_at').defaultNow().notNull(),
 });
 
 export const crmContractSigners = pgTable('crm_contract_signers', {
