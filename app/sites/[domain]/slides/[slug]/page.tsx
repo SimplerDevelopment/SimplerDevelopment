@@ -5,7 +5,7 @@ import { surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
-import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId } from '@/lib/branding';
+import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrl } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -99,8 +99,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (deck.noIndex) {
     metadata.robots = { index: false, follow: false };
   }
-  if (branding?.faviconUrl) {
-    metadata.icons = { icon: branding.faviconUrl };
+  const faviconUrl = resolveFaviconUrl(branding);
+  if (faviconUrl) {
+    metadata.icons = { icon: faviconUrl };
   }
 
   return metadata;
