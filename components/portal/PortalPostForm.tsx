@@ -170,6 +170,32 @@ export default function PortalPostForm({
         >
           {loading ? 'Saving...' : mode === 'create' ? 'Create Page' : 'Save Changes'}
         </button>
+        {mode === 'edit' && post?.id ? (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/portal/posts/${post.id}/experiments`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: `A/B test — ${formData.title || 'Untitled'}` }),
+                });
+                const json = await res.json();
+                if (json.success && json.data?.id) {
+                  router.push(`/portal/experiments/${json.data.id}`);
+                } else {
+                  alert(json.error || 'Failed to create experiment');
+                }
+              } catch (err) {
+                alert(err instanceof Error ? err.message : 'Failed to create experiment');
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent inline-flex items-center gap-1"
+          >
+            <span className="material-icons text-base">science</span>
+            Start A/B test
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => router.push(`/portal/websites/${siteId}`)}
