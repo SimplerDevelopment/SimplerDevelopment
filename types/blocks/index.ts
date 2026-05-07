@@ -95,6 +95,7 @@ import type {
   SocialLinksBlock,
   EmailHeaderBlock,
   EmailFooterBlock,
+  PopupBlock,
 } from './components';
 import type {
   BlogPostsBlock,
@@ -170,6 +171,7 @@ export type Block =
   | DeckJumpToBlock
   | SurveyInputBlock
   | HtmlEmbedBlock
+  | PopupBlock
   | PostContentBlock;
 
 export type BlockType = Block['type'];

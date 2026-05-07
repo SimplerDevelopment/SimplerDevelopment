@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-05-06T02:00:43.611Z",
-  "totalBlocks": 47,
+  "generatedAt": "2026-05-07T03:06:28.428Z",
+  "totalBlocks": 48,
   "blocksWithMissingFields": 1,
   "blocksWithDeadElementKeys": 0,
   "blocksWithoutE2E": 0,
   "totals": {
     "missingFieldsFromBoth": 6,
     "missingFieldsFromPanelsOnly": 6,
-    "missingFieldsFromContentEditorOnly": 4,
+    "missingFieldsFromContentEditorOnly": 12,
     "deadElementKeys": 0
   },
   "reports": [
@@ -1562,21 +1562,30 @@
         "title",
         "description",
         "showPageTitle",
-        "height"
+        "showDescription",
+        "showLogo",
+        "height",
+        "styleOverrides"
       ],
       "fieldsInPanels": [
         "slug",
         "title",
         "description",
         "showPageTitle",
-        "height"
+        "showDescription",
+        "showLogo",
+        "height",
+        "styleOverrides"
       ],
       "fieldsInContentEditor": [
         "slug",
         "title",
         "description",
         "showPageTitle",
-        "height"
+        "showDescription",
+        "showLogo",
+        "height",
+        "styleOverrides"
       ],
       "fieldsMissingFromPanels": [],
       "fieldsMissingFromContentEditor": [],
@@ -2116,6 +2125,51 @@
       "fieldsMissingFromPanels": [],
       "fieldsMissingFromContentEditor": [
         "html"
+      ],
+      "fieldsMissingFromBoth": [],
+      "elementDefinitionKeys": [],
+      "elementKeysWithRendererCallSite": [],
+      "deadElementKeys": [],
+      "hasE2E": true,
+      "rendererExists": true
+    },
+    {
+      "type": "popup",
+      "interfaceFields": [
+        "trigger",
+        "delaySeconds",
+        "scrollPercent",
+        "frequency",
+        "headline",
+        "body",
+        "ctaLabel",
+        "ctaUrl",
+        "dismissable"
+      ],
+      "fieldsInPanels": [
+        "trigger",
+        "delaySeconds",
+        "scrollPercent",
+        "frequency",
+        "headline",
+        "body",
+        "ctaLabel",
+        "ctaUrl",
+        "dismissable"
+      ],
+      "fieldsInContentEditor": [
+        "ctaUrl"
+      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [
+        "trigger",
+        "delaySeconds",
+        "scrollPercent",
+        "frequency",
+        "headline",
+        "body",
+        "ctaLabel",
+        "dismissable"
       ],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],

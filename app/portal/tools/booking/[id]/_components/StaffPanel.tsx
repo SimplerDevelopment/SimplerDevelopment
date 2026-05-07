@@ -18,6 +18,14 @@ interface StaffPanelProps {
   staffLoading: boolean;
   pageId: string;
   refreshMembers: () => Promise<void>;
+  bookingType: 'individual' | 'group';
+  setBookingType: (v: 'individual' | 'group') => void;
+  groupCapacity: number | null;
+  setGroupCapacity: (v: number | null) => void;
+  assignmentMode: 'fixed' | 'round_robin' | 'fewest_upcoming';
+  setAssignmentMode: (v: 'fixed' | 'round_robin' | 'fewest_upcoming') => void;
+  roundRobinPool: { userId: number; weight: number }[];
+  setRoundRobinPool: React.Dispatch<React.SetStateAction<{ userId: number; weight: number }[]>>;
 }
 
 export function StaffPanel({
@@ -28,6 +36,14 @@ export function StaffPanel({
   staffLoading,
   pageId,
   refreshMembers,
+  bookingType,
+  setBookingType,
+  groupCapacity,
+  setGroupCapacity,
+  assignmentMode,
+  setAssignmentMode,
+  roundRobinPool,
+  setRoundRobinPool,
 }: StaffPanelProps) {
   const [addMemberUserId, setAddMemberUserId] = useState<number | ''>('');
   const [addMemberName, setAddMemberName] = useState('');
@@ -76,16 +92,165 @@ export function StaffPanel({
     await refreshMembers();
   }
 
+  const inRoundRobinPool = (userId: number) =>
+    roundRobinPool.some((p) => p.userId === userId);
+
+  function toggleRoundRobinPool(userId: number) {
+    setRoundRobinPool((prev) => {
+      if (prev.some((p) => p.userId === userId)) {
+        return prev.filter((p) => p.userId !== userId);
+      }
+      return [...prev, { userId, weight: 1 }];
+    });
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-5 space-y-6">
-      {/* Staff Selection Toggle */}
+      {/* Booking type — individual vs group/class */}
       <div>
+        <h3 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+          <span className="material-icons text-lg">event_seat</span>
+          Booking Type
+        </h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Choose how this booking page handles capacity. Individual bookings give the
+          slot to a single guest. Group / class bookings let multiple attendees share
+          the slot up to a fixed capacity.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <label
+            className={`flex cursor-pointer items-start gap-3 p-3 rounded-lg border transition-colors ${
+              bookingType === 'individual'
+                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                : 'border-border hover:border-primary/50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="bookingType"
+              value="individual"
+              checked={bookingType === 'individual'}
+              onChange={() => setBookingType('individual')}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-sm font-medium text-foreground">Individual</span>
+              <span className="block text-xs text-muted-foreground">
+                One booking per slot (1:1 appointment).
+              </span>
+            </span>
+          </label>
+          <label
+            className={`flex cursor-pointer items-start gap-3 p-3 rounded-lg border transition-colors ${
+              bookingType === 'group'
+                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                : 'border-border hover:border-primary/50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="bookingType"
+              value="group"
+              checked={bookingType === 'group'}
+              onChange={() => setBookingType('group')}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-sm font-medium text-foreground">Group / Class</span>
+              <span className="block text-xs text-muted-foreground">
+                Multiple attendees per slot (e.g. yoga class).
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {bookingType === 'group' && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Group Capacity
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={groupCapacity ?? ''}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setGroupCapacity(Number.isFinite(v) && v > 0 ? v : null);
+              }}
+              placeholder="e.g. 8"
+              className="w-32 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Maximum number of attendees that can register for a single time slot.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Assignment mode */}
+      <div className="border-t border-border pt-5">
+        <h3 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+          <span className="material-icons text-lg">shuffle</span>
+          Assignment Mode
+        </h3>
+        <p className="text-xs text-muted-foreground mb-3">
+          Decide how bookings are distributed across staff. Customer-selected staff
+          (when enabled below) always overrides this auto-assignment.
+        </p>
+        <select
+          value={assignmentMode}
+          onChange={(e) =>
+            setAssignmentMode(e.target.value as 'fixed' | 'round_robin' | 'fewest_upcoming')
+          }
+          className="w-full sm:w-auto px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          <option value="fixed">Fixed (page owner / first member)</option>
+          <option value="round_robin">Round-robin (fewest in next 7 days)</option>
+          <option value="fewest_upcoming">Fewest upcoming (load-balance)</option>
+        </select>
+
+        {assignmentMode === 'round_robin' && (
+          <div className="mt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Round-robin pool — staff eligible for auto-assignment
+            </p>
+            {pageMembers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Add staff members below to populate the round-robin pool.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {pageMembers.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={inRoundRobinPool(m.userId)}
+                      onChange={() => toggleRoundRobinPool(m.userId)}
+                    />
+                    <span>{m.displayName || m.userName}</span>
+                    <span className="text-xs text-muted-foreground">{m.userEmail}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Leave empty to round-robin across all active members of this page.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Staff Selection Toggle */}
+      <div className="border-t border-border pt-5">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-foreground">Allow Customer Staff Selection</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               When enabled, customers can choose a specific staff member when booking. When
-              disabled, bookings are auto-assigned using round-robin.
+              disabled, bookings are auto-assigned using the mode above.
             </p>
           </div>
           <button
