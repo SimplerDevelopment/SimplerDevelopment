@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/client-sites';
-import { getBrandingByWebsiteId } from '@/lib/branding';
+import { getBrandingByWebsiteId, resolveFaviconUrl } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteNavClient } from './SiteNavClient';
@@ -35,8 +35,9 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     description: site.description || undefined,
   };
 
-  if (branding.faviconUrl) {
-    metadata.icons = { icon: branding.faviconUrl };
+  const faviconUrl = resolveFaviconUrl(branding);
+  if (faviconUrl) {
+    metadata.icons = { icon: faviconUrl };
   }
 
   if (branding.ogImageUrl) {
