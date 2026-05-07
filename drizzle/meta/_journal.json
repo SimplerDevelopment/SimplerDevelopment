@@ -57,6 +57,20 @@
       "when": 1778091720000,
       "tag": "0073_ticket_sla_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778349600000,
+      "tag": "0074_brain_trial_until",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778349700000,
+      "tag": "0075_notification_preferences",
+      "breakpoints": true
     }
   ]
 }

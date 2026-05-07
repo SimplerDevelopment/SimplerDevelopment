@@ -102,10 +102,14 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'GoogleWorkspaceClientConnection',
   'GoogleWorkspaceTenantCredentials',
   'GoogleWorkspaceUserConnection',
+  'NOTIFICATION_DELIVERIES',
+  'NOTIFICATION_TYPES',
   'NewDocumentComment',
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
+  'NotificationDelivery',
+  'NotificationType',
   'PitchDeckDecisionCover',
   'PitchDeckDecisionOption',
   'PitchDeckSlide',
@@ -229,6 +233,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'mcpPendingChanges',
   'media',
   'mediaVersions',
+  'notificationPreferences',
   'oauthAccessTokens',
   'oauthAuthorizationCodes',
   'oauthClients',
@@ -405,6 +410,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   mcpPendingChanges: 'mcp_pending_changes',
   media: 'media',
   mediaVersions: 'media_versions',
+  notificationPreferences: 'notification_preferences',
   oauthAccessTokens: 'oauth_access_tokens',
   oauthAuthorizationCodes: 'oauth_authorization_codes',
   oauthClients: 'oauth_clients',
@@ -479,7 +485,7 @@ describe('lib/db/schema export parity', () => {
     expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
   });
 
-  it('exports the recorded number of names (228)', () => {
+  it('exports the recorded number of names (233)', () => {
     expect(collectSchemaExportNames()).toHaveLength(EXPECTED_EXPORTS.length);
   });
 
@@ -505,13 +511,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (169)', () => {
+  it('reports the recorded number of tables (170)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(169);
+    expect(count).toBe(170);
   });
 });

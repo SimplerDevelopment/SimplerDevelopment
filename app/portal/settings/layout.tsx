@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const tabs = [
   { href: '/portal/settings/profile', label: 'Profile', icon: 'person' },
+  { href: '/portal/settings/notifications', label: 'Notifications', icon: 'notifications' },
   { href: '/portal/settings/billing', label: 'Billing', icon: 'payments' },
   { href: '/portal/settings/team', label: 'Team', icon: 'group' },
   { href: '/portal/settings/ai', label: 'AI Assistant', icon: 'smart_toy' },
