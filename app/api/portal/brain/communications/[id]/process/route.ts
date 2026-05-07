@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { getMeeting } from '@/lib/brain/meetings';
 import { processBrainMeeting } from '@/lib/brain/process-meeting';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const meetingId = parseInt(id, 10);

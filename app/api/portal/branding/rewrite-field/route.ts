@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +18,13 @@ export async function POST(req: Request) {
     if (!fieldName || !prompt?.trim()) {
       return NextResponse.json({ success: false, message: 'Field name and prompt are required' }, { status: 400 });
     }
+
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     const system = `You are an expert brand strategist and copywriter. You will rewrite or generate content for a specific brand messaging field.
 
@@ -45,6 +53,9 @@ Guidelines:
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('').trim();
+
+    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     return NextResponse.json({ success: true, data: text });
   } catch (err) {

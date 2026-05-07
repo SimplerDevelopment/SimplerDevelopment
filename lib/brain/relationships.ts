@@ -413,7 +413,7 @@ export async function suggestCrmTargets(clientId: number, query: string, limit =
   const dealCompanyMap = new Map<number, string>();
   if (dealCompanyIds.length > 0) {
     const cos2 = await db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-      .where(inArray(crmCompanies.id, dealCompanyIds));
+      .where(and(inArray(crmCompanies.id, dealCompanyIds), eq(crmCompanies.clientId, clientId)));
     for (const c of cos2) dealCompanyMap.set(c.id, c.name);
   }
 

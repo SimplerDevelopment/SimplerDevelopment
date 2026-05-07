@@ -13,6 +13,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createHmac } from 'crypto';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
 
 const ATTACHMENT_WORKER_URL = process.env.BRAIN_ATTACHMENT_WORKER_URL
   || 'https://sd-email-inbound.lingering-bush-dcd7.workers.dev';
@@ -21,8 +24,6 @@ const SIGNED_URL_TTL_SECONDS = 120;
 const MAX_BYTES = 5 * 1024 * 1024; // Claude's per-file input cap is ~5MB
 
 const ANALYZER_MODEL = 'claude-haiku-4-5-20251001';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface AttachmentLike {
   key: string;
@@ -56,7 +57,14 @@ function signedUrl(key: string): string {
 }
 
 async function fetchBytes(url: string): Promise<Buffer> {
-  const res = await fetch(url);
+  // Defense-in-depth: ATTACHMENT_WORKER_URL is normally a fixed CF Worker URL,
+  // but if the env var is misconfigured or someone edits this code to accept a
+  // user URL, assertSafeUrl rejects private/loopback/metadata addresses.
+  await assertSafeUrl(url);
+  const res = await fetch(url, { redirect: 'manual' });
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error('Refusing to follow redirects on attachment fetch (SSRF guard).');
+  }
   if (!res.ok) throw new Error(`Worker returned ${res.status} for attachment fetch`);
   const buf = Buffer.from(await res.arrayBuffer());
   return buf;
@@ -65,8 +73,11 @@ async function fetchBytes(url: string): Promise<Buffer> {
 /**
  * Analyze a single attachment. Returns null for unsupported types so callers
  * can mark the attachment as "skipped" rather than failing.
+ *
+ * `clientId` selects the BYOK key for that tenant when present; otherwise
+ * falls through to the platform key. Audit row is recorded best-effort.
  */
-export async function analyzeAttachment(att: AttachmentLike): Promise<AttachmentAnalysis | null> {
+export async function analyzeAttachment(att: AttachmentLike, clientId?: number): Promise<AttachmentAnalysis | null> {
   if (att.size > MAX_BYTES) {
     return { analysis: `[skipped — file is ${(att.size / 1024 / 1024).toFixed(1)} MB, over the 5 MB analyzer limit]`, tokensUsed: 0 };
   }
@@ -114,6 +125,23 @@ export async function analyzeAttachment(att: AttachmentLike): Promise<Attachment
     content = `${userText}\n\n--- file content ---\n${text}`;
   }
 
+  // Resolve which key to use. If no clientId is provided (legacy callers /
+  // system jobs), fall through to the platform key with a synthetic resolver
+  // call that lets the audit table still record `source='platform'`.
+  let apiKey: string;
+  let source: 'byok' | 'platform' = 'platform';
+  if (typeof clientId === 'number') {
+    const resolved = await resolveClientApiKey({ clientId, provider: 'anthropic' });
+    apiKey = resolved.key;
+    source = resolved.source;
+  } else {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is not set and no clientId was provided.');
+    }
+    apiKey = process.env.ANTHROPIC_API_KEY;
+  }
+  const anthropic = new Anthropic({ apiKey });
+
   const response = await anthropic.messages.create({
     model: ANALYZER_MODEL,
     max_tokens: 400,
@@ -127,9 +155,14 @@ export async function analyzeAttachment(att: AttachmentLike): Promise<Attachment
     .join('\n')
     .trim();
 
+  const tokensUsed = (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0);
+  if (typeof clientId === 'number') {
+    void recordAiUsage({ clientId, source, tokens: tokensUsed });
+  }
+
   return {
     analysis: text || '[analyzer returned empty response]',
-    tokensUsed: (response.usage.input_tokens ?? 0) + (response.usage.output_tokens ?? 0),
+    tokensUsed,
   };
 }
 
@@ -141,7 +174,7 @@ export async function analyzeAttachment(att: AttachmentLike): Promise<Attachment
  */
 export async function analyzeMeetingAttachments(
   attachments: (AttachmentLike & { analysis?: string })[],
-  opts: { force?: boolean } = {},
+  opts: { force?: boolean; clientId?: number } = {},
 ): Promise<{
   attachments: (AttachmentLike & { analysis?: string })[];
   totalTokens: number;
@@ -154,7 +187,7 @@ export async function analyzeMeetingAttachments(
       const isTransientFailure = a.analysis?.startsWith('[analysis failed:');
       const alreadyDone = a.analysis && !isTransientFailure;
       if (alreadyDone && !opts.force) return { att: a, tokens: 0 };
-      const out = await analyzeAttachment(a);
+      const out = await analyzeAttachment(a, opts.clientId);
       if (!out) return { att: { ...a, analysis: '[unsupported file type for analysis]' }, tokens: 0 };
       return { att: { ...a, analysis: out.analysis }, tokens: out.tokensUsed };
     }),

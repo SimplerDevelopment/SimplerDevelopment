@@ -182,12 +182,16 @@ const ALL_EVENTS = [
 ];
 
 export async function POST(req: Request) {
-  // Only allow in development or with secret
+  // Debug-only endpoint: locked out in production. Even with a valid secret a
+  // leak would let an attacker trigger transactional emails on demand. Use
+  // /api/admin/_dev/* with admin auth if you need a prod debug surface.
   if (process.env.NODE_ENV === 'production') {
-    const secret = req.headers.get('x-test-secret');
-    if (secret !== process.env.TEST_EMAIL_SECRET) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  // Local/dev: still require the secret to make accidental hits explicit.
+  const secret = req.headers.get('x-test-secret');
+  if (secret !== process.env.TEST_EMAIL_SECRET) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const body = await req.json();

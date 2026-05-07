@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import { sanitizeHtml } from '@/lib/security/sanitize-html';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -430,7 +431,7 @@ export default function PublicProposalPage() {
               {section.type === 'text' && (
                 <div
                   className="prose prose-gray max-w-none text-gray-700 leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: section.content }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.content) }}
                 />
               )}
               {section.type === 'image' && section.content && (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { bookingPages, bookings, bookingDateOverrides, bookingPageMembers } from '@/lib/db/schema';
+import { bookingPages, bookings, bookingAttendees, bookingDateOverrides, bookingPageMembers } from '@/lib/db/schema';
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm';
 import type { BookingAvailabilitySlot } from '@/lib/db/schema';
 
@@ -110,7 +110,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const slotDuration = page.duration;
   const bufferBefore = page.bufferBefore;
   const bufferAfter = page.bufferAfter;
-  const hasCapacity = page.maxGuests != null && page.maxGuests > 0;
+  const isGroupBooking = page.bookingType === 'group';
+  const groupCapacityVal = (page.groupCapacity ?? page.maxGuests) ?? 0;
+  const hasCapacity = isGroupBooking
+    ? groupCapacityVal > 0
+    : page.maxGuests != null && page.maxGuests > 0;
+
+  // For group bookings, attendee headcount is the source of truth for
+  // remaining seats. Pull non-cancelled attendees grouped by slot once.
+  const groupAttendeesByStart = new Map<number, number>();
+  if (isGroupBooking) {
+    const rows = await db
+      .select({ startTime: bookings.startTime, cnt: sql<number>`count(${bookingAttendees.id})::int` })
+      .from(bookingAttendees)
+      .innerJoin(bookings, eq(bookings.id, bookingAttendees.bookingId))
+      .where(and(
+        eq(bookings.bookingPageId, page.id),
+        ne(bookings.status, 'cancelled'),
+        ne(bookingAttendees.status, 'cancelled'),
+        gte(bookings.startTime, dayStart),
+        lte(bookings.startTime, dayEnd),
+      ))
+      .groupBy(bookings.startTime);
+    for (const r of rows) {
+      groupAttendeesByStart.set(new Date(r.startTime).getTime(), Number(r.cnt));
+    }
+  }
 
   const slots: { time: string; remainingCapacity: number | null }[] = [];
 
@@ -132,15 +157,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       if (slotStart < minNoticeTime) continue;
 
       if (hasCapacity) {
-        // Capacity mode: count total group size for this slot
-        const booked = existingBookings
-          .filter(b => {
-            const bStart = new Date(b.startTime);
-            return bStart.getTime() === slotStart.getTime();
-          })
-          .reduce((sum, b) => sum + (b.groupSize ?? 1), 0);
+        // Capacity mode: count total seats already taken for this slot.
+        // Group bookings count attendees rows; legacy bookings count
+        // groupSize on the parent rows.
+        const booked = isGroupBooking
+          ? (groupAttendeesByStart.get(slotStart.getTime()) ?? 0)
+          : existingBookings
+              .filter(b => {
+                const bStart = new Date(b.startTime);
+                return bStart.getTime() === slotStart.getTime();
+              })
+              .reduce((sum, b) => sum + (b.groupSize ?? 1), 0);
 
-        const remaining = page.maxGuests! - booked;
+        const cap = isGroupBooking ? groupCapacityVal : page.maxGuests!;
+        const remaining = cap - booked;
         if (remaining > 0) {
           slots.push({ time: slotStart.toISOString(), remainingCapacity: remaining });
         }

@@ -99,6 +99,7 @@ type _PublicSurface = Pick<
   | 'SocialLinksBlock'
   | 'EmailHeaderBlock'
   | 'EmailFooterBlock'
+  | 'PopupBlock'
   // —— dynamic / palizzi (client-specific composites) ——
   | 'BlogPostsBlock'
   | 'PalizziNavBlock'
@@ -166,7 +167,7 @@ const EXPECTED_EXPORTS = [
   'BentoGridBlock', 'BentoCard', 'FlipCardGridBlock', 'FlipCard',
   'MetricCardsBlock', 'MetricCard', 'LogoStripBlock', 'LogoStripLogo',
   'SiteFooterBlock', 'FooterLinkGroup', 'SocialLinksBlock',
-  'EmailHeaderBlock', 'EmailFooterBlock',
+  'EmailHeaderBlock', 'EmailFooterBlock', 'PopupBlock',
   // dynamic / palizzi
   'BlogPostsBlock', 'PalizziNavBlock', 'PalizziHeroBlock', 'PalizziWelcomeBlock',
   'PalizziHistoryBlock', 'PalizziMenuBlock', 'PalizziRulesBlock',
@@ -180,8 +181,8 @@ const EXPECTED_EXPORTS = [
 ] as const;
 
 describe('@/types/blocks export parity', () => {
-  it('records the canonical export list (size = 95)', () => {
-    expect(EXPECTED_EXPORTS.length).toBe(95);
+  it('records the canonical export list (size = 96)', () => {
+    expect(EXPECTED_EXPORTS.length).toBe(96);
     // No duplicates
     expect(new Set(EXPECTED_EXPORTS).size).toBe(EXPECTED_EXPORTS.length);
   });

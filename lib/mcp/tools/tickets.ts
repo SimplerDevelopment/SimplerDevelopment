@@ -89,6 +89,7 @@ import {
 import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause, PitchDeckSlideV2 } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
@@ -281,9 +282,17 @@ export function registerTicketsTools(server: McpServer, ctx: PortalMcpContext): 
         .where(and(eq(supportTickets.id, ticketId), eq(supportTickets.clientId, clientId))).limit(1);
       if (!ticket) return json({ error: 'Ticket not found' });
 
+      try {
+        await assertSafeUrl(url);
+      } catch (err) {
+        return json({ error: `URL rejected: ${(err as Error).message}` });
+      }
       let resp: Response;
       try {
-        resp = await fetch(url);
+        resp = await fetch(url, { redirect: 'manual' });
+        if (resp.status >= 300 && resp.status < 400) {
+          return json({ error: 'Refusing to follow redirects on remote upload (SSRF guard).' });
+        }
       } catch (err) {
         return json({ error: `Fetch failed: ${(err as Error).message}` });
       }

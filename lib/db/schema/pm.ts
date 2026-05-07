@@ -67,12 +67,16 @@ export const supportTickets = pgTable('support_tickets', {
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   projectId: integer('project_id').references(() => projects.id, { onDelete: 'set null' }),
   subject: varchar('subject', { length: 255 }).notNull(),
-  status: varchar('status', { length: 50 }).default('open').notNull(), // open, in_progress, waiting, resolved, closed
+  status: varchar('status', { length: 50 }).default('open').notNull(), // open, in_progress, waiting_on_customer (legacy: waiting), resolved, closed
   priority: varchar('priority', { length: 20 }).default('medium').notNull(), // low, medium, high, urgent
   category: varchar('category', { length: 50 }).default('general'), // general, billing, technical, domain, hosting
   assignedTo: integer('assigned_to').references(() => users.id, { onDelete: 'set null' }),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   resolvedAt: timestamp('resolved_at'),
+  // SLA targets — populated on create from priority via lib/tickets/sla.ts
+  firstResponseDueAt: timestamp('first_response_due_at'),
+  firstResponseAt: timestamp('first_response_at'),
+  resolutionDueAt: timestamp('resolution_due_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -196,6 +196,7 @@ export const ELEMENT_DEFINITIONS: Record<string, { key: string; label: string }[
   ],
   'site-footer': [
     { key: 'logo', label: 'Logo' },
+    { key: 'wordmark', label: 'Wordmark' },
     { key: 'tagline', label: 'Tagline' },
     { key: 'linkGroupLabel', label: 'Link Group Label' },
     { key: 'link', label: 'Footer Link' },

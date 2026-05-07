@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { getNote, updateNote, deleteNote } from '@/lib/brain/notes';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const noteId = parseInt(id, 10);
@@ -17,8 +17,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const noteId = parseInt(id, 10);
@@ -50,8 +50,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'admin' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'admin' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const noteId = parseInt(id, 10);
@@ -60,9 +60,15 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   }
 
   try {
-    const ok = await deleteNote(result.client.id, noteId, result.userId);
+    const before = await getNote(result.client.id, noteId);
+    if (!before) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    const wasSoftDeleted = before.deletedAt !== null;
+    const ok = await deleteNote(result.client.id, noteId, result.userId, wasSoftDeleted ? { force: true } : {});
     if (!ok) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      data: { id: noteId, deleted: wasSoftDeleted ? 'hard' as const : 'soft' as const },
+    });
   } catch (err) {
     console.error('[brain.knowledge] delete failed', { noteId, clientId: result.client.id, err });
     const message = err instanceof Error ? err.message : 'Delete failed';

@@ -93,6 +93,7 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
+import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   renderBlocksToEmailHtml,
   resend,
@@ -104,6 +105,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { publishBlocksUpdate } from '@/lib/realtime/internal-publisher';
 import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from '../blocks-schema';
 import {
   json,
@@ -428,21 +430,20 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
 
       const filenameNoExt = filename.replace(/\.[^.]+$/, '');
       const ts = Date.now();
-      const blockContent = JSON.stringify({
-        blocks: [
-          {
-            id: `block-${ts}-html`,
-            type: 'html-embed',
-            order: 1,
-            url: uploadResult.url,
-            filename,
-            height: '100vh',
-            width: 'full',
-            sandbox: 'scripts',
-            iframeTitle: filenameNoExt,
-          },
-        ],
-      });
+      const uploadedBlocks = [
+        {
+          id: `block-${ts}-html`,
+          type: 'html-embed' as const,
+          order: 1,
+          url: uploadResult.url,
+          filename,
+          height: '100vh',
+          width: 'full' as const,
+          sandbox: 'scripts',
+          iframeTitle: filenameNoExt,
+        },
+      ];
+      const blockContent = JSON.stringify({ blocks: uploadedBlocks });
 
       const [post] = await db.insert(posts).values({
         title: filenameNoExt || 'Uploaded HTML',
@@ -453,6 +454,16 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         websiteId: site.id,
       }).returning(SLIM_POST_COLUMNS);
       revalidateForWrite('posts');
+      // Fan out to any editor that already opened this post id (rare for a
+      // brand-new upload, but cheap insurance — same wire path as a
+      // peer-typed edit). Fire-and-forget.
+      void publishBlocksUpdate({
+        entityType: 'post',
+        entityId: post.id,
+        blocks: uploadedBlocks as unknown as import('@/types/blocks').Block[],
+      }).catch((err) => {
+        console.warn('[mcp/posts_upload_html] realtime publish failed:', err);
+      });
       return json({
         ...post,
         importedAssets: imported.importedCount,
@@ -497,9 +508,17 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ url, filename, alt, caption, websiteId, brandingProfileId }) => {
       if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      try {
+        await assertSafeUrl(url);
+      } catch (err) {
+        return json({ error: `URL rejected: ${(err as Error).message}` });
+      }
       let resp: Response;
       try {
-        resp = await fetch(url);
+        resp = await fetch(url, { redirect: 'manual' });
+        if (resp.status >= 300 && resp.status < 400) {
+          return json({ error: 'Refusing to follow redirects on remote upload (SSRF guard).' });
+        }
       } catch (err) {
         return json({ error: `Fetch failed: ${(err as Error).message}` });
       }

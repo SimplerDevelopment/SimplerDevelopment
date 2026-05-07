@@ -312,7 +312,13 @@ export default function DealDetailDrawer({
   }
 
   function renderCommentBody(body: string): string {
-    return body.replace(/@\[([^\]]+)\]\(\d+\)/g, '<strong class="text-primary">@$1</strong>');
+    const escaped = body
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    return escaped.replace(/@\[([^\]]+)\]\(\d+\)/g, '<strong class="text-primary">@$1</strong>');
   }
 
   return (

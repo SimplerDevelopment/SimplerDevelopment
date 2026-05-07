@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
+import { hashToken } from '@/lib/security/token-hash';
 
 export async function POST(req: Request) {
   const { token, password } = await req.json();
@@ -15,13 +16,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
   }
 
+  // Tokens are stored as SHA-256 hashes; hash the incoming token to look up.
+  const tokenHash = hashToken(token);
+
   // Find user with valid, non-expired token
   const [user] = await db
     .select()
     .from(users)
     .where(
       and(
-        eq(users.inviteToken, token),
+        eq(users.inviteToken, tokenHash),
         gt(users.inviteExpiresAt, new Date()),
       ),
     )

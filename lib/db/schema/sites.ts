@@ -15,6 +15,10 @@ export const clients = pgTable('clients', {
   emailPrefix: varchar('email_prefix', { length: 50 }), // prefix@simplerdevelopment.com for AI email gateway
   defaultWebsiteId: integer('default_website_id'), // which website determines the portal subdomain
   notes: text('notes'), // internal staff notes
+  // Self-serve / PLG brain trial — when non-null and > now() the entitlement
+  // helper grants brain access without requiring an explicit clientServices
+  // row. Expired trials simply fall through to the paid-subscription check.
+  brainTrialUntil: timestamp('brain_trial_until'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

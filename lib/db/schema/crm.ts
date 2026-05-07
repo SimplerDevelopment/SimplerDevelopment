@@ -318,8 +318,53 @@ export const crmNotifications = pgTable('crm_notifications', {
   entityType: varchar('entity_type', { length: 20 }), // 'deal', 'contact', 'proposal', 'contract'
   entityId: integer('entity_id'),
   read: boolean('read').default(false).notNull(),
+  // When `digest: true`, the row was created under a `digest_daily` preference
+  // — a future digest cron should batch these into a single email and exclude
+  // them from the live notification panel.
+  metadata: json('metadata').$type<{ digest?: boolean } & Record<string, unknown>>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── NOTIFICATION PREFERENCES ───────────────────────────────────────────────
+// Per-user, per-tenant, per-notification-type delivery preference. Absence of
+// a row is treated as `instant` (all-on) so adoption is non-breaking.
+
+export const NOTIFICATION_TYPES = [
+  'mention',
+  'deal_stage_changed',
+  'deal_assigned',
+  'deal_stale',
+  'contact_created',
+  'proposal_viewed',
+  'document_comment_mention',
+  'task_assigned',
+  'task_due_soon',
+  'ticket_assigned',
+  'ticket_status_changed',
+  'automation_failing',
+  'survey_zero_responses',
+  'booking_hold_stuck',
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+export type NotificationDelivery = 'instant' | 'digest_daily' | 'off';
+
+export const NOTIFICATION_DELIVERIES: readonly NotificationDelivery[] = [
+  'instant',
+  'digest_daily',
+  'off',
+] as const;
+
+export const notificationPreferences = pgTable('notification_preferences', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  notificationType: varchar('notification_type', { length: 64 }).notNull(),
+  delivery: varchar('delivery', { length: 16 }).$type<NotificationDelivery>().default('instant').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('notification_preferences_client_user_type_idx').on(t.clientId, t.userId, t.notificationType),
+]);
 
 // ─── AUTOMATION ENGINE ────────────────────────────────────────────────────────
 

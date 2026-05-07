@@ -1,7 +1,7 @@
 'use client';
 
 // FormPanel: dispatcher for related block types' settings panels.
-import type { Block, ButtonBlock, SurveyBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock, BookingMenuBlock, SurveyResultsBlock, BookingBlock } from '@/types/blocks';
+import type { Block, ButtonBlock, SurveyBlock, SurveyInputBlock, EmailHeaderBlock, EmailFooterBlock, BookingMenuBlock, SurveyResultsBlock, BookingBlock, PopupBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
 import { useState, useEffect, useRef } from 'react';
 import { RichTextEditable } from '@/components/blocks/visual/RichTextEditable';
@@ -33,9 +33,129 @@ export function FormPanel({ block, onChange, currentViewport }: PanelProps) {
       return <EmailHeaderBlockSettings block={block as EmailHeaderBlock} onChange={onChange as (u: Partial<EmailHeaderBlock>) => void} />;
     case 'email-footer':
       return <EmailFooterBlockSettings block={block as EmailFooterBlock} onChange={onChange as (u: Partial<EmailFooterBlock>) => void} />;
+    case 'popup':
+      return <PopupBlockSettings block={block as PopupBlock} onChange={onChange as (u: Partial<PopupBlock>) => void} />;
     default:
       return null;
   }
+}
+
+function PopupBlockSettings({ block, onChange }: { block: PopupBlock; onChange: (updates: Partial<PopupBlock>) => void }) {
+  const inputClass = 'w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground';
+  const trigger = block.trigger ?? 'time-delay';
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Headline</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[36px]">
+          <RichTextEditable
+            html={block.headline || ''}
+            onChange={(html) => onChange({ headline: html })}
+            singleLine
+            placeholder="Modal headline"
+            className="text-sm text-foreground"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Body</label>
+        <div className="rounded border border-border bg-background px-3 py-2 min-h-[60px]">
+          <RichTextEditable
+            html={block.body || ''}
+            onChange={(html) => onChange({ body: html || undefined })}
+            placeholder="Body text — supports rich text"
+            className="text-sm text-foreground"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA label</label>
+          <input
+            type="text"
+            value={block.ctaLabel || ''}
+            onChange={(e) => onChange({ ctaLabel: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="Sign me up"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA URL</label>
+          <input
+            type="text"
+            value={block.ctaUrl || ''}
+            onChange={(e) => onChange({ ctaUrl: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="https:// or /go/<slug>"
+          />
+        </div>
+      </div>
+      <div className="border-t border-border pt-4">
+        <label className="block text-sm font-medium text-foreground mb-1">Trigger</label>
+        <select
+          value={trigger}
+          onChange={(e) => onChange({ trigger: e.target.value as PopupBlock['trigger'] })}
+          className={inputClass}
+        >
+          <option value="page-load">Page load</option>
+          <option value="time-delay">Time delay</option>
+          <option value="scroll-percent">Scroll percent</option>
+          <option value="exit-intent">Exit intent (desktop only)</option>
+        </select>
+      </div>
+      {trigger === 'time-delay' && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Delay (seconds)</label>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={block.delaySeconds ?? 5}
+            onChange={(e) => onChange({ delaySeconds: Number(e.target.value) })}
+            className={inputClass}
+          />
+        </div>
+      )}
+      {trigger === 'scroll-percent' && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Scroll percent (0-100)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={block.scrollPercent ?? 50}
+            onChange={(e) => onChange({ scrollPercent: Math.max(0, Math.min(100, Number(e.target.value))) })}
+            className={inputClass}
+          />
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Frequency</label>
+        <select
+          value={block.frequency ?? 'once-per-session'}
+          onChange={(e) => onChange({ frequency: e.target.value as PopupBlock['frequency'] })}
+          className={inputClass}
+        >
+          <option value="always">Every visit</option>
+          <option value="once-per-session">Once per session</option>
+          <option value="once-per-week">Once per week</option>
+        </select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Persisted in <code className="font-mono">localStorage</code> keyed by block id.
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={block.dismissable ?? true}
+          onChange={(e) => onChange({ dismissable: e.target.checked })}
+          className="rounded border-border"
+        />
+        Dismissable (close button + Esc + click backdrop)
+      </label>
+    </div>
+  );
 }
 
 function ButtonBlockSettings({ block, onChange, currentViewport }: { block: ButtonBlock; onChange: (updates: Partial<ButtonBlock>) => void; currentViewport: Breakpoint }) {

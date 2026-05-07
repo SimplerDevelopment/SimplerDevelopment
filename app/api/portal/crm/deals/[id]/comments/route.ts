@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
-import { crmDeals, crmDealComments, users } from '@/lib/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { crmDeals, crmDealComments, users, clientMembers } from '@/lib/db/schema';
+import { and, eq, desc, inArray } from 'drizzle-orm';
 import { uploadToS3 } from '@/lib/s3/upload';
+import { extractMentions } from '@/lib/crm/extract-mentions';
+import { createCrmNotification } from '@/lib/crm/notifications';
 
 async function getAuthedDeal(dealId: number) {
   const session = await auth();
@@ -13,7 +15,7 @@ async function getAuthedDeal(dealId: number) {
   const client = await getPortalClient(userId);
   if (!client) return { error: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
 
-  const [deal] = await db.select({ id: crmDeals.id }).from(crmDeals)
+  const [deal] = await db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
     .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, client.id)));
   if (!deal) return { error: NextResponse.json({ success: false, message: 'Deal not found' }, { status: 404 }) };
 
@@ -114,6 +116,37 @@ export async function POST(
     .from(crmDealComments)
     .leftJoin(users, eq(crmDealComments.authorId, users.id))
     .where(eq(crmDealComments.id, comment.id));
+
+  // Notify mentioned users (excluding the author). Restrict to members of the
+  // same client so a maliciously crafted mention can't notify arbitrary users.
+  const mentionedIds = extractMentions(body).filter((id) => id !== result.userId);
+  if (mentionedIds.length > 0) {
+    const validMembers = await db
+      .select({ userId: clientMembers.userId })
+      .from(clientMembers)
+      .where(
+        and(
+          eq(clientMembers.clientId, result.client.id),
+          inArray(clientMembers.userId, mentionedIds),
+        ),
+      );
+    const recipientIds = validMembers.map((m) => m.userId);
+    const snippet = body.trim().slice(0, 120);
+    const authorName = full?.authorName?.trim() || 'Someone';
+    for (const userId of recipientIds) {
+      createCrmNotification({
+        clientId: result.client.id,
+        userId,
+        type: 'mention',
+        title: `${authorName} mentioned you on deal: ${result.deal.title}`,
+        body: snippet || undefined,
+        entityType: 'deal',
+        entityId: result.deal.id,
+      }).catch((err) => {
+        console.error('[notif] deal-comment mention failed', err);
+      });
+    }
+  }
 
   return NextResponse.json({ success: true, data: full }, { status: 201 });
 }

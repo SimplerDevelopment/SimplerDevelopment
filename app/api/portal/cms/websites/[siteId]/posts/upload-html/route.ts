@@ -40,6 +40,14 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
+  // Raw-HTML upload is effectively the same trust level as authoring an
+  // html-render / html-embed block (see W2.6 lib/security/block-allowlist.ts).
+  // Gate to admin/editor staff. Tenant client users compose pages with the
+  // normal block editor; they don't need direct HTML/ZIP upload.
+  const role = (session.user as { role?: string }).role;
+  if (role !== 'admin' && role !== 'editor' && role !== 'employee') {
+    return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+  }
   const userId = parseInt(session.user.id as string, 10);
 
   const { siteId } = await params;

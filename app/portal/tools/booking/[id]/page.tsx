@@ -182,6 +182,14 @@ export default function EditBookingPage({ params }: { params: Promise<{ id: stri
           staffLoading={state.staffLoading}
           pageId={id}
           refreshMembers={state.refreshMembers}
+          bookingType={state.bookingType}
+          setBookingType={state.setBookingType}
+          groupCapacity={state.groupCapacity}
+          setGroupCapacity={state.setGroupCapacity}
+          assignmentMode={state.assignmentMode}
+          setAssignmentMode={state.setAssignmentMode}
+          roundRobinPool={state.roundRobinPool}
+          setRoundRobinPool={state.setRoundRobinPool}
         />
       )}
 

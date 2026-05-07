@@ -68,6 +68,15 @@ interface UseBookingPageResult {
   setThumbnail: (v: string) => void;
   allowStaffSelection: boolean;
   setAllowStaffSelection: (v: boolean) => void;
+  // Round-robin / group bookings
+  assignmentMode: 'fixed' | 'round_robin' | 'fewest_upcoming';
+  setAssignmentMode: (v: 'fixed' | 'round_robin' | 'fewest_upcoming') => void;
+  roundRobinPool: { userId: number; weight: number }[];
+  setRoundRobinPool: React.Dispatch<React.SetStateAction<{ userId: number; weight: number }[]>>;
+  bookingType: 'individual' | 'group';
+  setBookingType: (v: 'individual' | 'group') => void;
+  groupCapacity: number | null;
+  setGroupCapacity: (v: number | null) => void;
 
   // Bookings list
   bookingsList: Booking[];
@@ -116,6 +125,10 @@ export function useBookingPage(id: string): UseBookingPageResult {
   const [styling, setStyling] = useState<StylingMap>({});
   const [thumbnail, setThumbnail] = useState('');
   const [allowStaffSelection, setAllowStaffSelection] = useState(false);
+  const [assignmentMode, setAssignmentMode] = useState<'fixed' | 'round_robin' | 'fewest_upcoming'>('fixed');
+  const [roundRobinPool, setRoundRobinPool] = useState<{ userId: number; weight: number }[]>([]);
+  const [bookingType, setBookingType] = useState<'individual' | 'group'>('individual');
+  const [groupCapacity, setGroupCapacity] = useState<number | null>(null);
 
   // Staff
   const [pageMembers, setPageMembers] = useState<PageMember[]>([]);
@@ -148,6 +161,10 @@ export function useBookingPage(id: string): UseBookingPageResult {
         setStyling(((p as unknown as Record<string, unknown>).styling as StylingMap) || {});
         setThumbnail(((p as unknown as Record<string, unknown>).thumbnail as string) || '');
         setAllowStaffSelection(p.allowStaffSelection || false);
+        setAssignmentMode((p.assignmentMode as 'fixed' | 'round_robin' | 'fewest_upcoming') || 'fixed');
+        setRoundRobinPool(Array.isArray(p.roundRobinPool) ? p.roundRobinPool : []);
+        setBookingType((p.bookingType as 'individual' | 'group') || 'individual');
+        setGroupCapacity(p.groupCapacity ?? null);
       } else {
         setError('Booking page not found');
       }
@@ -217,6 +234,10 @@ export function useBookingPage(id: string): UseBookingPageResult {
         styling,
         thumbnail: thumbnail || null,
         allowStaffSelection,
+        assignmentMode,
+        roundRobinPool: roundRobinPool.length > 0 ? roundRobinPool : null,
+        bookingType,
+        groupCapacity,
       });
       if (data.success) {
         setPage(data.data);
@@ -249,6 +270,10 @@ export function useBookingPage(id: string): UseBookingPageResult {
     styling,
     thumbnail,
     allowStaffSelection,
+    assignmentMode,
+    roundRobinPool,
+    bookingType,
+    groupCapacity,
   ]);
 
   const remove = useCallback(async (): Promise<boolean> => {
@@ -327,6 +352,14 @@ export function useBookingPage(id: string): UseBookingPageResult {
     setThumbnail,
     allowStaffSelection,
     setAllowStaffSelection,
+    assignmentMode,
+    setAssignmentMode,
+    roundRobinPool,
+    setRoundRobinPool,
+    bookingType,
+    setBookingType,
+    groupCapacity,
+    setGroupCapacity,
     bookingsList,
     refreshBookings,
     cancelBooking,

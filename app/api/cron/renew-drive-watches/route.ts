@@ -39,12 +39,13 @@ function resolveWebhookAddress(req: Request): string {
 }
 
 export async function GET(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  const auth = req.headers.get('authorization');
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  const bearerOk = !!cronSecret && auth === `Bearer ${cronSecret}`;
-  if (!isVercelCron && !bearerOk) {
-    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  if (!isVercelCron) {
+    const cronSecret = process.env.CRON_SECRET;
+    const auth = req.headers.get('authorization');
+    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
   }
 
   const webhookAddress = resolveWebhookAddress(req);

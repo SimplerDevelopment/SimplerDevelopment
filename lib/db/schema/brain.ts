@@ -122,7 +122,7 @@ export const brainMeetings = pgTable('brain_meetings', {
   reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewed_at'),
   confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
-  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'zoom'
+  source: varchar('source', { length: 50 }).default('paste').notNull(), // 'paste' | 'upload' | 'google_doc' | 'google_drive_watch' | 'google_meet_recording' | 'teams_transcript' | 'zoom'
   sourceRef: varchar('source_ref', { length: 500 }).notNull(), // adapter-supplied dedupe key; (clientId, sourceRef) unique
   sourceMetadata: json('source_metadata').$type<Record<string, unknown>>().default({}),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -396,6 +396,7 @@ export const brainNotes = pgTable('brain_notes', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
 });
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via
@@ -424,6 +425,36 @@ export const brainNoteTemplates = pgTable('brain_note_templates', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [uniqueIndex('brain_note_templates_client_name_idx').on(t.clientId, t.name)]);
+
+// Brain saved searches — Tana-style "Search Nodes" / Notion-style favorites.
+// A row captures the knowledge sidebar's current filter state (search query,
+// tag prefix / exact tags, pinned-only, sort/order, trashed) as a named pin
+// in the sidebar. Clicking the pin re-applies all those filters. `userId`
+// nullable: null = shared across the tenant; set = personal pin scoped to
+// one user. Tenant boundary is `clientId` regardless.
+
+export interface BrainSavedSearchFilters {
+  search?: string;
+  tagPrefix?: string;
+  tags?: string[];
+  pinnedOnly?: boolean;
+  trashed?: boolean;
+  sort?: 'updated' | 'created' | 'title';
+  order?: 'asc' | 'desc';
+}
+
+export const brainSavedSearches = pgTable('brain_saved_searches', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  icon: varchar('icon', { length: 50 }).default('bookmark').notNull(),
+  filters: json('filters').$type<BrainSavedSearchFilters>().notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
 // Brain custom fields — same shape as crm_custom_fields/values but a separate
 // table pair so Brain and CRM custom-field admin/lifecycles stay decoupled.

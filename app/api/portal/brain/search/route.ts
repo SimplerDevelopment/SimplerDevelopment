@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { searchBrain, type BrainSearchEntityType } from '@/lib/brain/search';
 
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const query = url.searchParams.get('q') ?? '';

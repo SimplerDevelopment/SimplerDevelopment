@@ -104,6 +104,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { publishSlidesUpdate } from '@/lib/realtime/internal-publisher';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
   json,
@@ -551,6 +552,15 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         createdBy: ctx.userId,
       }).returning(deckProjection(false));
       revalidateForWrite('portal');
+      // Fan out to any editor that already opened this deck id. Brand-new
+      // upload so the listener set is usually empty, but the publisher is
+      // cheap and idempotent. Fire-and-forget.
+      void publishSlidesUpdate({
+        entityId: deck.id,
+        slides: [slide],
+      }).catch((err) => {
+        console.warn('[mcp/decks_upload_html] realtime publish failed:', err);
+      });
       return json({ ...deck, url: uploadResult.url });
     }
   );

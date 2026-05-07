@@ -30,6 +30,30 @@ export function SiteFooterBlockSettings({ block, onChange }: { block: SiteFooter
           />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Wordmark</label>
+          <input
+            type="text"
+            value={block.wordmark || ''}
+            onChange={(e) => onChange({ wordmark: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="Brand wordmark text"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Brand Size</label>
+          <select
+            value={block.brandSize || 'md'}
+            onChange={(e) => onChange({ brandSize: e.target.value as SiteFooterBlock['brandSize'] })}
+            className={inputClass}
+          >
+            <option value="sm">Small</option>
+            <option value="md">Medium (default)</option>
+            <option value="lg">Large</option>
+          </select>
+        </div>
+      </div>
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">Tagline</label>
         <input
@@ -39,6 +63,28 @@ export function SiteFooterBlockSettings({ block, onChange }: { block: SiteFooter
           className={inputClass}
           placeholder="Short tagline shown under the logo"
         />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA Text</label>
+          <input
+            type="text"
+            value={block.ctaText || ''}
+            onChange={(e) => onChange({ ctaText: e.target.value || undefined })}
+            className={inputClass}
+            placeholder='e.g. "Get a demo"'
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">CTA URL</label>
+          <input
+            type="url"
+            value={block.ctaUrl || ''}
+            onChange={(e) => onChange({ ctaUrl: e.target.value || undefined })}
+            className={inputClass}
+            placeholder="https://..."
+          />
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>

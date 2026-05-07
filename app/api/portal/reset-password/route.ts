@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
+import { hashToken } from '@/lib/security/token-hash';
 
 export async function POST(req: Request) {
   const { token, password } = await req.json();

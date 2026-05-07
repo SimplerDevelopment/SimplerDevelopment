@@ -2,6 +2,7 @@
 
 import { TeamShowcaseBlock } from '@/types/blocks';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface TeamShowcaseBlockRenderProps {
   block: TeamShowcaseBlock;
@@ -21,7 +22,7 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
             <p
               className="text-sm tracking-[0.3em] uppercase mb-4"
               style={getElementCSS(block.elementStyles, 'overline')}
-              dangerouslySetInnerHTML={{ __html: block.overline }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
           {block.title && (
@@ -29,14 +30,14 @@ export function TeamShowcaseBlockRender({ block }: TeamShowcaseBlockRenderProps)
               data-editable-field="title"
               className="text-4xl md:text-5xl font-light mb-4"
               style={getElementCSS(block.elementStyles, 'title')}
-              dangerouslySetInnerHTML={{ __html: block.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
           {block.subtitle && (
             <p
               className="max-w-2xl mx-auto"
               style={getElementCSS(block.elementStyles, 'subtitle')}
-              dangerouslySetInnerHTML={{ __html: block.subtitle }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.subtitle) }}
             />
           )}
         </div>

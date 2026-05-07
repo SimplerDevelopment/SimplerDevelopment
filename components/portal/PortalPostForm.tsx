@@ -7,6 +7,12 @@ import { PostEditorLayout } from '@/components/admin/PostEditorLayout';
 import { PostFormInnerControls } from '@/components/admin/PostFormInner';
 import { CustomCodeModal } from '@/components/portal/CustomCodeModal';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
+import {
+  CollaborationProvider,
+  useCollaboration,
+} from '@/components/portal/visual-editor/CollaborationProvider';
+import { PresenceAvatars } from '@/components/portal/visual-editor/PresenceAvatars';
+import { PresenceLayer } from '@/components/portal/visual-editor/PresenceLayer';
 import { BlockEditorProvider } from '@/contexts/BlockEditorContext';
 import { DesignTokensProvider } from '@/contexts/DesignTokensContext';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
@@ -49,9 +55,34 @@ interface PortalPostFormProps {
    * production layout. Null when the type has no template.
    */
   typeTemplate?: string | null;
+  /**
+   * Authenticated session user — passed in from the page route. Used to
+   * publish the local presence identity (id / name / avatar) into the
+   * realtime room so peers can attribute cursors and selection halos.
+   */
+  currentUser?: { id: string; name: string; image?: string | null } | null;
 }
 
-export default function PortalPostForm({
+export default function PortalPostForm(props: PortalPostFormProps) {
+  const { post, mode, currentUser } = props;
+  // Realtime is only meaningful in edit mode against an existing post id.
+  // In create mode the post id doesn't exist yet, so collaboration is moot.
+  const collabEnabled = mode === 'edit' && Boolean(post?.id) && Boolean(currentUser);
+  const fallbackUser = currentUser ?? { id: 'anon', name: 'Anonymous', image: null };
+
+  return (
+    <CollaborationProvider
+      entityType="post"
+      entityId={post?.id ? String(post.id) : ''}
+      user={fallbackUser}
+      enabled={collabEnabled}
+    >
+      <PortalPostFormInner {...props} />
+    </CollaborationProvider>
+  );
+}
+
+function PortalPostFormInner({
   siteId,
   post,
   mode,
@@ -79,6 +110,11 @@ export default function PortalPostForm({
 
   const contentTypes = useContentTypes(siteId);
 
+  // Realtime context — when CollaborationProvider is `enabled` we get a
+  // live ydoc + awareness + peers. Otherwise these are null/empty and the
+  // editor falls back to single-player REST autosave behavior.
+  const { ydoc, awareness, peers, setCursor } = useCollaboration();
+
   const {
     formData,
     setFormData,
@@ -96,7 +132,7 @@ export default function PortalPostForm({
     savePost,
     formDataRef,
     autosaveTimer,
-  } = usePostForm({ siteId, post, mode, editorMode });
+  } = usePostForm({ siteId, post, mode, editorMode, ydoc });
 
   // Hydrate localhost-toggle from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
@@ -170,6 +206,32 @@ export default function PortalPostForm({
         >
           {loading ? 'Saving...' : mode === 'create' ? 'Create Page' : 'Save Changes'}
         </button>
+        {mode === 'edit' && post?.id ? (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/portal/posts/${post.id}/experiments`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: `A/B test — ${formData.title || 'Untitled'}` }),
+                });
+                const json = await res.json();
+                if (json.success && json.data?.id) {
+                  router.push(`/portal/experiments/${json.data.id}`);
+                } else {
+                  alert(json.error || 'Failed to create experiment');
+                }
+              } catch (err) {
+                alert(err instanceof Error ? err.message : 'Failed to create experiment');
+              }
+            }}
+            className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent inline-flex items-center gap-1"
+          >
+            <span className="material-icons text-base">science</span>
+            Start A/B test
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => router.push(`/portal/websites/${siteId}`)}
@@ -228,7 +290,14 @@ export default function PortalPostForm({
           onCodeToggle={editorMode === 'iframe' && mode === 'edit' ? () => setCodeModalOpen(prev => !prev) : undefined}
           hasCustomCode={Boolean((formData.customCss && formData.customCss.trim()) || (formData.customJs && formData.customJs.trim()))}
           saveStatus={postSaveStatus}
-          extraNavControls={editorMode === 'iframe' && undoRedo ? <UndoRedoControls undoRedo={undoRedo} /> : undefined}
+          extraNavControls={
+            editorMode === 'iframe' ? (
+              <div className="flex items-center gap-2">
+                {undoRedo && <UndoRedoControls undoRedo={undoRedo} />}
+                <PresenceAvatars peers={peers} />
+              </div>
+            ) : undefined
+          }
         >
           {editorMode === 'iframe' && effectiveSiteUrl && !post?.slug ? (
             <CreatePageIntroCard
@@ -309,6 +378,15 @@ export default function PortalPostForm({
                   if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
                   autosaveTimer.current = setTimeout(() => { savePost('autosave'); }, 100);
                 }}
+              />
+
+              {/* Peer cursors layered above the iframe canvas. Pointer-events
+                  are disabled on the layer itself so it doesn't intercept
+                  selection/clicks on the underlying editor chrome. */}
+              <PresenceLayer
+                peers={peers}
+                awareness={awareness}
+                setCursor={setCursor}
               />
             </div>
           ) : (

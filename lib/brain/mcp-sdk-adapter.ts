@@ -43,17 +43,40 @@ import {
   rejectReviewItem,
 } from './review';
 import {
+  bulkUpdateNotes,
   createNote,
+  countNotes,
   deleteNote,
   getNote,
   getNoteBySourceUrl,
   listNotes,
+  restoreNote,
   updateNote,
+  type BulkOp,
 } from './notes';
+import {
+  createSavedSearch,
+  deleteSavedSearch,
+  getSavedSearch,
+  listSavedSearches,
+  updateSavedSearch,
+  type BrainSavedSearchFilters,
+} from './saved-searches';
+import {
+  createTemplate,
+  deleteTemplate,
+  DuplicateTemplateNameError,
+  getTemplate,
+  listTemplates,
+  updateTemplate,
+  type BrainNoteTemplateTrigger,
+} from './templates';
+import { applyTemplate } from './template';
 import { getDashboardSummary } from './dashboard';
 import { db } from '@/lib/db';
-import { brainAiReviewItems } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { brainAiReviewItems, brainAuditLogs, users } from '@/lib/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
+import { assertUserVisibleToClient, OwnershipError } from '@/lib/security/assert-owned';
 
 function json(payload: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }] };
@@ -363,6 +386,12 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        if (args.ownerId != null) await assertUserVisibleToClient(args.ownerId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const task = await createTask({
         clientId,
         title: args.title,
@@ -581,7 +610,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_list_notes',
     {
       title: 'List Brain knowledge notes',
-      description: 'List/search notes in Company Brain Knowledge. Use this BEFORE crawling a URL to dedupe — pass `sourceUrl` for an exact match or `sourceUrlStartsWith` for a domain-wide check.',
+      description: 'List/search notes in Company Brain Knowledge. Use this BEFORE crawling a URL to dedupe — pass `sourceUrl` for an exact match or `sourceUrlStartsWith` for a domain-wide check. Slim by default (no body — call brain_get_note for the full row); paginated via { items, total, limit, offset }.',
       inputSchema: {
         search: z.string().optional().describe('ILIKE on title and body.'),
         tag: z.string().optional().describe('Match a single tag.'),
@@ -593,12 +622,16 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         contactId: z.number().int().positive().optional(),
         meetingId: z.number().int().positive().optional(),
         pinnedOnly: z.boolean().optional(),
+        trashed: z.boolean().optional().describe('When true, return only soft-deleted notes (the trash bin). Default false.'),
         limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
       },
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
-      const notes = await listNotes(clientId, {
+      const limit = args.limit ?? 50;
+      const offset = args.offset ?? 0;
+      const filters = {
         search: args.search,
         tag: args.tag,
         sourceUrl: args.sourceUrl,
@@ -609,10 +642,14 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         contactId: args.contactId,
         meetingId: args.meetingId,
         pinnedOnly: args.pinnedOnly,
-        limit: args.limit ?? 50,
-      });
+        trashed: args.trashed,
+      };
+      const [notes, total] = await Promise.all([
+        listNotes(clientId, { ...filters, limit, offset }),
+        countNotes(clientId, filters),
+      ]);
       // Trim bodies for list responses; full body is available via brain_get_note.
-      return json(notes.map((n) => ({
+      const items = notes.map((n) => ({
         id: n.id,
         title: n.title,
         bodyPreview: n.body.slice(0, 400),
@@ -629,9 +666,11 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         meetingId: n.meetingId,
         attachmentFilename: n.attachmentFilename,
         attachmentMimeType: n.attachmentMimeType,
+        deletedAt: n.deletedAt,
         createdAt: n.createdAt,
         updatedAt: n.updatedAt,
-      })));
+      }));
+      return json({ items, total, limit, offset });
     },
   );
 
@@ -786,16 +825,474 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_delete_note',
     {
       title: 'Delete a Brain knowledge note',
-      description: 'Permanently delete a note. If it has an attached file, the S3 object is best-effort cleaned up. AUDITED.',
+      description: 'Two-stage delete matching the portal. Default (force=false) soft-deletes — note moves to trash and can be restored via brain_restore_note; if the note was already trashed, this hard-deletes it. Pass force=true to hard-delete on the first call. Hard delete cleans up any attached S3 object. AUDITED.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+        force: z.boolean().optional().describe('When true, skip the soft-delete stage and hard-delete immediately.'),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const before = await getNote(clientId, args.noteId);
+      if (!before) return err('Note not found.');
+      const willHardDelete = args.force === true || before.deletedAt !== null;
+      const ok = await deleteNote(clientId, args.noteId, ctx.userId, { force: args.force });
+      if (!ok) return err('Note not found.');
+      return json({ id: args.noteId, deleted: willHardDelete ? 'hard' : 'soft' });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_restore_note',
+    {
+      title: 'Restore a soft-deleted Brain knowledge note',
+      description: 'Move a trashed note back to the active list. No-op (returns the note) if it was not deleted. Mirrors POST /portal/brain/knowledge/[id]/restore.',
       inputSchema: {
         noteId: z.number().int().positive(),
       },
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
-      const ok = await deleteNote(clientId, args.noteId, ctx.userId);
-      if (!ok) return err('Note not found.');
-      return json({ ok: true });
+      const restored = await restoreNote(clientId, args.noteId, ctx.userId);
+      if (!restored) return err('Note not found.');
+      return json({
+        id: restored.id,
+        title: restored.title,
+        bodyLength: restored.body.length,
+        tags: restored.tags,
+        sourceUrl: restored.sourceUrl,
+        pinned: restored.pinned,
+        deletedAt: restored.deletedAt,
+        updatedAt: restored.updatedAt,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_bulk_update_notes',
+    {
+      title: 'Bulk update Brain knowledge notes',
+      description: 'Apply one of: soft_delete, restore, hard_delete, add_tags, remove_tags, replace_tag_prefix to up to 500 notes. Returns { updated, skipped }. Cross-tenant ids are silently skipped.',
+      inputSchema: {
+        ids: z.array(z.number().int().positive()).min(1).max(500),
+        op: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('soft_delete') }),
+          z.object({ kind: z.literal('restore') }),
+          z.object({ kind: z.literal('hard_delete') }),
+          z.object({ kind: z.literal('add_tags'), tags: z.array(z.string().min(1)).min(1) }),
+          z.object({ kind: z.literal('remove_tags'), tags: z.array(z.string().min(1)).min(1) }),
+          z.object({ kind: z.literal('replace_tag_prefix'), from: z.string().min(1), to: z.string() }),
+        ]),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const summary = await bulkUpdateNotes(clientId, args.ids, args.op as BulkOp, ctx.userId);
+      return json({ updated: summary.updated, skipped: summary.failed });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_list_note_history',
+    {
+      title: 'List Brain note audit history',
+      description: 'Audit log for one note: created, updated, soft_deleted, restored, hard_deleted, attachment_cleared, etc. Slim by default (omits metadata.diff and other large blobs). Pass includeDiff=true to receive the full metadata payload.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(200).optional(),
+        includeDiff: z.boolean().optional().describe('When true, include the full metadata blob (may contain diffs). Default false.'),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const note = await getNote(clientId, args.noteId);
+      if (!note) return err('Note not found.');
+      const limit = args.limit ?? 50;
+      const rows = await db.select().from(brainAuditLogs)
+        .where(and(
+          eq(brainAuditLogs.clientId, clientId),
+          eq(brainAuditLogs.entityType, 'brain_note'),
+          eq(brainAuditLogs.entityId, args.noteId),
+        ))
+        .orderBy(desc(brainAuditLogs.createdAt))
+        .limit(limit);
+      const items = rows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        actorId: r.actorId,
+        createdAt: r.createdAt,
+        ...(args.includeDiff ? { metadata: r.metadata } : {}),
+      }));
+      return json({ items, limit });
+    },
+  );
+
+  // ── KNOWLEDGE — saved searches ───────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_list_saved_searches',
+    {
+      title: 'List Brain saved searches',
+      description: 'List the caller\'s sidebar-pinned filter sets. scope=mine returns personal pins only, scope=shared returns team pins (userId IS NULL), scope=all (default) returns both. Slim by default (no filters JSON); pass includeFilters=true to receive the filter payloads inline.',
+      inputSchema: {
+        scope: z.enum(['mine', 'shared', 'all']).optional(),
+        includeFilters: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const scope = args.scope ?? 'all';
+      let rows;
+      if (scope === 'shared') {
+        rows = await listSavedSearches(clientId, { userId: null });
+      } else if (scope === 'mine') {
+        const all = await listSavedSearches(clientId, { userId: ctx.userId });
+        rows = all.filter((r) => r.userId === ctx.userId);
+      } else {
+        rows = await listSavedSearches(clientId, { userId: ctx.userId });
+      }
+      const items = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        icon: r.icon,
+        scope: r.userId === null ? 'shared' : 'personal',
+        userId: r.userId,
+        sortOrder: r.sortOrder,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        ...(args.includeFilters ? { filters: r.filters } : {}),
+      }));
+      return json({ items });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_get_saved_search',
+    {
+      title: 'Get a Brain saved search',
+      description: 'Fetch a saved search by id, including the full filters JSON.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const row = await getSavedSearch(clientId, args.id);
+      if (!row) return err('Saved search not found.');
+      return json(row);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_create_saved_search',
+    {
+      title: 'Create a Brain saved search',
+      description: 'Pin a knowledge filter set to the sidebar. scope="shared" makes it team-visible (userId IS NULL); scope="personal" (default) scopes to the caller. Returns identity echo only — re-fetch via brain_get_saved_search if you need the filters back.',
+      inputSchema: {
+        name: z.string().min(1).max(150),
+        filters: z.object({
+          search: z.string().optional(),
+          tagPrefix: z.string().optional(),
+          tags: z.array(z.string()).optional(),
+          pinnedOnly: z.boolean().optional(),
+          trashed: z.boolean().optional(),
+          sort: z.enum(['updated', 'created', 'title']).optional(),
+          order: z.enum(['asc', 'desc']).optional(),
+        }),
+        icon: z.string().max(50).optional(),
+        sortOrder: z.number().optional(),
+        scope: z.enum(['personal', 'shared']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const userId = args.scope === 'shared' ? null : ctx.userId;
+      const created = await createSavedSearch({
+        clientId,
+        userId,
+        name: args.name,
+        icon: args.icon,
+        filters: args.filters as BrainSavedSearchFilters,
+        sortOrder: args.sortOrder,
+        createdBy: ctx.userId,
+      });
+      return json({
+        id: created.id,
+        name: created.name,
+        icon: created.icon,
+        scope: created.userId === null ? 'shared' : 'personal',
+        userId: created.userId,
+        sortOrder: created.sortOrder,
+        createdAt: created.createdAt,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_update_saved_search',
+    {
+      title: 'Update a Brain saved search',
+      description: 'Patch fields on a saved search. Pass scope to move between personal and shared. Returns identity echo + updatedAt; re-fetch via brain_get_saved_search if you need the new filters.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        name: z.string().min(1).max(150).optional(),
+        filters: z.object({
+          search: z.string().optional(),
+          tagPrefix: z.string().optional(),
+          tags: z.array(z.string()).optional(),
+          pinnedOnly: z.boolean().optional(),
+          trashed: z.boolean().optional(),
+          sort: z.enum(['updated', 'created', 'title']).optional(),
+          order: z.enum(['asc', 'desc']).optional(),
+        }).optional(),
+        icon: z.string().max(50).optional(),
+        sortOrder: z.number().optional(),
+        scope: z.enum(['personal', 'shared']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const patch: Parameters<typeof updateSavedSearch>[2] = {};
+      if (args.name !== undefined) patch.name = args.name;
+      if (args.filters !== undefined) patch.filters = args.filters as BrainSavedSearchFilters;
+      if (args.icon !== undefined) patch.icon = args.icon;
+      if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder;
+      if (args.scope !== undefined) patch.userId = args.scope === 'shared' ? null : ctx.userId;
+      const updated = await updateSavedSearch(clientId, args.id, patch, ctx.userId);
+      if (!updated) return err('Saved search not found.');
+      return json({
+        id: updated.id,
+        name: updated.name,
+        icon: updated.icon,
+        scope: updated.userId === null ? 'shared' : 'personal',
+        userId: updated.userId,
+        sortOrder: updated.sortOrder,
+        updatedAt: updated.updatedAt,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_delete_saved_search',
+    {
+      title: 'Delete a Brain saved search',
+      description: 'Remove a saved-search pin from the sidebar.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const ok = await deleteSavedSearch(clientId, args.id, ctx.userId);
+      if (!ok) return err('Saved search not found.');
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  // ── KNOWLEDGE — note templates ───────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_list_note_templates',
+    {
+      title: 'List Brain note templates',
+      description: 'List reusable note templates (markdown bodies with {{variables}}). Slim by default (omits the body text); pass includeBody=true to inline bodies — they can be multi-KB each.',
+      inputSchema: {
+        trigger: z.enum(['manual', 'daily', 'meeting', 'slash']).optional(),
+        enabled: z.boolean().optional(),
+        includeBody: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listTemplates(clientId, {
+        trigger: args.trigger as BrainNoteTemplateTrigger | undefined,
+        enabled: args.enabled,
+      });
+      const items = rows.map((t) => ({
+        id: t.id,
+        name: t.name,
+        trigger: t.trigger,
+        enabled: t.enabled,
+        variables: t.variables,
+        defaultTags: t.defaultTags,
+        bodyLength: t.body.length,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        ...(args.includeBody ? { body: t.body } : {}),
+      }));
+      return json({ items });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_get_note_template',
+    {
+      title: 'Get a Brain note template',
+      description: 'Fetch a template by id, including the full markdown body.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const row = await getTemplate(clientId, args.id);
+      if (!row) return err('Template not found.');
+      return json(row);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_create_note_template',
+    {
+      title: 'Create a Brain note template',
+      description: 'Define a reusable note template. Body is markdown — supports {{variables}} resolved by lib/brain/template.ts. Returns 409-equivalent error if a template with this name already exists for the client.',
+      inputSchema: {
+        name: z.string().min(1).max(150),
+        body: z.string().min(1),
+        trigger: z.enum(['manual', 'daily', 'meeting', 'slash']).optional(),
+        variables: z.array(z.string()).optional(),
+        defaultTags: z.array(z.string()).optional(),
+        enabled: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createTemplate({
+          clientId,
+          name: args.name,
+          body: args.body,
+          trigger: args.trigger as BrainNoteTemplateTrigger | undefined,
+          variables: args.variables ?? null,
+          defaultTags: args.defaultTags ?? null,
+          enabled: args.enabled,
+          createdBy: ctx.userId,
+        });
+        return json({
+          id: created.id,
+          name: created.name,
+          trigger: created.trigger,
+          enabled: created.enabled,
+          bodyLength: created.body.length,
+          createdAt: created.createdAt,
+        });
+      } catch (e) {
+        if (e instanceof DuplicateTemplateNameError) {
+          return err(`A template named "${args.name}" already exists for this client.`);
+        }
+        return err(e instanceof Error ? e.message : 'Failed to create template.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_update_note_template',
+    {
+      title: 'Update a Brain note template',
+      description: 'Patch any field on a template. Returns identity echo + updatedAt; re-fetch via brain_get_note_template if you need the full body back.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        name: z.string().min(1).max(150).optional(),
+        body: z.string().min(1).optional(),
+        trigger: z.enum(['manual', 'daily', 'meeting', 'slash']).optional(),
+        variables: z.array(z.string()).nullable().optional(),
+        defaultTags: z.array(z.string()).nullable().optional(),
+        enabled: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await updateTemplate(clientId, args.id, {
+          name: args.name,
+          body: args.body,
+          trigger: args.trigger as BrainNoteTemplateTrigger | undefined,
+          variables: args.variables,
+          defaultTags: args.defaultTags,
+          enabled: args.enabled,
+        }, ctx.userId);
+        if (!updated) return err('Template not found.');
+        return json({
+          id: updated.id,
+          name: updated.name,
+          trigger: updated.trigger,
+          enabled: updated.enabled,
+          bodyLength: updated.body.length,
+          updatedAt: updated.updatedAt,
+        });
+      } catch (e) {
+        if (e instanceof DuplicateTemplateNameError) {
+          return err(`A template named "${args.name}" already exists for this client.`);
+        }
+        return err(e instanceof Error ? e.message : 'Failed to update template.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_delete_note_template',
+    {
+      title: 'Delete a Brain note template',
+      description: 'Permanently delete a template. Existing notes created from it are unaffected.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const ok = await deleteTemplate(clientId, args.id, ctx.userId);
+      if (!ok) return err('Template not found.');
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_create_note_from_template',
+    {
+      title: 'Materialize a Brain note from a template',
+      description: 'Apply a template (resolving {{today}}, {{userName}}, etc.) and create a new note. Mirrors POST /portal/brain/knowledge/from-template/[id]. Slim echo (no body) — fetch full content via brain_get_note.',
+      inputSchema: {
+        templateId: z.number().int().positive(),
+        titleOverride: z.string().max(255).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const template = await getTemplate(clientId, args.templateId);
+      if (!template) return err('Template not found.');
+
+      const [actor] = await db.select({ name: users.name, email: users.email }).from(users)
+        .where(eq(users.id, ctx.userId))
+        .limit(1);
+      const userName = actor?.name?.trim() || actor?.email || null;
+
+      const appliedBody = await applyTemplate(template.body, {
+        today: new Date(),
+        clientId,
+        userName,
+      });
+
+      const tags = Array.from(new Set([
+        ...(template.defaultTags ?? []),
+        `from_template:${template.id}`,
+      ]));
+
+      const note = await createNote({
+        clientId,
+        title: args.titleOverride?.trim() || template.name,
+        body: appliedBody,
+        tags,
+        source: 'manual',
+        createdBy: ctx.userId,
+      });
+
+      return json({
+        id: note.id,
+        title: note.title,
+        bodyLength: note.body.length,
+        tags: note.tags,
+        updatedAt: note.updatedAt,
+      });
     },
   );
 

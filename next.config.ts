@@ -1,6 +1,36 @@
 import type { NextConfig } from "next";
 
+// Baseline security headers — defense-in-depth alongside auth/CSRF/etc.
+// CSP ships in Report-Only mode first; promote to enforcing once reports are
+// reviewed. The visual editor uses an iframe preview, so frame-ancestors must
+// allow same-origin. Tenant-uploaded media is served through /api/media/proxy
+// which already forces Content-Disposition: attachment for non-image MIMEs
+// (W1.10), so script-src can stay strict.
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "font-src 'self' data: https:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com",
+  "style-src 'self' 'unsafe-inline' https:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.youtube.com https://player.vimeo.com",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+const SECURITY_HEADERS = [
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self), interest-cohort=()' },
+  { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
+];
+
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,
@@ -46,6 +76,12 @@ const nextConfig: NextConfig = {
       // runs before middleware, so the tenant rewrite never sees the old
       // path).
       { source: '/pitch-deck/:slug', destination: '/slides/:slug', permanent: true },
+    ];
+  },
+
+  async headers() {
+    return [
+      { source: '/:path*', headers: SECURITY_HEADERS },
     ];
   },
 };

@@ -4,6 +4,7 @@ import { FlipCardGridBlock } from '@/types/blocks';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { useState } from 'react';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface FlipCardGridBlockRenderProps {
   block: FlipCardGridBlock;
@@ -54,7 +55,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
               data-editable-field="overline"
               className="text-xs font-semibold tracking-[0.2em] uppercase mb-3"
               style={{ color: accentColor, ...getElementCSS(block.elementStyles, 'overline') }}
-              dangerouslySetInnerHTML={{ __html: block.overline }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
           {block.title && (
@@ -62,7 +63,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
               data-editable-field="title"
               className="font-heading text-3xl md:text-5xl font-bold mb-4"
               style={getElementCSS(block.elementStyles, 'title')}
-              dangerouslySetInnerHTML={{ __html: block.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
           {block.description && (
@@ -70,7 +71,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
               data-editable-field="description"
               className="text-lg text-muted-foreground"
               style={getElementCSS(block.elementStyles, 'description')}
-              dangerouslySetInnerHTML={{ __html: block.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.description) }}
             />
           )}
         </div>
@@ -140,13 +141,13 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
                   <h3
                     className="font-heading text-2xl font-bold mb-2"
                     style={frontTitleStyle}
-                    dangerouslySetInnerHTML={{ __html: card.frontTitle }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.frontTitle) }}
                   />
                   {card.frontSubtitle && (
                     <p
                       className="text-sm text-muted-foreground"
                       style={getElementCSS(block.elementStyles, 'frontSubtitle')}
-                      dangerouslySetInnerHTML={{ __html: card.frontSubtitle }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.frontSubtitle) }}
                     />
                   )}
                   {flipTrigger === 'click' && (
@@ -174,7 +175,7 @@ export function FlipCardGridBlockRender({ block }: FlipCardGridBlockRenderProps)
                   <p
                     className="text-base leading-relaxed mb-4"
                     style={backTextStyle}
-                    dangerouslySetInnerHTML={{ __html: card.backText }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(card.backText) }}
                   />
                   {card.backLink && (
                     <a

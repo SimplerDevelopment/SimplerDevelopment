@@ -15,6 +15,7 @@ import { SectionBlockRender } from './SectionBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface StickyScrollTabsBlockRenderProps {
   block: StickyScrollTabsBlock;
@@ -179,21 +180,21 @@ export function StickyScrollTabsBlockRender({ block }: StickyScrollTabsBlockRend
             <div
               className="ssct-overline"
               style={getElementCSS(block.elementStyles, 'overline')}
-              dangerouslySetInnerHTML={{ __html: block.overline }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.overline) }}
             />
           )}
           {block.title && (
             <h2
               className="ssct-title"
               style={getElementCSS(block.elementStyles, 'title')}
-              dangerouslySetInnerHTML={{ __html: block.title }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }}
             />
           )}
           {block.description && (
             <p
               className="ssct-description"
               style={getElementCSS(block.elementStyles, 'description')}
-              dangerouslySetInnerHTML={{ __html: block.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.description) }}
             />
           )}
         </div>

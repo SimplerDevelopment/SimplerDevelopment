@@ -6,7 +6,10 @@
  *   - 401 unauth, 404 cross-tenant
  *   - POST: title required (400 otherwise)
  *   - PATCH: returns updated row, 404 when missing
- *   - DELETE: 200 on owned row, 404 on missing
+ *   - DELETE: two-step soft-then-hard. First DELETE on an active row marks
+ *     deletedAt and returns { deleted: 'soft' }. Second DELETE on the
+ *     already-soft-deleted row hard-deletes and returns { deleted: 'hard' }.
+ *     404 on missing.
  *   - Backlinks: tenant-scoped + only links from same client
  *   - Fields PATCH: 404 when note or definition belongs to another tenant
  */
@@ -162,17 +165,48 @@ describe('Brain knowledge — DELETE /knowledge/[id] @brain @knowledge', () => {
     expect(res.status).toBe(401);
   });
 
-  it('deletes own note', async () => {
+  it('first DELETE soft-deletes; row is preserved with deleted_at populated', async () => {
     mockedAuth.mockResolvedValue(A.session);
     const note = await seedNote(A);
 
     const route = await import('@/app/api/portal/brain/knowledge/[id]/route');
-    const res = await callHandler(
+    const res = await callHandler<{ success: boolean; data: { id: number; deleted: string } }>(
       route as unknown as Record<string, unknown>,
       'DELETE',
       { params: { id: String(note.id) } },
     );
     expect(res.status).toBe(200);
+    expect(res.data?.success).toBe(true);
+    expect(res.data?.data.deleted).toBe('soft');
+
+    const sql = getTestSql();
+    const rows = await sql<{ id: number; deleted_at: string | null }[]>`
+      SELECT id, deleted_at FROM ${sql(TEST_SCHEMA)}.brain_notes WHERE id = ${note.id}
+    `;
+    expect(rows.length).toBe(1);
+    expect(rows[0].deleted_at).not.toBeNull();
+  });
+
+  it('second DELETE hard-deletes an already-soft-deleted row', async () => {
+    mockedAuth.mockResolvedValue(A.session);
+    const note = await seedNote(A);
+
+    const route = await import('@/app/api/portal/brain/knowledge/[id]/route');
+
+    const first = await callHandler(
+      route as unknown as Record<string, unknown>,
+      'DELETE',
+      { params: { id: String(note.id) } },
+    );
+    expect(first.status).toBe(200);
+
+    const second = await callHandler<{ success: boolean; data: { id: number; deleted: string } }>(
+      route as unknown as Record<string, unknown>,
+      'DELETE',
+      { params: { id: String(note.id) } },
+    );
+    expect(second.status).toBe(200);
+    expect(second.data?.data.deleted).toBe('hard');
 
     const sql = getTestSql();
     const rows = await sql<{ id: number }[]>`

@@ -138,6 +138,81 @@ function wrapLink(view: EditorView): boolean {
   return true;
 }
 
+async function uploadImage(
+  file: File | Blob,
+  name: string,
+): Promise<{ url: string; filename: string } | null> {
+  try {
+    const fd = new FormData();
+    fd.append('file', file, name);
+    const r = await fetch('/api/portal/media/upload', { method: 'POST', body: fd });
+    const json = (await r.json().catch(() => ({}))) as {
+      success?: boolean;
+      data?: { url?: string; filename?: string };
+    };
+    if (!r.ok || !json.success || !json.data?.url) return null;
+    return { url: json.data.url, filename: json.data.filename ?? name };
+  } catch {
+    return null;
+  }
+}
+
+function escapeMdAlt(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/]/g, '\\]');
+}
+
+let placeholderCounter = 0;
+function nextPlaceholderToken(): string {
+  placeholderCounter = (placeholderCounter + 1) % Number.MAX_SAFE_INTEGER;
+  return `${Date.now().toString(36)}-${placeholderCounter.toString(36)}`;
+}
+
+/**
+ * Insert a placeholder for an in-flight upload, then resolve it (replacing the
+ * placeholder text in place) once the upload finishes. The placeholder embeds
+ * a unique token so we can locate it on resolve even after unrelated edits.
+ * Returns the length of the inserted text (placeholder + trailing) so the
+ * caller can advance its cursor when batching multiple files.
+ */
+function insertWithPlaceholder(
+  view: EditorView,
+  file: File,
+  pos: number,
+  trailing: string,
+): number {
+  const baseName = file.name || 'image';
+  const token = nextPlaceholderToken();
+  const placeholder = `![uploading:${token}: ${escapeMdAlt(baseName)}...]()`;
+  const insertion = placeholder + trailing;
+
+  view.dispatch({
+    changes: { from: pos, to: pos, insert: insertion },
+    selection: EditorSelection.cursor(pos + insertion.length),
+  });
+
+  void uploadImage(file, baseName).then((result) => {
+    const doc = view.state.doc.toString();
+    const idx = doc.indexOf(placeholder);
+    if (idx === -1) return;
+    const replacement = result
+      ? `![${escapeMdAlt(result.filename)}](${result.url})`
+      : `![upload failed: ${escapeMdAlt(baseName)}]()`;
+    view.dispatch({
+      changes: { from: idx, to: idx + placeholder.length, insert: replacement },
+    });
+  });
+
+  return insertion.length;
+}
+
+function handleImageFiles(view: EditorView, files: File[], at?: number): void {
+  let cursor = at ?? view.state.selection.main.head;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    cursor += insertWithPlaceholder(view, file, cursor, '\n');
+  }
+}
+
 function readStoredMode(key: string, fallback: MarkdownEditorMode): MarkdownEditorMode {
   if (typeof window === 'undefined') return fallback;
   try {
@@ -438,12 +513,48 @@ export default function MarkdownEditor({
       ...historyKeymap,
     ]);
 
+    const imageDropPaste = EditorView.domEventHandlers({
+      paste: (event, view) => {
+        const items = event.clipboardData?.items;
+        if (!items || items.length === 0) return false;
+        const imageFiles: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const f = item.getAsFile();
+            if (f) imageFiles.push(f);
+          }
+        }
+        if (imageFiles.length === 0) return false;
+        event.preventDefault();
+        handleImageFiles(view, imageFiles);
+        return true;
+      },
+      drop: (event, view) => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return false;
+        const imageFiles: File[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          if (f.type.startsWith('image/')) imageFiles.push(f);
+        }
+        if (imageFiles.length === 0) return false;
+        event.preventDefault();
+        const pos =
+          view.posAtCoords({ x: event.clientX, y: event.clientY }) ??
+          view.state.selection.main.head;
+        handleImageFiles(view, imageFiles, pos);
+        return true;
+      },
+    });
+
     return [
       markdown({ base: markdownLanguage, codeLanguages: [] }),
       EditorView.lineWrapping,
       portalEditorTheme,
       EditorView.contentAttributes.of({ 'aria-label': 'Markdown editor' }),
       editorKeymap,
+      imageDropPaste,
       // Obsidian-style autocomplete: [[ for notes, # for tags, @ for CRM,
       // / for slash commands. Falls back to no-op when fetchers are null
       // (e.g. admin contexts with no brain).
