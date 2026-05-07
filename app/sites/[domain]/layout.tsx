@@ -27,28 +27,52 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
 
   const branding = await getBrandingByWebsiteId(site.id);
 
+  // Canonical URL based on the site's primary domain. Used for og:url and
+  // metadataBase so client sites never leak the agency's simplerdevelopment.com.
+  const canonicalUrl = `https://${site.domain}`;
+  const description = site.description || undefined;
+  // OG image fallback chain — prefer an explicit OG image, then any logo
+  // the site has uploaded so X/Facebook share previews always have an image.
+  const ogImageUrl =
+    branding.ogImageUrl ||
+    branding.logoUrl ||
+    branding.logoSquareUrl ||
+    undefined;
+  const ogImages = ogImageUrl ? [{ url: ogImageUrl }] : undefined;
+
   const metadata: Metadata = {
-    title: {
-      default: site.name,
-      template: `%s | ${site.name}`,
+    metadataBase: new URL(canonicalUrl),
+    // `absolute` prevents the root layout's `%s | SimplerDevelopment`
+    // template from being applied to this site layout's title. Pages
+    // override this with their own absolute title via generateMetadata.
+    title: { absolute: site.name },
+    description,
+    // Explicitly reset agency-level fields from the root layout's defaultSEO
+    // so SimplerDevelopment branding never leaks into client sites.
+    keywords: null,
+    authors: null,
+    creator: null,
+    publisher: null,
+    openGraph: {
+      type: 'website',
+      locale: 'en_US',
+      url: canonicalUrl,
+      siteName: site.name,
+      title: site.name,
+      description,
+      images: ogImages,
     },
-    description: site.description || undefined,
+    twitter: {
+      card: 'summary_large_image',
+      title: site.name,
+      description,
+      images: ogImageUrl ? [ogImageUrl] : undefined,
+    },
   };
 
   const faviconUrl = resolveFaviconUrl(branding);
   if (faviconUrl) {
     metadata.icons = { icon: faviconUrl };
-  }
-
-  if (branding.ogImageUrl) {
-    metadata.openGraph = {
-      images: [{ url: branding.ogImageUrl }],
-      siteName: site.name,
-    };
-    metadata.twitter = {
-      card: 'summary_large_image',
-      images: [branding.ogImageUrl],
-    };
   }
 
   return metadata;

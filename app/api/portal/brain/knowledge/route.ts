@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireBrainEntitlement } from '@/lib/brain/entitlement';
-import { listNotes, countNotes, createNote, listAllTags, type NoteSort, type NoteOrder } from '@/lib/brain/notes';
+import { listNotes, countNotes, createNote, listAllTags, listTagsWithCounts, type NoteSort, type NoteOrder } from '@/lib/brain/notes';
 
 const ALLOWED_SORTS: NoteSort[] = ['updated', 'created', 'title'];
 const ALLOWED_ORDERS: NoteOrder[] = ['asc', 'desc'];
@@ -10,9 +10,16 @@ export async function GET(request: Request) {
   if ('response' in result) return result.response;
 
   const url = new URL(request.url);
-  const wantTags = url.searchParams.get('tags') === 'true';
+  const tagsParam = url.searchParams.get('tags');
 
-  if (wantTags) {
+  if (tagsParam === 'counts') {
+    // Tag-first landing view: one row per tag with its note count, plus
+    // untagged + total. Aggregated server-side so counts reflect the whole
+    // tenant, not just a paginated slice.
+    const data = await listTagsWithCounts(result.client.id);
+    return NextResponse.json({ success: true, data });
+  }
+  if (tagsParam === 'true') {
     const tags = await listAllTags(result.client.id);
     return NextResponse.json({ success: true, data: { tags } });
   }
@@ -29,6 +36,8 @@ export async function GET(request: Request) {
   const sourceUrl = url.searchParams.get('sourceUrl');
   const sourceUrlStartsWith = url.searchParams.get('sourceUrlStartsWith');
   const trashed = url.searchParams.get('trashed') === 'true';
+  const untagged = url.searchParams.get('untagged') === 'true';
+  const orphans = url.searchParams.get('orphans') === 'true';
 
   const sortRaw = url.searchParams.get('sort');
   const orderRaw = url.searchParams.get('order');
@@ -60,6 +69,8 @@ export async function GET(request: Request) {
     pinnedOnly,
     sourceUrl: sourceUrl ?? undefined,
     sourceUrlStartsWith: sourceUrlStartsWith ?? undefined,
+    untagged,
+    orphans,
     trashed,
   };
 

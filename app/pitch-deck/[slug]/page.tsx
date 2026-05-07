@@ -88,6 +88,10 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   // redirected to the tenant subdomain (prod) or rendered inline (local dev).
   // Local-dev inline rendering needs real metadata so the browser tab + share
   // cards reflect the deck instead of "Not Found".
+  //
+  // Per fix/slides-public-route: public access on the main app host is blocked
+  // — pitch decks must be viewed on the owning tenant's subdomain. That intent
+  // is preserved by the !isPreview && !isLocal branch below.
   const headersList = await headers();
   const reqHost = headersList.get('host') || '';
   const isLocal = reqHost.startsWith('localhost') || reqHost.startsWith('127.0.0.1');

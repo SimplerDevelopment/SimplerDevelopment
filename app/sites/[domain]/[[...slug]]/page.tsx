@@ -26,20 +26,64 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { domain, slug } = await params;
   const site = await getClientWebsiteByDomain(domain);
-  if (!site) return { title: 'Not Found' };
+  if (!site) return { title: { absolute: 'Not Found' } };
 
   const pageSlug = slug?.join('/');
 
+  // Build per-page metadata from a CMS post row. Uses the dedicated SEO
+  // fields when set, falls back to title/excerpt. Returns `title` as
+  // `{ absolute }` so the root layout's `%s | SimplerDevelopment` template
+  // never appends an agency suffix to client-site pages.
+  type SeoPage = {
+    title: string;
+    excerpt?: string | null;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
+    ogImage?: string | null;
+    noIndex?: boolean | null;
+    canonicalUrl?: string | null;
+  };
+  const buildFromPage = (page: SeoPage): Metadata => {
+    const title = page.seoTitle || page.title;
+    const description = page.seoDescription || page.excerpt || undefined;
+    const md: Metadata = {
+      title: { absolute: title },
+      description,
+      openGraph: {
+        title,
+        description,
+        ...(page.ogImage ? { images: [page.ogImage] } : {}),
+      },
+      twitter: {
+        title,
+        description,
+        ...(page.ogImage ? { images: [page.ogImage] } : {}),
+      },
+    };
+    if (page.noIndex) md.robots = { index: false, follow: false };
+    if (page.canonicalUrl) md.alternates = { canonical: page.canonicalUrl };
+    return md;
+  };
+
+  // Home page (no slug) — surface the SEO from the post flagged as the
+  // home page so cystrategies.co/ uses the same metadata as cystrategies.co/home.
   if (!pageSlug || pageSlug === '') {
-    return { title: site.name };
+    const homePage = await getClientHomePage(site.id);
+    if (homePage) return buildFromPage(homePage as SeoPage);
+    // No designated home page — let the layout's `title: { absolute: site.name }`
+    // be used so we don't re-trigger any template suffix.
+    return {};
   }
 
   if (pageSlug === 'shop') {
-    return { title: `Shop | ${site.name}`, description: `Browse products from ${site.name}` };
+    return {
+      title: { absolute: `Shop — ${site.name}` },
+      description: `Browse products from ${site.name}`,
+    };
   }
 
   if (pageSlug.startsWith('shop/')) {
-    return { title: `Shop | ${site.name}` };
+    return { title: { absolute: `Shop — ${site.name}` } };
   }
 
   // Blog posts live under /blog/<slug> but the post row's slug is just
@@ -47,21 +91,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // every blog post shows "Not Found" in the <title>.
   const lookupSlug = pageSlug.startsWith('blog/') ? pageSlug.replace('blog/', '') : pageSlug;
   const page = await getClientPage(site.id, lookupSlug);
-  if (!page) return { title: 'Not Found' };
+  if (!page) return { title: { absolute: 'Not Found' } };
 
-  // Prefer dedicated SEO fields when set; fall back to title/excerpt.
-  const p = page as typeof page & {
-    seoTitle?: string | null; seoDescription?: string | null;
-    ogImage?: string | null; noIndex?: boolean | null;
-    canonicalUrl?: string | null;
-  };
-  return {
-    title: p.seoTitle || page.title,
-    description: p.seoDescription || page.excerpt || undefined,
-    openGraph: p.ogImage ? { images: [p.ogImage] } : undefined,
-    robots: p.noIndex ? { index: false, follow: false } : undefined,
-    alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined,
-  };
+  return buildFromPage(page as SeoPage);
 }
 
 export default async function ClientSitePage({ params, searchParams }: PageProps) {
