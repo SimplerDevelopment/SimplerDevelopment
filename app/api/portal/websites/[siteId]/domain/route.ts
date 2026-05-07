@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { addDomain } from '@/lib/vercel';
+import { normalizeCustomDomain } from '@/lib/normalize-domain';
 
 export async function POST(
   req: Request,
@@ -36,7 +37,7 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'customDomain is required.' }, { status: 400 });
   }
 
-  const cleanDomain = customDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '').toLowerCase();
+  const cleanDomain = normalizeCustomDomain(customDomain);
 
   try {
     await addDomain(site.vercelProjectId, cleanDomain);
