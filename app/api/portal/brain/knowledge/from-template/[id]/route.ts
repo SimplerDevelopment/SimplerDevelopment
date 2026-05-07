@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { getTemplate } from '@/lib/brain/templates';
@@ -8,8 +8,8 @@ import { applyTemplate } from '@/lib/brain/template';
 import { createNote } from '@/lib/brain/notes';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const templateId = parseInt(id, 10);

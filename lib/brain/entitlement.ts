@@ -23,24 +23,10 @@
  * migration and the layout-level gate already lets us upsell unentitled users
  * without breaking their experience.
  *
- * TODO(brain-gate-rollout): apply `requireBrainEntitlement` to the remaining
- * brain API routes once we're confident the helper has shipped without
- * regressions. Currently gated:
- *   - GET  /api/portal/brain/dashboard
- *   - GET  /api/portal/brain/knowledge   (and POST)
- *   - GET  /api/portal/brain/search
- *   - GET  /api/portal/brain/relationships
- *   - GET  /api/portal/brain/tasks
- * Still on `authorizePortal` only (≈26 routes):
- *   - settings, promotion-targets, drive-sync, dataview, crm-suggestions,
- *     adapters, calendar/{agenda,events,events/[id]},
- *     review, review-items/[id]/{approve,reject},
- *     communications (+ [id], [id]/{review,process,attachments,attachments/[idx]}),
- *     tasks/[id], tasks/[id]/promote-to-kanban,
- *     knowledge/[id] (+ /attachment, /backlinks, /fields, /fields/[fieldId], /upload),
- *     relationships/[id]
- *   The layout-level gate already prevents unentitled tenants from reaching
- *   the UI that calls these, but defense-in-depth requires the API guard too.
+ * Rollout complete: every authenticated `/api/portal/brain/**` route now calls
+ * `requireBrainEntitlement` directly. The cron handler at
+ * `/api/cron/brain-daily-notes` is intentionally unauthenticated — entitlement
+ * is checked per-tenant inside the loop, not at the route boundary.
  */
 
 import { NextResponse } from 'next/server';

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { emptyTrash } from '@/lib/brain/notes';
 
 /**
@@ -13,8 +13,8 @@ import { emptyTrash } from '@/lib/brain/notes';
  * and matches the same scope as a single-note hard-delete.
  */
 export async function POST() {
-  const result = await authorizePortal({ action: 'admin' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'admin' });
+  if ('response' in result) return result.response;
 
   try {
     const summary = await emptyTrash(result.client.id, result.userId);

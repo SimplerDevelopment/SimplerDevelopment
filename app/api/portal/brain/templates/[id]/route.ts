@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import {
   getTemplate,
   updateTemplate,
@@ -17,8 +17,8 @@ function parseTrigger(raw: unknown): BrainNoteTemplateTrigger | undefined {
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const templateId = parseInt(id, 10);
@@ -31,8 +31,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const templateId = parseInt(id, 10);
@@ -97,8 +97,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'admin' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'admin' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const templateId = parseInt(id, 10);

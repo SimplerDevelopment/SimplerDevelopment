@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { db } from '@/lib/db';
 import { brainAuditLogs } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { getNote } from '@/lib/brain/notes';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const { id } = await params;
   const noteId = parseInt(id, 10);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { getAgenda } from '@/lib/brain/calendar';
 
 function parseDateParam(value: string | null, fallback: Date): Date {
@@ -9,8 +9,8 @@ function parseDateParam(value: string | null, fallback: Date): Date {
 }
 
 export async function GET(request: Request) {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const now = new Date();
