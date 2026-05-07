@@ -27,28 +27,45 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
 
   const branding = await getBrandingByWebsiteId(site.id);
 
+  // Canonical URL based on the site's primary domain. Used for og:url and
+  // metadataBase so client sites never leak the agency's simplerdevelopment.com.
+  const canonicalUrl = `https://${site.domain}`;
+  const description = site.description || undefined;
+  const ogImages = branding.ogImageUrl ? [{ url: branding.ogImageUrl }] : undefined;
+
   const metadata: Metadata = {
+    metadataBase: new URL(canonicalUrl),
     title: {
       default: site.name,
       template: `%s | ${site.name}`,
     },
-    description: site.description || undefined,
+    description,
+    // Explicitly reset agency-level fields from the root layout's defaultSEO
+    // so SimplerDevelopment branding never leaks into client sites.
+    keywords: null,
+    authors: null,
+    creator: null,
+    publisher: null,
+    openGraph: {
+      type: 'website',
+      locale: 'en_US',
+      url: canonicalUrl,
+      siteName: site.name,
+      title: site.name,
+      description,
+      images: ogImages,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: site.name,
+      description,
+      images: branding.ogImageUrl ? [branding.ogImageUrl] : undefined,
+    },
   };
 
   const faviconUrl = resolveFaviconUrl(branding);
   if (faviconUrl) {
     metadata.icons = { icon: faviconUrl };
-  }
-
-  if (branding.ogImageUrl) {
-    metadata.openGraph = {
-      images: [{ url: branding.ogImageUrl }],
-      siteName: site.name,
-    };
-    metadata.twitter = {
-      card: 'summary_large_image',
-      images: [branding.ogImageUrl],
-    };
   }
 
   return metadata;
