@@ -25,7 +25,14 @@ export function isEmailNotifiedEvent(event: string): boolean {
 }
 
 function unsubscribeSecret(): string {
-  return process.env.NOTIFY_UNSUBSCRIBE_SECRET || process.env.NEXTAUTH_SECRET || 'dev-unsubscribe-secret';
+  const secret =
+    process.env.NOTIFY_UNSUBSCRIBE_SECRET ??
+    process.env.AUTH_SECRET ??
+    process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error('NOTIFY_UNSUBSCRIBE_SECRET or AUTH_SECRET must be set.');
+  }
+  return secret;
 }
 
 export function signUnsubscribe(cardId: number, userId: number): string {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { createNote } from '@/lib/brain/notes';
 import { uploadToS3 } from '@/lib/s3/upload';
 
@@ -13,8 +13,8 @@ const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB
  * relationship link) — title defaults to the filename if omitted.
  */
 export async function POST(request: Request) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   let formData: globalThis.FormData;
   try {

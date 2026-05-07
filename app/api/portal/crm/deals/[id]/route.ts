@@ -12,7 +12,15 @@ import {
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
-import { notifyAllClientUsers } from '@/lib/crm/notifications';
+import { createCrmNotification, notifyAllClientUsers } from '@/lib/crm/notifications';
+import {
+  assertStageInClient,
+  assertPipelineInClient,
+  assertContactInClient,
+  assertCompanyInClient,
+  assertUserVisibleToClient,
+  OwnershipError,
+} from '@/lib/security/assert-owned';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -117,7 +125,7 @@ export async function PUT(
     return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
   const [existing] = await db
-    .select({ id: crmDeals.id })
+    .select({ id: crmDeals.id, ownerId: crmDeals.ownerId })
     .from(crmDeals)
     .where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, client.id)));
 
@@ -125,6 +133,26 @@ export async function PUT(
     return NextResponse.json({ success: false, message: 'Deal not found' }, { status: 404 });
 
   const body = await req.json();
+
+  // Validate every foreign key supplied in the body belongs to this client.
+  // Without these checks an attacker can point a deal at another tenant's
+  // stage / pipeline / contact / company / owner via mass-assignment.
+  try {
+    if (body.stageId !== undefined && body.stageId !== null) {
+      await assertStageInClient(Number(body.stageId), client.id);
+    }
+    if (body.pipelineId !== undefined && body.pipelineId !== null) {
+      await assertPipelineInClient(Number(body.pipelineId), client.id);
+    }
+    if (body.contactId) await assertContactInClient(Number(body.contactId), client.id);
+    if (body.companyId) await assertCompanyInClient(Number(body.companyId), client.id);
+    if (body.ownerId) await assertUserVisibleToClient(Number(body.ownerId), client.id);
+  } catch (err) {
+    if (err instanceof OwnershipError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 403 });
+    }
+    throw err;
+  }
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   if (body.title !== undefined) updateData.title = body.title.trim();
@@ -171,6 +199,24 @@ export async function PUT(
       excludeUserId: result.userId,
       type: 'deal_stage_changed',
       title: `Deal '${updated.title}' moved to stage '${stageName}'`,
+      entityType: 'deal',
+      entityId: updated.id,
+    });
+  }
+
+  // Notify the new owner when a deal is (re)assigned (only if owner actually
+  // changed, and the new owner isn't the actor making the change).
+  if (
+    body.ownerId !== undefined &&
+    updated.ownerId &&
+    updated.ownerId !== existing.ownerId &&
+    updated.ownerId !== result.userId
+  ) {
+    createCrmNotification({
+      clientId: client.id,
+      userId: updated.ownerId,
+      type: 'deal_assigned',
+      title: `You were assigned to deal: ${updated.title}`,
       entityType: 'deal',
       entityId: updated.id,
     });

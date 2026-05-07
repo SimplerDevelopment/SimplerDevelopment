@@ -5,6 +5,7 @@ import { supportTickets, ticketMessages } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, count } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
+import { computeSlaDeadlines } from '@/lib/tickets/sla';
 
 export async function GET() {
   const session = await auth();
@@ -35,14 +36,19 @@ export async function POST(req: Request) {
   const [result] = await db.select({ count: count() }).from(supportTickets);
   const ticketNumber = (result?.count ?? 0) + 1001;
 
+  const priority = body.priority ?? 'medium';
+  const { firstResponseDueAt, resolutionDueAt } = computeSlaDeadlines(priority);
+
   const [ticket] = await db.insert(supportTickets).values({
     number: ticketNumber,
     clientId: client.id,
     subject: body.subject,
     category: body.category ?? 'general',
-    priority: body.priority ?? 'medium',
+    priority,
     status: 'open',
     createdBy: userId,
+    firstResponseDueAt,
+    resolutionDueAt,
   }).returning();
 
   // First message

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { getPortalClient } from '@/lib/portal-client';
 import ApiKeysManager from '@/components/portal/ApiKeysManager';
 import UploadHtmlPageButton from '@/components/portal/UploadHtmlPageButton';
+import CreateSnapshotButton from '@/components/portal/CreateSnapshotButton';
 
 export default async function PortalCmsDashboardPage({
   params,
@@ -57,7 +58,10 @@ export default async function PortalCmsDashboardPage({
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Overview of your content, types, and entries.</p>
         </div>
-        <UploadHtmlPageButton siteId={site.id} />
+        <div className="flex items-center gap-2">
+          <CreateSnapshotButton siteId={site.id} siteName={site.name} />
+          <UploadHtmlPageButton siteId={site.id} />
+        </div>
       </div>
 
       {created === '1' && (

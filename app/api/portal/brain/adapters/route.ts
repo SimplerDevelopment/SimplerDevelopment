@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { getOrCreateBrainProfile } from '@/lib/brain/profiles';
 import { listEnabledAdapters } from '@/lib/brain/meeting-sources';
 
 export async function GET() {
-  const result = await authorizePortal({ action: 'read' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'read' });
+  if ('response' in result) return result.response;
 
   const profile = await getOrCreateBrainProfile(result.client.id, result.client.company || 'Company Brain');
   const adapters = await listEnabledAdapters(profile);

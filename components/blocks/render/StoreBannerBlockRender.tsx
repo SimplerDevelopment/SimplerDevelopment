@@ -4,6 +4,7 @@ import { StoreBannerBlock } from '@/types/blocks';
 import { useEffect, useState } from 'react';
 import { getElementCSS } from '@/lib/utils/elementStyles';
 import { useBranding } from '@/contexts/BrandingContext';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface StoreBannerBlockRenderProps {
   block: StoreBannerBlock;
@@ -62,9 +63,9 @@ export function StoreBannerBlockRender({ block }: StoreBannerBlockRenderProps) {
             <div className="absolute inset-0 bg-black/50" />
           )}
           <div className="relative z-10 px-8 py-12 md:py-16 text-center">
-            <h2 className="text-3xl md:text-5xl font-bold mb-3" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
+            <h2 className="text-3xl md:text-5xl font-bold mb-3" style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.title) }} />
             {block.subtitle && (
-              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'subtitle')} dangerouslySetInnerHTML={{ __html: block.subtitle }} />
+              <p className="text-lg md:text-xl opacity-90 mb-6 max-w-2xl mx-auto" style={getElementCSS(block.elementStyles, 'subtitle')} dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(block.subtitle) }} />
             )}
 
             {block.discountCode && (

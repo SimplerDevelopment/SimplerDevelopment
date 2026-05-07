@@ -14,6 +14,8 @@ import {
   emailSubscribers,
 } from '@/lib/db/schema';
 import { resend, buildCampaignHtml, buildUnsubscribeUrl } from './index';
+import { getOrRenderCampaignHtml, htmlToText } from './render-cache';
+import type { Block } from '@/types/blocks';
 
 export async function executeCampaignSend(
   campaignId: number,
@@ -38,17 +40,36 @@ export async function executeCampaignSend(
     .set({ status: 'sending', totalRecipients: targets.length, updatedAt: new Date() })
     .where(eq(emailCampaigns.id, campaignId));
 
+  // When the campaign opted into the block builder, render once via the
+  // sha256-keyed cache so we don't re-render per recipient. The cached HTML
+  // contains a `{{UNSUBSCRIBE_URL}}` placeholder we substitute below.
+  let cachedHtml: string | null = null;
+  let cachedText: string | null = null;
+  if (campaign.useBlockEditor && Array.isArray(campaign.contentBlocks)) {
+    const result = await getOrRenderCampaignHtml(
+      campaignId,
+      campaign.contentBlocks as Block[],
+      { previewText: campaign.previewText, subject: campaign.subject },
+    );
+    cachedHtml = result.html;
+    cachedText = result.text;
+  }
+
   let sent = 0;
   let failed = 0;
   for (const subscriber of targets) {
     try {
       const unsubscribeUrl = buildUnsubscribeUrl(subscriber.unsubscribeToken);
-      const html = buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
+      const html = cachedHtml
+        ? cachedHtml.replace(/\{\{UNSUBSCRIBE_URL\}\}/g, unsubscribeUrl)
+        : buildCampaignHtml(campaign.htmlContent, unsubscribeUrl, campaign.previewText);
+      const text = cachedText ?? htmlToText(html);
       const result = await resend.emails.send({
         from: `${campaign.fromName} <${campaign.fromEmail}>`,
         to: subscriber.email,
         subject: campaign.subject,
         html,
+        text,
         ...(campaign.replyTo ? { replyTo: campaign.replyTo } : {}),
         headers: {
           'List-Unsubscribe': `<${unsubscribeUrl}>`,

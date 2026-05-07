@@ -40,6 +40,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
   const titleStyle = getElementCSS(block.elementStyles, 'serviceTitle');
   const descStyle = getElementCSS(block.elementStyles, 'serviceDescription');
   const iconStyle = getElementCSS(block.elementStyles, 'serviceIcon');
+  const imageStyle = getElementCSS(block.elementStyles, 'serviceImage');
   const linkStyle = getElementCSS(block.elementStyles, 'serviceLink');
   const bulletStyle = getElementCSS(block.elementStyles, 'bullet');
 
@@ -82,7 +83,7 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
             style={{ borderColor: '#E5E7EB', ...cardStyle }}
           >
             {service.image ? (
-              <img src={service.image} alt="" className="w-14 h-14 object-contain mb-4" />
+              <img src={service.image} alt="" className="w-14 h-14 object-contain mb-4" style={imageStyle} />
             ) : service.icon ? (
               <span
                 className="material-icons mb-4"

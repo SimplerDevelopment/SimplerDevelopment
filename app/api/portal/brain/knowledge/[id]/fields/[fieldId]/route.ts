@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { db } from '@/lib/db';
 import { brainNotes, brainCustomFields, brainCustomFieldValues } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -15,8 +15,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; fieldId: string }> },
 ) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const { id, fieldId } = await params;
   const noteId = parseInt(id, 10);

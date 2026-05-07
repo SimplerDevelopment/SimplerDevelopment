@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postCustomFieldValues, customFields, postTypes } from '@/lib/db/schema';
 import { eq, desc, asc, sql } from 'drizzle-orm';
@@ -18,7 +19,29 @@ const createPostSchema = z.object({
   customFields: z.record(z.string(), z.string()).optional(),
 });
 
+async function requireAdminOrEditor() {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'unauth' as const };
+  const role = (session.user as { role?: string })?.role;
+  if (role !== 'admin' && role !== 'editor') return { error: 'forbidden' as const };
+  return { session };
+}
+
+function gateResponse(result: Awaited<ReturnType<typeof requireAdminOrEditor>>) {
+  if ('error' in result) {
+    if (result.error === 'unauth') {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const published = searchParams.get('published');
@@ -62,6 +85,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdminOrEditor();
+  const denied = gateResponse(gate);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const validatedData = createPostSchema.parse(body);

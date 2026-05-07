@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
-import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { requireBrainEntitlement } from '@/lib/brain/entitlement';
 import { refreshIfExpired } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import {
@@ -36,8 +36,8 @@ export const runtime = 'nodejs';
  *   ?limit=N          — cap on backfill ingest (default 50).
  */
 export async function POST(request: Request) {
-  const result = await authorizePortal({ action: 'write' });
-  if (isAuthError(result)) return result.response;
+  const result = await requireBrainEntitlement({ action: 'write' });
+  if ('response' in result) return result.response;
 
   const url = new URL(request.url);
   const mode = url.searchParams.get('mode');

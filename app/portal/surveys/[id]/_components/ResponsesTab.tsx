@@ -12,15 +12,19 @@
 
 import { useMemo, useState } from 'react';
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
-import type { Survey, SurveyResponse } from '../_lib/api';
+import { type ResponseFilters, type Survey, type SurveyResponse, responseFiltersToQuery } from '../_lib/api';
+import ResponseFiltersBar from './ResponseFiltersBar';
 
 interface Props {
   surveyId: string | number;
   survey: Survey;
   responses: SurveyResponse[];
+  filters: ResponseFilters;
+  onFiltersChange: (next: ResponseFilters) => void;
+  sourcesPresent: string[];
 }
 
-export default function ResponsesTab({ surveyId, survey, responses }: Props) {
+export default function ResponsesTab({ surveyId, survey, responses, filters, onFiltersChange, sourcesPresent }: Props) {
   // Group by formName, preserving insertion order so the most-recent form
   // (whatever first appears in the desc-by-createdAt list) is on top.
   const groups = useMemo(() => {
@@ -42,24 +46,45 @@ export default function ResponsesTab({ surveyId, survey, responses }: Props) {
     return map;
   }, [survey.fields]);
 
+  // Pass current filters through to the CSV export so the download matches
+  // what's on screen.
+  const exportQs = responseFiltersToQuery(filters).toString();
+  const exportHref = `/api/portal/surveys/${surveyId}/export${exportQs ? `?${exportQs}` : ''}`;
+
+  const hasAnyFilter = !!(filters.from || filters.to || filters.source || filters.q);
+
   return (
     <div className="space-y-6">
-      {responses.length > 0 && (
-        <div className="flex justify-end">
-          <a
-            href={`/api/portal/surveys/${surveyId}/export`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            <span className="material-icons text-lg">download</span>
-            Export CSV
-          </a>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:justify-between">
+        <div className="flex-1 min-w-0">
+          <ResponseFiltersBar
+            filters={filters}
+            onChange={onFiltersChange}
+            sourcesPresent={sourcesPresent}
+            filteredCount={responses.length}
+          />
         </div>
-      )}
+        {responses.length > 0 && (
+          <div className="flex items-end">
+            <a
+              href={exportHref}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-background border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+            >
+              <span className="material-icons text-lg">download</span>
+              Export CSV
+            </a>
+          </div>
+        )}
+      </div>
       {responses.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center">
-          <span className="material-icons text-4xl text-muted-foreground/50">inbox</span>
-          <p className="text-muted-foreground mt-2 text-sm">No responses yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Share your survey to start collecting responses</p>
+          <span className="material-icons text-4xl text-muted-foreground/50">{hasAnyFilter ? 'filter_alt_off' : 'inbox'}</span>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {hasAnyFilter ? 'No responses match these filters' : 'No responses yet'}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {hasAnyFilter ? 'Try widening the date range or clearing the keyword search.' : 'Share your survey to start collecting responses'}
+          </p>
         </div>
       ) : (
         groups.map(([formName, rows]) => (

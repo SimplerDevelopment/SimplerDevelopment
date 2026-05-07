@@ -89,7 +89,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Webhook error';
-    return NextResponse.json({ error: message }, { status: 400 });
+    // Don't echo signature-verification messages to the caller — they
+    // fingerprint whether STRIPE_WEBHOOK_SECRET is set / what shape we expect.
+    console.error('[stripe/webhook] error:', err instanceof Error ? err.stack ?? err.message : err);
+    return NextResponse.json({ error: 'webhook_error' }, { status: 400 });
   }
 }

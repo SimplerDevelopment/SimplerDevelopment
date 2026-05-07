@@ -15,8 +15,9 @@ import {
   StyleVariantsValidationError,
 } from '@/lib/ai/style-variants/validate';
 import type { Block } from '@/types/blocks';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 /**
  * POST /api/portal/cms/websites/[siteId]/blocks/restyle
@@ -64,9 +65,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
       );
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json({ success: false, message: 'AI service not configured' }, { status: 503 });
+    const gate = await checkAiPlanGate({ clientId: site.clientId, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
     }
+    const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     // Brand context — visual + messaging
     const branding = await getBrandingByWebsiteId(siteId);
@@ -105,6 +109,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ siteId:
       .map((b) => b.text)
       .join('')
       .trim();
+
+    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    void recordAiUsage({ clientId: site.clientId, source: resolved.source, tokens: totalTokens });
 
     let parsed: unknown;
     try {

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HeroSlideshowBlock, HeroSlideshowSlide } from '@/types/blocks';
 import { Button } from '@/components/ui/Button';
 import { getElementCSS } from '@/lib/utils/elementStyles';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 interface HeroSlideshowBlockRenderProps {
   block: HeroSlideshowBlock;
@@ -296,7 +297,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
                 letterSpacing: '0.3em',
                 ...getElementCSS(elementStyles, 'subtitle'),
               }}
-              dangerouslySetInnerHTML={{ __html: slide.subtitle }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(slide.subtitle) }}
             />
           )}
 
@@ -308,7 +309,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
               color: '#fff',
               ...getElementCSS(elementStyles, 'title'),
             }}
-            dangerouslySetInnerHTML={{ __html: slide.title }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(slide.title) }}
           />
 
           {slide.description && (
@@ -321,7 +322,7 @@ function SlideLayer({ slide, isActive, transition, transMs, kenBurns, elementSty
                 margin: textAlign === 'center' ? '0 auto 2.5rem' : undefined,
                 ...getElementCSS(elementStyles, 'description'),
               }}
-              dangerouslySetInnerHTML={{ __html: slide.description }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(slide.description) }}
             />
           )}
 

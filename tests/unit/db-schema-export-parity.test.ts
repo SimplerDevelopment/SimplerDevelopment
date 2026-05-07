@@ -92,16 +92,26 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'BrainReviewItemStatus',
   'BrainReviewItemTaskPayload',
   'BrainReviewItemType',
+  'BrainSavedSearchFilters',
   'BrainTaskStatus',
+  'CommentAnchor',
   'ContractClause',
   'DnsInstruction',
+  'DocumentComment',
   'EmailTemplateVariable',
   'GoogleWorkspaceClientConnection',
   'GoogleWorkspaceTenantCredentials',
   'GoogleWorkspaceUserConnection',
+  'NOTIFICATION_DELIVERIES',
+  'NOTIFICATION_TYPES',
+  'MicrosoftTeamsUserConnection',
+  'NewDocumentComment',
   'NewGoogleWorkspaceClientConnection',
   'NewGoogleWorkspaceTenantCredentials',
   'NewGoogleWorkspaceUserConnection',
+  'NewMicrosoftTeamsUserConnection',
+  'NotificationDelivery',
+  'NotificationType',
   'PitchDeckDecisionCover',
   'PitchDeckDecisionOption',
   'PitchDeckSlide',
@@ -152,6 +162,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'brainNotes',
   'brainProfiles',
   'brainRelationshipOverlays',
+  'brainSavedSearches',
   'brainTasks',
   'brandingMessaging',
   'brandingProfiles',
@@ -159,6 +170,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'cartItems',
   'carts',
   'categories',
+  'clientApiKeys',
   'clientMembers',
   'clientServices',
   'clientWebsites',
@@ -187,9 +199,11 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'crmTags',
   'customFields',
   'discountCodes',
+  'documentComments',
   'emailCampaignSends',
   'emailCampaigns',
   'emailLists',
+  'emailRenders',
   'emailSegments',
   'emailSubscriberTagAssignments',
   'emailSubscriberTags',
@@ -223,6 +237,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'mcpPendingChanges',
   'media',
   'mediaVersions',
+  'meteredSubscriptionItems',
+  'microsoftTeamsUserConnections',
+  'notificationPreferences',
   'oauthAccessTokens',
   'oauthAuthorizationCodes',
   'oauthClients',
@@ -272,12 +289,17 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'surveyPartialResponses',
   'surveyResponses',
   'surveyVariants',
+  'surveyWebhookDeliveries',
   'surveyWebhooks',
   'surveys',
   'tags',
   'taxonomies',
   'taxonomyTerms',
   'ticketMessages',
+  'triggerLinkClicks',
+  'triggerLinks',
+  'usageBillingPeriods',
+  'usageMeterEvents',
   'usageMeters',
   'users',
   'websiteBackups',
@@ -325,6 +347,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   brainNotes: 'brain_notes',
   brainProfiles: 'brain_profiles',
   brainRelationshipOverlays: 'brain_relationship_overlays',
+  brainSavedSearches: 'brain_saved_searches',
   brainTasks: 'brain_tasks',
   brandingMessaging: 'branding_messaging',
   brandingProfiles: 'branding_profiles',
@@ -332,6 +355,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   cartItems: 'cart_items',
   carts: 'carts',
   categories: 'categories',
+  clientApiKeys: 'client_api_keys',
   clientMembers: 'client_members',
   clientServices: 'client_services',
   clientWebsites: 'client_websites',
@@ -360,9 +384,11 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   crmTags: 'crm_tags',
   customFields: 'custom_fields',
   discountCodes: 'discount_codes',
+  documentComments: 'document_comments',
   emailCampaignSends: 'email_campaign_sends',
   emailCampaigns: 'email_campaigns',
   emailLists: 'email_lists',
+  emailRenders: 'email_renders',
   emailSegments: 'email_segments',
   emailSubscriberTagAssignments: 'email_subscriber_tag_assignments',
   emailSubscriberTags: 'email_subscriber_tags',
@@ -396,6 +422,9 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   mcpPendingChanges: 'mcp_pending_changes',
   media: 'media',
   mediaVersions: 'media_versions',
+  meteredSubscriptionItems: 'metered_subscription_items',
+  microsoftTeamsUserConnections: 'microsoft_teams_user_connections',
+  notificationPreferences: 'notification_preferences',
   oauthAccessTokens: 'oauth_access_tokens',
   oauthAuthorizationCodes: 'oauth_authorization_codes',
   oauthClients: 'oauth_clients',
@@ -445,12 +474,17 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   surveyPartialResponses: 'survey_partial_responses',
   surveyResponses: 'survey_responses',
   surveyVariants: 'survey_variants',
+  surveyWebhookDeliveries: 'survey_webhook_deliveries',
   surveyWebhooks: 'survey_webhooks',
   surveys: 'surveys',
   tags: 'tags',
   taxonomies: 'taxonomies',
   taxonomyTerms: 'taxonomy_terms',
   ticketMessages: 'ticket_messages',
+  triggerLinkClicks: 'trigger_link_clicks',
+  triggerLinks: 'trigger_links',
+  usageBillingPeriods: 'usage_billing_periods',
+  usageMeterEvents: 'usage_meter_events',
   usageMeters: 'usage_meters',
   users: 'users',
   websiteBackups: 'website_backups',
@@ -469,7 +503,7 @@ describe('lib/db/schema export parity', () => {
     expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
   });
 
-  it('exports the recorded number of names (222)', () => {
+  it('exports the recorded number of names', () => {
     expect(collectSchemaExportNames()).toHaveLength(EXPECTED_EXPORTS.length);
   });
 
@@ -495,13 +529,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (166)', () => {
+  it('reports the recorded number of tables (178)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(166);
+    expect(count).toBe(178);
   });
 });

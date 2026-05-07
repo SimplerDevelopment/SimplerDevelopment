@@ -143,11 +143,11 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
   const [companyMap, dealMap] = await Promise.all([
     taskCompanyIds.size > 0
       ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-        .where(inArray(crmCompanies.id, [...taskCompanyIds]))
+        .where(and(inArray(crmCompanies.id, [...taskCompanyIds]), eq(crmCompanies.clientId, clientId)))
       : Promise.resolve([] as { id: number; name: string }[]),
     taskDealIds.size > 0
       ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-        .where(inArray(crmDeals.id, [...taskDealIds]))
+        .where(and(inArray(crmDeals.id, [...taskDealIds]), eq(crmDeals.clientId, clientId)))
       : Promise.resolve([] as { id: number; title: string }[]),
   ]);
   const companyNameById = new Map(companyMap.map((c) => [c.id, c.name]));
@@ -177,11 +177,11 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
   const [overlayCompanies, overlayDeals, overlayTaskCounts] = await Promise.all([
     overlayCompanyIds.length > 0
       ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-        .where(inArray(crmCompanies.id, overlayCompanyIds))
+        .where(and(inArray(crmCompanies.id, overlayCompanyIds), eq(crmCompanies.clientId, clientId)))
       : Promise.resolve([] as { id: number; name: string }[]),
     overlayDealIds.length > 0
       ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-        .where(inArray(crmDeals.id, overlayDealIds))
+        .where(and(inArray(crmDeals.id, overlayDealIds), eq(crmDeals.clientId, clientId)))
       : Promise.resolve([] as { id: number; title: string }[]),
     overlayCompanyIds.length + overlayDealIds.length > 0
       ? db.select({

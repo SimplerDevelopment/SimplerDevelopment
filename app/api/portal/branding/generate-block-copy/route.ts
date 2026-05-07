@@ -4,8 +4,9 @@ import { getPortalClient } from '@/lib/portal-client';
 import Anthropic from '@anthropic-ai/sdk';
 import { getBrandMessaging } from '@/lib/branding';
 import { buildBlockCopySystemPrompt, buildBlockCopyUserPrompt } from '@/lib/branding/copy-prompt';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 /**
  * POST /api/portal/branding/generate-block-copy
@@ -42,6 +43,13 @@ export async function POST(req: Request) {
       messaging,
     );
 
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
+
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
@@ -54,6 +62,9 @@ export async function POST(req: Request) {
       .map((b) => b.text)
       .join('')
       .trim();
+
+    const totalTokens = (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalTokens });
 
     let data: unknown;
     try {

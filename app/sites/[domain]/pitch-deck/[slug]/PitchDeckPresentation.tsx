@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { sanitizeHtml } from '@/lib/security/sanitize-html';
 import type {
   PitchDeckSlideV2,
   PitchDeckTheme,
@@ -419,7 +420,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
-      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
+      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeHtml(theme.customCss) }} />}
 
       <div
         className="min-h-screen w-full overflow-hidden relative select-none deck-root"
@@ -489,7 +490,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
             Injected unscoped, so authors can write plain selectors that only
             take effect while their slide is in view. */}
         {currentVS?.kind === 'block' && currentVS.slide.customCss && (
-          <style dangerouslySetInnerHTML={{ __html: currentVS.slide.customCss }} />
+          <style dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentVS.slide.customCss) }} />
         )}
 
         {/* Slide content */}

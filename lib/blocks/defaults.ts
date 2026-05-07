@@ -315,6 +315,21 @@ export function createDefaultBlock(
         iframeTitle: 'Embedded HTML content',
       };
 
+    // ── Popup ─────────────────────────────────────────────────────────────────
+    case 'popup':
+      return {
+        ...base, type: 'popup',
+        trigger: 'time-delay',
+        delaySeconds: 5,
+        scrollPercent: 50,
+        frequency: 'once-per-session',
+        headline: 'Stay in the loop',
+        body: '<p>Get our best content delivered to your inbox. No spam, ever.</p>',
+        ctaLabel: 'Sign me up',
+        ctaUrl: '#',
+        dismissable: true,
+      };
+
     default: {
       // TypeScript exhaustiveness guard — should never reach here for known types.
       const _exhaustive: never = type;

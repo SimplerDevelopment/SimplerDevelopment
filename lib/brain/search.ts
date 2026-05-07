@@ -175,11 +175,11 @@ export async function searchBrain(
             const [coRows, dlRows] = await Promise.all([
               companyIds.length
                 ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-                  .where(sql`${crmCompanies.id} IN ${companyIds}`)
+                  .where(and(sql`${crmCompanies.id} IN ${companyIds}`, eq(crmCompanies.clientId, clientId)))
                 : Promise.resolve([] as { id: number; name: string }[]),
               dealIds.length
                 ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-                  .where(sql`${crmDeals.id} IN ${dealIds}`)
+                  .where(and(sql`${crmDeals.id} IN ${dealIds}`, eq(crmDeals.clientId, clientId)))
                 : Promise.resolve([] as { id: number; title: string }[]),
             ]);
             const coMap = new Map(coRows.map((c) => [c.id, c.name]));
@@ -241,11 +241,11 @@ export async function searchBrain(
             const [coRows, dlRows] = await Promise.all([
               companyIds.length
                 ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-                  .where(sql`${crmCompanies.id} IN ${companyIds}`)
+                  .where(and(sql`${crmCompanies.id} IN ${companyIds}`, eq(crmCompanies.clientId, clientId)))
                 : Promise.resolve([] as { id: number; name: string }[]),
               dealIds.length
                 ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-                  .where(sql`${crmDeals.id} IN ${dealIds}`)
+                  .where(and(sql`${crmDeals.id} IN ${dealIds}`, eq(crmDeals.clientId, clientId)))
                 : Promise.resolve([] as { id: number; title: string }[]),
             ]);
             const coMap = new Map(coRows.map((c) => [c.id, c.name]));
@@ -305,11 +305,11 @@ export async function searchBrain(
             const [coRows, dlRows] = await Promise.all([
               companyIds.length
                 ? db.select({ id: crmCompanies.id, name: crmCompanies.name }).from(crmCompanies)
-                  .where(sql`${crmCompanies.id} IN ${companyIds}`)
+                  .where(and(sql`${crmCompanies.id} IN ${companyIds}`, eq(crmCompanies.clientId, clientId)))
                 : Promise.resolve([] as { id: number; name: string }[]),
               dealIds.length
                 ? db.select({ id: crmDeals.id, title: crmDeals.title }).from(crmDeals)
-                  .where(sql`${crmDeals.id} IN ${dealIds}`)
+                  .where(and(sql`${crmDeals.id} IN ${dealIds}`, eq(crmDeals.clientId, clientId)))
                 : Promise.resolve([] as { id: number; title: string }[]),
             ]);
             const coMap = new Map(coRows.map((c) => [c.id, c.name]));

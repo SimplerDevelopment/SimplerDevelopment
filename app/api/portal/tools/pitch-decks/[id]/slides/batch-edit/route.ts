@@ -10,8 +10,9 @@ import { buildSlideEditPrompt } from '@/lib/ai/slide-prompt-builder';
 import { validateSlideResponse } from '@/lib/ai/validate-slide-response';
 import { getBrandingByClientId } from '@/lib/branding';
 import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { recordAiUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
 function summarizeSlide(slide: PitchDeckSlideV2): string {
   const texts: string[] = [];
@@ -44,6 +45,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { prompt, slideIndices } = await req.json() as { prompt?: string; slideIndices?: number[] };
     if (!prompt?.trim()) return NextResponse.json({ success: false, message: 'Prompt is required' }, { status: 400 });
     if (!slideIndices?.length) return NextResponse.json({ success: false, message: 'No slides selected' }, { status: 400 });
+
+    const gate = await checkAiPlanGate({ clientId: client.id, provider: 'anthropic' });
+    if (!gate.allowed) {
+      return NextResponse.json({ success: false, message: gate.message, reason: gate.reason }, { status: 402 });
+    }
+    const resolved = await resolveClientApiKey({ clientId: client.id, provider: 'anthropic' });
+    const anthropic = new Anthropic({ apiKey: resolved.key });
 
     const slides = (deck.slides || []) as PitchDeckSlideV2[];
     const validIndices = slideIndices.filter(i => i >= 0 && i < slides.length);
@@ -120,6 +128,8 @@ Response format:
       messages,
     });
 
+    let totalInput = response.usage?.input_tokens ?? 0;
+    let totalOutput = response.usage?.output_tokens ?? 0;
     let text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map(b => b.text).join('');
@@ -135,10 +145,14 @@ Response format:
           { role: 'assistant', content: text },
         ],
       });
+      totalInput += continuation.usage?.input_tokens ?? 0;
+      totalOutput += continuation.usage?.output_tokens ?? 0;
       text += continuation.content
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map(b => b.text).join('');
     }
+
+    void recordAiUsage({ clientId: client.id, source: resolved.source, tokens: totalInput + totalOutput });
 
     text = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 

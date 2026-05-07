@@ -5,6 +5,7 @@ import { eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
 import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
+import { dispatchSurveyResponseWebhooks } from '@/lib/survey-webhooks/dispatcher';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -166,6 +167,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     respondentEmail: response.respondentEmail,
     source: response.source,
     answers: response.answers,
+  });
+
+  // HOOK-01: fire registered survey webhooks. Fire-and-forget — webhooks must
+  // never block (or fail) the public response submission.
+  // TODO(HOOK-02 / Phase 4): the dispatcher will swap inline retries for a
+  // BullMQ queue once Upstash Redis is provisioned.
+  setImmediate(() => {
+    dispatchSurveyResponseWebhooks({
+      ...response,
+      surveyTitle: survey.title,
+      surveySlug: survey.slug,
+    }).catch((err) => console.error('[survey-webhooks] dispatch failed', err));
   });
 
   return corsJson({

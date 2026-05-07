@@ -412,7 +412,146 @@ export function HtmlRenderEditor({
           </p>
         </div>
       </details>
+
+      {/* Full block JSON — html + fields + loop + values + width in one blob.
+          Copy/paste between blocks, environments, or into source control.
+          Distinct from the schema export above, which intentionally drops
+          `values` so recipients start blank. */}
+      <HtmlRenderFullJson
+        block={block as HtmlRenderBlock}
+        onApply={(updates) => onUpdate(updates as Partial<Block>)}
+      />
     </>
+  );
+}
+
+// ─── HtmlRenderFullJson — copy/paste the entire block (schema + content) ────
+// One textarea with the JSON, plus Copy and Apply buttons. Apply validates the
+// payload and replaces html/fields/loop/values/width on the current block.
+
+function HtmlRenderFullJson({
+  block,
+  onApply,
+}: {
+  block: HtmlRenderBlock;
+  onApply: (updates: Partial<HtmlRenderBlock>) => void;
+}) {
+  const exported = useRef('');
+  exported.current = JSON.stringify(
+    {
+      version: 1,
+      type: 'html-render',
+      width: block.width || 'full',
+      html: block.html || '',
+      fields: block.fields || [],
+      loop: block.loop,
+      values: block.values || {},
+    },
+    null,
+    2,
+  );
+
+  const [draft, setDraft] = useState(exported.current);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep the textarea in sync when the block changes externally (e.g. another
+  // edit in the iframe). Comparing against the last-rendered exported value
+  // avoids clobbering an in-progress paste the author hasn't applied yet.
+  const lastSeenRef = useRef(exported.current);
+  useEffect(() => {
+    if (draft === lastSeenRef.current) {
+      setDraft(exported.current);
+    }
+    lastSeenRef.current = exported.current;
+  }, [block.html, block.fields, block.values, block.loop, block.width]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = draft !== exported.current;
+
+  const handleCopy = async () => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(exported.current);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError('Clipboard write failed — select the text and copy manually.');
+    }
+  };
+
+  const handleApply = () => {
+    setError(null);
+    let parsed: unknown;
+    try { parsed = JSON.parse(draft); }
+    catch (e) { setError('Invalid JSON: ' + (e instanceof Error ? e.message : 'parse failed')); return; }
+    if (!parsed || typeof parsed !== 'object') { setError('Payload must be a JSON object.'); return; }
+    const p = parsed as Record<string, unknown>;
+    if (typeof p.html !== 'string') { setError('Missing `html` (string).'); return; }
+    if (!Array.isArray(p.fields)) { setError('Missing `fields` (array).'); return; }
+    if (p.values && (typeof p.values !== 'object' || Array.isArray(p.values))) {
+      setError('`values` must be a plain object.'); return;
+    }
+    onApply({
+      html: p.html,
+      fields: p.fields as HtmlRenderField[],
+      loop: (p.loop ?? undefined) as HtmlRenderLoop | undefined,
+      values: ((p.values as Record<string, unknown>) || {}) as HtmlRenderBlock['values'],
+      width: (p.width === 'contained' ? 'contained' : 'full'),
+    });
+  };
+
+  return (
+    <details className="rounded border border-border">
+      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-foreground bg-accent/40 hover:bg-accent/60 flex items-center gap-1.5">
+        <span className="material-icons text-sm">data_object</span>
+        Full block JSON (export / import)
+      </summary>
+      <div className="p-3 space-y-2">
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Includes the HTML template, field schema, loop, current values, and width — everything needed
+          to clone this block. Edit and Apply to overwrite the current block.
+        </p>
+        <textarea
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setError(null); }}
+          spellCheck={false}
+          className="block w-full h-64 font-mono text-[11px] leading-snug rounded border border-border bg-background px-2 py-1.5 text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+        {error && (
+          <div className="rounded border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive leading-snug">
+            {error}
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            <span className="material-icons text-sm">{copied ? 'check' : 'content_copy'}</span>
+            {copied ? 'Copied' : 'Copy JSON'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setDraft(exported.current); setError(null); }}
+            disabled={!dirty}
+            className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-50"
+          >
+            <span className="material-icons text-sm">restart_alt</span>
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={!dirty}
+            className="inline-flex items-center gap-1.5 rounded bg-primary text-primary-foreground px-2.5 py-1 text-xs hover:bg-primary/90 disabled:opacity-50"
+          >
+            <span className="material-icons text-sm">play_arrow</span>
+            Apply
+          </button>
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -603,6 +742,9 @@ function HtmlRenderFieldInput({
   if (field.type === 'post') {
     return wrap(<HtmlRenderPostPicker label={label} value={v} postType={field.postType} onChange={onChange} siteId={siteId} />);
   }
+  if (field.type === 'url') {
+    return wrap(<HtmlRenderUrlAutocomplete label={label} value={v} onChange={(val) => onChange(val)} siteId={siteId} />);
+  }
   return wrap(<Field label={label} value={v} onChange={(val) => onChange(val)} />);
 }
 
@@ -675,6 +817,141 @@ function HtmlRenderPostPicker({
       )}
     </label>
   );
+}
+
+// ─── HtmlRenderUrlAutocomplete — URL field with internal-link suggestions ───
+// Plain URL input with a dropdown of internal links the author can drop in:
+// CMS posts on the active site, the client's other pitch decks, booking pages,
+// and CRM proposals. Always allows freeform typing — the suggestions are an
+// accelerator, not a constraint.
+//
+// Suggestions are fetched once on mount from /api/portal/url-suggestions and
+// filtered client-side as the author types.
+
+interface UrlSuggestion { id: number; label: string; url: string; sublabel?: string }
+interface UrlSuggestionGroups {
+  posts: UrlSuggestion[];
+  decks: UrlSuggestion[];
+  bookings: UrlSuggestion[];
+  proposals: UrlSuggestion[];
+}
+
+const SUGGESTION_GROUP_META: Array<{ key: keyof UrlSuggestionGroups; icon: string; label: string }> = [
+  { key: 'posts', icon: 'description', label: 'Pages' },
+  { key: 'decks', icon: 'slideshow', label: 'Pitch Decks' },
+  { key: 'bookings', icon: 'event', label: 'Booking Pages' },
+  { key: 'proposals', icon: 'request_quote', label: 'Proposals' },
+];
+
+function HtmlRenderUrlAutocomplete({
+  label,
+  value,
+  onChange,
+  siteId,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  siteId?: number;
+}) {
+  const [groups, setGroups] = useState<UrlSuggestionGroups | null>(null);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs = siteId ? `?siteId=${siteId}` : '';
+        const res = await fetch(`/api/portal/url-suggestions${qs}`);
+        const json = await res.json();
+        if (cancelled) return;
+        if (json?.success && json.data) setGroups(json.data as UrlSuggestionGroups);
+      } catch {
+        /* leave groups as null — input still works as plain text */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [siteId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const q = value.trim().toLowerCase();
+  const filteredGroups: UrlSuggestionGroups | null = groups
+    ? {
+        posts: filterSuggestions(groups.posts, q),
+        decks: filterSuggestions(groups.decks, q),
+        bookings: filterSuggestions(groups.bookings, q),
+        proposals: filterSuggestions(groups.proposals, q),
+      }
+    : null;
+
+  const totalCount = filteredGroups
+    ? filteredGroups.posts.length + filteredGroups.decks.length + filteredGroups.bookings.length + filteredGroups.proposals.length
+    : 0;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="https:// or pick a link below"
+          className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
+        />
+      </label>
+      {open && filteredGroups && totalCount > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto rounded border border-border bg-popover shadow-lg">
+          {SUGGESTION_GROUP_META.map(({ key, icon, label: groupLabel }) => {
+            const items = filteredGroups[key];
+            if (items.length === 0) return null;
+            return (
+              <div key={key} className="py-1">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className="material-icons text-sm">{icon}</span>
+                  {groupLabel}
+                </div>
+                {items.map((item) => (
+                  <button
+                    type="button"
+                    key={`${key}-${item.id}`}
+                    onMouseDown={(e) => { e.preventDefault(); onChange(item.url); setOpen(false); }}
+                    className="flex w-full items-start gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-accent"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-foreground">{item.label}</div>
+                      <div className="truncate text-[11px] text-muted-foreground font-mono">{item.url}</div>
+                    </div>
+                    {item.sublabel && (
+                      <span className="text-[10px] text-muted-foreground/80 mt-0.5 shrink-0">{item.sublabel}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function filterSuggestions(items: UrlSuggestion[], q: string): UrlSuggestion[] {
+  if (!q) return items.slice(0, 8);
+  return items
+    .filter(it => it.label.toLowerCase().includes(q) || it.url.toLowerCase().includes(q))
+    .slice(0, 8);
 }
 
 // ─── HtmlRenderArrayEditor — list editor for array fields ────────────────────

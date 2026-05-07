@@ -42,12 +42,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: `Shop | ${site.name}` };
   }
 
-  const page = await getClientPage(site.id, pageSlug);
+  // Blog posts live under /blog/<slug> but the post row's slug is just
+  // <slug> — strip the prefix the same way the page renderer does, otherwise
+  // every blog post shows "Not Found" in the <title>.
+  const lookupSlug = pageSlug.startsWith('blog/') ? pageSlug.replace('blog/', '') : pageSlug;
+  const page = await getClientPage(site.id, lookupSlug);
   if (!page) return { title: 'Not Found' };
 
+  // Prefer dedicated SEO fields when set; fall back to title/excerpt.
+  const p = page as typeof page & {
+    seoTitle?: string | null; seoDescription?: string | null;
+    ogImage?: string | null; noIndex?: boolean | null;
+    canonicalUrl?: string | null;
+  };
   return {
-    title: page.title,
-    description: page.excerpt || undefined,
+    title: p.seoTitle || page.title,
+    description: p.seoDescription || page.excerpt || undefined,
+    openGraph: p.ogImage ? { images: [p.ogImage] } : undefined,
+    robots: p.noIndex ? { index: false, follow: false } : undefined,
+    alternates: p.canonicalUrl ? { canonical: p.canonicalUrl } : undefined,
   };
 }
 

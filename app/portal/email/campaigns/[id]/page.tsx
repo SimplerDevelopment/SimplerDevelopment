@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 import type { Block, BlockType, BlockEditorData } from '@/types/blocks';
 import { VisualEditorShell } from '@/components/portal/VisualEditorShell';
 import { EmailPreviewPane } from '@/components/email/EmailPreviewPane';
 import { removeBlockById } from '@/lib/utils/blockHelpers';
 import { applyBrandDefaults, type BrandDefaultsContext } from '@/lib/branding/block-defaults';
+import { bindEmailToYjs, type EmailYjsBinding } from '@/lib/realtime/email-binding';
+import {
+  EmailCollaborationProvider,
+  useEmailPresence,
+} from './_components/EmailCollaborationProvider';
+import { EmailPresenceBar } from './_components/EmailPresenceBar';
+import { EmailFieldFocusIndicator } from './_components/EmailFieldFocusIndicator';
 
 interface Campaign {
   id: number;
@@ -20,6 +28,8 @@ interface Campaign {
   listName: string | null;
   htmlContent: string;
   blockContent: BlockEditorData | null;
+  contentBlocks: Block[] | null;
+  useBlockEditor: boolean;
   status: string;
   scheduledAt: string | null;
   sentAt: string | null;
@@ -51,6 +61,15 @@ const statusColor: Record<string, string> = {
 
 export default function PortalCampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  return (
+    <EmailCollaborationProvider entityId={id}>
+      <PortalCampaignDetailPageInner id={id} />
+    </EmailCollaborationProvider>
+  );
+}
+
+function PortalCampaignDetailPageInner({ id }: { id: string }) {
+  const presence = useEmailPresence();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [sends, setSends] = useState<Send[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +84,8 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/portal/email/campaigns/${id}`)
@@ -85,12 +106,60 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
       .catch(() => {});
   }, []);
 
-  const hasBlockContent = !!campaign?.blockContent?.blocks;
+  const hasBlockContent = !!campaign?.blockContent?.blocks || !!(campaign?.contentBlocks && campaign.contentBlocks.length > 0);
+
+  // ── Yjs binding for the blocks variant ───────────────────────────────
+  // Only attach when (a) the campaign uses blockContent (not htmlContent),
+  // (b) we're in edit mode, and (c) the realtime ydoc is available. The
+  // binding seeds the Y.Doc with local state on first connect, and routes
+  // subsequent local edits through `applyLocalBlocks` so peers receive
+  // them. Remote edits flow back through onRemoteBlocks → setEditBlocks.
+  const bindingRef = useRef<EmailYjsBinding | null>(null);
+  const editingRef = useRef(false);
+  editingRef.current = editing;
+
+  useEffect(() => {
+    bindingRef.current = null;
+    if (!editing || !hasBlockContent) return;
+    const ydoc = presence.ydoc;
+    if (!ydoc) return;
+    const binding = bindEmailToYjs({
+      ydoc,
+      initialBlocks: editBlocks,
+      onRemoteBlocks: (remote) => {
+        // Skip remote echoes after we've already left edit mode.
+        if (!editingRef.current) return;
+        setEditBlocks(remote);
+      },
+    });
+    bindingRef.current = binding;
+    return () => {
+      binding.unbind();
+      if (bindingRef.current === binding) bindingRef.current = null;
+    };
+    // editBlocks intentionally omitted — we only (re)bind when the editor
+    // opens, the doc rotates, or the variant changes. Subsequent edits
+    // flow through handleEditBlocksChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, hasBlockContent, presence.ydoc]);
+
+  /**
+   * Single funnel for any local block-array mutation made from the visual
+   * editor. When a binding is attached, push the new state through Yjs so
+   * peers sync; when unbound (realtime disabled / not yet connected), fall
+   * through to a plain setState so editing still works offline.
+   */
+  function handleEditBlocksChange(next: Block[]) {
+    setEditBlocks(next);
+    bindingRef.current?.applyLocalBlocks(next);
+  }
 
   function startEdit() {
     if (!campaign) return;
     setEditForm({ subject: campaign.subject, previewText: campaign.previewText ?? '', htmlContent: campaign.htmlContent });
-    if (campaign.blockContent?.blocks) {
+    if (campaign.contentBlocks && campaign.contentBlocks.length > 0) {
+      setEditBlocks(campaign.contentBlocks);
+    } else if (campaign.blockContent?.blocks) {
       setEditBlocks(campaign.blockContent.blocks);
     }
     setEditing(true);
@@ -105,6 +174,10 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
     const payload: Record<string, unknown> = { ...editForm };
     if (hasBlockContent) {
       payload.blockContent = { blocks: editBlocks, version: '1' };
+      // Also store as the new flat contentBlocks tree so the cached
+      // block-builder send path picks it up. useBlockEditor stays whatever
+      // the user opted into; default keeps existing template flow intact.
+      payload.contentBlocks = editBlocks;
     }
 
     const res = await fetch(`/api/portal/email/campaigns/${id}`, {
@@ -115,8 +188,65 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
     const data = await res.json();
     setEditSaving(false);
     if (!data.success) { setEditError(data.message ?? 'Save failed'); return; }
-    setCampaign(prev => prev ? { ...prev, ...editForm, blockContent: hasBlockContent ? { blocks: editBlocks, version: '1' } : prev.blockContent } : prev);
+    setCampaign(prev => prev ? {
+      ...prev,
+      ...editForm,
+      blockContent: hasBlockContent ? { blocks: editBlocks, version: '1' } : prev.blockContent,
+      contentBlocks: hasBlockContent ? editBlocks : prev.contentBlocks,
+    } : prev);
     setEditing(false);
+  }
+
+  async function toggleUseBlockEditor() {
+    if (!campaign) return;
+    const next = !campaign.useBlockEditor;
+    const res = await fetch(`/api/portal/email/campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ useBlockEditor: next }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setCampaign(prev => prev ? { ...prev, useBlockEditor: next } : prev);
+    }
+  }
+
+  async function sendTestEmail() {
+    if (!campaign) return;
+    setSendingTest(true);
+    setTestResult(null);
+    const blocks = hasBlockContent && editBlocks.length > 0
+      ? editBlocks
+      : campaign.contentBlocks ?? campaign.blockContent?.blocks ?? [];
+    if (!blocks || blocks.length === 0) {
+      setTestResult('No blocks to render');
+      setSendingTest(false);
+      return;
+    }
+    const res = await fetch('/api/portal/email/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaignId: campaign.id,
+        subject: editing ? editForm.subject : campaign.subject,
+        preheader: editing ? editForm.previewText : campaign.previewText,
+        blocks,
+        sendTest: true,
+      }),
+    });
+    const data = await res.json();
+    setSendingTest(false);
+    if (!data.success) {
+      setTestResult(data.message ?? 'Failed to send test');
+      return;
+    }
+    if (data.data?.testSent?.ok) {
+      setTestResult(`Test sent to ${data.data.testSent.to}`);
+    } else if (data.data?.testSent) {
+      setTestResult(`Test failed to send to ${data.data.testSent.to}`);
+    } else {
+      setTestResult('Test rendered (no recipient)');
+    }
   }
 
   async function sendCampaign() {
@@ -158,12 +288,24 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
             <p className="text-muted-foreground text-sm mt-0.5">{campaign.subject}</p>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 items-center">
+          <EmailPresenceBar />
           {campaign.status === 'draft' && !editing && (
             <button onClick={startEdit}
               className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors">
               <span className="material-icons text-base">edit</span>
               Edit
+            </button>
+          )}
+          {campaign.status === 'draft' && (campaign.useBlockEditor || hasBlockContent) && (
+            <button
+              onClick={sendTestEmail}
+              disabled={sendingTest}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              title="Send the rendered email to your own address"
+            >
+              <span className="material-icons text-base">science</span>
+              {sendingTest ? 'Sending…' : 'Send test'}
             </button>
           )}
           {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
@@ -179,6 +321,15 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
       {sendResult && (
         <div className="bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-lg">
           Sent successfully: {sendResult.sent} delivered{sendResult.failed > 0 ? `, ${sendResult.failed} failed` : ''}.
+        </div>
+      )}
+
+      {testResult && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 text-sm px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{testResult}</span>
+          <button onClick={() => setTestResult(null)} className="text-blue-700 hover:text-blue-900">
+            <span className="material-icons text-base">close</span>
+          </button>
         </div>
       )}
 
@@ -227,6 +378,24 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
               <span className="text-sm text-foreground">{row.value}</span>
             </div>
           ))}
+          {campaign.status === 'draft' && (
+            <div className="flex px-5 py-3 gap-4 items-center">
+              <span className="text-sm text-muted-foreground w-28 shrink-0">Editor</span>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-sm text-foreground">
+                  {campaign.useBlockEditor ? 'Block builder (cached MJML-style render)' : 'Template / HTML'}
+                </span>
+                <button
+                  onClick={toggleUseBlockEditor}
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-md text-xs hover:bg-accent"
+                  title="Toggle between the legacy template flow and the new block builder"
+                >
+                  <span className="material-icons text-sm">swap_horiz</span>
+                  Switch to {campaign.useBlockEditor ? 'template' : 'block builder'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -249,11 +418,28 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Subject *</label>
-                    <input required value={editForm.subject} onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))} className={inputClass} />
+                    <EmailFieldFocusIndicator fieldPath="subject">
+                      <input
+                        required
+                        value={editForm.subject}
+                        onChange={e => setEditForm(p => ({ ...p, subject: e.target.value }))}
+                        onFocus={() => presence.setFocusedField('subject')}
+                        onBlur={() => presence.setFocusedField(null)}
+                        className={inputClass}
+                      />
+                    </EmailFieldFocusIndicator>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">Preview Text</label>
-                    <input value={editForm.previewText} onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))} className={inputClass} />
+                    <EmailFieldFocusIndicator fieldPath="previewText">
+                      <input
+                        value={editForm.previewText}
+                        onChange={e => setEditForm(p => ({ ...p, previewText: e.target.value }))}
+                        onFocus={() => presence.setFocusedField('previewText')}
+                        onBlur={() => presence.setFocusedField(null)}
+                        className={inputClass}
+                      />
+                    </EmailFieldFocusIndicator>
                   </div>
                 </div>
               </div>
@@ -270,16 +456,18 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
                         previewMode={false}
                         initialZoom={100}
                         iframeSrc="/portal/email/editor-preview?_edit=true"
-                        onBlocksChange={setEditBlocks}
-                        onSelectBlock={() => {}}
+                        onBlocksChange={handleEditBlocksChange}
+                        onSelectBlock={(blockId) => {
+                          presence.setSelection(blockId ? { blockId } : null);
+                        }}
                         onAddBlock={(type: string) => {
                           const id = `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                           let newBlock = { id, type: type as BlockType, order: editBlocks.length + 1, content: type === 'text' ? 'New text...' : type === 'heading' ? 'New heading' : undefined, level: type === 'heading' ? 2 : undefined } as Block;
                           if (brandDefaults) newBlock = applyBrandDefaults(newBlock, brandDefaults);
-                          setEditBlocks([...editBlocks, newBlock]);
+                          handleEditBlocksChange([...editBlocks, newBlock]);
                         }}
-                        onDeleteBlock={(blockId: string) => setEditBlocks(removeBlockById(editBlocks, blockId))}
-                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => setEditBlocks(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
+                        onDeleteBlock={(blockId: string) => handleEditBlocksChange(removeBlockById(editBlocks, blockId))}
+                        onUpdateBlock={(blockId: string, updates: Partial<Block>) => handleEditBlocksChange(editBlocks.map(b => b.id === blockId ? { ...b, ...updates } as Block : b))}
                         siteId={undefined}
                       />
                     </div>
@@ -312,7 +500,7 @@ export default function PortalCampaignDetailPage({ params }: { params: Promise<{
           ) : (
             <div className="p-5">
               <div className="border border-border rounded-md p-6 bg-white text-sm max-w-2xl mx-auto overflow-auto"
-                dangerouslySetInnerHTML={{ __html: campaign.htmlContent }} />
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(campaign.htmlContent) }} />
             </div>
           )}
         </div>

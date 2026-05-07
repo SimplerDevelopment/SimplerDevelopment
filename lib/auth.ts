@@ -5,7 +5,20 @@ import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
+function safeCallbackUrl(raw: string | null | undefined): string {
+  if (!raw) return '/portal/dashboard';
+  // Reject absolute URLs and protocol-relative URLs.
+  if (raw.startsWith('//') || /^[a-z]+:/i.test(raw)) return '/portal/dashboard';
+  if (!raw.startsWith('/')) return '/portal/dashboard';
+  return raw;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  session: {
+    strategy: 'jwt',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh idle once per day
+  },
   providers: [
     Credentials({
       credentials: {
@@ -108,7 +121,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (isOnPortal && !isOnPortalLogin && !isOnPortalPublic) {
         if (!isLoggedIn) {
           const loginUrl = new URL('/portal/login', nextUrl);
-          loginUrl.searchParams.set('callbackUrl', nextUrl.pathname + nextUrl.search);
+          // nextUrl.pathname is always same-origin, but normalize defensively.
+          loginUrl.searchParams.set('callbackUrl', safeCallbackUrl(nextUrl.pathname + nextUrl.search));
           return Response.redirect(loginUrl);
         }
         return true;
@@ -116,7 +130,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       // Redirect already-logged-in users away from portal login
       if (isOnPortalLogin && isLoggedIn) {
-        const callbackUrl = nextUrl.searchParams.get('callbackUrl') || '/portal/dashboard';
+        const callbackUrl = safeCallbackUrl(nextUrl.searchParams.get('callbackUrl'));
         return Response.redirect(new URL(callbackUrl, nextUrl));
       }
 
