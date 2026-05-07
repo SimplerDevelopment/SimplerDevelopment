@@ -41,6 +41,12 @@ export interface BookingPageData {
   conferenceType: string;
   allowStaffSelection: boolean;
   assignedMembers: number[];
+  // Round-robin / group fields. Optional for backwards compat with
+  // existing serialized records that predate the migration.
+  assignmentMode?: 'fixed' | 'round_robin' | 'fewest_upcoming';
+  roundRobinPool?: { userId: number; weight: number }[] | null;
+  bookingType?: 'individual' | 'group';
+  groupCapacity?: number | null;
   createdAt: string;
   updatedAt: string;
 }

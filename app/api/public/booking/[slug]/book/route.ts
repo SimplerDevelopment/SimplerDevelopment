@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   bookingPages, bookings, bookingAddOns, bookingSelectedAddOns,
+  bookingAttendees,
   discountCodes, giftCertificates, giftCertificateRedemptions,
   clientWebsites, storeSettings, products, productVariants,
 } from '@/lib/db/schema';
@@ -12,6 +13,15 @@ import { createCalendarEvent } from '@/lib/google-calendar';
 import { createZoomMeeting } from '@/lib/zoom';
 import { clients, users } from '@/lib/db/schema';
 import { emitEvent } from '@/lib/automation';
+import { pickAssignee } from '@/lib/booking/assign';
+import { checkSlotCapacity } from '@/lib/booking/capacity';
+
+interface AttendeeInput {
+  name?: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+}
 
 function generateCheckinCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I,O,0,1 for readability
@@ -39,7 +49,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     discountCode: rawDiscountCode,
     giftCertificateCode: rawGiftCertCode,
     staffId, // optional staff member ID when allowStaffSelection is enabled
+    // Group / class bookings
+    seats: rawSeats,
+    attendees: rawAttendees, // AttendeeInput[]
   } = body;
+
+  const isGroupBooking = page.bookingType === 'group';
+  const attendees: AttendeeInput[] = Array.isArray(rawAttendees) ? rawAttendees : [];
+  const seats = isGroupBooking
+    ? Math.max(1, parseInt(String(rawSeats ?? attendees.length ?? 1)) || 1)
+    : 1;
 
   if (!name?.trim()) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
   if (!email?.trim()) return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
@@ -68,8 +87,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   }
 
   // Check capacity or conflicts
-  if (page.maxGuests) {
-    // Capacity mode
+  if (isGroupBooking) {
+    // Group / class booking: validate against booking_attendees seat count.
+    if (attendees.length > 0 && attendees.length !== seats) {
+      return NextResponse.json(
+        { success: false, message: 'Number of attendees must match seat count' },
+        { status: 400 },
+      );
+    }
+    for (const a of attendees) {
+      if (!a?.name?.trim() || !a?.email?.trim()) {
+        return NextResponse.json(
+          { success: false, message: 'Each attendee needs a name and email' },
+          { status: 400 },
+        );
+      }
+    }
+    const cap = await checkSlotCapacity(page.id, slotStart, seats);
+    if (!cap.available) {
+      return NextResponse.json(
+        { success: false, message: `Only ${cap.remaining} seats remaining for this slot` },
+        { status: 409 },
+      );
+    }
+  } else if (page.maxGuests) {
+    // Capacity mode (legacy maxGuests on individual bookings)
     const existingForSlot = await db.select({ groupSize: bookings.groupSize }).from(bookings)
       .where(and(
         eq(bookings.bookingPageId, page.id),
@@ -208,16 +250,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const needsPayment = total > 0;
 
   // Resolve staff assignment
+  // Precedence:
+  //   1. Customer-picked staffId (when allowStaffSelection is on).
+  //   2. assignmentMode in ('round_robin' | 'fewest_upcoming') — uses
+  //      lib/booking/assign.ts pickAssignee against the configured pool.
+  //   3. Legacy fallback to assignedMembers[] auto-distribute (preserves
+  //      pre-round-robin-mode behaviour for booking pages still on the
+  //      default 'fixed' mode that have multiple assigned members).
   let assignedTo: number | null = null;
+  let autoAssignedUserId: number | null = null;
+
   if (staffId && page.allowStaffSelection) {
     assignedTo = parseInt(String(staffId)) || null;
+  } else if (page.assignmentMode && page.assignmentMode !== 'fixed') {
+    autoAssignedUserId = await pickAssignee(page.id, slotStart);
+    assignedTo = autoAssignedUserId;
   } else if (!page.allowStaffSelection) {
-    // Auto-assign: round-robin among assigned members
     const assignedMembers = (page.assignedMembers as number[]) || [];
     if (assignedMembers.length === 1) {
       assignedTo = assignedMembers[0];
     } else if (assignedMembers.length > 1) {
-      // Pick the member with fewest upcoming bookings (simple load balancing)
+      // Legacy: pick the member with fewest upcoming bookings (simple load balancing)
       const upcoming = await db.select({ assignedTo: bookings.assignedTo, count: sql`count(*)::int` })
         .from(bookings)
         .where(and(
@@ -246,7 +299,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     timezone: timezone || page.timezone,
     answers: answers || null,
     cancelToken,
-    groupSize,
+    groupSize: isGroupBooking ? seats : groupSize,
     subtotal,
     discountTotal,
     total,
@@ -255,9 +308,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     giftCertificateAmount: giftCertAmount,
     checkinCode,
     assignedTo,
+    assignedUserId: autoAssignedUserId,
     paymentStatus: needsPayment ? 'pending' : 'free',
     status: needsPayment ? 'confirmed' : 'confirmed', // confirmed even while pending payment — cancelled if payment fails
   }).returning();
+
+  // For group bookings, persist each attendee. When the request didn't pass
+  // an explicit attendees[] (legacy widget), fall back to creating a single
+  // attendee row from the primary guest fields so seat math stays correct.
+  if (isGroupBooking) {
+    const rows = attendees.length > 0
+      ? attendees.map(a => ({
+          bookingId: booking.id,
+          name: (a.name || '').trim(),
+          email: (a.email || '').trim(),
+          phone: a.phone?.trim() || null,
+          notes: a.notes?.trim() || null,
+          status: 'confirmed' as const,
+        }))
+      : Array.from({ length: seats }, (_, i) => ({
+          bookingId: booking.id,
+          name: i === 0 ? name.trim() : `${name.trim()} (+${i})`,
+          email: email.trim(),
+          phone: phone?.trim() || null,
+          notes: null,
+          status: 'confirmed' as const,
+        }));
+
+    if (rows.length > 0) {
+      await db.insert(bookingAttendees).values(rows);
+    }
+  }
 
   emitEvent('booking.guest_booked', page.clientId, 0, {
     bookingId: booking.id,

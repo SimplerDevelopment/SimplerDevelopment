@@ -32,6 +32,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     waiverContent: bookingPages.waiverContent,
     checkinEnabled: bookingPages.checkinEnabled,
     allowStaffSelection: bookingPages.allowStaffSelection,
+    bookingType: bookingPages.bookingType,
+    groupCapacity: bookingPages.groupCapacity,
+    // assignmentMode is intentionally NOT exposed publicly — it's an
+    // internal load-balancing concern. assignedUserId likewise stays
+    // server-side; the widget never displays which staff was picked.
   }).from(bookingPages)
     .where(and(eq(bookingPages.slug, slug), eq(bookingPages.active, true)))
     .limit(1);
