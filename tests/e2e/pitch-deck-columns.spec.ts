@@ -6,7 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 
-const DECK_URL = '/pitch-deck/palizzi-social-club-mngj4171';
+const DECK_URL = '/slides/palizzi-social-club-mngj4171';
 
 test.describe('Pitch Deck Column Rendering @pitch-deck @columns', () => {
   test('slide 2 columns render side-by-side without overflow', async ({ page }) => {
