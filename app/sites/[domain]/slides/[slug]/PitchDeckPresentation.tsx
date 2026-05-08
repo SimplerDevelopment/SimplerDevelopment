@@ -486,8 +486,10 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
         {/* Mobile-only footer nav: prev arrow / indicator / next arrow, with a
             2px progress bar pinned to the top edge. Hidden on slide kinds that
-            manage their own Back/Next UI (decision, survey-question, survey-contact). */}
-        {!isOnDecisionSlide
+            manage their own Back/Next UI (decision, survey-question, survey-contact),
+            and on single-slide decks where the nav has nothing to do. */}
+        {visibleCount > 1
+          && !isOnDecisionSlide
           && currentVS?.kind !== 'survey-question'
           && currentVS?.kind !== 'survey-contact' && (
           <div
@@ -555,7 +557,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         {/* Slide content. Reserve bottom padding on mobile equal to the footer
             height so centered content isn't visually clipped behind the footer. */}
         <div
-          className="min-h-screen flex items-center justify-center slide-stage pb-16 md:pb-0"
+          className={`min-h-screen flex items-center justify-center slide-stage md:pb-0 ${visibleCount > 1 ? 'pb-16' : ''}`}
           data-slide-id={currentVS?.kind === 'block' ? currentVS.slide.id : undefined}
           style={{
             animation: isAnimating
