@@ -163,6 +163,16 @@ export type SearchContact = z.infer<typeof SearchContact>;
 export type SearchCompany = z.infer<typeof SearchCompany>;
 export type SearchDeal = z.infer<typeof SearchDeal>;
 
+// --- Related records by URL (deal-aware capture) --------------------------
+
+export const RelatedRecordsByUrlSchema = z.object({
+  host: z.string().nullable().optional(),
+  companies: z.array(SearchCompany).default([]),
+  deals: z.array(SearchDeal).default([]),
+  contacts: z.array(SearchContact).default([]),
+});
+export type RelatedRecordsByUrl = z.infer<typeof RelatedRecordsByUrlSchema>;
+
 // --- CRM lists -------------------------------------------------------------
 
 export const ContactListSchema = z.object({

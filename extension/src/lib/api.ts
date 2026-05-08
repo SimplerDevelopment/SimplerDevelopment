@@ -19,6 +19,7 @@ import {
   NoteSchema,
   NotesRelatedSchema,
   RecentActivitySchema,
+  RelatedRecordsByUrlSchema,
   SearchResultsSchema,
   TagListSchema,
 } from './types';
@@ -35,6 +36,7 @@ import type {
   Note,
   NotesRelated,
   RecentActivity,
+  RelatedRecordsByUrl,
   SearchResults,
   TagList,
 } from './types';
@@ -174,6 +176,10 @@ export const api = {
 
   notesRelated(url: string, limit = 5): Promise<NotesRelated> {
     return request(NotesRelatedSchema, '/notes/related', { query: { url, limit } });
+  },
+
+  relatedRecordsByUrl(url: string): Promise<RelatedRecordsByUrl> {
+    return request(RelatedRecordsByUrlSchema, '/related-records', { query: { url } });
   },
 
   extract(input: { url: string; title: string; text: string; html?: string }): Promise<Extract> {

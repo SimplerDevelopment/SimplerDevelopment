@@ -5,6 +5,7 @@ import type {
   ExtractedCompany,
   ExtractedPerson,
   NotesRelated,
+  RelatedRecordsByUrl,
   SearchCompany,
   SearchContact,
   SearchDeal,
@@ -27,6 +28,9 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
   const [extract, setExtract] = useState<Extract | null>(null);
   const [extractLoading, setExtractLoading] = useState(false);
   const [related, setRelated] = useState<NotesRelated | null>(null);
+  const [related2, setRelated2] = useState<RelatedRecordsByUrl | null>(null);
+  const [attachedDealId, setAttachedDealId] = useState<string | number | null>(null);
+  const [attachedCompanyId, setAttachedCompanyId] = useState<string | number | null>(null);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -112,7 +116,8 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
     Promise.allSettled([
       api.extract({ url: page.url, title: page.title, text: page.text, html: page.html }),
       api.notesRelated(page.url, 5),
-    ]).then(([extractRes, relatedRes]) => {
+      api.relatedRecordsByUrl(page.url),
+    ]).then(([extractRes, relatedRes, related2Res]) => {
       if (cancelled) return;
 
       if (extractRes.status === 'fulfilled') {
@@ -157,6 +162,10 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
 
       if (relatedRes.status === 'fulfilled') {
         setRelated(relatedRes.value);
+      }
+
+      if (related2Res.status === 'fulfilled') {
+        setRelated2(related2Res.value);
       }
     });
 
@@ -469,6 +478,99 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
                 />
               );
             })}
+          </div>
+        </Section>
+      )}
+
+      {/* On this site — deal-aware capture */}
+      {related2 && (related2.deals.length > 0 || related2.companies.length > 0) && (
+        <Section title="On this site">
+          <div className="space-y-1.5">
+            {related2.companies.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {related2.companies.map((c) => {
+                  const isAttached = attachedCompanyId === c.id || selectedCompany?.id === c.id;
+                  return (
+                    <button
+                      type="button"
+                      key={String(c.id)}
+                      onClick={() => {
+                        setSelectedCompany(c);
+                        setAttachedCompanyId(c.id);
+                      }}
+                      disabled={isAttached}
+                      className={
+                        isAttached
+                          ? 'inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700'
+                          : 'inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-700 hover:border-brand-300 hover:bg-brand-50'
+                      }
+                      title={c.domain ?? undefined}
+                    >
+                      <span aria-hidden>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <path d="M9 21V9h6v12M3 9h18" />
+                        </svg>
+                      </span>
+                      <span className="truncate max-w-[140px]">{c.name}</span>
+                      {c.domain ? (
+                        <span className="text-slate-400">· {c.domain}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {related2.deals.length > 0 && (
+              <div className="space-y-1">
+                {related2.deals.map((d) => {
+                  const isAttached = attachedDealId === d.id || selectedDeal?.id === d.id;
+                  const valueNum =
+                    typeof d.value === 'number'
+                      ? d.value
+                      : typeof d.value === 'string' && d.value.trim() !== '' && !Number.isNaN(Number(d.value))
+                        ? Number(d.value)
+                        : null;
+                  // crm_deals.value is stored in cents — divide by 100 for USD display.
+                  const formattedValue =
+                    valueNum != null
+                      ? new Intl.NumberFormat('en-US', {
+                          style: 'currency',
+                          currency: 'USD',
+                          maximumFractionDigits: 0,
+                        }).format(valueNum / 100)
+                      : null;
+                  return (
+                    <div
+                      key={String(d.id)}
+                      className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-2"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-900 truncate">{d.title}</div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          {[d.stage, formattedValue].filter(Boolean).join(' · ') || '—'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDeal(d);
+                          setAttachedDealId(d.id);
+                        }}
+                        disabled={isAttached}
+                        className={
+                          isAttached
+                            ? 'shrink-0 inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700'
+                            : 'shrink-0 inline-flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-brand-700'
+                        }
+                      >
+                        {isAttached ? 'Attached' : 'Attach'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </Section>
       )}
