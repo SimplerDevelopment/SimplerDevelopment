@@ -292,6 +292,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'productVariants',
   'products',
   'projectMembers',
+  'projectSavedViews',
   'projectWebhookDeliveries',
   'projectWebhooks',
   'projects',
@@ -494,6 +495,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   productVariants: 'product_variants',
   projects: 'projects',
   projectMembers: 'project_members',
+  projectSavedViews: 'project_saved_views',
   projectWebhookDeliveries: 'project_webhook_deliveries',
   projectWebhooks: 'project_webhooks',
   serviceRequests: 'service_requests',
@@ -579,13 +581,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (195)', () => {
+  it('reports the recorded number of tables (196)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(195);
+    expect(count).toBe(196);
   });
 });

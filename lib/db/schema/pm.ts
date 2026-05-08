@@ -265,6 +265,28 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Saved views for the kanban board, backlog, and reports surfaces. A view
+// captures a name + a filterJson that the corresponding UI knows how to
+// interpret (e.g. backlog: { typeFilter, sizedOnly, search }). Per-user
+// views (userId set) are private to that user; project-wide views (userId
+// null) are visible to every project member and editable by owners +
+// editors.
+export const projectSavedViews = pgTable('project_saved_views', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  scope: varchar('scope', { length: 20 }).notNull(), // backlog, board, reports
+  name: varchar('name', { length: 100 }).notNull(),
+  filterJson: jsonb('filter_json').$type<Record<string, unknown>>().default({}).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('project_saved_views_project_idx').on(t.projectId, t.scope),
+  index('project_saved_views_user_idx').on(t.userId, t.projectId),
+]);
+
 // In-app notifications. Written alongside the email-notification flow in
 // lib/pm-notifications.ts so the inbox UI and the email channel stay in
 // sync. `kind` mirrors the kanban_card_activities.type vocabulary plus

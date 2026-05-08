@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CARD_TYPE_META, CARD_TYPE_OPTIONS } from './card-detail/_lib/agile';
 import type { CardType, WorkflowState } from './card-detail/_lib/types';
+import SavedViewsPicker from './SavedViewsPicker';
 
 interface BacklogCard {
   id: number;
@@ -95,6 +96,17 @@ export default function BacklogTab({ projectId, projectKey, canEdit }: Props) {
             {unsizedCount > 0 && <span className="text-amber-600"> · {unsizedCount} unsized</span>}.
           </p>
         </div>
+        <SavedViewsPicker
+          projectId={projectId}
+          scope="backlog"
+          currentFilter={{ typeFilter, showOnlyEstimated }}
+          canShare={canEdit}
+          onApply={(f) => {
+            const next = f as { typeFilter?: CardType | 'all'; showOnlyEstimated?: boolean };
+            if (next.typeFilter) setTypeFilter(next.typeFilter);
+            if (typeof next.showOnlyEstimated === 'boolean') setShowOnlyEstimated(next.showOnlyEstimated);
+          }}
+        />
       </div>
 
       {/* Filters */}
