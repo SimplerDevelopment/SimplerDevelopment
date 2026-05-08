@@ -80,6 +80,14 @@ interface SurveyData {
   styling?: SurveyStyling | null;
   cssVars?: Record<string, string>;
   recommendation?: SurveyRecommendationConfig | null;
+  /**
+   * A/B variant id picked for this visitor. When non-null, `fields` already
+   * reflects the variant's field set (the route swapped it in server-side).
+   * The id is echoed back on submit so responses can be attributed to the
+   * variant they were collected under.
+   */
+  variantId?: number | null;
+  variantName?: string | null;
 }
 
 export interface SurveyFormInlineProps {
@@ -245,6 +253,10 @@ export function SurveyFormInline({
         name: name || undefined,
         source,
         sourceId: sourceId || undefined,
+        // Echo the variant id back so the response is attributed to the
+        // bucket this visitor saw — not whatever the dashboard computes
+        // post-hoc. `null` / `undefined` is fine when no variants exist.
+        variantId: survey?.variantId ?? undefined,
       }),
     });
     const data = await res.json();

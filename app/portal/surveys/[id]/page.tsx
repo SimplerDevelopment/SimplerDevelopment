@@ -12,16 +12,18 @@ import ShareTab from './_components/ShareTab';
 import SurveyHeader from './_components/SurveyHeader';
 import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
+import VariantsPanel from './_components/VariantsPanel';
 import WebhooksPanel from './_components/WebhooksPanel';
 import { useSurvey } from './_hooks/useSurvey';
 import { type ResponseFilters } from './_lib/api';
 
-type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'settings';
+type Tab = 'overview' | 'edit' | 'recommendation' | 'variants' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'settings';
 
 const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
   { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
   { key: 'edit', label: () => 'Edit', icon: 'edit' },
   { key: 'recommendation', label: () => 'Recommendation', icon: 'recommend' },
+  { key: 'variants', label: () => 'Variants', icon: 'science' },
   { key: 'responses', label: (n) => `Responses (${n})`, icon: 'people' },
   { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
   { key: 'share', label: () => 'Share & Embed', icon: 'share' },
@@ -242,6 +244,8 @@ export default function SurveyDetailPage() {
           onChange={(next) => save({ recommendation: next ?? null })}
         />
       )}
+
+      {tab === 'variants' && <VariantsPanel surveyId={id} />}
 
       {tab === 'responses' && (
         <ResponsesTab
