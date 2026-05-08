@@ -1,5 +1,13 @@
 # SimplerDevelopment.com
 
+[![Coverage](https://img.shields.io/badge/coverage-60%25-orange)](#coverage) [![Tenancy gate](https://img.shields.io/badge/tenancy-required-blue)](tests/CI-GATES.md) [![Critical e2e](https://img.shields.io/badge/critical%20e2e-required-blue)](tests/CI-GATES.md)
+
+> Coverage badge is **static** until a publisher endpoint (e.g. shields.io
+> JSON endpoint backed by an uploaded `coverage-summary.json`) is wired up.
+> The actual gate is enforced by `vitest.config.ts` thresholds and the
+> `.github/workflows/sd2026-coverage.yml` workflow — see
+> [`tests/CI-GATES.md`](tests/CI-GATES.md).
+
 A modern, interactive website for SimplerDevelopment - a Design, Dev, and Automation Agency. Built with Next.js 16, React 19, Three.js, and a custom block-based content editor.
 
 ## Features
