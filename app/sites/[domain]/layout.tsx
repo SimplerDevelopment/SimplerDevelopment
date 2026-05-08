@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/client-sites';
-import { getBrandingByWebsiteId, resolveFaviconUrl } from '@/lib/branding';
+import { getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteNavClient } from './SiteNavClient';
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     },
   };
 
-  const faviconUrl = resolveFaviconUrl(branding);
+  const faviconUrl = await resolveFaviconUrlForClient(site.clientId, branding);
   if (faviconUrl) {
     metadata.icons = { icon: faviconUrl };
   }
