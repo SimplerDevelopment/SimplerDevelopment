@@ -51,6 +51,17 @@ export const emailCampaigns = pgTable('email_campaigns', {
   totalClicked: integer('total_clicked').default(0).notNull(),
   totalBounced: integer('total_bounced').default(0).notNull(),
   totalUnsubscribed: integer('total_unsubscribed').default(0).notNull(),
+  // ── Subject A/B test (standalone — independent of lib/ab/* engine) ──
+  // When abEnabled, the send path splits the first abTestSizePct of the list
+  // evenly into "A" (subject) and "B" (abSubjectB). The remaining recipients
+  // are held until a winner is decided by abWinnerMetric, after which the
+  // winning subject is recorded in abWinnerSubject and the remainder sent.
+  abEnabled: boolean('ab_enabled').default(false).notNull(),
+  abSubjectB: varchar('ab_subject_b', { length: 255 }), // second subject line variant
+  abWinnerMetric: varchar('ab_winner_metric', { length: 20 }).default('open'), // 'open' | 'click'
+  abTestSizePct: integer('ab_test_size_pct').default(10), // % of list to split between A/B before promoting
+  abWinnerSubject: varchar('ab_winner_subject', { length: 255 }), // populated when winner is decided
+  abDecidedAt: timestamp('ab_decided_at'), // when winner was selected and remainder dispatched
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -108,6 +119,10 @@ export const emailCampaignSends = pgTable('email_campaign_sends', {
   campaignId: integer('campaign_id').notNull().references(() => emailCampaigns.id, { onDelete: 'cascade' }),
   subscriberId: integer('subscriber_id').notNull().references(() => emailSubscribers.id, { onDelete: 'cascade' }),
   resendEmailId: varchar('resend_email_id', { length: 255 }), // ID returned by Resend
+  // Subject A/B variant tag: 'a' | 'b' | 'winner' | null. NULL means "not part
+  // of an A/B test" so non-A/B campaigns leave it empty. Used by the winner-
+  // promotion endpoint to aggregate open/click counts per variant.
+  abVariant: varchar('ab_variant', { length: 10 }),
   sentAt: timestamp('sent_at'),
   openedAt: timestamp('opened_at'),
   clickedAt: timestamp('clicked_at'),
