@@ -451,40 +451,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           </div>
         )}
 
-        {/* Prev/Next arrow buttons — desktop only (mobile uses the bottom footer).
-            Hidden on decision slides; survey slides manage their own Back/Next UI
-            inside SurveySlideRenderer. Positioned `fixed` so they anchor to the
-            viewport center regardless of how tall the current slide is. */}
-        {current > 0 && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
-          <button onClick={prev}
-            className="hidden md:block fixed left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_left</span>
-          </button>
-        )}
-        {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
-          <button onClick={next}
-            className="hidden md:block fixed right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_right</span>
-          </button>
-        )}
-
-        {submitting && (
-          <div className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3">
-            <span className="material-icons text-2xl animate-spin" style={{ color: theme.accentColor }}>autorenew</span>
-          </div>
-        )}
-
-        {/* Progress bar — desktop only. The mobile footer has its own progress bar at its top edge. */}
-        <div className="hidden md:block absolute bottom-0 left-0 right-0 h-[2px] z-20" style={{ backgroundColor: theme.textColor + '10' }}>
-          <div className="h-full transition-all duration-500 ease-out" style={{
-            width: `${((current + 1) / visibleCount) * 100}%`,
-            backgroundColor: theme.accentColor,
-          }} />
-        </div>
-
-        {/* Mobile-only footer nav: prev arrow / indicator / next arrow, with a
+        {/* Footer nav (universal): prev arrow / indicator / next arrow, with a
             2px progress bar pinned to the top edge. Hidden on slide kinds that
             manage their own Back/Next UI (decision, survey-question, survey-contact),
             and on single-slide decks where the nav has nothing to do. */}
@@ -493,7 +460,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           && currentVS?.kind !== 'survey-question'
           && currentVS?.kind !== 'survey-contact' && (
           <div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-30 backdrop-blur-md"
+            className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-md"
             style={{
               backgroundColor: `${theme.backgroundColor}E6`,
               borderTop: `1px solid ${theme.textColor}15`,
@@ -514,10 +481,10 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
                 onClick={prev}
                 disabled={current === 0}
                 aria-label="Previous slide"
-                className="p-2 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
                 style={{ color: theme.textColor, backgroundColor: `${theme.textColor}10` }}
               >
-                <span className="material-icons text-2xl">chevron_left</span>
+                <span className="material-icons text-2xl leading-none">chevron_left</span>
               </button>
 
               <div
@@ -533,13 +500,13 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
                 onClick={next}
                 disabled={current >= visibleCount - 1 || submitting}
                 aria-label="Next slide"
-                className="p-2 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
                 style={{ color: theme.textColor, backgroundColor: `${theme.textColor}10` }}
               >
                 {submitting ? (
-                  <span className="material-icons text-2xl animate-spin">autorenew</span>
+                  <span className="material-icons text-2xl leading-none animate-spin">autorenew</span>
                 ) : (
-                  <span className="material-icons text-2xl">chevron_right</span>
+                  <span className="material-icons text-2xl leading-none">chevron_right</span>
                 )}
               </button>
             </div>
@@ -554,10 +521,10 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           <style dangerouslySetInnerHTML={{ __html: currentVS.slide.customCss }} />
         )}
 
-        {/* Slide content. Reserve bottom padding on mobile equal to the footer
-            height so centered content isn't visually clipped behind the footer. */}
+        {/* Slide content. Reserve bottom padding equal to the footer height so
+            centered content isn't visually clipped behind the footer. */}
         <div
-          className={`min-h-screen flex items-center justify-center slide-stage md:pb-0 ${visibleCount > 1 ? 'pb-16' : ''}`}
+          className={`min-h-screen flex items-center justify-center slide-stage ${visibleCount > 1 ? 'pb-16' : ''}`}
           data-slide-id={currentVS?.kind === 'block' ? currentVS.slide.id : undefined}
           style={{
             animation: isAnimating
