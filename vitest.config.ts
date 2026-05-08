@@ -14,7 +14,11 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['html', 'lcov', 'text-summary', 'json'],
+      // `text` keeps the per-file table in CI logs; `html` is for local debug;
+      // `lcov` feeds Codecov / shields.io publishers; `json-summary` is what
+      // .github/workflows/sd2026-coverage.yml reads to post the PR diff
+      // comment. See tests/CI-GATES.md for the consumer side.
+      reporter: ['text', 'html', 'lcov', 'json-summary', 'json'],
       reportsDirectory: 'coverage/vitest',
       // vitest >=2.x defaults `reportOnFailure` to `false` — meaning that if
       // even one test fails, the coverage report is silently suppressed. The
@@ -39,11 +43,33 @@ export default defineConfig({
         'app/**/not-found.tsx',
         'app/**/error.tsx',
       ],
+      // Coverage gates. See tests/CI-GATES.md for context and override knobs.
+      //
+      // Top-level keys (lines/statements/functions/branches) set the
+      // project-wide floor that every PR must clear. Per-glob keys raise the
+      // floor for the 12 newly-shipped feature areas — billing, AI, agency,
+      // e-sign, chat all run at 70%; lib/crypto holds keys/secrets and runs
+      // at 90%. Vitest matches glob keys against file paths relative to the
+      // project root and applies the strictest matching threshold per file.
       thresholds: {
-        lines: 0,
-        functions: 0,
-        branches: 0,
-        statements: 0,
+        // Project-wide floor (60% pragmatic, 50% branches per
+        // user-stated coverage target on 2026-05-07).
+        lines: 60,
+        statements: 60,
+        functions: 60,
+        branches: 50,
+        // Don't auto-bump thresholds when coverage exceeds them — bumps
+        // should be intentional commits, not silent ratchets.
+        autoUpdate: false,
+        // Per-file overrides for the 12 newly-shipped critical modules.
+        'lib/billing/**/*.ts': { lines: 70, statements: 70, functions: 70, branches: 60 },
+        'lib/ai/**/*.ts':      { lines: 70, statements: 70, functions: 70, branches: 60 },
+        'lib/agency/**/*.ts':  { lines: 70, statements: 70, functions: 70, branches: 60 },
+        'lib/esign/**/*.ts':   { lines: 70, statements: 70, functions: 70, branches: 60 },
+        'lib/chat/**/*.ts':    { lines: 70, statements: 70, functions: 70, branches: 60 },
+        // Crypto holds API-key + secret-encryption primitives — every
+        // branch matters.
+        'lib/crypto/**/*.ts':  { lines: 90, statements: 90, functions: 90, branches: 80 },
       },
     },
     projects: [
