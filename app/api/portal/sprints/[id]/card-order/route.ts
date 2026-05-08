@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { sprints, projects, kanbanCards } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -27,7 +28,7 @@ async function authorizeSprint(sprintId: number, session: any): Promise<{ sprint
     .where(and(eq(projects.id, sprint.projectId), eq(projects.clientId, client.id))).limit(1);
   if (!proj) return null;
 
-  return { sprint, canEdit: proj.isPrivate };
+  return { sprint, canEdit: await canUserEditProject(userId, proj.id) };
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {

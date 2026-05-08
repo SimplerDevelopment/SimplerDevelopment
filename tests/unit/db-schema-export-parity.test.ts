@@ -290,6 +290,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'productOptions',
   'productVariants',
   'products',
+  'projectMembers',
   'projectWebhookDeliveries',
   'projectWebhooks',
   'projects',
@@ -300,6 +301,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'siteBranding',
   'siteNavigation',
   'siteSnapshots',
+  'sprintScopeHistory',
   'sprints',
   'storeCustomerMessageReplies',
   'storeCustomerMessages',
@@ -489,6 +491,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   products: 'products',
   productVariants: 'product_variants',
   projects: 'projects',
+  projectMembers: 'project_members',
   projectWebhookDeliveries: 'project_webhook_deliveries',
   projectWebhooks: 'project_webhooks',
   serviceRequests: 'service_requests',
@@ -499,6 +502,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   siteNavigation: 'site_navigation',
   siteSnapshots: 'site_snapshots',
   sprints: 'sprints',
+  sprintScopeHistory: 'sprint_scope_history',
   storeCustomerMessageReplies: 'store_customer_message_replies',
   storeCustomerMessages: 'store_customer_messages',
   storeCustomers: 'store_customers',
@@ -573,13 +577,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (192)', () => {
+  it('reports the recorded number of tables (194)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(192);
+    expect(count).toBe(194);
   });
 });

@@ -90,6 +90,7 @@ import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, Co
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
 import { logCardActivity } from '@/lib/pm-activity';
+import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
@@ -189,7 +190,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_create_card',
     {
       title: 'Create kanban card',
-      description: 'Add a card to a kanban column. Pass sprintId to assign the card to a sprint at creation time; omit or pass null to leave it in the sprint dock.',
+      description: 'Add a card to a kanban column. Pass sprintId to assign the card to a sprint at creation time; omit or pass null to leave it in the sprint dock. Agile fields: storyPoints, cardType (epic/story/task/bug/spike), parentCardId for hierarchy, workflowState (todo/in_progress/in_review/done/canceled).',
       inputSchema: {
         projectId: z.coerce.number(),
         columnId: z.coerce.number(),
@@ -198,6 +199,10 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         dueDate: z.string().optional(),
         sprintId: z.coerce.number().nullable().optional().describe('Assign the card to a sprint on create. Must belong to the same project.'),
+        storyPoints: z.coerce.number().int().nullable().optional(),
+        cardType: z.enum(['task', 'story', 'epic', 'bug', 'spike']).optional(),
+        parentCardId: z.coerce.number().nullable().optional().describe('Parent card id for hierarchy (e.g. story under epic). Must belong to the same project.'),
+        workflowState: z.enum(['todo', 'in_progress', 'in_review', 'done', 'canceled']).optional(),
       },
     },
     async (args) => {
@@ -216,6 +221,13 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           return json({ error: 'Sprint not found in this project' });
         }
       }
+      if (args.parentCardId != null) {
+        const [parent] = await db.select({ projectId: kanbanCards.projectId })
+          .from(kanbanCards).where(eq(kanbanCards.id, args.parentCardId)).limit(1);
+        if (!parent || parent.projectId !== args.projectId) {
+          return json({ error: 'Parent card not found in this project' });
+        }
+      }
       const [row] = await db.insert(kanbanCards).values({
         projectId: args.projectId,
         columnId: args.columnId,
@@ -224,8 +236,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         priority: args.priority ?? 'medium',
         dueDate: args.dueDate ? new Date(args.dueDate) : null,
         sprintId: args.sprintId ?? null,
+        storyPoints: args.storyPoints ?? null,
+        cardType: args.cardType ?? 'task',
+        parentCardId: args.parentCardId ?? null,
+        workflowState: args.workflowState ?? 'todo',
         createdBy: ctx.userId,
       }).returning();
+      if (row.sprintId) {
+        await recordCardAddedToSprint(row.id, row.sprintId, ctx.userId ?? null);
+      }
       revalidateForWrite('portal');
       return json(row);
     }
@@ -244,7 +263,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     },
     async ({ cardId, columnId, order }) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
-      const [card] = await db.select({ projectId: kanbanCards.projectId })
+      const [card] = await db.select({ projectId: kanbanCards.projectId, columnId: kanbanCards.columnId })
         .from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
       if (!card) return json({ error: 'Card not found' });
       const [proj] = await db.select({ id: projects.id }).from(projects)
@@ -256,10 +275,17 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         if (e instanceof OwnershipError) return json({ error: e.message });
         throw e;
       }
+      const [srcCol] = await db.select({ isDone: kanbanColumns.isDone })
+        .from(kanbanColumns).where(eq(kanbanColumns.id, card.columnId)).limit(1);
+      const [destCol] = await db.select({ isDone: kanbanColumns.isDone })
+        .from(kanbanColumns).where(eq(kanbanColumns.id, columnId)).limit(1);
       const [row] = await db.update(kanbanCards)
         .set({ columnId, order: order ?? 0, updatedAt: new Date() })
         .where(eq(kanbanCards.id, cardId))
         .returning();
+      if (card.columnId !== columnId && srcCol && destCol) {
+        await recordCardColumnMove(cardId, srcCol.isDone, destCol.isDone, ctx.userId ?? null);
+      }
       revalidateForWrite('portal');
       return json(row);
     }
@@ -269,7 +295,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_update_card',
     {
       title: 'Update kanban card',
-      description: 'Update card fields (title, description, priority, due date, assignee, sprint). Use kanban_move_card to change column/order. Pass sprintId=null to send the card back to the sprint dock.',
+      description: 'Update card fields (title, description, priority, due date, assignee, sprint, agile fields). Use kanban_move_card to change column/order. Pass sprintId=null to send the card back to the sprint dock. Agile fields: storyPoints, cardType, parentCardId, workflowState.',
       inputSchema: {
         id: z.coerce.number(),
         title: z.string().min(1).optional(),
@@ -278,11 +304,15 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         dueDate: z.string().nullable().optional().describe('ISO date, or null to clear.'),
         assignedTo: z.coerce.number().nullable().optional(),
         sprintId: z.coerce.number().nullable().optional().describe('Assign the card to a sprint; null removes the assignment.'),
+        storyPoints: z.coerce.number().int().nullable().optional(),
+        cardType: z.enum(['task', 'story', 'epic', 'bug', 'spike']).optional(),
+        parentCardId: z.coerce.number().nullable().optional(),
+        workflowState: z.enum(['todo', 'in_progress', 'in_review', 'done', 'canceled']).optional(),
       },
     },
     async ({ id, dueDate, sprintId, assignedTo, ...rest }) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
-      const [card] = await db.select({ projectId: kanbanCards.projectId })
+      const [card] = await db.select({ projectId: kanbanCards.projectId, sprintId: kanbanCards.sprintId })
         .from(kanbanCards).where(eq(kanbanCards.id, id)).limit(1);
       if (!card) return json({ error: 'Card not found' });
       const [proj] = await db.select({ id: projects.id }).from(projects)
@@ -303,6 +333,10 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       }
       const [row] = await db.update(kanbanCards).set(patch)
         .where(eq(kanbanCards.id, id)).returning();
+      if (sprintId !== undefined && (sprintId ?? null) !== card.sprintId) {
+        if (card.sprintId) await recordCardRemovedFromSprint(id, card.sprintId, ctx.userId ?? null);
+        if (row.sprintId) await recordCardAddedToSprint(id, row.sprintId, ctx.userId ?? null);
+      }
       if (assignedTo !== undefined) {
         const current = await db
           .select({ userId: kanbanCardAssignees.userId })

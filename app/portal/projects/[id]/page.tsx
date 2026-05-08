@@ -10,8 +10,11 @@ import ProjectDescription from '@/components/portal/ProjectDescription';
 import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
 import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SprintPlanning from '@/components/portal/SprintPlanning';
+import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
 import { isPortalStaff } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
+import { getProjectRole } from '@/lib/portal/project-access';
+import { canEditProject, canManageProject } from '@/lib/portal/project-permissions';
 
 export default async function ProjectKanbanPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const session = await auth();
@@ -19,7 +22,11 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
 
   const { id } = await params;
   const { tab } = await searchParams;
-  const activeTab = tab === 'files' ? 'files' : tab === 'sprints' ? 'sprints' : tab === 'settings' ? 'settings' : 'board';
+  const activeTab = tab === 'files' ? 'files'
+    : tab === 'sprints' ? 'sprints'
+    : tab === 'members' ? 'members'
+    : tab === 'settings' ? 'settings'
+    : 'board';
   const projectId = parseInt(id, 10);
   const [staff, userId] = [await isPortalStaff(), parseInt(session.user.id, 10)];
 
@@ -39,6 +46,13 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
 
   const [project] = await projectQuery;
   if (!project) notFound();
+
+  // Resolve the caller's role on this project. Staff resolve to 'owner' and skip
+  // the per-project members lookup; non-staff users with no membership row
+  // inherit 'viewer' so they can read the board but not mutate.
+  const role = staff ? 'owner' : (await getProjectRole(userId, projectId)) ?? 'viewer';
+  const canEdit = canEditProject(role);
+  const canManage = canManageProject(role);
 
   const columns = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId)).orderBy(kanbanColumns.order);
   const cards = await db.select().from(kanbanCards).where(eq(kanbanCards.projectId, projectId)).orderBy(kanbanCards.order);
@@ -152,12 +166,12 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
             <span className="text-foreground">{project.name}</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">{project.name}</h1>
-          {(project.description || staff || project.isPrivate) && (
+          {(project.description || canEdit) && (
             <ProjectDescription
               projectId={projectId}
               title={project.name}
               description={project.description ?? ''}
-              canEdit={staff || project.isPrivate}
+              canEdit={canEdit}
             />
           )}
         </div>
@@ -165,7 +179,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           <ProjectStatusControl
             projectId={projectId}
             status={project.status}
-            canEdit={staff || project.isPrivate}
+            canEdit={canEdit}
           />
           {project.dueDate && (
             <span className="text-sm text-muted-foreground flex items-center gap-1">
@@ -182,6 +196,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'board',    href: `/portal/projects/${projectId}`,                 label: 'Board',    icon: 'view_kanban' },
           { key: 'sprints',  href: `/portal/projects/${projectId}?tab=sprints`,     label: 'Sprints',  icon: 'sprint' },
           { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files',    icon: 'folder' },
+          { key: 'members',  href: `/portal/projects/${projectId}?tab=members`,     label: 'Members',  icon: 'group' },
           { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
         ] as const).map(t => (
           <Link key={t.key} href={t.href}
@@ -195,10 +210,12 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       {activeTab === 'files' ? (
         <ProjectFilesTab projectId={projectId} />
       ) : activeTab === 'sprints' ? (
-        <SprintPlanning projectId={projectId} canEdit={staff || project.isPrivate} />
+        <SprintPlanning projectId={projectId} canEdit={canEdit} />
+      ) : activeTab === 'members' ? (
+        <ProjectMembersTab projectId={projectId} canManage={canManage} />
       ) : activeTab === 'settings' ? (
         <div className="space-y-4 max-w-3xl">
-          <ProjectWebhooksPanel projectId={projectId} canEdit={staff || project.isPrivate} />
+          <ProjectWebhooksPanel projectId={projectId} canEdit={canEdit} />
         </div>
       ) : columnsWithCards.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
@@ -211,7 +228,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           projectId={projectId}
           initialColumns={columnsWithCards}
           isStaff={staff}
-          canEdit={staff || project.isPrivate}
+          canEdit={canEdit}
           currentUserId={userId}
           sprints={projectSprints}
         />

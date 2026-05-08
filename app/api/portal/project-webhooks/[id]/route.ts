@@ -5,6 +5,7 @@ import { projects, projectWebhooks } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { validateWebhookUrl } from '@/lib/ssrf-guard';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -28,7 +29,7 @@ async function authorizeWebhook(webhookId: number, session: any): Promise<{ canE
     .where(and(eq(projects.id, hook.projectId), eq(projects.clientId, client.id))).limit(1);
   if (!proj) return null;
 
-  return { canEdit: proj.isPrivate, hook };
+  return { canEdit: await canUserEditProject(userId, proj.id), hook };
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

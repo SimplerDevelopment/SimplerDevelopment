@@ -1,6 +1,6 @@
 // Projects, sprints, kanban boards (cards/labels/checklists), webhooks, support tickets.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, primaryKey, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { SurveyField } from './cms';
@@ -12,13 +12,35 @@ export const projects = pgTable('projects', {
   projectKey: varchar('project_key', { length: 10 }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
-  isPrivate: boolean('is_private').default(false).notNull(), // false = agency project, true = client-managed
+  // is_private is retained for audit/back-compat. As of 2026-05 the unified
+  // permission model uses project_members.role and `staff` resolution; new
+  // routes must NOT branch on isPrivate.
+  isPrivate: boolean('is_private').default(false).notNull(),
   startDate: timestamp('start_date'),
   dueDate: timestamp('due_date'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// Per-project member roles. Staff (admin/employee) have implicit owner-equivalent
+// access on every project and do not need a row here; non-staff portal users
+// (the client + their team) must be members to view/edit.
+//   owner    — full control: rename, delete, manage members, all editor rights
+//   editor   — create/edit cards, columns, sprints, labels, files, webhooks
+//   commenter— comment, log time, attach files; cannot mutate structure
+//   viewer   — read-only
+export const projectMembers = pgTable('project_members', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: varchar('role', { length: 20 }).default('viewer').notNull(),
+  addedBy: integer('added_by').references(() => users.id, { onDelete: 'set null' }),
+  addedAt: timestamp('added_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('project_members_project_user_idx').on(t.projectId, t.userId),
+  index('project_members_user_idx').on(t.userId),
+]);
 
 export const sprints = pgTable('sprints', {
   id: serial('id').primaryKey(),
@@ -56,6 +78,13 @@ export const kanbanCards = pgTable('kanban_cards', {
   order: integer('order').default(0).notNull(),
   sprintId: integer('sprint_id').references(() => sprints.id, { onDelete: 'set null' }),
   sprintOrder: integer('sprint_order'),
+  // Agile foundation (added 2026-05). Workflow state is intentionally separate
+  // from column position so a project can model a workflow that doesn't map 1:1
+  // to physical columns (e.g. parallel review/qa columns that all = in_review).
+  storyPoints: integer('story_points'),
+  cardType: varchar('card_type', { length: 20 }).default('task').notNull(), // task, story, epic, bug, spike
+  parentCardId: integer('parent_card_id'),
+  workflowState: varchar('workflow_state', { length: 20 }).default('todo').notNull(), // todo, in_progress, in_review, done, canceled
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -179,6 +208,27 @@ export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
   blockerCardId: integer('blocker_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({ pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }) }));
+
+// Event-log of every change to a sprint's scope. This is what powers burndown/
+// velocity charts — by replaying events between sprint.startDate and a point in
+// time, you reconstruct (a) committed point total at sprint start, (b) remaining
+// open points at any moment, (c) completed points by end. Snapshots are written
+// from lib/portal/sprint-snapshots.ts on: card added to sprint, card removed
+// from sprint, card moved to a `is_done` column, card reopened from done, and a
+// `sprint_started` synthetic row at sprint.status → active. `points` records the
+// card's storyPoints at the moment of the event so post-hoc point edits don't
+// retroactively change historical charts.
+export const sprintScopeHistory = pgTable('sprint_scope_history', {
+  id: serial('id').primaryKey(),
+  sprintId: integer('sprint_id').notNull().references(() => sprints.id, { onDelete: 'cascade' }),
+  cardId: integer('card_id').references(() => kanbanCards.id, { onDelete: 'set null' }),
+  action: varchar('action', { length: 20 }).notNull(), // sprint_started, added, removed, completed, reopened
+  points: integer('points'), // snapshot of card.storyPoints at time of event; null if untyped
+  occurredAt: timestamp('occurred_at').defaultNow().notNull(),
+  occurredBy: integer('occurred_by').references(() => users.id, { onDelete: 'set null' }),
+}, (t) => [
+  index('sprint_scope_history_sprint_idx').on(t.sprintId, t.occurredAt),
+]);
 
 export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
   id: serial('id').primaryKey(),

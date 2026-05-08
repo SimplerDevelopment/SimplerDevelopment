@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { kanbanLabels, projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -26,7 +27,7 @@ async function authorizeLabel(labelId: number, session: any): Promise<{ canEdit:
   const [project] = await db.select().from(projects).where(eq(projects.id, label.projectId)).limit(1);
   if (!project || project.clientId !== client.id) return null;
 
-  return { canEdit: project.isPrivate };
+  return { canEdit: await canUserEditProject(userId, project.id) };
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

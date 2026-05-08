@@ -85,7 +85,9 @@ import {
   aiCreditLedger,
   hostedSites,
   googleWorkspaceUserConnections,
+  projectMembers,
 } from '@/lib/db/schema';
+import { ROLE_OPTIONS, type ProjectRole } from '@/lib/portal/project-permissions';
 import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause, PitchDeckSlideV2 } from '@/lib/db/schema';
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
@@ -167,6 +169,17 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
         isPrivate: true,
         createdBy: ctx.userId,
       }).returning();
+      // Creator becomes owner; mirrors the REST POST /projects behavior so
+      // the unified permission model holds whether the project is created via
+      // UI or MCP.
+      if (ctx.userId) {
+        await db.insert(projectMembers).values({
+          projectId: row.id,
+          userId: ctx.userId,
+          role: 'owner',
+          addedBy: ctx.userId,
+        }).onConflictDoNothing();
+      }
       revalidateForWrite('portal');
       return json(row);
     }
@@ -200,6 +213,116 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
     }
   );
 
+
+  // ── PROJECT MEMBERS ────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'project_members_list',
+    {
+      title: 'List project members',
+      description: "List members and their roles for a project. Roles are owner, editor, commenter, viewer. Staff users (admin/employee) have implicit owner-equivalent access on every project regardless of membership rows.",
+      inputSchema: {
+        projectId: z.coerce.number(),
+      },
+    },
+    async ({ projectId }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.clientId, clientId))).limit(1);
+      if (!proj) return json({ error: 'Project not found' });
+      const rows = await db
+        .select({
+          id: projectMembers.id,
+          userId: projectMembers.userId,
+          role: projectMembers.role,
+          addedAt: projectMembers.addedAt,
+          name: users.name,
+          email: users.email,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(users.id, projectMembers.userId))
+        .where(eq(projectMembers.projectId, projectId));
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'project_members_set',
+    {
+      title: 'Add or update a project member',
+      description: 'Add a user to a project, or change their role if already a member. Idempotent. Only owners can call this.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+        userId: z.coerce.number(),
+        role: z.enum(['owner', 'editor', 'commenter', 'viewer']),
+      },
+    },
+    async ({ projectId, userId, role }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      if (!ROLE_OPTIONS.includes(role)) return json({ error: 'Invalid role' });
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.clientId, clientId))).limit(1);
+      if (!proj) return json({ error: 'Project not found' });
+      // Caller must be project owner. Staff users skip the check (implicit owner).
+      if (ctx.userId) {
+        const [callerMember] = await db.select({ role: projectMembers.role })
+          .from(projectMembers)
+          .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, ctx.userId)))
+          .limit(1);
+        if (callerMember?.role !== 'owner') return json({ error: 'Only project owners can manage members' });
+      }
+      const [row] = await db.insert(projectMembers).values({
+        projectId,
+        userId,
+        role: role as ProjectRole,
+        addedBy: ctx.userId,
+      }).onConflictDoUpdate({
+        target: [projectMembers.projectId, projectMembers.userId],
+        set: { role: role as ProjectRole, addedBy: ctx.userId },
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'project_members_remove',
+    {
+      title: 'Remove a project member',
+      description: 'Remove a user from a project. Refuses to remove the last owner.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+        userId: z.coerce.number(),
+      },
+    },
+    async ({ projectId, userId }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.clientId, clientId))).limit(1);
+      if (!proj) return json({ error: 'Project not found' });
+      if (ctx.userId) {
+        const [callerMember] = await db.select({ role: projectMembers.role })
+          .from(projectMembers)
+          .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, ctx.userId)))
+          .limit(1);
+        if (callerMember?.role !== 'owner') return json({ error: 'Only project owners can manage members' });
+      }
+      const [target] = await db.select({ role: projectMembers.role })
+        .from(projectMembers)
+        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
+        .limit(1);
+      if (!target) return json({ error: 'Member not found' });
+      if (target.role === 'owner') {
+        const owners = await db.select({ id: projectMembers.id })
+          .from(projectMembers)
+          .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.role, 'owner')));
+        if (owners.length <= 1) return json({ error: 'Cannot remove the sole owner; promote another member first' });
+      }
+      await db.delete(projectMembers)
+        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)));
+      revalidateForWrite('portal');
+      return json({ ok: true });
+    }
+  );
 
   // ── MY TASKS ───────────────────────────────────────────────────────────
   // Convenience read for the authenticated user's own kanban work across the

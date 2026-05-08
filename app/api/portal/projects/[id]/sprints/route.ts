@@ -5,6 +5,7 @@ import { sprints, kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
 import { isPortalStaff } from '@/lib/portal';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function authorizeProject(projectId: number, session: any) {
@@ -87,7 +88,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
     const staff = await isPortalStaff();
-    if (!staff && !project.isPrivate) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    if (!staff) {
+      const userId = parseInt((session as unknown as { user: { id: string } }).user.id, 10);
+      const canEdit = await canUserEditProject(userId, projectId);
+      if (!canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    }
 
     const { name, goal, startDate, endDate } = await req.json();
     if (!name?.trim()) return NextResponse.json({ success: false, message: 'name is required' }, { status: 400 });

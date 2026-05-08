@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { sprints, projects } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { canUserEditProject } from '@/lib/portal/project-access';
+import { recordSprintStarted } from '@/lib/portal/sprint-snapshots';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -26,7 +28,7 @@ async function authorizeSprint(sprintId: number, session: any): Promise<{ canEdi
   const [project] = await db.select().from(projects).where(eq(projects.id, sprint.projectId)).limit(1);
   if (!project || project.clientId !== client.id) return null;
 
-  return { canEdit: project.isPrivate };
+  return { canEdit: await canUserEditProject(userId, project.id) };
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -42,6 +44,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!result.canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
     const body = await req.json();
+    const [before] = await db.select({ status: sprints.status }).from(sprints).where(eq(sprints.id, sprintId)).limit(1);
+
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (body.name !== undefined) updates.name = body.name;
     if (body.goal !== undefined) updates.goal = body.goal;
@@ -51,6 +55,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const [sprint] = await db.update(sprints).set(updates).where(eq(sprints.id, sprintId)).returning();
     if (!sprint) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+    // Snapshot the committed scope at the moment a sprint starts so burndown
+    // has a day-zero baseline. Only fires on the planning → active transition.
+    if (body.status === 'active' && before?.status !== 'active') {
+      const actorId = parseInt(session.user.id, 10);
+      await recordSprintStarted(sprintId, actorId);
+    }
 
     return NextResponse.json({ success: true, data: sprint });
   } catch (err) {

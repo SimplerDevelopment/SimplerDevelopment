@@ -5,12 +5,14 @@ import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const { columnId, title, description, priority, dueDate } = await req.json();
+  const body = await req.json();
+  const { columnId, title, description, priority, dueDate, storyPoints, cardType, parentCardId, workflowState } = body;
   if (!columnId || !title?.trim()) {
     return NextResponse.json({ success: false, message: 'columnId and title are required' }, { status: 400 });
   }
@@ -25,8 +27,12 @@ export async function POST(req: Request) {
   if (!isStaff) {
     const client = await getPortalClient(userId);
     if (!client) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
-    const [project] = await db.select().from(projects).where(and(eq(projects.id, col.projectId), eq(projects.clientId, client.id))).limit(1);
+    const [project] = await db.select().from(projects)
+      .where(and(eq(projects.id, col.projectId), eq(projects.clientId, client.id)))
+      .limit(1);
     if (!project) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    const canEdit = await canUserEditProject(userId, col.projectId);
+    if (!canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
   }
 
   const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards).where(eq(kanbanCards.columnId, columnId));
@@ -37,6 +43,9 @@ export async function POST(req: Request) {
     .where(eq(kanbanCards.projectId, col.projectId));
   const nextNumber = (max ?? 0) + 1;
 
+  const VALID_TYPES = ['task', 'story', 'epic', 'bug', 'spike'];
+  const VALID_STATES = ['todo', 'in_progress', 'in_review', 'done', 'canceled'];
+
   const [card] = await db.insert(kanbanCards).values({
     columnId,
     projectId: col.projectId,
@@ -46,6 +55,10 @@ export async function POST(req: Request) {
     priority: priority ?? 'medium',
     dueDate: dueDate ? new Date(dueDate) : null,
     order: existing.length,
+    storyPoints: typeof storyPoints === 'number' ? storyPoints : null,
+    cardType: VALID_TYPES.includes(cardType) ? cardType : 'task',
+    parentCardId: typeof parentCardId === 'number' ? parentCardId : null,
+    workflowState: VALID_STATES.includes(workflowState) ? workflowState : 'todo',
     createdBy: userId,
   }).returning();
 

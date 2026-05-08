@@ -26,7 +26,11 @@ export type CardActivityType =
   | 'card.assignee_added'
   | 'card.assignee_removed'
   | 'card.dependency_added'
-  | 'card.dependency_removed';
+  | 'card.dependency_removed'
+  | 'card.story_points_changed'
+  | 'card.type_changed'
+  | 'card.parent_changed'
+  | 'card.workflow_state_changed';
 
 export async function logCardActivity(
   cardId: number,
