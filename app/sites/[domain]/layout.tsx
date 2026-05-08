@@ -86,12 +86,15 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     notFound();
   }
 
-  // Bare layout for preview pages and pitch decks (no nav/footer chrome)
+  // Bare layout for preview pages and pitch decks (no nav/footer chrome).
+  // /slides is the live deck route; /pitch-deck is the legacy path kept for
+  // any old links still in the wild.
   const headersList = await headers();
   const sitePathname = headersList.get('x-site-pathname') || '';
   if (
     sitePathname.includes('/nav-preview') ||
-    sitePathname.startsWith('/pitch-deck')
+    sitePathname.startsWith('/pitch-deck') ||
+    sitePathname.startsWith('/slides')
   ) {
     return <>{children}</>;
   }
