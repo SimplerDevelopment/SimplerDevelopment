@@ -6,6 +6,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
 import { canUserEditProject } from '@/lib/portal/project-access';
+import { checkWipLimit } from '@/lib/portal/wip-limit';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -33,6 +34,14 @@ export async function POST(req: Request) {
     if (!project) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
     const canEdit = await canUserEditProject(userId, col.projectId);
     if (!canEdit) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+  }
+
+  const wip = await checkWipLimit(columnId);
+  if (!wip.allowed) {
+    return NextResponse.json(
+      { success: false, message: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount },
+      { status: 409 },
+    );
   }
 
   const existing = await db.select({ id: kanbanCards.id }).from(kanbanCards).where(eq(kanbanCards.columnId, columnId));

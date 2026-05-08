@@ -21,6 +21,7 @@ import {
   kanbanCardAssignees,
   kanbanCardWatchers,
   kanbanCardDependencies,
+  sprintScopeHistory,
   supportTickets,
   ticketMessages,
   crmContacts,
@@ -91,6 +92,9 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
 import { logCardActivity } from '@/lib/pm-activity';
 import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
+import { computeSprintProposal } from '@/lib/portal/sprint-planner';
+import { computeSprintTotals, computeVelocityAverages, type SprintEvent, type VelocityRow } from '@/lib/portal/sprint-charts';
+import { checkWipLimit } from '@/lib/portal/wip-limit';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
@@ -228,6 +232,10 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           return json({ error: 'Parent card not found in this project' });
         }
       }
+      const wip = await checkWipLimit(args.columnId);
+      if (!wip.allowed) {
+        return json({ error: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount });
+      }
       const [row] = await db.insert(kanbanCards).values({
         projectId: args.projectId,
         columnId: args.columnId,
@@ -279,6 +287,12 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         .from(kanbanColumns).where(eq(kanbanColumns.id, card.columnId)).limit(1);
       const [destCol] = await db.select({ isDone: kanbanColumns.isDone })
         .from(kanbanColumns).where(eq(kanbanColumns.id, columnId)).limit(1);
+      if (card.columnId !== columnId) {
+        const wip = await checkWipLimit(columnId, cardId);
+        if (!wip.allowed) {
+          return json({ error: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount });
+        }
+      }
       const [row] = await db.update(kanbanCards)
         .set({ columnId, order: order ?? 0, updatedAt: new Date() })
         .where(eq(kanbanCards.id, cardId))
@@ -1082,6 +1096,145 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!row) return json({ error: 'Artifact link not found' });
       revalidateForWrite('portal');
       return json(row);
+    }
+  );
+
+  // ── SPRINT PLANNER (read-only proposal) ─────────────────────────────────
+  // Differentiates SimplerDevelopment from competitors: an AI agent can grab
+  // a fully-formed sprint proposal in one tool call (capacity + dependencies +
+  // sizing checks) and then commit individual cards via kanban_update_card.
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'kanban_propose_sprint',
+    {
+      title: 'Propose a sprint',
+      description:
+        'Greedy sprint-packing proposal for a project: takes the prioritized backlog (sprintId=null, ordered by sprintOrder/order) and packs cards up to targetPoints (or 1.1× recent velocity if not given), respecting unfinished blockers. Returns recommended/skipped/blocked/unsized buckets plus warnings. Read-only: the agent should commit picks via kanban_update_card with the chosen sprintId.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+        targetPoints: z.coerce.number().int().nullable().optional().describe('Hard cap on points to propose. If null, defaults to 1.1× recent velocity.'),
+        velocityWindow: z.coerce.number().int().min(1).max(20).optional().describe('How many recent completed sprints to average. Default 6.'),
+        requireCardIds: z.array(z.coerce.number()).optional().describe('Card ids the user already pinned for the sprint; bypasses capacity + blocker gates.'),
+      },
+    },
+    async ({ projectId, targetPoints, velocityWindow = 6, requireCardIds }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      try {
+        await assertProjectInClient(projectId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
+
+      // 1. Velocity baseline: average completed points across the last N
+      // completed sprints. Mirrors /api/portal/projects/[id]/velocity but
+      // bounded to the request param.
+      const completedSprints = await db
+        .select({ id: sprints.id, name: sprints.name, endDate: sprints.endDate })
+        .from(sprints)
+        .where(and(eq(sprints.projectId, projectId), eq(sprints.status, 'completed')))
+        .orderBy(desc(sprints.endDate), desc(sprints.id))
+        .limit(velocityWindow);
+
+      let velocityBaseline = 0;
+      if (completedSprints.length > 0) {
+        const sids = completedSprints.map(s => s.id);
+        const evs = await db
+          .select({
+            sprintId: sprintScopeHistory.sprintId,
+            action: sprintScopeHistory.action,
+            points: sprintScopeHistory.points,
+            occurredAt: sprintScopeHistory.occurredAt,
+          })
+          .from(sprintScopeHistory)
+          .where(inArray(sprintScopeHistory.sprintId, sids));
+        const bySprint = new Map<number, SprintEvent[]>();
+        for (const ev of evs) {
+          if (!bySprint.has(ev.sprintId)) bySprint.set(ev.sprintId, []);
+          bySprint.get(ev.sprintId)!.push({
+            action: ev.action as SprintEvent['action'],
+            points: ev.points,
+            occurredAt: ev.occurredAt,
+          });
+        }
+        const rows: VelocityRow[] = completedSprints.map(s => {
+          const totals = computeSprintTotals(bySprint.get(s.id) ?? []);
+          return {
+            sprintId: s.id,
+            sprintName: s.name,
+            endDate: s.endDate ? new Date(s.endDate).toISOString() : null,
+            committed: totals.committed,
+            completed: totals.completed,
+          };
+        });
+        velocityBaseline = computeVelocityAverages(rows).averageCompleted;
+      }
+
+      // 2. Backlog cards (sprintId=null) ordered by sprintOrder NULLS LAST
+      // then card.order. The Drizzle order helper picks up NULLS naturally.
+      const backlogCards = await db
+        .select({
+          id: kanbanCards.id,
+          number: kanbanCards.number,
+          title: kanbanCards.title,
+          storyPoints: kanbanCards.storyPoints,
+          cardType: kanbanCards.cardType,
+          sprintOrder: kanbanCards.sprintOrder,
+          order: kanbanCards.order,
+        })
+        .from(kanbanCards)
+        .where(and(eq(kanbanCards.projectId, projectId), isNull(kanbanCards.sprintId)));
+      backlogCards.sort((a, b) => {
+        const ao = a.sprintOrder ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.sprintOrder ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return (a.order ?? 0) - (b.order ?? 0);
+      });
+
+      // 3. Unresolved blockers per backlog card. A blocker is "unresolved" if
+      // its column has is_done=false (or null).
+      const cardIds = backlogCards.map(c => c.id);
+      let blockerMap = new Map<number, number[]>();
+      if (cardIds.length > 0) {
+        const blockerRows = await db
+          .select({
+            blockedCardId: kanbanCardDependencies.blockedCardId,
+            blockerCardId: kanbanCardDependencies.blockerCardId,
+            blockerColumnIsDone: kanbanColumns.isDone,
+          })
+          .from(kanbanCardDependencies)
+          .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+          .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+          .where(inArray(kanbanCardDependencies.blockedCardId, cardIds));
+        for (const r of blockerRows) {
+          if (r.blockerColumnIsDone) continue;
+          const arr = blockerMap.get(r.blockedCardId) ?? [];
+          arr.push(r.blockerCardId);
+          blockerMap.set(r.blockedCardId, arr);
+        }
+      }
+
+      const proposal = computeSprintProposal(
+        backlogCards.map(c => ({
+          id: c.id,
+          number: c.number,
+          title: c.title,
+          storyPoints: c.storyPoints,
+          cardType: c.cardType ?? 'task',
+          blockerCardIds: blockerMap.get(c.id) ?? [],
+        })),
+        {
+          targetPoints: targetPoints ?? null,
+          velocityBaseline,
+          requireCardIds,
+        },
+      );
+
+      return json({
+        ...proposal,
+        velocityBaseline,
+        velocityWindowSprints: completedSprints.length,
+        backlogTotal: backlogCards.length,
+      });
     }
   );
 }

@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
 import { recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
+import { checkWipLimit } from '@/lib/portal/wip-limit';
 
 // Moving cards between columns is available to ANY user who can view the project
 // (staff, or client-team member). It is intentionally not gated by canEdit —
@@ -37,6 +38,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const [project] = await db.select().from(projects)
       .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id))).limit(1);
     if (!project) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+  }
+
+  // WIP-limit check: skip if the card is already in the destination (reorder
+  // within the same column). Otherwise check the destination's count
+  // excluding the moving card.
+  if (card.columnId !== columnId) {
+    const wip = await checkWipLimit(columnId, cardId);
+    if (!wip.allowed) {
+      return NextResponse.json(
+        { success: false, message: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount },
+        { status: 409 },
+      );
+    }
   }
 
   const before = card;
