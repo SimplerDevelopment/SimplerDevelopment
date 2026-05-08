@@ -95,6 +95,11 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
   const [results, setResults] = useState<ResultsResponse | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(initial.name);
   const [draftSplit, setDraftSplit] = useState<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     for (const k of Object.keys(initial.variantSplit ?? {})) out[k] = String(initial.variantSplit[k]);
@@ -130,6 +135,12 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
     void fetchResults();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experiment.id]);
+
+  // Keep the inline-edit draft in sync when the experiment name changes
+  // upstream (e.g. after a successful PATCH replaces the row).
+  useEffect(() => {
+    if (!editingName) setNameDraft(experiment.name);
+  }, [experiment.name, editingName]);
 
   const updateExperiment = async (patch: Partial<ExperimentRow> & { variantSplit?: Record<string, number> }) => {
     setSavingId('experiment');
@@ -348,11 +359,40 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
 
   const allowedTransitions = STATUS_TRANSITIONS[experiment.status] || [];
 
-  const onDelete = async () => {
-    if (!confirm('Delete this experiment? Events and assignments will be removed.')) return;
-    const res = await fetch(`/api/portal/experiments/${experiment.id}`, { method: 'DELETE' });
-    const json = await res.json();
-    if (json.success) router.push('/portal/experiments');
+  const performDelete = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/portal/experiments/${experiment.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'delete_failed');
+      router.push('/portal/experiments');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed');
+      setDeleting(false);
+    }
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    setEditingName(false);
+    if (!trimmed) {
+      setNameDraft(experiment.name);
+      setErrorMsg('Name cannot be empty');
+      return;
+    }
+    if (trimmed.length > 255) {
+      setNameDraft(experiment.name);
+      setErrorMsg('Name must be 255 characters or fewer');
+      return;
+    }
+    if (trimmed === experiment.name) return;
+    await updateExperiment({ name: trimmed });
+  };
+
+  const cancelEditName = () => {
+    setNameDraft(experiment.name);
+    setEditingName(false);
   };
 
   return (
@@ -364,10 +404,39 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
       </div>
 
       <header className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <span className="material-icons">science</span>
-            {experiment.name}
+            {editingName ? (
+              <input
+                autoFocus
+                value={nameDraft}
+                maxLength={255}
+                onChange={e => setNameDraft(e.target.value)}
+                onBlur={saveName}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void saveName();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEditName();
+                  }
+                }}
+                className="flex-1 min-w-0 text-2xl font-semibold bg-transparent border-b-2 border-blue-500 outline-none"
+              />
+            ) : (
+              <span
+                className="cursor-pointer hover:text-blue-600 transition-colors"
+                onClick={() => {
+                  setNameDraft(experiment.name);
+                  setEditingName(true);
+                }}
+                title="Click to edit name"
+              >
+                {experiment.name}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {target.kindLabel}:{' '}
@@ -393,9 +462,10 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             </button>
           ))}
           <button
-            onClick={onDelete}
-            className="text-xs px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50"
+            onClick={() => { setDeleteError(null); setConfirmingDelete(true); }}
+            className="text-xs px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
           >
+            <span className="material-icons text-base">delete</span>
             Delete
           </button>
         </div>
@@ -700,6 +770,53 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
           </div>
         )}
       </section>
+
+      {confirmingDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-md w-full space-y-4">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <span className="material-icons text-destructive">delete_forever</span>
+              Delete Experiment
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete{' '}
+              <strong className="text-foreground">{experiment.name}</strong>? Events and assignments will be removed. This cannot be undone.
+            </p>
+            {deleteError && (
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                <span className="material-icons text-base">error</span>
+                {deleteError}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setConfirmingDelete(false); setDeleteError(null); }}
+                disabled={deleting}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={performDelete}
+                disabled={deleting}
+                className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+              >
+                {deleting ? (
+                  <>
+                    <span className="material-icons text-base animate-spin">progress_activity</span>
+                    Deleting…
+                  </>
+                ) : (
+                  <>
+                    <span className="material-icons text-base">delete</span>
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

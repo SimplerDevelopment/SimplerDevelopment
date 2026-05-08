@@ -107,6 +107,7 @@ function PortalPostFormInner({
   const [useLocalhost, setUseLocalhost] = useState(false);
   const [localPort, setLocalPort] = useState('3003');
   const [hydrated, setHydrated] = useState(false);
+  const [abError, setAbError] = useState<string | null>(null);
 
   const contentTypes = useContentTypes(siteId);
 
@@ -198,6 +199,21 @@ function PortalPostFormInner({
         />
       )}
 
+      {abError ? (
+        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+          <span className="material-icons text-base">error</span>
+          <span className="flex-1">{abError}</span>
+          <button
+            type="button"
+            onClick={() => setAbError(null)}
+            className="material-icons text-base text-destructive/70 hover:text-destructive"
+            aria-label="Dismiss error"
+          >
+            close
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex gap-4">
         <button
           type="submit"
@@ -210,6 +226,7 @@ function PortalPostFormInner({
           <button
             type="button"
             onClick={async () => {
+              setAbError(null);
               try {
                 const res = await fetch(`/api/portal/posts/${post.id}/experiments`, {
                   method: 'POST',
@@ -220,10 +237,10 @@ function PortalPostFormInner({
                 if (json.success && json.data?.id) {
                   router.push(`/portal/experiments/${json.data.id}`);
                 } else {
-                  alert(json.error || 'Failed to create experiment');
+                  setAbError(json.error || 'Failed to create experiment');
                 }
               } catch (err) {
-                alert(err instanceof Error ? err.message : 'Failed to create experiment');
+                setAbError(err instanceof Error ? err.message : 'Failed to create experiment');
               }
             }}
             className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent inline-flex items-center gap-1"
