@@ -523,6 +523,29 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     setPublishing(false);
   }
 
+  async function handleStartAbTest() {
+    if (!deck) return;
+    try {
+      const res = await fetch('/api/portal/experiments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: 'deck',
+          targetId: deck.id,
+          name: `A/B test — ${deck.title || 'Untitled'}`,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.id) {
+        router.push(`/portal/experiments/${json.data.id}`);
+      } else {
+        setError(json.error || 'Failed to create experiment');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create experiment');
+    }
+  }
+
   async function handleDelete() {
     if (!confirm('Delete this pitch deck? This cannot be undone.')) return;
     await deleteDeck(id);
@@ -792,6 +815,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           );
         }}
         onDelete={handleDelete}
+        onStartAbTest={handleStartAbTest}
         presenterUrl={`/portal/tools/pitch-decks/${id}/presenter`}
       />
 

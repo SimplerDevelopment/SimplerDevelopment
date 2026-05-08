@@ -17,7 +17,11 @@ import { useRouter } from 'next/navigation';
 
 interface ExperimentRow {
   id: number;
-  postId: number;
+  /** Polymorphic target. */
+  targetType: 'post' | 'deck' | 'survey' | 'email';
+  targetId: number;
+  /** Legacy mirror — populated for posts, null for decks/surveys/emails. */
+  postId: number | null;
   name: string;
   hypothesis: string | null;
   status: string;
@@ -48,7 +52,20 @@ interface ResultsResponse {
 interface Props {
   experiment: ExperimentRow;
   variants: VariantRow[];
-  post: { id: number; title: string; content: string; siteId: number };
+  /** Resolved target payload — works for both posts and decks. */
+  target: {
+    id: number;
+    title: string;
+    /** Seed JSON shown in the "Seed from page" button. Block tree for posts,
+     *  slide array for decks. */
+    content: string;
+    /** Site id when the target is a post; 0 for decks. */
+    siteId: number;
+    /** Where to send the user to edit the canonical entity. */
+    editHref: string;
+    /** Human label for the target kind ("Page", "Pitch deck"). */
+    kindLabel: string;
+  };
   siteName: string | null;
 }
 
@@ -66,7 +83,7 @@ const STATUS_ICON: Record<string, string> = {
   archived: 'inventory_2',
 };
 
-export default function ExperimentDetailClient({ experiment: initial, variants: initialVariants, post, siteName }: Props) {
+export default function ExperimentDetailClient({ experiment: initial, variants: initialVariants, target, siteName }: Props) {
   const [experiment, setExperiment] = useState<ExperimentRow>(initial);
   const [variants, setVariants] = useState<VariantRow[]>(initialVariants);
   const [results, setResults] = useState<ResultsResponse | null>(null);
@@ -156,7 +173,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
   };
 
   const seedFromPost = (variantKey: string) => {
-    setVariantJson(prev => ({ ...prev, [variantKey]: JSON.stringify(safeParse(post.content), null, 2) }));
+    setVariantJson(prev => ({ ...prev, [variantKey]: JSON.stringify(safeParse(target.content), null, 2) }));
   };
 
   const transitionStatus = async (next: string) => {
@@ -206,9 +223,9 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             {experiment.name}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Page:{' '}
-            <Link href={`/portal/websites/${post.siteId}/posts/${post.id}/edit`} className="text-blue-600 hover:underline">
-              {post.title}
+            {target.kindLabel}:{' '}
+            <Link href={target.editHref} className="text-blue-600 hover:underline">
+              {target.title}
             </Link>
             {siteName ? <span className="ml-1 text-gray-400">· {siteName}</span> : null}
           </p>
@@ -339,7 +356,7 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                     className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
                     onClick={() => seedFromPost(v.key)}
                   >
-                    Seed from page
+                    Seed from {target.kindLabel.toLowerCase()}
                   </button>
                   <button
                     type="button"
