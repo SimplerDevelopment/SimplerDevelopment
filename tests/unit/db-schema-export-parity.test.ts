@@ -64,11 +64,13 @@ function collectSchemaExportNames(): string[] {
 //   grep -oE "^export (const|interface|type) [A-Za-z0-9_]+" lib/db/schema.ts \
 //     | awk '{print $3}' | sort
 const EXPECTED_EXPORTS: readonly string[] = [
+  'AB_TARGET_TYPES',
   'AbAssignment',
   'AbEvent',
   'AbExperiment',
   'AbExperimentStatus',
   'AbGoalMetric',
+  'AbTargetType',
   'AbVariant',
   'AbVariantSplit',
   'AutomationAction',
