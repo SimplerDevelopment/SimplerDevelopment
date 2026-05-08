@@ -5,9 +5,7 @@ import { surveys } from '@/lib/db/schema';
 import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
-import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId } from '@/lib/branding';
-import { applyAbToDeckSlides } from '@/lib/ab/render';
-import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
+import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -66,23 +64,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     getPitchDeckByDomainAndSlug(domain, slug),
     getClientWebsiteByDomain(domain),
   ]);
-  if (!deck) return { title: 'Not Found' };
+  if (!deck) return { title: { absolute: 'Not Found' } };
 
-  // Falls back to the slug if title is somehow blank — keeps OG/twitter tags
-  // from rendering as " | SiteName" on edge-case data.
-  const title = deck.title?.trim() || deck.slug;
-  const description = deck.description?.trim() || `${title} - Pitch Deck`;
+  // Resolution order mirrors the posts table: deck SEO field -> deck content
+  // -> brand fallback. Trim guards against whitespace-only overrides bleeding
+  // empty strings into <head>.
+  const title = deck.seoTitle?.trim() || deck.title?.trim() || deck.slug;
+  const description = deck.seoDescription?.trim() || deck.description?.trim() || `${title} - Pitch Deck`;
   const branding = site ? await getBrandingByWebsiteId(site.id) : null;
-  const ogImage = branding?.ogImageUrl;
+  // OG image fallback chain — match the site layout's chain so X / Facebook /
+  // LinkedIn always have a share image even when a deck-specific one isn't set.
+  const ogImage =
+    deck.ogImage?.trim() ||
+    branding?.ogImageUrl ||
+    branding?.logoUrl ||
+    branding?.logoSquareUrl ||
+    undefined;
   const siteName = site?.name;
+  const canonicalUrl = site ? `https://${site.domain}/slides/${slug}` : undefined;
 
   const metadata: Metadata = {
-    title,
+    // Absolute title bypasses the root layout's `%s | SimplerDevelopment`
+    // template so deck titles render as authored, with no agency suffix.
+    title: { absolute: title },
     description,
     openGraph: {
       type: 'website',
+      locale: 'en_US',
       title,
       description,
+      ...(canonicalUrl ? { url: canonicalUrl } : {}),
       ...(siteName ? { siteName } : {}),
       ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
@@ -94,8 +105,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
   };
 
-  if (branding?.faviconUrl) {
-    metadata.icons = { icon: branding.faviconUrl };
+  if (deck.canonicalUrl?.trim()) {
+    metadata.alternates = { canonical: deck.canonicalUrl.trim() };
+  } else if (canonicalUrl) {
+    metadata.alternates = { canonical: canonicalUrl };
+  }
+  if (deck.noIndex) {
+    metadata.robots = { index: false, follow: false };
+  }
+  const faviconUrl = await resolveFaviconUrlForClient(deck.clientId, branding);
+  if (faviconUrl) {
+    // sizes:'any' marks the icon as scalable so browsers prefer it over any
+    // ICO/PNG with a fixed size that may slip into the head from elsewhere.
+    metadata.icons = { icon: [{ url: faviconUrl, sizes: 'any' }] };
   }
 
   return metadata;
@@ -110,12 +132,7 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
   }
 
   const theme = (deck.theme || {}) as PitchDeckTheme;
-  const baseSlides = resolveSlides(deck.slides);
-
-  // Run an active deck experiment — may swap the slides array for the
-  // visitor's bucketed variant. Falls through to baseSlides on any error.
-  const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: baseSlides });
-  const slides = (ab.slides as PitchDeckSlideV2[]) ?? baseSlides;
+  const slides = resolveSlides(deck.slides);
   const surveyData = await fetchSurveyData(slides);
 
   // Prefer the deck's explicitly assigned branding profile, then fall back to
@@ -129,18 +146,5 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
   // next/link. Without it React reuses the same instance and stale state
   // (current slide index, decisionChoices, surveyAnswers, ...) leaks across
   // decks — manifests as the first decision option silently doing nothing.
-  return (
-    <>
-      <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />
-      {ab.ab && ab.visitorId ? (
-        <AbGoalTracker
-          experimentId={ab.ab.experimentId}
-          variantKey={ab.ab.variantKey}
-          goalMetric={ab.ab.goalMetric}
-          goalSelector={ab.ab.goalSelector}
-          visitorId={ab.visitorId}
-        />
-      ) : null}
-    </>
-  );
+  return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
 }

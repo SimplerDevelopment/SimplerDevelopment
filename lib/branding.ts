@@ -39,6 +39,31 @@ export function resolveFaviconUrl(
   return branding.faviconUrl || branding.logoSquareUrl || branding.logoIconUrl || undefined;
 }
 
+/**
+ * Favicon resolver that prefers an explicit page-level favicon/square logo,
+ * then falls back to the client's *default* brand profile's square logo, and
+ * finally the page-level icon-mark.
+ *
+ * Use on any client-facing surface (pages, decks) so the browser-tab icon
+ * stays consistent with the client's default brand identity even when the
+ * page or deck doesn't define one of its own.
+ */
+export async function resolveFaviconUrlForClient(
+  clientId: number,
+  branding: Pick<ResolvedBranding, 'faviconUrl' | 'logoSquareUrl' | 'logoIconUrl'> | null | undefined,
+): Promise<string | undefined> {
+  // Explicit page-level wins
+  const pageLevel = branding?.faviconUrl || branding?.logoSquareUrl;
+  if (pageLevel) return pageLevel;
+
+  // Fall through to the client's default brand profile
+  const defaultBranding = await getBrandingByClientId(clientId);
+  const fromDefault = defaultBranding.faviconUrl || defaultBranding.logoSquareUrl;
+  if (fromDefault) return fromDefault;
+
+  return branding?.logoIconUrl || defaultBranding.logoIconUrl || undefined;
+}
+
 const DEFAULTS: ResolvedBranding = {
   primaryColor: '#2563eb',
   secondaryColor: '#1e40af',

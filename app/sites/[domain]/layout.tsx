@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/client-sites';
-import { getBrandingByWebsiteId, resolveFaviconUrl } from '@/lib/branding';
+import { getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteNavClient } from './SiteNavClient';
@@ -70,9 +70,11 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     },
   };
 
-  const faviconUrl = resolveFaviconUrl(branding);
+  const faviconUrl = await resolveFaviconUrlForClient(site.clientId, branding);
   if (faviconUrl) {
-    metadata.icons = { icon: faviconUrl };
+    // sizes:'any' marks the icon as scalable so browsers prefer it over any
+    // ICO/PNG with a fixed size that may slip into the head from elsewhere.
+    metadata.icons = { icon: [{ url: faviconUrl, sizes: 'any' }] };
   }
 
   return metadata;
@@ -86,12 +88,15 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     notFound();
   }
 
-  // Bare layout for preview pages and pitch decks (no nav/footer chrome)
+  // Bare layout for preview pages and pitch decks (no nav/footer chrome).
+  // /slides is the live deck route; /pitch-deck is the legacy path kept for
+  // any old links still in the wild.
   const headersList = await headers();
   const sitePathname = headersList.get('x-site-pathname') || '';
   if (
     sitePathname.includes('/nav-preview') ||
-    sitePathname.startsWith('/pitch-deck')
+    sitePathname.startsWith('/pitch-deck') ||
+    sitePathname.startsWith('/slides')
   ) {
     return <>{children}</>;
   }
