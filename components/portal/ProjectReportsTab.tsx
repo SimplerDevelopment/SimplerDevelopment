@@ -56,10 +56,26 @@ interface SprintRef {
   status: 'planning' | 'active' | 'completed';
 }
 
+interface CapacityRow {
+  userId: number;
+  name: string | null;
+  email: string;
+  cardCount: number;
+  committedPoints: number;
+  completedPoints: number;
+}
+
+interface CapacityPayload {
+  sprintId: number;
+  sprintName: string;
+  rows: CapacityRow[];
+}
+
 export default function ProjectReportsTab({ projectId, projectKey }: { projectId: number; projectKey: string | null }) {
   const [sprints, setSprints] = useState<SprintRef[]>([]);
   const [activeSprintId, setActiveSprintId] = useState<number | null>(null);
   const [burndown, setBurndown] = useState<BurndownPayload | null>(null);
+  const [capacity, setCapacity] = useState<CapacityPayload | null>(null);
   const [velocity, setVelocity] = useState<VelocityPayload | null>(null);
   const [cycle, setCycle] = useState<CyclePayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,13 +109,18 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
     return () => { cancelled = true; };
   }, [projectId]);
 
-  // Burndown loads when the selected sprint changes.
+  // Burndown + capacity load when the selected sprint changes.
   useEffect(() => {
     if (activeSprintId == null) return;
     let cancelled = false;
-    fetch(`/api/portal/sprints/${activeSprintId}/burndown`)
-      .then(r => r.json())
-      .then(res => { if (!cancelled && res.success) setBurndown(res.data); });
+    Promise.all([
+      fetch(`/api/portal/sprints/${activeSprintId}/burndown`).then(r => r.json()),
+      fetch(`/api/portal/sprints/${activeSprintId}/capacity`).then(r => r.json()),
+    ]).then(([b, c]) => {
+      if (cancelled) return;
+      if (b.success) setBurndown(b.data);
+      if (c.success) setCapacity(c.data);
+    });
     return () => { cancelled = true; };
   }, [activeSprintId]);
 
@@ -129,6 +150,17 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
           )}
         </div>
         {burndown ? <BurndownChart payload={burndown} /> : <EmptyChart message="No sprint selected." />}
+      </section>
+
+      {/* Capacity by assignee */}
+      <section>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Capacity by assignee</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Points committed and completed per teammate in {capacity?.sprintName ?? 'the selected sprint'}.
+        </p>
+        {capacity && capacity.rows.length > 0
+          ? <CapacityChart payload={capacity} />
+          : <EmptyChart message="No assigned cards in this sprint yet." />}
       </section>
 
       {/* Velocity */}
@@ -267,6 +299,48 @@ function VelocityChart({ payload }: { payload: VelocityPayload }) {
         })}
       </svg>
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-current opacity-25 rounded-sm"></span>Committed</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-primary rounded-sm"></span>Completed</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Capacity-by-assignee chart ──────────────────────────────────────────────
+
+function CapacityChart({ payload }: { payload: CapacityPayload }) {
+  const max = Math.max(1, ...payload.rows.map(r => r.committedPoints));
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+      {payload.rows.map(r => {
+        const committedPct = (r.committedPoints / max) * 100;
+        const completedPct = r.committedPoints > 0
+          ? (r.completedPoints / r.committedPoints) * committedPct
+          : 0;
+        return (
+          <div key={r.userId} className="grid grid-cols-[160px_1fr_auto] items-center gap-3 text-sm">
+            <div className="truncate" title={r.email}>
+              <span className="font-medium text-foreground">{r.name ?? r.email}</span>
+            </div>
+            <div className="relative h-6 bg-muted rounded overflow-hidden">
+              <div
+                className="absolute inset-y-0 left-0 bg-current opacity-25"
+                style={{ width: `${committedPct}%` }}
+                aria-label={`${r.committedPoints} committed`}
+              />
+              <div
+                className="absolute inset-y-0 left-0 bg-primary"
+                style={{ width: `${completedPct}%` }}
+                aria-label={`${r.completedPoints} completed`}
+              />
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums shrink-0">
+              {r.completedPoints}/{r.committedPoints} pts · {r.cardCount} card{r.cardCount === 1 ? '' : 's'}
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex items-center justify-end gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-current opacity-25 rounded-sm"></span>Committed</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-primary rounded-sm"></span>Completed</span>
       </div>

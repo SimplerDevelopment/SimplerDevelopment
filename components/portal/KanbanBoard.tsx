@@ -311,11 +311,19 @@ function KanbanColumn({
           )}
           <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
           {(() => {
-            const over = column.wipLimit != null && column.wipLimit > 0 && column.cards.length > column.wipLimit;
+            const limit = column.wipLimit ?? 0;
+            const count = column.cards.length;
+            const atLimit = limit > 0 && count >= limit;
+            const over = limit > 0 && count > limit;
+            const tone = over
+              ? 'bg-red-100 text-red-700'
+              : atLimit
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-muted text-muted-foreground';
             return (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium ${over ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}`}
-                title={column.wipLimit ? `WIP limit: ${column.wipLimit}${over ? ' (over limit)' : ''}` : undefined}>
-                {column.cards.length}{column.wipLimit ? `/${column.wipLimit}` : ''}
+              <span className={`text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium ${tone}`}
+                title={limit > 0 ? `WIP limit: ${limit}${over ? ' (over limit — drops will be rejected)' : atLimit ? ' (at limit — next add will be rejected)' : ''}` : undefined}>
+                {count}{limit > 0 ? `/${limit}` : ''}
               </span>
             );
           })()}
