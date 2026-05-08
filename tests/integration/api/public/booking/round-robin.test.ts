@@ -163,17 +163,7 @@ function tally(ids: number[]): Map<number, number> {
   return m;
 }
 
-// NOTE: the two round_robin scenarios below are currently blocked by a
-// pre-existing bug in lib/booking/assign.ts. The raw-`sql` template used
-// for the next-7-day window comparison hands a JS Date directly to
-// postgres-js, which serialises it as timestamptz while
-// bookings.start_time is timestamp-without-tz — the query never even
-// makes it to the database; postgres-js throws at parameter-bind time.
-// The fewest_upcoming + fixed scenarios further down do not hit that
-// path, so they cover the route's other auto-assignment branches
-// end-to-end. Skipped here so this spec stays green; un-skip once the
-// bug in assign.ts is fixed.
-describe.skip('public booking POST — assignmentMode=round_robin @booking @public', () => {
+describe('public booking POST — assignmentMode=round_robin @booking @public', () => {
   it('distributes 9 bookings ~evenly (3 per staff, ±1) across a 3-staff explicit pool', async () => {
     const { slug, pageId, staffIds } = await seedRoundRobinPage({
       label: 'rr-explicit',

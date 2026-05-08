@@ -20,7 +20,7 @@
  */
 import { db } from '@/lib/db';
 import { bookingPages, bookingPageMembers, bookings } from '@/lib/db/schema';
-import { and, eq, gte, ne, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, ne, sql } from 'drizzle-orm';
 
 export type AssignmentMode = 'fixed' | 'round_robin' | 'fewest_upcoming';
 
@@ -119,7 +119,7 @@ export async function pickAssignee(
           eq(bookings.bookingPageId, bookingPageId),
           ne(bookings.status, 'cancelled'),
           gte(bookings.startTime, now),
-          sql`${bookings.startTime} <= ${sevenDays}`,
+          lte(bookings.startTime, sevenDays),
         ),
       )
       .groupBy(bookings.assignedTo);
