@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import type { SearchCompany } from '../../lib/types';
 import { Spinner } from '../components/Spinner';
+import { SignaturePaste } from '../components/SignaturePaste';
 import type { ToastLevel } from '../components/Toast';
 
 interface Props {
@@ -15,6 +16,8 @@ export function RecordsTab({ onToast }: Props) {
 
   return (
     <div className="p-3 space-y-3 text-sm">
+      <SignaturePaste onToast={onToast} />
+
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"

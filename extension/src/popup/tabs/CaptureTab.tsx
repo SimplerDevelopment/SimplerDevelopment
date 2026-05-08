@@ -13,6 +13,7 @@ import type {
 import type { ExtractedPage, ExtractedPageResponse, PageKind } from '../../lib/messages';
 import { TagInput } from '../components/TagInput';
 import { Spinner } from '../components/Spinner';
+import { DetectedEntityCard } from '../components/DetectedEntityCard';
 import type { ToastLevel } from '../components/Toast';
 
 interface Props {
@@ -38,6 +39,8 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
   const [addedPeople, setAddedPeople] = useState<Record<number, { id: string | number; existing?: boolean }>>({});
   const [addedCompanies, setAddedCompanies] = useState<Record<number, { id: string | number; existing?: boolean }>>({});
   const [addingIdx, setAddingIdx] = useState<string | null>(null);
+  const [quickPersonSaved, setQuickPersonSaved] = useState<{ id: string | number; existed?: boolean } | null>(null);
+  const [quickCompanySaved, setQuickCompanySaved] = useState<{ id: string | number; existed?: boolean } | null>(null);
   const userTouchedRef = useRef({ title: false, body: false, tags: false });
 
   // Step 1: extract page from active tab
@@ -253,6 +256,57 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
 
   const portal = portalUrl.replace(/\/+$/, '');
 
+  // Quick-save handlers for the page-kind primary action card.
+  // Person path: split name + take email/title/company from the detected entity.
+  async function quickSavePerson(p: ExtractedPerson) {
+    const { firstName, lastName } = splitName(p.name);
+    try {
+      const created = await api.createContact({
+        firstName,
+        lastName,
+        email: p.email ?? undefined,
+        title: p.title ?? undefined,
+        displayName: p.name,
+        source: 'extension-page',
+      });
+      setQuickPersonSaved({ id: created.id });
+      onToast(
+        'success',
+        `Saved ${p.name} to CRM.`,
+        portal ? `${portal}/portal/crm/contacts/${created.id}` : undefined,
+      );
+    } catch (err) {
+      onToast('error', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  // Company path: take name + domain (fall back to URL host as domain).
+  async function quickSaveCompany(c: ExtractedCompany) {
+    let domain = c.domain ?? undefined;
+    if (!domain && page?.url) {
+      try {
+        domain = new URL(page.url).hostname.replace(/^www\./, '');
+      } catch {
+        domain = undefined;
+      }
+    }
+    try {
+      const created = await api.createCompany({ name: c.name, domain });
+      const existed = (created as { _existing?: boolean })._existing === true;
+      setQuickCompanySaved({ id: created.id, existed });
+      onToast(
+        existed ? 'info' : 'success',
+        existed ? `${c.name} already in CRM.` : `Saved ${c.name} to CRM.`,
+        portal ? `${portal}/portal/crm/companies/${created.id}` : undefined,
+      );
+    } catch (err) {
+      onToast('error', err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  const detectedPerson = page?.pageKind === 'person' ? people[0] : null;
+  const detectedCompany = page?.pageKind === 'company' ? companies[0] : null;
+
   return (
     <div className="p-3 space-y-3 text-sm">
       {pageError && (
@@ -360,6 +414,80 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
             })}
           </div>
         </Section>
+      )}
+
+      {/* Page-kind primary action: detected person or company */}
+      {detectedPerson && (
+        <DetectedEntityCard
+          kind="person"
+          name={detectedPerson.name}
+          sub={
+            [detectedPerson.title, detectedPerson.company]
+              .filter(Boolean)
+              .join(' · ') ||
+            detectedPerson.email ||
+            undefined
+          }
+          primaryLabel="Save as Contact"
+          onPrimary={() => quickSavePerson(detectedPerson)}
+          saved={
+            quickPersonSaved
+              ? {
+                  id: quickPersonSaved.id,
+                  href: portal ? `${portal}/portal/crm/contacts/${quickPersonSaved.id}` : undefined,
+                  existed: quickPersonSaved.existed,
+                }
+              : null
+          }
+          secondary={
+            quickPersonSaved && !savedNoteId ? (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving || !page}
+                className="inline-flex items-center gap-1 rounded-md border border-brand-300 px-2 py-1 text-xs text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                {saving && <Spinner size={12} />}
+                Also save page as note
+              </button>
+            ) : null
+          }
+        />
+      )}
+      {detectedCompany && (
+        <DetectedEntityCard
+          kind="company"
+          name={detectedCompany.name}
+          sub={
+            [detectedCompany.domain, detectedCompany.description]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
+          primaryLabel="Save as Company"
+          onPrimary={() => quickSaveCompany(detectedCompany)}
+          saved={
+            quickCompanySaved
+              ? {
+                  id: quickCompanySaved.id,
+                  href: portal ? `${portal}/portal/crm/companies/${quickCompanySaved.id}` : undefined,
+                  existed: quickCompanySaved.existed,
+                }
+              : null
+          }
+          secondary={
+            quickCompanySaved && !savedNoteId ? (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving || !page}
+                className="inline-flex items-center gap-1 rounded-md border border-brand-300 px-2 py-1 text-xs text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                {saving && <Spinner size={12} />}
+                Also save page as note
+              </button>
+            ) : null
+          }
+        />
       )}
 
       {/* Form */}
