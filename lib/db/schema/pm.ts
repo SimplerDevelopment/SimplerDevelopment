@@ -265,6 +265,27 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// In-app notifications. Written alongside the email-notification flow in
+// lib/pm-notifications.ts so the inbox UI and the email channel stay in
+// sync. `kind` mirrors the kanban_card_activities.type vocabulary plus
+// 'comment.mention' for direct @-mentions of users who aren't watchers.
+export const notifications = pgTable('notifications', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: varchar('kind', { length: 50 }).notNull(),
+  cardId: integer('card_id').references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  projectId: integer('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  actorUserId: integer('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body'),
+  payload: jsonb('payload').$type<Record<string, unknown>>(),
+  readAt: timestamp('read_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('notifications_user_unread_idx').on(t.userId, t.readAt),
+  index('notifications_card_idx').on(t.cardId),
+]);
+
 // Suggested projects shown to clients in the portal
 
 export const suggestedProjects = pgTable('suggested_projects', {

@@ -4,6 +4,7 @@ import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
+import PmNotificationBell from '@/components/portal/PmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKPalette from '@/components/CmdKPalette';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
@@ -83,7 +84,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {!previewMode && <PortalSidebar />}
           <div>
             {!previewMode && (
-              <div className="flex justify-end items-center px-6 pt-4 pb-0">
+              <div className="flex justify-end items-center gap-1 px-6 pt-4 pb-0">
+                <PmNotificationBell />
                 <CrmNotificationBell />
               </div>
             )}

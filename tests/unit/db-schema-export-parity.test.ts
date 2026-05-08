@@ -267,6 +267,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'meteredSubscriptionItems',
   'microsoftTeamsUserConnections',
   'notificationPreferences',
+  'notifications',
   'oauthAccessTokens',
   'oauthAuthorizationCodes',
   'oauthClients',
@@ -467,6 +468,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   meteredSubscriptionItems: 'metered_subscription_items',
   microsoftTeamsUserConnections: 'microsoft_teams_user_connections',
   notificationPreferences: 'notification_preferences',
+  notifications: 'notifications',
   oauthAccessTokens: 'oauth_access_tokens',
   oauthAuthorizationCodes: 'oauth_authorization_codes',
   oauthClients: 'oauth_clients',
@@ -577,13 +579,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (194)', () => {
+  it('reports the recorded number of tables (195)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(194);
+    expect(count).toBe(195);
   });
 });

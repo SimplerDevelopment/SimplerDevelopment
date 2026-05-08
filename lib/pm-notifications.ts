@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { kanbanCards, kanbanCardWatchers, kanbanCardComments, projects, users } from '@/lib/db/schema';
+import { kanbanCards, kanbanCardWatchers, kanbanCardComments, projects, users, notifications } from '@/lib/db/schema';
 import { resend } from './email/index';
 
 const BASE_URL = process.env.NEXTAUTH_URL || 'https://simplerdevelopment.com';
@@ -123,14 +123,42 @@ export function notifyCardEvent(
       const verbText = verb(event, payload);
       const subject = `[${key}] ${actorName} ${verbText} "${card.title}"`;
 
+      // Determine the @mentioned subset so we can tag those notifications
+      // separately for the inbox UI.
+      const mentionedIds = new Set<number>();
+      if (event === 'card.commented' && typeof payload.commentId === 'number') {
+        const [comment] = await db.select().from(kanbanCardComments)
+          .where(eq(kanbanCardComments.id, payload.commentId as number)).limit(1);
+        if (comment?.mentions) for (const uid of comment.mentions as number[]) mentionedIds.add(uid);
+      }
+
+      // Write in-app notifications for everyone we'd email. Mentions get a
+      // distinct kind so the inbox can prioritize / group them.
+      const commentSnippet = event === 'card.commented' && typeof payload.commentId === 'number'
+        ? (await db.select({ body: kanbanCardComments.body }).from(kanbanCardComments)
+            .where(eq(kanbanCardComments.id, payload.commentId as number)).limit(1))[0]?.body ?? null
+        : null;
+
+      const notifyRows = recipients.map(r => ({
+        userId: r.id,
+        kind: mentionedIds.has(r.id) ? 'comment.mention' : event,
+        cardId,
+        projectId: card.projectId,
+        actorUserId: actorId,
+        title: `${actorName} ${verbText} ${key}`,
+        body: commentSnippet ? commentSnippet.slice(0, 500) : card.title,
+        payload: { event, ...payload, key, cardTitle: card.title },
+      }));
+      if (notifyRows.length > 0) {
+        await db.insert(notifications).values(notifyRows).catch(err => console.error('[notifyCardEvent insert]', err));
+      }
+
       for (const r of recipients) {
         if (!r.email) continue;
         const unsubToken = signUnsubscribe(cardId, r.id);
         const unsubUrl = `${BASE_URL}/api/portal/cards/${cardId}/unsubscribe?u=${r.id}&t=${unsubToken}`;
 
-        const commentBody = event === 'card.commented' && typeof payload.commentId === 'number'
-          ? (await db.select().from(kanbanCardComments).where(eq(kanbanCardComments.id, payload.commentId as number)).limit(1))[0]?.body
-          : null;
+        const commentBody = commentSnippet;
 
         const html = `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;background:#ffffff;color:#0f172a;">
