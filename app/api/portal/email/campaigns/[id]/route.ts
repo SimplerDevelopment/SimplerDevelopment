@@ -55,6 +55,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       totalClicked: emailCampaigns.totalClicked,
       totalBounced: emailCampaigns.totalBounced,
       totalUnsubscribed: emailCampaigns.totalUnsubscribed,
+      // A/B subject test (standalone — see lib/email/subject-ab.ts)
+      abEnabled: emailCampaigns.abEnabled,
+      abSubjectB: emailCampaigns.abSubjectB,
+      abWinnerMetric: emailCampaigns.abWinnerMetric,
+      abTestSizePct: emailCampaigns.abTestSizePct,
+      abWinnerSubject: emailCampaigns.abWinnerSubject,
+      abDecidedAt: emailCampaigns.abDecidedAt,
       createdAt: emailCampaigns.createdAt,
       listName: emailLists.name,
     })
@@ -103,6 +110,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     contentBlocks,
     useBlockEditor,
     scheduledAt,
+    // A/B subject test fields (all optional; partial PATCH supported)
+    abEnabled,
+    abSubjectB,
+    abWinnerMetric,
+    abTestSizePct,
   } = await req.json();
 
   // If blockContent provided, render to HTML
@@ -131,6 +143,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(blockContent !== undefined && { blockContent }),
       ...(contentBlocks !== undefined && { contentBlocks }),
       ...(typeof useBlockEditor === 'boolean' && { useBlockEditor }),
+      ...(typeof abEnabled === 'boolean' && { abEnabled }),
+      ...(abSubjectB !== undefined && { abSubjectB: abSubjectB?.trim() || null }),
+      ...(abWinnerMetric !== undefined && (abWinnerMetric === 'open' || abWinnerMetric === 'click') && { abWinnerMetric }),
+      ...(typeof abTestSizePct === 'number' && abTestSizePct >= 5 && abTestSizePct <= 50 && { abTestSizePct: Math.round(abTestSizePct) }),
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       status: scheduledAt ? 'scheduled' : 'draft',
       updatedAt: new Date(),
