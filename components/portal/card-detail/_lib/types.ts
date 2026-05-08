@@ -6,6 +6,9 @@
  * importing each other.
  */
 
+export type CardType = 'task' | 'story' | 'epic' | 'bug' | 'spike';
+export type WorkflowState = 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled';
+
 export interface CardDetail {
   id: number;
   columnId: number;
@@ -18,6 +21,10 @@ export interface CardDetail {
   number?: number | null;
   key?: string | null;
   projectKey?: string | null;
+  storyPoints?: number | null;
+  cardType?: CardType;
+  parentCardId?: number | null;
+  workflowState?: WorkflowState;
 }
 
 export interface Label {
@@ -56,6 +63,9 @@ export interface DependencyRef {
   number: number | null;
   key: string | null;
   columnIsDone: boolean | null;
+  cardType?: CardType;
+  parentCardId?: number | null;
+  storyPoints?: number | null;
 }
 
 export interface FileAttachment {

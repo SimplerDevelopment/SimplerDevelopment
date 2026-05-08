@@ -256,8 +256,14 @@ export function useCardDetail({
           if (!cancelled) setMentionUsers(usersRes.data as MentionUser[]);
         }
         if (projectId != null) {
-          const res = await api.fetchProjectLabels(projectId);
-          if (!cancelled && res.success && Array.isArray(res.data)) setProjectLabels(res.data as Label[]);
+          const [labelsRes, cardsRes] = await Promise.all([
+            api.fetchProjectLabels(projectId),
+            api.fetchProjectCards(projectId),
+          ]);
+          if (!cancelled && labelsRes.success && Array.isArray(labelsRes.data)) setProjectLabels(labelsRes.data as Label[]);
+          // Eager-load project cards so the dependencies picker, parent
+          // breadcrumb, and hierarchy view all share one cached list.
+          if (!cancelled && cardsRes.success && Array.isArray(cardsRes.data)) setProjectCards(cardsRes.data as DependencyRef[]);
         }
         const [aRes, availRes] = await Promise.all([
           api.fetchArtifacts(cardId),

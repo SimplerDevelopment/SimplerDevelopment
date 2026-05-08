@@ -35,6 +35,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       title: kanbanCards.title,
       number: kanbanCards.number,
       columnIsDone: kanbanColumns.isDone,
+      cardType: kanbanCards.cardType,
+      parentCardId: kanbanCards.parentCardId,
+      storyPoints: kanbanCards.storyPoints,
     })
     .from(kanbanCards)
     .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))

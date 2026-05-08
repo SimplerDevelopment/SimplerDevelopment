@@ -41,6 +41,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const cards = await db
       .select({
         id: kanbanCards.id,
+        number: kanbanCards.number,
         title: kanbanCards.title,
         priority: kanbanCards.priority,
         sprintId: kanbanCards.sprintId,
@@ -49,6 +50,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         columnName: kanbanColumns.name,
         columnIsDone: kanbanColumns.isDone,
         order: kanbanCards.order,
+        storyPoints: kanbanCards.storyPoints,
+        cardType: kanbanCards.cardType,
+        parentCardId: kanbanCards.parentCardId,
+        workflowState: kanbanCards.workflowState,
       })
       .from(kanbanCards)
       .leftJoin(kanbanColumns, eq(kanbanCards.columnId, kanbanColumns.id))
