@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { surveys, surveyResponses } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { surveys, surveyResponses, surveyVariants } from '@/lib/db/schema';
+import { and, eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
 import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
 import { dispatchSurveyResponseWebhooks } from '@/lib/survey-webhooks/dispatcher';
+import { ensureVisitorId } from '@/lib/ab/visitor';
+import { assignSurveyVariant } from '@/lib/surveys/variant-assign';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -64,10 +66,40 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const branding = await getBrandingBySurveySlug(slug);
   const cssVars = branding ? brandingToCssVars(branding) : undefined;
 
+  // Fork field set by enabled variant when present. The picker is deterministic
+  // on `surveyId:visitorId`, so a returning visitor always sees the same form.
+  // Falls back to `surveys.fields` when no variants exist or none are enabled.
+  const variants = await db
+    .select({
+      id: surveyVariants.id,
+      name: surveyVariants.name,
+      fields: surveyVariants.fields,
+      weight: surveyVariants.weight,
+      enabled: surveyVariants.enabled,
+    })
+    .from(surveyVariants)
+    .where(eq(surveyVariants.surveyId, survey.id));
+
+  let pickedFields = survey.fields;
+  let variantId: number | null = null;
+  let variantName: string | null = null;
+  if (variants.some((v) => v.enabled && v.weight > 0)) {
+    const visitor = await ensureVisitorId();
+    const picked = assignSurveyVariant(survey.id, visitor.id, variants);
+    if (picked) {
+      pickedFields = picked.fields;
+      variantId = picked.id;
+      variantName = picked.name;
+    }
+  }
+
   return corsJson({
     success: true,
     data: {
       ...survey,
+      fields: pickedFields,
+      variantId,
+      variantName,
       branding: branding ? {
         primaryColor: branding.primaryColor,
         secondaryColor: branding.secondaryColor,
@@ -95,8 +127,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
   if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
-  const { answers, email, name, source, sourceId, formName } = await req.json();
+  const { answers, email, name, source, sourceId, formName, variantId } = await req.json();
   if (!answers || typeof answers !== 'object') return corsJson({ success: false, message: 'Answers are required' }, { status: 400 });
+
+  // Validate variantId — must belong to this survey if provided. Reject
+  // mismatches so a tampered client can't spray responses across surveys via
+  // an unrelated variant id.
+  let resolvedVariantId: number | null = null;
+  if (variantId !== undefined && variantId !== null) {
+    const parsed = typeof variantId === 'number' ? variantId : parseInt(String(variantId), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return corsJson({ success: false, message: 'Invalid variantId' }, { status: 400 });
+    }
+    const [variant] = await db.select({ id: surveyVariants.id })
+      .from(surveyVariants)
+      .where(and(eq(surveyVariants.id, parsed), eq(surveyVariants.surveyId, survey.id)))
+      .limit(1);
+    if (variant) resolvedVariantId = variant.id;
+    // Silently drop unknown variantIds — the variant may have been deleted
+    // mid-session. Better to record the response with `variantId=null` than
+    // 400 the visitor.
+  }
 
   // formName is required so the dashboard can segment custom-form submissions
   // from structured-survey submissions on the same survey row.
@@ -112,10 +163,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return corsJson({ success: false, message: 'Email is required' }, { status: 400 });
   }
 
-  // Validate required fields against the survey's structured schema. Custom-
-  // form submissions skip this — when the survey has no schema, the payload
-  // shape is opaque to us, so we trust the caller and store as-is.
-  const fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
+  // Validate required fields against the survey's structured schema. When a
+  // variant is in play, validate against the variant's field set instead so a
+  // visitor who saw variant B isn't rejected for missing variant A's fields.
+  // Custom-form submissions skip this — when the survey has no schema, the
+  // payload shape is opaque to us, so we trust the caller and store as-is.
+  let fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
+  if (resolvedVariantId !== null) {
+    const [variantRow] = await db.select({ fields: surveyVariants.fields })
+      .from(surveyVariants)
+      .where(eq(surveyVariants.id, resolvedVariantId))
+      .limit(1);
+    if (variantRow?.fields && Array.isArray(variantRow.fields) && variantRow.fields.length > 0) {
+      fields = variantRow.fields as typeof fields;
+    }
+  }
   if (fields.length > 0) {
     for (const field of fields) {
       if (field.required && field.type !== 'heading') {
@@ -147,6 +209,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       ipAddress: ip,
       userAgent: ua,
       completedAt: new Date(),
+      variantId: resolvedVariantId,
     }).returning();
 
     await tx
