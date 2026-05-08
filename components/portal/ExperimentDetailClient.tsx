@@ -100,6 +100,8 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
     for (const k of Object.keys(initial.variantSplit ?? {})) out[k] = String(initial.variantSplit[k]);
     return out;
   });
+  // Per-variant inline label-editor state. Null = read-only; string = editing.
+  const [labelDraft, setLabelDraft] = useState<Record<string, string | null>>({});
   const router = useRouter();
 
   // Editable JSON per variant key — keep as string so partial typing doesn't
@@ -199,11 +201,150 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
     await updateExperiment({ variantSplit: numericSplit });
   };
 
+  /** Reset all weights to floor(100 / N), giving the last variant the
+   *  remainder so the visible total lands at exactly 100. */
+  const rebalanceEven = () => {
+    const keys = variants.map(v => v.key);
+    if (keys.length === 0) return;
+    const base = Math.floor(100 / keys.length);
+    const next: Record<string, string> = {};
+    let assigned = 0;
+    for (let i = 0; i < keys.length - 1; i++) {
+      next[keys[i]] = String(base);
+      assigned += base;
+    }
+    next[keys[keys.length - 1]] = String(100 - assigned);
+    setDraftSplit(next);
+  };
+
   const splitTotal = useMemo(() => {
     let total = 0;
     for (const k of Object.keys(experiment.variantSplit ?? {})) total += experiment.variantSplit[k] ?? 0;
     return total;
   }, [experiment.variantSplit]);
+
+  const draftSplitTotal = useMemo(() => {
+    let total = 0;
+    for (const v of Object.values(draftSplit)) {
+      const n = parseFloat(v);
+      if (Number.isFinite(n)) total += n;
+    }
+    return total;
+  }, [draftSplit]);
+
+  /** Refetch experiment + variants after a structural change (add/remove). */
+  const refetchExperiment = async () => {
+    try {
+      const res = await fetch(`/api/portal/experiments/${experiment.id}`);
+      const json = await res.json();
+      if (!json.success) return;
+      const exp = json.data.experiment as ExperimentRow;
+      const vrs = json.data.variants as VariantRow[];
+      setExperiment(exp);
+      setVariants(vrs);
+      // Re-seed split + json drafts so UI lines up with server truth.
+      const splitDraft: Record<string, string> = {};
+      for (const k of Object.keys(exp.variantSplit ?? {})) splitDraft[k] = String(exp.variantSplit[k]);
+      setDraftSplit(splitDraft);
+      setVariantJson(prev => {
+        const next: Record<string, string> = {};
+        for (const v of vrs) {
+          // Preserve any in-progress edit the user had on still-existing keys.
+          if (typeof prev[v.key] === 'string') next[v.key] = prev[v.key];
+          else next[v.key] = v.blockTreeOverride ? JSON.stringify(v.blockTreeOverride, null, 2) : '';
+        }
+        return next;
+      });
+    } catch {
+      // Best-effort — caller already surfaced any error.
+    }
+  };
+
+  const addVariant = async () => {
+    setSavingId('add-variant');
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/portal/experiments/${experiment.id}/variants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        const err = json.error || 'add_failed';
+        const friendly = err === 'no_keys_available'
+          ? 'Maximum 26 variants reached.'
+          : err === 'duplicate_key'
+            ? 'That variant key already exists.'
+            : `Add variant failed: ${err}`;
+        throw new Error(friendly);
+      }
+      await refetchExperiment();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Add variant failed');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const removeVariant = async (variantKey: string) => {
+    setSavingId(`remove-${variantKey}`);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/portal/experiments/${experiment.id}/variants/${variantKey}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (!json.success) {
+        const err = json.error || 'delete_failed';
+        const friendly = err === 'control_protected'
+          ? 'The control variant cannot be removed.'
+          : err === 'min_two_variants'
+            ? 'An experiment must have at least 2 variants.'
+            : err === 'experiment_running'
+              ? 'Stop the experiment before removing a variant.'
+              : `Remove variant failed: ${err}`;
+        throw new Error(friendly);
+      }
+      await refetchExperiment();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Remove variant failed');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const saveVariantLabel = async (variantKey: string, label: string) => {
+    const trimmed = label.trim();
+    const current = variants.find(v => v.key === variantKey);
+    if (!current) return;
+    if (!trimmed) {
+      setErrorMsg('Variant label cannot be empty.');
+      setLabelDraft(prev => ({ ...prev, [variantKey]: null }));
+      return;
+    }
+    if (trimmed === current.label) {
+      setLabelDraft(prev => ({ ...prev, [variantKey]: null }));
+      return;
+    }
+    setSavingId(`label-${variantKey}`);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/portal/experiments/${experiment.id}/variants`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: variantKey, label: trimmed }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'rename_failed');
+      setVariants(prev => prev.map(v => v.key === variantKey ? { ...v, label: trimmed } : v));
+      setLabelDraft(prev => ({ ...prev, [variantKey]: null }));
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Rename failed');
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const allowedTransitions = STATUS_TRANSITIONS[experiment.status] || [];
 
@@ -315,7 +456,16 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
       <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">Traffic split</h2>
-          <span className="text-xs text-gray-500">total: {splitTotal}%</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-500">saved total: {splitTotal}%</span>
+            <button
+              type="button"
+              onClick={rebalanceEven}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Rebalance to even
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {Object.keys(experiment.variantSplit ?? {}).map(k => (
@@ -333,6 +483,12 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
             </label>
           ))}
         </div>
+        {draftSplitTotal !== 100 ? (
+          <p className="text-xs text-amber-600 flex items-center gap-1">
+            <span className="material-icons text-base">warning</span>
+            Total must equal 100% — rebalance or adjust (currently {draftSplitTotal}%).
+          </p>
+        ) : null}
         <button
           onClick={saveSplit}
           disabled={savingId === 'experiment'}
@@ -348,41 +504,107 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
           <span className="text-xs text-gray-500">JSON view — visual editor for variants ships in v2</span>
         </div>
         <div className="space-y-4">
-          {variants.map(v => (
-            <div key={v.id} className="border border-gray-200 rounded-md p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <span className="font-mono text-sm">{v.key}</span>
-                  <span className="ml-2 text-sm text-gray-700">{v.label}</span>
-                  {v.key === 'a' ? <span className="ml-2 text-xs text-gray-400">(control)</span> : null}
+          {variants.map(v => {
+            const isControl = v.key === 'a';
+            const isRunning = experiment.status === 'running';
+            const wouldDropBelowMin = variants.length <= 2;
+            const removeDisabled = isControl || wouldDropBelowMin || isRunning;
+            const removeTitle = isControl
+              ? 'The control variant cannot be removed.'
+              : wouldDropBelowMin
+                ? 'An experiment must have at least 2 variants.'
+                : isRunning
+                  ? 'Stop the experiment before removing a variant.'
+                  : 'Remove variant';
+            const editing = labelDraft[v.key] !== undefined && labelDraft[v.key] !== null;
+            return (
+              <div key={v.id} className="border border-gray-200 rounded-md p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="font-mono text-sm">{v.key}</span>
+                    {editing ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        className="text-sm border border-gray-300 rounded px-2 py-0.5 flex-1 max-w-xs"
+                        value={labelDraft[v.key] ?? ''}
+                        onChange={e => setLabelDraft(prev => ({ ...prev, [v.key]: e.target.value }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void saveVariantLabel(v.key, (labelDraft[v.key] ?? '') as string);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setLabelDraft(prev => ({ ...prev, [v.key]: null }));
+                          }
+                        }}
+                        onBlur={() => void saveVariantLabel(v.key, (labelDraft[v.key] ?? '') as string)}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-sm text-gray-700 hover:text-blue-600 inline-flex items-center gap-1 group"
+                        title="Click to edit label"
+                        onClick={() => setLabelDraft(prev => ({ ...prev, [v.key]: v.label }))}
+                      >
+                        {v.label}
+                        <span className="material-icons text-sm opacity-0 group-hover:opacity-60">edit</span>
+                      </button>
+                    )}
+                    {isControl ? <span className="text-xs text-gray-400">(control)</span> : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
+                      onClick={() => seedFromPost(v.key)}
+                    >
+                      Seed from {target.kindLabel.toLowerCase()}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                      disabled={savingId === `variant-${v.key}`}
+                      onClick={() => saveVariant(v.key)}
+                    >
+                      {savingId === `variant-${v.key}` ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      title={removeTitle}
+                      aria-label={removeTitle}
+                      disabled={removeDisabled || savingId === `remove-${v.key}`}
+                      onClick={() => removeVariant(v.key)}
+                      className="text-xs p-1.5 rounded border border-gray-300 text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent disabled:text-gray-400 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-icons text-base align-middle">delete</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50"
-                    onClick={() => seedFromPost(v.key)}
-                  >
-                    Seed from {target.kindLabel.toLowerCase()}
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                    disabled={savingId === `variant-${v.key}`}
-                    onClick={() => saveVariant(v.key)}
-                  >
-                    {savingId === `variant-${v.key}` ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
+                <textarea
+                  className="w-full font-mono text-xs border border-gray-200 rounded-md px-3 py-2 bg-gray-50"
+                  rows={10}
+                  value={variantJson[v.key] ?? ''}
+                  onChange={e => setVariantJson(prev => ({ ...prev, [v.key]: e.target.value }))}
+                  placeholder={v.key === 'a' ? 'Leave blank to use the live page content.' : 'Paste the variant block tree JSON here.'}
+                />
               </div>
-              <textarea
-                className="w-full font-mono text-xs border border-gray-200 rounded-md px-3 py-2 bg-gray-50"
-                rows={10}
-                value={variantJson[v.key] ?? ''}
-                onChange={e => setVariantJson(prev => ({ ...prev, [v.key]: e.target.value }))}
-                placeholder={v.key === 'a' ? 'Leave blank to use the live page content.' : 'Paste the variant block tree JSON here.'}
-              />
-            </div>
-          ))}
+            );
+          })}
+        </div>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={addVariant}
+            disabled={savingId === 'add-variant' || variants.length >= 26}
+            className="text-sm px-3 py-1.5 rounded border border-blue-600 text-blue-600 hover:bg-blue-50 disabled:opacity-50 inline-flex items-center gap-1"
+          >
+            <span className="material-icons text-base">add</span>
+            {savingId === 'add-variant' ? 'Adding…' : 'Add variant'}
+          </button>
+          {variants.length >= 26 ? (
+            <span className="ml-3 text-xs text-gray-500">Maximum 26 variants reached.</span>
+          ) : null}
         </div>
       </section>
 
