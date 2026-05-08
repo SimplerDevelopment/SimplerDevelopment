@@ -115,7 +115,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   const faviconUrl = await resolveFaviconUrlForClient(deck.clientId, branding);
   if (faviconUrl) {
-    metadata.icons = { icon: faviconUrl };
+    // sizes:'any' marks the icon as scalable so browsers prefer it over any
+    // ICO/PNG with a fixed size that may slip into the head from elsewhere.
+    metadata.icons = { icon: [{ url: faviconUrl, sizes: 'any' }] };
   }
 
   return metadata;
