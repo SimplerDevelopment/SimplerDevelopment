@@ -69,6 +69,12 @@ interface Props {
   siteName: string | null;
 }
 
+// v1 heuristic: a p-value alone is not enough — require at least this many
+// visitors per arm before we promote a "significant" comparison to the green
+// check. Below the threshold we render an hourglass instead so users don't
+// chase noisy early reads. The 100 floor is arbitrary but reasonable for v1.
+const MIN_SAMPLE_PER_ARM = 100;
+
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   draft: ['running', 'archived'],
   running: ['completed', 'archived'],
@@ -428,19 +434,43 @@ export default function ExperimentDetailClient({ experiment: initial, variants: 
                     </tr>
                   </thead>
                   <tbody>
-                    {results.comparisons.map(c => (
-                      <tr key={c.variantKey} className="border-t border-gray-100">
-                        <td className="py-2 font-mono">{c.variantKey} vs {c.controlKey}</td>
-                        <td className="py-2 text-right">{(c.lift * 100).toFixed(2)}%</td>
-                        <td className="py-2 text-right">{c.z.toFixed(3)}</td>
-                        <td className="py-2 text-right">{c.p.toFixed(4)}</td>
-                        <td className="py-2 text-right">
-                          <span className={`material-icons text-base ${c.significant ? 'text-green-600' : 'text-gray-300'}`}>
-                            {c.significant ? 'check_circle' : 'remove_circle_outline'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {results.comparisons.map(c => {
+                      // Server flags significant on `p < 0.05` alone. Layer
+                      // a sample-size guard on top: both arms need at least
+                      // MIN_SAMPLE_PER_ARM views before we trust the call.
+                      const controlViews = results.stats.find(s => s.key === c.controlKey)?.views ?? 0;
+                      const variantViews = results.stats.find(s => s.key === c.variantKey)?.views ?? 0;
+                      const minViews = Math.min(controlViews, variantViews);
+                      const enoughData = minViews >= MIN_SAMPLE_PER_ARM;
+                      const showSignificant = c.significant && enoughData;
+                      const tooSmall = c.significant && !enoughData;
+                      const icon = showSignificant
+                        ? 'check_circle'
+                        : tooSmall
+                          ? 'hourglass_top'
+                          : 'remove_circle_outline';
+                      const colorClass = showSignificant
+                        ? 'text-green-600'
+                        : tooSmall
+                          ? 'text-amber-500'
+                          : 'text-gray-300';
+                      const title = tooSmall
+                        ? `Not enough data — need at least ${MIN_SAMPLE_PER_ARM} visitors per arm`
+                        : undefined;
+                      return (
+                        <tr key={c.variantKey} className="border-t border-gray-100">
+                          <td className="py-2 font-mono">{c.variantKey} vs {c.controlKey}</td>
+                          <td className="py-2 text-right">{(c.lift * 100).toFixed(2)}%</td>
+                          <td className="py-2 text-right">{c.z.toFixed(3)}</td>
+                          <td className="py-2 text-right">{c.p.toFixed(4)}</td>
+                          <td className="py-2 text-right">
+                            <span className={`material-icons text-base ${colorClass}`} title={title}>
+                              {icon}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
