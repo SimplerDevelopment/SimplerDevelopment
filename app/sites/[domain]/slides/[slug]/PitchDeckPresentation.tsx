@@ -465,16 +465,18 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
             viewport center regardless of how tall the current slide is. */}
         {current > 0 && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={prev}
-            className="hidden md:block fixed left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_left</span>
+            aria-label="Previous slide"
+            className="hidden md:inline-flex items-center justify-center fixed left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full transition-all opacity-80 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: '#ffffff', backgroundColor: '#374151' }}>
+            <span className="material-icons text-3xl leading-none">chevron_left</span>
           </button>
         )}
         {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={next}
-            className="hidden md:block fixed right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_right</span>
+            aria-label="Next slide"
+            className="hidden md:inline-flex items-center justify-center fixed right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full transition-all opacity-80 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: '#ffffff', backgroundColor: '#374151' }}>
+            <span className="material-icons text-3xl leading-none">chevron_right</span>
           </button>
         )}
 
