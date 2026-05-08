@@ -6,6 +6,8 @@ import type { PitchDeckSlide, PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/
 import { inArray } from 'drizzle-orm';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId, getBrandingByWebsiteId } from '@/lib/branding';
+import { applyAbToDeckSlides } from '@/lib/ab/render';
+import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
 import type { Metadata } from 'next';
 import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresentation';
 
@@ -108,7 +110,12 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
   }
 
   const theme = (deck.theme || {}) as PitchDeckTheme;
-  const slides = resolveSlides(deck.slides);
+  const baseSlides = resolveSlides(deck.slides);
+
+  // Run an active deck experiment — may swap the slides array for the
+  // visitor's bucketed variant. Falls through to baseSlides on any error.
+  const ab = await applyAbToDeckSlides({ deckId: deck.id, slides: baseSlides });
+  const slides = (ab.slides as PitchDeckSlideV2[]) ?? baseSlides;
   const surveyData = await fetchSurveyData(slides);
 
   // Prefer the deck's explicitly assigned branding profile, then fall back to
@@ -122,5 +129,18 @@ export default async function PublicPitchDeckPage({ params }: PageProps) {
   // next/link. Without it React reuses the same instance and stale state
   // (current slide index, decisionChoices, surveyAnswers, ...) leaks across
   // decks — manifests as the first decision option silently doing nothing.
-  return <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />;
+  return (
+    <>
+      <PitchDeckPresentation key={deck.id} slides={slides} theme={theme} title={deck.title} surveys={surveyData} branding={branding} />
+      {ab.ab && ab.visitorId ? (
+        <AbGoalTracker
+          experimentId={ab.ab.experimentId}
+          variantKey={ab.ab.variantKey}
+          goalMetric={ab.ab.goalMetric}
+          goalSelector={ab.ab.goalSelector}
+          visitorId={ab.visitorId}
+        />
+      ) : null}
+    </>
+  );
 }

@@ -30,6 +30,7 @@ export interface EditorHeaderProps {
   onTogglePublish: () => void;
   onPresent: () => void;
   onDelete: () => void;
+  onStartAbTest?: () => void;
   presenterUrl: string;
 }
 
@@ -40,7 +41,7 @@ export function EditorHeader(props: EditorHeaderProps) {
     onStartEditTitle, onTitleDraftChange, onSaveTitle, onCancelEditTitle,
     onStartEditSlug, onSlugDraftChange, onSaveSlug, onCancelEditSlug,
     onToggleTheme, onToggleRegenerate, onToggleHistory, onToggleSeo, onSave, onTogglePublish,
-    onPresent, onDelete, presenterUrl,
+    onPresent, onDelete, onStartAbTest, presenterUrl,
   } = props;
 
   return (
@@ -194,6 +195,16 @@ export function EditorHeader(props: EditorHeaderProps) {
           <span className="material-icons text-base">co_present</span>
           Present
         </button>
+        {onStartAbTest && (
+          <button
+            onClick={onStartAbTest}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Start an A/B test for this deck"
+          >
+            <span className="material-icons text-base">science</span>
+            A/B test
+          </button>
+        )}
         <button
           onClick={onTogglePublish}
           disabled={publishing || deck.slides.length === 0}
