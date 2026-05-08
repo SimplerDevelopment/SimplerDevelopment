@@ -203,3 +203,70 @@ export const CompanyRowSchema = z
   })
   .passthrough();
 export type CompanyRow = z.infer<typeof CompanyRowSchema>;
+
+// --- Brain tasks -----------------------------------------------------------
+
+export const BrainTaskRowSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]),
+    title: z.string(),
+  })
+  .passthrough();
+export type BrainTaskRow = z.infer<typeof BrainTaskRowSchema>;
+
+export const SlimTaskSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  title: z.string(),
+  dueAt: z.string().nullable().optional(),
+  status: z.string(),
+  sourceUrl: z.string().nullable().optional(),
+  contactId: z.union([z.string(), z.number()]).nullable().optional(),
+  companyId: z.union([z.string(), z.number()]).nullable().optional(),
+  dealId: z.union([z.string(), z.number()]).nullable().optional(),
+});
+export type SlimTask = z.infer<typeof SlimTaskSchema>;
+
+export const BrainTaskListSchema = z.object({
+  items: z.array(SlimTaskSchema).default([]),
+});
+export type BrainTaskList = z.infer<typeof BrainTaskListSchema>;
+
+// --- Tags ------------------------------------------------------------------
+
+export const TagListSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        tag: z.string(),
+        count: z.union([z.string(), z.number()]),
+      }),
+    )
+    .default([]),
+});
+export type TagList = z.infer<typeof TagListSchema>;
+
+// --- Recent activity -------------------------------------------------------
+
+export const RecentContactSchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  firstName: z.string().nullable().optional(),
+  lastName: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+});
+export type RecentContact = z.infer<typeof RecentContactSchema>;
+
+export const RecentCompanySchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  domain: z.string().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+});
+export type RecentCompany = z.infer<typeof RecentCompanySchema>;
+
+export const RecentActivitySchema = z.object({
+  notes: z.array(SlimNoteSchema).default([]),
+  contacts: z.array(RecentContactSchema).default([]),
+  companies: z.array(RecentCompanySchema).default([]),
+});
+export type RecentActivity = z.infer<typeof RecentActivitySchema>;

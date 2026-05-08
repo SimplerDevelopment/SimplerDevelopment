@@ -1,17 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import type { SearchCompany } from '../../lib/types';
+import type {
+  RecentActivity,
+  RecentContact,
+  SearchCompany,
+  SlimNote,
+} from '../../lib/types';
 import { Spinner } from '../components/Spinner';
 import { SignaturePaste } from '../components/SignaturePaste';
 import type { ToastLevel } from '../components/Toast';
 
 interface Props {
+  portalUrl: string;
   onToast(level: ToastLevel, text: string, href?: string): void;
 }
 
 type Mode = 'idle' | 'contact' | 'company';
 
-export function RecordsTab({ onToast }: Props) {
+export function RecordsTab({ portalUrl, onToast }: Props) {
   const [mode, setMode] = useState<Mode>('idle');
 
   return (
@@ -54,7 +60,186 @@ export function RecordsTab({ onToast }: Props) {
           use the <strong>Attach to record</strong> dropdown on the Capture tab.
         </div>
       )}
+
+      <RecentActivitySection portalUrl={portalUrl} onToast={onToast} />
     </div>
+  );
+}
+
+function RecentActivitySection({
+  portalUrl,
+  onToast,
+}: {
+  portalUrl: string;
+  onToast(level: ToastLevel, text: string, href?: string): void;
+}) {
+  const [data, setData] = useState<RecentActivity | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const portal = portalUrl.replace(/\/+$/, '');
+
+  const refresh = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.recentActivity(10, 14).then(
+      (out) => {
+        if (!cancelled) {
+          setData(out);
+          setLoading(false);
+        }
+      },
+      (err) => {
+        if (!cancelled) {
+          setLoading(false);
+          onToast('error', err instanceof Error ? err.message : String(err));
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey, onToast]);
+
+  const notes = (data?.notes ?? []).slice(0, 5);
+  const contacts = (data?.contacts ?? []).slice(0, 5);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Recent (last 14 days)
+        </div>
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={loading}
+          className="text-slate-400 hover:text-slate-700 disabled:opacity-50"
+          aria-label="Refresh recent activity"
+          title="Refresh"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wide text-slate-400">
+            Notes from extension
+          </div>
+          {loading ? (
+            <SkeletonLines lines={2} />
+          ) : notes.length === 0 ? (
+            <div className="text-xs text-slate-400">Nothing recent.</div>
+          ) : (
+            <div className="space-y-1">
+              {notes.map((n) => (
+                <RecentNoteRow key={String(n.id)} note={n} portal={portal} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wide text-slate-400">
+            Contacts from extension
+          </div>
+          {loading ? (
+            <SkeletonLines lines={2} />
+          ) : contacts.length === 0 ? (
+            <div className="text-xs text-slate-400">Nothing recent.</div>
+          ) : (
+            <div className="space-y-1">
+              {contacts.map((c) => (
+                <RecentContactRow key={String(c.id)} contact={c} portal={portal} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonLines({ lines }: { lines: number }) {
+  return (
+    <div className="space-y-1.5">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="skeleton h-3 w-full" />
+      ))}
+    </div>
+  );
+}
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '';
+  const diff = Date.now() - t;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  const mo = Math.floor(day / 30);
+  return `${mo}mo ago`;
+}
+
+function RecentNoteRow({ note, portal }: { note: SlimNote; portal: string }) {
+  const href = portal ? `${portal}/portal/brain/notes/${note.id}` : '#';
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="block rounded-md border border-slate-200 bg-white p-2 hover:border-brand-300 hover:bg-brand-50/40 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-slate-900 truncate">{note.title}</div>
+          {note.snippet ? (
+            <div className="text-[11px] text-slate-500 line-clamp-2">{note.snippet}</div>
+          ) : null}
+        </div>
+        <div className="shrink-0 text-[10px] text-slate-400">{relativeTime(note.createdAt)}</div>
+      </div>
+    </a>
+  );
+}
+
+function RecentContactRow({ contact, portal }: { contact: RecentContact; portal: string }) {
+  const href = portal ? `${portal}/portal/crm/contacts/${contact.id}` : '#';
+  const name =
+    [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim() ||
+    contact.email ||
+    `#${contact.id}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="block rounded-md border border-slate-200 bg-white p-2 hover:border-brand-300 hover:bg-brand-50/40 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-slate-900 truncate">{name}</div>
+          {contact.email ? (
+            <div className="text-[11px] text-slate-500 truncate">{contact.email}</div>
+          ) : null}
+        </div>
+        <div className="shrink-0 text-[10px] text-slate-400">
+          {relativeTime(contact.createdAt)}
+        </div>
+      </div>
+    </a>
   );
 }
 

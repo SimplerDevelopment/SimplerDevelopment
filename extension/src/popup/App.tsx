@@ -98,7 +98,7 @@ export default function App({ shell }: Props) {
         {tab === 'search' && (
           <SearchTab portalUrl={portalUrl} onToast={pushToast} />
         )}
-        {tab === 'records' && <RecordsTab onToast={pushToast} />}
+        {tab === 'records' && <RecordsTab portalUrl={portalUrl} onToast={pushToast} />}
       </div>
     </div>
   );

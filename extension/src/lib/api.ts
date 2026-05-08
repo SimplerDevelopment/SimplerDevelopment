@@ -8,6 +8,8 @@ import {
   ApiError,
   ApiSuccess,
   AuthTestSchema,
+  BrainTaskListSchema,
+  BrainTaskRowSchema,
   CompanyListSchema,
   CompanyRowSchema,
   ContactListSchema,
@@ -16,10 +18,14 @@ import {
   ExtractSchema,
   NoteSchema,
   NotesRelatedSchema,
+  RecentActivitySchema,
   SearchResultsSchema,
+  TagListSchema,
 } from './types';
 import type {
   AuthTest,
+  BrainTaskList,
+  BrainTaskRow,
   CompanyList,
   CompanyRow,
   ContactList,
@@ -28,7 +34,9 @@ import type {
   Extract,
   Note,
   NotesRelated,
+  RecentActivity,
   SearchResults,
+  TagList,
 } from './types';
 
 export class ApiNotConfiguredError extends Error {
@@ -212,5 +220,30 @@ export const api = {
 
   listDeals(status: 'open' | 'all' = 'open', limit = 20): Promise<DealList> {
     return request(DealListSchema, '/crm/deals', { query: { status, limit } });
+  },
+
+  createTask(input: {
+    title: string;
+    body?: string;
+    dueAt?: string;
+    sourceUrl?: string;
+    contactId?: string | number | null;
+    companyId?: string | number | null;
+    dealId?: string | number | null;
+    priority?: 'low' | 'normal' | 'high';
+  }): Promise<BrainTaskRow> {
+    return request(BrainTaskRowSchema, '/tasks', { method: 'POST', body: input });
+  },
+
+  listTasks(status: 'open' | 'all' = 'open', limit = 20): Promise<BrainTaskList> {
+    return request(BrainTaskListSchema, '/tasks', { query: { status, limit } });
+  },
+
+  listTags(prefix: string, limit = 12): Promise<TagList> {
+    return request(TagListSchema, '/tags', { query: { prefix, limit } });
+  },
+
+  recentActivity(limit = 10, days = 14): Promise<RecentActivity> {
+    return request(RecentActivitySchema, '/activity/recent', { query: { limit, days } });
   },
 };

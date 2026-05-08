@@ -43,6 +43,13 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
   const [quickCompanySaved, setQuickCompanySaved] = useState<{ id: string | number; existed?: boolean } | null>(null);
   const userTouchedRef = useRef({ title: false, body: false, tags: false });
 
+  // Quick-task subsection state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDue, setTaskDue] = useState(''); // YYYY-MM-DD
+  const [taskPriority, setTaskPriority] = useState<'low' | 'normal' | 'high'>('normal');
+  const [taskSaving, setTaskSaving] = useState(false);
+  const taskTitleTouchedRef = useRef(false);
+
   // Step 1: extract page from active tab
   useEffect(() => {
     let cancelled = false;
@@ -194,6 +201,56 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
       onToast('error', msg);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onSaveTask() {
+    const t = taskTitle.trim();
+    if (!t) {
+      onToast('error', 'Task title is required.');
+      return;
+    }
+    if (t.length > 120) {
+      onToast('error', 'Task title is too long (≤120 chars).');
+      return;
+    }
+    setTaskSaving(true);
+    try {
+      let dueAtIso: string | undefined;
+      if (taskDue) {
+        const d = new Date(taskDue);
+        if (!Number.isNaN(d.getTime())) dueAtIso = d.toISOString();
+      }
+      const created = await api.createTask({
+        title: t,
+        dueAt: dueAtIso,
+        sourceUrl: page?.url,
+        priority: taskPriority,
+        contactId: selectedContact?.id ?? undefined,
+        companyId: selectedCompany?.id ?? undefined,
+        dealId: selectedDeal?.id ?? undefined,
+      });
+      const portalBase = portalUrl.replace(/\/+$/, '');
+      onToast(
+        'success',
+        'Task created.',
+        portalBase ? `${portalBase}/portal/brain/tasks/${created.id}` : undefined,
+      );
+      setTaskTitle('');
+      setTaskDue('');
+      setTaskPriority('normal');
+      taskTitleTouchedRef.current = false;
+    } catch (err) {
+      onToast('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  function onTaskDetailsToggle(e: React.SyntheticEvent<HTMLDetailsElement>) {
+    if (e.currentTarget.open && !taskTitleTouchedRef.current && !taskTitle) {
+      // Prefill from current note title only if user hasn't typed in task title.
+      if (title) setTaskTitle(title.slice(0, 120));
     }
   }
 
@@ -557,6 +614,71 @@ export function CaptureTab({ portalUrl, onToast }: Props) {
             </a>
           ) : null}
         </div>
+
+        {/* Quick-task subsection */}
+        <details className="text-xs rounded-md border border-slate-200 bg-white" onToggle={onTaskDetailsToggle}>
+          <summary className="cursor-pointer px-2 py-1.5 text-slate-600 hover:text-slate-900 select-none flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 11 12 14 22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
+            Add task
+          </summary>
+          <div className="px-2 pb-2 pt-1 space-y-2">
+            <Field label="Task title">
+              <input
+                type="text"
+                value={taskTitle}
+                maxLength={120}
+                onChange={(e) => {
+                  taskTitleTouchedRef.current = true;
+                  setTaskTitle(e.target.value);
+                }}
+                placeholder="Follow up with..."
+                className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-brand-500"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Due">
+                <input
+                  type="date"
+                  value={taskDue}
+                  onChange={(e) => setTaskDue(e.target.value)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-brand-500"
+                />
+              </Field>
+              <Field label="Priority">
+                <select
+                  value={taskPriority}
+                  onChange={(e) => setTaskPriority(e.target.value as 'low' | 'normal' | 'high')}
+                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-brand-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+              </Field>
+            </div>
+            <div className="flex items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={onSaveTask}
+                disabled={taskSaving || !taskTitle.trim()}
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-white px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {taskSaving && <Spinner size={12} />}
+                {taskSaving ? 'Adding...' : 'Add task'}
+              </button>
+              <span className="text-[10px] text-slate-400">
+                Linked to {[
+                  selectedContact ? 'contact' : null,
+                  selectedCompany ? 'company' : null,
+                  selectedDeal ? 'deal' : null,
+                ].filter(Boolean).join(', ') || 'this page'}
+              </span>
+            </div>
+          </div>
+        </details>
       </div>
 
       {/* Related notes */}
