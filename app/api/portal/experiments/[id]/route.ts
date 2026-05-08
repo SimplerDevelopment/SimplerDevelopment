@@ -69,6 +69,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (typeof body.name === 'string') {
     const trimmed = body.name.trim();
     if (!trimmed) return NextResponse.json({ success: false, error: 'name_required' }, { status: 400 });
+    if (trimmed.length > 255) return NextResponse.json({ success: false, error: 'name_too_long' }, { status: 400 });
     patch.name = trimmed;
   }
   if ('hypothesis' in body) patch.hypothesis = body.hypothesis ?? null;
