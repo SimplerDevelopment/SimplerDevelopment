@@ -1,0 +1,109 @@
+# SimplerDevelopment Brain — Chrome Extension
+
+A Manifest V3 Chrome extension that turns any browser tab into a capture surface for your SimplerDevelopment Company Brain + CRM.
+
+- One-click capture of the current page (with AI summary and tag suggestions)
+- Search Brain notes, contacts, companies, and deals
+- Add CRM contacts and companies in seconds
+- Right-click context menus for selection-to-note and selection-to-search
+- Toolbar badge shows the count of existing notes for the current URL/domain
+- Keyboard shortcut to pop the capture surface from anywhere
+
+## Prerequisites
+
+- Node.js 20+ and npm 10+ (the parent monorepo uses bun, but this folder is standalone npm)
+- A SimplerDevelopment portal you can sign into
+- Chrome / Chromium / Edge / Brave (any MV3-capable browser)
+
+## Install
+
+```bash
+cd extension
+npm install
+```
+
+The `prepare` script auto-generates four placeholder PNG icons into `public/`. You should replace them with real brand icons before publishing.
+
+## Develop
+
+```bash
+npm run dev
+```
+
+This runs Vite + `@crxjs/vite-plugin` in dev mode. It writes a hot-reloadable `dist/` you can load as an unpacked extension.
+
+## Build
+
+```bash
+npm run build
+```
+
+Output: `dist/`. Ready to load as an unpacked extension or to zip for the Web Store.
+
+## Typecheck
+
+```bash
+npm run typecheck
+```
+
+Strict TypeScript, React 19, no emit.
+
+## Load it in Chrome
+
+1. `npm run build` (or `npm run dev` for live-reload)
+2. Open `chrome://extensions`
+3. Enable **Developer mode** (top right)
+4. Click **Load unpacked** and pick the `extension/dist/` folder
+5. Pin "SimplerDevelopment Brain" to your toolbar
+
+## First-run setup
+
+1. Open the portal at `https://yourportal.example`
+2. Go to **Portal → Integrations → API Keys** and mint a personal key (it starts with `sd_mcp_`)
+3. Right-click the extension icon → **Options** (or open `chrome://extensions`, click "Details", then "Extension options")
+4. Paste your portal URL and API key, click **Test connection & save**. You should see "Connected as &lt;name&gt; (&lt;client&gt;)"
+
+## Using it
+
+- **Capture tab** (default when popup opens): the extension reads the current page, asks the portal to summarize and suggest tags, pre-fills a note form, and shows you any related notes already in the Brain. Click **Save Note** to commit.
+- **Search tab**: type at least 2 characters; results from notes / contacts / companies / deals appear grouped, each clickable through to the portal.
+- **Records tab**: quick-add a Contact or Company.
+- **Right-click menus**: select text on any page → "Save selection as Brain note" or "Search Brain for selection". On any page (no selection needed) → "Save page to Brain".
+- **Keyboard shortcut**: `⌘⇧B` (mac) / `Ctrl+Shift+B` (win/linux) opens the popup. Customize at `chrome://extensions/shortcuts`.
+- **Toolbar badge**: shows the number of Brain notes already linked to the current URL or its domain.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Popup says "Not configured" | Open Settings, paste portal URL + API key |
+| "Invalid API key" toast | Re-mint a key in `Portal → Integrations → API Keys`, paste it in Settings |
+| "Couldn't reach portal" | Check the portal URL (no trailing slash needed). If your portal is on a non-https origin, edit `host_permissions` in `src/manifest.ts` and rebuild |
+| CORS error in DevTools | The portal must allow the `Authorization` header on `/api/extension/v1/*`. The portal-side route handler already does this — if you forked, mirror its CORS config |
+| Capture tab says "Try reloading the tab" | The content script wasn't injected (the tab loaded before the extension installed, or it's a `chrome://` page). Reload the tab |
+| Badge stuck at old number | Reload the tab — the badge refreshes on `tabs.onUpdated` and `tabs.onActivated`, with a 60s per-tab cache |
+
+## Replacing the icons
+
+The `prepare` script writes four placeholder PNGs into `public/`. Replace them in-place with your real brand icons (16×16, 32×32, 48×48, 128×128) and rebuild. Don't rename the files — the manifest references them by exact path.
+
+## Architecture
+
+```
+extension/
+  src/
+    manifest.ts            # MV3 manifest as a TS object (crxjs converts)
+    background/            # service worker — context menus, badge updater, command router
+    content/               # content script — page extract + selection
+    popup/                 # toolbar popup React app (Capture / Search / Records tabs)
+    sidepanel/             # full-height variant of the same App
+    options/               # settings page
+    lib/
+      api.ts               # typed client for /api/extension/v1
+      types.ts             # zod schemas validated at the boundary
+      page-extract.ts      # tiny Readability-lite + page-kind heuristic
+      messages.ts          # typed cross-context message contracts
+      storage.ts           # chrome.storage helpers (config + per-tab cache)
+    styles/tailwind.css    # Tailwind 4 entry
+  public/                  # icons, generated by scripts/gen-icons.mjs
+```
