@@ -11,6 +11,7 @@ import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
 import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SprintPlanning from '@/components/portal/SprintPlanning';
 import BacklogTab from '@/components/portal/BacklogTab';
+import ProjectReportsTab from '@/components/portal/ProjectReportsTab';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
 import { isPortalStaff } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
@@ -26,6 +27,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
   const activeTab = tab === 'files' ? 'files'
     : tab === 'sprints' ? 'sprints'
     : tab === 'backlog' ? 'backlog'
+    : tab === 'reports' ? 'reports'
     : tab === 'members' ? 'members'
     : tab === 'settings' ? 'settings'
     : 'board';
@@ -198,6 +200,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'board',    href: `/portal/projects/${projectId}`,                 label: 'Board',    icon: 'view_kanban' },
           { key: 'backlog',  href: `/portal/projects/${projectId}?tab=backlog`,     label: 'Backlog',  icon: 'inbox' },
           { key: 'sprints',  href: `/portal/projects/${projectId}?tab=sprints`,     label: 'Sprints',  icon: 'sprint' },
+          { key: 'reports',  href: `/portal/projects/${projectId}?tab=reports`,     label: 'Reports',  icon: 'analytics' },
           { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files',    icon: 'folder' },
           { key: 'members',  href: `/portal/projects/${projectId}?tab=members`,     label: 'Members',  icon: 'group' },
           { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
@@ -216,6 +219,8 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         <BacklogTab projectId={projectId} projectKey={project.projectKey} canEdit={canEdit} />
       ) : activeTab === 'sprints' ? (
         <SprintPlanning projectId={projectId} canEdit={canEdit} />
+      ) : activeTab === 'reports' ? (
+        <ProjectReportsTab projectId={projectId} projectKey={project.projectKey} />
       ) : activeTab === 'members' ? (
         <ProjectMembersTab projectId={projectId} canManage={canManage} />
       ) : activeTab === 'settings' ? (

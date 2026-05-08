@@ -1,0 +1,323 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+interface BurndownPoint {
+  date: string;
+  remaining: number;
+  completed: number;
+  scope: number;
+  ideal: number;
+}
+
+interface BurndownPayload {
+  sprintId: number;
+  sprintName: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: 'planning' | 'active' | 'completed';
+  series: BurndownPoint[];
+  message?: string;
+}
+
+interface VelocityRow {
+  sprintId: number;
+  sprintName: string;
+  endDate: string | null;
+  committed: number;
+  completed: number;
+}
+
+interface VelocityPayload {
+  rows: VelocityRow[];
+  averageCommitted: number;
+  averageCompleted: number;
+}
+
+interface CycleRow {
+  cardId: number;
+  number: number | null;
+  title: string;
+  doneAt: string;
+  leadTimeMinutes: number;
+  cycleTimeMinutes: number;
+  storyPoints: number | null;
+}
+
+interface CyclePayload {
+  rows: CycleRow[];
+  averageLeadDays: number;
+  averageCycleDays: number;
+}
+
+interface SprintRef {
+  id: number;
+  name: string;
+  status: 'planning' | 'active' | 'completed';
+}
+
+export default function ProjectReportsTab({ projectId, projectKey }: { projectId: number; projectKey: string | null }) {
+  const [sprints, setSprints] = useState<SprintRef[]>([]);
+  const [activeSprintId, setActiveSprintId] = useState<number | null>(null);
+  const [burndown, setBurndown] = useState<BurndownPayload | null>(null);
+  const [velocity, setVelocity] = useState<VelocityPayload | null>(null);
+  const [cycle, setCycle] = useState<CyclePayload | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Initial load of sprints + project-level data
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const [sprintsRes, velocityRes, cycleRes] = await Promise.all([
+          fetch(`/api/portal/projects/${projectId}/sprints`).then(r => r.json()),
+          fetch(`/api/portal/projects/${projectId}/velocity`).then(r => r.json()),
+          fetch(`/api/portal/projects/${projectId}/cycle-time`).then(r => r.json()),
+        ]);
+        if (cancelled) return;
+        if (sprintsRes.success) {
+          const list: SprintRef[] = (sprintsRes.data.sprints ?? []).map((s: { id: number; name: string; status: SprintRef['status'] }) => ({ id: s.id, name: s.name, status: s.status }));
+          setSprints(list);
+          // Default to the active sprint if any, else the latest planning sprint.
+          const active = list.find(s => s.status === 'active') ?? list.find(s => s.status === 'planning') ?? list[0];
+          if (active) setActiveSprintId(active.id);
+        }
+        if (velocityRes.success) setVelocity(velocityRes.data);
+        if (cycleRes.success) setCycle(cycleRes.data);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // Burndown loads when the selected sprint changes.
+  useEffect(() => {
+    if (activeSprintId == null) return;
+    let cancelled = false;
+    fetch(`/api/portal/sprints/${activeSprintId}/burndown`)
+      .then(r => r.json())
+      .then(res => { if (!cancelled && res.success) setBurndown(res.data); });
+    return () => { cancelled = true; };
+  }, [activeSprintId]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-16"><span className="material-icons animate-spin text-primary text-2xl">refresh</span></div>;
+  }
+
+  return (
+    <div className="space-y-8 max-w-5xl">
+      {/* Burndown */}
+      <section>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Burndown</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Daily remaining points vs. the ideal line.</p>
+          </div>
+          {sprints.length > 0 && (
+            <select
+              value={activeSprintId ?? ''}
+              onChange={e => setActiveSprintId(parseInt(e.target.value, 10))}
+              className="px-3 py-1.5 rounded border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {sprints.map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.status})</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {burndown ? <BurndownChart payload={burndown} /> : <EmptyChart message="No sprint selected." />}
+      </section>
+
+      {/* Velocity */}
+      <section>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Velocity</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Last {velocity?.rows.length ?? 0} completed sprints. Average committed: {velocity?.averageCommitted ?? 0} pts ·
+          {' '}Average completed: {velocity?.averageCompleted ?? 0} pts.
+        </p>
+        {velocity && velocity.rows.length > 0 ? <VelocityChart payload={velocity} /> : <EmptyChart message="No completed sprints yet — velocity becomes available once sprints close." />}
+      </section>
+
+      {/* Cycle / lead time */}
+      <section>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Cycle &amp; lead time</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Average cycle time: {cycle?.averageCycleDays ?? 0} days · Average lead time: {cycle?.averageLeadDays ?? 0} days.
+        </p>
+        {cycle && cycle.rows.length > 0 ? <CycleTable payload={cycle} projectKey={projectKey} /> : <EmptyChart message="No completed cards yet." />}
+      </section>
+    </div>
+  );
+}
+
+function EmptyChart({ message }: { message: string }) {
+  return (
+    <div className="bg-card border border-border rounded-xl p-10 text-center text-sm text-muted-foreground">
+      {message}
+    </div>
+  );
+}
+
+// ─── Burndown chart (inline SVG) ─────────────────────────────────────────────
+
+function BurndownChart({ payload }: { payload: BurndownPayload }) {
+  if (!payload.series || payload.series.length === 0) {
+    return <EmptyChart message={payload.message ?? 'No data yet — events accrue as cards move into and out of the sprint.'} />;
+  }
+  const W = 720;
+  const H = 240;
+  const PAD = { top: 16, right: 16, bottom: 28, left: 36 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  const max = Math.max(1, ...payload.series.map(p => Math.max(p.scope, p.remaining, p.ideal)));
+
+  const xAt = (i: number) => PAD.left + (innerW * (payload.series.length === 1 ? 0 : i / (payload.series.length - 1)));
+  const yAt = (v: number) => PAD.top + innerH - (innerH * (v / max));
+
+  const remainingPath = payload.series.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(p.remaining)}`).join(' ');
+  const idealPath = payload.series.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i)} ${yAt(p.ideal)}`).join(' ');
+
+  const yTicks = [0, Math.round(max / 2), max];
+  const xTickIdx = [0, Math.floor(payload.series.length / 2), payload.series.length - 1];
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Burndown chart">
+        {/* Y ticks */}
+        {yTicks.map(t => (
+          <g key={`y-${t}`}>
+            <line x1={PAD.left} x2={W - PAD.right} y1={yAt(t)} y2={yAt(t)} stroke="currentColor" strokeOpacity="0.1" />
+            <text x={PAD.left - 8} y={yAt(t) + 4} fontSize="10" textAnchor="end" fill="currentColor" fillOpacity="0.5">{t}</text>
+          </g>
+        ))}
+        {/* X labels */}
+        {xTickIdx.map(i => i < payload.series.length && (
+          <text key={`x-${i}`} x={xAt(i)} y={H - PAD.bottom + 16} fontSize="10" textAnchor="middle" fill="currentColor" fillOpacity="0.5">
+            {payload.series[i].date.slice(5)}
+          </text>
+        ))}
+        {/* Ideal — dashed muted line */}
+        <path d={idealPath} stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.5" strokeDasharray="4 4" fill="none" />
+        {/* Remaining — primary solid line */}
+        <path d={remainingPath} stroke="hsl(var(--primary, 222 47% 51%))" strokeWidth="2" fill="none" />
+        {/* Remaining dots */}
+        {payload.series.map((p, i) => (
+          <circle key={`dot-${i}`} cx={xAt(i)} cy={yAt(p.remaining)} r="2.5" fill="hsl(var(--primary, 222 47% 51%))" />
+        ))}
+      </svg>
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-primary"></span>Remaining</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 border-t border-dashed border-muted-foreground"></span>Ideal</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Velocity chart (paired bars) ────────────────────────────────────────────
+
+function VelocityChart({ payload }: { payload: VelocityPayload }) {
+  const W = 720;
+  const H = 240;
+  const PAD = { top: 16, right: 16, bottom: 36, left: 36 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+  const max = Math.max(1, ...payload.rows.flatMap(r => [r.committed, r.completed]));
+
+  const groupW = innerW / payload.rows.length;
+  const barW = Math.min(28, (groupW - 8) / 2);
+
+  const yAt = (v: number) => PAD.top + innerH - (innerH * (v / max));
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Velocity chart">
+        {[0, Math.round(max / 2), max].map(t => (
+          <g key={`v-y-${t}`}>
+            <line x1={PAD.left} x2={W - PAD.right} y1={yAt(t)} y2={yAt(t)} stroke="currentColor" strokeOpacity="0.1" />
+            <text x={PAD.left - 8} y={yAt(t) + 4} fontSize="10" textAnchor="end" fill="currentColor" fillOpacity="0.5">{t}</text>
+          </g>
+        ))}
+        {payload.rows.map((r, i) => {
+          const cx = PAD.left + groupW * i + groupW / 2;
+          return (
+            <g key={r.sprintId}>
+              <rect
+                x={cx - barW - 1}
+                y={yAt(r.committed)}
+                width={barW}
+                height={(yAt(0) - yAt(r.committed))}
+                fill="currentColor"
+                fillOpacity="0.25"
+              />
+              <rect
+                x={cx + 1}
+                y={yAt(r.completed)}
+                width={barW}
+                height={(yAt(0) - yAt(r.completed))}
+                fill="hsl(var(--primary, 222 47% 51%))"
+              />
+              <text x={cx} y={H - PAD.bottom + 14} fontSize="10" textAnchor="middle" fill="currentColor" fillOpacity="0.6">
+                {r.sprintName.length > 12 ? `${r.sprintName.slice(0, 12)}…` : r.sprintName}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-current opacity-25 rounded-sm"></span>Committed</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-primary rounded-sm"></span>Completed</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cycle / lead time list ──────────────────────────────────────────────────
+
+function CycleTable({ payload, projectKey }: { payload: CyclePayload; projectKey: string | null }) {
+  const fmt = (mins: number) => {
+    const days = mins / (60 * 24);
+    if (days >= 1) return `${days.toFixed(1)}d`;
+    const hours = mins / 60;
+    if (hours >= 1) return `${hours.toFixed(1)}h`;
+    return `${mins}m`;
+  };
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 border-b border-border">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Key</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Title</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-16">Pts</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Lead</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">Cycle</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28">Done</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {payload.rows.slice(0, 50).map(r => {
+            const key = projectKey && r.number != null ? `${projectKey}-${r.number}` : `#${r.cardId}`;
+            return (
+              <tr key={r.cardId} className="hover:bg-accent/30">
+                <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{key}</td>
+                <td className="px-4 py-2 text-foreground">{r.title}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{r.storyPoints ?? '—'}</td>
+                <td className="px-4 py-2 text-xs">{fmt(r.leadTimeMinutes)}</td>
+                <td className="px-4 py-2 text-xs">{fmt(r.cycleTimeMinutes)}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(r.doneAt).toLocaleDateString()}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {payload.rows.length > 50 && (
+        <div className="border-t border-border px-4 py-2 text-xs text-muted-foreground bg-muted/30">
+          Showing 50 of {payload.rows.length} done cards.
+        </div>
+      )}
+    </div>
+  );
+}
