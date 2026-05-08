@@ -1,46 +1,19 @@
 // /portal/experiments — list of A/B experiments across the active client's
 // posts AND pitch decks. SSR list, links into the per-experiment detail page.
+//
+// The header + data fetch is a server component; the rendered table itself is
+// a client component (`ExperimentsTable`) so it can own status / target-type
+// filter state without forcing query-string round-trips.
 
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { abExperiments, posts, clientWebsites, pitchDecks } from '@/lib/db/schema';
 import { eq, inArray, desc, and, or } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import ExperimentsTable, { type ExperimentRow } from '@/components/portal/ExperimentsTable';
 
 export const dynamic = 'force-dynamic';
-
-const STATUS_ICONS: Record<string, string> = {
-  draft: 'edit',
-  running: 'play_circle',
-  completed: 'task_alt',
-  archived: 'inventory_2',
-};
-
-const TARGET_LABEL: Record<string, { icon: string; label: string }> = {
-  post: { icon: 'web', label: 'Page' },
-  deck: { icon: 'slideshow', label: 'Pitch deck' },
-  survey: { icon: 'poll', label: 'Survey' },
-  email: { icon: 'mail', label: 'Email' },
-};
-
-interface ExperimentRow {
-  id: number;
-  name: string;
-  status: string;
-  goalMetric: string;
-  startedAt: Date | null;
-  endedAt: Date | null;
-  createdAt: Date;
-  targetType: string;
-  targetId: number;
-  targetTitle: string;
-  /** Stable URL to open the underlying entity in its native editor. */
-  targetEditHref: string | null;
-  /** Optional secondary label (site name for posts, etc). */
-  targetSubLabel: string | null;
-}
 
 export default async function ExperimentsListPage() {
   const session = await auth();
@@ -106,9 +79,9 @@ export default async function ExperimentsListPage() {
           name: r.name,
           status: r.status,
           goalMetric: r.goalMetric,
-          startedAt: r.startedAt,
-          endedAt: r.endedAt,
-          createdAt: r.createdAt,
+          startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+          endedAt: r.endedAt ? r.endedAt.toISOString() : null,
+          createdAt: r.createdAt.toISOString(),
           targetType: r.targetType,
           targetId: r.targetId,
           targetTitle: d?.title || `Deck #${r.targetId}`,
@@ -123,9 +96,9 @@ export default async function ExperimentsListPage() {
         name: r.name,
         status: r.status,
         goalMetric: r.goalMetric,
-        startedAt: r.startedAt,
-        endedAt: r.endedAt,
-        createdAt: r.createdAt,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        endedAt: r.endedAt ? r.endedAt.toISOString() : null,
+        createdAt: r.createdAt.toISOString(),
         targetType: r.targetType,
         targetId: r.targetId,
         targetTitle: p?.title || `Post #${r.targetId}`,
@@ -158,72 +131,7 @@ export default async function ExperimentsListPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Experiment</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Target</th>
-                <th className="px-4 py-3 font-medium">Goal</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Started</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {experiments.map(exp => {
-                const meta = TARGET_LABEL[exp.targetType] ?? { icon: 'help', label: exp.targetType };
-                return (
-                  <tr key={exp.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{exp.name}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-700">
-                        <span className="material-icons text-base">{meta.icon}</span>
-                        {meta.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {exp.targetEditHref ? (
-                        <Link href={exp.targetEditHref} className="text-blue-600 hover:underline">
-                          {exp.targetTitle}
-                        </Link>
-                      ) : (
-                        <span>{exp.targetTitle}</span>
-                      )}
-                      {exp.targetSubLabel ? (
-                        <div className="text-xs text-gray-400">{exp.targetSubLabel}</div>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs text-gray-700">
-                        <span className="material-icons text-base">flag</span>
-                        {exp.goalMetric}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs">
-                        <span className="material-icons text-base">{STATUS_ICONS[exp.status] || 'help'}</span>
-                        {exp.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">
-                      {exp.startedAt ? new Date(exp.startedAt).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/portal/experiments/${exp.id}`}
-                        className="text-sm text-blue-600 hover:underline"
-                      >
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ExperimentsTable experiments={experiments} />
       )}
     </div>
   );
