@@ -68,7 +68,14 @@ export default defineConfig({
         test: {
           name: 'integration-api',
           environment: 'node',
-          include: ['tests/integration/api/**/*.test.ts'],
+          include: [
+            'tests/integration/api/**/*.test.ts',
+            // BYOK resolver / audit / plan-gate touch live DB rows
+            // (client_api_keys, services, client_services, usage_meter_events)
+            // and so live alongside the api integration suite, even though they
+            // exercise lib/* helpers rather than route handlers.
+            'tests/integration/ai/**/*.test.ts',
+          ],
           setupFiles: ['./tests/setup-api.ts'],
           // Runs exactly once before any worker — sweeps orphan test_e2e_*
           // schemas left by prior crashed runs so disk usage stays bounded.
