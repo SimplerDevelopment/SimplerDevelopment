@@ -53,6 +53,7 @@ export default function PortalProjectsPage() {
     status: 'active',
     startDate: '',
     dueDate: '',
+    cloneFromProjectId: '' as string,
   });
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
@@ -83,15 +84,25 @@ export default function PortalProjectsPage() {
     if (!createForm.name.trim()) return;
     setCreating(true);
     try {
+      const cloneId = createForm.cloneFromProjectId
+        ? parseInt(createForm.cloneFromProjectId, 10)
+        : null;
       const res = await fetch('/api/portal/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm),
+        body: JSON.stringify({
+          name: createForm.name,
+          description: createForm.description,
+          status: createForm.status,
+          startDate: createForm.startDate,
+          dueDate: createForm.dueDate,
+          cloneFromProjectId: cloneId,
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setShowCreateForm(false);
-        setCreateForm({ name: '', description: '', status: 'active', startDate: '', dueDate: '' });
+        setCreateForm({ name: '', description: '', status: 'active', startDate: '', dueDate: '', cloneFromProjectId: '' });
         load();
       }
     } finally {
@@ -267,6 +278,22 @@ export default function PortalProjectsPage() {
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
+            {projects.length > 0 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-sm font-medium text-foreground">Clone from existing project</label>
+                <select
+                  value={createForm.cloneFromProjectId}
+                  onChange={e => setCreateForm(p => ({ ...p, cloneFromProjectId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">— Start from scratch —</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">Copies columns, labels, and card templates. Cards are not copied.</p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end">
             <button

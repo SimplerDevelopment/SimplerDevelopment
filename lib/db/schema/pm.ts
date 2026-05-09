@@ -265,6 +265,35 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Reusable card templates. projectId=null means a client-wide template
+// (visible across every project of the client); projectId set scopes the
+// template to one project. The payload is intentionally a free-form blob so
+// the writer can evolve fields without a migration — runtime code applies
+// only the keys it knows about.
+export const cardTemplates = pgTable('card_templates', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  projectId: integer('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  payload: jsonb('payload').$type<{
+    titlePattern?: string;
+    description?: string;
+    cardType?: string;
+    priority?: string;
+    storyPoints?: number;
+    workflowState?: string;
+    labelIds?: number[];
+    checklist?: { text: string; order: number }[];
+  }>().default({}).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('card_templates_client_idx').on(t.clientId),
+  index('card_templates_project_idx').on(t.projectId),
+]);
+
 // Saved views for the kanban board, backlog, and reports surfaces. A view
 // captures a name + a filterJson that the corresponding UI knows how to
 // interpret (e.g. backlog: { typeFilter, sizedOnly, search }). Per-user

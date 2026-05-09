@@ -86,6 +86,7 @@ import {
   hostedSites,
   googleWorkspaceUserConnections,
   projectMembers,
+  cardTemplates,
 } from '@/lib/db/schema';
 import { ROLE_OPTIONS, type ProjectRole } from '@/lib/portal/project-permissions';
 import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, ContractClause, PitchDeckSlideV2 } from '@/lib/db/schema';
@@ -153,14 +154,25 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
     'projects_create',
     {
       title: 'Create project',
-      description: 'Create a new project.',
+      description: 'Create a new project. Pass cloneFromProjectId to seed the new project with the source project\'s columns, labels, and project-scoped card templates (cards are NOT copied).',
       inputSchema: {
         name: z.string().min(1),
         description: z.string().optional(),
+        cloneFromProjectId: z.coerce.number().optional(),
       },
     },
     async (args) => {
       if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+
+      let source: typeof projects.$inferSelect | null = null;
+      if (typeof args.cloneFromProjectId === 'number') {
+        const [src] = await db.select().from(projects)
+          .where(and(eq(projects.id, args.cloneFromProjectId), eq(projects.clientId, clientId)))
+          .limit(1);
+        if (!src) return json({ error: 'Source project not found in this account' });
+        source = src;
+      }
+
       const [row] = await db.insert(projects).values({
         name: args.name,
         description: args.description ?? null,
@@ -169,9 +181,8 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
         isPrivate: true,
         createdBy: ctx.userId,
       }).returning();
-      // Creator becomes owner; mirrors the REST POST /projects behavior so
-      // the unified permission model holds whether the project is created via
-      // UI or MCP.
+
+      // Creator becomes owner; mirrors the REST POST /projects behavior.
       if (ctx.userId) {
         await db.insert(projectMembers).values({
           projectId: row.id,
@@ -180,6 +191,40 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
           addedBy: ctx.userId,
         }).onConflictDoNothing();
       }
+
+      if (source) {
+        const srcColumns = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, source.id));
+        if (srcColumns.length > 0) {
+          await db.insert(kanbanColumns).values(srcColumns.map(c => ({
+            projectId: row.id,
+            name: c.name,
+            order: c.order,
+            color: c.color,
+            isDone: c.isDone,
+            wipLimit: c.wipLimit,
+          })));
+        }
+        const srcLabels = await db.select().from(kanbanLabels).where(eq(kanbanLabels.projectId, source.id));
+        if (srcLabels.length > 0) {
+          await db.insert(kanbanLabels).values(srcLabels.map(l => ({
+            projectId: row.id,
+            name: l.name,
+            color: l.color,
+          })));
+        }
+        const srcTemplates = await db.select().from(cardTemplates).where(eq(cardTemplates.projectId, source.id));
+        if (srcTemplates.length > 0) {
+          await db.insert(cardTemplates).values(srcTemplates.map(t => ({
+            clientId,
+            projectId: row.id,
+            name: t.name,
+            description: t.description,
+            payload: t.payload,
+            createdBy: ctx.userId,
+          })));
+        }
+      }
+
       revalidateForWrite('portal');
       return json(row);
     }

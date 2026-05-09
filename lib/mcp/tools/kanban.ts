@@ -22,6 +22,7 @@ import {
   kanbanCardWatchers,
   kanbanCardDependencies,
   sprintScopeHistory,
+  cardTemplates,
   supportTickets,
   ticketMessages,
   crmContacts,
@@ -194,11 +195,11 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     'kanban_create_card',
     {
       title: 'Create kanban card',
-      description: 'Add a card to a kanban column. Pass sprintId to assign the card to a sprint at creation time; omit or pass null to leave it in the sprint dock. Agile fields: storyPoints, cardType (epic/story/task/bug/spike), parentCardId for hierarchy, workflowState (todo/in_progress/in_review/done/canceled).',
+      description: 'Add a card to a kanban column. Pass sprintId to assign the card to a sprint at creation time; omit or pass null to leave it in the sprint dock. Agile fields: storyPoints, cardType (epic/story/task/bug/spike), parentCardId for hierarchy, workflowState (todo/in_progress/in_review/done/canceled). Pass fromTemplateId to seed fields + checklist + labels from a card template; explicit args still win over template values.',
       inputSchema: {
         projectId: z.coerce.number(),
         columnId: z.coerce.number(),
-        title: z.string().min(1),
+        title: z.string().min(1).optional(),
         description: z.string().optional(),
         priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
         dueDate: z.string().optional(),
@@ -207,6 +208,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         cardType: z.enum(['task', 'story', 'epic', 'bug', 'spike']).optional(),
         parentCardId: z.coerce.number().nullable().optional().describe('Parent card id for hierarchy (e.g. story under epic). Must belong to the same project.'),
         workflowState: z.enum(['todo', 'in_progress', 'in_review', 'done', 'canceled']).optional(),
+        fromTemplateId: z.coerce.number().optional().describe('Seed fields from a card template; the title arg can be omitted in favor of the template titlePattern.'),
       },
     },
     async (args) => {
@@ -232,6 +234,17 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
           return json({ error: 'Parent card not found in this project' });
         }
       }
+
+      // Resolve template (if any) and merge under explicit args.
+      let template: typeof cardTemplates.$inferSelect['payload'] | null = null;
+      if (typeof args.fromTemplateId === 'number') {
+        const [tpl] = await db.select().from(cardTemplates).where(eq(cardTemplates.id, args.fromTemplateId)).limit(1);
+        if (!tpl || tpl.clientId !== clientId) return json({ error: 'Template not available' });
+        template = tpl.payload;
+      }
+      const title = (args.title ?? template?.titlePattern ?? '').toString().trim();
+      if (!title) return json({ error: 'title is required (or pass fromTemplateId with a titlePattern)' });
+
       const wip = await checkWipLimit(args.columnId);
       if (!wip.allowed) {
         return json({ error: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount });
@@ -239,17 +252,39 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const [row] = await db.insert(kanbanCards).values({
         projectId: args.projectId,
         columnId: args.columnId,
-        title: args.title,
-        description: args.description ?? null,
-        priority: args.priority ?? 'medium',
+        title,
+        description: args.description ?? template?.description ?? null,
+        priority: args.priority ?? template?.priority ?? 'medium',
         dueDate: args.dueDate ? new Date(args.dueDate) : null,
         sprintId: args.sprintId ?? null,
-        storyPoints: args.storyPoints ?? null,
-        cardType: args.cardType ?? 'task',
+        storyPoints: args.storyPoints ?? template?.storyPoints ?? null,
+        cardType: args.cardType ?? template?.cardType ?? 'task',
         parentCardId: args.parentCardId ?? null,
-        workflowState: args.workflowState ?? 'todo',
+        workflowState: args.workflowState ?? template?.workflowState ?? 'todo',
         createdBy: ctx.userId,
       }).returning();
+
+      if (template) {
+        const labelIds = Array.isArray(template.labelIds) ? template.labelIds : [];
+        if (labelIds.length > 0) {
+          await db.insert(kanbanCardLabels)
+            .values(labelIds.map(labelId => ({ cardId: row.id, labelId })))
+            .onConflictDoNothing()
+            .catch(err => console.error('[kanban_create_card — template labels]', err));
+        }
+        const items = Array.isArray(template.checklist) ? template.checklist : [];
+        if (items.length > 0) {
+          await db.insert(kanbanCardChecklistItems).values(
+            items.map((it, idx) => ({
+              cardId: row.id,
+              text: String(it.text ?? '').slice(0, 500),
+              order: typeof it.order === 'number' ? it.order : idx,
+              createdBy: ctx.userId,
+            })),
+          ).catch(err => console.error('[kanban_create_card — template checklist]', err));
+        }
+      }
+
       if (row.sprintId) {
         await recordCardAddedToSprint(row.id, row.sprintId, ctx.userId ?? null);
       }
@@ -1096,6 +1131,90 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       if (!row) return json({ error: 'Artifact link not found' });
       revalidateForWrite('portal');
       return json(row);
+    }
+  );
+
+  // ── CARD TEMPLATES ──────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'kanban_card_templates_list',
+    {
+      title: 'List card templates',
+      description: 'List card templates available to a project — both project-scoped templates and client-wide ones. Use kanban_create_card with fromTemplateId to apply.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+      },
+    },
+    async ({ projectId }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      try { await assertProjectInClient(projectId, clientId); }
+      catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
+
+      const rows = await db.select().from(cardTemplates)
+        .where(and(
+          eq(cardTemplates.clientId, clientId),
+          or(eq(cardTemplates.projectId, projectId), isNull(cardTemplates.projectId)),
+        ))
+        .orderBy(cardTemplates.name);
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_card_templates_create',
+    {
+      title: 'Create a card template',
+      description: 'Create a reusable card template. Set clientWide=true to make it available across every project in the tenancy. Payload supports titlePattern, description, cardType, priority, storyPoints, workflowState, labelIds, and a checklist array.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+        name: z.string().min(1).max(100),
+        description: z.string().optional(),
+        clientWide: z.boolean().optional(),
+        payload: z.object({
+          titlePattern: z.string().optional(),
+          description: z.string().optional(),
+          cardType: z.enum(['task', 'story', 'epic', 'bug', 'spike']).optional(),
+          priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+          storyPoints: z.coerce.number().int().optional(),
+          workflowState: z.enum(['todo', 'in_progress', 'in_review', 'done', 'canceled']).optional(),
+          labelIds: z.array(z.coerce.number()).optional(),
+          checklist: z.array(z.object({
+            text: z.string(),
+            order: z.coerce.number().optional(),
+          })).optional(),
+        }).default({}),
+      },
+    },
+    async ({ projectId, name, description, clientWide, payload }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      try { await assertProjectInClient(projectId, clientId); }
+      catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
+
+      const [row] = await db.insert(cardTemplates).values({
+        clientId,
+        projectId: clientWide ? null : projectId,
+        name: name.trim().slice(0, 100),
+        description: description?.slice(0, 5000) ?? null,
+        payload,
+        createdBy: ctx.userId,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_card_templates_delete',
+    {
+      title: 'Delete a card template',
+      inputSchema: { id: z.coerce.number() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      const [tpl] = await db.select({ clientId: cardTemplates.clientId }).from(cardTemplates).where(eq(cardTemplates.id, id)).limit(1);
+      if (!tpl || tpl.clientId !== clientId) return json({ error: 'Template not found' });
+      await db.delete(cardTemplates).where(eq(cardTemplates.id, id));
+      revalidateForWrite('portal');
+      return json({ ok: true });
     }
   );
 
