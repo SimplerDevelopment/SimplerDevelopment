@@ -203,6 +203,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'clientServices',
   'clientWebsites',
   'clients',
+  'columnDailySnapshots',
   'crmActivities',
   'crmCompanies',
   'crmContactTags',
@@ -411,6 +412,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   clients: 'clients',
   clientServices: 'client_services',
   clientWebsites: 'client_websites',
+  columnDailySnapshots: 'column_daily_snapshots',
   crmActivities: 'crm_activities',
   crmCompanies: 'crm_companies',
   crmContacts: 'crm_contacts',
@@ -593,13 +595,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (202)', () => {
+  it('reports the recorded number of tables (203)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(202);
+    expect(count).toBe(203);
   });
 });

@@ -302,6 +302,23 @@ export const cardCustomFieldValues = pgTable('card_custom_field_values', {
   uniqueIndex('card_custom_field_values_card_field_idx').on(t.cardId, t.fieldId),
 ]);
 
+// Daily column snapshots — input for the cumulative flow diagram. Written
+// once per project per day by the /api/cron/pm-column-snapshots worker.
+// Unique on (projectId, columnId, snapshotDate) so re-running the cron is a
+// no-op.
+export const columnDailySnapshots = pgTable('column_daily_snapshots', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  columnId: integer('column_id').notNull().references(() => kanbanColumns.id, { onDelete: 'cascade' }),
+  snapshotDate: varchar('snapshot_date', { length: 10 }).notNull(), // YYYY-MM-DD UTC
+  cardCount: integer('card_count').default(0).notNull(),
+  totalPoints: integer('total_points').default(0).notNull(),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('column_daily_snapshots_unique_idx').on(t.projectId, t.columnId, t.snapshotDate),
+  index('column_daily_snapshots_project_date_idx').on(t.projectId, t.snapshotDate),
+]);
+
 // Sprint retrospectives. One retro per sprint (enforced via unique index).
 // Items are categorized as went_well, went_poorly, or action_item, with a
 // simple integer vote count maintained client-side via PATCH +1.

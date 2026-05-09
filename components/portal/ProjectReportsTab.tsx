@@ -57,6 +57,10 @@ interface SprintRef {
   status: 'planning' | 'active' | 'completed';
 }
 
+interface CfdColumn { id: number; name: string; order: number }
+interface CfdDay { date: string; counts: Record<number, number> }
+interface CfdPayload { columns: CfdColumn[]; days: CfdDay[] }
+
 interface CapacityRow {
   userId: number;
   name: string | null;
@@ -79,6 +83,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
   const [capacity, setCapacity] = useState<CapacityPayload | null>(null);
   const [velocity, setVelocity] = useState<VelocityPayload | null>(null);
   const [cycle, setCycle] = useState<CyclePayload | null>(null);
+  const [cfd, setCfd] = useState<CfdPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Initial load of sprints + project-level data
@@ -87,10 +92,11 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
     async function load() {
       setLoading(true);
       try {
-        const [sprintsRes, velocityRes, cycleRes] = await Promise.all([
+        const [sprintsRes, velocityRes, cycleRes, cfdRes] = await Promise.all([
           fetch(`/api/portal/projects/${projectId}/sprints`).then(r => r.json()),
           fetch(`/api/portal/projects/${projectId}/velocity`).then(r => r.json()),
           fetch(`/api/portal/projects/${projectId}/cycle-time`).then(r => r.json()),
+          fetch(`/api/portal/projects/${projectId}/cfd?days=30`).then(r => r.json()),
         ]);
         if (cancelled) return;
         if (sprintsRes.success) {
@@ -102,6 +108,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
         }
         if (velocityRes.success) setVelocity(velocityRes.data);
         if (cycleRes.success) setCycle(cycleRes.data);
+        if (cfdRes.success) setCfd(cfdRes.data);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -185,6 +192,17 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
           />
         </section>
       )}
+
+      {/* Cumulative flow */}
+      <section>
+        <h2 className="text-lg font-semibold text-foreground mb-1">Cumulative flow</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Card counts per column over the last {cfd?.days?.length ?? 0} day{(cfd?.days?.length ?? 0) === 1 ? '' : 's'}. Stacked-area shape shows where work piles up.
+        </p>
+        {cfd && cfd.days.length > 0
+          ? <CfdChart payload={cfd} />
+          : <EmptyChart message="No daily snapshots yet — schedule /api/cron/pm-column-snapshots once a day to populate this chart." />}
+      </section>
 
       {/* Cycle / lead time */}
       <section>
@@ -314,6 +332,85 @@ function VelocityChart({ payload }: { payload: VelocityPayload }) {
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-current opacity-25 rounded-sm"></span>Committed</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-primary rounded-sm"></span>Completed</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Cumulative flow diagram ─────────────────────────────────────────────────
+
+function CfdChart({ payload }: { payload: CfdPayload }) {
+  const W = 720;
+  const H = 240;
+  const PAD = { top: 16, right: 16, bottom: 28, left: 36 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+
+  // Stack column counts in column-order so the leftmost column is at the
+  // bottom of the stack (same convention as Atlassian/Jira CFDs).
+  const sortedCols = [...payload.columns].sort((a, b) => a.order - b.order);
+
+  // Per-day totals → max for y-scale.
+  const totals = payload.days.map(d => sortedCols.reduce((s, c) => s + (d.counts[c.id] ?? 0), 0));
+  const maxTotal = Math.max(1, ...totals);
+
+  const xAt = (i: number) => PAD.left + (innerW * (payload.days.length === 1 ? 0 : i / (payload.days.length - 1)));
+  const yAt = (v: number) => PAD.top + innerH - (innerH * (v / maxTotal));
+
+  // Build cumulative y per (day, column) so we can draw stacked polygons.
+  const stacks: number[][] = sortedCols.map(() => Array(payload.days.length).fill(0));
+  for (let di = 0; di < payload.days.length; di++) {
+    let cum = 0;
+    for (let ci = 0; ci < sortedCols.length; ci++) {
+      cum += payload.days[di].counts[sortedCols[ci].id] ?? 0;
+      stacks[ci][di] = cum;
+    }
+  }
+
+  // Color palette via deterministic hue rotation (HSL) so the chart works in
+  // both light and dark modes without bringing in a palette dep.
+  const colorOf = (i: number) => `hsl(${(220 + i * 47) % 360} 65% 55%)`;
+
+  // Draw from the top of the stack down so the top band is on top in z-order.
+  const polygons = [...sortedCols].map((col, ci) => {
+    const top = stacks[ci];
+    const bot = ci === 0 ? Array(payload.days.length).fill(0) : stacks[ci - 1];
+    const points: string[] = [];
+    for (let i = 0; i < payload.days.length; i++) points.push(`${xAt(i)},${yAt(top[i])}`);
+    for (let i = payload.days.length - 1; i >= 0; i--) points.push(`${xAt(i)},${yAt(bot[i])}`);
+    return { id: col.id, name: col.name, points: points.join(' '), color: colorOf(ci) };
+  });
+
+  const yTicks = [0, Math.round(maxTotal / 2), maxTotal];
+  const xTickIdx = [0, Math.floor(payload.days.length / 2), payload.days.length - 1];
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Cumulative flow diagram">
+        {yTicks.map(t => (
+          <g key={`cfd-y-${t}`}>
+            <line x1={PAD.left} x2={W - PAD.right} y1={yAt(t)} y2={yAt(t)} stroke="currentColor" strokeOpacity="0.1" />
+            <text x={PAD.left - 8} y={yAt(t) + 4} fontSize="10" textAnchor="end" fill="currentColor" fillOpacity="0.5">{t}</text>
+          </g>
+        ))}
+        {xTickIdx.map(i => i < payload.days.length && (
+          <text key={`cfd-x-${i}`} x={xAt(i)} y={H - PAD.bottom + 16} fontSize="10" textAnchor="middle" fill="currentColor" fillOpacity="0.5">
+            {payload.days[i].date.slice(5)}
+          </text>
+        ))}
+        {polygons.map(p => (
+          <polygon key={p.id} points={p.points} fill={p.color} fillOpacity="0.9" stroke={p.color} strokeWidth="0.75">
+            <title>{p.name}</title>
+          </polygon>
+        ))}
+      </svg>
+      <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-2 flex-wrap">
+        {polygons.map(p => (
+          <span key={p.id} className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: p.color }}></span>
+            {p.name}
+          </span>
+        ))}
       </div>
     </div>
   );
