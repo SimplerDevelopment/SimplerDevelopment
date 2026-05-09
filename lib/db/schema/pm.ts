@@ -12,10 +12,6 @@ export const projects = pgTable('projects', {
   projectKey: varchar('project_key', { length: 10 }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
-  // is_private is retained for audit/back-compat. As of 2026-05 the unified
-  // permission model uses project_members.role and `staff` resolution; new
-  // routes must NOT branch on isPrivate.
-  isPrivate: boolean('is_private').default(false).notNull(),
   startDate: timestamp('start_date'),
   dueDate: timestamp('due_date'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
