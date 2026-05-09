@@ -302,6 +302,28 @@ export const cardCustomFieldValues = pgTable('card_custom_field_values', {
   uniqueIndex('card_custom_field_values_card_field_idx').on(t.cardId, t.fieldId),
 ]);
 
+// Per-project goals / OKRs. Each goal owns a numeric target metric
+// (currentValue vs targetValue) and a targetDate; status moves through
+// draft → active → achieved | missed | dropped. Progress is reported
+// manually via PATCH — auto-derivation from card states is a follow-up.
+export const projectGoals = pgTable('project_goals', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  // unitLabel lets the UI render "75 / 100 users", "50 / 100 %", etc.
+  unitLabel: varchar('unit_label', { length: 30 }),
+  currentValue: integer('current_value').default(0).notNull(),
+  targetValue: integer('target_value').default(100).notNull(),
+  targetDate: timestamp('target_date'),
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, achieved, missed, dropped
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('project_goals_project_idx').on(t.projectId, t.status),
+]);
+
 // Daily column snapshots — input for the cumulative flow diagram. Written
 // once per project per day by the /api/cron/pm-column-snapshots worker.
 // Unique on (projectId, columnId, snapshotDate) so re-running the cron is a
