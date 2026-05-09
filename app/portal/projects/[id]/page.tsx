@@ -12,6 +12,7 @@ import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
 import SprintPlanning from '@/components/portal/SprintPlanning';
 import BacklogTab from '@/components/portal/BacklogTab';
 import ProjectReportsTab from '@/components/portal/ProjectReportsTab';
+import ProjectRoadmapTab from '@/components/portal/ProjectRoadmapTab';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
 import ProjectRecurrencesPanel from '@/components/portal/ProjectRecurrencesPanel';
 import ProjectCustomFieldsPanel from '@/components/portal/ProjectCustomFieldsPanel';
@@ -29,6 +30,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
   const activeTab = tab === 'files' ? 'files'
     : tab === 'sprints' ? 'sprints'
     : tab === 'backlog' ? 'backlog'
+    : tab === 'roadmap' ? 'roadmap'
     : tab === 'reports' ? 'reports'
     : tab === 'members' ? 'members'
     : tab === 'settings' ? 'settings'
@@ -202,6 +204,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'board',    href: `/portal/projects/${projectId}`,                 label: 'Board',    icon: 'view_kanban' },
           { key: 'backlog',  href: `/portal/projects/${projectId}?tab=backlog`,     label: 'Backlog',  icon: 'inbox' },
           { key: 'sprints',  href: `/portal/projects/${projectId}?tab=sprints`,     label: 'Sprints',  icon: 'sprint' },
+          { key: 'roadmap',  href: `/portal/projects/${projectId}?tab=roadmap`,     label: 'Roadmap',  icon: 'timeline' },
           { key: 'reports',  href: `/portal/projects/${projectId}?tab=reports`,     label: 'Reports',  icon: 'analytics' },
           { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files',    icon: 'folder' },
           { key: 'members',  href: `/portal/projects/${projectId}?tab=members`,     label: 'Members',  icon: 'group' },
@@ -221,6 +224,8 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         <BacklogTab projectId={projectId} projectKey={project.projectKey} canEdit={canEdit} />
       ) : activeTab === 'sprints' ? (
         <SprintPlanning projectId={projectId} canEdit={canEdit} />
+      ) : activeTab === 'roadmap' ? (
+        <ProjectRoadmapTab projectId={projectId} projectKey={project.projectKey} />
       ) : activeTab === 'reports' ? (
         <ProjectReportsTab projectId={projectId} projectKey={project.projectKey} />
       ) : activeTab === 'members' ? (
