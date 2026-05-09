@@ -51,9 +51,9 @@ async function seedExperiment(opts: {
   `;
   const [exp] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.ab_experiments (
-      post_id, name, status, variant_split, goal_metric, created_by
+      post_id, target_type, target_id, name, status, variant_split, goal_metric, created_by
     ) VALUES (
-      ${p.id}, 'Test Experiment', ${status},
+      ${p.id}, 'post', ${p.id}, 'Test Experiment', ${status},
       ${JSON.stringify({ a: 50, b: 50 })}::jsonb,
       ${opts.goalMetric ?? 'page_view'}, ${u.id}
     ) RETURNING id
