@@ -17,6 +17,18 @@ interface AssigneeCapacityRow {
   cardCount: number;
   committedPoints: number;
   completedPoints: number;
+  // byColumn[columnId] = { cards, points } for cards this user has in that
+  // column. Lets the UI stack the bar by column instead of binary
+  // committed/completed.
+  byColumn: Record<number, { cards: number; points: number }>;
+}
+
+interface ColumnRef {
+  id: number;
+  name: string;
+  color: string | null;
+  order: number;
+  isDone: boolean;
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -49,6 +61,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       userEmail: users.email,
       cardId: kanbanCards.id,
       points: kanbanCards.storyPoints,
+      columnId: kanbanCards.columnId,
       isDone: kanbanColumns.isDone,
     })
     .from(kanbanCardAssignees)
@@ -56,6 +69,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
     .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
     .where(eq(kanbanCards.sprintId, sprintId));
+
+  // Project's columns — used by the UI to render stacked segments in board
+  // order regardless of which columns currently have cards assigned to a user.
+  const projectColumns: ColumnRef[] = await db
+    .select({
+      id: kanbanColumns.id,
+      name: kanbanColumns.name,
+      color: kanbanColumns.color,
+      order: kanbanColumns.order,
+      isDone: kanbanColumns.isDone,
+    })
+    .from(kanbanColumns)
+    .where(eq(kanbanColumns.projectId, sprint.projectId))
+    .orderBy(kanbanColumns.order);
 
   const byUser = new Map<number, AssigneeCapacityRow>();
   for (const r of rows) {
@@ -67,6 +94,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         cardCount: 0,
         committedPoints: 0,
         completedPoints: 0,
+        byColumn: {},
       });
     }
     const bucket = byUser.get(r.userId)!;
@@ -74,6 +102,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const pts = r.points ?? 0;
     bucket.committedPoints += pts;
     if (r.isDone) bucket.completedPoints += pts;
+    if (r.columnId != null) {
+      const slot = bucket.byColumn[r.columnId] ?? { cards: 0, points: 0 };
+      slot.cards += 1;
+      slot.points += pts;
+      bucket.byColumn[r.columnId] = slot;
+    }
   }
 
   const result = [...byUser.values()].sort((a, b) => b.committedPoints - a.committedPoints);
@@ -83,6 +117,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     data: {
       sprintId,
       sprintName: sprint.name,
+      columns: projectColumns,
       rows: result,
     },
   });

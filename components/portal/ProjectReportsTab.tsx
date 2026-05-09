@@ -68,12 +68,39 @@ interface CapacityRow {
   cardCount: number;
   committedPoints: number;
   completedPoints: number;
+  // byColumn[columnId] = { cards, points } per the API. Drives the stacked
+  // segments in the assignee bar.
+  byColumn: Record<number, { cards: number; points: number }>;
+}
+
+interface CapacityColumn {
+  id: number;
+  name: string;
+  color: string | null;
+  order: number;
+  isDone: boolean;
 }
 
 interface CapacityPayload {
   sprintId: number;
   sprintName: string;
+  columns: CapacityColumn[];
   rows: CapacityRow[];
+}
+
+// Fallback palette for columns that haven't had a color set. Cycle on
+// column.order so the same column keeps the same color on every render.
+const COLUMN_FALLBACK_COLORS = [
+  '#94a3b8', // slate-400
+  '#60a5fa', // blue-400
+  '#a78bfa', // violet-400
+  '#f472b6', // pink-400
+  '#fbbf24', // amber-400
+  '#34d399', // emerald-400
+];
+
+function columnColor(col: CapacityColumn): string {
+  return col.color ?? COLUMN_FALLBACK_COLORS[col.order % COLUMN_FALLBACK_COLORS.length];
 }
 
 export default function ProjectReportsTab({ projectId, projectKey }: { projectId: number; projectKey: string | null }) {
@@ -164,7 +191,7 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
       <section>
         <h2 className="text-lg font-semibold text-foreground mb-1">Capacity by assignee</h2>
         <p className="text-sm text-muted-foreground mb-3">
-          Points committed and completed per teammate in {capacity?.sprintName ?? 'the selected sprint'}.
+          Cards per teammate in {capacity?.sprintName ?? 'the selected sprint'}, broken down by board column.
         </p>
         {capacity && capacity.rows.length > 0
           ? <CapacityChart payload={capacity} />
@@ -419,30 +446,49 @@ function CfdChart({ payload }: { payload: CfdPayload }) {
 // ─── Capacity-by-assignee chart ──────────────────────────────────────────────
 
 function CapacityChart({ payload }: { payload: CapacityPayload }) {
-  const max = Math.max(1, ...payload.rows.map(r => r.committedPoints));
+  // Bar widths normalize against the busiest assignee so the longest bar fills
+  // its track. Counts are by *cards*, not points — matches the per-column
+  // breakdown the design calls for.
+  const maxCards = Math.max(1, ...payload.rows.map(r => r.cardCount));
+  const columnsById = new Map(payload.columns.map(c => [c.id, c]));
+  // Only show columns in the legend that actually contain at least one card
+  // somewhere in the sprint, to keep the legend tight.
+  const usedColumnIds = new Set<number>();
+  for (const r of payload.rows) for (const k of Object.keys(r.byColumn)) usedColumnIds.add(Number(k));
+  const legendColumns = payload.columns.filter(c => usedColumnIds.has(c.id));
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-2">
       {payload.rows.map(r => {
-        const committedPct = (r.committedPoints / max) * 100;
-        const completedPct = r.committedPoints > 0
-          ? (r.completedPoints / r.committedPoints) * committedPct
-          : 0;
+        const widthPct = (r.cardCount / maxCards) * 100;
+        // Iterate columns in board order so segments line up across rows.
+        const segments = payload.columns
+          .map(col => {
+            const slot = r.byColumn[col.id];
+            if (!slot || slot.cards === 0) return null;
+            return { col, cards: slot.cards, points: slot.points };
+          })
+          .filter((s): s is { col: CapacityColumn; cards: number; points: number } => s !== null);
+
         return (
           <div key={r.userId} className="grid grid-cols-[160px_1fr_auto] items-center gap-3 text-sm">
             <div className="truncate" title={r.email}>
               <span className="font-medium text-foreground">{r.name ?? r.email}</span>
             </div>
-            <div className="relative h-6 bg-muted rounded overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 bg-current opacity-25"
-                style={{ width: `${committedPct}%` }}
-                aria-label={`${r.committedPoints} committed`}
-              />
-              <div
-                className="absolute inset-y-0 left-0 bg-primary"
-                style={{ width: `${completedPct}%` }}
-                aria-label={`${r.completedPoints} completed`}
-              />
+            <div className="h-6 bg-muted rounded overflow-hidden" style={{ width: `${widthPct}%`, minWidth: r.cardCount > 0 ? '2px' : 0 }}>
+              <div className="flex h-full w-full">
+                {segments.map(s => {
+                  const segPct = (s.cards / r.cardCount) * 100;
+                  return (
+                    <div
+                      key={s.col.id}
+                      style={{ width: `${segPct}%`, backgroundColor: columnColor(s.col) }}
+                      title={`${s.col.name}: ${s.cards} card${s.cards === 1 ? '' : 's'}${s.points > 0 ? ` · ${s.points} pts` : ''}`}
+                      aria-label={`${s.col.name}: ${s.cards} cards`}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="text-xs text-muted-foreground tabular-nums shrink-0">
               {r.completedPoints}/{r.committedPoints} pts · {r.cardCount} card{r.cardCount === 1 ? '' : 's'}
@@ -450,10 +496,19 @@ function CapacityChart({ payload }: { payload: CapacityPayload }) {
           </div>
         );
       })}
-      <div className="flex items-center justify-end gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-current opacity-25 rounded-sm"></span>Committed</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 bg-primary rounded-sm"></span>Completed</span>
-      </div>
+      {legendColumns.length > 0 && (
+        <div className="flex items-center justify-end gap-3 flex-wrap text-xs text-muted-foreground pt-2 border-t border-border">
+          {legendColumns.map(col => (
+            <span key={col.id} className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-3 h-3 rounded-sm"
+                style={{ backgroundColor: columnColor(col) }}
+              />
+              {col.name}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
