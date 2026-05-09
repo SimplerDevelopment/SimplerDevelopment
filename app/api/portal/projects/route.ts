@@ -79,8 +79,6 @@ export async function POST(req: Request) {
     description: description || null,
     clientId: client.id,
     status: projectStatus,
-    // isPrivate retained for back-compat; new permission gates ignore it.
-    isPrivate: true,
     startDate: startDate ? new Date(startDate) : null,
     dueDate: dueDate ? new Date(dueDate) : null,
     createdBy: userId,

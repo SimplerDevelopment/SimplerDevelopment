@@ -360,7 +360,6 @@ export const projectHandlers: Record<string, ProjectHandler> = {
       description: `Auto-created from CRM deal #${deal.id}${companyName ? ` for ${companyName}` : ''}.`,
       clientId,
       status: 'active',
-      isPrivate: true,
       createdBy: userId,
     }).returning();
 

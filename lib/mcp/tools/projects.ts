@@ -178,7 +178,6 @@ export function registerProjectsTools(server: McpServer, ctx: PortalMcpContext):
         description: args.description ?? null,
         clientId,
         status: 'active',
-        isPrivate: true,
         createdBy: ctx.userId,
       }).returning();
 
