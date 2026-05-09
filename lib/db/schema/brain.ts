@@ -183,7 +183,8 @@ export type BrainReviewItemType =
   | 'crm_deal_link'
   | 'crm_deal_create'
   | 'crm_company_link'
-  | 'crm_company_create';
+  | 'crm_company_create'
+  | 'project_artifact_link';
 
 export type BrainReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
 
@@ -256,6 +257,17 @@ export interface BrainReviewItemCrmCompanyCreatePayload {
   rationale: string;
 }
 
+export interface BrainReviewItemProjectArtifactLinkPayload {
+  projectId: number;
+  artifactType: 'website' | 'email_campaign' | 'pitch_deck' | 'proposal' | 'booking' | 'survey' | 'post' | 'brain_note';
+  artifactId: number;
+  /** Optional human-friendly title used for the link's display row. */
+  displayTitle?: string;
+  pinned?: boolean;
+  /** Free-form reason the proposal was made; useful when reviewing in the UI. */
+  rationale?: string;
+}
+
 export type BrainReviewItemPayload =
   | BrainReviewItemTaskPayload
   | BrainReviewItemDecisionPayload
@@ -268,6 +280,7 @@ export type BrainReviewItemPayload =
   | BrainReviewItemCrmDealCreatePayload
   | BrainReviewItemCrmCompanyLinkPayload
   | BrainReviewItemCrmCompanyCreatePayload
+  | BrainReviewItemProjectArtifactLinkPayload
   | Record<string, unknown>;
 
 export const brainAiReviewItems = pgTable('brain_ai_review_items', {

@@ -3,12 +3,22 @@ import {
   brainAiReviewItems,
   brainAuditLogs,
   brainMeetings,
+  brainNotes,
   brainTasks,
+  bookingPages,
+  clientWebsites,
   crmContacts,
   crmCompanies,
   crmDeals,
   crmPipelines,
   crmPipelineStages,
+  crmProposals,
+  emailCampaigns,
+  pitchDecks,
+  posts,
+  projects,
+  projectArtifacts,
+  surveys,
   type BrainReviewItemStatus,
   type BrainReviewItemPayload,
   type BrainReviewItemTaskPayload,
@@ -17,6 +27,7 @@ import {
   type BrainReviewItemCrmDealCreatePayload,
   type BrainReviewItemCrmCompanyLinkPayload,
   type BrainReviewItemCrmCompanyCreatePayload,
+  type BrainReviewItemProjectArtifactLinkPayload,
 } from '@/lib/db/schema';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logAudit } from './audit';
@@ -233,6 +244,91 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
         }
         resultEntityType = 'crm_deal';
         resultEntityId = created.id;
+        break;
+      }
+      case 'project_artifact_link': {
+        const pal = payload as BrainReviewItemProjectArtifactLinkPayload;
+        if (typeof pal.projectId !== 'number') throw new Error('project_artifact_link: missing projectId');
+        if (typeof pal.artifactId !== 'number') throw new Error('project_artifact_link: missing artifactId');
+        if (!pal.artifactType) throw new Error('project_artifact_link: missing artifactType');
+
+        // Tenant-check the project belongs to this client.
+        const [proj] = await tx.select({ id: projects.id }).from(projects)
+          .where(and(eq(projects.id, pal.projectId), eq(projects.clientId, args.clientId)))
+          .limit(1);
+        if (!proj) throw new Error(`project_artifact_link: project ${pal.projectId} not found for this client`);
+
+        // Resolve a fallback display title from the artifact source row.
+        // Inlined here (not reusing the API route's dict) since this is just a
+        // last-resort fallback and posts have no clientId column — tenancy was
+        // already enforced when the proposal was first created.
+        let displayTitle = pal.displayTitle?.trim() || '';
+        if (!displayTitle) {
+          switch (pal.artifactType) {
+            case 'website': {
+              const [r] = await tx.select({ t: clientWebsites.name }).from(clientWebsites)
+                .where(and(eq(clientWebsites.id, pal.artifactId), eq(clientWebsites.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'email_campaign': {
+              const [r] = await tx.select({ t: emailCampaigns.name }).from(emailCampaigns)
+                .where(and(eq(emailCampaigns.id, pal.artifactId), eq(emailCampaigns.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'pitch_deck': {
+              const [r] = await tx.select({ t: pitchDecks.title }).from(pitchDecks)
+                .where(and(eq(pitchDecks.id, pal.artifactId), eq(pitchDecks.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'proposal': {
+              const [r] = await tx.select({ t: crmProposals.title }).from(crmProposals)
+                .where(and(eq(crmProposals.id, pal.artifactId), eq(crmProposals.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'booking': {
+              const [r] = await tx.select({ t: bookingPages.title }).from(bookingPages)
+                .where(and(eq(bookingPages.id, pal.artifactId), eq(bookingPages.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'survey': {
+              const [r] = await tx.select({ t: surveys.title }).from(surveys)
+                .where(and(eq(surveys.id, pal.artifactId), eq(surveys.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'post': {
+              // Posts are scoped by websiteId, not clientId. Tenancy was enforced
+              // upstream when the proposal was created; skip the indirection on approval.
+              const [r] = await tx.select({ t: posts.title }).from(posts)
+                .where(eq(posts.id, pal.artifactId)).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+            case 'brain_note': {
+              const [r] = await tx.select({ t: brainNotes.title }).from(brainNotes)
+                .where(and(eq(brainNotes.id, pal.artifactId), eq(brainNotes.clientId, args.clientId))).limit(1);
+              displayTitle = r?.t ?? '';
+              break;
+            }
+          }
+          if (!displayTitle) displayTitle = 'Untitled';
+        }
+
+        const [inserted] = await tx.insert(projectArtifacts).values({
+          projectId: pal.projectId,
+          artifactType: pal.artifactType,
+          artifactId: pal.artifactId,
+          displayTitle: displayTitle.slice(0, 255),
+          pinned: pal.pinned ?? false,
+          createdBy: args.actorId,
+        }).returning({ id: projectArtifacts.id });
+        resultEntityType = 'project_artifact';
+        resultEntityId = inserted.id;
         break;
       }
       // Phase 2 limits the approve sink to tasks. Approving other proposed types
