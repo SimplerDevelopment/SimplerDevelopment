@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { projects, clients, users, kanbanColumns } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 async function requireStaff() {
   const session = await auth();
@@ -28,6 +28,16 @@ export async function GET() {
       clientId: clients.id,
       company: clients.company,
       clientName: users.name,
+      memberCount: sql<number>`(
+        SELECT COUNT(*)::int FROM project_members WHERE project_members.project_id = projects.id
+      )`,
+      ownerName: sql<string | null>`(
+        SELECT u.name FROM project_members pm
+        INNER JOIN users u ON u.id = pm.user_id
+        WHERE pm.project_id = projects.id AND pm.role = 'owner'
+        ORDER BY pm.added_at ASC
+        LIMIT 1
+      )`,
     })
     .from(projects)
     .innerJoin(clients, eq(projects.clientId, clients.id))
