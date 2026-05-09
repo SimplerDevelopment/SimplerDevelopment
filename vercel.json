@@ -52,6 +52,14 @@
     {
       "path": "/api/cron/renew-microsoft-subscriptions",
       "schedule": "*/25 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-recurrences",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-column-snapshots",
+      "schedule": "55 23 * * *"
     }
   ]
 }

@@ -259,11 +259,14 @@ test.describe('Portal Kanban Cards — Time Logs @kanban @cards @time-logs', () 
 // --- Helpers ---
 
 async function getFirstColumnId(api: import('./setup/api-client').ApiClient): Promise<number | null> {
+  // Wave 1 collapsed the legacy { agency, private } envelope into a flat
+  // array. Fall back to the legacy shape only if a future server changes
+  // its mind — keeps this helper robust during rolling deploys.
   const projects = await api.get('/api/portal/projects');
-  const allProjects = [
-    ...(projects.data?.data?.agency || []),
-    ...(projects.data?.data?.private || []),
-  ];
+  const data = projects.data?.data;
+  const allProjects: Array<{ id: number }> = Array.isArray(data)
+    ? data
+    : [...(data?.agency || []), ...(data?.private || [])];
   if (!allProjects.length) return null;
   const projectId = allProjects[0].id;
 
