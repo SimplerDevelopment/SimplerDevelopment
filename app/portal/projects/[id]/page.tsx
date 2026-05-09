@@ -14,6 +14,7 @@ import BacklogTab from '@/components/portal/BacklogTab';
 import ProjectReportsTab from '@/components/portal/ProjectReportsTab';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
 import ProjectRecurrencesPanel from '@/components/portal/ProjectRecurrencesPanel';
+import ProjectCustomFieldsPanel from '@/components/portal/ProjectCustomFieldsPanel';
 import { isPortalStaff } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
 import { getProjectRole } from '@/lib/portal/project-access';
@@ -226,6 +227,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         <ProjectMembersTab projectId={projectId} canManage={canManage} />
       ) : activeTab === 'settings' ? (
         <div className="space-y-4 max-w-3xl">
+          <ProjectCustomFieldsPanel projectId={projectId} canEdit={canEdit} />
           <ProjectRecurrencesPanel projectId={projectId} canEdit={canEdit} />
           <ProjectWebhooksPanel projectId={projectId} canEdit={canEdit} />
         </div>

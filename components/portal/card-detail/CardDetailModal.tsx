@@ -19,6 +19,7 @@ import { CardArtifacts } from './_sections/CardArtifacts';
 import { CardChecklist } from './_sections/CardChecklist';
 import { CardChildren } from './_sections/CardChildren';
 import { CardComments } from './_sections/CardComments';
+import { CardCustomFields } from './_sections/CardCustomFields';
 import { CardDependencies } from './_sections/CardDependencies';
 import { CardDescription } from './_sections/CardDescription';
 import { CardFiles } from './_sections/CardFiles';
@@ -112,6 +113,8 @@ export default function CardDetailModal({
                 />
 
                 <CardChildren children={children} />
+
+                <CardCustomFields cardId={cardId} canEdit={canEdit} />
 
                 <CardChecklist
                   checklist={s.checklist} canEdit={canEdit}

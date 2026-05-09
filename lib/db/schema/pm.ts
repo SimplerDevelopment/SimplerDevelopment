@@ -265,6 +265,43 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Per-project custom fields. Definitions live in project_custom_fields and
+// card-level values in card_custom_field_values. The value column is jsonb
+// so a single row holds any kind (text → string, number → number, date →
+// ISO string, select → string, multi_select → string[], url → string,
+// checkbox → boolean). UI maps kind → input type; validation is best-effort
+// at write time.
+export const projectCustomFields = pgTable('project_custom_fields', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  // key is the snake-cased identifier the API uses to address the field;
+  // stable even if the human-friendly name changes.
+  key: varchar('key', { length: 60 }).notNull(),
+  name: varchar('name', { length: 100 }).notNull(),
+  kind: varchar('kind', { length: 20 }).notNull(), // text, number, date, select, multi_select, url, checkbox
+  required: boolean('required').default(false).notNull(),
+  options: jsonb('options').$type<string[]>().default([]).notNull(),
+  order: integer('order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('project_custom_fields_project_key_idx').on(t.projectId, t.key),
+  index('project_custom_fields_project_idx').on(t.projectId, t.order),
+]);
+
+export const cardCustomFieldValues = pgTable('card_custom_field_values', {
+  id: serial('id').primaryKey(),
+  cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
+  fieldId: integer('field_id').notNull().references(() => projectCustomFields.id, { onDelete: 'cascade' }),
+  // value is intentionally permissive — the field's `kind` defines the
+  // expected JSON shape; the API casts on read.
+  value: jsonb('value'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('card_custom_field_values_card_field_idx').on(t.cardId, t.fieldId),
+]);
+
 // Sprint retrospectives. One retro per sprint (enforced via unique index).
 // Items are categorized as went_well, went_poorly, or action_item, with a
 // simple integer vote count maintained client-side via PATCH +1.
