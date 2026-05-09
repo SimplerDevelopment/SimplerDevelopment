@@ -23,6 +23,7 @@ import {
   kanbanCardDependencies,
   sprintScopeHistory,
   cardTemplates,
+  cardRecurrences,
   supportTickets,
   ticketMessages,
   crmContacts,
@@ -96,6 +97,7 @@ import { recordCardAddedToSprint, recordCardRemovedFromSprint, recordCardColumnM
 import { computeSprintProposal } from '@/lib/portal/sprint-planner';
 import { computeSprintTotals, computeVelocityAverages, type SprintEvent, type VelocityRow } from '@/lib/portal/sprint-charts';
 import { checkWipLimit } from '@/lib/portal/wip-limit';
+import { computeNextFireAt, type Cadence } from '@/lib/portal/recurrence-scheduler';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
@@ -1354,6 +1356,95 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
         velocityWindowSprints: completedSprints.length,
         backlogTotal: backlogCards.length,
       });
+    }
+  );
+
+  // ── RECURRING TASKS ─────────────────────────────────────────────────────
+  hasScope(ctx.scopes, 'projects:read') && server.registerTool(
+    'kanban_recurrences_list',
+    {
+      title: 'List recurring tasks',
+      description: 'List card_recurrences rows for a project — both active and paused — sorted by next fire time.',
+      inputSchema: { projectId: z.coerce.number() },
+    },
+    async ({ projectId }) => {
+      if (!requireScope(ctx, 'projects:read')) return denied('projects:read');
+      try { await assertProjectInClient(projectId, clientId); }
+      catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
+
+      const rows = await db.select().from(cardRecurrences)
+        .where(eq(cardRecurrences.projectId, projectId))
+        .orderBy(cardRecurrences.nextFireAt);
+      return json(rows);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_recurrences_create',
+    {
+      title: 'Create a recurring task',
+      description: 'Configure a recurring card-creation rule. {{date}} in titlePattern is replaced with the firing date (YYYY-MM-DD) so daily/weekly cards get unique titles. Provide either templateId or titlePattern.',
+      inputSchema: {
+        projectId: z.coerce.number(),
+        columnId: z.coerce.number(),
+        cadence: z.enum(['daily', 'weekly', 'monthly']),
+        dayOfWeek: z.coerce.number().int().min(0).max(6).optional(),
+        dayOfMonth: z.coerce.number().int().min(1).max(28).optional(),
+        hourUtc: z.coerce.number().int().min(0).max(23).optional(),
+        templateId: z.coerce.number().optional(),
+        titlePattern: z.string().optional(),
+        description: z.string().optional(),
+      },
+    },
+    async (args) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      try {
+        await assertProjectInClient(args.projectId, clientId);
+        await assertColumnInProject(args.columnId, args.projectId);
+      } catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
+      if (!args.templateId && !args.titlePattern?.trim()) {
+        return json({ error: 'Either templateId or titlePattern is required' });
+      }
+      const cfg = {
+        cadence: args.cadence as Cadence,
+        dayOfWeek: args.dayOfWeek ?? null,
+        dayOfMonth: args.dayOfMonth ?? null,
+        hourUtc: args.hourUtc ?? 9,
+      };
+      const nextFire = computeNextFireAt(new Date(), cfg);
+      const [row] = await db.insert(cardRecurrences).values({
+        projectId: args.projectId,
+        columnId: args.columnId,
+        templateId: args.templateId ?? null,
+        titlePattern: args.titlePattern?.slice(0, 255) ?? null,
+        description: args.description?.slice(0, 5000) ?? null,
+        cadence: args.cadence,
+        dayOfWeek: cfg.dayOfWeek,
+        dayOfMonth: cfg.dayOfMonth,
+        hourUtc: cfg.hourUtc,
+        nextFireAt: nextFire,
+        createdBy: ctx.userId,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  hasScope(ctx.scopes, 'projects:write') && server.registerTool(
+    'kanban_recurrences_delete',
+    {
+      title: 'Delete a recurring task',
+      inputSchema: { id: z.coerce.number() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'projects:write')) return denied('projects:write');
+      const [rec] = await db.select({ projectId: cardRecurrences.projectId }).from(cardRecurrences).where(eq(cardRecurrences.id, id)).limit(1);
+      if (!rec) return json({ error: 'Recurrence not found' });
+      try { await assertProjectInClient(rec.projectId, clientId); }
+      catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
+      await db.delete(cardRecurrences).where(eq(cardRecurrences.id, id));
+      revalidateForWrite('portal');
+      return json({ ok: true });
     }
   );
 }

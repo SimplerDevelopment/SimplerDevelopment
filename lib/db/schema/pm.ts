@@ -265,6 +265,37 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Recurring card creation. A scheduler (Vercel cron, Railway cron, etc.)
+// hits /api/cron/pm-recurrences periodically; the processor reads rows where
+// next_fire_at <= now() and active = true, materializes a card on the
+// configured column (optionally seeded from a card_template), then advances
+// next_fire_at. last_fired_at + last_fired_card_id are kept for audit.
+export const cardRecurrences = pgTable('card_recurrences', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  columnId: integer('column_id').notNull().references(() => kanbanColumns.id, { onDelete: 'cascade' }),
+  templateId: integer('template_id').references(() => cardTemplates.id, { onDelete: 'set null' }),
+  // Fallback fields used when templateId is null. titlePattern can include
+  // `{{date}}` which the processor replaces with the firing date in
+  // YYYY-MM-DD form, so weekly status cards get unique titles.
+  titlePattern: varchar('title_pattern', { length: 255 }),
+  description: text('description'),
+  cadence: varchar('cadence', { length: 20 }).notNull(), // daily, weekly, monthly
+  dayOfWeek: integer('day_of_week'),  // 0=Sun..6=Sat — required for weekly
+  dayOfMonth: integer('day_of_month'), // 1..28 — required for monthly
+  hourUtc: integer('hour_utc').default(9).notNull(),    // 0..23
+  active: boolean('active').default(true).notNull(),
+  lastFiredAt: timestamp('last_fired_at'),
+  lastFiredCardId: integer('last_fired_card_id'),
+  nextFireAt: timestamp('next_fire_at').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('card_recurrences_due_idx').on(t.active, t.nextFireAt),
+  index('card_recurrences_project_idx').on(t.projectId),
+]);
+
 // Reusable card templates. projectId=null means a client-wide template
 // (visible across every project of the client); projectId set scopes the
 // template to one project. The payload is intentionally a free-form blob so
