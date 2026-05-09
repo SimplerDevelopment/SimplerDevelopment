@@ -28,13 +28,18 @@ import {
   type TenantCtx,
 } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import type { ProjectRole } from '@/lib/portal/project-permissions';
 
-async function seedTwoColCard(client: TenantCtx, isPrivate = true) {
+async function seedTwoColCard(client: TenantCtx, clientRole: ProjectRole = 'owner') {
   const sql = getTestSql();
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('Move project', ${client.client.id}, 'active', ${isPrivate}, ${client.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('Move project', ${client.client.id}, 'active', ${client.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${client.user.id}, ${clientRole})
   `;
   const [todo] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
@@ -159,7 +164,7 @@ describe('PATCH /api/portal/cards/[id]/move @cards @move', () => {
   });
 
   it('200 client owner of agency project can still move (canEdit not gated)', async () => {
-    const { cardId, doneId } = await seedTwoColCard(A, /* isPrivate */ false);
+    const { cardId, doneId } = await seedTwoColCard(A, 'viewer');
     mockedAuth.mockResolvedValue(A.session);
     const route = await import('@/app/api/portal/cards/[id]/move/route');
     const res = await callHandler(

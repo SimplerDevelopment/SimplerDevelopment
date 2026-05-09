@@ -39,9 +39,14 @@ async function seedInvoicesAndTickets(ctx: TenantCtx): Promise<void> {
     INSERT INTO ${sql(TEST_SCHEMA)}.support_tickets (number, client_id, subject, status, priority)
     VALUES (${Math.floor(Math.random() * 2_000_000_000)}, ${ctx.client.id}, 'Help', 'open', 'medium')
   `;
+  const [proj] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('Project A', ${ctx.client.id}, 'active', ${ctx.user.id})
+    RETURNING id
+  `;
   await sql`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('Project A', ${ctx.client.id}, 'active', true, ${ctx.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${ctx.user.id}, 'owner')
   `;
 }
 

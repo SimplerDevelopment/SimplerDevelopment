@@ -28,14 +28,19 @@ import {
   type TenantCtx,
 } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import type { ProjectRole } from '@/lib/portal/project-permissions';
 
-async function seedTwoCards(client: TenantCtx, opts?: { isPrivate?: boolean }) {
+async function seedTwoCards(client: TenantCtx, opts?: { clientRole?: ProjectRole }) {
   const sql = getTestSql();
-  const isPrivate = opts?.isPrivate ?? true;
+  const clientRole: ProjectRole = opts?.clientRole ?? 'owner';
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('Dep project', ${client.client.id}, 'active', ${isPrivate}, ${client.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('Dep project', ${client.client.id}, 'active', ${client.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${client.user.id}, ${clientRole})
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
@@ -93,7 +98,7 @@ describe('POST /api/portal/cards/[id]/dependencies @cards @dependencies', () => 
   });
 
   it('403 client on agency project', async () => {
-    const { c1, c2 } = await seedTwoCards(A, { isPrivate: false });
+    const { c1, c2 } = await seedTwoCards(A, { clientRole: 'viewer' });
     mockedAuth.mockResolvedValue(A.session);
     const route = await import('@/app/api/portal/cards/[id]/dependencies/route');
     const res = await callHandler(

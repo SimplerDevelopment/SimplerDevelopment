@@ -34,16 +34,21 @@ import {
   type TenantCtx,
 } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import type { ProjectRole } from '@/lib/portal/project-permissions';
 
-async function seedCardWithFile(opts: { client: TenantCtx; isPrivate?: boolean; uploaderId?: number }) {
+async function seedCardWithFile(opts: { client: TenantCtx; uploaderId?: number; clientRole?: ProjectRole }) {
   const sql = getTestSql();
-  const isPrivate = opts.isPrivate ?? true;
   const uploader = opts.uploaderId ?? opts.client.user.id;
+  const clientRole: ProjectRole = opts.clientRole ?? 'owner';
 
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('FileTest project', ${opts.client.client.id}, 'active', ${isPrivate}, ${opts.client.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('FileTest project', ${opts.client.client.id}, 'active', ${opts.client.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${opts.client.user.id}, ${clientRole})
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
