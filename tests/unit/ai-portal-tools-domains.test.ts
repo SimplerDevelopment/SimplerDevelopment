@@ -33,7 +33,8 @@ const DOMAINS = [
     tools: projectTools,
     handlers: projectHandlers,
     expected: [
-      'get_my_projects', 'get_project_board', 'get_project_cards', 'get_sprint_progress',
+      'get_my_projects', 'pm_spawn_project_from_deal',
+      'get_project_board', 'get_project_cards', 'get_sprint_progress',
       'get_project_files', 'add_card_comment', 'create_project_card', 'update_project_card',
       'move_project_card',
     ],

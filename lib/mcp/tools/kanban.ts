@@ -1191,12 +1191,20 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       try { await assertProjectInClient(projectId, clientId); }
       catch (e) { if (e instanceof OwnershipError) return json({ error: e.message }); throw e; }
 
+      // Normalize checklist order so each item has a definite numeric order.
+      const normalized = {
+        ...payload,
+        checklist: Array.isArray(payload.checklist)
+          ? payload.checklist.map((it, idx) => ({ text: it.text, order: it.order ?? idx }))
+          : undefined,
+      };
+
       const [row] = await db.insert(cardTemplates).values({
         clientId,
         projectId: clientWide ? null : projectId,
         name: name.trim().slice(0, 100),
         description: description?.slice(0, 5000) ?? null,
-        payload,
+        payload: normalized,
         createdBy: ctx.userId,
       }).returning();
       revalidateForWrite('portal');
