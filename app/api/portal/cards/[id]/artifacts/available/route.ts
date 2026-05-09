@@ -11,8 +11,9 @@ import {
   crmProposals,
   bookingPages,
   surveys,
+  posts,
 } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 function getRole(session: any): string {
   return (session as unknown as { user?: { role?: string } })?.user?.role ?? '';
@@ -67,6 +68,26 @@ export async function GET(
     fetchType('survey', surveys, 'title'),
     fetchType('project', projects, 'name'),
   ]);
+
+  // Posts are scoped by websiteId (which references clientWebsites). To get
+  // posts for the current client, find their websites first then list posts
+  // tied to those website ids. Posts with websiteId=null are global/admin
+  // and intentionally excluded from per-client pickers.
+  if (!typeFilter || typeFilter === 'post') {
+    const sites = await db
+      .select({ id: clientWebsites.id })
+      .from(clientWebsites)
+      .where(eq(clientWebsites.clientId, clientId));
+    if (sites.length > 0) {
+      const postRows = await db
+        .select({ id: posts.id, title: posts.title, postType: posts.postType })
+        .from(posts)
+        .where(inArray(posts.websiteId, sites.map(s => s.id)));
+      for (const r of postRows) {
+        results.push({ type: 'post', id: r.id, title: `${r.title}${r.postType && r.postType !== 'blog' ? ` (${r.postType})` : ''}` });
+      }
+    }
+  }
 
   return NextResponse.json({ success: true, data: results });
 }

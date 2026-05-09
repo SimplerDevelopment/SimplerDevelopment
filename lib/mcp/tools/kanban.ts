@@ -1035,7 +1035,7 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
     survey: { table: surveys, titleField: 'title' },
     project: { table: projects, titleField: 'name' },
   };
-  const CARD_ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project']);
+  const CARD_ARTIFACT_TYPE_ENUM = z.enum(['website', 'email_campaign', 'pitch_deck', 'proposal', 'booking', 'survey', 'project', 'post']);
 
   async function authorizeCardForClient(cardId: number) {
     const [card] = await db.select({ projectId: kanbanCards.projectId }).from(kanbanCards)

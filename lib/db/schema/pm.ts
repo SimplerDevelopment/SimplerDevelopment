@@ -233,7 +233,7 @@ export const sprintScopeHistory = pgTable('sprint_scope_history', {
 export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
   id: serial('id').primaryKey(),
   cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
-  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project, post
   artifactId: integer('artifact_id').notNull(),
   displayTitle: varchar('display_title', { length: 255 }).notNull(),
   pinned: boolean('pinned').default(false).notNull(),
