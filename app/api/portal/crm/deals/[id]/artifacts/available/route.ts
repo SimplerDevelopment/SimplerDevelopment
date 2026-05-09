@@ -10,8 +10,9 @@ import {
   bookingPages,
   surveys,
   projects,
+  brainNotes,
 } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
@@ -48,6 +49,18 @@ export async function GET(
     fetchType('survey', surveys, 'title'),
     fetchType('project', projects, 'name'),
   ]);
+
+  // Brain notes — exclude soft-deleted rows; other tables don't have deletedAt
+  // so this lives outside the generic fetchType helper.
+  if (!typeFilter || typeFilter === 'brain_note') {
+    const noteRows = await db
+      .select({ id: brainNotes.id, title: brainNotes.title })
+      .from(brainNotes)
+      .where(and(eq(brainNotes.clientId, client.id), isNull(brainNotes.deletedAt)));
+    for (const r of noteRows) {
+      results.push({ type: 'brain_note', id: r.id, title: r.title ?? 'Untitled' });
+    }
+  }
 
   return NextResponse.json({ success: true, data: results });
 }

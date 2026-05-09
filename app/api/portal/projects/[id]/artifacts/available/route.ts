@@ -3,7 +3,6 @@ import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
 import {
-  kanbanCards,
   projects,
   clientWebsites,
   emailCampaigns,
@@ -16,6 +15,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
   return (session as unknown as { user?: { role?: string } })?.user?.role ?? '';
 }
@@ -25,18 +25,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const cardId = parseInt(id, 10);
-  if (isNaN(cardId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+  const projectId = parseInt(id, 10);
+  if (isNaN(projectId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   const userId = parseInt(session.user.id, 10);
 
-  const [card] = await db.select({ id: kanbanCards.id, projectId: kanbanCards.projectId }).from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
-  if (!card) return NextResponse.json({ success: false, message: 'Card not found' }, { status: 404 });
-
-  const [project] = await db.select({ id: projects.id, clientId: projects.clientId }).from(projects).where(eq(projects.id, card.projectId)).limit(1);
+  const [project] = await db.select({ id: projects.id, clientId: projects.clientId }).from(projects).where(eq(projects.id, projectId)).limit(1);
   if (!project) return NextResponse.json({ success: false, message: 'Project not found' }, { status: 404 });
 
   const role = getRole(session);
@@ -52,6 +49,7 @@ export async function GET(
 
   const results: { type: string; id: number; title: string }[] = [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function fetchType(type: string, table: any, titleField: string) {
     if (typeFilter && typeFilter !== type) return;
     const rows = await db.select({ id: table.id, title: table[titleField] }).from(table).where(eq(table.clientId, clientId));
@@ -67,11 +65,9 @@ export async function GET(
     fetchType('proposal', crmProposals, 'title'),
     fetchType('booking', bookingPages, 'title'),
     fetchType('survey', surveys, 'title'),
-    fetchType('project', projects, 'name'),
   ]);
 
-  // Brain notes — exclude soft-deleted rows; other tables don't have deletedAt
-  // so this lives outside the generic fetchType helper.
+  // Brain notes — exclude soft-deleted rows.
   if (!typeFilter || typeFilter === 'brain_note') {
     const noteRows = await db
       .select({ id: brainNotes.id, title: brainNotes.title })

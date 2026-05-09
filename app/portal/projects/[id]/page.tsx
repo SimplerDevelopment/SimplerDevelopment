@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardDependencies, users, sprints } from '@/lib/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardDependencies, kanbanCardComments, kanbanCardWatchers, notifications, users, sprints } from '@/lib/db/schema';
+import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import KanbanBoard from '@/components/portal/KanbanBoard';
@@ -14,6 +14,7 @@ import BacklogTab from '@/components/portal/BacklogTab';
 import ProjectReportsTab from '@/components/portal/ProjectReportsTab';
 import ProjectRoadmapTab from '@/components/portal/ProjectRoadmapTab';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
+import ProjectArtifactsTab from '@/components/portal/ProjectArtifactsTab';
 import ProjectRecurrencesPanel from '@/components/portal/ProjectRecurrencesPanel';
 import ProjectCustomFieldsPanel from '@/components/portal/ProjectCustomFieldsPanel';
 import ProjectGoalsPanel from '@/components/portal/ProjectGoalsPanel';
@@ -34,6 +35,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     : tab === 'roadmap' ? 'roadmap'
     : tab === 'reports' ? 'reports'
     : tab === 'members' ? 'members'
+    : tab === 'artifacts' ? 'artifacts'
     : tab === 'settings' ? 'settings'
     : 'board';
   const projectId = parseInt(id, 10);
@@ -150,6 +152,60 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     return acc;
   }, {});
 
+  // Comment counts per card (project-scoped via cardIds filter).
+  const commentCountRows = cardIds.length > 0
+    ? await db
+        .select({
+          cardId: kanbanCardComments.cardId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(kanbanCardComments)
+        .where(inArray(kanbanCardComments.cardId, cardIds))
+        .groupBy(kanbanCardComments.cardId)
+    : [];
+
+  const commentCountByCard = commentCountRows.reduce<Record<number, number>>((acc, r) => {
+    acc[r.cardId] = Number(r.count) || 0;
+    return acc;
+  }, {});
+
+  // Unread alerts per card for the current user. notifications.cardId scoped to
+  // this project's cardIds so notifications attached to cards in other projects
+  // can never inflate this count.
+  const unreadAlertRows = cardIds.length > 0
+    ? await db
+        .select({
+          cardId: notifications.cardId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(notifications)
+        .where(and(
+          eq(notifications.userId, userId),
+          isNull(notifications.readAt),
+          inArray(notifications.cardId, cardIds),
+        ))
+        .groupBy(notifications.cardId)
+    : [];
+
+  const unreadAlertsByCard = unreadAlertRows.reduce<Record<number, number>>((acc, r) => {
+    if (r.cardId == null) return acc;
+    acc[r.cardId] = Number(r.count) || 0;
+    return acc;
+  }, {});
+
+  // Cards the current user is watching.
+  const watcherRows = cardIds.length > 0
+    ? await db
+        .select({ cardId: kanbanCardWatchers.cardId })
+        .from(kanbanCardWatchers)
+        .where(and(
+          eq(kanbanCardWatchers.userId, userId),
+          inArray(kanbanCardWatchers.cardId, cardIds),
+        ))
+    : [];
+
+  const watchedCardIds = new Set<number>(watcherRows.map(r => r.cardId));
+
   const columnsWithCards = columns.map((col) => ({
     ...col,
     cards: cards.filter((c) => c.columnId === col.id).map(c => ({
@@ -160,6 +216,9 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
       checklist: checklistByCard[c.id] ?? null,
       assignees: assigneesByCard[c.id] ?? [],
       blockedCount: blockedCountByCard[c.id] ?? 0,
+      commentCount: commentCountByCard[c.id] ?? 0,
+      unreadAlerts: unreadAlertsByCard[c.id] ?? 0,
+      isWatching: watchedCardIds.has(c.id),
     })),
   }));
 
@@ -208,6 +267,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           { key: 'roadmap',  href: `/portal/projects/${projectId}?tab=roadmap`,     label: 'Roadmap',  icon: 'timeline' },
           { key: 'reports',  href: `/portal/projects/${projectId}?tab=reports`,     label: 'Reports',  icon: 'analytics' },
           { key: 'files',    href: `/portal/projects/${projectId}?tab=files`,       label: 'Files',    icon: 'folder' },
+          { key: 'artifacts', href: `/portal/projects/${projectId}?tab=artifacts`,  label: 'Artifacts', icon: 'attachment' },
           { key: 'members',  href: `/portal/projects/${projectId}?tab=members`,     label: 'Members',  icon: 'group' },
           { key: 'settings', href: `/portal/projects/${projectId}?tab=settings`,    label: 'Settings', icon: 'settings' },
         ] as const).map(t => (
@@ -231,6 +291,8 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         <ProjectReportsTab projectId={projectId} projectKey={project.projectKey} />
       ) : activeTab === 'members' ? (
         <ProjectMembersTab projectId={projectId} canManage={canManage} />
+      ) : activeTab === 'artifacts' ? (
+        <ProjectArtifactsTab projectId={projectId} canEdit={canEdit} />
       ) : activeTab === 'settings' ? (
         <div className="space-y-4 max-w-3xl">
           <ProjectGoalsPanel projectId={projectId} canEdit={canEdit} />

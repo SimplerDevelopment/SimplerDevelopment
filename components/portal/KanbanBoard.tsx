@@ -53,6 +53,9 @@ interface Card {
   checklist?: { total: number; done: number } | null;
   assignees?: { id: number; name: string }[];
   blockedCount?: number;
+  commentCount?: number;
+  unreadAlerts?: number;
+  isWatching?: boolean;
   storyPoints?: number | null;
   cardType?: string;
   parentCardId?: number | null;
@@ -230,6 +233,18 @@ function KanbanCard({
           <span className={`text-xs flex items-center gap-0.5 ${card.checklist.done === card.checklist.total ? 'text-green-600' : 'text-muted-foreground'}`}>
             <span className="material-icons text-xs">check_box</span>
             {card.checklist.done}/{card.checklist.total}
+          </span>
+        )}
+        {card.commentCount !== undefined && card.commentCount > 0 && (
+          <span className="text-xs flex items-center gap-0.5 text-muted-foreground" title={`${card.commentCount} comment${card.commentCount === 1 ? '' : 's'}`}>
+            <span className="material-icons text-xs">chat_bubble</span>
+            {card.commentCount}
+          </span>
+        )}
+        {card.unreadAlerts !== undefined && card.unreadAlerts > 0 && (
+          <span className="text-xs flex items-center gap-0.5 text-primary font-medium" title={`${card.unreadAlerts} unread alert${card.unreadAlerts === 1 ? '' : 's'} on this card`}>
+            <span className="material-icons text-xs">notifications_active</span>
+            {card.unreadAlerts}
           </span>
         )}
         {card.blockedCount !== undefined && card.blockedCount > 0 && (

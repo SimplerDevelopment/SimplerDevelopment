@@ -229,13 +229,32 @@ export const sprintScopeHistory = pgTable('sprint_scope_history', {
 export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
   id: serial('id').primaryKey(),
   cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
-  artifactType: varchar('artifact_type', { length: 50 }).notNull(), // website, email_campaign, pitch_deck, proposal, booking, survey, project, post
+  // website, email_campaign, pitch_deck, proposal, booking, survey, project, post, brain_note
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(),
   artifactId: integer('artifact_id').notNull(),
   displayTitle: varchar('display_title', { length: 255 }).notNull(),
   pinned: boolean('pinned').default(false).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// Polymorphic link from a project to any artifact owned by the same client.
+// Mirrors kanban_card_artifacts and crm_deal_artifacts; the artifact_type
+// strings are kept consistent across all three tables so the same lookup
+// dictionary can resolve titles + tenancy for any of them.
+export const projectArtifacts = pgTable('project_artifacts', {
+  id: serial('id').primaryKey(),
+  projectId: integer('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  // website, email_campaign, pitch_deck, proposal, booking, survey, post, brain_note
+  artifactType: varchar('artifact_type', { length: 50 }).notNull(),
+  artifactId: integer('artifact_id').notNull(),
+  displayTitle: varchar('display_title', { length: 255 }).notNull(),
+  pinned: boolean('pinned').default(false).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('project_artifacts_project_idx').on(t.projectId, t.pinned, t.createdAt),
+]);
 
 export const projectWebhooks = pgTable('project_webhooks', {
   id: serial('id').primaryKey(),

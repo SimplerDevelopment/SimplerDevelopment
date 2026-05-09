@@ -62,6 +62,8 @@ export default function CardDetailModal({
               parent={parent}
               onClearParent={() => s.saveField('parentCardId', null)}
               onPickParent={() => setShowParentPicker(true)}
+              watching={s.watching}
+              toggleWatch={s.toggleWatch}
             />
 
             {showParentPicker && (

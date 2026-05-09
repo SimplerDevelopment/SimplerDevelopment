@@ -18,6 +18,8 @@ interface Props {
   parent?: DependencyRef | null;
   onClearParent?: () => void;
   onPickParent?: () => void;
+  watching?: boolean;
+  toggleWatch?: () => void;
 }
 
 export function CardHeader({
@@ -32,6 +34,8 @@ export function CardHeader({
   parent,
   onClearParent,
   onPickParent,
+  watching,
+  toggleWatch,
 }: Props) {
   const cardType = card.cardType ?? 'task';
   const typeMeta = CARD_TYPE_META[cardType];
@@ -92,6 +96,23 @@ export function CardHeader({
           </h2>
         )}
       </div>
+      {toggleWatch && (
+        <button
+          onClick={toggleWatch}
+          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors shrink-0 ${
+            watching
+              ? 'bg-primary/10 border-primary text-primary'
+              : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+          }`}
+          title={watching ? 'You are watching this card — click to unwatch' : 'Watch this card to receive alerts'}
+          aria-pressed={!!watching}
+        >
+          <span className="material-icons text-base">
+            {watching ? 'notifications_active' : 'notifications_none'}
+          </span>
+          {watching ? 'Watching' : 'Watch'}
+        </button>
+      )}
       <button
         onClick={onClose}
         className="p-1.5 rounded-lg hover:bg-accent transition-colors shrink-0"
