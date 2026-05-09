@@ -265,6 +265,34 @@ export const projectWebhookDeliveries = pgTable('project_webhook_deliveries', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Sprint retrospectives. One retro per sprint (enforced via unique index).
+// Items are categorized as went_well, went_poorly, or action_item, with a
+// simple integer vote count maintained client-side via PATCH +1.
+export const sprintRetros = pgTable('sprint_retros', {
+  id: serial('id').primaryKey(),
+  sprintId: integer('sprint_id').notNull().references(() => sprints.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).default('open').notNull(), // open, closed
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('sprint_retros_sprint_idx').on(t.sprintId),
+]);
+
+export const sprintRetroItems = pgTable('sprint_retro_items', {
+  id: serial('id').primaryKey(),
+  retroId: integer('retro_id').notNull().references(() => sprintRetros.id, { onDelete: 'cascade' }),
+  kind: varchar('kind', { length: 20 }).notNull(), // went_well, went_poorly, action_item
+  text: text('text').notNull(),
+  votes: integer('votes').default(0).notNull(),
+  authorUserId: integer('author_user_id').references(() => users.id, { onDelete: 'set null' }),
+  // For action items, optionally promote to a kanban card and remember the link.
+  promotedCardId: integer('promoted_card_id').references(() => kanbanCards.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('sprint_retro_items_retro_idx').on(t.retroId, t.kind),
+]);
+
 // Recurring card creation. A scheduler (Vercel cron, Railway cron, etc.)
 // hits /api/cron/pm-recurrences periodically; the processor reads rows where
 // next_fire_at <= now() and active = true, materializes a card on the

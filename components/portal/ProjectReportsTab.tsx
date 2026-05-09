@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SprintRetroPanel from './SprintRetroPanel';
 
 interface BurndownPoint {
   date: string;
@@ -172,6 +173,18 @@ export default function ProjectReportsTab({ projectId, projectKey }: { projectId
         </p>
         {velocity && velocity.rows.length > 0 ? <VelocityChart payload={velocity} /> : <EmptyChart message="No completed sprints yet — velocity becomes available once sprints close." />}
       </section>
+
+      {/* Retro */}
+      {activeSprintId != null && (
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-1">Sprint retrospective</h2>
+          <p className="text-sm text-muted-foreground mb-3">Three columns: what went well, what didn&rsquo;t, and the action items the team commits to next sprint.</p>
+          <SprintRetroPanel
+            sprintId={activeSprintId}
+            sprintName={sprints.find(s => s.id === activeSprintId)?.name ?? `Sprint ${activeSprintId}`}
+          />
+        </section>
+      )}
 
       {/* Cycle / lead time */}
       <section>

@@ -305,6 +305,8 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'siteBranding',
   'siteNavigation',
   'siteSnapshots',
+  'sprintRetroItems',
+  'sprintRetros',
   'sprintScopeHistory',
   'sprints',
   'storeCustomerMessageReplies',
@@ -509,6 +511,8 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   siteBranding: 'site_branding',
   siteNavigation: 'site_navigation',
   siteSnapshots: 'site_snapshots',
+  sprintRetroItems: 'sprint_retro_items',
+  sprintRetros: 'sprint_retros',
   sprints: 'sprints',
   sprintScopeHistory: 'sprint_scope_history',
   storeCustomerMessageReplies: 'store_customer_message_replies',
@@ -585,13 +589,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (198)', () => {
+  it('reports the recorded number of tables (200)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(198);
+    expect(count).toBe(200);
   });
 });
