@@ -4,6 +4,22 @@ import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { isFieldVisible as evalFieldVisible, resolvePiping } from '@/lib/survey-logic';
 import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
 import type { SurveyRecommendationConfig, PitchDeckTheme } from '@/lib/db/schema';
+import { ALLOWED_SURVEY_UPLOAD_MIMES } from '@/lib/surveys/upload-validation';
+
+/**
+ * Mirror of the server allow-list, joined for use as the <input type="file">
+ * `accept` attribute. UX hint only — the server is the gate.
+ */
+const SURVEY_FILE_ACCEPT_ATTR = ALLOWED_SURVEY_UPLOAD_MIMES.join(',');
+
+interface FileFieldState {
+  /** Upload in flight — Submit / Next stays disabled until cleared. */
+  uploading: boolean;
+  /** Filename displayed in the "uploaded" badge once the URL is stored. */
+  filename?: string;
+  /** Last error message — clears on next selection. */
+  error?: string;
+}
 
 /**
  * RESP-02: per-(slug, browser) session identifier used to upsert the
@@ -180,6 +196,13 @@ export function SurveyFormInline({
   // hydration assigns once on the client.
   const sessionIdRef = useRef<string | null>(null);
   const [resumed, setResumed] = useState(false);
+  // RESP-03: per-field upload state. Keyed by field id so multiple file
+  // fields on the same survey don't share state. An entry with `uploading:
+  // true` blocks Submit / Next; the field's answer (the S3 URL) is stored
+  // separately in `answers[field.id]` so the existing submit flow works
+  // unchanged.
+  const [fileFieldState, setFileFieldState] = useState<Record<string, FileFieldState>>({});
+  const hasInflightUpload = Object.values(fileFieldState).some((s) => s.uploading);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,6 +327,59 @@ export function SurveyFormInline({
     setAnswers(prev => ({ ...prev, [fieldId]: value }));
   }
 
+  /**
+   * RESP-03: POST a selected file to the public upload endpoint and store
+   * the returned URL as the field's answer. Multiple uploads on the same
+   * field replace the previous answer.
+   */
+  const handleFileUpload = useCallback(
+    async (fieldId: string, file: File) => {
+      setFileFieldState((prev) => ({
+        ...prev,
+        [fieldId]: { uploading: true, filename: file.name, error: undefined },
+      }));
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(`/api/surveys/${slug}/upload`, {
+          method: 'POST',
+          body: fd,
+        });
+        const json = await res.json();
+        if (!res.ok || !json?.success) {
+          const msg = json?.message || `Upload failed (HTTP ${res.status})`;
+          setFileFieldState((prev) => ({
+            ...prev,
+            [fieldId]: { uploading: false, error: msg },
+          }));
+          // Clear any prior answer — partial state is worse than no state.
+          setAnswers((prev) => {
+            const next = { ...prev };
+            delete next[fieldId];
+            return next;
+          });
+          return;
+        }
+        const url = json.data?.url;
+        const filename = json.data?.filename || file.name;
+        setAnswers((prev) => ({ ...prev, [fieldId]: url }));
+        setFileFieldState((prev) => ({
+          ...prev,
+          [fieldId]: { uploading: false, filename, error: undefined },
+        }));
+      } catch (err) {
+        setFileFieldState((prev) => ({
+          ...prev,
+          [fieldId]: {
+            uploading: false,
+            error: err instanceof Error ? err.message : 'Upload failed',
+          },
+        }));
+      }
+    },
+    [slug],
+  );
+
   function isFieldVisible(field: SurveyField): boolean {
     return evalFieldVisible(field, answers);
   }
@@ -339,6 +415,10 @@ export function SurveyFormInline({
   }
 
   function handleNext() {
+    if (hasInflightUpload) {
+      setError('Please wait for file uploads to finish');
+      return;
+    }
     const err = validateCurrentPage();
     if (err) { setError(err); return; }
     setError('');
@@ -360,6 +440,10 @@ export function SurveyFormInline({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (hasInflightUpload) {
+      setError('Please wait for file uploads to finish');
+      return;
+    }
     const err = validateCurrentPage();
     if (err) { setError(err); return; }
     setSubmitting(true);
@@ -622,7 +706,10 @@ export function SurveyFormInline({
                       </label>
                       {field.helpText && <p className="text-xs text-gray-500 dark:text-gray-400">{resolvePiping(field.helpText, answers)}</p>}
 
-                      {renderField(field, answers, setAnswer, accent, inputStyle, inputOptionTextColor)}
+                      {renderField(field, answers, setAnswer, accent, inputStyle, inputOptionTextColor, {
+                        fileFieldState: fileFieldState[field.id],
+                        onFileSelect: (file) => handleFileUpload(field.id, file),
+                      })}
                     </div>
                   )}
                 </div>
@@ -653,20 +740,23 @@ export function SurveyFormInline({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity"
+                  disabled={hasInflightUpload}
+                  className="flex items-center gap-1 px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
-                  Next
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  {hasInflightUpload ? 'Uploading…' : 'Next'}
+                  {!hasInflightUpload && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  )}
                 </button>
               ) : (
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50"
+                  disabled={submitting || hasInflightUpload}
+                  className="px-6 py-2.5 rounded-lg font-medium text-sm transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
                 >
-                  {submitting ? 'Submitting...' : 'Submit'}
+                  {submitting ? 'Submitting...' : hasInflightUpload ? 'Uploading…' : 'Submit'}
                 </button>
               )}
             </div>
@@ -679,6 +769,11 @@ export function SurveyFormInline({
 
 // ─── Field Renderer ─────────────────────────────────────────────────────────
 
+interface FileFieldRenderOptions {
+  fileFieldState?: FileFieldState;
+  onFileSelect: (file: File) => void;
+}
+
 function renderField(
   field: SurveyField,
   answers: Record<string, unknown>,
@@ -686,6 +781,7 @@ function renderField(
   color: string,
   fieldInputStyle?: React.CSSProperties,
   optionTextColor?: string,
+  fileOpts?: FileFieldRenderOptions,
 ) {
   const inputCls = "w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:border-transparent";
   const ringStyle = { '--tw-ring-color': color, ...(fieldInputStyle || {}) } as React.CSSProperties;
@@ -863,6 +959,56 @@ function renderField(
           </div>
         </div>
       );
+
+    case 'file': {
+      const state = fileOpts?.fileFieldState;
+      const uploaded = typeof answers[field.id] === 'string' && (answers[field.id] as string).length > 0;
+      const uploading = state?.uploading === true;
+      const errMsg = state?.error;
+      return (
+        <div className="space-y-2">
+          <label
+            className={`flex items-center gap-2 px-3 py-2.5 border border-dashed rounded-lg cursor-pointer transition-colors ${
+              uploading ? 'opacity-70 cursor-wait' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+            style={{ borderColor: color }}
+          >
+            <span className="material-icons text-base" style={{ color }}>
+              {uploading ? 'hourglass_top' : 'attach_file'}
+            </span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {uploading ? 'Uploading…' : uploaded ? 'Replace file' : 'Choose file'}
+            </span>
+            <input
+              type="file"
+              accept={SURVEY_FILE_ACCEPT_ATTR}
+              required={field.required && !uploaded}
+              disabled={uploading}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && fileOpts) fileOpts.onFileSelect(f);
+                // Reset the value so selecting the same file twice still
+                // triggers `change`. The answer state is the source of truth.
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {uploaded && !uploading && (
+            <div className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+              <span className="material-icons text-base">check_circle</span>
+              <span className="truncate">{state?.filename || 'File uploaded'}</span>
+            </div>
+          )}
+          {errMsg && (
+            <div className="flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400">
+              <span className="material-icons text-base">error_outline</span>
+              <span>{errMsg}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     default:
       return null;
