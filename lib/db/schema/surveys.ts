@@ -151,6 +151,10 @@ export const surveys = pgTable('surveys', {
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, closed
   allowMultiple: boolean('allow_multiple').default(true).notNull(), // allow same email to submit multiple times
   requireEmail: boolean('require_email').default(false).notNull(),
+  // DIST-03/04: when true, /s/{slug}/results renders an aggregated public
+  // results page. Aggregate-only by API contract — no individual responses
+  // are exposed. Off by default; surveys must explicitly opt in.
+  publishResults: boolean('publish_results').default(false).notNull(),
   notifyOnResponse: boolean('notify_on_response').default(true).notNull(),
   notifyDigest: varchar('notify_digest', { length: 10 }).default('off').notNull(), // 'off', 'daily', 'weekly'
   closesAt: timestamp('closes_at'),

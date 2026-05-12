@@ -38,6 +38,8 @@ interface Props {
   setEditRequireEmail: (v: boolean) => void;
   editAllowMultiple: boolean;
   setEditAllowMultiple: (v: boolean) => void;
+  editPublishResults: boolean;
+  setEditPublishResults: (v: boolean) => void;
   editNotify: boolean;
   setEditNotify: (v: boolean) => void;
   editDigest: string;
@@ -70,6 +72,8 @@ export default function SurveySettings(props: Props) {
     setEditRequireEmail,
     editAllowMultiple,
     setEditAllowMultiple,
+    editPublishResults,
+    setEditPublishResults,
     editNotify,
     setEditNotify,
     editDigest,
@@ -423,6 +427,21 @@ export default function SurveySettings(props: Props) {
               className="rounded border-border"
             />
             <span className="text-sm text-foreground">Email notification on new response</span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editPublishResults}
+              onChange={(e) => setEditPublishResults(e.target.checked)}
+              className="rounded border-border mt-0.5"
+            />
+            <span className="text-sm text-foreground">
+              Publish public results page
+              <span className="block text-xs text-muted-foreground">
+                Aggregated charts at <code className="px-1 py-0.5 rounded bg-muted text-[11px]">/s/&lt;slug&gt;/results</code>. No
+                individual responses are exposed.
+              </span>
+            </span>
           </label>
         </div>
         <div>

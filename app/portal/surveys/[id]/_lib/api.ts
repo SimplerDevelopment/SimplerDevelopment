@@ -23,6 +23,7 @@ export interface Survey {
   redirectUrl: string | null;
   requireEmail: boolean;
   allowMultiple: boolean;
+  publishResults: boolean;
   notifyOnResponse: boolean;
   notifyDigest: string;
   closesAt: string | null;

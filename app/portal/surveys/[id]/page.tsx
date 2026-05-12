@@ -82,6 +82,7 @@ export default function SurveyDetailPage() {
   const [editBrandingProfileId, setEditBrandingProfileId] = useState<number | null>(null);
   const [editRequireEmail, setEditRequireEmail] = useState(false);
   const [editAllowMultiple, setEditAllowMultiple] = useState(true);
+  const [editPublishResults, setEditPublishResults] = useState(false);
   const [editNotify, setEditNotify] = useState(true);
   const [editDigest, setEditDigest] = useState('off');
   const [editThankYouTitle, setEditThankYouTitle] = useState('');
@@ -105,6 +106,7 @@ export default function SurveyDetailPage() {
     setEditBrandingProfileId(survey.brandingProfileId ?? null);
     setEditRequireEmail(survey.requireEmail);
     setEditAllowMultiple(survey.allowMultiple);
+    setEditPublishResults(survey.publishResults ?? false);
     setEditNotify(survey.notifyOnResponse);
     setEditDigest(survey.notifyDigest || 'off');
     setEditThankYouTitle(survey.thankYouTitle || 'Thank you!');
@@ -291,6 +293,8 @@ export default function SurveyDetailPage() {
           setEditRequireEmail={setEditRequireEmail}
           editAllowMultiple={editAllowMultiple}
           setEditAllowMultiple={setEditAllowMultiple}
+          editPublishResults={editPublishResults}
+          setEditPublishResults={setEditPublishResults}
           editNotify={editNotify}
           setEditNotify={setEditNotify}
           editDigest={editDigest}
@@ -309,6 +313,7 @@ export default function SurveyDetailPage() {
               redirectUrl: editRedirectUrl,
               requireEmail: editRequireEmail,
               allowMultiple: editAllowMultiple,
+              publishResults: editPublishResults,
               notifyOnResponse: editNotify,
               notifyDigest: editDigest,
               closesAt: editClosesAt || null,

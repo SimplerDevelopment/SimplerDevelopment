@@ -64,6 +64,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.redirectUrl !== undefined) updates.redirectUrl = body.redirectUrl || null;
   if (body.allowMultiple !== undefined) updates.allowMultiple = body.allowMultiple;
   if (body.requireEmail !== undefined) updates.requireEmail = body.requireEmail;
+  if (body.publishResults !== undefined) updates.publishResults = !!body.publishResults;
   if (body.notifyOnResponse !== undefined) updates.notifyOnResponse = body.notifyOnResponse;
   if (body.notifyDigest !== undefined) updates.notifyDigest = body.notifyDigest;
   if (body.closesAt !== undefined) updates.closesAt = body.closesAt ? new Date(body.closesAt) : null;
