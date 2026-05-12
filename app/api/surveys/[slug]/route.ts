@@ -46,6 +46,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       color: surveys.color,
       status: surveys.status,
       requireEmail: surveys.requireEmail,
+      // PDF-01: surfaced to the public form so it knows whether to render
+      // the "Download Certificate" CTA on the thank-you screen.
+      certificateEnabled: surveys.certificateEnabled,
       closesAt: surveys.closesAt,
       maxResponses: surveys.maxResponses,
       responseCount: surveys.responseCount,
@@ -273,6 +276,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       thankYouTitle: survey.thankYouTitle,
       thankYouMessage: survey.thankYouMessage,
       redirectUrl: survey.redirectUrl,
+      // PDF-01: the inserted row id is echoed back so the public form can
+      // build a /api/surveys/<slug>/certificate?responseId=<id> link on the
+      // thank-you screen. The id alone isn't sensitive — the certificate
+      // route still verifies it belongs to this survey before rendering.
+      responseId: response.id,
+      certificateEnabled: !!survey.certificateEnabled,
     },
   }, { status: 201 });
 }

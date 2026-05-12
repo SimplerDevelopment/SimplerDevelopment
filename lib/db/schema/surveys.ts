@@ -155,6 +155,10 @@ export const surveys = pgTable('surveys', {
   // results page. Aggregate-only by API contract — no individual responses
   // are exposed. Off by default; surveys must explicitly opt in.
   publishResults: boolean('publish_results').default(false).notNull(),
+  // PDF-01: when true, the public thank-you screen renders a "Download
+  // Certificate" link that hits /api/surveys/{slug}/certificate to fetch a
+  // branded completion PDF. Off by default; owners must opt in.
+  certificateEnabled: boolean('certificate_enabled').default(false).notNull(),
   notifyOnResponse: boolean('notify_on_response').default(true).notNull(),
   notifyDigest: varchar('notify_digest', { length: 10 }).default('off').notNull(), // 'off', 'daily', 'weekly'
   closesAt: timestamp('closes_at'),

@@ -24,6 +24,7 @@ export interface Survey {
   requireEmail: boolean;
   allowMultiple: boolean;
   publishResults: boolean;
+  certificateEnabled: boolean;
   notifyOnResponse: boolean;
   notifyDigest: string;
   closesAt: string | null;
