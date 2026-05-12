@@ -60,6 +60,10 @@
     {
       "path": "/api/cron/pm-column-snapshots",
       "schedule": "55 23 * * *"
+    },
+    {
+      "path": "/api/cron/process-survey-email-followups",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

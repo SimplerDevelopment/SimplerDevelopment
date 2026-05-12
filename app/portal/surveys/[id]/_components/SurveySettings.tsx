@@ -11,6 +11,7 @@
 
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
 import type { BrandingProfile } from '../_lib/api';
+import type { SurveyField } from '@/components/admin/SurveyBuilder';
 
 interface Props {
   saving: boolean;
@@ -51,6 +52,15 @@ interface Props {
   editMaxResponses: string;
   setEditMaxResponses: (v: string) => void;
 
+  // DIST-02: opt-in gate field for follow-up email sequences. `null` means
+  // "email presence is enough" (back-compat for surveys created before the
+  // column existed). The list of selectable fields is sourced from the
+  // survey's `fields` array so the dropdown stays in sync with edits in the
+  // Edit tab.
+  editFields: SurveyField[];
+  editConsentField: string | null;
+  setEditConsentField: (v: string | null) => void;
+
   onSave: () => void;
   onDelete: () => void;
 }
@@ -86,6 +96,9 @@ export default function SurveySettings(props: Props) {
     setEditClosesAt,
     editMaxResponses,
     setEditMaxResponses,
+    editFields,
+    editConsentField,
+    setEditConsentField,
     onSave,
     onDelete,
   } = props;
@@ -479,6 +492,34 @@ export default function SurveySettings(props: Props) {
             Receive a summary email with response stats and highlights
           </p>
         </div>
+
+        {/* DIST-02: consent-field gate for follow-up email sequences. */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-1.5">
+            <span className="material-icons text-base text-muted-foreground">verified_user</span>
+            Email Follow-up Consent Field
+          </label>
+          <select
+            value={editConsentField ?? ''}
+            onChange={(e) => setEditConsentField(e.target.value ? e.target.value : null)}
+            className="w-full sm:w-72 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="">(none — email presence is enough)</option>
+            {(editFields || [])
+              .filter((f) => f.id && f.type !== 'heading' && f.type !== 'page_break' && f.type !== 'file')
+              .map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label || f.id}
+                </option>
+              ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Follow-up email sequences only fire when this field&apos;s answer is truthy
+            (e.g. a checkbox or &ldquo;Yes&rdquo; toggle). Leave unset to send follow-ups to anyone who
+            provides an email address.
+          </p>
+        </div>
+
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Close Date (optional)</label>

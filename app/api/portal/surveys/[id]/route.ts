@@ -66,6 +66,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.requireEmail !== undefined) updates.requireEmail = body.requireEmail;
   if (body.publishResults !== undefined) updates.publishResults = !!body.publishResults;
   if (body.certificateEnabled !== undefined) updates.certificateEnabled = !!body.certificateEnabled;
+  // DIST-02: opt-in gate field. Accepts null (no consent gate beyond email
+  // presence) or a string field id from the survey schema. The cron worker
+  // verifies the field actually exists at send time, so we don't reject
+  // unknown field ids here — they just result in no sends, which is the
+  // safer default.
+  if (body.consentField !== undefined) {
+    updates.consentField =
+      typeof body.consentField === 'string' && body.consentField.trim()
+        ? body.consentField.trim().slice(0, 64)
+        : null;
+  }
   if (body.notifyOnResponse !== undefined) updates.notifyOnResponse = body.notifyOnResponse;
   if (body.notifyDigest !== undefined) updates.notifyDigest = body.notifyDigest;
   if (body.closesAt !== undefined) updates.closesAt = body.closesAt ? new Date(body.closesAt) : null;
