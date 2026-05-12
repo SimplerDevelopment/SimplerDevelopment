@@ -114,6 +114,8 @@ interface SurveyData {
   fields: SurveyField[];
   color: string;
   requireEmail: boolean;
+  /** PDF-01: when true, the thank-you screen offers a branded PDF certificate. */
+  certificateEnabled?: boolean;
   thankYouTitle: string;
   thankYouMessage: string;
   redirectUrl: string | null;
@@ -174,6 +176,10 @@ export function SurveyFormInline({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [thankYou, setThankYou] = useState({ title: '', message: '' });
+  // PDF-01: stash the certificate context after submit so the thank-you
+  // screen can render a "Download Certificate" button. `null` while the
+  // survey is opt-out or before submit completes.
+  const [certificate, setCertificate] = useState<{ responseId: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageHistory, setPageHistory] = useState<number[]>([0]);
   // RESP-02: stable across renders; lazy-initialised so SSR sees `null` and
@@ -402,6 +408,12 @@ export function SurveyFormInline({
       title: data.data.thankYouTitle || 'Thank you!',
       message: data.data.thankYouMessage || '',
     });
+    // PDF-01: only offer the certificate when the survey has it enabled
+    // AND the server echoed back a response id. Either piece missing →
+    // no button is shown (the cert route would 404 anyway).
+    if (data.data.certificateEnabled && typeof data.data.responseId === 'number') {
+      setCertificate({ responseId: data.data.responseId });
+    }
     setSubmitted(true);
   }
 
@@ -507,6 +519,16 @@ export function SurveyFormInline({
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white" style={headingStyle}>{thankYou.title}</h2>
           {thankYou.message && <p className="text-gray-600 dark:text-gray-400 mt-2">{thankYou.message}</p>}
+          {certificate && (
+            <a
+              href={`/api/surveys/${slug}/certificate?responseId=${certificate.responseId}`}
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-opacity hover:opacity-90"
+              style={{ backgroundColor: btnBg, color: btnText, ...(btnRadius ? { borderRadius: btnRadius } : {}) }}
+            >
+              <span className="material-icons text-lg">download</span>
+              Download Certificate
+            </a>
+          )}
         </div>
 
         {rec && recTheme && (

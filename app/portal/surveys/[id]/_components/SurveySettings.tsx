@@ -40,6 +40,8 @@ interface Props {
   setEditAllowMultiple: (v: boolean) => void;
   editPublishResults: boolean;
   setEditPublishResults: (v: boolean) => void;
+  editCertificateEnabled: boolean;
+  setEditCertificateEnabled: (v: boolean) => void;
   editNotify: boolean;
   setEditNotify: (v: boolean) => void;
   editDigest: string;
@@ -74,6 +76,8 @@ export default function SurveySettings(props: Props) {
     setEditAllowMultiple,
     editPublishResults,
     setEditPublishResults,
+    editCertificateEnabled,
+    setEditCertificateEnabled,
     editNotify,
     setEditNotify,
     editDigest,
@@ -440,6 +444,22 @@ export default function SurveySettings(props: Props) {
               <span className="block text-xs text-muted-foreground">
                 Aggregated charts at <code className="px-1 py-0.5 rounded bg-muted text-[11px]">/s/&lt;slug&gt;/results</code>. No
                 individual responses are exposed.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editCertificateEnabled}
+              onChange={(e) => setEditCertificateEnabled(e.target.checked)}
+              className="rounded border-border mt-0.5"
+            />
+            <span className="text-sm text-foreground">
+              Offer completion certificate
+              <span className="block text-xs text-muted-foreground">
+                After submitting, respondents see a &ldquo;Download Certificate&rdquo; button on the thank-you screen.
+                The PDF uses this survey&apos;s branding profile (logo, colors, fonts) and shows the respondent&apos;s
+                name and completion date.
               </span>
             </span>
           </label>
