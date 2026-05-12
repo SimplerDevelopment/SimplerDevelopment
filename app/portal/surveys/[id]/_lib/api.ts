@@ -25,6 +25,9 @@ export interface Survey {
   allowMultiple: boolean;
   publishResults: boolean;
   certificateEnabled: boolean;
+  /** DIST-02: opt-in gate field for follow-up email sequences. `null` means
+   *  having `respondentEmail` is sufficient (back-compat). */
+  consentField: string | null;
   notifyOnResponse: boolean;
   notifyDigest: string;
   closesAt: string | null;

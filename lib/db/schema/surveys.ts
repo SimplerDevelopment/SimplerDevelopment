@@ -159,6 +159,11 @@ export const surveys = pgTable('surveys', {
   // Certificate" link that hits /api/surveys/{slug}/certificate to fetch a
   // branded completion PDF. Off by default; owners must opt in.
   certificateEnabled: boolean('certificate_enabled').default(false).notNull(),
+  // DIST-02: field id whose truthy answer represents the respondent's consent
+  // to receive post-submission follow-up email sequences. Nullable — when
+  // null, presence of `respondentEmail` is treated as sufficient (back-compat
+  // with surveys created before this column existed).
+  consentField: varchar('consent_field', { length: 64 }),
   notifyOnResponse: boolean('notify_on_response').default(true).notNull(),
   notifyDigest: varchar('notify_digest', { length: 10 }).default('off').notNull(), // 'off', 'daily', 'weekly'
   closesAt: timestamp('closes_at'),
@@ -268,6 +273,33 @@ export const surveyEmailSequences = pgTable('survey_email_sequences', {
   enabled: boolean('enabled').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+/**
+ * Per-(sequence, response) send audit row (DIST-01).
+ *
+ * One row per actual send attempt. The unique index on
+ * (sequenceId, surveyResponseId) is the idempotency guard for the cron
+ * worker: even if two ticks pick up the same pending tuple, only the first
+ * INSERT wins and the second silently no-ops via onConflictDoNothing.
+ *
+ * `resendEmailId` stores Resend's id so a future bounce/complaint webhook
+ * can be correlated back to the sequence that triggered it. `error` captures
+ * the resend failure message when the send blew up; the row still gets
+ * inserted so we don't infinitely retry the same broken (sequence, response)
+ * pair.
+ */
+export const surveyEmailSequenceSends = pgTable('survey_email_sequence_sends', {
+  id: serial('id').primaryKey(),
+  sequenceId: integer('sequence_id').notNull().references(() => surveyEmailSequences.id, { onDelete: 'cascade' }),
+  surveyResponseId: integer('survey_response_id').notNull().references(() => surveyResponses.id, { onDelete: 'cascade' }),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  resendEmailId: varchar('resend_email_id', { length: 255 }),
+  error: text('error'),
+}, (t) => ({
+  // Idempotency: each (sequence, response) tuple sends exactly once.
+  sequenceResponseUnique: uniqueIndex('survey_email_sequence_sends_sequence_response_idx')
+    .on(t.sequenceId, t.surveyResponseId),
+}));
 
 export const surveyVariants = pgTable('survey_variants', {
   id: serial('id').primaryKey(),

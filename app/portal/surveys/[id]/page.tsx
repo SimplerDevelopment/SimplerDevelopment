@@ -15,10 +15,11 @@ import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
 import VariantsPanel from './_components/VariantsPanel';
 import WebhooksPanel from './_components/WebhooksPanel';
+import EmailSequencesPanel from './_components/EmailSequencesPanel';
 import { useSurvey } from './_hooks/useSurvey';
 import { type ResponseFilters } from './_lib/api';
 
-type Tab = 'overview' | 'edit' | 'flow' | 'recommendation' | 'variants' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'settings';
+type Tab = 'overview' | 'edit' | 'flow' | 'recommendation' | 'variants' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'email-followups' | 'settings';
 
 const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
   { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
@@ -30,6 +31,10 @@ const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }
   { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
   { key: 'share', label: () => 'Share & Embed', icon: 'share' },
   { key: 'webhooks', label: () => 'Webhooks', icon: 'webhook' },
+  // DIST-01/02: per-survey follow-up email sequences with opt-in gate. Placed
+  // between webhooks and settings so the "outbound automation" controls are
+  // grouped together.
+  { key: 'email-followups', label: () => 'Email Follow-ups', icon: 'forward_to_inbox' },
   { key: 'settings', label: () => 'Settings', icon: 'settings' },
 ];
 
@@ -94,6 +99,9 @@ export default function SurveyDetailPage() {
   const [editClosesAt, setEditClosesAt] = useState('');
   const [editMaxResponses, setEditMaxResponses] = useState('');
   const [editStyling, setEditStyling] = useState<Record<string, string | boolean | undefined>>({});
+  // DIST-02: opt-in gate field for follow-up email sequences. `null` = email
+  // presence is sufficient (back-compat).
+  const [editConsentField, setEditConsentField] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Hydrate editable fields whenever the survey reloads. The set-state-in-
@@ -119,6 +127,7 @@ export default function SurveyDetailPage() {
     setEditClosesAt(survey.closesAt ? survey.closesAt.slice(0, 16) : '');
     setEditMaxResponses(survey.maxResponses ? String(survey.maxResponses) : '');
     setEditStyling((survey.styling as Record<string, string | boolean | undefined>) || {});
+    setEditConsentField(survey.consentField ?? null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [survey]);
 
@@ -280,6 +289,10 @@ export default function SurveyDetailPage() {
 
       {tab === 'webhooks' && <WebhooksPanel surveyId={id} />}
 
+      {tab === 'email-followups' && (
+        <EmailSequencesPanel surveyId={id} surveyFields={editFields} />
+      )}
+
       {tab === 'settings' && (
         <SurveySettings
           saving={saving}
@@ -311,6 +324,9 @@ export default function SurveyDetailPage() {
           setEditClosesAt={setEditClosesAt}
           editMaxResponses={editMaxResponses}
           setEditMaxResponses={setEditMaxResponses}
+          editFields={editFields}
+          editConsentField={editConsentField}
+          setEditConsentField={setEditConsentField}
           onSave={() =>
             save({
               color: editColor,
@@ -327,6 +343,7 @@ export default function SurveyDetailPage() {
               notifyDigest: editDigest,
               closesAt: editClosesAt || null,
               maxResponses: editMaxResponses ? parseInt(editMaxResponses, 10) : null,
+              consentField: editConsentField,
             })
           }
           onDelete={handleDelete}
