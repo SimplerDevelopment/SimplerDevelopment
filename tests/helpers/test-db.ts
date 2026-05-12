@@ -52,14 +52,54 @@ function resetSql() {
   }
 }
 
+/**
+ * Dedicated client for the migration-replay advisory lock. Kept on a separate
+ * connection from `_sql` so a transient TCP reset on the work client (which
+ * `withRetry` handles by tearing down `_sql` and reconnecting) does NOT also
+ * end the lock-holder session. When the lock connection ended mid-replay,
+ * Postgres released the lock on session close and a sibling worker would
+ * race in, causing the `0000_*.sql` ALTER-TABLE deadlock that's been
+ * breaking ~430 integration tests since 2026-05-08.
+ */
+let _lockSql: ReturnType<typeof postgres> | null = null;
+function getLockSql() {
+  if (!_lockSql) {
+    _lockSql = postgres(connection(), {
+      max: 1,
+      onnotice: () => {},
+      idle_timeout: 0,
+      connect_timeout: 30,
+      connection: { TimeZone: 'UTC' },
+    });
+  }
+  return _lockSql;
+}
+
+function resetLockSql() {
+  if (_lockSql) {
+    _lockSql.end({ timeout: 1 }).catch(() => {});
+    _lockSql = null;
+  }
+}
+
 /** Rewrites schema-qualified identifiers so migration SQL lands in the test schema. */
 function rewriteForTestSchema(raw: string): string {
   // Replace `"public".` with `"<schema>".` — migrations use double-quoted identifiers.
   return raw.replace(/"public"\./g, `"${TEST_SCHEMA}".`);
 }
 
-/** Retry a DB op when the underlying TCP connection drops mid-statement. */
-async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+/**
+ * Retry a DB op when the underlying TCP connection drops mid-statement.
+ * `resetOnDrop` picks which client to tear down before the next attempt —
+ * the work client (`'work'`, default) or the lock client (`'lock'`).
+ * Passing the wrong one leaves a dead connection in place and the retry
+ * dies on the same socket.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 3,
+  resetOnDrop: 'work' | 'lock' = 'work',
+): Promise<T> {
   let lastErr: Error | undefined;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -68,7 +108,8 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
       const msg = (err as Error).message;
       const transient = /ECONNRESET|CONNECTION_ENDED|CONNECTION_CLOSED|connection.*(terminated|reset|closed)/i.test(msg);
       if (!transient || i === attempts - 1) throw err;
-      resetSql();     // force a fresh connection
+      if (resetOnDrop === 'lock') resetLockSql();
+      else resetSql();
       await new Promise(r => setTimeout(r, 250 * (i + 1)));
       lastErr = err as Error;
     }
@@ -107,7 +148,14 @@ export async function applyTestSchema(): Promise<void> {
   // pg_proc_*/pg_extension_* unique-constraint errors. Holding a session-scoped
   // advisory lock keyed by a constant forces strict ordering. Released in
   // `finally` so a thrown migration error doesn't strand the lock.
-  await withRetry(() => getSql().unsafe(`SELECT pg_advisory_lock(${MIGRATION_LOCK_KEY})`));
+  //
+  // The lock lives on `_lockSql` — a separate connection from the work
+  // client — so retry-induced resets of `_sql` can't accidentally release
+  // the lock (Postgres releases session-scoped locks when their session
+  // ends). Pre-2026-05-12 code reused `_sql` here, which caused the
+  // ~430-test schema-drift bucket whenever a sibling worker raced in
+  // mid-replay after a transient reset.
+  await withRetry(() => getLockSql().unsafe(`SELECT pg_advisory_lock(${MIGRATION_LOCK_KEY})`), 3, 'lock');
   try {
     // Re-check after acquiring the lock: a sibling worker may have already
     // populated this exact schema name while we were blocked (rare — schemas
@@ -153,11 +201,12 @@ export async function applyTestSchema(): Promise<void> {
       }
     }
   } finally {
-    // pg_advisory_unlock returns boolean; ignore false (lock not held — e.g.
-    // if the connection was reset by withRetry mid-replay, Postgres already
-    // released it on session close, and we just skip the explicit unlock).
+    // pg_advisory_unlock returns boolean; ignore false. Releasing on
+    // `_lockSql` (the connection that acquired the lock) is the load-bearing
+    // detail — releasing on `_sql` would silently no-op because it doesn't
+    // hold the lock.
     try {
-      await getSql().unsafe(`SELECT pg_advisory_unlock(${MIGRATION_LOCK_KEY})`);
+      await getLockSql().unsafe(`SELECT pg_advisory_unlock(${MIGRATION_LOCK_KEY})`);
     } catch {
       // Best-effort: connection may already be gone.
     }
@@ -179,6 +228,9 @@ export async function dropTestSchema(): Promise<void> {
   await sql.unsafe(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`);
   await sql.end({ timeout: 5 });
   _sql = null;
+  // Close the lock connection too — workers exit after this and a lingering
+  // session would hold the slot until idle_timeout.
+  resetLockSql();
 }
 
 export function getTestSql() { return getSql(); }
