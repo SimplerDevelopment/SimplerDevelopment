@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { surveys, surveyResponses, surveyVariants } from '@/lib/db/schema';
+import { surveys, surveyResponses, surveyVariants, surveyPartialResponses } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
@@ -127,8 +127,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
   if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
-  const { answers, email, name, source, sourceId, formName, variantId } = await req.json();
+  const { answers, email, name, source, sourceId, formName, variantId, sessionId } = await req.json();
   if (!answers || typeof answers !== 'object') return corsJson({ success: false, message: 'Answers are required' }, { status: 400 });
+
+  // Optional RESP-02 partial-session handle. Length-bounded + charset-restricted
+  // here too because anything wider than 64 chars or off-whitelist would never
+  // match a real partial row (same validation as the /partial route).
+  const trimmedSessionId =
+    typeof sessionId === 'string' && sessionId.trim().length > 0 && sessionId.trim().length <= 64 && /^[A-Za-z0-9_.\-]+$/.test(sessionId.trim())
+      ? sessionId.trim()
+      : null;
 
   // Validate variantId — must belong to this survey if provided. Reject
   // mismatches so a tampered client can't spray responses across surveys via
@@ -216,6 +224,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       .update(surveys)
       .set({ responseCount: sql`${surveys.responseCount} + 1`, updatedAt: new Date() })
       .where(eq(surveys.id, survey.id));
+
+    // RESP-02: close out the partial-response row so a returning visitor on
+    // the same browser sees a fresh form, not their already-submitted state.
+    // No-op when no partial was ever saved for this session.
+    if (trimmedSessionId) {
+      await tx
+        .update(surveyPartialResponses)
+        .set({ completed: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(surveyPartialResponses.surveyId, survey.id),
+            eq(surveyPartialResponses.sessionId, trimmedSessionId),
+          ),
+        );
+    }
 
     return [inserted];
   });

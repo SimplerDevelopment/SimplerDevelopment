@@ -1,9 +1,50 @@
 'use client';
 
-import { useState, useEffect, FormEvent, useCallback } from 'react';
+import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { isFieldVisible as evalFieldVisible, resolvePiping } from '@/lib/survey-logic';
 import { SurveyRecommendationRenderer } from '@/components/pitch-deck/SurveyRecommendationRenderer';
 import type { SurveyRecommendationConfig, PitchDeckTheme } from '@/lib/db/schema';
+
+/**
+ * RESP-02: per-(slug, browser) session identifier used to upsert the
+ * `survey_partial_responses` row. Stored in localStorage so a returning
+ * visitor on the same browser resumes where they left off; lost if they
+ * clear storage or switch devices (acceptable for a public form).
+ */
+function partialSessionKey(slug: string): string {
+  return `sd-survey-session:${slug}`;
+}
+
+function getOrCreatePartialSessionId(slug: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = partialSessionKey(slug);
+    let id = window.localStorage.getItem(key);
+    if (!id) {
+      // crypto.randomUUID is widely supported in 2026 browsers; fall back to
+      // a Math.random hex string only if it's somehow missing.
+      id =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : Array.from({ length: 4 }, () =>
+              Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0'),
+            ).join('-');
+      window.localStorage.setItem(key, id);
+    }
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+function clearPartialSessionId(slug: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(partialSessionKey(slug));
+  } catch {
+    // localStorage can throw in private-mode or quota-exceeded — best-effort.
+  }
+}
 
 function lightenColor(hex: string, amount: number): string {
   const c = hex.replace('#', '');
@@ -135,17 +176,95 @@ export function SurveyFormInline({
   const [thankYou, setThankYou] = useState({ title: '', message: '' });
   const [currentPage, setCurrentPage] = useState(0);
   const [pageHistory, setPageHistory] = useState<number[]>([0]);
+  // RESP-02: stable across renders; lazy-initialised so SSR sees `null` and
+  // hydration assigns once on the client.
+  const sessionIdRef = useRef<string | null>(null);
+  const [resumed, setResumed] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/surveys/${slug}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) setSurvey(data.data);
-        else setError(data.message || 'Survey not available');
+    let cancelled = false;
+    // Mint or recover the session id BEFORE loading the survey so the partial
+    // fetch can ride alongside the same render-cycle.
+    sessionIdRef.current = getOrCreatePartialSessionId(slug);
+
+    (async () => {
+      try {
+        const surveyRes = await fetch(`/api/surveys/${slug}`);
+        const surveyJson = await surveyRes.json();
+        if (cancelled) return;
+        if (!surveyJson.success) {
+          setError(surveyJson.message || 'Survey not available');
+          setLoading(false);
+          return;
+        }
+        setSurvey(surveyJson.data);
+
+        // Best-effort partial-resume. Silently skip on any error — the form
+        // still works without resume.
+        const sid = sessionIdRef.current;
+        if (sid) {
+          try {
+            const partialRes = await fetch(
+              `/api/surveys/${slug}/partial?sessionId=${encodeURIComponent(sid)}`,
+            );
+            const partialJson = await partialRes.json();
+            if (!cancelled && partialJson?.success && partialJson.data) {
+              const p = partialJson.data;
+              if (p.answers && typeof p.answers === 'object') {
+                setAnswers(p.answers as Record<string, unknown>);
+              }
+              if (typeof p.respondentEmail === 'string') setEmail(p.respondentEmail);
+              if (typeof p.lastPage === 'number' && p.lastPage > 0) {
+                setCurrentPage(p.lastPage);
+                setPageHistory([0, p.lastPage]);
+              }
+              setResumed(true);
+            }
+          } catch {
+            // ignore — fresh form is the safe default
+          }
+        }
         setLoading(false);
-      })
-      .catch(() => { setError('Failed to load survey'); setLoading(false); });
+      } catch {
+        if (!cancelled) {
+          setError('Failed to load survey');
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
+
+  /**
+   * Fire-and-forget save of the in-progress answers. Called after each page
+   * transition once validation has passed. Network failures don't block
+   * navigation — the worst case is the visitor can't resume next session.
+   */
+  const savePartial = useCallback(
+    (overrides?: { lastPage?: number; respondentEmail?: string }) => {
+      const sid = sessionIdRef.current;
+      if (!sid || !survey) return;
+      const payload = {
+        sessionId: sid,
+        answers,
+        lastPage: overrides?.lastPage ?? currentPage,
+        respondentEmail: overrides?.respondentEmail ?? (email || undefined),
+        source,
+        sourceId: sourceId || undefined,
+      };
+      // Don't await; don't surface errors to the user.
+      void fetch(`/api/surveys/${slug}/partial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [slug, survey, answers, currentPage, email, source, sourceId],
+  );
 
   // Load Google Fonts dynamically when branding specifies custom fonts
   useEffect(() => {
@@ -224,6 +343,9 @@ export function SurveyFormInline({
     if (err) { setError(err); return; }
     setError('');
     const next = getNextPage();
+    // Persist progress for resume — fire-and-forget, lands at the destination
+    // page so a returning visitor lands where they left off.
+    savePartial({ lastPage: next });
     setCurrentPage(next);
     setPageHistory(prev => [...prev, next]);
   }
@@ -257,12 +379,19 @@ export function SurveyFormInline({
         // bucket this visitor saw — not whatever the dashboard computes
         // post-hoc. `null` / `undefined` is fine when no variants exist.
         variantId: survey?.variantId ?? undefined,
+        // RESP-02: server closes out the partial row when sessionId is set,
+        // so a returning visitor sees a fresh form instead of resuming a
+        // submission they already completed.
+        sessionId: sessionIdRef.current ?? undefined,
       }),
     });
     const data = await res.json();
     setSubmitting(false);
 
     if (!data.success) { setError(data.message || 'Failed to submit'); return; }
+
+    // Mint a fresh session id for any subsequent submissions on this browser.
+    clearPartialSessionId(slug);
 
     if (data.data.redirectUrl) {
       window.location.href = data.data.redirectUrl;

@@ -1,6 +1,6 @@
 // Surveys / intake forms with recommendation engine, AI summaries, and partial-response capture.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -211,7 +211,11 @@ export const surveyPartialResponses = pgTable('survey_partial_responses', {
   completed: boolean('completed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => ({
+  // RESP-02: one partial row per (survey, session). The upsert in
+  // /api/surveys/[slug]/partial keys off this index.
+  surveySessionUnique: uniqueIndex('survey_partial_responses_survey_session_idx').on(t.surveyId, t.sessionId),
+}));
 
 export const surveyWebhooks = pgTable('survey_webhooks', {
   id: serial('id').primaryKey(),
