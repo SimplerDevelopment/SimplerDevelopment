@@ -88,7 +88,7 @@ export interface SurveyFieldDef {
   id: string;
   type: 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
     | 'select' | 'radio' | 'checkbox' | 'toggle' | 'date' | 'rating' | 'heading' | 'slider'
-    | 'page_break';
+    | 'page_break' | 'file';
   label: string;
   placeholder: string;
   helpText: string;
