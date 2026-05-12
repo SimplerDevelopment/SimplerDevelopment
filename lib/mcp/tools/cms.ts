@@ -106,6 +106,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { publishBlocksUpdate } from '@/lib/realtime/internal-publisher';
+import { assertBlocksAllowedForUserId, BlockGateError } from '@/lib/security/block-allowlist';
 import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from '../blocks-schema';
 import {
   json,
@@ -230,6 +231,12 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, args.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
+      try {
+        await assertBlocksAllowedForUserId(args.blocks, ctx.userId);
+      } catch (e) {
+        if (e instanceof BlockGateError) return json({ error: e.message });
+        throw e;
+      }
       const { includeContent, ...createArgs } = args;
       const result = await stageOrApply({
         ctx,
@@ -288,6 +295,12 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         if (!site) return json({ error: 'Permission denied' });
       } else {
         return json({ error: 'Permission denied — agency post' });
+      }
+      try {
+        await assertBlocksAllowedForUserId(rest.blocks, ctx.userId);
+      } catch (e) {
+        if (e instanceof BlockGateError) return json({ error: e.message });
+        throw e;
       }
       const result = await stageOrApply({
         ctx,
@@ -376,6 +389,15 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, filename, contentBase64, sourceUrl }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      // Gate on author role: posts_upload_html always produces an html-embed
+      // block, which the SEO prefetch path may inline into the parent DOM —
+      // same XSS risk as html-render. Restrict to staff (admin/editor/employee).
+      try {
+        await assertBlocksAllowedForUserId([{ type: 'html-embed' }], ctx.userId);
+      } catch (e) {
+        if (e instanceof BlockGateError) return json({ error: e.message });
+        throw e;
+      }
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
@@ -974,6 +996,12 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      try {
+        await assertBlocksAllowedForUserId(args.blocks, ctx.userId);
+      } catch (e) {
+        if (e instanceof BlockGateError) return json({ error: e.message });
+        throw e;
+      }
       const [collision] = await db.select({ id: blockTemplates.id }).from(blockTemplates)
         .where(eq(blockTemplates.slug, args.slug)).limit(1);
       if (collision) return json({ error: 'A template with this slug already exists' });
@@ -1015,6 +1043,14 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      if (rest.blocks !== undefined) {
+        try {
+          await assertBlocksAllowedForUserId(rest.blocks, ctx.userId);
+        } catch (e) {
+          if (e instanceof BlockGateError) return json({ error: e.message });
+          throw e;
+        }
+      }
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
       // Bump version when the block tree itself changes — global usages key

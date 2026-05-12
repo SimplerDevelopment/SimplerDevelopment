@@ -109,6 +109,7 @@ import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import { extractMentions } from '@/lib/crm/extract-mentions';
 import { createCrmNotification } from '@/lib/crm/notifications';
 import {
+  assertPipelineInClient,
   assertStageInClient,
   assertContactInClient,
   assertCompanyInClient,
@@ -382,6 +383,15 @@ export function registerCrmTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'crm:write')) return denied('crm:write');
+      try {
+        await assertPipelineInClient(args.pipelineId, clientId);
+        await assertStageInClient(args.stageId, clientId);
+        if (args.contactId != null) await assertContactInClient(args.contactId, clientId);
+        if (args.companyId != null) await assertCompanyInClient(args.companyId, clientId);
+      } catch (e) {
+        if (e instanceof OwnershipError) return json({ error: e.message });
+        throw e;
+      }
       const [row] = await db.insert(crmDeals).values({
         clientId,
         title: args.title,

@@ -57,3 +57,24 @@ export function assertBlocksAllowedForRole(content: unknown, role: string | unde
   const hit = findRestrictedType(content);
   if (hit) throw new BlockGateError(hit);
 }
+
+/**
+ * MCP-side variant: looks up the underlying user's role from `users` by id,
+ * then delegates. Used in `lib/mcp/tools/*` where the context only carries
+ * `userId` (not the role). Cheap one-shot query; only runs on writes.
+ *
+ * If the user can't be found, the most conservative interpretation is used —
+ * treat as a non-privileged caller. Throws `BlockGateError` on hit.
+ */
+export async function assertBlocksAllowedForUserId(content: unknown, userId: number): Promise<void> {
+  // Fast-path: skip the DB lookup when the content can't contain a restricted
+  // block at all. Saves a query on every non-block MCP write.
+  const hit = findRestrictedType(content);
+  if (!hit) return;
+  const { db } = await import('@/lib/db');
+  const { users } = await import('@/lib/db/schema');
+  const { eq } = await import('drizzle-orm');
+  const [row] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+  if (row && PRIVILEGED_ROLES.has(row.role)) return;
+  throw new BlockGateError(hit);
+}
