@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
 import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
 import EditTab from './_components/EditTab';
+import FlowDiagramTab from './_components/FlowDiagramTab';
 import ResponseAnalytics from './_components/ResponseAnalytics';
 import ResponsesTab from './_components/ResponsesTab';
 import ShareTab from './_components/ShareTab';
@@ -14,11 +15,12 @@ import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
 import { useSurvey } from './_hooks/useSurvey';
 
-type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
+type Tab = 'overview' | 'edit' | 'flow' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'settings';
 
 const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
   { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
   { key: 'edit', label: () => 'Edit', icon: 'edit' },
+  { key: 'flow', label: () => 'Flow', icon: 'account_tree' },
   { key: 'recommendation', label: () => 'Recommendation', icon: 'recommend' },
   { key: 'responses', label: (n) => `Responses (${n})`, icon: 'people' },
   { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
@@ -203,6 +205,8 @@ export default function SurveyDetailPage() {
           onSave={() => save({ title: editTitle, description: editDescription, fields: editFields })}
         />
       )}
+
+      {tab === 'flow' && <FlowDiagramTab fields={editFields} />}
 
       {tab === 'recommendation' && (
         <SurveyRecommendationEditor
