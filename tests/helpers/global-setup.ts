@@ -1,21 +1,27 @@
 /**
- * Vitest globalSetup for the integration-api project. Runs exactly once before
- * any worker spawns.
+ * Vitest globalSetup for the integration-api project.
  *
- * Purpose: drop any `test_e2e_*` schemas left over from a previous run —
- * typically a worker that was SIGKILLed before its afterAll could tear down.
- * Unbounded accumulation of stale schemas took staging Postgres offline once
- * already (PANIC on full disk); this closes the loop.
+ * `setup` (default export, runs once before any worker spawns) drops any
+ * orphan `test_e2e_*` schemas left from a prior crashed run.
+ *
+ * The function returned from setup is the global teardown — vitest invokes
+ * it after every worker has exited. It drops every `test_e2e_*` schema
+ * this run created. Required because:
+ *   - setupFiles' afterAll fires per-FILE, not per-worker. Dropping there
+ *     forced every one of 193 files to re-replay 107 migrations.
+ *   - Without a teardown, schemas accumulate across runs and fill the
+ *     staging Postgres disk quota (the test DB took the box offline once
+ *     this way already).
  *
  * Safe by construction: the match pattern only touches schemas this test
- * infra owns (`test_e2e_*`), never public or any app schema.
+ * infra owns (`test_e2e_*`), never `public` or any app schema.
  */
 import 'dotenv/config';
 import postgres from 'postgres';
 
-export default async function globalSetup() {
+async function dropOrphanTestSchemas(label: string): Promise<void> {
   const url = process.env.DATABASE_URL_TEST ?? process.env.DATABASE_URL;
-  if (!url) return; // nothing to do; setup-api will surface the real error.
+  if (!url) return; // setup-api will surface the real error if this matters.
 
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   try {
@@ -31,8 +37,18 @@ export default async function globalSetup() {
       await sql.unsafe(`DROP SCHEMA IF EXISTS "${nspname}" CASCADE`);
     }
     // eslint-disable-next-line no-console
-    console.log(`[integration-api:globalSetup] dropped ${rows.length} orphan test_e2e_* schemas`);
+    console.log(`[integration-api:${label}] dropped ${rows.length} test_e2e_* schemas`);
   } finally {
     await sql.end({ timeout: 5 });
   }
+}
+
+export default async function globalSetup() {
+  await dropOrphanTestSchemas('globalSetup');
+  // Return value is the teardown function — vitest calls it after all
+  // workers exit. Keeps staging Postgres from accumulating schemas across
+  // runs and exhausting its disk quota.
+  return async () => {
+    await dropOrphanTestSchemas('globalTeardown');
+  };
 }
