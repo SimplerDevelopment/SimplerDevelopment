@@ -9,9 +9,20 @@
  * still controls the PUT payload shape.
  */
 
+import { useEffect, useState } from 'react';
 import { GoogleFontPicker } from '@/components/blocks/visual/GoogleFontPicker';
 import type { BrandingProfile } from '../_lib/api';
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
+import type { SurveyScoringConfig } from '@/lib/db/schema';
+
+// SCORE-02: pipeline + stage list shape returned by /api/portal/crm/pipelines.
+// The route already eager-loads stages alongside each pipeline so a single
+// fetch covers both the pipeline-select and stage-select.
+interface CrmPipelineSummary {
+  id: number;
+  name: string;
+  stages: { id: number; name: string; sortOrder: number }[];
+}
 
 interface Props {
   saving: boolean;
@@ -52,12 +63,18 @@ interface Props {
   editMaxResponses: string;
   setEditMaxResponses: (v: string) => void;
 
+  // editFields powers both DIST-02 (consent field dropdown) and SCORE-02 (auto-
+  // route panel visibility — only shown when at least one field has scoring).
+  editFields: SurveyField[];
+
+  // SCORE-02: survey-level scoring config (auto-route-to-CRM). State is always
+  // threaded so save() can clear stale configs when no field is scored.
+  editScoringConfig: SurveyScoringConfig | null;
+  setEditScoringConfig: (v: SurveyScoringConfig | null) => void;
+
   // DIST-02: opt-in gate field for follow-up email sequences. `null` means
   // "email presence is enough" (back-compat for surveys created before the
-  // column existed). The list of selectable fields is sourced from the
-  // survey's `fields` array so the dropdown stays in sync with edits in the
-  // Edit tab.
-  editFields: SurveyField[];
+  // column existed).
   editConsentField: string | null;
   setEditConsentField: (v: string | null) => void;
 
@@ -97,11 +114,48 @@ export default function SurveySettings(props: Props) {
     editMaxResponses,
     setEditMaxResponses,
     editFields,
+    editScoringConfig,
+    setEditScoringConfig,
     editConsentField,
     setEditConsentField,
     onSave,
     onDelete,
   } = props;
+
+  // SCORE-02: surface the auto-route panel only when the survey is "scorable"
+  // — i.e. at least one field has a scoring rule. Saves users from setting up
+  // a threshold against a survey that will always score 0.
+  const hasAnyScoredField = (editFields || []).some((f) => !!f.scoring);
+
+  const [pipelines, setPipelines] = useState<CrmPipelineSummary[]>([]);
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
+
+  // Lazy-load pipelines only once, only when the panel is actually visible.
+  // The list endpoint also seeds a default pipeline on first call, so we want
+  // to avoid hitting it for surveys that will never use auto-route.
+  useEffect(() => {
+    if (!hasAnyScoredField || pipelinesLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/portal/crm/pipelines');
+        const data = await res.json();
+        if (!cancelled && data?.success && Array.isArray(data.data)) {
+          setPipelines(data.data as CrmPipelineSummary[]);
+        }
+      } catch {
+        // Swallow — the panel just renders empty selects.
+      } finally {
+        if (!cancelled) setPipelinesLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAnyScoredField, pipelinesLoaded]);
+
+  const autoRoute = editScoringConfig?.autoRouteToCrm;
+  const selectedPipeline = pipelines.find((p) => p.id === autoRoute?.pipelineId);
 
   return (
     <div className="space-y-6">
@@ -543,6 +597,155 @@ export default function SurveySettings(props: Props) {
           </div>
         </div>
       </div>
+
+      {/* SCORE-02: auto-route scored responses to a CRM deal. Hidden until at
+          least one field has a scoring rule — otherwise the threshold could
+          never fire. */}
+      {hasAnyScoredField && (
+        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+          <div className="flex items-start gap-2">
+            <span className="material-icons text-primary">forward_to_inbox</span>
+            <div className="flex-1">
+              <h3 className="font-semibold text-foreground">Auto-route to CRM</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                When a response&apos;s score crosses your threshold (and an email is captured), automatically create a
+                deal in the chosen CRM pipeline.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!autoRoute?.enabled}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                const current = editScoringConfig?.autoRouteToCrm;
+                setEditScoringConfig({
+                  ...editScoringConfig,
+                  autoRouteToCrm: {
+                    enabled,
+                    minScore: current?.minScore ?? 0,
+                    pipelineId: current?.pipelineId ?? 0,
+                    stageId: current?.stageId ?? 0,
+                    dealTitleTemplate: current?.dealTitleTemplate ?? 'Survey lead: {surveyTitle}',
+                  },
+                });
+              }}
+              className="rounded border-border mt-0.5"
+            />
+            <span className="text-sm text-foreground">
+              Enable auto-route
+              <span className="block text-xs text-muted-foreground">
+                Best-effort — a CRM error will never fail the public survey submit.
+              </span>
+            </span>
+          </label>
+
+          {autoRoute?.enabled && (
+            <div className="grid sm:grid-cols-2 gap-4 pt-2 border-t border-border">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Minimum score</label>
+                <input
+                  type="number"
+                  value={Number.isFinite(autoRoute.minScore) ? autoRoute.minScore : 0}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    setEditScoringConfig({
+                      ...editScoringConfig,
+                      autoRouteToCrm: {
+                        ...autoRoute,
+                        minScore: Number.isFinite(n) ? n : 0,
+                      },
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Deal is created when score is at least this value.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Pipeline</label>
+                <select
+                  value={autoRoute.pipelineId || ''}
+                  onChange={(e) => {
+                    const pid = Number(e.target.value);
+                    setEditScoringConfig({
+                      ...editScoringConfig,
+                      autoRouteToCrm: {
+                        ...autoRoute,
+                        pipelineId: Number.isFinite(pid) ? pid : 0,
+                        // Reset stage when pipeline changes — stale stage IDs
+                        // would fail the ownership check at submit time.
+                        stageId: 0,
+                      },
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Select a pipeline…</option>
+                  {pipelines.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {pipelinesLoaded && pipelines.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No CRM pipelines yet.{' '}
+                    <a href="/portal/crm/pipelines" className="text-primary hover:underline">Create one</a>.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Stage</label>
+                <select
+                  value={autoRoute.stageId || ''}
+                  onChange={(e) => {
+                    const sid = Number(e.target.value);
+                    setEditScoringConfig({
+                      ...editScoringConfig,
+                      autoRouteToCrm: {
+                        ...autoRoute,
+                        stageId: Number.isFinite(sid) ? sid : 0,
+                      },
+                    });
+                  }}
+                  disabled={!selectedPipeline}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                >
+                  <option value="">Select a stage…</option>
+                  {(selectedPipeline?.stages || []).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Deal title template</label>
+                <input
+                  type="text"
+                  value={autoRoute.dealTitleTemplate ?? ''}
+                  onChange={(e) => {
+                    setEditScoringConfig({
+                      ...editScoringConfig,
+                      autoRouteToCrm: {
+                        ...autoRoute,
+                        dealTitleTemplate: e.target.value,
+                      },
+                    });
+                  }}
+                  placeholder="Survey lead: {surveyTitle}"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Supports tokens: <code>{'{surveyTitle}'}</code>, <code>{'{respondentName}'}</code>,{' '}
+                  <code>{'{respondentEmail}'}</code>, <code>{'{score}'}</code>.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Save / Delete */}
       <div className="flex items-center justify-between">

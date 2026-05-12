@@ -6,7 +6,7 @@
  */
 
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
-import type { SurveyRecommendationConfig } from '@/lib/db/schema';
+import type { SurveyRecommendationConfig, SurveyScoringConfig } from '@/lib/db/schema';
 
 export interface Survey {
   id: number;
@@ -35,6 +35,8 @@ export interface Survey {
   linkedType: string | null;
   linkedId: number | null;
   recommendation: SurveyRecommendationConfig | null;
+  // SCORE-02: survey-level scoring + auto-route-to-CRM config.
+  scoringConfig: SurveyScoringConfig | null;
   responseCount: number;
   createdAt: string;
   updatedAt: string;

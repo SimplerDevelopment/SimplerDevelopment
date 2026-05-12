@@ -18,6 +18,7 @@ import WebhooksPanel from './_components/WebhooksPanel';
 import EmailSequencesPanel from './_components/EmailSequencesPanel';
 import { useSurvey } from './_hooks/useSurvey';
 import { type ResponseFilters } from './_lib/api';
+import type { SurveyScoringConfig } from '@/lib/db/schema';
 
 type Tab = 'overview' | 'edit' | 'flow' | 'recommendation' | 'variants' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'email-followups' | 'settings';
 
@@ -99,6 +100,9 @@ export default function SurveyDetailPage() {
   const [editClosesAt, setEditClosesAt] = useState('');
   const [editMaxResponses, setEditMaxResponses] = useState('');
   const [editStyling, setEditStyling] = useState<Record<string, string | boolean | undefined>>({});
+  // SCORE-02: survey-level scoring config. State always threaded even when no
+  // field is scored so save() can clear stale configs.
+  const [editScoringConfig, setEditScoringConfig] = useState<SurveyScoringConfig | null>(null);
   // DIST-02: opt-in gate field for follow-up email sequences. `null` = email
   // presence is sufficient (back-compat).
   const [editConsentField, setEditConsentField] = useState<string | null>(null);
@@ -127,6 +131,7 @@ export default function SurveyDetailPage() {
     setEditClosesAt(survey.closesAt ? survey.closesAt.slice(0, 16) : '');
     setEditMaxResponses(survey.maxResponses ? String(survey.maxResponses) : '');
     setEditStyling((survey.styling as Record<string, string | boolean | undefined>) || {});
+    setEditScoringConfig(survey.scoringConfig ?? null);
     setEditConsentField(survey.consentField ?? null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [survey]);
@@ -325,6 +330,8 @@ export default function SurveyDetailPage() {
           editMaxResponses={editMaxResponses}
           setEditMaxResponses={setEditMaxResponses}
           editFields={editFields}
+          editScoringConfig={editScoringConfig}
+          setEditScoringConfig={setEditScoringConfig}
           editConsentField={editConsentField}
           setEditConsentField={setEditConsentField}
           onSave={() =>
@@ -343,6 +350,8 @@ export default function SurveyDetailPage() {
               notifyDigest: editDigest,
               closesAt: editClosesAt || null,
               maxResponses: editMaxResponses ? parseInt(editMaxResponses, 10) : null,
+              // SCORE-02: persist the survey-level scoring/auto-route config.
+              scoringConfig: editScoringConfig,
               consentField: editConsentField,
             })
           }

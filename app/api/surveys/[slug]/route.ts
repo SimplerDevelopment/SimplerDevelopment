@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { surveys, surveyResponses, surveyVariants, surveyPartialResponses } from '@/lib/db/schema';
+import { surveys, surveyResponses, surveyVariants, surveyPartialResponses, crmDeals } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
@@ -8,6 +8,9 @@ import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
 import { dispatchSurveyResponseWebhooks } from '@/lib/survey-webhooks/dispatcher';
 import { ensureVisitorId } from '@/lib/ab/visitor';
 import { assignSurveyVariant } from '@/lib/surveys/variant-assign';
+import { computeSurveyScore } from '@/lib/surveys/score';
+import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
+import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -204,6 +207,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const ip = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() || hdrs.get('x-real-ip') || null;
   const ua = hdrs.get('user-agent') || null;
 
+  // SCORE-01: compute the response score against the served field set
+  // BEFORE the transaction so we can persist it alongside the insert.
+  // `computeSurveyScore` returns null when no field has a scoring rule —
+  // in that case we want to write NULL (not 0) so consumers can tell
+  // "unscorable survey" apart from "scored zero".
+  const computedScore = computeSurveyScore(
+    fields as unknown as SurveyFieldDef[],
+    answers as Record<string, unknown>,
+  );
+
   // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
   // the transaction. Under extreme concurrency at exactly max capacity, two requests could
   // both pass the gate. The transaction prevents count desync but not the gate race.
@@ -221,6 +234,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       userAgent: ua,
       completedAt: new Date(),
       variantId: resolvedVariantId,
+      score: computedScore,
     }).returning();
 
     await tx
@@ -269,6 +283,46 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       surveySlug: survey.slug,
     }).catch((err) => console.error('[survey-webhooks] dispatch failed', err));
   });
+
+  // SCORE-02: evaluate the survey-level auto-route rule. Best-effort —
+  // a CRM hiccup must never fail the public survey submit, so the whole
+  // block is wrapped in try/catch and only logs on failure.
+  try {
+    const autoRoute = survey.scoringConfig?.autoRouteToCrm;
+    const respondentEmail = response.respondentEmail;
+    if (
+      autoRoute?.enabled &&
+      computedScore !== null &&
+      computedScore >= autoRoute.minScore &&
+      respondentEmail
+    ) {
+      // Verify pipeline + stage still belong to this tenant before insert —
+      // protects against stale config pointing at a deleted/moved pipeline.
+      await assertPipelineInClient(autoRoute.pipelineId, survey.clientId);
+      await assertStageInClient(autoRoute.stageId, survey.clientId);
+
+      const template =
+        autoRoute.dealTitleTemplate && autoRoute.dealTitleTemplate.trim().length > 0
+          ? autoRoute.dealTitleTemplate
+          : 'Survey lead: {surveyTitle}';
+      const title = template
+        .replace(/\{surveyTitle\}/g, survey.title || '')
+        .replace(/\{respondentName\}/g, response.respondentName || '')
+        .replace(/\{respondentEmail\}/g, respondentEmail)
+        .replace(/\{score\}/g, String(computedScore));
+
+      await db.insert(crmDeals).values({
+        clientId: survey.clientId,
+        pipelineId: autoRoute.pipelineId,
+        stageId: autoRoute.stageId,
+        title: title.slice(0, 255),
+        notes: `Auto-created from survey response #${response.id}`,
+        ownerId: null,
+      });
+    }
+  } catch (err) {
+    console.error('[surveys/submit] auto-route to CRM failed', err);
+  }
 
   return corsJson({
     success: true,

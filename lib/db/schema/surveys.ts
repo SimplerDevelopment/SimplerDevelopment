@@ -84,6 +84,26 @@ export interface ShowIfCondition {
   rules: ShowIfRule[];
 }
 
+/**
+ * SCORE-01: per-field scoring rule. JSON-only (lives inside `surveys.fields`
+ * and `surveyVariants.fields`). The submit endpoint runs `computeSurveyScore`
+ * over the served field set after a response is inserted and writes the total
+ * back to `surveyResponses.score`.
+ *
+ * - `option_map`: select / radio / checkbox / toggle — map each option label
+ *   (or "Yes"/"No" for toggles) to a numeric weight. Checkbox answers are
+ *   string[]; the score is the sum of each selected option's mapped value.
+ *   Unknown / missing keys contribute 0.
+ * - `numeric`: rating / slider / number — `weight * Number(answer)` if the
+ *   answer parses as a finite number, else 0.
+ * - `nps`: rating / slider — 0-6 → -1 (detractor), 7-8 → 0 (passive),
+ *   9-10 → +1 (promoter). Anything else → 0.
+ */
+export type FieldScoring =
+  | { type: 'option_map'; options: Record<string, number> }
+  | { type: 'numeric'; weight: number }
+  | { type: 'nps' };
+
 export interface SurveyFieldDef {
   id: string;
   type: 'text' | 'textarea' | 'number' | 'email' | 'phone' | 'url'
@@ -103,6 +123,26 @@ export interface SurveyFieldDef {
   goToPage?: Record<string, number>; // { "option_value": pageIndex }
   order: number;
   page?: number; // which page this field belongs to (0-indexed, default 0)
+  // SCORE-01: optional per-field scoring rule. See `FieldScoring` above.
+  scoring?: FieldScoring;
+}
+
+/**
+ * SCORE-02: survey-level scoring config — currently just the CRM auto-route
+ * rule. Persisted in `surveys.scoring_config` (jsonb). When `autoRouteToCrm`
+ * is enabled and a submitted response's score crosses `minScore` AND a
+ * respondent email is captured, the submit endpoint creates a `crmDeals` row
+ * in the chosen pipeline/stage. Failures are swallowed — a CRM hiccup must
+ * never fail the public survey submit.
+ */
+export interface SurveyScoringConfig {
+  autoRouteToCrm?: {
+    enabled: boolean;
+    minScore: number;           // create a deal when score >= minScore
+    pipelineId: number;         // which CRM pipeline
+    stageId: number;            // which stage to drop the deal into
+    dealTitleTemplate?: string; // e.g. "Survey lead: {surveyTitle} ({respondentEmail})"
+  };
 }
 
 export interface SurveyPageDef {
@@ -175,6 +215,10 @@ export const surveys = pgTable('surveys', {
   // survey (not the deck slide) so it stays consistent everywhere the survey
   // is rendered. Pitch-deck slides surface this via `survey.recommendation`.
   recommendation: json('recommendation').$type<SurveyRecommendationConfig>(),
+  // SCORE-02: survey-level scoring config (CRM auto-route threshold rules).
+  // Null means no scoring config; per-field rules in `fields[*].scoring` may
+  // still produce a score, it just won't auto-create CRM deals.
+  scoringConfig: json('scoring_config').$type<SurveyScoringConfig>(),
   // Meta
   responseCount: integer('response_count').default(0).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -201,6 +245,10 @@ export const surveyResponses = pgTable('survey_responses', {
   completedAt: timestamp('completed_at'),
   // A/B variant reference — nullable, FK constraint defined in SQL migration (0042)
   variantId: integer('variant_id'),
+  // SCORE-01: computed total from `computeSurveyScore` over the served field
+  // set. Null when the survey has no scoring rules configured. Integer so it
+  // can be indexed / filtered cheaply later.
+  score: integer('score'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
