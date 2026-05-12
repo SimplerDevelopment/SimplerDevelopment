@@ -10,20 +10,61 @@ function isLegacyRule(showIf: { fieldId: string; values: string[] } | ShowIfCond
   return 'fieldId' in showIf && !('combinator' in showIf);
 }
 
+/** Answer treated as "empty" for `is_empty` / `is_not_empty` operators. */
+function isAnswerEmpty(val: unknown): boolean {
+  if (val === undefined || val === null) return true;
+  if (typeof val === 'string') return val.trim() === '';
+  if (Array.isArray(val)) return val.length === 0;
+  return false;
+}
+
 /**
  * Evaluate a single typed rule against the answer map.
- * Operators: 'equals' (answer is in values), 'not_equals' (answer is NOT in values).
+ *
+ * Semantics for an unanswered dependency field (undefined/null):
+ *  - `not_equals` / `not_contains` / `is_empty`: TRUE (the answer satisfies the negative).
+ *  - everything else: FALSE.
  */
 function evaluateRule(rule: ShowIfRule, answers: AnswerMap): boolean {
   const rawVal = answers[rule.fieldId];
-  if (rawVal === undefined || rawVal === null) return rule.operator === 'not_equals';
+
+  // Presence checks ignore `values`.
+  if (rule.operator === 'is_empty') return isAnswerEmpty(rawVal);
+  if (rule.operator === 'is_not_empty') return !isAnswerEmpty(rawVal);
+
+  if (rawVal === undefined || rawVal === null) {
+    return rule.operator === 'not_equals' || rule.operator === 'not_contains';
+  }
+
   const strVal = String(rawVal);
+
   switch (rule.operator) {
     case 'equals':
       return rule.values.includes(strVal);
     case 'not_equals':
       return !rule.values.includes(strVal);
+    case 'contains': {
+      const hay = strVal.toLowerCase();
+      return rule.values.some((v) => v && hay.includes(v.toLowerCase()));
+    }
+    case 'not_contains': {
+      const hay = strVal.toLowerCase();
+      return !rule.values.some((v) => v && hay.includes(v.toLowerCase()));
+    }
+    case 'greater_than': {
+      const lhs = Number(rawVal);
+      const rhs = Number(rule.values[0]);
+      if (!Number.isFinite(lhs) || !Number.isFinite(rhs)) return false;
+      return lhs > rhs;
+    }
+    case 'less_than': {
+      const lhs = Number(rawVal);
+      const rhs = Number(rule.values[0]);
+      if (!Number.isFinite(lhs) || !Number.isFinite(rhs)) return false;
+      return lhs < rhs;
+    }
     default:
+      // Unknown operator — fall back to equals so legacy payloads behave predictably.
       return rule.values.includes(strVal);
   }
 }

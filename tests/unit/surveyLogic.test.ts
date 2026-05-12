@@ -126,6 +126,93 @@ describe('isFieldVisible — compound conditions', () => {
   });
 });
 
+describe('isFieldVisible — extended operators', () => {
+  it('contains: matches substring case-insensitively', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'contains' as const, values: ['Acme'] }],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 'hello acme corp' })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 'nothing here' })).toBe(false);
+  });
+
+  it('contains: matches if ANY value is a substring', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'contains' as const, values: ['cat', 'dog'] }],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 'I love dogs' })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 'I love birds' })).toBe(false);
+  });
+
+  it('not_contains: true when answer is undefined (negative satisfies)', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'not_contains' as const, values: ['foo'] }],
+    };
+    expect(isFieldVisible({ showIf }, {})).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 'foo bar' })).toBe(false);
+    expect(isFieldVisible({ showIf }, { q1: 'baz' })).toBe(true);
+  });
+
+  it('greater_than: numeric compare', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'greater_than' as const, values: ['10'] }],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 11 })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: '11' })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 10 })).toBe(false);
+    expect(isFieldVisible({ showIf }, { q1: 'not-a-number' })).toBe(false);
+    expect(isFieldVisible({ showIf }, {})).toBe(false);
+  });
+
+  it('less_than: numeric compare', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'less_than' as const, values: ['5'] }],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 4 })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 5 })).toBe(false);
+  });
+
+  it('is_empty: true for undefined / null / empty string / empty array', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'is_empty' as const, values: [] }],
+    };
+    expect(isFieldVisible({ showIf }, {})).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: null })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: '' })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: '   ' })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: [] })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 'hi' })).toBe(false);
+    expect(isFieldVisible({ showIf }, { q1: 0 })).toBe(false);
+  });
+
+  it('is_not_empty: inverse of is_empty', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [{ fieldId: 'q1', operator: 'is_not_empty' as const, values: [] }],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 'hi' })).toBe(true);
+    expect(isFieldVisible({ showIf }, {})).toBe(false);
+  });
+
+  it('combines extended operators with equals under AND', () => {
+    const showIf = {
+      combinator: 'AND' as const,
+      rules: [
+        { fieldId: 'q1', operator: 'equals' as const, values: ['yes'] },
+        { fieldId: 'q2', operator: 'greater_than' as const, values: ['100'] },
+      ],
+    };
+    expect(isFieldVisible({ showIf }, { q1: 'yes', q2: 200 })).toBe(true);
+    expect(isFieldVisible({ showIf }, { q1: 'yes', q2: 50 })).toBe(false);
+    expect(isFieldVisible({ showIf }, { q1: 'no', q2: 200 })).toBe(false);
+  });
+});
+
 describe('resolvePiping', () => {
   it('replaces {fieldId} token with the answer value', () => {
     expect(resolvePiping('You said {abc123}', { abc123: 'hello' })).toBe('You said hello');

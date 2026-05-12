@@ -17,7 +17,17 @@ interface Props {
   onChange: (patch: { showIf?: ShowIfCondition | undefined }) => void;
 }
 
-type UiOperator = 'equals' | 'not_equals' | 'is_one_of' | 'is_not_one_of';
+type UiOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'is_one_of'
+  | 'is_not_one_of'
+  | 'contains'
+  | 'not_contains'
+  | 'greater_than'
+  | 'less_than'
+  | 'is_empty'
+  | 'is_not_empty';
 
 interface RuleState {
   fieldId: string;
@@ -25,12 +35,24 @@ interface RuleState {
   values: string[];
 }
 
+const NUMERIC_FIELD_TYPES = new Set(['number', 'rating', 'slider']);
+
 /** Convert UiOperator + values to stored ShowIfRule operator + values. */
 function toStoredRule(rule: RuleState): ShowIfRule {
-  const operator: 'equals' | 'not_equals' =
-    rule.uiOperator === 'equals' || rule.uiOperator === 'is_one_of'
-      ? 'equals'
-      : 'not_equals';
+  // is_one_of / is_not_one_of are UI sugar over equals / not_equals with N values.
+  let operator: ShowIfRule['operator'];
+  switch (rule.uiOperator) {
+    case 'equals':
+    case 'is_one_of':
+      operator = 'equals';
+      break;
+    case 'not_equals':
+    case 'is_not_one_of':
+      operator = 'not_equals';
+      break;
+    default:
+      operator = rule.uiOperator;
+  }
   return { fieldId: rule.fieldId, operator, values: rule.values };
 }
 
@@ -40,6 +62,18 @@ function fromStoredRule(rule: ShowIfRule, allFields: SurveyFieldMinimal[]): Rule
   const isChoice = triggerField
     ? ['select', 'radio', 'checkbox'].includes(triggerField.type)
     : false;
+
+  // For non-equals/non-not-equals operators, the stored operator is its own UI operator.
+  if (
+    rule.operator === 'contains' ||
+    rule.operator === 'not_contains' ||
+    rule.operator === 'greater_than' ||
+    rule.operator === 'less_than' ||
+    rule.operator === 'is_empty' ||
+    rule.operator === 'is_not_empty'
+  ) {
+    return { fieldId: rule.fieldId, uiOperator: rule.operator, values: rule.values };
+  }
 
   // If values has multiple entries, infer is_one_of / is_not_one_of
   const isMulti = rule.values.length > 1;
@@ -189,10 +223,18 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
         {rules.map((rule, idx) => {
           const triggerField = allFields.find(f => f.id === rule.fieldId);
           const isChoiceField =
-            triggerField &&
+            !!triggerField &&
             ['select', 'radio', 'checkbox'].includes(triggerField.type);
+          const isNumericField =
+            !!triggerField && NUMERIC_FIELD_TYPES.has(triggerField.type);
           const isMultiOp =
             rule.uiOperator === 'is_one_of' || rule.uiOperator === 'is_not_one_of';
+          const isPresenceOp =
+            rule.uiOperator === 'is_empty' || rule.uiOperator === 'is_not_empty';
+          const isNumericOp =
+            rule.uiOperator === 'greater_than' || rule.uiOperator === 'less_than';
+          const isContainsOp =
+            rule.uiOperator === 'contains' || rule.uiOperator === 'not_contains';
 
           return (
             <div key={idx} className="flex items-start gap-2">
@@ -210,7 +252,7 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
                 ))}
               </select>
 
-              {/* Operator selector */}
+              {/* Operator selector — numeric operators only offered for numeric fields. */}
               <select
                 value={rule.uiOperator}
                 onChange={e => handleOperatorChange(idx, e.target.value as UiOperator)}
@@ -220,14 +262,27 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
                 <option value="not_equals">Is not</option>
                 <option value="is_one_of">Is one of</option>
                 <option value="is_not_one_of">Is not one of</option>
+                <option value="contains">Contains</option>
+                <option value="not_contains">Does not contain</option>
+                {(isNumericField || !triggerField) && (
+                  <>
+                    <option value="greater_than">Greater than</option>
+                    <option value="less_than">Less than</option>
+                  </>
+                )}
+                <option value="is_empty">Is empty</option>
+                <option value="is_not_empty">Is not empty</option>
               </select>
 
               {/* Value input — depends on field type + operator */}
               <div className="flex-1 min-w-0">
-                {isMultiOp && isChoiceField ? (
+                {isPresenceOp ? (
+                  // Presence ops take no value.
+                  <span className="text-xs text-muted-foreground italic">(no value)</span>
+                ) : isMultiOp && isChoiceField ? (
                   // Multi-value: checkboxes for choice fields
                   <div className="flex flex-wrap gap-2">
-                    {triggerField.options.filter(Boolean).map(opt => (
+                    {triggerField!.options.filter(Boolean).map(opt => (
                       <label key={opt} className="flex items-center gap-1 text-xs cursor-pointer">
                         <input
                           type="checkbox"
@@ -248,6 +303,24 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
                     placeholder="Enter values, comma-separated..."
                     className={`${inputCls} w-full`}
                   />
+                ) : isNumericOp ? (
+                  // Numeric threshold
+                  <input
+                    type="number"
+                    value={rule.values[0] ?? ''}
+                    onChange={e => handleSingleValueChange(idx, e.target.value)}
+                    placeholder="Enter number..."
+                    className={`${inputCls} w-full`}
+                  />
+                ) : isContainsOp ? (
+                  // Substring match — always free text (case-insensitive at eval time)
+                  <input
+                    type="text"
+                    value={rule.values[0] ?? ''}
+                    onChange={e => handleSingleValueChange(idx, e.target.value)}
+                    placeholder="Enter substring..."
+                    className={`${inputCls} w-full`}
+                  />
                 ) : isChoiceField ? (
                   // Single-value: dropdown from field options
                   <select
@@ -256,7 +329,7 @@ export default function ConditionalLogicPanel({ field, allFields, onChange }: Pr
                     className={`${inputCls} w-full`}
                   >
                     <option value="">Select value...</option>
-                    {triggerField.options.filter(Boolean).map(opt => (
+                    {triggerField!.options.filter(Boolean).map(opt => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>

@@ -59,7 +59,23 @@ export interface SurveyRecommendationConfig {
 
 export interface ShowIfRule {
   fieldId: string;
-  operator: 'equals' | 'not_equals';
+  /**
+   * Comparison operator applied to the dependency field's answer.
+   *
+   * - `equals` / `not_equals`: ANY of `values` matches the stringified answer.
+   * - `contains` / `not_contains`: ANY of `values` is a case-insensitive substring of the stringified answer.
+   * - `greater_than` / `less_than`: `Number(answer)` compared to `Number(values[0])`.
+   * - `is_empty` / `is_not_empty`: presence check; `values` is ignored.
+   */
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'not_contains'
+    | 'greater_than'
+    | 'less_than'
+    | 'is_empty'
+    | 'is_not_empty';
   values: string[];
 }
 
