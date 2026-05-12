@@ -37,13 +37,18 @@ import './helpers/test-bootstrap';
 import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { apiMocks } from './helpers/api-mocks';
-import { applyTestSchema, truncateTestData, dropTestSchema } from './helpers/test-db';
+import { applyTestSchema, truncateTestData } from './helpers/test-db';
 
 export const server = setupServer(...apiMocks);
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
-  await applyTestSchema();   // idempotent — skipped if this worker's schema was reused
+  // First test file in a worker pays the full migration replay (~5min on a
+  // remote staging DB). Every subsequent file finds the schema already
+  // populated and skips the replay via the `users` table presence-check.
+  // The schema is kept alive across files — orphans from crashed runs are
+  // swept by `tests/helpers/global-setup.ts` at the start of the next run.
+  await applyTestSchema();
 });
 
 beforeEach(async () => {
@@ -53,8 +58,10 @@ beforeEach(async () => {
 
 afterAll(async () => {
   server.close();
-  // Drop this worker's schema on teardown so we don't accumulate across runs.
-  // If Vitest is configured with singleFork (preferred), this drops exactly
-  // once per integration-api run — the migration replay cost is paid once.
-  await dropTestSchema();
+  // DO NOT call dropTestSchema() here. setupFiles' afterAll runs at the end
+  // of *each test file*, not end-of-worker — dropping here forced every
+  // single file to pay the full migration-replay cost in its beforeAll
+  // (~5min × 193 files). Letting the schema persist within a worker turns
+  // 193 replays back into 1 replay per worker. The globalSetup file sweeps
+  // any leftover `test_e2e_*` schemas at the start of the next run.
 });

@@ -121,7 +121,13 @@ export default defineConfig({
           // that override `maxWorkers`; otherwise startup fails with
           // "different 'maxWorkers' but same 'sequence.groupOrder'".
           sequence: { groupOrder: 2 },
-          hookTimeout: 120_000,
+          // The FIRST test file in each worker pays the full migration replay
+          // (~5 min on a remote staging DB across 107 migrations). Every
+          // subsequent file finds the schema populated and runs `applyTestSchema`
+          // in milliseconds. 120s was too tight for the first replay and was
+          // causing every file to skip with "Hook timed out". 360s covers the
+          // worst-case remote-DB replay with margin.
+          hookTimeout: 360_000,
           testTimeout: 15_000,
         },
       },
