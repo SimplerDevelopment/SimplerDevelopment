@@ -23,6 +23,28 @@ export interface AutomationAction {
   delay?: number; // delay in seconds before executing (0 = immediate)
 }
 
+/**
+ * Time-based trigger config attached to an automation rule. When set, the
+ * scheduler cron (app/api/cron/process-scheduled-automations) fires the rule
+ * unconditionally according to this cadence — the row's `trigger.event` is
+ * effectively a sentinel (typically 'automation.scheduled') because event
+ * matching is skipped for scheduled rules.
+ *
+ * v1 is UTC-only: `time` is interpreted as UTC and no timezone field is
+ * exposed. Cron expressions are also evaluated in UTC. DST is not handled.
+ */
+export interface AutomationSchedule {
+  cadence: 'daily' | 'weekly' | 'monthly' | 'cron';
+  /** 'HH:mm' in 24h UTC. Required for daily/weekly/monthly. */
+  time?: string;
+  /** 0 (Sun) - 6 (Sat). Required for weekly. */
+  dayOfWeek?: number;
+  /** 1-31. Required for monthly. Clamped to last day if month is shorter. */
+  dayOfMonth?: number;
+  /** Raw 5-field cron expression. Required for cadence='cron'. */
+  cronExpression?: string;
+}
+
 export const automationRules = pgTable('automation_rules', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
@@ -34,6 +56,12 @@ export const automationRules = pgTable('automation_rules', {
   enabled: boolean('enabled').default(true).notNull(),
   source: varchar('source', { length: 20 }).default('nlp').notNull(), // 'nlp' | 'settings' | 'manual'
   productScope: varchar('product_scope', { length: 50 }), // null = cross-product, or 'booking', 'email', 'crm', etc.
+  // Time-based trigger config. Null = event-driven (current behavior). When
+  // set, the scheduler cron drives execution and `next_run_at` is the next
+  // firing time. The partial index `automation_rules_next_run_at_idx` keeps
+  // the per-minute scan cheap.
+  schedule: json('schedule').$type<AutomationSchedule>(),
+  nextRunAt: timestamp('next_run_at'),
   executionCount: integer('execution_count').default(0).notNull(),
   lastExecutedAt: timestamp('last_executed_at'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
