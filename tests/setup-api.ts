@@ -37,17 +37,12 @@ import './helpers/test-bootstrap';
 import { beforeAll, afterAll, beforeEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { apiMocks } from './helpers/api-mocks';
-import { applyTestSchema, truncateTestData } from './helpers/test-db';
+import { applyTestSchema, truncateTestData, dropTestSchema } from './helpers/test-db';
 
 export const server = setupServer(...apiMocks);
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
-  // First test file in a worker pays the full migration replay (~5min on a
-  // remote staging DB). Every subsequent file finds the schema already
-  // populated and skips the replay via the `users` table presence-check.
-  // The schema is kept alive across files — orphans from crashed runs are
-  // swept by `tests/helpers/global-setup.ts` at the start of the next run.
   await applyTestSchema();
 });
 
@@ -58,10 +53,15 @@ beforeEach(async () => {
 
 afterAll(async () => {
   server.close();
-  // DO NOT call dropTestSchema() here. setupFiles' afterAll runs at the end
-  // of *each test file*, not end-of-worker — dropping here forced every
-  // single file to pay the full migration-replay cost in its beforeAll
-  // (~5min × 193 files). Letting the schema persist within a worker turns
-  // 193 replays back into 1 replay per worker. The globalSetup file sweeps
-  // any leftover `test_e2e_*` schemas at the start of the next run.
+  // Drop the per-worker schema at the end of each FILE. setupFiles' afterAll
+  // fires per-file (vitest 4.x behavior), so this is effectively per-file +
+  // per-worker, paid for by a fresh applyTestSchema() in the next file's
+  // beforeAll. The drop+replay cycle keeps Postgres catalog bloat bounded —
+  // earlier attempts to persist the schema across files hit TRUNCATE-of-210-
+  // tables performance cliffs after ~50 files because pg_class accumulates
+  // dead tuples faster than autovacuum can clean. Per-file replay is slower
+  // overall (~5s per migration × 107 migrations against local Postgres ≈
+  // a few minutes per file) but bounded and reliable. globalSetup at the
+  // start of the next run sweeps any leftovers from a crashed worker.
+  await dropTestSchema();
 });
