@@ -34,8 +34,14 @@ export default function NewPortalCampaignPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
-  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
-  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  // Collapse both editor side panels on phone first-mount so the iframe gets
+  // the row; users tap the chevrons to expand either as a mobile overlay.
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
 

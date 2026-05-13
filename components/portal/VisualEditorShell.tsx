@@ -112,8 +112,17 @@ export function VisualEditorShell({
   const [pickerCategory, setPickerCategory] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'content' | 'style'>('content');
-  const [leftCollapsedInternal, setLeftCollapsedInternal] = useState(leftCollapsedProp ?? false);
-  const [rightCollapsedInternal, setRightCollapsedInternal] = useState(rightCollapsedProp ?? false);
+  // Default both side panels to collapsed on phone — at 375px the 240px
+  // LeftPanel + 320px RightPanel would otherwise overlay everything via the
+  // mobile fixed-position fallback. Consumers can still override via the prop.
+  const phoneDefault = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+  const [leftCollapsedInternal, setLeftCollapsedInternal] = useState(
+    () => leftCollapsedProp ?? phoneDefault()
+  );
+  const [rightCollapsedInternal, setRightCollapsedInternal] = useState(
+    () => rightCollapsedProp ?? phoneDefault()
+  );
   const leftCollapsed = leftCollapsedProp ?? leftCollapsedInternal;
   const rightCollapsed = rightCollapsedProp ?? rightCollapsedInternal;
   const setLeftCollapsed = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
