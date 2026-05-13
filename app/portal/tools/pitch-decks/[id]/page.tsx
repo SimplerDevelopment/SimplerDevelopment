@@ -114,6 +114,8 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
   const [boardView, setBoardView] = useState(false);
   const [boardColumns, setBoardColumns] = useState(4);
+  // Mobile-only: SlideList becomes a slide-out drawer overlay below md. Closed by default.
+  const [mobileSlideDrawerOpen, setMobileSlideDrawerOpen] = useState(false);
 
   const [aiHistory, setAiHistory] = useState<Record<number, AiHistoryTurn[]>>({});
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
@@ -1094,8 +1096,51 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           </div>
         </div>
       ) : (
-        <div className="flex gap-4">
-          <div className="flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+          {/* Phone-only "Slides" trigger + active-slide breadcrumb */}
+          <div className="md:hidden flex items-center gap-2 -mb-1">
+            <button
+              onClick={() => setMobileSlideDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground hover:bg-accent transition-colors min-h-[40px]"
+            >
+              <span className="material-icons text-base">view_carousel</span>
+              Slides ({deck.slides.length})
+            </button>
+            <span className="text-xs text-muted-foreground truncate">
+              {activeSlide + 1}. {currentSlide.label || 'Untitled'}
+            </span>
+          </div>
+
+          {/* Backdrop — phone-only, shown when drawer is open */}
+          {mobileSlideDrawerOpen && (
+            <div
+              onClick={() => setMobileSlideDrawerOpen(false)}
+              className="md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+          )}
+
+          {/* SlideList wrapper:
+              - <md: fixed slide-over drawer from left edge, toggled by mobileSlideDrawerOpen
+              - ≥md: inline left rail (existing behavior) */}
+          <div
+            className={`
+              flex flex-col gap-2 overflow-y-auto
+              md:static md:translate-x-0 md:z-auto md:w-auto md:max-w-none md:bg-transparent md:shadow-none md:p-0 md:h-auto md:overflow-visible
+              fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-background shadow-xl p-3 transition-transform duration-200
+              ${mobileSlideDrawerOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}
+          >
+            <div className="md:hidden flex items-center justify-between pb-2 border-b border-border">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Slides</span>
+              <button
+                onClick={() => setMobileSlideDrawerOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                aria-label="Close slides panel"
+              >
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
             <SlideList
               slides={deck.slides}
               activeSlide={activeSlide}
@@ -1107,7 +1152,13 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               surveyListLoaded={surveyListLoaded}
               surveyList={surveyList}
               getSurveyFieldCount={getSurveyFieldCount}
-              onSetActive={setActiveSlide}
+              onSetActive={(idx) => {
+                setActiveSlide(idx);
+                // Auto-close mobile drawer after picking a slide
+                if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+                  setMobileSlideDrawerOpen(false);
+                }
+              }}
               onSetCollapsed={setSlidePanelCollapsed}
               onOpenBoardView={() => setBoardView(true)}
               onAddSlide={addSlide}
@@ -1159,8 +1210,8 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               activeSlideIndex={activeSlide}
               trackedRef={slideCanvasRef}
             />
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground min-w-0 truncate max-w-full">
                 Slide {activeSlide + 1} of {deck.slides.length} · {currentSlide.label || 'Untitled'}
               </span>
               {slideIsPendingCreate(currentSlide) && (
