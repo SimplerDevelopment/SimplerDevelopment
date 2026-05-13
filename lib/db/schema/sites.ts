@@ -144,6 +144,14 @@ export const clientWebsites = pgTable('client_websites', {
   // so a page can override a CPT-level rule which can override a site rule.
   customCss: text('custom_css'),
   customJs: text('custom_js'),
+  // Draft custom CSS/JS — staged but not yet live. MCP writes from
+  // `sites_update_custom_code` land here by default; the public renderer
+  // ignores these columns. `sites_publish_custom_code` copies draft → live.
+  draftCustomCss: text('draft_custom_css'),
+  draftCustomJs: text('draft_custom_js'),
+  // Timestamp of the most recent draft write; null when draft is in sync with live.
+  draftUpdatedAt: timestamp('draft_updated_at'),
+  draftUpdatedBy: integer('draft_updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -257,6 +265,28 @@ export const googleWebsiteTokens = pgTable('google_website_tokens', {
 
 // Per-website store settings
 
+// Per-item draft overlay. When set, the visual editor reads `draft.*`;
+// the public renderer always ignores `draft` and reads the live columns.
+// `nav_publish` copies draft → live and clears draft.
+// `pendingDelete` is a tombstone — set when a delete is staged but not yet
+// published; the renderer still shows the item until publish.
+export interface SiteNavigationDraft {
+  label?: string;
+  href?: string;
+  parentId?: number | null;
+  sortOrder?: number;
+  openInNewTab?: boolean;
+  isButton?: boolean;
+  description?: string | null;
+  icon?: string | null;
+  featuredImage?: string | null;
+  columnGroup?: number | null;
+  pendingDelete?: boolean;
+  pendingCreate?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
+}
+
 export const siteNavigation = pgTable('site_navigation', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
@@ -271,6 +301,7 @@ export const siteNavigation = pgTable('site_navigation', {
   icon: varchar('icon', { length: 100 }),
   featuredImage: varchar('featured_image', { length: 500 }),
   columnGroup: integer('column_group'),
+  draft: json('draft').$type<SiteNavigationDraft | null>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

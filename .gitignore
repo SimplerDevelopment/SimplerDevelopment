@@ -74,3 +74,4 @@ public/_cmp*
 public/_cmp/
 .planning/postcaptain-replication/_probe-*.mjs
 .planning/postcaptain-replication/probe-*.mjs
+backups/

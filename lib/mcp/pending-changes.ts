@@ -19,8 +19,14 @@ export type EntityType =
   | 'post'
   | 'pitch_deck'
   | 'pitch_deck_slides'
+  | 'pitch_deck_slide_draft' // per-slide draft publish (operation = 'publish')
   | 'proposal'
-  | 'email_campaign';
+  | 'email_campaign'
+  | 'site' // client_websites: customCss/customJs/branding (update, publish_custom_code)
+  | 'site_nav' // site_navigation items + draft jsonb (create/update/delete/publish)
+  | 'block_template' // block_templates draft jsonb (create/update/delete/publish)
+  | 'taxonomy' // categories + tags (create)
+  | 'post_taxonomy'; // post → taxonomy link set
 
 export type Operation =
   | 'create'
@@ -28,7 +34,10 @@ export type Operation =
   | 'delete'
   | 'send'
   | 'replace_slides'
-  | 'add_slide';
+  | 'add_slide'
+  | 'publish' // promote draft → live (sites, nav, templates, deck slides)
+  | 'publish_all' // bulk publish across a parent (e.g. all slide drafts on a deck, all nav drafts on a site)
+  | 'upload_html'; // posts_upload_html / decks_upload_html
 
 export type StageOrApplyResult<T> =
   | { pending: true; pendingId: number; summary: string; status: 'pending' }

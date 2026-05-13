@@ -158,6 +158,20 @@ export const postCustomFieldValues = pgTable('post_custom_field_values', {
 
 // Block Templates - saved reusable block configurations
 
+export interface BlockTemplateDraft {
+  name?: string;
+  description?: string | null;
+  category?: string;
+  scope?: string;
+  blocks?: unknown;
+  thumbnail?: string | null;
+  tags?: string[];
+  lockedFields?: string[];
+  pendingDelete?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
+}
+
 export const blockTemplates = pgTable('block_templates', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -170,6 +184,10 @@ export const blockTemplates = pgTable('block_templates', {
   tags: json('tags').$type<string[]>().default([]), // searchable tags
   lockedFields: json('locked_fields').$type<string[]>().default([]), // field paths that can't be edited (e.g., "0.type", "0.style.backgroundColor")
   version: integer('version').default(1).notNull(),
+  // Draft overlay — MCP writes land here by default. Public block-template
+  // pickers and the "use this template" insertion path read live fields only.
+  // `block_templates_publish` copies draft → live and clears draft.
+  draft: json('draft').$type<BlockTemplateDraft | null>(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
