@@ -13,6 +13,14 @@ import { clients } from '@/lib/db/schema';
 import { and, eq, isNotNull } from 'drizzle-orm';
 
 const CACHE_TTL_MS = 60_000;
+// Middleware runs on Vercel with a hard wall-clock budget (~25s), so the DB
+// lookup must never block the request path for long. If Postgres is slow or
+// unreachable we fail open to "no match" — the request falls through to the
+// existing `/sites/<host>/...` rewrite, which is what 99% of tenants already
+// hit. White-label agencies will be briefly demoted to the default rewrite
+// (cached for CACHE_TTL_MS), which is a strictly better failure mode than
+// returning 504 MIDDLEWARE_INVOCATION_TIMEOUT on every request.
+const DB_LOOKUP_TIMEOUT_MS = 1_000;
 
 interface CachedHit {
   clientId: number;
@@ -47,7 +55,7 @@ export async function resolveCustomDomain(
 
   let row: { id: number; defaultWebsiteId: number | null } | undefined;
   try {
-    [row] = await db
+    const lookup = db
       .select({ id: clients.id, defaultWebsiteId: clients.defaultWebsiteId })
       .from(clients)
       .where(
@@ -57,8 +65,19 @@ export async function resolveCustomDomain(
         ),
       )
       .limit(1);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('custom-domain lookup timeout')), DB_LOOKUP_TIMEOUT_MS),
+    );
+    const result = (await Promise.race([lookup, timeout])) as Array<{
+      id: number;
+      defaultWebsiteId: number | null;
+    }>;
+    [row] = result;
   } catch {
-    // DB unreachable — fail open to "no match" so we don't 500 every request.
+    // DB unreachable or slow — fail open to "no match" so we don't 504 every
+    // request via MIDDLEWARE_INVOCATION_TIMEOUT. We intentionally do NOT cache
+    // the negative result here so the next request gets a fresh attempt; if
+    // the DB recovers within a second, white-label routing is restored.
     return null;
   }
 
