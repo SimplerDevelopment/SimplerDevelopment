@@ -167,6 +167,7 @@ export interface BlockTemplateDraft {
   thumbnail?: string | null;
   tags?: string[];
   lockedFields?: string[];
+  pendingCreate?: boolean;
   pendingDelete?: boolean;
   updatedAt?: string;
   updatedBy?: number;

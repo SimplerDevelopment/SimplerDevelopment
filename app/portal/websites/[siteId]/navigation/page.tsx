@@ -27,6 +27,9 @@ export default function NavigationEditorPage() {
     moveItem,
     updateBranding,
     save,
+    publishItem,
+    publishAll,
+    cancelDelete,
   } = useNavigation(siteId);
 
   const [activeTab, setActiveTab] = useState<'items' | 'branding'>('items');
@@ -119,6 +122,9 @@ export default function NavigationEditorPage() {
                 onAddTopLevel={() => addItem()}
                 onAddChild={(parentId) => (isMega ? addColumn(parentId) : addItem(parentId))}
                 onAddMegaItem={addMegaItem}
+                onPublishItem={publishItem}
+                onPublishAll={publishAll}
+                onCancelDelete={cancelDelete}
               />
             ) : (
               <MenuSettings branding={branding} onChange={updateBranding} siteId={siteId} />

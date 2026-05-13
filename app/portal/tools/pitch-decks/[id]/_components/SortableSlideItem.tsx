@@ -5,7 +5,13 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
-import { getSlideIcon, getSlideTitle } from '../_lib/helpers';
+import {
+  getSlideIcon,
+  getSlideTitle,
+  slideHasDraft,
+  slideIsPendingCreate,
+  slideIsPendingDelete,
+} from '../_lib/helpers';
 
 export interface SortableSlideItemProps {
   slide: PitchDeckSlideV2;
@@ -17,13 +23,23 @@ export interface SortableSlideItemProps {
   onDuplicate: () => void;
   onRemove: () => void;
   onToggleSelect: () => void;
+  /** Publish this slide's draft (if any). */
+  onPublish?: () => void;
+  /** Cancel the slide's draft / pending-delete. Hides when no draft exists. */
+  onCancelDraft?: () => void;
+  /** True while a publish request is in flight for THIS slide. */
+  publishing?: boolean;
   canRemove: boolean;
   surveyFieldCount?: number;
 }
 
 export function SortableSlideItem({
-  slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect, canRemove, surveyFieldCount,
+  slide, index, isActive, isSelected, onClick, onRename, onDuplicate, onRemove, onToggleSelect,
+  onPublish, onCancelDraft, publishing, canRemove, surveyFieldCount,
 }: SortableSlideItemProps) {
+  const hasDraft = slideHasDraft(slide);
+  const pendingDelete = slideIsPendingDelete(slide);
+  const pendingCreate = slideIsPendingCreate(slide);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id });
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -90,7 +106,7 @@ export function SortableSlideItem({
           />
         ) : (
           <span
-            className="text-sm truncate"
+            className={`text-sm truncate ${pendingDelete ? 'line-through opacity-60' : ''}`}
             onDoubleClick={(e) => {
               e.stopPropagation();
               setRenameValue(slide.label || getSlideTitle(slide));
@@ -101,6 +117,33 @@ export function SortableSlideItem({
             {getSlideTitle(slide)}
           </span>
         )}
+        {pendingCreate && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold shrink-0"
+            title="New slide — not yet published"
+          >
+            <span className="material-icons text-[10px]">fiber_new</span>
+            New
+          </span>
+        )}
+        {pendingDelete && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 font-semibold shrink-0"
+            title="Marked for deletion — still live until you publish"
+          >
+            <span className="material-icons text-[10px]">delete_sweep</span>
+            Pending delete
+          </span>
+        )}
+        {hasDraft && !pendingCreate && !pendingDelete && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold shrink-0"
+            title="Unpublished draft changes"
+          >
+            <span className="material-icons text-[10px]">edit_note</span>
+            Draft
+          </span>
+        )}
         {slide.surveySlide && surveyFieldCount != null && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium shrink-0" title={`Expands to ${surveyFieldCount} question slides`}>
             {surveyFieldCount} slides
@@ -108,6 +151,29 @@ export function SortableSlideItem({
         )}
       </div>
       <div className="flex items-center shrink-0 pr-2 gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        {hasDraft && onPublish && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onPublish(); }}
+            disabled={publishing}
+            className="p-1 rounded hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors disabled:opacity-50"
+            title={pendingDelete ? 'Publish — removes this slide' : pendingCreate ? 'Publish new slide' : 'Publish draft changes'}
+          >
+            <span className={`material-icons text-sm ${publishing ? 'animate-spin' : ''}`}>
+              {publishing ? 'autorenew' : 'publish'}
+            </span>
+          </button>
+        )}
+        {hasDraft && onCancelDraft && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onCancelDraft(); }}
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            title={pendingDelete ? 'Cancel deletion' : 'Discard draft changes'}
+          >
+            <span className="material-icons text-sm">undo</span>
+          </button>
+        )}
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDuplicate(); }}

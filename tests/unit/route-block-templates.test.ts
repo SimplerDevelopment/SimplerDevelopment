@@ -301,13 +301,17 @@ describe('PUT /api/block-templates/[id] — auth + role + block-allowlist', () =
   });
 });
 
-describe('DELETE /api/block-templates/[id] — auth + role', () => {
+describe('DELETE /api/block-templates/[id] — auth + role (now stages a tombstone)', () => {
+  // The route was switched from hard-delete to draft-tombstone semantics
+  // (lib/sites/publish-block-template.ts performs the physical delete on
+  // publish). The auth gates below are unchanged.
   it('rejects anonymous requests with 401', async () => {
     authMock.mockResolvedValueOnce(null);
     const { DELETE } = await loadItem();
     const res = await DELETE(new Request('http://x', { method: 'DELETE' }) as never, paramsId('1'));
     expect(res.status).toBe(401);
     expect(deleteMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
   });
 
   it('rejects client-role with 403', async () => {
@@ -316,14 +320,28 @@ describe('DELETE /api/block-templates/[id] — auth + role', () => {
     const res = await DELETE(new Request('http://x', { method: 'DELETE' }) as never, paramsId('1'));
     expect(res.status).toBe(403);
     expect(deleteMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it('admin + no usages → deletes', async () => {
+  it('admin + no usages → stages pendingDelete on the draft (does NOT hard-delete)', async () => {
     authMock.mockResolvedValueOnce({ user: { id: '7', role: 'admin' } });
-    selectQueue.push([]); // no usages
+    selectQueue.push([{ id: 1, draft: null }]); // existing row lookup
+    selectQueue.push([]); // usage check — none
+    const { DELETE } = await loadItem();
+    const res = await DELETE(new Request('http://x', { method: 'DELETE' }) as never, paramsId('1'));
+    expect(res.status).toBe(200);
+    expect(deleteMock).not.toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('admin + draft-only (pendingCreate) row → hard-deletes (nothing live to tombstone)', async () => {
+    authMock.mockResolvedValueOnce({ user: { id: '7', role: 'admin' } });
+    selectQueue.push([{ id: 1, draft: { pendingCreate: true, name: 'X' } }]);
+    selectQueue.push([]); // usage check
     const { DELETE } = await loadItem();
     const res = await DELETE(new Request('http://x', { method: 'DELETE' }) as never, paramsId('1'));
     expect(res.status).toBe(200);
     expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(updateMock).not.toHaveBeenCalled();
   });
 });

@@ -42,10 +42,22 @@ export async function fetchSiteStatus(siteId: string): Promise<SiteStatus | null
 }
 
 export async function saveNavigation(siteId: string, items: NavItem[]) {
+  // Wire only the draft flags the server cares about (pendingDelete keeps
+  // a removed-but-not-published row as a tombstone). Everything else in
+  // `draft` is server-managed and re-derived on read.
+  const wire = withSequentialSortOrder(items).map((item) => ({
+    ...item,
+    draft: item.draft
+      ? {
+          pendingDelete: !!item.draft.pendingDelete,
+          pendingCreate: !!item.draft.pendingCreate,
+        }
+      : null,
+  }));
   return fetch(`${portalBase(siteId)}/navigation`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: withSequentialSortOrder(items) }),
+    body: JSON.stringify({ items: wire }),
   });
 }
 
@@ -55,6 +67,22 @@ export async function saveBranding(siteId: string, branding: Branding) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(branding),
   });
+}
+
+/** Promote a single nav item's draft → live. */
+export async function publishNavItem(siteId: string, itemId: number) {
+  const res = await fetch(`${portalBase(siteId)}/navigation/${itemId}/publish`, {
+    method: 'POST',
+  });
+  return (await res.json()) as ApiEnvelope<unknown>;
+}
+
+/** Promote every nav item with a non-null draft → live. */
+export async function publishAllNav(siteId: string) {
+  const res = await fetch(`${portalBase(siteId)}/navigation/publish-all`, {
+    method: 'POST',
+  });
+  return (await res.json()) as ApiEnvelope<unknown>;
 }
 
 /**

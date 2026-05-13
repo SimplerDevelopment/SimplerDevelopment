@@ -14,6 +14,13 @@ export interface EditorHeaderProps {
   editingSlug: boolean;
   slugDraft: string;
   slugError: string | null;
+  /**
+   * Count of slides on the deck that currently have a `draft` overlay. When
+   * > 0 the header shows a "Publish all drafts" button next to Save.
+   */
+  draftSlideCount?: number;
+  /** True while the publish-all request is in flight. */
+  publishingAllDrafts?: boolean;
   onStartEditTitle: () => void;
   onTitleDraftChange: (v: string) => void;
   onSaveTitle: () => void;
@@ -28,6 +35,7 @@ export interface EditorHeaderProps {
   onToggleSeo: () => void;
   onSave: () => void;
   onTogglePublish: () => void;
+  onPublishAllDrafts?: () => void;
   onPresent: () => void;
   onDelete: () => void;
   onStartAbTest?: () => void;
@@ -38,9 +46,11 @@ export function EditorHeader(props: EditorHeaderProps) {
   const {
     deck, saving, publishing, hasUnsavedChanges,
     editingTitle, titleDraft, editingSlug, slugDraft, slugError,
+    draftSlideCount = 0, publishingAllDrafts = false,
     onStartEditTitle, onTitleDraftChange, onSaveTitle, onCancelEditTitle,
     onStartEditSlug, onSlugDraftChange, onSaveSlug, onCancelEditSlug,
     onToggleTheme, onToggleRegenerate, onToggleHistory, onToggleSeo, onSave, onTogglePublish,
+    onPublishAllDrafts,
     onPresent, onDelete, onStartAbTest, presenterUrl,
   } = props;
 
@@ -179,6 +189,33 @@ export function EditorHeader(props: EditorHeaderProps) {
           )}
           {saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}
         </button>
+        {onPublishAllDrafts && (
+          <button
+            onClick={onPublishAllDrafts}
+            disabled={publishingAllDrafts || draftSlideCount === 0}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
+              draftSlideCount > 0
+                ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                : 'border border-border text-muted-foreground'
+            }`}
+            title={
+              draftSlideCount === 0
+                ? 'No draft slides to publish'
+                : `Publish ${draftSlideCount} draft slide${draftSlideCount === 1 ? '' : 's'} to make them live`
+            }
+          >
+            {publishingAllDrafts ? (
+              <span className="material-icons animate-spin text-base">autorenew</span>
+            ) : (
+              <span className="material-icons text-base">edit_note</span>
+            )}
+            {publishingAllDrafts
+              ? 'Publishing...'
+              : draftSlideCount > 0
+                ? `Publish ${draftSlideCount} draft${draftSlideCount === 1 ? '' : 's'}`
+                : 'No drafts'}
+          </button>
+        )}
         <Link
           href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
           target="_blank"

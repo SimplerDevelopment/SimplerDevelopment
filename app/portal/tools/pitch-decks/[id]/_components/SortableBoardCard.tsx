@@ -6,7 +6,14 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import { SlideBlockWrapper } from '@/components/pitch-deck/SlideBlockWrapper';
-import { getPathGroupColor, getSlideIcon } from '../_lib/helpers';
+import {
+  getPathGroupColor,
+  getSlideIcon,
+  getSlideView,
+  slideHasDraft,
+  slideIsPendingCreate,
+  slideIsPendingDelete,
+} from '../_lib/helpers';
 
 export interface SortableBoardCardProps {
   slide: PitchDeckSlideV2;
@@ -28,6 +35,11 @@ export function SortableBoardCard({
   const [renameValue, setRenameValue] = useState('');
   const thumbRef = useRef<HTMLDivElement>(null);
   const [thumbScale, setThumbScale] = useState(0.25);
+  // Board thumbnails always reflect the editor view (drafts overlay live).
+  const slideView = getSlideView(slide);
+  const hasDraft = slideHasDraft(slide);
+  const pendingCreate = slideIsPendingCreate(slide);
+  const pendingDelete = slideIsPendingDelete(slide);
 
   useEffect(() => {
     const el = thumbRef.current;
@@ -76,7 +88,30 @@ export function SortableBoardCard({
           {surveyFieldCount} question slides
         </div>
       )}
-      <button type="button" onClick={onClick} className="w-full text-left">
+      {hasDraft && (
+        <div
+          className={`absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold shadow ${
+            pendingDelete
+              ? 'bg-red-500/90 text-white'
+              : pendingCreate
+                ? 'bg-blue-500/90 text-white'
+                : 'bg-amber-500/90 text-white'
+          }`}
+          title={
+            pendingDelete
+              ? 'Marked for deletion'
+              : pendingCreate
+                ? 'New slide — not yet published'
+                : 'Unpublished draft changes'
+          }
+        >
+          <span className="material-icons text-xs">
+            {pendingDelete ? 'delete_sweep' : pendingCreate ? 'fiber_new' : 'edit_note'}
+          </span>
+          {pendingDelete ? 'Pending delete' : pendingCreate ? 'New' : 'Draft'}
+        </div>
+      )}
+      <button type="button" onClick={onClick} className={`w-full text-left ${pendingDelete ? 'opacity-60' : ''}`}>
         <div ref={thumbRef} className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
           <div
             className="pointer-events-none absolute top-0 left-0"
@@ -88,10 +123,10 @@ export function SortableBoardCard({
             }}
           >
             <SlideBlockWrapper
-              slide={slide}
+              slide={slideView}
               theme={theme}
               className="w-full h-full"
-              fullBleed={slide.blocks?.length === 1 && slide.blocks[0].type === 'html-embed' && (slide.blocks[0].width ?? 'full') === 'full'}
+              fullBleed={slideView.blocks?.length === 1 && slideView.blocks[0].type === 'html-embed' && (slideView.blocks[0].width ?? 'full') === 'full'}
             />
           </div>
         </div>
@@ -113,7 +148,7 @@ export function SortableBoardCard({
           />
         ) : (
           <span
-            className="text-xs text-foreground truncate cursor-text"
+            className={`text-xs text-foreground truncate cursor-text ${pendingDelete ? 'line-through opacity-60' : ''}`}
             onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(slide.label || ''); setRenaming(true); }}
           >
             {slide.label || 'Untitled'}

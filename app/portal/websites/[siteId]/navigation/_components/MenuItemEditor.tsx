@@ -16,9 +16,26 @@ interface Props {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onAddChild?: () => void;
+  onPublish?: () => void;
+  onCancelDelete?: () => void;
   depth?: number;
   isMegaMenu?: boolean;
   siteId?: string;
+}
+
+function formatDraftTooltip(item: NavItem): string {
+  const updatedAt = item.draft?.updatedAt;
+  const updatedBy = item.draft?.updatedBy;
+  const parts: string[] = [];
+  if (updatedAt) {
+    try {
+      parts.push(`Updated ${new Date(updatedAt).toLocaleString()}`);
+    } catch {
+      parts.push(`Updated ${updatedAt}`);
+    }
+  }
+  if (updatedBy != null) parts.push(`by user ${updatedBy}`);
+  return parts.length > 0 ? parts.join(' ') : 'Unpublished draft';
 }
 
 export function MenuItemEditor({
@@ -30,10 +47,15 @@ export function MenuItemEditor({
   onMoveUp,
   onMoveDown,
   onAddChild,
+  onPublish,
+  onCancelDelete,
   depth = 0,
   isMegaMenu = false,
   siteId,
 }: Props) {
+  const hasDraft = item.draft != null;
+  const pendingDelete = item.draft?.pendingDelete === true;
+  const draftTooltip = formatDraftTooltip(item);
   // Determine the role of this item in mega menu mode
   const megaRole: MegaRole = isMegaMenu
     ? depth === 0
@@ -67,7 +89,11 @@ export function MenuItemEditor({
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium text-foreground truncate">{item.label}</span>
+              <span
+                className={`text-sm font-medium text-foreground truncate ${pendingDelete ? 'line-through text-muted-foreground' : ''}`}
+              >
+                {item.label}
+              </span>
               {item.isButton && (
                 <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary leading-none">
                   Button
@@ -78,12 +104,52 @@ export function MenuItemEditor({
                   {roleLabel}
                 </span>
               )}
+              {hasDraft && !pendingDelete && (
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 leading-none"
+                  title={draftTooltip}
+                >
+                  Draft
+                </span>
+              )}
+              {pendingDelete && (
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10 text-destructive leading-none"
+                  title={draftTooltip}
+                >
+                  Pending delete
+                </span>
+              )}
             </div>
             {megaRole !== 'column' && (
-              <span className="text-xs text-muted-foreground truncate block">{item.href}</span>
+              <span
+                className={`text-xs text-muted-foreground truncate block ${pendingDelete ? 'line-through' : ''}`}
+              >
+                {item.href}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
+            {pendingDelete && onCancelDelete && (
+              <button
+                onClick={onCancelDelete}
+                className="p-1 hover:bg-muted rounded"
+                title="Cancel deletion"
+              >
+                <span className="material-icons text-sm text-muted-foreground">undo</span>
+              </button>
+            )}
+            {hasDraft && onPublish && item.id > 0 && (
+              <button
+                onClick={onPublish}
+                className="p-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded"
+                title={`Publish this item${draftTooltip ? ` — ${draftTooltip}` : ''}`}
+              >
+                <span className="material-icons text-sm text-amber-700 dark:text-amber-300">
+                  publish
+                </span>
+              </button>
+            )}
             <button onClick={onMoveUp} className="p-1 hover:bg-muted rounded" title="Move up">
               <span className="material-icons text-sm text-muted-foreground">
                 keyboard_arrow_up

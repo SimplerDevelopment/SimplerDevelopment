@@ -16,6 +16,22 @@ interface BlockTemplate {
   version: number;
   createdAt: string;
   updatedAt: string;
+  draft?: BlockTemplateDraft | null;
+}
+
+interface BlockTemplateDraft {
+  name?: string;
+  description?: string | null;
+  category?: string;
+  scope?: string;
+  blocks?: unknown;
+  thumbnail?: string | null;
+  tags?: string[];
+  lockedFields?: string[];
+  pendingDelete?: boolean;
+  pendingCreate?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
 }
 
 const SCOPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -58,7 +74,7 @@ export default function TemplatesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this template? This cannot be undone.')) return;
+    if (!confirm('Stage this template for deletion? It stays live until you click Publish.')) return;
 
     const response = await fetch(`/api/block-templates/${id}`, { method: 'DELETE' });
     const data = await response.json();
@@ -69,6 +85,45 @@ export default function TemplatesPage() {
     }
 
     fetchTemplates();
+  };
+
+  const handlePublish = async (id: number) => {
+    const response = await fetch(`/api/block-templates/${id}/publish`, {
+      method: 'POST',
+    });
+    const data = await response.json();
+    if (!data.success) {
+      alert(data.message);
+      return;
+    }
+    fetchTemplates();
+  };
+
+  const handleCancelDelete = async (id: number) => {
+    const response = await fetch(`/api/block-templates/${id}/cancel-delete`, {
+      method: 'POST',
+    });
+    const data = await response.json();
+    if (!data.success) {
+      alert(data.message);
+      return;
+    }
+    fetchTemplates();
+  };
+
+  const formatDraftTooltip = (template: BlockTemplate): string => {
+    const updatedAt = template.draft?.updatedAt;
+    const updatedBy = template.draft?.updatedBy;
+    const parts: string[] = [];
+    if (updatedAt) {
+      try {
+        parts.push(`Updated ${new Date(updatedAt).toLocaleString()}`);
+      } catch {
+        parts.push(`Updated ${updatedAt}`);
+      }
+    }
+    if (updatedBy != null) parts.push(`by user ${updatedBy}`);
+    return parts.length > 0 ? parts.join(' ') : 'Unpublished draft';
   };
 
   const handleEdit = (template: BlockTemplate) => {
@@ -306,10 +361,20 @@ export default function TemplatesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map((template) => (
+            {templates.map((template) => {
+              const hasDraft = template.draft != null;
+              const pendingDelete = template.draft?.pendingDelete === true;
+              const draftTooltip = formatDraftTooltip(template);
+              return (
               <div
                 key={template.id}
-                className="bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 transition-colors group"
+                className={`bg-card border rounded-lg overflow-hidden transition-colors group ${
+                  pendingDelete
+                    ? 'border-destructive/40 hover:border-destructive/60'
+                    : hasDraft
+                      ? 'border-amber-400 hover:border-amber-500 dark:border-amber-700'
+                      : 'border-border hover:border-primary/50'
+                }`}
               >
                 {/* Preview area */}
                 <div className="h-32 bg-muted/30 flex items-center justify-center border-b border-border">
@@ -343,11 +408,37 @@ export default function TemplatesPage() {
 
                 {/* Info */}
                 <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-foreground text-sm">{template.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${SCOPE_LABELS[template.scope]?.color || 'bg-gray-100 text-gray-700'}`}>
-                      {SCOPE_LABELS[template.scope]?.label || template.scope}
-                    </span>
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <h3
+                      className={`font-semibold text-sm ${
+                        pendingDelete ? 'line-through text-muted-foreground' : 'text-foreground'
+                      }`}
+                    >
+                      {template.name}
+                    </h3>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {hasDraft && !pendingDelete && (
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 leading-none flex items-center gap-0.5"
+                          title={draftTooltip}
+                        >
+                          <span className="material-icons text-[12px]">edit_note</span>
+                          Draft
+                        </span>
+                      )}
+                      {pendingDelete && (
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10 text-destructive leading-none flex items-center gap-0.5"
+                          title={draftTooltip}
+                        >
+                          <span className="material-icons text-[12px]">delete</span>
+                          Pending delete
+                        </span>
+                      )}
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${SCOPE_LABELS[template.scope]?.color || 'bg-gray-100 text-gray-700'}`}>
+                        {SCOPE_LABELS[template.scope]?.label || template.scope}
+                      </span>
+                    </div>
                   </div>
                   {template.description && (
                     <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
@@ -368,24 +459,49 @@ export default function TemplatesPage() {
                   )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>v{template.version}</span>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEdit(template)}
-                        className="text-primary hover:text-primary/80"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(template.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
+                    <div className="flex gap-2 items-center">
+                      {hasDraft && (
+                        <button
+                          onClick={() => handlePublish(template.id)}
+                          className="inline-flex items-center gap-0.5 text-amber-700 dark:text-amber-300 hover:underline font-medium"
+                          title={`Publish this template — ${draftTooltip}`}
+                        >
+                          <span className="material-icons text-sm">publish</span>
+                          Publish
+                        </button>
+                      )}
+                      {pendingDelete && (
+                        <button
+                          onClick={() => handleCancelDelete(template.id)}
+                          className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+                          title="Cancel staged deletion"
+                        >
+                          <span className="material-icons text-sm">undo</span>
+                          Cancel deletion
+                        </button>
+                      )}
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEdit(template)}
+                          className="text-primary hover:text-primary/80"
+                        >
+                          Edit
+                        </button>
+                        {!pendingDelete && (
+                          <button
+                            onClick={() => handleDelete(template.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

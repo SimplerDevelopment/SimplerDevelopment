@@ -9,7 +9,7 @@ import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
-import { getSlideTitle } from '../_lib/helpers';
+import { getSlideTitle, slideHasDraft } from '../_lib/helpers';
 import { SortableSlideItem } from './SortableSlideItem';
 import { PathGroupDropZone } from './PathGroupDropZone';
 
@@ -25,6 +25,8 @@ export interface SlideListProps {
   surveyList: { id: number; title: string; status: string; fields: unknown[] }[];
   getSurveyFieldCount: (surveyId?: number) => number | undefined;
 
+  /** Slide id currently being published (single-slide). Disables that row's button. */
+  publishingSlideId?: string | null;
   onSetActive: (idx: number) => void;
   onSetCollapsed: (v: boolean) => void;
   onOpenBoardView: () => void;
@@ -34,6 +36,10 @@ export interface SlideListProps {
   onDuplicateSlide: (idx: number) => void;
   onRemoveSlide: (idx: number) => void;
   onToggleSelect: (idx: number) => void;
+  /** Publish a single slide's draft. Sibling to onRemoveSlide. */
+  onPublishSlide?: (idx: number) => void;
+  /** Cancel a single slide's draft (or pending-delete). */
+  onCancelSlideDraft?: (idx: number) => void;
   onAddDecisionSlide: () => void;
   onAddPathGroup: () => void;
   onAddSlideToPathGroup: (pg: string) => void;
@@ -46,9 +52,10 @@ export function SlideList(props: SlideListProps) {
   const {
     slides, activeSlide, selectedSlides, collapsed, pathGroups,
     hasSurveyService, showSurveyPicker, surveyListLoaded, surveyList,
-    getSurveyFieldCount,
+    getSurveyFieldCount, publishingSlideId,
     onSetActive, onSetCollapsed, onOpenBoardView, onAddSlide, onUploadHtmlSlide,
     onRenameSlide, onDuplicateSlide, onRemoveSlide, onToggleSelect,
+    onPublishSlide, onCancelSlideDraft,
     onAddDecisionSlide, onAddPathGroup, onAddSlideToPathGroup,
     onToggleSurveyPicker, onAddSurveySlide, onDragEnd,
   } = props;
@@ -76,14 +83,17 @@ export function SlideList(props: SlideListProps) {
                 <button
                   key={slide.id}
                   onClick={() => onSetActive(idx)}
-                  className={`w-full py-2 text-center text-xs font-mono border-b border-border/50 last:border-0 transition-colors ${
+                  className={`relative w-full py-2 text-center text-xs font-mono border-b border-border/50 last:border-0 transition-colors ${
                     idx === activeSlide
                       ? 'bg-primary/10 text-primary font-bold'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
-                  title={getSlideTitle(slide)}
+                  title={`${getSlideTitle(slide)}${slideHasDraft(slide) ? ' (has draft)' : ''}`}
                 >
                   {idx + 1}
+                  {slideHasDraft(slide) && (
+                    <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  )}
                 </button>
               ))}
             </div>
@@ -182,6 +192,9 @@ export function SlideList(props: SlideListProps) {
                           onDuplicate={() => onDuplicateSlide(idx)}
                           onRemove={() => onRemoveSlide(idx)}
                           onToggleSelect={() => onToggleSelect(idx)}
+                          onPublish={onPublishSlide ? () => onPublishSlide(idx) : undefined}
+                          onCancelDraft={onCancelSlideDraft ? () => onCancelSlideDraft(idx) : undefined}
+                          publishing={publishingSlideId === slide.id}
                           canRemove={slides.length > 1}
                           surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                         />
@@ -235,6 +248,9 @@ export function SlideList(props: SlideListProps) {
                             onDuplicate={() => onDuplicateSlide(idx)}
                             onRemove={() => onRemoveSlide(idx)}
                             onToggleSelect={() => onToggleSelect(idx)}
+                            onPublish={onPublishSlide ? () => onPublishSlide(idx) : undefined}
+                            onCancelDraft={onCancelSlideDraft ? () => onCancelSlideDraft(idx) : undefined}
+                            publishing={publishingSlideId === slide.id}
                             canRemove={slides.length > 1}
                             surveyFieldCount={slide.surveySlide ? getSurveyFieldCount(slide.surveyId) : undefined}
                           />

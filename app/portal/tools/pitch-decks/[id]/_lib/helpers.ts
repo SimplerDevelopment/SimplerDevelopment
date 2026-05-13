@@ -1,6 +1,91 @@
 /** Pure helpers used across the pitch-deck editor — slide titles, icons, color math, block-id backfill. */
 import type { PitchDeckSlideV2 } from '@/lib/db/schema';
 
+/**
+ * Returns the slide as it should be displayed in the editor: draft fields
+ * overlay the live fields when set. The public renderer (outside the editor)
+ * intentionally never calls this — it reads the live fields directly.
+ *
+ * Use this for any read of `blocks`, `customCss`, `pageSettings`, `notes`
+ * inside the editor. Other slide-level fields (label, surveySlide, decisionSlide,
+ * pathGroup, etc.) are not draftable and are pulled straight from the slide.
+ */
+export function getSlideView(slide: PitchDeckSlideV2): PitchDeckSlideV2 {
+  const d = slide.draft;
+  if (!d) return slide;
+  return {
+    ...slide,
+    blocks: d.blocks ?? slide.blocks,
+    customCss: d.customCss ?? slide.customCss,
+    pageSettings: d.pageSettings ?? slide.pageSettings,
+    notes: d.notes ?? slide.notes,
+  };
+}
+
+/** True iff the slide has any draft state (any of the draft.* fields set). */
+export function slideHasDraft(slide: PitchDeckSlideV2): boolean {
+  return slide.draft != null;
+}
+
+/** True iff the slide is a draft tombstone (will disappear on publish). */
+export function slideIsPendingDelete(slide: PitchDeckSlideV2): boolean {
+  return slide.draft?.pendingDelete === true;
+}
+
+/** True iff the slide exists only as a draft (live fields empty). */
+export function slideIsPendingCreate(slide: PitchDeckSlideV2): boolean {
+  return slide.draft?.pendingCreate === true;
+}
+
+/**
+ * Merge a partial set of draftable fields into a slide's `draft` overlay.
+ * The live fields are left untouched. `pendingCreate` is preserved (a pending-
+ * created slide that gets edited stays pending-created); `pendingDelete` is
+ * cleared because any content edit implicitly cancels a queued deletion.
+ *
+ * `updatedAt` / `updatedBy` are caller-supplied because we don't have a userId
+ * in client code. The server doesn't read them — they're advisory.
+ */
+export function mergeSlideDraft(
+  slide: PitchDeckSlideV2,
+  patch: {
+    blocks?: PitchDeckSlideV2['blocks'];
+    customCss?: string;
+    pageSettings?: PitchDeckSlideV2['pageSettings'];
+    notes?: string;
+  },
+): PitchDeckSlideV2 {
+  const prev = slide.draft ?? {};
+  const next: NonNullable<PitchDeckSlideV2['draft']> = {
+    ...prev,
+    ...patch,
+    // any content edit clears a queued deletion
+    pendingDelete: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  return { ...slide, draft: next };
+}
+
+/** Mark a slide as pendingDelete (tombstone). Leaves live fields untouched. */
+export function markSlidePendingDelete(slide: PitchDeckSlideV2): PitchDeckSlideV2 {
+  return {
+    ...slide,
+    draft: {
+      ...(slide.draft ?? {}),
+      pendingDelete: true,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+/** Clear the draft entirely (cancel a pending edit / pending delete). */
+export function clearSlideDraft(slide: PitchDeckSlideV2): PitchDeckSlideV2 {
+  if (!slide.draft) return slide;
+  const next = { ...slide };
+  delete next.draft;
+  return next;
+}
+
 export function isColorDark(hex: string): boolean {
   const clean = hex.replace('#', '');
   if (clean.length < 6) return false;
@@ -52,10 +137,11 @@ export function normalizeDeckBlockIds<D extends { slides?: Array<{ blocks?: unkn
   } as D;
 }
 
-/** Extract a display title from a slide's blocks. */
+/** Extract a display title from a slide's blocks (reads the draft view). */
 export function getSlideTitle(slide: PitchDeckSlideV2): string {
   if (slide.label) return slide.label;
-  for (const block of slide.blocks) {
+  const view = getSlideView(slide);
+  for (const block of view.blocks) {
     if (block.type === 'hero' && 'title' in block) return (block as { title: string }).title;
     if (block.type === 'heading' && 'content' in block) return (block as { content: string }).content;
     if (block.type === 'cta' && 'title' in block) return (block as { title: string }).title;
@@ -63,12 +149,13 @@ export function getSlideTitle(slide: PitchDeckSlideV2): string {
   return 'Untitled';
 }
 
-/** Get an icon for a slide based on its first block. */
+/** Get an icon for a slide based on its first block (reads the draft view). */
 export function getSlideIcon(slide: PitchDeckSlideV2): string {
   if (slide.decisionSlide) return 'fork_right';
   if (slide.surveySlide) return 'assignment';
-  if (!slide.blocks.length) return 'edit_note';
-  const first = slide.blocks[0].type;
+  const view = getSlideView(slide);
+  if (!view.blocks.length) return 'edit_note';
+  const first = view.blocks[0].type;
   const iconMap: Record<string, string> = {
     hero: 'title', heading: 'notes', stats: 'bar_chart', 'card-grid': 'grid_view',
     testimonial: 'format_quote', cta: 'campaign', image: 'image', text: 'article',

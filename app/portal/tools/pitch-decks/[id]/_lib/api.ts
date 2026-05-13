@@ -158,6 +158,22 @@ export async function patchSurveyFields(surveyId: number, fields: unknown[]) {
   });
 }
 
+/** Publish one slide's draft → live. */
+export async function publishSlideDraft(deckId: string, slideId: string): Promise<ApiEnvelope<DeckPayload>> {
+  const res = await fetch(`/api/portal/tools/pitch-decks/${deckId}/slides/${encodeURIComponent(slideId)}/publish`, {
+    method: 'POST',
+  });
+  return (await res.json()) as ApiEnvelope<DeckPayload>;
+}
+
+/** Publish every slide on the deck that has a draft. */
+export async function publishAllSlideDrafts(deckId: string): Promise<ApiEnvelope<DeckPayload> & { publishedCount?: number }> {
+  const res = await fetch(`/api/portal/tools/pitch-decks/${deckId}/publish-all`, {
+    method: 'POST',
+  });
+  return (await res.json()) as ApiEnvelope<DeckPayload> & { publishedCount?: number };
+}
+
 export async function uploadHtmlSlide(file: File): Promise<{ success: boolean; data?: { url: string; filename: string }; error?: string }> {
   const fd = new FormData();
   fd.append('file', file);
