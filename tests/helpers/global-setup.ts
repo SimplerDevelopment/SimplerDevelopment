@@ -1,54 +1,84 @@
 /**
- * Vitest globalSetup for the integration-api project.
+ * Vitest globalSetup for the integration-api project. Runs exactly once
+ * before any worker spawns, and the returned teardown runs once after every
+ * worker has exited.
  *
- * `setup` (default export, runs once before any worker spawns) drops any
- * orphan `test_e2e_*` schemas left from a prior crashed run.
+ * Setup:
+ *   1) Sweep orphan `test_e2e_*` databases AND any stale schemas with the
+ *      same prefix (cross-version leftovers). Both, because earlier versions
+ *      of the test infra used per-worker SCHEMAs in a shared DB; if a user
+ *      switches between branches the cleanup needs to cover either flavour.
+ *   2) Drop any prior `simplerdev_test_template` so we always start fresh.
+ *   3) Build the template DB by replaying every drizzle/*.sql migration once.
+ *      Cost is paid here, ONE time per integration-api run, instead of per
+ *      test file (which used to cost ~30-60s × 193 files).
  *
- * The function returned from setup is the global teardown — vitest invokes
- * it after every worker has exited. It drops every `test_e2e_*` schema
- * this run created. Required because:
- *   - setupFiles' afterAll fires per-FILE, not per-worker. Dropping there
- *     forced every one of 193 files to re-replay 107 migrations.
- *   - Without a teardown, schemas accumulate across runs and fill the
- *     staging Postgres disk quota (the test DB took the box offline once
- *     this way already).
+ * Teardown:
+ *   - Drop any remaining per-worker `test_e2e_*` databases (one per worker
+ *     should already be gone via afterAll, but belt+suspenders).
+ *   - Drop the template DB so disk usage stays bounded across runs.
  *
- * Safe by construction: the match pattern only touches schemas this test
- * infra owns (`test_e2e_*`), never `public` or any app schema.
+ * Safe by construction: pattern only touches DBs this test infra owns
+ * (`test_e2e_*` and `simplerdev_test_template`), never any app DB.
  */
 import 'dotenv/config';
 import postgres from 'postgres';
+import { ADMIN_URL, TEMPLATE_DB } from './test-bootstrap';
+import { buildTemplateDatabase } from './test-db';
 
-async function dropOrphanTestSchemas(label: string): Promise<void> {
-  const url = process.env.DATABASE_URL_TEST ?? process.env.DATABASE_URL;
-  if (!url) return; // setup-api will surface the real error if this matters.
+const TEST_DB_PATTERN = 'test_e2e_%';
 
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
-  try {
-    const rows = await sql<{ nspname: string }[]>`
-      SELECT nspname FROM pg_namespace
-      WHERE nspname LIKE 'test_e2e_%'
-    `;
-    if (rows.length === 0) return;
-
-    for (const { nspname } of rows) {
-      // Identifier validated by the regex — safe to interpolate.
-      if (!/^test_e2e_[A-Za-z0-9_]+$/.test(nspname)) continue;
-      await sql.unsafe(`DROP SCHEMA IF EXISTS "${nspname}" CASCADE`);
-    }
-    // eslint-disable-next-line no-console
-    console.log(`[integration-api:${label}] dropped ${rows.length} test_e2e_* schemas`);
-  } finally {
-    await sql.end({ timeout: 5 });
+async function sweepOrphans(sql: ReturnType<typeof postgres>): Promise<{ dbs: number; schemas: number }> {
+  const dbRows = await sql<{ datname: string }[]>`
+    SELECT datname FROM pg_database
+    WHERE datname LIKE ${TEST_DB_PATTERN}
+       OR datname = ${TEMPLATE_DB}
+  `;
+  for (const { datname } of dbRows) {
+    // Identifier match is exact-prefix; safe to interpolate.
+    if (!/^test_e2e_[A-Za-z0-9_]+$/.test(datname) && datname !== TEMPLATE_DB) continue;
+    await sql.unsafe(`DROP DATABASE IF EXISTS "${datname}" WITH (FORCE)`);
   }
+
+  // Cross-version: a previous infra revision created per-worker SCHEMAs
+  // inside one shared DB. Sweep those too so disk stays bounded.
+  const schemaRows = await sql<{ nspname: string }[]>`
+    SELECT nspname FROM pg_namespace WHERE nspname LIKE 'test_e2e_%'
+  `;
+  for (const { nspname } of schemaRows) {
+    if (!/^test_e2e_[A-Za-z0-9_]+$/.test(nspname)) continue;
+    await sql.unsafe(`DROP SCHEMA IF EXISTS "${nspname}" CASCADE`);
+  }
+
+  return { dbs: dbRows.length, schemas: schemaRows.length };
 }
 
 export default async function globalSetup() {
-  await dropOrphanTestSchemas('globalSetup');
-  // Return value is the teardown function — vitest calls it after all
-  // workers exit. Keeps staging Postgres from accumulating schemas across
-  // runs and exhausting its disk quota.
-  return async () => {
-    await dropOrphanTestSchemas('globalTeardown');
+  const admin = postgres(ADMIN_URL, { max: 1, onnotice: () => {}, connect_timeout: 30 });
+  try {
+    const { dbs, schemas } = await sweepOrphans(admin);
+    if (dbs + schemas > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[integration-api:globalSetup] swept ${dbs} orphan test DBs and ${schemas} orphan schemas`);
+    }
+  } finally {
+    await admin.end({ timeout: 5 });
+  }
+
+  // Build the template — this is the one and only migration-replay cost for
+  // the entire integration-api run.
+  await buildTemplateDatabase();
+
+  return async function globalTeardown() {
+    const admin = postgres(ADMIN_URL, { max: 1, onnotice: () => {}, connect_timeout: 30 });
+    try {
+      const { dbs, schemas } = await sweepOrphans(admin);
+      if (dbs + schemas > 0) {
+        // eslint-disable-next-line no-console
+        console.log(`[integration-api:globalTeardown] swept ${dbs} test DBs and ${schemas} schemas on shutdown`);
+      }
+    } finally {
+      await admin.end({ timeout: 5 });
+    }
   };
 }
