@@ -235,6 +235,7 @@ export default function AdminDashboard() {
           <QuickAction href="/admin/portal-tickets" icon="support" label="View Tickets" />
           <QuickAction href="/admin/email/campaigns/new" icon="drafts" label="New Campaign" />
           <QuickAction href="/admin/crm/deals" icon="trending_up" label="View Deals" />
+          <QuickAction href="/admin/mcp-usage" icon="query_stats" label="MCP Usage" />
         </div>
       </div>
     </div>

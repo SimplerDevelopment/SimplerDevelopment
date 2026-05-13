@@ -28,6 +28,14 @@
     {
       "path": "/api/cron/brain-daily-notes",
       "schedule": "5 6 * * *"
+    },
+    {
+      "path": "/api/cron/mcp-rollup",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/mcp-cleanup",
+      "schedule": "23 4 * * *"
     }
   ]
 }

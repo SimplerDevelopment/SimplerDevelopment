@@ -39,6 +39,7 @@ import { registerStoreToolsOnSdk } from '@/lib/storefront/mcp-sdk-adapter';
 import { registerBrainToolsOnSdk } from '@/lib/brain/mcp-sdk-adapter';
 import { registerApprovalToolsOnSdk } from './approvals';
 import { stageOrApply } from './pending-changes';
+import { wrapRegisterTool } from './telemetry';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { renderBlocksToEmailHtml, resend, buildCampaignHtml, buildUnsubscribeUrl, generateUnsubscribeToken } from '@/lib/email';
 import { executeCampaignSend } from '@/lib/email/campaign-send';
@@ -224,6 +225,12 @@ export function buildMcpServer(ctx: PortalMcpContext): McpServer {
       instructions: `You are connected to the SimplerDevelopment portal for client "${ctx.client.company ?? `#${ctx.client.id}`}" (id ${ctx.client.id}). Use these tools to manage projects, tickets, CRM, content, media, websites, and email campaigns. All operations are automatically scoped to this client.`,
     }
   );
+
+  // Instrument every subsequent `server.registerTool(...)` with per-call
+  // telemetry (response bytes, estimated tokens, duration, success). Must run
+  // BEFORE any tool registration — including the adapter calls below — since
+  // it monkey-patches `server.registerTool`.
+  wrapRegisterTool(server, ctx);
 
   const clientId = ctx.client.id;
 
