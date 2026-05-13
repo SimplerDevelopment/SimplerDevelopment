@@ -8,10 +8,16 @@ interface HtmlEmbedBlockRenderProps {
   block: HtmlEmbedBlock;
 }
 
+// `allow-popups` lets the embed open `target="_blank"` links / `window.open`.
+// `allow-popups-to-escape-sandbox` lets the spawned tab itself be un-sandboxed
+// so third-party destinations (Calendly, Stripe Checkout, etc.) actually run.
+// Neither flag exposes the parent page's storage or cookies — the load-bearing
+// rule (don't combine `allow-same-origin` with `allow-scripts` on our own
+// origin) still holds.
 const SANDBOX_PRESETS: Record<HtmlEmbedSandbox, string> = {
   strict: '',
-  scripts: 'allow-scripts',
-  'scripts-forms': 'allow-scripts allow-forms allow-popups',
+  scripts: 'allow-scripts allow-popups allow-popups-to-escape-sandbox',
+  'scripts-forms': 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox',
 };
 
 export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
