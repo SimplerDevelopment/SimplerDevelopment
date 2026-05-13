@@ -19,8 +19,24 @@ export async function GET(
   if (!site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const [navItems, [branding]] = await Promise.all([
+    // Explicit field projection — must NOT include `draft` (draft jsonb stages
+    // unpublished nav edits; leaking it here would expose unpublished changes
+    // to the public site renderer / starter repos).
     db
-      .select()
+      .select({
+        id: siteNavigation.id,
+        websiteId: siteNavigation.websiteId,
+        label: siteNavigation.label,
+        href: siteNavigation.href,
+        parentId: siteNavigation.parentId,
+        sortOrder: siteNavigation.sortOrder,
+        openInNewTab: siteNavigation.openInNewTab,
+        isButton: siteNavigation.isButton,
+        description: siteNavigation.description,
+        icon: siteNavigation.icon,
+        featuredImage: siteNavigation.featuredImage,
+        columnGroup: siteNavigation.columnGroup,
+      })
       .from(siteNavigation)
       .where(eq(siteNavigation.websiteId, site.id))
       .orderBy(asc(siteNavigation.sortOrder)),

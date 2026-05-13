@@ -398,7 +398,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         if (e instanceof BlockGateError) return json({ error: e.message });
         throw e;
       }
-      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
 
@@ -414,84 +414,96 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         return json({ error: `File exceeds ${MAX_HTML_SIZE} bytes` });
       }
 
-      const cleaned = cleanEmbedHtml(rawBuffer.toString('utf8'));
-      const imported = await importHtmlAssets(cleaned, {
-        websiteId: site.id,
-        clientId,
-        uploadedBy: ctx.userId,
-        baseUrl: sourceUrl,
-      });
-      const buffer = Buffer.from(imported.html, 'utf8');
-      const uploadResult = await uploadToS3(buffer, filename, 'text/html');
-
-      await db.insert(media).values({
-        filename,
-        storedFilename: uploadResult.storedFilename,
-        mimeType: 'text/html',
-        fileSize: uploadResult.fileSize,
-        url: uploadResult.url,
-        uploadedBy: ctx.userId,
-        clientId,
-        websiteId: site.id,
-      });
-
-      // Find a free slug — append numeric suffix on collision (matches the
-      // route's behavior so API + MCP yield identical post layouts).
-      const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '')
-        .slice(0, 80)) || 'page';
-      let slug = baseSlug;
-      for (let i = 2; i < 100; i++) {
-        const [collision] = await db.select({ id: posts.id }).from(posts)
-          .where(and(eq(posts.slug, slug), eq(posts.websiteId, site.id))).limit(1);
-        if (!collision) break;
-        slug = `${baseSlug}-${i}`;
-      }
-
-      const filenameNoExt = filename.replace(/\.[^.]+$/, '');
-      const ts = Date.now();
-      const uploadedBlocks = [
-        {
-          id: `block-${ts}-html`,
-          type: 'html-embed' as const,
-          order: 1,
-          url: uploadResult.url,
-          filename,
-          height: '100vh',
-          width: 'full' as const,
-          sandbox: 'scripts',
-          iframeTitle: filenameNoExt,
-        },
-      ];
-      const blockContent = JSON.stringify({ blocks: uploadedBlocks });
-
-      const [post] = await db.insert(posts).values({
-        title: filenameNoExt || 'Uploaded HTML',
-        slug,
-        postType: 'page',
-        content: blockContent,
-        published: false,
-        websiteId: site.id,
-      }).returning(SLIM_POST_COLUMNS);
-      revalidateForWrite('posts');
-      // Fan out to any editor that already opened this post id (rare for a
-      // brand-new upload, but cheap insurance — same wire path as a
-      // peer-typed edit). Fire-and-forget.
-      void publishBlocksUpdate({
+      const result = await stageOrApply({
+        ctx,
         entityType: 'post',
-        entityId: post.id,
-        blocks: uploadedBlocks as unknown as import('@/types/blocks').Block[],
-      }).catch((err) => {
-        console.warn('[mcp/posts_upload_html] realtime publish failed:', err);
+        operation: 'upload_html',
+        entityId: null,
+        summary: `Upload HTML "${filename}" as draft page on "${site.name}"`,
+        payload: { websiteId, filename, contentBase64, sourceUrl },
+        apply: async () => {
+          const cleaned = cleanEmbedHtml(rawBuffer.toString('utf8'));
+          const imported = await importHtmlAssets(cleaned, {
+            websiteId: site.id,
+            clientId,
+            uploadedBy: ctx.userId,
+            baseUrl: sourceUrl,
+          });
+          const buffer = Buffer.from(imported.html, 'utf8');
+          const uploadResult = await uploadToS3(buffer, filename, 'text/html');
+
+          await db.insert(media).values({
+            filename,
+            storedFilename: uploadResult.storedFilename,
+            mimeType: 'text/html',
+            fileSize: uploadResult.fileSize,
+            url: uploadResult.url,
+            uploadedBy: ctx.userId,
+            clientId,
+            websiteId: site.id,
+          });
+
+          // Find a free slug — append numeric suffix on collision (matches the
+          // route's behavior so API + MCP yield identical post layouts).
+          const baseSlug = (filename.trim().toLowerCase()
+            .replace(/\.[^.]+$/, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '')
+            .slice(0, 80)) || 'page';
+          let slug = baseSlug;
+          for (let i = 2; i < 100; i++) {
+            const [collision] = await db.select({ id: posts.id }).from(posts)
+              .where(and(eq(posts.slug, slug), eq(posts.websiteId, site.id))).limit(1);
+            if (!collision) break;
+            slug = `${baseSlug}-${i}`;
+          }
+
+          const filenameNoExt = filename.replace(/\.[^.]+$/, '');
+          const ts = Date.now();
+          const uploadedBlocks = [
+            {
+              id: `block-${ts}-html`,
+              type: 'html-embed' as const,
+              order: 1,
+              url: uploadResult.url,
+              filename,
+              height: '100vh',
+              width: 'full' as const,
+              sandbox: 'scripts',
+              iframeTitle: filenameNoExt,
+            },
+          ];
+          const blockContent = JSON.stringify({ blocks: uploadedBlocks });
+
+          const [post] = await db.insert(posts).values({
+            title: filenameNoExt || 'Uploaded HTML',
+            slug,
+            postType: 'page',
+            content: blockContent,
+            published: false,
+            websiteId: site.id,
+          }).returning(SLIM_POST_COLUMNS);
+          // Fan out to any editor that already opened this post id (rare for a
+          // brand-new upload, but cheap insurance — same wire path as a
+          // peer-typed edit). Fire-and-forget.
+          void publishBlocksUpdate({
+            entityType: 'post',
+            entityId: post.id,
+            blocks: uploadedBlocks as unknown as import('@/types/blocks').Block[],
+          }).catch((err) => {
+            console.warn('[mcp/posts_upload_html] realtime publish failed:', err);
+          });
+          return {
+            ...post,
+            importedAssets: imported.importedCount,
+            skippedAssets: imported.skippedCount,
+            url: uploadResult.url,
+          };
+        },
       });
-      return json({
-        ...post,
-        importedAssets: imported.importedCount,
-        skippedAssets: imported.skippedCount,
-        url: uploadResult.url,
-      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('posts');
+      return json(result.data);
     }
   );
 
@@ -632,23 +644,35 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, name, slug, description, color }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
       const finalSlug = (slug ?? name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      try {
-        const [row] = await db.insert(categories).values({
-          websiteId,
-          name: name.trim(),
-          slug: finalSlug,
-          description: description ?? null,
-          color: color ?? null,
-        }).returning();
-        revalidateForWrite('posts');
-        return json(row);
-      } catch (err) {
-        return json({ error: `Could not create category (likely duplicate slug): ${(err as Error).message}` });
-      }
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'taxonomy',
+        operation: 'create',
+        entityId: null,
+        summary: `Create category "${name.trim()}" on "${site.name}"`,
+        payload: { kind: 'category', websiteId, name, slug: finalSlug, description, color },
+        apply: async () => {
+          try {
+            const [row] = await db.insert(categories).values({
+              websiteId,
+              name: name.trim(),
+              slug: finalSlug,
+              description: description ?? null,
+              color: color ?? null,
+            }).returning();
+            return row;
+          } catch (err) {
+            throw new Error(`Could not create category (likely duplicate slug): ${(err as Error).message}`);
+          }
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('posts');
+      return json(result.data);
     }
   );
 
@@ -665,21 +689,33 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ websiteId, name, slug }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
       const finalSlug = (slug ?? name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      try {
-        const [row] = await db.insert(tags).values({
-          websiteId,
-          name: name.trim(),
-          slug: finalSlug,
-        }).returning();
-        revalidateForWrite('posts');
-        return json(row);
-      } catch (err) {
-        return json({ error: `Could not create tag (likely duplicate slug): ${(err as Error).message}` });
-      }
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'taxonomy',
+        operation: 'create',
+        entityId: null,
+        summary: `Create tag "${name.trim()}" on "${site.name}"`,
+        payload: { kind: 'tag', websiteId, name, slug: finalSlug },
+        apply: async () => {
+          try {
+            const [row] = await db.insert(tags).values({
+              websiteId,
+              name: name.trim(),
+              slug: finalSlug,
+            }).returning();
+            return row;
+          } catch (err) {
+            throw new Error(`Could not create tag (likely duplicate slug): ${(err as Error).message}`);
+          }
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('posts');
+      return json(result.data);
     }
   );
 
@@ -697,35 +733,55 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ postId, categoryIds, tagIds }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [post] = await db.select({ websiteId: posts.websiteId }).from(posts)
+      const [post] = await db.select({ websiteId: posts.websiteId, title: posts.title }).from(posts)
         .where(eq(posts.id, postId)).limit(1);
       if (!post) return json({ error: 'Post not found' });
       if (!post.websiteId) return json({ error: 'Permission denied — agency post' });
       const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, post.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Permission denied' });
-      if (categoryIds !== undefined) {
-        await db.delete(postCategories).where(eq(postCategories.postId, postId));
-        if (categoryIds.length > 0) {
-          await db.insert(postCategories).values(categoryIds.map(cid => ({ postId, categoryId: cid })));
-        }
-      }
-      if (tagIds !== undefined) {
-        await db.delete(postTags).where(eq(postTags.postId, postId));
-        if (tagIds.length > 0) {
-          await db.insert(postTags).values(tagIds.map(tid => ({ postId, tagId: tid })));
-        }
-      }
-      revalidateForWrite('posts');
-      const assignedCats = await db.select({ categoryId: postCategories.categoryId })
+      const prevCats = await db.select({ categoryId: postCategories.categoryId })
         .from(postCategories).where(eq(postCategories.postId, postId));
-      const assignedTags = await db.select({ tagId: postTags.tagId })
+      const prevTags = await db.select({ tagId: postTags.tagId })
         .from(postTags).where(eq(postTags.postId, postId));
-      return json({
-        postId,
-        categoryIds: assignedCats.map(r => r.categoryId),
-        tagIds: assignedTags.map(r => r.tagId),
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'post_taxonomy',
+        operation: 'update',
+        entityId: postId,
+        summary: `Set taxonomies on post "${post.title}"`,
+        payload: { postId, categoryIds, tagIds },
+        originalSnapshot: {
+          categoryIds: prevCats.map((r) => r.categoryId),
+          tagIds: prevTags.map((r) => r.tagId),
+        },
+        apply: async () => {
+          if (categoryIds !== undefined) {
+            await db.delete(postCategories).where(eq(postCategories.postId, postId));
+            if (categoryIds.length > 0) {
+              await db.insert(postCategories).values(categoryIds.map(cid => ({ postId, categoryId: cid })));
+            }
+          }
+          if (tagIds !== undefined) {
+            await db.delete(postTags).where(eq(postTags.postId, postId));
+            if (tagIds.length > 0) {
+              await db.insert(postTags).values(tagIds.map(tid => ({ postId, tagId: tid })));
+            }
+          }
+          const assignedCats = await db.select({ categoryId: postCategories.categoryId })
+            .from(postCategories).where(eq(postCategories.postId, postId));
+          const assignedTags = await db.select({ tagId: postTags.tagId })
+            .from(postTags).where(eq(postTags.postId, postId));
+          return {
+            postId,
+            categoryIds: assignedCats.map(r => r.categoryId),
+            tagIds: assignedTags.map(r => r.tagId),
+          };
+        },
       });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('posts');
+      return json(result.data);
     }
   );
 
@@ -749,15 +805,35 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ id, ...rest }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [existing] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!existing) return json({ error: 'Site not found' });
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
-      for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
-      const [row] = await db.update(clientWebsites).set(patch)
-        .where(eq(clientWebsites.id, id)).returning();
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site',
+        operation: 'update',
+        entityId: id,
+        summary: `Update website "${existing.name}" settings`,
+        payload: { id, ...rest },
+        originalSnapshot: {
+          name: existing.name,
+          domain: existing.domain,
+          description: existing.description,
+          active: existing.active,
+          publicAccess: existing.publicAccess,
+          brandingProfileId: existing.brandingProfileId,
+        },
+        apply: async () => {
+          const patch: Record<string, unknown> = { updatedAt: new Date() };
+          for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+          const [row] = await db.update(clientWebsites).set(patch)
+            .where(eq(clientWebsites.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('sites');
-      return json(row);
+      return json(result.data);
     }
   );
 
@@ -790,27 +866,104 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'sites_update_custom_code',
     {
-      title: 'Update site custom CSS/JS',
-      description: 'Update site-wide custom CSS/JS. Pass an empty string to clear; omit to leave unchanged. /sites/* renders are dynamic so changes apply on the next request.',
+      title: 'Update site custom CSS/JS (draft)',
+      description: 'Writes to the DRAFT site-wide custom CSS/JS — the public renderer keeps serving the previously-published live values until `sites_publish_custom_code` is called. Pass an empty string to stage a clear; omit to leave unchanged. Use `sites_get_custom_code` to inspect the currently-live values; this tool never touches them directly.',
       inputSchema: {
         id: z.number().int().positive(),
-        customCss: z.string().optional(),
-        customJs: z.string().optional(),
+        customCss: z.string().optional().describe('Stages into draft_custom_css. Empty string = stage a clear.'),
+        customJs: z.string().optional().describe('Stages into draft_custom_js. Empty string = stage a clear.'),
       },
     },
     async ({ id, customCss, customJs }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [existing] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [existing] = await db.select().from(clientWebsites)
         .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
         .limit(1);
       if (!existing) return json({ error: 'Site not found' });
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
-      if (customCss !== undefined) patch.customCss = customCss === '' ? null : customCss;
-      if (customJs !== undefined) patch.customJs = customJs === '' ? null : customJs;
-      const [row] = await db.update(clientWebsites).set(patch)
-        .where(eq(clientWebsites.id, id)).returning();
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site',
+        operation: 'update',
+        entityId: id,
+        summary: `Update site custom CSS/JS for "${existing.name}" (draft)`,
+        payload: { id, customCss, customJs },
+        originalSnapshot: {
+          customCss: existing.customCss,
+          customJs: existing.customJs,
+          draftCustomCss: existing.draftCustomCss,
+          draftCustomJs: existing.draftCustomJs,
+        },
+        apply: async () => {
+          const patch: Record<string, unknown> = {
+            updatedAt: new Date(),
+            draftUpdatedAt: new Date(),
+            draftUpdatedBy: ctx.userId,
+          };
+          if (customCss !== undefined) patch.draftCustomCss = customCss === '' ? null : customCss;
+          if (customJs !== undefined) patch.draftCustomJs = customJs === '' ? null : customJs;
+          const [row] = await db.update(clientWebsites).set(patch)
+            .where(eq(clientWebsites.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('sites');
-      return json({ customCss: row.customCss || '', customJs: row.customJs || '' });
+      return json({
+        draftCustomCss: result.data.draftCustomCss || '',
+        draftCustomJs: result.data.draftCustomJs || '',
+        liveCustomCss: result.data.customCss || '',
+        liveCustomJs: result.data.customJs || '',
+        draftUpdatedAt: result.data.draftUpdatedAt,
+        note: 'Wrote to draft fields. Call sites_publish_custom_code to make changes live.',
+      });
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'sites_publish_custom_code',
+    {
+      title: 'Publish site custom CSS/JS draft',
+      description: 'Promotes the draft site-wide custom CSS/JS to live: copies draft_custom_css → custom_css, draft_custom_js → custom_js, then clears the draft fields. Subject to the same approval gate as other CMS writes when the API key requires approval.',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [existing] = await db.select().from(clientWebsites)
+        .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, clientId)))
+        .limit(1);
+      if (!existing) return json({ error: 'Site not found' });
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site',
+        operation: 'publish',
+        entityId: id,
+        summary: `Publish custom CSS/JS draft for "${existing.name}"`,
+        payload: { id },
+        originalSnapshot: {
+          customCss: existing.customCss,
+          customJs: existing.customJs,
+          draftCustomCss: existing.draftCustomCss,
+          draftCustomJs: existing.draftCustomJs,
+        },
+        apply: async () => {
+          const [row] = await db.update(clientWebsites).set({
+            customCss: existing.draftCustomCss,
+            customJs: existing.draftCustomJs,
+            draftCustomCss: null,
+            draftCustomJs: null,
+            draftUpdatedAt: null,
+            draftUpdatedBy: null,
+            updatedAt: new Date(),
+          }).where(eq(clientWebsites.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('sites');
+      return json({
+        customCss: result.data.customCss || '',
+        customJs: result.data.customJs || '',
+      });
     }
   );
 
@@ -838,8 +991,8 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'nav_create',
     {
-      title: 'Create navigation item',
-      description: 'Add a nav item to a website. Use parentId for nested items.',
+      title: 'Create navigation item (draft)',
+      description: 'Stages a new nav item as a draft (pendingCreate). The public renderer ignores draft-only nav rows — call `nav_publish` (or `nav_publish_all`) to make the item live. Use parentId for nested items.',
       inputSchema: {
         websiteId: z.number(),
         label: z.string().min(1),
@@ -854,45 +1007,277 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async (args) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
         .where(and(eq(clientWebsites.id, args.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!site) return json({ error: 'Site not found' });
-      const existing = await db.select({ id: siteNavigation.id }).from(siteNavigation)
-        .where(eq(siteNavigation.websiteId, args.websiteId));
-      const [row] = await db.insert(siteNavigation).values({
-        websiteId: args.websiteId,
-        label: args.label,
-        href: args.href,
-        parentId: args.parentId ?? null,
-        sortOrder: args.sortOrder ?? existing.length,
-        openInNewTab: args.openInNewTab ?? false,
-        isButton: args.isButton ?? false,
-        description: args.description ?? null,
-        icon: args.icon ?? null,
-      }).returning();
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site_nav',
+        operation: 'create',
+        entityId: null,
+        summary: `Create nav item "${args.label}" on "${site.name}" (draft)`,
+        payload: args,
+        apply: async () => {
+          const existing = await db.select({ id: siteNavigation.id }).from(siteNavigation)
+            .where(eq(siteNavigation.websiteId, args.websiteId));
+          const sortOrder = args.sortOrder ?? existing.length;
+          // Persist a base row with neutral defaults; the renderer ignores
+          // draft-only items via pendingCreate. nav_publish promotes the
+          // draft fields into the live columns.
+          const draft: import('@/lib/db/schema').SiteNavigationDraft = {
+            pendingCreate: true,
+            label: args.label,
+            href: args.href,
+            parentId: args.parentId ?? null,
+            sortOrder,
+            openInNewTab: args.openInNewTab ?? false,
+            isButton: args.isButton ?? false,
+            description: args.description ?? null,
+            icon: args.icon ?? null,
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          };
+          const [row] = await db.insert(siteNavigation).values({
+            websiteId: args.websiteId,
+            label: args.label,
+            href: args.href,
+            parentId: args.parentId ?? null,
+            sortOrder,
+            openInNewTab: args.openInNewTab ?? false,
+            isButton: args.isButton ?? false,
+            description: args.description ?? null,
+            icon: args.icon ?? null,
+            draft,
+          }).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('sites');
-      return json(row);
+      return json(result.data);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'nav_update',
+    {
+      title: 'Update navigation item (draft)',
+      description: 'Stage changes to a nav item into its draft jsonb overlay. Live columns are left untouched until `nav_publish` (or `nav_publish_all`) is called.',
+      inputSchema: {
+        id: z.number(),
+        label: z.string().min(1).optional(),
+        href: z.string().min(1).optional(),
+        parentId: z.number().nullable().optional(),
+        sortOrder: z.number().optional(),
+        openInNewTab: z.boolean().optional(),
+        isButton: z.boolean().optional(),
+        description: z.string().nullable().optional(),
+        icon: z.string().nullable().optional(),
+      },
+    },
+    async ({ id, ...rest }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [nav] = await db
+        .select({
+          id: siteNavigation.id,
+          websiteId: siteNavigation.websiteId,
+          label: siteNavigation.label,
+          href: siteNavigation.href,
+          draft: siteNavigation.draft,
+        })
+        .from(siteNavigation)
+        .innerJoin(clientWebsites, eq(clientWebsites.id, siteNavigation.websiteId))
+        .where(and(eq(siteNavigation.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!nav) return json({ error: 'Nav item not found' });
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site_nav',
+        operation: 'update',
+        entityId: id,
+        summary: `Update nav item "${nav.label}" → ${rest.label ?? nav.label} (draft)`,
+        payload: { id, ...rest },
+        originalSnapshot: { label: nav.label, href: nav.href, draft: nav.draft },
+        apply: async () => {
+          const prev: import('@/lib/db/schema').SiteNavigationDraft = nav.draft ?? {};
+          const next: import('@/lib/db/schema').SiteNavigationDraft = {
+            ...prev,
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          };
+          for (const [k, v] of Object.entries(rest)) {
+            if (v !== undefined) (next as Record<string, unknown>)[k] = v;
+          }
+          const [row] = await db.update(siteNavigation)
+            .set({ draft: next, updatedAt: new Date() })
+            .where(eq(siteNavigation.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('sites');
+      return json(result.data);
     }
   );
 
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'nav_delete',
     {
-      title: 'Delete navigation item',
-      description: 'Delete a nav item. Child items (parentId) are not auto-deleted.',
+      title: 'Delete navigation item (draft)',
+      description: 'Stages a tombstone on the nav item (draft.pendingDelete). The row is not actually deleted until `nav_publish` runs — the live nav still shows the item until then. Child items (parentId) are not auto-handled.',
       inputSchema: { id: z.number() },
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [nav] = await db
-        .select({ id: siteNavigation.id, websiteId: siteNavigation.websiteId })
+        .select({
+          id: siteNavigation.id,
+          websiteId: siteNavigation.websiteId,
+          label: siteNavigation.label,
+          href: siteNavigation.href,
+          draft: siteNavigation.draft,
+        })
         .from(siteNavigation)
         .innerJoin(clientWebsites, eq(clientWebsites.id, siteNavigation.websiteId))
         .where(and(eq(siteNavigation.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
       if (!nav) return json({ error: 'Nav item not found' });
-      await db.delete(siteNavigation).where(eq(siteNavigation.id, id));
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site_nav',
+        operation: 'delete',
+        entityId: id,
+        summary: `Delete nav item "${nav.label}" (draft tombstone)`,
+        payload: { id },
+        originalSnapshot: { label: nav.label, href: nav.href, draft: nav.draft },
+        apply: async () => {
+          const prev: import('@/lib/db/schema').SiteNavigationDraft = nav.draft ?? {};
+          const next: import('@/lib/db/schema').SiteNavigationDraft = {
+            ...prev,
+            pendingDelete: true,
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          };
+          await db.update(siteNavigation)
+            .set({ draft: next, updatedAt: new Date() })
+            .where(eq(siteNavigation.id, id));
+          return { success: true, id, pendingDelete: true };
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('sites');
-      return json({ success: true, id });
+      return json(result.data);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'nav_publish',
+    {
+      title: 'Publish navigation item draft',
+      description: 'Promotes a single nav item\'s draft to live. If draft.pendingDelete: the row is removed. If draft.pendingCreate: the draft flag is cleared (item becomes visible). Otherwise: draft fields are applied onto the live columns and draft is cleared. Subject to the same approval gate as other CMS writes.',
+      inputSchema: { id: z.number() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [nav] = await db
+        .select()
+        .from(siteNavigation)
+        .innerJoin(clientWebsites, eq(clientWebsites.id, siteNavigation.websiteId))
+        .where(and(eq(siteNavigation.id, id), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!nav) return json({ error: 'Nav item not found' });
+      const navRow = nav.site_navigation;
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site_nav',
+        operation: 'publish',
+        entityId: id,
+        summary: `Publish nav item "${navRow.label}"`,
+        payload: { id },
+        originalSnapshot: { label: navRow.label, href: navRow.href, draft: navRow.draft },
+        apply: async () => {
+          const draft: import('@/lib/db/schema').SiteNavigationDraft | null = navRow.draft;
+          if (!draft) return { success: true, id, noop: true };
+          if (draft.pendingDelete) {
+            await db.delete(siteNavigation).where(eq(siteNavigation.id, id));
+            return { success: true, id, deleted: true };
+          }
+          // Either pendingCreate (clear draft to make visible) or an
+          // ordinary update (apply draft fields → live, then clear draft).
+          const patch: Record<string, unknown> = { draft: null, updatedAt: new Date() };
+          if (draft.label !== undefined) patch.label = draft.label;
+          if (draft.href !== undefined) patch.href = draft.href;
+          if (draft.parentId !== undefined) patch.parentId = draft.parentId;
+          if (draft.sortOrder !== undefined) patch.sortOrder = draft.sortOrder;
+          if (draft.openInNewTab !== undefined) patch.openInNewTab = draft.openInNewTab;
+          if (draft.isButton !== undefined) patch.isButton = draft.isButton;
+          if (draft.description !== undefined) patch.description = draft.description;
+          if (draft.icon !== undefined) patch.icon = draft.icon;
+          if (draft.featuredImage !== undefined) patch.featuredImage = draft.featuredImage;
+          if (draft.columnGroup !== undefined) patch.columnGroup = draft.columnGroup;
+          const [row] = await db.update(siteNavigation).set(patch)
+            .where(eq(siteNavigation.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('sites');
+      return json(result.data);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'nav_publish_all',
+    {
+      title: 'Publish all nav drafts for a website',
+      description: 'Promote every nav row with a non-null draft on a website. Same per-row semantics as `nav_publish` (pendingDelete → delete; pendingCreate → clear draft; else apply draft → live).',
+      inputSchema: { websiteId: z.number() },
+    },
+    async ({ websiteId }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return json({ error: 'Site not found' });
+      const drafts = await db.select().from(siteNavigation)
+        .where(and(
+          eq(siteNavigation.websiteId, websiteId),
+          sql`${siteNavigation.draft} IS NOT NULL`,
+        ));
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'site_nav',
+        operation: 'publish_all',
+        entityId: null,
+        summary: `Publish all nav drafts for "${site.name}" (${drafts.length} item${drafts.length === 1 ? '' : 's'})`,
+        payload: { websiteId },
+        originalSnapshot: { count: drafts.length, ids: drafts.map((d) => d.id) },
+        apply: async () => {
+          const results: Array<{ id: number; deleted?: boolean; published?: boolean }> = [];
+          for (const navRow of drafts) {
+            const draft: import('@/lib/db/schema').SiteNavigationDraft | null = navRow.draft;
+            if (!draft) continue;
+            if (draft.pendingDelete) {
+              await db.delete(siteNavigation).where(eq(siteNavigation.id, navRow.id));
+              results.push({ id: navRow.id, deleted: true });
+              continue;
+            }
+            const patch: Record<string, unknown> = { draft: null, updatedAt: new Date() };
+            if (draft.label !== undefined) patch.label = draft.label;
+            if (draft.href !== undefined) patch.href = draft.href;
+            if (draft.parentId !== undefined) patch.parentId = draft.parentId;
+            if (draft.sortOrder !== undefined) patch.sortOrder = draft.sortOrder;
+            if (draft.openInNewTab !== undefined) patch.openInNewTab = draft.openInNewTab;
+            if (draft.isButton !== undefined) patch.isButton = draft.isButton;
+            if (draft.description !== undefined) patch.description = draft.description;
+            if (draft.icon !== undefined) patch.icon = draft.icon;
+            if (draft.featuredImage !== undefined) patch.featuredImage = draft.featuredImage;
+            if (draft.columnGroup !== undefined) patch.columnGroup = draft.columnGroup;
+            await db.update(siteNavigation).set(patch).where(eq(siteNavigation.id, navRow.id));
+            results.push({ id: navRow.id, published: true });
+          }
+          return { websiteId, count: results.length, items: results };
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('sites');
+      return json(result.data);
     }
   );
 
@@ -980,8 +1365,8 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'block_templates_create',
     {
-      title: 'Create block template',
-      description: 'Create a reusable CMS block template. `slug` must be unique across the agency. `scope: "global"` syncs the template back to every post that embeds it; `block` and `section` are copy-on-insert.',
+      title: 'Create block template (draft)',
+      description: 'Create a reusable CMS block template. Writes a base row with everything staged in the `draft` jsonb (pendingCreate=true). The template picker and "use this template" flow ignore draft-only templates until `block_templates_publish` is called. `slug` must be unique across the agency. `scope: "global"` syncs the template back to every post that embeds it; `block` and `section` are copy-on-insert.',
       inputSchema: {
         name: z.string().min(1),
         slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
@@ -1005,28 +1390,57 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       const [collision] = await db.select({ id: blockTemplates.id }).from(blockTemplates)
         .where(eq(blockTemplates.slug, args.slug)).limit(1);
       if (collision) return json({ error: 'A template with this slug already exists' });
-      const [row] = await db.insert(blockTemplates).values({
-        name: args.name,
-        slug: args.slug,
-        description: args.description ?? null,
-        category: args.category ?? 'custom',
-        scope: args.scope ?? 'block',
-        blocks: args.blocks,
-        thumbnail: args.thumbnail ?? null,
-        tags: args.tags ?? [],
-        lockedFields: args.lockedFields ?? [],
-        createdBy: ctx.userId,
-      }).returning();
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'block_template',
+        operation: 'create',
+        entityId: null,
+        summary: `Create block template "${args.name}" (draft)`,
+        payload: args,
+        apply: async () => {
+          const draft: import('@/lib/db/schema').BlockTemplateDraft = {
+            pendingCreate: true,
+            name: args.name,
+            description: args.description ?? null,
+            category: args.category ?? 'custom',
+            scope: args.scope ?? 'block',
+            blocks: args.blocks,
+            thumbnail: args.thumbnail ?? null,
+            tags: args.tags ?? [],
+            lockedFields: args.lockedFields ?? [],
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          } as import('@/lib/db/schema').BlockTemplateDraft & { pendingCreate: boolean };
+          // Live columns get the same values so a later `_publish` can be a
+          // simple `draft = null` write, but the renderer/picker filter on
+          // draft.pendingCreate to hide unpublished templates.
+          const [row] = await db.insert(blockTemplates).values({
+            name: args.name,
+            slug: args.slug,
+            description: args.description ?? null,
+            category: args.category ?? 'custom',
+            scope: args.scope ?? 'block',
+            blocks: args.blocks,
+            thumbnail: args.thumbnail ?? null,
+            tags: args.tags ?? [],
+            lockedFields: args.lockedFields ?? [],
+            createdBy: ctx.userId,
+            draft,
+          }).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
-      return json(row);
+      return json(result.data);
     }
   );
 
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'block_templates_update',
     {
-      title: 'Update block template',
-      description: 'Update a block template. If `blocks` is included the version is bumped — global-scope templates use that version to drive sync to embedded usages.',
+      title: 'Update block template (draft)',
+      description: 'Stage changes to a block template into its draft jsonb overlay. The live columns and version are untouched — the picker and global-sync paths keep using the published copy until `block_templates_publish` is called.',
       inputSchema: {
         id: z.number().int().positive(),
         name: z.string().min(1).optional(),
@@ -1051,36 +1465,139 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           throw e;
         }
       }
-      const patch: Record<string, unknown> = { updatedAt: new Date() };
-      for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
-      // Bump version when the block tree itself changes — global usages key
-      // off this to detect drift between embedded copy and the source.
-      if (rest.blocks !== undefined) patch.version = existing.version + 1;
-      const [row] = await db.update(blockTemplates).set(patch).where(eq(blockTemplates.id, id)).returning();
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'block_template',
+        operation: 'update',
+        entityId: id,
+        summary: `Update block template "${existing.name}" (draft)`,
+        payload: { id, ...rest },
+        originalSnapshot: {
+          name: existing.name,
+          description: existing.description,
+          category: existing.category,
+          scope: existing.scope,
+          version: existing.version,
+          draft: existing.draft,
+        },
+        apply: async () => {
+          const prev: import('@/lib/db/schema').BlockTemplateDraft = existing.draft ?? {};
+          const next: import('@/lib/db/schema').BlockTemplateDraft = {
+            ...prev,
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          };
+          for (const [k, v] of Object.entries(rest)) {
+            if (v !== undefined) (next as Record<string, unknown>)[k] = v;
+          }
+          const [row] = await db.update(blockTemplates)
+            .set({ draft: next, updatedAt: new Date() })
+            .where(eq(blockTemplates.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
-      return json(row);
+      return json(result.data);
     }
   );
 
   hasScope(ctx.scopes, 'sites:write') && server.registerTool(
     'block_templates_delete',
     {
-      title: 'Delete block template',
-      description: 'Delete a block template. Refuses to delete if any posts still embed it as a global template — remove or convert those usages first.',
+      title: 'Delete block template (draft)',
+      description: 'Stages a tombstone on the template (draft.pendingDelete). The row is not actually deleted, and embedded usages keep resolving, until `block_templates_publish` runs. Refuses to stage a delete if any posts still embed it as a global template — remove or convert those usages first.',
       inputSchema: { id: z.number().int().positive() },
     },
     async ({ id }) => {
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
-      const [existing] = await db.select({ id: blockTemplates.id }).from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
+      const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
       const usages = await db.select({ id: blockTemplateUsages.id }).from(blockTemplateUsages)
         .where(eq(blockTemplateUsages.templateId, id));
       if (usages.length > 0) {
         return json({ error: `Cannot delete: template is used in ${usages.length} post(s). Remove usages first or convert to non-global.` });
       }
-      await db.delete(blockTemplates).where(eq(blockTemplates.id, id));
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'block_template',
+        operation: 'delete',
+        entityId: id,
+        summary: `Delete block template "${existing.name}" (draft tombstone)`,
+        payload: { id },
+        originalSnapshot: { name: existing.name, slug: existing.slug, draft: existing.draft },
+        apply: async () => {
+          const prev: import('@/lib/db/schema').BlockTemplateDraft = existing.draft ?? {};
+          const next: import('@/lib/db/schema').BlockTemplateDraft = {
+            ...prev,
+            pendingDelete: true,
+            updatedAt: new Date().toISOString(),
+            updatedBy: ctx.userId,
+          };
+          await db.update(blockTemplates)
+            .set({ draft: next, updatedAt: new Date() })
+            .where(eq(blockTemplates.id, id));
+          return { success: true, id, pendingDelete: true };
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
-      return json({ success: true, id });
+      return json(result.data);
+    }
+  );
+
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'block_templates_publish',
+    {
+      title: 'Publish block template draft',
+      description: 'Promote a single block template draft to live. If draft.pendingDelete: the row is removed. If draft.pendingCreate: the draft flag is cleared (template becomes visible in the picker). Otherwise: draft fields are applied onto the live columns (bumping `version` when `blocks` changed) and draft is cleared. Subject to the same approval gate as other CMS writes.',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async ({ id }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
+      if (!existing) return json({ error: 'Template not found' });
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'block_template',
+        operation: 'publish',
+        entityId: id,
+        summary: `Publish block template "${existing.name}"`,
+        payload: { id },
+        originalSnapshot: {
+          name: existing.name,
+          version: existing.version,
+          draft: existing.draft,
+        },
+        apply: async () => {
+          const draft: import('@/lib/db/schema').BlockTemplateDraft | null = existing.draft;
+          if (!draft) return { success: true, id, noop: true };
+          if (draft.pendingDelete) {
+            await db.delete(blockTemplates).where(eq(blockTemplates.id, id));
+            return { success: true, id, deleted: true };
+          }
+          const patch: Record<string, unknown> = { draft: null, updatedAt: new Date() };
+          if (draft.name !== undefined) patch.name = draft.name;
+          if (draft.description !== undefined) patch.description = draft.description;
+          if (draft.category !== undefined) patch.category = draft.category;
+          if (draft.scope !== undefined) patch.scope = draft.scope;
+          if (draft.thumbnail !== undefined) patch.thumbnail = draft.thumbnail;
+          if (draft.tags !== undefined) patch.tags = draft.tags;
+          if (draft.lockedFields !== undefined) patch.lockedFields = draft.lockedFields;
+          if (draft.blocks !== undefined) {
+            patch.blocks = draft.blocks;
+            // Bump version on block-tree changes — global usages key off this
+            // to detect drift between the embedded copy and the source.
+            patch.version = existing.version + 1;
+          }
+          const [row] = await db.update(blockTemplates).set(patch)
+            .where(eq(blockTemplates.id, id)).returning();
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('portal');
+      return json(result.data);
     }
   );
 
