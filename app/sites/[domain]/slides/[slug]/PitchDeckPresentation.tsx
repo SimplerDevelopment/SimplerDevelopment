@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   PitchDeckSlideV2,
   PitchDeckTheme,
@@ -125,7 +125,11 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  // Ref, not state — setting state on every tap triggered a re-render between
+  // `touchend` and the synthetic `click`, which on iOS Safari can drop the
+  // click event entirely. Symptom: anchors inside the deck required two taps
+  // to navigate. Refs avoid the re-render.
+  const touchStartRef = useRef<number | null>(null);
 
   // Survey state
   const [surveyAnswers, setSurveyAnswers] = useState<Record<number, Record<string, unknown>>>({});
@@ -382,12 +386,13 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     return () => window.removeEventListener('keydown', handleKey);
   }, [next, prev]);
 
-  function handleTouchStart(e: React.TouchEvent) { setTouchStart(e.touches[0].clientX); }
+  function handleTouchStart(e: React.TouchEvent) { touchStartRef.current = e.touches[0].clientX; }
   function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStart === null) return;
-    const diff = touchStart - e.changedTouches[0].clientX;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (start === null) return;
+    const diff = start - e.changedTouches[0].clientX;
     if (Math.abs(diff) > 50) { if (diff > 0) next(); else prev(); }
-    setTouchStart(null);
   }
 
   function handleSurveyAnswer(surveyId: number, fieldId: string, value: unknown) {
