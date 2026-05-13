@@ -64,25 +64,34 @@ export default defineConfig({
           environment: 'node',
           include: ['tests/integration/api/**/*.test.ts'],
           setupFiles: ['./tests/setup-api.ts'],
-          // Runs exactly once before any worker — sweeps orphan test_e2e_*
-          // schemas left by prior crashed runs so disk usage stays bounded.
+          // Runs exactly once before any worker:
+          //   1) sweeps orphan test_e2e_* DBs + same-name schemas from prior
+          //      crashed runs so disk usage stays bounded
+          //   2) builds simplerdev_test_template by replaying every
+          //      drizzle/*.sql ONCE — that's the entire migration cost for
+          //      the run. Per-file CREATE DATABASE … TEMPLATE is then
+          //      single-digit seconds.
           globalSetup: ['./tests/helpers/global-setup.ts'],
           pool: 'forks',
           // Parallel forks, BUT capped at 2 concurrent workers. Each worker
-          // owns a test_e2e_<id> schema with ~55 tables; the test DB's disk
-          // quota can't host all 16 spec files' schemas at once.
-          //   setup-api.ts drops the worker's schema in afterAll.
-          //   global-setup drops orphans from crashed runs at startup.
+          // owns a per-worker DB (`test_e2e_w<id>`) created from the
+          // template. Two concurrent workers ≤ two extra full-size DB copies
+          // on disk at any moment.
+          //   setup-api.ts drops the worker's DB in afterAll.
+          //   global-setup drops orphans from crashed runs at startup, and
+          //   drops the template DB at end of run.
           //   scripts/cleanup-test-schemas.ts sweeps manually.
-          // TODO: revisit once integration-api specs grow — current cap is
-          // conservative for DB schema isolation. Bumping requires either
-          // a larger test-DB disk quota or a thinner per-schema footprint.
           maxWorkers: 2,
           // Vitest 4.x requires a unique `sequence.groupOrder` for projects
           // that override `maxWorkers`; otherwise startup fails with
           // "different 'maxWorkers' but same 'sequence.groupOrder'".
           sequence: { groupOrder: 2 },
-          hookTimeout: 120_000,
+          // Generous because beforeAll/afterAll issue DROP/CREATE DATABASE
+          // against Postgres. The template clone itself is fast; the budget
+          // here is mostly for the rare slow filesystem op or a contended
+          // server. globalSetup's own ~1-2 min template build has its own
+          // implicit timeout (the vitest globalSetup hook).
+          hookTimeout: 60_000,
           testTimeout: 15_000,
         },
       },
