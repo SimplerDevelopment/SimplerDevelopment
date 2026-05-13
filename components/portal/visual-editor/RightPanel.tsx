@@ -60,7 +60,13 @@ export function RightPanel({
   noSelectionPanel?: React.ReactNode;
 }) {
   return (
-    <div className={`${rightCollapsed ? 'w-0' : 'w-80'} flex-shrink-0 transition-all duration-200 relative`}>
+    <div className={`flex-shrink-0 transition-all duration-200 ${
+      rightCollapsed
+        ? 'w-0 relative'
+        // Below md the expanded panel is a fixed overlay (doesn't squeeze the
+        // iframe to negative width on phones); at md+ it stays inline as before.
+        : 'fixed inset-y-0 right-0 z-30 w-80 max-w-[90vw] md:relative md:inset-y-auto md:max-w-none'
+    }`}>
       <button
         onClick={() => setRightCollapsed((v) => !v)}
         className="absolute top-1/2 -translate-y-1/2 -left-3.5 z-30 w-7 h-10 flex items-center justify-center rounded-l-md bg-card border border-r-0 border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shadow-sm"

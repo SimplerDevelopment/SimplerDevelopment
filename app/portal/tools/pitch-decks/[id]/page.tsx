@@ -110,8 +110,17 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('edit');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
-  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  // Default both VisualEditorShell side panels (240px left / 320px right) to
+  // collapsed below md — at 375px they'd squeeze the iframe canvas to negative
+  // width. Users can expand either side via the existing chevron toggle.
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
   const [boardView, setBoardView] = useState(false);
   const [boardColumns, setBoardColumns] = useState(4);
   // Mobile-only: SlideList becomes a slide-out drawer overlay below md. Closed by default.
