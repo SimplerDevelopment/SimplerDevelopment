@@ -1,9 +1,13 @@
 /**
- * POST /api/portal/tools/pitch-decks/[id]/slides/[slideId]/publish
+ * POST /api/portal/tools/pitch-decks/[id]/slides/[slideIndex]/publish
  *
- * Promote one slide's draft to live. Tenancy: the deck must belong to the
- * caller's portal client. Mirrors the MCP tool `decks_publish_slide` and
- * shares its semantics via `lib/decks/publish-slide.ts`.
+ * Promote one slide's draft to live. The path slug is named `slideIndex`
+ * to match the sibling `generate` route (Next requires consistent slug
+ * names at each path level), but here the value is treated as the slide's
+ * stable string `id` — not a numeric position. Tenancy: the deck must
+ * belong to the caller's portal client. Mirrors the MCP tool
+ * `decks_publish_slide` and shares its semantics via
+ * `lib/decks/publish-slide.ts`.
  *
  * Response envelope: `{ success, data: { slides } }` on the happy path,
  * `{ success: false, message }` otherwise.
@@ -19,14 +23,14 @@ import { applyPublishToSlides } from '@/lib/decks/publish-slide';
 
 export async function POST(
   _req: Request,
-  { params }: { params: Promise<{ id: string; slideId: string }> },
+  { params }: { params: Promise<{ id: string; slideIndex: string }> },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id, slideId } = await params;
+  const { id, slideIndex: slideId } = await params;
   const deckId = parseInt(id, 10);
   if (Number.isNaN(deckId)) {
     return NextResponse.json({ success: false, message: 'Invalid deck id' }, { status: 400 });
