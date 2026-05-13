@@ -8,6 +8,7 @@ import PmNotificationBell from '@/components/portal/PmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
 import CmdKPalette from '@/components/CmdKPalette';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
+import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -80,6 +81,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     <SessionProvider>
       <AgencyChromeProvider>
         <PortalTitle />
+        <ImpersonationBanner />
         <div className="min-h-screen bg-background">
           {!previewMode && <PortalSidebar />}
           <div>
