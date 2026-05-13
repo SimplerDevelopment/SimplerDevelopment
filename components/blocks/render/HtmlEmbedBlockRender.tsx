@@ -72,11 +72,18 @@ export function HtmlEmbedBlockRender({ block }: HtmlEmbedBlockRenderProps) {
   // an opaque origin so it can't read parent cookies/storage.
   const sandbox = SANDBOX_PRESETS[block.sandbox || 'scripts'];
   const height = block.height || '600px';
+  // `?embed=1` busts the browser disk cache for any client that picked up the
+  // pre-fix media-proxy response (Cache-Control: immutable, served the HTML
+  // as Content-Disposition: attachment, iframe rendered blank). The proxy
+  // route ignores query strings, so this is purely a cache-key change.
+  const iframeSrc = block.url.includes('?')
+    ? `${block.url}&embed=1`
+    : `${block.url}?embed=1`;
   return (
     <div className={responsiveClasses}>
       <div className={containerClass}>
         <iframe
-          src={block.url}
+          src={iframeSrc}
           title={block.iframeTitle || 'Embedded HTML content'}
           sandbox={sandbox}
           referrerPolicy="no-referrer"

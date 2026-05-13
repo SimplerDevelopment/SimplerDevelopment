@@ -57,15 +57,26 @@ export async function GET(
       'audio/mpeg', 'audio/ogg', 'audio/wav',
       'font/woff', 'font/woff2', 'application/font-woff',
     ]);
-    const ct = cached.contentType || 'application/octet-stream';
-    const inline = SAFE_INLINE.has(ct.toLowerCase().split(';')[0].trim());
+    // HTML uploads (html-embed block) must render inline so the iframe in
+    // HtmlEmbedBlockRender doesn't get a `Content-Disposition: attachment`
+    // download. The CSP `sandbox` directive forces the response into an
+    // opaque origin even on top-level navigation, so a victim opening the URL
+    // directly can't read the app's cookies/localStorage — same protection
+    // that the iframe sandbox already gave us, now applied unconditionally.
+    const IFRAME_SANDBOXED = new Set(['text/html', 'application/xhtml+xml']);
+    const ct = (cached.contentType || 'application/octet-stream').toLowerCase().split(';')[0].trim();
+    const sandboxed = IFRAME_SANDBOXED.has(ct);
+    const inline = SAFE_INLINE.has(ct) || sandboxed;
     const headers: Record<string, string> = {
-      'Content-Type': inline ? ct : 'application/octet-stream',
+      'Content-Type': inline ? cached.contentType || ct : 'application/octet-stream',
       'Content-Length': cached.contentLength.toString(),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
     };
-    if (!inline) {
+    if (sandboxed) {
+      headers['Content-Security-Policy'] =
+        "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms";
+    } else if (!inline) {
       const filename = key.split('/').pop() || 'download';
       headers['Content-Disposition'] = `attachment; filename="${encodeURIComponent(filename)}"`;
     }
