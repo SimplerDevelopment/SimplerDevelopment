@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailCampaignSends, usageMeterEvents } from '@/lib/db/schema';
@@ -27,7 +28,7 @@ export const runtime = 'nodejs';
  * pricing-byok-foundation -> "wire real Resend usage". For now the count is
  * close enough to drive the admin tier picker / overage UI.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization');
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
@@ -104,3 +105,8 @@ export async function GET(req: Request) {
     },
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:resend-usage-sync', area: 'api-cron' },
+  _GET,
+);

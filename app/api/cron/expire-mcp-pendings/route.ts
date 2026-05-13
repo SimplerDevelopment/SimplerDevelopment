@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { expireStalePendings } from '@/lib/mcp/expire-pending';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
  *
  * Suggested schedule: daily at 03:17 UTC via vercel.json.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -37,6 +38,11 @@ export async function GET(req: Request) {
   });
   return NextResponse.json({ success: true, ...result });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:expire-mcp-pendings', area: 'api-cron' },
+  _GET,
+);
 
 // Also accept POST for manual triggers from scripts
 export const POST = GET;

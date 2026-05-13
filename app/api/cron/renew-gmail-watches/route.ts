@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { eq, isNull, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
@@ -35,7 +36,7 @@ export const runtime = 'nodejs';
 
 const RENEWAL_HORIZON_MS = 48 * 60 * 60 * 1000; // 48h
 
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -130,3 +131,8 @@ export async function GET(req: Request) {
     failures: failures.slice(0, 10), // cap log noise
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:renew-gmail-watches', area: 'api-cron' },
+  _GET,
+);

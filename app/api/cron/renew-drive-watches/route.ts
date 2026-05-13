@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
@@ -38,7 +39,7 @@ function resolveWebhookAddress(req: Request): string {
   return `${base.replace(/\/$/, '')}/api/google-webhook/drive`;
 }
 
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -147,3 +148,8 @@ export async function GET(req: Request) {
     failures: failures.slice(0, 10),
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:renew-drive-watches', area: 'api-cron' },
+  _GET,
+);

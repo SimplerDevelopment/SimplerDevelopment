@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { processRecurrences } from '@/lib/portal/recurrence-processor';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const runtime = 'nodejs';
  * fires within minutes of the hour. Vercel cron header is honored;
  * otherwise expects `Authorization: Bearer ${CRON_SECRET}`.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -31,3 +32,8 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:pm-recurrences', area: 'api-cron' },
+  _GET,
+);

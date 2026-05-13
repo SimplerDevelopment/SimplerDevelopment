@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { recordColumnDailySnapshots } from '@/lib/portal/cfd-snapshot';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const runtime = 'nodejs';
  * Suggested schedule: once per day at 23:55 UTC (`55 23 * * *`). Cheap to
  * re-run — idempotent on (projectId, columnId, snapshotDate).
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -30,3 +31,8 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:pm-column-snapshots', area: 'api-cron' },
+  _GET,
+);

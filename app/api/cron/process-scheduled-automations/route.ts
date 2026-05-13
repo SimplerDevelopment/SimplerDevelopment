@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { automationRules } from '@/lib/db/schema';
 import { and, eq, isNotNull, lte, asc } from 'drizzle-orm';
@@ -20,7 +21,7 @@ export const runtime = 'nodejs';
  *
  * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -102,3 +103,8 @@ export async function GET(req: Request) {
     errors,
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:process-scheduled-automations', area: 'api-cron' },
+  _GET,
+);

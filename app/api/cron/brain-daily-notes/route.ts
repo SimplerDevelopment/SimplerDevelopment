@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brainNoteTemplates } from '@/lib/db/schema';
@@ -22,7 +23,7 @@ export const runtime = 'nodejs';
  *
  * Suggested schedule: 6:05 UTC daily (`5 6 * * *`).
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -94,6 +95,11 @@ export async function GET(req: Request) {
     failures: failures.slice(0, 20),
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:brain-daily-notes', area: 'api-cron' },
+  _GET,
+);
 
 // Accept POST for manual triggers from scripts.
 export const POST = GET;

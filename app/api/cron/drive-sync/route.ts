@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { googleWorkspaceUserConnections } from '@/lib/db/schema';
@@ -24,7 +25,7 @@ export const runtime = 'nodejs';
  *
  * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}`.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -128,3 +129,8 @@ export async function GET(req: Request) {
     failures: failures.slice(0, 20),
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:drive-sync', area: 'api-cron' },
+  _GET,
+);
