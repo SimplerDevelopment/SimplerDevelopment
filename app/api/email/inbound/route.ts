@@ -11,11 +11,10 @@ import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 
-// Shared secret between CF Worker and this endpoint
+// Shared secret between CF Worker and this endpoint. Validated per-request
+// (not at module load) so `next build` can collect page data without the
+// env var set in the build environment.
 const INBOUND_SECRET = process.env.INBOUND_EMAIL_SECRET;
-if (!INBOUND_SECRET || INBOUND_SECRET === 'sd-inbound-secret-change-me') {
-  throw new Error('INBOUND_EMAIL_SECRET env var is required and must not be the placeholder.');
-}
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant for Simpler Development. A client is contacting you via email. You have access to tools that query and modify their portal data — projects, invoices, tickets, websites, email campaigns, booking pages, pitch decks, CRM, and more.
 
@@ -62,6 +61,12 @@ interface InboundPayload {
 }
 
 export async function POST(req: Request) {
+  if (!INBOUND_SECRET || INBOUND_SECRET === 'sd-inbound-secret-change-me') {
+    return NextResponse.json(
+      { error: 'INBOUND_EMAIL_SECRET env var is required and must not be the placeholder.' },
+      { status: 500 },
+    );
+  }
   try {
     const payload: InboundPayload = await req.json();
 

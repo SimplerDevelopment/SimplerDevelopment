@@ -67,12 +67,20 @@ export interface PitchDeckSlideV2 {
    * sibling live fields (`blocks`, `customCss`, `pageSettings`). The
    * `decks_publish_slide` / `decks_publish_all` MCP tools copy `draft.*`
    * onto the live fields and clear `draft`.
+   *
+   * `pendingCreate` / `pendingDelete` mirror the `SiteNavigationDraft`
+   * convention: a `pendingCreate` slide exists in the slides array but its
+   * live fields (`blocks`, `customCss`, etc.) are empty until publish;
+   * a `pendingDelete` slide is a tombstone — still rendered live until the
+   * publish step removes it.
    */
   draft?: {
     blocks?: import('@/types/blocks').Block[];
     customCss?: string;
     pageSettings?: import('@/types/blocks').PageSettings;
     notes?: string;
+    pendingCreate?: boolean;
+    pendingDelete?: boolean;
     updatedAt?: string; // ISO timestamp of the last draft write
     updatedBy?: number; // userId
   };
