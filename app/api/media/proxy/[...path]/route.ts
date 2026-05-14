@@ -64,11 +64,19 @@ export async function GET(
     // directly can't read the app's cookies/localStorage — same protection
     // that the iframe sandbox already gave us, now applied unconditionally.
     const IFRAME_SANDBOXED = new Set(['text/html', 'application/xhtml+xml']);
-    const ct = (cached.contentType || 'application/octet-stream').toLowerCase().split(';')[0].trim();
+    const storedCt = cached.contentType || 'application/octet-stream';
+    const ct = storedCt.toLowerCase().split(';')[0].trim();
     const sandboxed = IFRAME_SANDBOXED.has(ct);
     const inline = SAFE_INLINE.has(ct) || sandboxed;
+    // Tenant-uploaded HTML rarely declares <meta charset>. Without an explicit
+    // charset in the response header, browsers fall back to Windows-1252 and
+    // mangle UTF-8 (em-dash, smart quotes, etc.) into mojibake. Force utf-8
+    // for HTML/XHTML unless the stored CT already specifies a charset.
+    const inlineCt = sandboxed && !/charset=/i.test(storedCt)
+      ? `${ct}; charset=utf-8`
+      : storedCt;
     const headers: Record<string, string> = {
-      'Content-Type': inline ? cached.contentType || ct : 'application/octet-stream',
+      'Content-Type': inline ? inlineCt : 'application/octet-stream',
       'Content-Length': cached.contentLength.toString(),
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
