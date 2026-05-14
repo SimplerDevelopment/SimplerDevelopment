@@ -79,3 +79,9 @@ public/_cmp/
 .planning/postcaptain-replication/_probe-*.mjs
 .planning/postcaptain-replication/probe-*.mjs
 backups/
+
+# MCP credentials — never commit
+.planning/leads/.mcp-secrets
+.planning/leads/*secrets*
+.planning/leads/*credentials*
+
