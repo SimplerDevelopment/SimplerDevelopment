@@ -36,6 +36,13 @@ const nextConfig: NextConfig = {
     workerThreads: false,
     cpus: 4,
   },
+  // `isomorphic-dompurify` (used by lib/security/sanitize-html, which several
+  // block renderers import) transitively pulls in jsdom → html-encoding-sniffer
+  // → @exodus/bytes — and @exodus/bytes is ESM-only. Turbopack's CJS bundle
+  // emits a `require()` against it and crashes every tenant SSR page with
+  // ERR_REQUIRE_ESM. Marking these external punts the resolution to Node's
+  // native module system, which handles the ESM/CJS interop correctly.
+  serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
 
   images: {
     remotePatterns: [
