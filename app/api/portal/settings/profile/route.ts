@@ -42,7 +42,9 @@ export async function PATCH(req: Request) {
   const { name, email, company, phone, website, address, emailPrefix } = body;
 
   if (!name?.trim()) return NextResponse.json({ success: false, message: 'Name is required' }, { status: 400 });
+  if (name.trim().length > 255) return NextResponse.json({ success: false, message: 'Name must be 255 characters or fewer' }, { status: 400 });
   if (!email?.trim()) return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
+  if (email.trim().length > 255) return NextResponse.json({ success: false, message: 'Email must be 255 characters or fewer' }, { status: 400 });
 
   // Check email uniqueness if changed
   const [current] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
