@@ -291,6 +291,11 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         published: z.boolean().optional(),
         customCss: z.string().nullable().optional().describe('Per-post custom CSS. Pass null to clear.'),
         customJs: z.string().nullable().optional().describe('Per-post custom JS. Pass null to clear.'),
+        seoTitle: z.string().nullable().optional().describe('SEO <title> tag. Pass null to clear.'),
+        seoDescription: z.string().nullable().optional().describe('SEO <meta name="description"> content. Pass null to clear.'),
+        ogImage: z.string().nullable().optional().describe('Open Graph image URL. Pass null to clear.'),
+        canonicalUrl: z.string().nullable().optional().describe('Canonical URL override. Pass null to clear.'),
+        noIndex: z.boolean().optional().describe('Set true to emit <meta name="robots" content="noindex">.'),
         includeContent: z.boolean().default(false).optional().describe('Echo back the full content/customCss/customJs/SEO long-text in the response. Default false — saves several MB per call for block-rich pages.'),
       },
     },
@@ -318,7 +323,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         entityId: id,
         summary: `Update post #${id}${rest.title ? ` → "${rest.title}"` : ''}${rest.published === true ? ' + publish' : ''}`,
         payload: { id, ...rest },
-        originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content, customCss: post.customCss, customJs: post.customJs },
+        originalSnapshot: { title: post.title, published: post.published, excerpt: post.excerpt, content: post.content, customCss: post.customCss, customJs: post.customJs, seoTitle: post.seoTitle, seoDescription: post.seoDescription, ogImage: post.ogImage, canonicalUrl: post.canonicalUrl, noIndex: post.noIndex },
         apply: async () => {
           const patch: Record<string, unknown> = { updatedAt: new Date() };
           if (rest.title !== undefined) patch.title = rest.title;
@@ -332,6 +337,11 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           }
           if (rest.customCss !== undefined) patch.customCss = rest.customCss;
           if (rest.customJs !== undefined) patch.customJs = rest.customJs;
+          if (rest.seoTitle !== undefined) patch.seoTitle = rest.seoTitle;
+          if (rest.seoDescription !== undefined) patch.seoDescription = rest.seoDescription;
+          if (rest.ogImage !== undefined) patch.ogImage = rest.ogImage;
+          if (rest.canonicalUrl !== undefined) patch.canonicalUrl = rest.canonicalUrl;
+          if (rest.noIndex !== undefined) patch.noIndex = rest.noIndex;
           const [row] = await db.update(posts).set(patch).where(eq(posts.id, id)).returning(postProjection(includeContent));
           return row;
         },
