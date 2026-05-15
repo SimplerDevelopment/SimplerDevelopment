@@ -1,6 +1,6 @@
 ---
 name: sd-create-booking-page
-description: List, inspect, and embed booking pages from the SimplerDevelopment portal. Embeds an existing booking page into a CMS page, deck, or email via the `booking` block (or `booking-menu` for all-services). Returns the public `/book/<slug>` URL. NOTE — booking-page CREATE/UPDATE via MCP is not yet wired (the portal REST API and the UI are the canonical authoring path). This skill helps you DISCOVER existing booking pages and EMBED them; for net-new booking-page authoring it walks the user through portal-side setup. Use when the user says 'add a booking widget to this page', 'embed the discovery call booking', 'link the demo booking page', 'show our consulting hours', 'add a calendar to the email'.
+description: Create, list, inspect, and embed booking pages from the SimplerDevelopment portal. Two flows — (A) embed an existing booking page into a CMS page, deck, or email via the `booking` block (or `booking-menu` for all-services), or (B) author a new booking page via `booking_pages_create` + `booking_pages_update`, which mints an approval URL whose approval flips `active=true` so `/book/<slug>` starts accepting reservations. Returns the public `/book/<slug>` URL. Use when the user says 'add a booking widget to this page', 'embed the discovery call booking', 'create a new booking page', 'set up consulting hours', 'add a calendar to the email'.
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
@@ -138,13 +138,11 @@ Return to the user:
 - Public URL: `<site-domain>/book/<slug>`
 - Portal edit URL: `/portal/tools/booking/<id>`
 - The block JSON ready to splice into a page / deck / email
-- A reminder about confirmation-email branding gap (if relevant)
-- A reminder about the missing MCP create/update gap (if Flow B was followed)
+- The approval URL (Flow B only) — approval flips `active=true` so `/book/<slug>` starts accepting reservations
 
 ## Failure modes
 
-- **`booking_pages_list` returns empty + Flow B requested** → walk user through portal-side setup. Don't fabricate a `booking_pages_create` call.
-- **Booking page is `active=false`** → embedding still works but `/book/<slug>` returns 404. Approve the page (via the future approval flow once create/update is wired) or flip in the portal.
+- **Booking page is `active=false`** → embedding still works but `/book/<slug>` returns 404. Either approve the page via its approval URL or flip `active=true` in the portal.
 - **`assignedMembers` is empty + `assignmentMode='round_robin'`** → no one is on call. Public booking will surface "no availability." Flag.
 - **Conferencing set to `google_meet` but no Workspace credentials** → bookings will be created without a calendar invite. The user must connect Workspace via `/portal/integrations/google`.
 
@@ -154,7 +152,6 @@ After every run where the user accepts or rejects the embed, invoke `sd-learn` w
 
 - Always use the wide logo on the embed header, never the icon.
 - For client X, the booking embed should be inside a `cta` block with eyebrow + heading.
-- Confirmation-email branding gap should be surfaced every time until the server-side fix lands.
 
 ## Install
 

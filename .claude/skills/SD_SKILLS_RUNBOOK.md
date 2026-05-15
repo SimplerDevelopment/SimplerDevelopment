@@ -1,18 +1,20 @@
 # SimplerDevelopment Content Skills — Runbook
 
-**Audience:** you (or a teammate) driving the four content-authoring skills (`sd-init`, `sd-create-page`, `sd-create-deck`, `sd-create-email`) from Claude Code or claude.ai against the SimplerDevelopment portal MCP.
+**Audience:** you (or a teammate) driving the SimplerDevelopment content-authoring skills (`sd-init`, `sd-create-page`, `sd-create-deck`, `sd-create-email`, `sd-create-survey`, `sd-create-booking-page`, `sd-create-website`, `sd-build-html-embed`, `sd-learn`, `html-render-block`) from Claude Code or claude.ai against the SimplerDevelopment portal MCP.
 
-**As of:** 2026-05-14 — feature verified end-to-end on the local instance (`simplerdev_local_20260514`).
+> **Not for portal clients.** This is the internal operator runbook — DB connection strings, gated-approval SQL, deploy history. Clients should be handed `CLIENT_QUICKSTART.md` instead. The split between client-shippable and internal-only skills lives in `CLIENT_SAFE_MANIFEST.md`.
+
+**As of:** 2026-05-15 — Phases 1–8 verified end-to-end. Migrations 0111/0112/0113 applied to the shared staging+prod Railway Postgres. Staging deploy of branch `staging` is the canonical reference for this runbook.
 
 ---
 
 ## 1. What this stack is, in one paragraph
 
-Four Claude skills that draft CMS pages, pitch decks, and email campaigns into the SimplerDevelopment portal via its MCP. Every create / update mints a public **approval URL** (`/approve/<64-hex-token>`) that a non-authenticated reviewer can open, see the rendered artifact, and approve or reject — no portal login needed. Approving triggers the same publish side-effects an authed admin would (`published=true` on posts, `status='published'` + slide-draft promotion on decks, draft-promotion on templates). Forking duplicates an artifact into a new draft row with a `parent_*_id` pointer — last-write-wins, no merge.
+Ten Claude skills that draft CMS pages, pitch decks, email campaigns, surveys, booking pages, multi-page websites, and custom HTML experiences into the SimplerDevelopment portal via its MCP. Every create / update mints a public **approval URL** (`/approve/<64-hex-token>`) that a non-authenticated reviewer can open, see the rendered artifact, and approve or reject — no portal login needed. Approving triggers the same publish side-effects an authed admin would: `published=true` on posts, `status='published'` + slide-draft promotion on decks, draft-promotion on templates, `status='active'` on surveys, `active=true` on booking pages, and `applyPendingChange` for gated API keys. Forking duplicates an artifact into a new draft row with a `parent_*_id` pointer — last-write-wins, no merge.
 
 ---
 
-## 2. The four skills
+## 2. The skills
 
 ### `sd-init` — bootstrap
 
@@ -46,7 +48,7 @@ Run once per project. Resolves the active client, default site, default brand pr
 
 ### `sd-create-survey` — surveys / forms / intake
 
-`surveys_create` + a follow-up `surveys_update` to patch in branding, pages, styling, scoring config. Returns survey id + public `/s/<slug>` URL + approval URL. **Approving flips status `draft` → `active`** — only then does the public route accept responses. Custom logic (showIf rules, page-jump branching, conditional options, NPS/option-map/numeric scoring, recommendation engine, CRM auto-route) all expressed in the JSON; see the skill for shape. Note: scoring config + recommendations currently need a follow-up portal edit or direct DB write — they're not in the MCP `surveys_update` input schema yet.
+`surveys_create` + a follow-up `surveys_update` to patch in branding, pages, styling, scoring config, recommendations. Returns survey id + public `/s/<slug>` URL + approval URL. **Approving flips status `draft` → `active`** — only then does the public route accept responses. Custom logic (showIf rules, page-jump branching, conditional options, NPS/option-map/numeric scoring, recommendation engine, CRM auto-route) all expressed in the JSON; see the skill for shape. `surveys_update` accepts the full field set as of Phase 3 — no portal-side fallback needed.
 
 ### `sd-create-booking-page` — booking widgets
 
@@ -148,13 +150,30 @@ Exception: `decks_replace_slides` does NOT mint a new URL — it only mutates th
 
 ---
 
-## 6. Known issues / gotchas (real bugs surfaced during the test run)
+## 6. Known issues / gotchas
 
-1. **`sites_update.brandingProfileId` tool schema** is `{}` (any type), but the zod validator on the server requires `number`. Calls with a number arg are coerced to string by the MCP transport and rejected. Workaround: set the profile's `isDefault: true` instead.
-2. **Email renderer drops `email-header.logoText` and `email-footer.tagline`.** The fields are accepted by `email_campaigns_create` but ignored by `renderBlocksToEmailHtml`. Pass an image-based logo via `logoUrl` if you need a branded header.
-3. **Email renderer concatenates default + custom styles without deduping.** Each paragraph gets two `color:` declarations. Browsers honor last-wins, but the inline CSS is messy.
-4. **OAuth consent page had a dual `active_client_id` input bug** — hidden + select with the same name, FormData picked the hidden one and ignored the dropdown choice. Fixed during this session (`app/oauth/authorize/page.tsx`).
-5. **Slide-promotion-on-approve was missing.** Approving a deck flipped `status='published'` but left every slide in draft. Fixed by extracting publish helpers to `lib/mcp/decks-publish.ts` and wiring `applyPublishAllToSlides` into the approval route's `pitch_deck` case.
+### Currently open
+
+1. **Migration tracker drift.** `drizzle.__drizzle_migrations` only records migration `0003`; everything `0004..0113` has been hand-applied SQL. `bun run db:migrate` won't run cleanly until this is repaired. New migrations must be hand-applied to both staging and production (which today share one Railway Postgres). Track every new `drizzle/NNNN_*.sql` file as a manual psql run.
+2. **Staging + production share one Postgres** (`metro.proxy.rlwy.net`). The Vercel `DATABASE_URL` env var has the same value for Preview and Production. Schema changes on staging are immediately visible to production users. Plan: stand up a separate staging DB before any destructive migration.
+3. **No stable staging hostname.** Staging is reachable only via the per-deployment Vercel Preview URL (e.g. `simplerdevelopment-workfriends-<hash>-dans-projects-b17bafc2.vercel.app`) behind deployment protection. Clients can't point Claude at staging without a bypass-secret. Plan: alias `staging.simplerdevelopment.com` once the shared-DB risk above is resolved.
+4. **`drizzle-kit generate` is stuck** on a pre-existing meta-snapshot collision. Documented in CLAUDE.md / project memory. New schema work goes via hand-written SQL until this is repaired.
+
+### Historical (fixed) — kept here so future maintainers can match symptoms to remediation
+
+| Bug | Fixed in | Where |
+|---|---|---|
+| `sites_update.brandingProfileId` zod schema collapsed to `{}` and accepted strings | Phase 3 | `z.number().int().positive().nullable().optional()` in the surveys + sites schemas |
+| Email-header `logoText` + email-footer `tagline` dropped by renderer | Phase 3 | `lib/email/render-blocks-to-email.ts` |
+| Email-renderer concatenated default + custom styles (double `color:`) | Phase 3 | `mergeStyle` de-dupes in `lib/email/render-blocks-to-email.ts` |
+| OAuth consent dropdown ignored (hidden + select with same name) | Phase 2 | `app/oauth/authorize/page.tsx` |
+| Deck approval flipped `status='published'` but left slides in draft | Phase 2 | `applyPublishAllToSlides` wired into approval route via `lib/mcp/decks-publish.ts` |
+| `ServicesGridBlockRender` missing `key` props on dynamic children | Phase 3 | fallback to `service-${idx}` |
+| Approval links had no `expires_at` default | Phase 3 | 14-day default in `createApprovalLink`, override via `expiresInDays` |
+| No concurrent-approval test coverage | Phase 5 | `tests/integration/api/approve/approval-links.test.ts` |
+| `surveys_fork` not wired | Phase 4 | `surveys_fork` MCP tool + `surveys.parent_survey_id` (migration 0112) |
+| Booking confirmation/reminder emails un-branded | Phase 4 | `loadBookingBrand` + brand-aware email templates in `lib/email/booking-emails.ts` |
+| Booking reminder cron missing | Phase 6 | `/api/cron/booking-reminders` + migration 0113 + vercel.json schedule |
 
 ---
 
@@ -175,7 +194,7 @@ Exception: `decks_replace_slides` does NOT mint a new URL — it only mutates th
 ### Drive the local dev server
 
 ```bash
-cd ~/simplerdevelopment/.claude/worktrees/serene-lamarr-729c5e/simplerdevelopment2026
+cd <repo-root>  # e.g. ~/simplerdevelopment/simplerdevelopment2026
 bun dev > /tmp/sd-dev.log 2>&1 &
 tail -f /tmp/sd-dev.log
 ```
@@ -208,7 +227,7 @@ ORDER BY id DESC LIMIT 10;
 ### Run the integration tests
 
 ```bash
-cd ~/simplerdevelopment/.claude/worktrees/serene-lamarr-729c5e/simplerdevelopment2026
+cd <repo-root>  # e.g. ~/simplerdevelopment/simplerdevelopment2026
 bun test:integration:local -- tests/integration/api/approve/
 ```
 
@@ -217,7 +236,7 @@ The new test file at `tests/integration/api/approve/approval-links.test.ts` cove
 ### Typecheck after editing the approval lib or route
 
 ```bash
-cd ~/simplerdevelopment/.claude/worktrees/serene-lamarr-729c5e/simplerdevelopment2026
+cd <repo-root>  # e.g. ~/simplerdevelopment/simplerdevelopment2026
 bunx tsc --noEmit
 ```
 
@@ -269,24 +288,28 @@ UPDATE portal_api_keys SET require_cms_approval = true WHERE id = N;
 | Edge cases (unknown / bad-shape token, double-approve, bad action, missing reviewer, expired) | ✅ all 6 pass |
 | posts_fork / decks_fork / email_campaigns_fork / block_templates_fork | ✅ all 4 verified, parent_*_id set, fresh approval URL minted, parent isolation confirmed |
 | Iteration: each update mints fresh approval URL | ✅ verified (3 skill docs corrected) |
-| `app/approve/[token]/page.tsx` + `ApprovalReviewer.tsx` rendered in a browser | ❌ not visually inspected — needs human eyes on the page itself |
-| Concurrent approval attempts (two reviewers both clicking approve at the same instant) | ❌ no race-condition test yet |
-| `expires_at` set on mint (currently always null) — needs a default policy | ❌ TODO |
-| Email open / click tracking pixels for approved campaigns | ❌ out of scope of this audit |
+| `app/approve/[token]/page.tsx` + `ApprovalReviewer.tsx` rendered in a browser | ✅ verified via Playwright in Phase 2 — confirmed pending badge + approval modal flow |
+| Concurrent approval attempts (two reviewers both clicking approve at the same instant) | ✅ covered by Phase 5 race tests in `tests/integration/api/approve/approval-links.test.ts` |
+| `expires_at` set on mint — defaults to 14 days, override via `expiresInDays` (Phase 3) | ✅ shipped |
+| Survey lifecycle (create → approve flips draft→active) | ✅ verified Phase 3 (survey 149) |
+| Booking-page lifecycle (create → approve flips active=true) | ✅ verified Phase 3 (booking page 2) |
+| Booking-reminder cron (Phase 6) against staging deployment | ✅ verified 2026-05-15 — runs, scans, exits clean. Production cron schedule fires only on the Production environment; will be live when the next merge to main deploys. |
+| Migration `0111` (approval_links + fork pointers) applied to shared DB | ✅ applied 2026-05-14 |
+| Migration `0112` (surveys.parent_survey_id) applied to shared DB | ✅ applied 2026-05-15 (hand-applied) |
+| Migration `0113` (bookings.reminder_sent_at + index) applied to shared DB | ✅ applied 2026-05-15 (hand-applied) |
+| Email open / click tracking pixels for approved campaigns | ❌ out of scope |
+| `posts_upload_html_zip` / `decks_upload_html_zip` against live S3 | ❌ verified-by-inference only — needs end-to-end test with real S3 creds |
 
 ---
 
-## 11. Recommended next steps (post-morning)
+## 11. Open work before broad client handover
 
-1. **Visit each approval URL in a browser** and confirm the renderer is sane (`/approve/<token>`).
-   - Post 698: http://localhost:3000/approve/5341d36baf950a2be9916ae4611ce8e19f7e310ef54b1269520304953c422991 (now `approved` — should render in read-only)
-   - Post 699: http://localhost:3000/approve/62467f42133b48a144541a442a8ce3043044e078a83337127cde6ff0a4ba2e29 (rejected)
-   - Deck 350: http://localhost:3000/approve/d561053d17fb8813cc08bb3fb16ae97001dc5ca45355beec62aa723c4e34f821 (approved)
-   - Email 36: http://localhost:3000/approve/c9e24141f8c7520b091beee712e7f633f1f608f22330bd02462c2844395cb518 (approved)
-   - Template 11: http://localhost:3000/approve/8a40b88a1cf3fdaffda0772c3f2709be776fe7608302800f731408917283e38a (approved)
-2. **Decide on a default `expires_at`** — recommend `now() + 14 days` on mint, with the option to pass `expiresInDays` on the create call. Long-lived public tokens are a footgun.
-3. **Add a "what changed" diff** to the reviewer UI — for updates and pending-changes, show what's different from the live state. Otherwise the reviewer has to spot the diff themselves.
-4. **Wire `decks_publish_all` into `decks_replace_slides` as a `publish: true` option** so authors can promote slides to live without minting a new approval URL via `decks_update`.
-5. **Patch the two email-renderer bugs** (`logoText` / `tagline` dropped; double `color:` style). Both are in `lib/email/build-campaign-html.ts` or wherever `renderBlocksToEmailHtml` lives.
-6. **Fix the `sites_update.brandingProfileId` schema** — change the empty `{}` to `z.number()` so the MCP transport doesn't coerce to string.
-7. **Run the new integration test file** against your CI gate (`bun test:integration:local -- tests/integration/api/approve/`) once you've set up the test template DB.
+Items 2, 5, 6 from the original post-morning list are shipped. What's left:
+
+1. **Stand up a separate staging Postgres** so schema changes can be validated without touching production data. The current shared-DB setup (section 6, open issue #2) is the highest-impact risk in this stack.
+2. **Stand up a stable staging hostname** (e.g. `staging.simplerdevelopment.com`) with deployment-protection bypass plumbed so pilot clients can point Claude at it. Today only the per-deployment Preview URL is reachable.
+3. **Repair the drizzle migration tracker** — backfill `drizzle.__drizzle_migrations` to match disk (`0004..0113`), or formally adopt hand-applied SQL as the workflow and remove the tracker entirely. Document whichever path you pick.
+4. **Live S3 round-trip** for `posts_upload_html_zip` + `decks_upload_html_zip` — verified by inference today (shares the existing portal-route pipeline), but no end-to-end test yet.
+5. **Reviewer-UI diff view** for `posts_update` / `decks_update` / `email_campaigns_update` and `pending_change` approvals — show what changed vs the live state instead of forcing the reviewer to spot it.
+6. **Wire `decks_publish_all` into `decks_replace_slides` as a `publish: true` option** so slide promotion doesn't require minting a fresh approval URL via `decks_update`.
+7. **CI gate on `tests/integration/api/approve/`** — the test file exists and passes locally; wire it into the required-status-check list (see `tests/CI-GATES.md`).
