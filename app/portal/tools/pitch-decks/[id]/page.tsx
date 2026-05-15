@@ -922,7 +922,11 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     );
   }
 
-  const currentSlide = deck.slides[activeSlide];
+  // `currentSlide` is undefined for a freshly-created deck with no slides yet
+  // (the create endpoint POSTs `slides: []`). Guard everything downstream so
+  // the editor renders the empty-state UI (defined below at `deck.slides.length === 0`)
+  // instead of crashing inside `getSlideView`.
+  const currentSlide: PitchDeckSlideV2 | undefined = deck.slides[activeSlide];
   const draftSlideCount = deck.slides.filter((s) => slideHasDraft(s)).length;
   const pathGroups = getPathGroups();
   const pathGroupSlideCounts = pathGroups.reduce<Record<string, number>>((acc, pg) => {
@@ -932,13 +936,15 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   // The slide as the editor should display it — draft overlay wins over live.
   // SlideSettingsPanel + SlideContentEditor both read from `currentSlideView`.
-  const currentSlideView = getSlideView(currentSlide);
+  // Null when the deck has no slides yet.
+  const currentSlideView = currentSlide ? getSlideView(currentSlide) : null;
 
   // Slide-level settings JSX — used as the noSelectionPanel inside VisualEditorShell
   // and appended to survey-slide previews so tenants can theme any slide identically.
   // `pageSettings` / `customCss` updates route into `draft.*`; `label` is sidebar-
   // only and stays on the live field so reorder/duplicate UIs reflect it instantly.
-  const slideSettingsPanel = (
+  // Null when there's no active slide — consumers below are gated by the same check.
+  const slideSettingsPanel = currentSlideView ? (
     <SlideSettingsPanel
       slide={currentSlideView}
       theme={deck.theme}
@@ -965,7 +971,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
         setHasUnsavedChanges(true);
       }}
     />
-  );
+  ) : null;
 
   return (
     <div className="w-full space-y-4 px-2">
@@ -1311,7 +1317,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             {currentSlide.surveySlide ? (
               editingSurveyFieldId ? (
                 <SurveyFieldEditorView
-                  slide={currentSlideView}
+                  slide={currentSlideView!}
                   theme={deck.theme}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   editingFieldId={editingSurveyFieldId}
@@ -1323,7 +1329,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
                 />
               ) : (
                 <SurveySlideQuestionList
-                  slide={currentSlideView}
+                  slide={currentSlideView!}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   onSelectField={setEditingSurveyFieldId}
                   onRemoveSlide={() => removeSlide(activeSlide)}
@@ -1331,7 +1337,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               )
             ) : currentSlide.decisionSlide ? (
               <DecisionSlideEditor
-                slide={currentSlideView}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 pathGroupSlideCounts={pathGroupSlideCounts}
                 onUpdateLabel={(label) => {
@@ -1349,7 +1355,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             ) : (
               <SlideContentEditor
                 deckId={id}
-                slide={currentSlideView}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 theme={deck.theme}
                 brandingProfileId={deck.brandingProfileId}
