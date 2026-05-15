@@ -55,6 +55,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── block templates ─────────────────────────────────────────────────
   'block_templates_create',
   'block_templates_delete',
+  'block_templates_fork',
   'block_templates_get',
   'block_templates_list',
   'block_templates_update',
@@ -177,6 +178,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'decks_add_slide',
   'decks_create',
   'decks_delete',
+  'decks_fork',
   'decks_get',
   'decks_list',
   'decks_replace_slides',
@@ -185,6 +187,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── email ───────────────────────────────────────────────────────────
   'email_campaigns_create',
   'email_campaigns_delete',
+  'email_campaigns_fork',
   'email_campaigns_list',
   'email_campaigns_schedule',
   'email_campaigns_send',
@@ -270,6 +273,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   // ── posts / sites ───────────────────────────────────────────────────
   'posts_create',
   'posts_delete',
+  'posts_fork',
   'posts_get',
   'posts_list',
   'posts_list_revisions',

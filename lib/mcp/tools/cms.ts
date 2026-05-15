@@ -105,6 +105,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishBlocksUpdate } from '@/lib/realtime/internal-publisher';
 import { assertBlocksAllowedForUserId, BlockGateError } from '@/lib/security/block-allowlist';
 import { BLOCKS_SCHEMA_REFERENCE, BLOCKS_SCHEMA_TLDR } from '../blocks-schema';
@@ -261,9 +262,12 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'post', summary: `Page "${createArgs.title}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('posts');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -327,9 +331,72 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'post',
+          summary: `Page #${id}${rest.title ? ` → "${rest.title}"` : ''}`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('posts');
-      return json(result.data);
+      return json({ ...result.data, approval });
+    }
+  );
+
+  // ── posts_fork ──────────────────────────────────────────────────────
+  // Lightweight clone. Duplicates the source post into a new draft row
+  // pointing back via `parent_post_id`. Approve on the fork's link
+  // publishes the fork (last-write-wins against the parent's live state).
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'posts_fork',
+    {
+      title: 'Fork a post into a draft',
+      description:
+        'Duplicate a published post into a new draft row tied to the original via parent_post_id. Use when you want to revise a live page without taking it down — edit the fork, share its approval link for review, and the approver merges the fork back when it ships. Returns the new post id + an approval URL.',
+      inputSchema: {
+        id: z.number().describe('Source post id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional().describe('Appended to the cloned title.'),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [source] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
+      if (!source) return json({ error: 'Source post not found' });
+      if (!source.websiteId) return json({ error: 'Permission denied — agency post' });
+      const [site] = await db.select({ id: clientWebsites.id }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, source.websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return json({ error: 'Permission denied' });
+
+      const forkSlug = `${source.slug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(posts).values({
+        websiteId: source.websiteId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        content: source.content,
+        excerpt: source.excerpt,
+        postType: source.postType,
+        published: false,
+        publishedAt: null,
+        coverImage: source.coverImage,
+        seoTitle: source.seoTitle,
+        seoDescription: source.seoDescription,
+        ogImage: source.ogImage,
+        noIndex: source.noIndex,
+        canonicalUrl: source.canonicalUrl,
+        customCss: source.customCss,
+        customJs: source.customJs,
+        parentPostId: source.id,
+      }).returning(postProjection(false));
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'post',
+        entityId: forkRow.id,
+        summary: `Fork of post #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentPostId: source.id, approval: approvalEnvelope(link) });
     }
   );
 
@@ -1430,9 +1497,12 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'block_template', summary: `Template "${args.name}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -1496,9 +1566,17 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'block_template',
+          summary: `Template "${existing.name}" update`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -1598,6 +1676,66 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
       return json(result.data);
+    }
+  );
+
+  // ── block_templates_fork ───────────────────────────────────────────
+  // Lightweight clone — duplicates the source template into a new row tied
+  // back via `parent_template_id`. The new row starts as a fresh draft
+  // (pendingCreate=true on the draft overlay) so it's hidden from the
+  // picker until the approval-link reviewer approves it.
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'block_templates_fork',
+    {
+      title: 'Fork a block template into a new draft',
+      description:
+        'Duplicate a published block template into a new draft template tied to the original via parent_template_id. Use when you need to riff on a template without touching the original (e.g. building a variant of a hero block for a specific landing page). Returns the new template id + an approval URL.',
+      inputSchema: {
+        id: z.number().int().positive().describe('Source template id to fork.'),
+        nameSuffix: z.string().default(' (fork)').optional(),
+        slugSuffix: z.string().default('').optional().describe('Optional suffix appended before the unique fork tag in the new slug.'),
+      },
+    },
+    async ({ id, nameSuffix = ' (fork)', slugSuffix = '' }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      const [source] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
+      if (!source) return json({ error: 'Source template not found' });
+      const forkSlug = `${source.slug}${slugSuffix ? `-${slugSuffix}` : ''}-fork-${Date.now().toString(36)}`;
+      const draft: import('@/lib/db/schema').BlockTemplateDraft = {
+        pendingCreate: true,
+        name: `${source.name}${nameSuffix}`,
+        description: source.description ?? null,
+        category: source.category,
+        scope: source.scope,
+        blocks: source.blocks,
+        thumbnail: source.thumbnail ?? null,
+        tags: (source.tags as string[] | null) ?? [],
+        lockedFields: (source.lockedFields as string[] | null) ?? [],
+        updatedAt: new Date().toISOString(),
+        updatedBy: ctx.userId,
+      };
+      const [forkRow] = await db.insert(blockTemplates).values({
+        name: `${source.name}${nameSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        category: source.category,
+        scope: source.scope,
+        blocks: source.blocks as never,
+        thumbnail: source.thumbnail,
+        tags: source.tags ?? [],
+        lockedFields: source.lockedFields ?? [],
+        createdBy: ctx.userId,
+        parentTemplateId: source.id,
+        draft,
+      }).returning();
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'block_template',
+        entityId: forkRow.id,
+        summary: `Fork of template "${source.name}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, approval: approvalEnvelope(link) });
     }
   );
 

@@ -199,6 +199,9 @@ export const pitchDecks = pgTable('pitch_decks', {
   ogImage: varchar('og_image', { length: 500 }),
   canonicalUrl: varchar('canonical_url', { length: 500 }),
   noIndex: boolean('no_index').default(false).notNull(),
+  // Lightweight fork pointer — set by decks_fork. Points to pitch_decks.id of
+  // the deck this row was duplicated from.
+  parentDeckId: integer('parent_deck_id'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

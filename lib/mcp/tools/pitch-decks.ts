@@ -104,6 +104,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishSlidesUpdate } from '@/lib/realtime/internal-publisher';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
@@ -268,9 +269,12 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return deck;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'pitch_deck', summary: `Deck "${args.title}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -324,9 +328,70 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'pitch_deck',
+          summary: `Deck "${existing.title}" update`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
+    }
+  );
+
+  // ── decks_fork ─────────────────────────────────────────────────────
+  // Lightweight clone. Duplicates the source deck (slides + theme +
+  // metadata) into a new draft deck tied back via `parent_deck_id`. Use
+  // when you want to spin a variant deck off an existing template without
+  // mutating the original — share the approval URL on the fork for review.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_fork',
+    {
+      title: 'Fork a pitch deck into a draft',
+      description:
+        'Duplicate a deck into a new draft deck tied to the original via parent_deck_id. Use for "make me a variant of this deck for client X" or "let me try a different angle without touching the live deck." Returns the new deck id + an approval URL.',
+      inputSchema: {
+        id: z.number().describe('Source deck id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional(),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      const [source] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source deck not found' });
+      const baseSlug = source.slug.replace(/-fork-[a-z0-9]+$/, '');
+      const forkSlug = `${baseSlug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(pitchDecks).values({
+        clientId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        status: 'draft',
+        slides: source.slides as never,
+        formatVersion: source.formatVersion,
+        theme: source.theme as never,
+        sourceUrl: source.sourceUrl,
+        brandingProfileId: source.brandingProfileId,
+        seoTitle: source.seoTitle,
+        seoDescription: source.seoDescription,
+        ogImage: source.ogImage,
+        canonicalUrl: source.canonicalUrl,
+        noIndex: source.noIndex,
+        parentDeckId: source.id,
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'pitch_deck',
+        entityId: forkRow.id,
+        summary: `Fork of deck #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentDeckId: source.id, approval: approvalEnvelope(link) });
     }
   );
 
@@ -767,52 +832,6 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 }
 
 // ─── Slide-draft publish helpers ─────────────────────────────────────────────
-// Pure functions over the slides array. Centralized so `decks_publish_slide`
-// and `decks_publish_all` share identical logic.
-
-function publishOneSlide(slide: PitchDeckSlideV2): PitchDeckSlideV2 | null {
-  const draft = slide.draft;
-  if (!draft) return slide;
-  // Defensive: pendingCreate + pendingDelete simultaneously → drop the slide
-  // (it was created and deleted before publish — net no-op).
-  if (draft.pendingCreate && draft.pendingDelete) return null;
-  if (draft.pendingDelete) return null;
-  // pendingCreate or regular update — copy draft.* onto live fields.
-  // `draft.blocks ?? slide.blocks` keeps live values when the draft omitted
-  // that field (e.g. a notes-only edit).
-  const next: PitchDeckSlideV2 = {
-    ...slide,
-    blocks: draft.blocks ?? slide.blocks,
-    customCss: draft.customCss ?? slide.customCss,
-    pageSettings: draft.pageSettings ?? slide.pageSettings,
-    notes: draft.notes ?? slide.notes,
-  };
-  delete next.draft;
-  return next;
-}
-
-function applyPublishToSlides(slides: PitchDeckSlideV2[], slideId: string): PitchDeckSlideV2[] {
-  const out: PitchDeckSlideV2[] = [];
-  for (const s of slides) {
-    if (s.id !== slideId) {
-      out.push(s);
-      continue;
-    }
-    const published = publishOneSlide(s);
-    if (published) out.push(published);
-  }
-  return out;
-}
-
-function applyPublishAllToSlides(slides: PitchDeckSlideV2[]): PitchDeckSlideV2[] {
-  const out: PitchDeckSlideV2[] = [];
-  for (const s of slides) {
-    if (!s.draft) {
-      out.push(s);
-      continue;
-    }
-    const published = publishOneSlide(s);
-    if (published) out.push(published);
-  }
-  return out;
-}
+// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// route can reuse them without dragging in the whole MCP SDK.
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';

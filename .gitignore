@@ -79,3 +79,6 @@ public/_cmp/
 .planning/postcaptain-replication/_probe-*.mjs
 .planning/postcaptain-replication/probe-*.mjs
 backups/
+
+# sd-init writes per-project bootstrap snapshot here; project-local only.
+.sd/
