@@ -12,6 +12,7 @@ import {
   findRepeatRegions,
   expandRepeats,
   expandGroups,
+  findOrphanReferences,
 } from '@/lib/blocks/html-render-template';
 import type { HtmlRenderField } from '@/types/blocks';
 
@@ -55,6 +56,29 @@ describe('html-render template substitution', () => {
       // x is an object, no scalar at the head — should fall back to default
       expect(substituteAllPlaceholders(html, { x: { sub: 'v' } }, { x: 'fallback' }))
         .toBe('fallback');
+    });
+
+    it('walks 3-deep paths for nested resolved-post records', () => {
+      // Loop expansion stuffs a resolved post into the post-typed field's
+      // value as `{ id, title, ..., fields: { <slug>: <value> } }`. Authors
+      // reach the typed CMS custom-field values via {{name.fields.<slug>}}.
+      const html = '<img src="{{client.fields.logo}}" alt="{{client.title}}">';
+      const out = substituteAllPlaceholders(
+        html,
+        { client: { title: 'Acme', fields: { logo: 'https://acme.test/logo.png' } } as unknown as Record<string, string> },
+        {},
+      );
+      expect(out).toBe('<img src="https://acme.test/logo.png" alt="Acme">');
+    });
+
+    it('emits empty for a 3-deep path that bottoms out before the last segment', () => {
+      const html = '{{client.fields.missing}}';
+      const out = substituteAllPlaceholders(
+        html,
+        { client: { title: 'Acme' } as unknown as Record<string, string> },
+        {},
+      );
+      expect(out).toBe('');
     });
   });
 
@@ -372,6 +396,58 @@ describe('html-render template substitution', () => {
       expect(out[0].type).toBe('array');
       const labelField = out[0].itemFields?.find(f => f.name === 'label');
       expect(labelField?.help).toBe('kept');
+    });
+  });
+
+  describe('findOrphanReferences (template lint)', () => {
+    it('flags {{name}} placeholders with no matching field', () => {
+      const tpl = '<h2>{{title}}</h2><p>{{undefined_field}}</p>';
+      const fields: HtmlRenderField[] = [{ name: 'title', type: 'text' }];
+      expect(findOrphanReferences(tpl, fields)).toEqual(['undefined_field']);
+    });
+
+    it('flags data-field/data-repeat/data-group references with no matching field', () => {
+      const tpl = '<div data-field="missing">x</div><ul data-repeat="ghost"></ul>';
+      expect(findOrphanReferences(tpl, [])).toEqual(['missing', 'ghost']);
+    });
+
+    it('returns empty when every reference is defined', () => {
+      const tpl = '<h2 data-field="title">x</h2><p>{{body}}</p>';
+      const fields: HtmlRenderField[] = [
+        { name: 'title', type: 'richtext' },
+        { name: 'body', type: 'text' },
+      ];
+      expect(findOrphanReferences(tpl, fields)).toEqual([]);
+    });
+
+    it('does NOT flag sub-field names that resolve through a parent array/group', () => {
+      // `data-field="title"` inside a `data-repeat="cards"` resolves to
+      // cards[].title — perfectly valid even though `title` has no top-level
+      // entry in fields[].
+      const tpl = '<div data-repeat="cards"><h3 data-field="title">x</h3></div>';
+      const fields: HtmlRenderField[] = [{
+        name: 'cards',
+        type: 'array',
+        itemFields: [{ name: 'title', type: 'richtext' }],
+      }];
+      expect(findOrphanReferences(tpl, fields)).toEqual([]);
+    });
+
+    it('does NOT flag {{post.X}} or {{post.fields.X}} (server-resolved by loops)', () => {
+      const tpl = '<div data-loop="posts"><a href="{{post.url}}">{{post.title}}</a><img src="{{post.fields.client_logo}}"></div>';
+      // No `post` field defined; loop config supplies it server-side
+      expect(findOrphanReferences(tpl, [])).toEqual([]);
+    });
+
+    it('dedupes repeated references to the same orphan', () => {
+      const tpl = '<p>{{ghost}}</p><p>{{ghost}}</p><div data-field="ghost">x</div>';
+      expect(findOrphanReferences(tpl, [])).toEqual(['ghost']);
+    });
+
+    it('handles dotted placeholders by checking the head segment', () => {
+      // `{{cta.url}}` should flag `cta` as orphan if there's no `cta` field
+      const tpl = '<a href="{{cta.url}}">{{cta.label}}</a>';
+      expect(findOrphanReferences(tpl, [])).toEqual(['cta']);
     });
   });
 });

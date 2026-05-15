@@ -30,7 +30,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import MediaPicker from '@/components/admin/MediaPicker';
 import { HtmlTemplateEditor } from '@/components/blocks/visual/HtmlTemplateEditor';
-import { reconcileFields, countFieldUsage, renameFieldInTemplate } from '@/lib/blocks/html-render-template';
+import { reconcileFields, countFieldUsage, renameFieldInTemplate, findOrphanReferences } from '@/lib/blocks/html-render-template';
 import { validateField, isFieldVisible } from '@/lib/blocks/html-render-validation';
 import {
   buildSchemaSnapshot,
@@ -183,12 +183,47 @@ export function HtmlRenderEditor({
           (tabs, group containers without HTML markers) is also supported here.
           Toolbar at top has Copy / Paste / Export / Import schema actions for
           reusing field definitions across blocks (and across browsers via JSON). */}
-      {fields.length > 0 && (
+      {fields.length > 0 && (() => {
+        // Lint: surface template references that have no matching field
+        // entry. Until this exists, a typo in `{{name}}` silently expands to
+        // empty at render time with no signal in the editor. The badge in the
+        // disclosure summary keeps the warning visible even when the schema
+        // section is collapsed.
+        const orphans = findOrphanReferences(html, fields);
+        return (
         <details className="rounded border border-border">
           <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-foreground bg-accent/40 hover:bg-accent/60 flex items-center gap-1.5">
             <span className="material-icons text-sm">schema</span>
             Field schema ({fields.length})
+            {orphans.length > 0 && (
+              <span
+                className="ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                title={`Referenced in the template but missing from the schema:\n  ${orphans.join('\n  ')}\n\nAdd matching fields below or remove the references from the HTML.`}
+              >
+                <span className="material-icons text-sm align-middle">warning</span>
+                {' '}{orphans.length} undefined
+              </span>
+            )}
           </summary>
+          {orphans.length > 0 && (
+            <div className="px-3 py-2 border-b border-amber-500/40 bg-amber-500/5 text-[11px] text-amber-900 dark:text-amber-100 leading-snug">
+              <div className="flex items-start gap-1.5">
+                <span className="material-icons text-sm mt-0.5">warning</span>
+                <div className="flex-1">
+                  <span className="font-medium">Template references {orphans.length} undefined field{orphans.length === 1 ? '' : 's'}:</span>{' '}
+                  {orphans.map((name, i) => (
+                    <span key={name}>
+                      <code className="font-mono bg-amber-500/15 px-1 rounded">{name}</code>
+                      {i < orphans.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
+                  <div className="mt-1 text-amber-800 dark:text-amber-200/80">
+                    Add fields below or remove references from the HTML — undefined references render as empty.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <HtmlRenderSchemaActions
             block={block as HtmlRenderBlock}
             fields={fields}
@@ -389,7 +424,8 @@ export function HtmlRenderEditor({
             </SortableContext>
           </DndContext>
         </details>
-      )}
+        );
+      })()}
 
       {/* Template editor — the source HTML. Detection runs on every change
           so the fields list above stays in sync. CodeMirror with HTML syntax
@@ -1393,9 +1429,12 @@ const ADD_FIELD_PRESETS: AddFieldPreset[] = [
 // ─── HtmlRenderSubFieldsEditor — inline editor for an array/group's children ──
 // Sub-fields are scalar-only today (the per-item value is coerced to a string
 // in HtmlRenderArrayEditor.setItemField), so the type list excludes nested
-// arrays/groups, link, post, tab, and select/radio (which would need their
-// own options[] UI). Authors who need those should drop into the HTML and
-// detect-fields will pick them up.
+// arrays/groups, link, post, tab. Select/radio aren't here yet because they'd
+// need a per-sub-field options[] UI — Phase 4+ work; not blocking.
+//
+// `image` is in this list — the MediaPicker writes a URL string back through
+// the same string-coerce gate, so per-item images work without JSON-in-text
+// hacks. Same for `url` and `color` (string-typed under the hood).
 
 const SUBFIELD_TYPES: HtmlRenderField['type'][] = [
   'text', 'textarea', 'number', 'richtext', 'boolean',
