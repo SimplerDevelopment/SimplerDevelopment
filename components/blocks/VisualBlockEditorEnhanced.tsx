@@ -1009,7 +1009,7 @@ export function EditorInner({
 export function VisualBlockEditorEnhanced({ blocks, onChange, initialViewport, onViewportChange, brandDefaults }: VisualBlockEditorEnhancedProps) {
   const blockTypes: Array<{ type: BlockType; label: string; icon: string; category: string; description: string }> = [
     { type: 'heading', label: 'Heading', icon: '📝', category: 'Basic', description: 'Add a title or heading' },
-    { type: 'text', label: 'Paragraph', icon: '📄', category: 'Basic', description: 'Start with plain text' },
+    { type: 'text', label: 'Text', icon: '📄', category: 'Basic', description: 'Plain paragraph text' },
     { type: 'button', label: 'Button', icon: '🔘', category: 'Basic', description: 'Add a call-to-action button' },
     { type: 'quote', label: 'Quote', icon: '💬', category: 'Basic', description: 'Add a quotation' },
     { type: 'image', label: 'Image', icon: '🖼️', category: 'Media', description: 'Insert an image' },
