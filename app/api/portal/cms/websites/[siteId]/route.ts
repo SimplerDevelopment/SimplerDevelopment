@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 import { changeSubdomain } from '@/lib/website-provisioner';
+import { parseSiteIdParam } from '@/lib/api/parse-params';
 
 export async function PUT(
   req: Request,
@@ -19,7 +20,9 @@ export async function PUT(
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const { siteId } = await params;
-  const siteIdNum = parseInt(siteId);
+  const parsed = parseSiteIdParam(siteId);
+  if (!parsed.ok) return parsed.response;
+  const siteIdNum = parsed.value;
   const [site] = await db
     .select()
     .from(clientWebsites)
@@ -106,7 +109,9 @@ export async function DELETE(
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const { siteId } = await params;
-  const siteIdNum = parseInt(siteId);
+  const parsed = parseSiteIdParam(siteId);
+  if (!parsed.ok) return parsed.response;
+  const siteIdNum = parsed.value;
   const [site] = await db
     .select()
     .from(clientWebsites)
