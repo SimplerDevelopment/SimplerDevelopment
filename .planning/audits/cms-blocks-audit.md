@@ -684,3 +684,162 @@ The audit closeout listed 6 items as RESOLVED. Spot-checked each via grep:
 
 **v2 status: COMPLETE.** All non-baseline gaps closed; harness committed as the regression net for future block work. Baseline of 6 intentional gaps (`section`'s deprecated direct-style fields) is documented in `.planning/audits/blocks-controls-coverage.baseline.json`.
 
+---
+
+## HTML-render deep dive — 2026-05-14
+
+**Scope:** answer three questions about the `html-render` block specifically. The previous audit treated it as one of 47 blocks; this dive interrogates whether it lives up to "first-class, fully optimized" — the block ships with its own field schema, dynamic loops, schema clipboard, JSON export/import, and inline iframe editing, so the bar is much higher than for a typical content block.
+
+**Files inventoried (the moving parts):**
+
+- `types/blocks/content.ts` (lines 30–137) — `HtmlRenderBlock`, `HtmlRenderField`, `HtmlRenderLoop`, `HtmlRenderConditional`
+- `lib/blocks/html-render-template.ts` — substitution engine (`{{name}}`, `data-field`, `data-repeat`, `data-group`), detection, reconciliation, rename
+- `lib/blocks/html-render-loops.ts` — server-side `data-loop="posts"` expansion, `post-typed` field resolution, walk-into-containers
+- `lib/blocks/html-render-validation.ts` — `validateField`, `isFieldVisible` (conditional logic)
+- `lib/blocks/html-render-schema.ts` — schema clipboard (localStorage + JSON download/import)
+- `components/blocks/render/HtmlRenderBlockRender.tsx` — production renderer + iframe inline-edit wiring (data-field contenteditable, image click-to-swap)
+- `components/portal/visual-editor/HtmlRenderEditor.tsx` (1633 lines) — **iframe-mode** settings panel (full-featured: tabbed values form, loop config, schema editor with Copy/Paste/Export/Import, full block JSON, post picker, URL autocomplete, conditional logic, validation rules)
+- `components/blocks/visual/HtmlTemplateEditor.tsx` — CodeMirror HTML editor (inline + expanded modal)
+- `components/blocks/visual/block-settings/panels/ContentPanel.tsx` (lines 170–201) — **admin/email/popup-mode** settings panel: **bare** `html` textarea + `width` select. Nothing else.
+- `tests/unit/htmlRenderTemplate.test.ts` (377 lines) + `tests/unit/htmlRenderValidation.test.ts` (126 lines) — 56 unit tests, all green
+- `tests/e2e/visual-editor-blocks.spec.ts` line 1304 — single lifecycle E2E covering `html`/`fields`/`values`/`width` round trip
+- `.claude/skills/html-render-block/SKILL.md` — user-facing skill for editing the exported JSON via Claude
+
+### Verdict #1 — Authoring UX
+
+**Verdict: 🟡 MIXED — first-class in the iframe path; severely degraded in the legacy path.**
+
+The iframe-mode editor (`HtmlRenderEditor`) is genuinely best-in-class for the codebase: tabbed values form (Content disclosure with `data-tab` field-driven tabs), inline contenteditable wiring via `[data-field]`, click-to-swap for `<img src="{{X}}">`, drag-to-reorder for fields and array items, CodeMirror with HTML syntax highlighting + full-screen modal, schema Copy/Paste/Export/Import (localStorage + JSON file download), full-block-JSON export/import (covered by `.claude/skills/html-render-block`), URL autocomplete with internal-link suggestions (pages/decks/booking/proposals), per-field validation (required/minLength/maxLength/pattern), and conditional show/hide logic with 6 operators.
+
+The legacy path (`ContentPanel.tsx` `HtmlRenderBlockSettings`, lines 170–201) routes from the admin posts editor (`/admin/posts/[id]/edit`), the email block editor, and the settings popup window. **It exposes only:**
+
+- a raw `<textarea>` for the HTML
+- a width dropdown
+
+That means an admin or content editor working from `/admin/posts/...` cannot:
+
+- see the field schema
+- edit `values`
+- configure a loop
+- copy/paste a schema between blocks
+- export or import the full block JSON
+- reach validation rules / conditional logic
+
+This is a load-bearing dual-editor regression. The audit doc's "READ FIRST" section flags this exact pattern as a known invariant ("any settings change must touch both files"), but for `html-render` the legacy path was never updated to match.
+
+**Other authoring observations:**
+
+- **Error surfacing for failed renders.** `renderHtmlTemplate()` is purely string-based — it can't "throw" on bad HTML, but there's no surfaced warning when:
+  - a `{{name}}` placeholder references a non-existent field (silently expands to empty)
+  - a `data-repeat="X"` markup mismatches an array's `itemFields` shape (silently renders nothing or wrong shape)
+  - a `data-loop="posts"` element exists but the `loop` config is missing (renders the inner template once, with `{{post.X}}` left as literal text)
+  - the user's HTML contains markup that breaks the parent layout (no iframe sandboxing — direct DOM injection)
+  - The `field schema → ${count}` summary in the editor surfaces unused fields with an "unused" pill, but the inverse — a `{{name}}` referenced in HTML with no field defined — is silent.
+- **Undo/redo.** The block uses the same `onUpdate` channel as every other block, so it inherits the editor's existing undo/redo. Per-keystroke writes to `values` from inline editing are debounced 300ms which keeps undo history clean.
+- **Drag/resize.** The block wraps in `data-block-id` so the visual editor's selection/resize overlay attaches normally. `width: 'full' | 'contained'` is the only width control; the block has no per-axis resize.
+- **Copy/paste.** The "Full block JSON" section gives full export/import. There is no in-canvas paste-from-clipboard for the field values though — schema-only paste exists, value-only paste does not (intentional per the schema model).
+- **Picker entry.** Block appears in `BUILT_IN_BLOCK_TYPES` under "Media" category with the `FileCode2` Lucide icon (`lib/utils/blockIcons.tsx` line 126). Default block is rich (`lib/blocks/defaults.ts` lines 48–67) — drops in with a starter template demonstrating both `data-field` and `{{name}}` patterns plus pre-populated `fields` so the right panel has rows immediately.
+- **Editor preview.** Delegates to `HtmlRenderBlockRender` directly (`VisualBlockPreview.tsx` line 244–248), so what you see is what you get — the inline `[data-field]` contenteditable wiring activates because `useEditorModeContext().active` is true in the iframe.
+
+**Gaps for closure (see "Dispatch plan" below):**
+
+- **G1 (P0):** Bring `ContentPanel.HtmlRenderBlockSettings` to parity with the iframe `HtmlRenderEditor`. Cleanest fix: replace the bare textarea with a thin wrapper that renders the same `HtmlRenderEditor` component (it's already extracted; can be imported into the panel chain).
+- **G2 (P1):** Surface a "template lint" affordance — collect every `{{name}}` and `data-field` reference, diff against `fields[]`, and show a small "X references undefined fields: foo, bar" badge in the schema disclosure header. The infra already exists (`detectFields` + `countFieldUsage`).
+- **G3 (P2):** Add an empty-loop visual hint when `data-loop="posts"` is present but `loop.postType` is unset — currently the renderer silently leaves `{{post.X}}` literals in output. Editor-only chrome; production stays the same.
+
+### Verdict #2 — Complex data inputs
+
+**Verdict: 🟢 STRONG — covers the standard ACF surface area; one real seam.**
+
+What's supported, end-to-end (template → schema → values → render → round-trip via JSON export):
+
+| Shape | Template syntax | Field type | Value shape | Round-trips? |
+|---|---|---|---|---|
+| Scalar | `{{x}}` or `data-field="x"` | `text`/`textarea`/`richtext`/`number`/`boolean`/`url`/`color`/`select`/`radio`/`date`/`datetime` | string | ✓ |
+| Image | `<img src="{{x}}">` (auto-annotated) | `image` | string (URL) | ✓ |
+| Group (single nested object) | `<X data-group="cta">…{{cta.url}}…</X>` | `group` or `link` (preset for url+label+target) | `Record<string,string>` | ✓ |
+| Array (repeating items) | `<X data-repeat="cards">…{{cards.title}}…</X>` | `array` with `itemFields[]` | `Array<Record<string,string>>` | ✓ |
+| Conditional fields | n/a (panel-only) | any with `conditional: { field, operator, value }` | scalar | ✓ |
+| Validation | n/a (panel-only) | `required`, `minLength`, `maxLength`, `pattern`, `min`/`max` | scalar | ✓ |
+| Tab organizer | n/a (panel-only) | `tab` | no value | ✓ |
+| Post reference | `<X data-field="post">` + `{{post.title}}`/`{{post.url}}` | `post` (with optional `postType` filter) | string id, server-resolved at render to `{ id, title, slug, url, excerpt, coverImage, publishedAt, postType }` | ✓ |
+| Dynamic post list | `<X data-loop="posts">…{{post.title}}…</X>` + `block.loop` | n/a (config only) | server-fetched per render | ✓ for `loop` config; items not editable |
+
+**The one real seam — sub-fields inside arrays/groups are scalar-only.** From `HtmlRenderArrayEditor.setItemField` (line 989): `const flat = typeof val === 'string' ? val : JSON.stringify(val);`. And `SUBFIELD_TYPES` (line 1400) explicitly excludes `array`, `group`, `select`, `radio`, `link`, `post`, `tab`. That means a `cards` array can't hold per-card image picker, per-card select dropdown, per-card link group, or nested arrays. The author can hack around this by typing the field as `text` and pasting in JSON, but the panel UI and the type system pretend that's not happening.
+
+**Why this exists:** the renderer's substitution engine handles arbitrarily nested values (`{{cards.0.image}}` would resolve), but the UX layer assumes one nesting level so the storage shape is `Array<Record<string, string>>` — a single level of map.
+
+**Severity:** medium. It's the most common request pattern that doesn't quite fit ("each card has an image, a title, and a link"). Today the workaround is to add three sibling top-level array fields with parallel indices, or use `data-field="image"` for richtext-as-html (which works for img tags but is awkward).
+
+**Other complex-input observations:**
+
+- **Defaults work for scalars only** (`html-render-template.ts` line 60 — `if (f.type !== 'array' && f.default !== undefined)`). Arrays/groups never get a default item shape inserted at first render — the array starts empty until the author adds items in the panel. Fine, but worth knowing.
+- **Conditional logic operates against the same nesting level** (`HtmlRenderFieldInput` passes `siblingValues` per call). A nested array sub-field can show/hide based on another sibling sub-field — that part actually works for the scalar sub-fields it does support.
+- **Image fields inside arrays** are blocked by the scalar-only sub-field gate. To put an `<img src="{{cards.image}}">` in a repeat region today, the author has to set the sub-field type to `text` and paste a URL by hand. This is the most painful manifestation of the seam.
+- **`post.values.X` in loops** is powerful but undocumented in the schema editor — the loop helper text mentions it (`HtmlRenderEditor.tsx` line 166), but the schema clipboard doesn't carry the source post's value shape so authors can only discover the X names by reading the target post's field list.
+
+**Gaps for closure:**
+
+- **G4 (P1):** Lift the `image` sub-field type into `SUBFIELD_TYPES` (line 1400) and the value-coercion path (line 989). Image stores a URL string already, so the type change is essentially "let `image` join `text` in the gate." Lower-effort than expected.
+- **G5 (P2):** Lift `select`/`radio`/`url` into `SUBFIELD_TYPES`. `url` is trivially the same as `text` storage-wise; `select`/`radio` need an `options[]` UI per sub-field which is more work.
+- **G6 (P3 — defer pending user judgment):** Nested arrays (`array.items[].subItems[]`). High complexity, hits the storage shape, and the workaround (`{{cards.0.image}}` plus parallel arrays) covers most cases. Recommend leaving as documented limitation for now.
+
+### Verdict #3 — Dynamic rendering with CMS field-schema bindings
+
+**Verdict: 🔴 PARTIAL — html-render binds to *posts* and to a target post's *html-render values*, but does NOT bind to typed CMS custom fields (`customFields` / `postCustomFieldValues`).**
+
+What works today (`html-render-loops.ts`):
+
+1. **`{{post.X}}` in a `data-loop="posts"` region** — resolves built-in post columns: `id`, `title`, `slug`, `url`, `excerpt`, `coverImage`, `publishedAt`, `postType`. Works because `fetchLoopItems` selects these directly from the `posts` table.
+2. **`{{post.values.X}}` in the same loop** — pulls `X` from the target post's *first html-render block's `values` map*. So one html-render block can read another html-render block's authored values. (`collectPostValues` in `html-render-loops.ts` line 52.)
+3. **`post`-typed field at top level** — picks one post; server resolves to the same `{ id, title, slug, url, excerpt, coverImage, publishedAt, postType }` shape. Doesn't include custom field values.
+
+What does NOT work — the gap:
+
+The codebase has a real typed CMS field system: `lib/db/schema/cms.ts` defines `customFields` (per-post-type) with field types (`text`, `textarea`, `number`, `date`, `select`, `checkbox`, `url`, `email`, `image`, `user_select`, `repeater`, `group`) and `postCustomFieldValues` (per-post storage). The `/api/custom-fields?postTypeId=X` endpoint exists. Posts are typed (`posts.postType` column).
+
+But the html-render loop expansion never joins to `postCustomFieldValues`. So if a site has a `case-study` post type with a `client_logo` custom field and a `roi_percentage` custom field, an html-render block CANNOT do:
+
+```html
+<div data-loop="posts">
+  <img src="{{post.fields.client_logo}}" />
+  <h3>{{post.title}}</h3>
+  <span class="metric">{{post.fields.roi_percentage}}%</span>
+</div>
+```
+
+Today the only way to surface those custom fields in an html-render template is to **also** put them inside an html-render block on the source post and read via `{{post.values.X}}` — but that defeats the point of having a typed schema (you'd be authoring the data twice in two different shapes).
+
+**Why this matters:** the user's question (#3) is whether html-render can serve as the dynamic-rendering layer on top of the CMS post-type field schema. Today the answer is "no — it can read posts but not their typed fields." That makes html-render a powerful but isolated authoring surface; it's not the dynamic templating layer that complements the post-type system.
+
+**Implementation sketch (additive, no schema change):**
+
+In `html-render-loops.ts`'s `fetchLoopItems`, after the main `posts` query:
+
+1. Pull the postType id matching `loop.postType` (or use the new `postType` slug filter to get all matching custom fields)
+2. Left-join `customFields` (filter by `postTypeId`) and `postCustomFieldValues` (filter by `postId IN (rows)`)
+3. Group by post id, build a `fields: Record<string, string>` map per item (slug → value)
+4. Add `fields` to the `LoopItem` type
+5. In `substituteLoopItem`, add a `post.fields.X` branch (mirrors `post.values.X` — line 130–134)
+
+For the `post`-typed field (`resolvePostFields` line 285), do the same join when resolving.
+
+That gets `{{post.fields.X}}` working for free. The schema editor doesn't need to change — authors discover the fields by reading their post-type's field list in the post-type admin.
+
+**Stretch (P2):** in the panel, when the author selects a `loop.postType`, fetch `/api/custom-fields?postTypeId=X` and show the available `{{post.fields.X}}` paths inline as a copy-clickable list. Pure ergonomics; not blocking.
+
+**Gaps for closure:**
+
+- **G7 (P0):** Wire `{{post.fields.X}}` and `{{post.fields.X}}` (single-post variant) to read from `customFields` + `postCustomFieldValues`. Implementation sketch above. Server-side only; no UI changes required to ship.
+- **G8 (P2):** Schema editor enhancement — when `loop.postType` is set, show the available custom field slugs as a copy hint.
+
+### Dispatch plan — what gets done in this session
+
+Given the user's "drive the audit overnight" framing, the priority order is:
+
+1. **G1 (P0)** — Lift the legacy `ContentPanel.HtmlRenderBlockSettings` to parity by importing `HtmlRenderEditor` directly. **Ship in batch 1.**
+2. **G7 (P0)** — Add `{{post.fields.X}}` binding to `html-render-loops.ts` (custom-field join + substitution). **Ship in batch 2.**
+3. **G2 (P1)** — Template lint warning for undefined-field references in the schema disclosure header. **Ship in batch 3.**
+4. **G4 (P1)** — Lift `image` (and likely `url`) into `SUBFIELD_TYPES` so per-item images work without JSON-in-text hacks. **Ship in batch 3.**
+5. **G3, G5, G6, G8** — defer to user judgment in the morning.
+
