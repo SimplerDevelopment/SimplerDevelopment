@@ -165,11 +165,16 @@ After committing Phase 2 the user said "keep going through the night." Phase 3 c
 
 - **New `sd-create-website` skill.** The "compose a whole site" wrapper that drives `sd-create-page` for each entry in a planned sitemap, then wires top-nav via `nav_*` MCP tools and embeds `booking` + `survey` blocks where the spine calls for them. Four canonical sitemap spines documented: Marketing (5–7 pages), Service provider (3–4), Funnel/qualifier (3 — homepage + qualify + booking), Knowledge base (3 + post type). Pushes back at >12 pages. Returns a bundled response with every page's approval URL.
 
-**Still on the table (post-Phase-6):**
+**Phase 7 — formal integration test for the booking-reminder cron:**
+
+- `tests/integration/api/cron/booking-reminders.test.ts`: 10 cases covering the cron's auth surface (401/200 across bearer + vercel-cron header), selection logic (24h yes / 12h no / 48h no / already-reminded no / cancelled no), idempotency (second invocation is a no-op), and failure resilience (failed send leaves `reminder_sent_at` NULL so the next tick retries). `sendBookingReminder` + `loadBookingBrand` are mocked so the test asserts cron behavior without actually sending mail.
+
+**Still on the table (post-Phase-7):**
 - **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. Pipeline is shared with the portal REST routes (prod-tested), so verified by inference; live confirmation needs S3 creds.
-- **Drizzle meta snapshot drift** — `0112` and `0113` are hand-written SQL because `drizzle-kit generate` is stuck on the pre-existing snapshot collision (project memory). `bun run db:migrate` won't run until that's resolved separately.
+- **Drizzle meta snapshot drift** — `0112` + `0113` are hand-written SQL because `drizzle-kit generate` is stuck on the pre-existing snapshot collision. `bun run db:migrate` won't run until that's resolved separately.
 - **`booking-reminders` Vercel cron schedule entry** — not added in this PR. Add `/api/cron/booking-reminders` with `0 * * * *` (hourly) to the Vercel cron config when this lands.
-- **Formal `surveys_fork` unit / portal-route integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite.
+- **Formal `surveys_fork` integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite.
+- **`sd-create-website` skill is documentation-only** — its sub-skill calls all use existing MCP tools, but the orchestration hasn't been exercised end-to-end. Pick a simple 3-page funnel site to drive through it as a smoke test once you wake up.
 
 ## Where state lives
 
