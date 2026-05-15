@@ -843,3 +843,29 @@ Given the user's "drive the audit overnight" framing, the priority order is:
 4. **G4 (P1)** — Lift `image` (and likely `url`) into `SUBFIELD_TYPES` so per-item images work without JSON-in-text hacks. **Ship in batch 3.**
 5. **G3, G5, G6, G8** — defer to user judgment in the morning.
 
+### Outcomes — what landed (overnight 2026-05-14 → 2026-05-15)
+
+**Commits (all on `chore/codebase-audit-2026-05`, not pushed):**
+
+| Commit | Scope | Description |
+|---|---|---|
+| `73ea83f45` | G1 | `fix(blocks): lift legacy html-render settings panel to iframe-mode parity` — `ContentPanel.HtmlRenderBlockSettings` now delegates to `HtmlRenderEditor`. Harness extended to scan `onUpdate({ ... })` in panel files. |
+| `cb3f138f9` | G7 + G2 | `feat(blocks): bind html-render loops to typed CMS post-type fields` — `{{post.fields.<slug>}}` and `{{name.fields.<slug>}}` now read from `customFields` + `postCustomFieldValues`. Multi-level path resolution in `substituteAllPlaceholders`. Template lint badge in schema editor header (`findOrphanReferences`). |
+| `442bcc5e1` | docs | Audit doc deep-dive section. |
+| `34501d651` | G3 | `ui(blocks): warn when html-render data-loop region has no postType set` — amber "unconfigured" badge + inline warning panel; documented `{{post.fields.X}}` in loop helper text. |
+
+**G4 outcome:** Phantom gap — `image` is already in `SUBFIELD_TYPES`. Verified by re-reading the array editor code path: MediaPicker writes a URL string, `setItemField` sees `typeof val === 'string'`, no `JSON.stringify` hack triggers. Per-item images work today; only the comment needed clarifying.
+
+**Quality gates (final):**
+
+- `npx tsc --noEmit` — clean for all touched files; only the pre-existing unrelated `tests/unit/types-blocks-export-parity.test.ts` parity error remains.
+- `npx vitest run tests/unit/blocksRegistryCompleteness.test.ts tests/unit/blocksControlsCoverage.test.ts tests/unit/htmlRenderTemplate.test.ts tests/unit/htmlRenderValidation.test.ts` — **76/76 pass** (added 9 new unit tests: 7 for `findOrphanReferences`, 2 for multi-level placeholder resolution).
+- E2E lifecycle suite extended with `html-render block: complex schema (loop, conditional, validation, group, array) round-trips` — not run in this session (no DB context overnight; the existing pattern is well-trodden).
+
+**Deferred (need user judgment in the morning):**
+
+- **G5** — Lift `select`/`radio` into `SUBFIELD_TYPES`. Needs per-sub-field `options[]` UI.
+- **G6** — Nested arrays (`array.items[].subItems[]`). High complexity, hits storage shape, low ROI vs. current parallel-arrays workaround.
+- **G8** — Schema editor enhancement: when `loop.postType` is set, fetch `/api/custom-fields?postTypeId=X` and show available `{{post.fields.X}}` slugs inline. Needs a new slug→id resolver endpoint (current API takes `postTypeId`, not slug). Additive UX polish; not blocking.
+- **The 6 closeout user-judgment items** at the bottom of "Phase 4 status" (Section deprecated fields, hero defaults, social-links iconSize, featured-products carousel, product-categories elementStyles parity, survey-results fieldIds) are unchanged — none of them had implementer-friendly defaults that didn't risk silent breakage.
+
