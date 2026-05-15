@@ -140,12 +140,33 @@ export function HtmlRenderEditor({
           <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-foreground bg-accent/40 hover:bg-accent/60 flex items-center gap-1.5">
             <span className="material-icons text-sm">dynamic_feed</span>
             Loop source {loop?.postType ? `— ${loop.postType}` : ''}
+            {hasLoopRegion && !loop?.postType && (
+              <span
+                className="ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                title={'Template has data-loop="posts" but no postType slug — at render time {{post.X}} placeholders will leak as literal text. Set a Post Type below.'}
+              >
+                <span className="material-icons text-sm align-middle">warning</span>
+                {' '}unconfigured
+              </span>
+            )}
           </summary>
           <div className="p-3 space-y-3">
             {!hasLoopRegion && (
               <div className="rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1.5 text-[11px] text-amber-900 dark:text-amber-100 leading-snug">
                 No <code className="font-mono">data-loop=&quot;posts&quot;</code> element in the template. Add{' '}
                 <code className="font-mono">data-loop=&quot;posts&quot;</code> to the element you want repeated.
+              </div>
+            )}
+            {hasLoopRegion && !loop?.postType && (
+              <div className="rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1.5 text-[11px] text-amber-900 dark:text-amber-100 leading-snug">
+                <div className="flex items-start gap-1.5">
+                  <span className="material-icons text-sm mt-0.5">warning</span>
+                  <div>
+                    Template has a <code className="font-mono">data-loop=&quot;posts&quot;</code> region but no Post Type is selected.
+                    The renderer will emit the inner template with <code className="font-mono">{'{{post.X}}'}</code> placeholders
+                    left as literal text. Set the post type slug below to expand the loop.
+                  </div>
+                </div>
               </div>
             )}
             <Field
@@ -162,8 +183,9 @@ export function HtmlRenderEditor({
               <code className="bg-accent/40 px-1 rounded">{'{{post.title}}'}</code>,{' '}
               <code className="bg-accent/40 px-1 rounded">{'{{post.url}}'}</code>,{' '}
               <code className="bg-accent/40 px-1 rounded">{'{{post.coverImage}}'}</code>,{' '}
-              <code className="bg-accent/40 px-1 rounded">{'{{post.excerpt}}'}</code>, or{' '}
-              <code className="bg-accent/40 px-1 rounded">{'{{post.values.X}}'}</code> to pull a custom field from the target post.
+              <code className="bg-accent/40 px-1 rounded">{'{{post.excerpt}}'}</code>,{' '}
+              <code className="bg-accent/40 px-1 rounded">{'{{post.values.X}}'}</code>{' '}(read a value from the target post&apos;s html-render block), or{' '}
+              <code className="bg-accent/40 px-1 rounded">{'{{post.fields.X}}'}</code>{' '}(read a typed CMS custom field by its slug).
             </p>
             {loop && (
               <button
