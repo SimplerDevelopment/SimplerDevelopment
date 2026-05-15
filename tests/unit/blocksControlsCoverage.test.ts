@@ -439,6 +439,16 @@ function getAllPanelFields(): Set<string> {
   return _allPanelFieldsCache;
 }
 
+// External delegated editors imported into BlockContentEditor.tsx (e.g. the
+// iframe-mode html-render editor lives in its own 1.6kLOC file). Scanning
+// these in addition to BlockContentEditor.tsx captures the fields written
+// through those delegated components, otherwise their delegated `onUpdate`
+// targets read as missing from the iframe-mode editor.
+const CONTENT_EDITOR_DELEGATED_FILES = [
+  'components/portal/visual-editor/HtmlRenderEditor.tsx',
+  'components/portal/visual-editor/HtmlEmbedEditor.tsx',
+];
+
 let _allContentEditorFieldsCache: Set<string> | null = null;
 function getAllContentEditorFields(): Set<string> {
   if (_allContentEditorFieldsCache !== null) return _allContentEditorFieldsCache;
@@ -446,7 +456,16 @@ function getAllContentEditorFields(): Set<string> {
   // defined further down the same file (e.g. MarqueeEditor, ColumnsEditor,
   // HeroSlideshowEditor). Scanning the whole file is the simple way to
   // capture fields written through those sub-components.
-  _allContentEditorFieldsCache = extractOnUpdateFields(getContentEditorSource());
+  const sources: string[] = [getContentEditorSource()];
+  for (const file of CONTENT_EDITOR_DELEGATED_FILES) {
+    try {
+      sources.push(readRepoFile(file));
+    } catch {
+      // skip missing files
+    }
+  }
+  const combined = sources.join('\n');
+  _allContentEditorFieldsCache = extractOnUpdateFields(combined);
   return _allContentEditorFieldsCache;
 }
 
@@ -477,6 +496,19 @@ function extractOnChangeFields(source: string): Set<string> {
     let f: RegExpExecArray | null;
     while ((f = fieldRe.exec(inner)) !== null) {
       fields.add(f[1]);
+    }
+  }
+  // Inline-mapped pattern: panels often wire several boolean toggles by
+  // mapping over a literal `[{ key: 'showDots', label: ... }, ...]` array
+  // and calling `onChange({ [key]: e.target.checked })`. The dynamic key
+  // is invisible to the regexes above; pick up the field names from the
+  // `key: '...'` literals when an `onChange({ [key]:` consumer is present
+  // in the same file.
+  if (/onChange\(\s*\{\s*\[\s*key\s*\]\s*:/.test(source)) {
+    const keyLiteralRe = /\bkey\s*:\s*['"]([a-zA-Z_][a-zA-Z0-9_]*)['"]/g;
+    let k: RegExpExecArray | null;
+    while ((k = keyLiteralRe.exec(source)) !== null) {
+      fields.add(k[1]);
     }
   }
   return fields;
