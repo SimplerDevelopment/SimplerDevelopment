@@ -13,10 +13,11 @@ This is the edit-counterpart of `sd-create-page`. Almost every rule in `sd-creat
 
 ## Pre-flight
 
-1. **Read `.sd/config.json`.** If missing or stale (>14 days), tell the user to run `sd-init` first. Don't proceed — every step depends on the client/brand/site already being resolved.
-2. **Read brand messaging** from `.sd/config.json:brand.messaging`. The edit must keep brand voice consistent.
-3. **Read `SD_DESIGN_PRINCIPLES.md`** (sibling skill doc). The same anti-AI-slop, WCAG-AA, 8pt grid, branded-logo, and 5-dimension self-review rules apply on edit.
-4. **Read `.sd/learnings.md`** if it exists — apply its `## Active rules` to the edit. If a prior round of feedback recorded "user wants shorter headlines on landing pages," respect that on this edit even if the user didn't repeat it.
+1. **Read `.sd/config.json`** from the **current repo root** (resolve via `git rev-parse --show-toplevel`, then look for `.sd/config.json` under it). DO NOT read configs from sibling worktrees — sd2026 commonly has many of them and reading a stale one will silently scope the edit to the wrong tenant. If missing or stale (>14 days), tell the user to run `sd-init` first. Don't proceed — every step depends on the client/brand/site already being resolved.
+2. **Verify the tenant matches the user's intent.** If the user named a specific client in their request (e.g., "edit on sd-testings"), confirm `.sd/config.json:client.slug` equals that name. If it doesn't, STOP and tell the user to run `sd-init` for the right tenant — do NOT auto-switch and do NOT pick a different post under a different client.
+3. **Read brand messaging** from `.sd/config.json:brand.messaging`. The edit must keep brand voice consistent.
+4. **Read `.claude/skills/SD_DESIGN_PRINCIPLES.md`** (located at the repo root's `simplerdevelopment2026/.claude/skills/SD_DESIGN_PRINCIPLES.md`). The same anti-AI-slop, WCAG-AA, 8pt grid, branded-logo, and 5-dimension self-review rules apply on edit.
+5. **Read `.sd/learnings.md`** if it exists — apply its `## Active rules` to the edit. If a prior round of feedback recorded "user wants shorter headlines on landing pages," respect that on this edit even if the user didn't repeat it.
 
 ## Resolve the target — DO NOT guess
 
@@ -28,8 +29,10 @@ In priority order:
 3. **`url` (string, e.g. `/about` or `https://example.com/about`)** — strip to the slug, then look up as above.
 4. **Natural-language hint (e.g. "the about page", "the proposal landing")** — call `posts_list` with `q: <hint>` and the site filter. If 0 matches, ask the user to clarify or provide an explicit slug. If >1 match, list them with title + slug + last-updated and ask the user to pick.
 
+**Site scope caveat.** `posts_list` is scoped to `defaultSiteId` from `.sd/config.json`. A client can own multiple sites; if the page the user wants lives on a sibling site, the lookup will return 0 matches. When that happens, do NOT silently broaden the search — tell the user: "I'm scoped to site `<siteName>`. If the page lives on a different site, give me the site slug or rerun `sd-init` to switch."
+
 **Always echo back the resolved target before editing:**
-> "Editing post #123 — *About Us* (slug `/about`), published, last updated 2026-05-12. Proceeding with `prose` mode."
+> "Editing post #123 — *About Us* (slug `/about`), published, last updated 2026-05-12, on site `<siteName>` for client `<clientSlug>`. Proceeding with `prose` mode."
 
 This gives the user a chance to abort if you matched the wrong page.
 
@@ -122,6 +125,8 @@ Conflict checking matters most for live edits; less so for drafts edited only by
   { "id": <postId>, "titleSuffix": " (revision)" }
   ```
   Returns the new draft id + an approval URL. Use the new id for the subsequent update.
+
+  **Then immediately re-fetch the fork's content before patching.** Call `posts_get(newId, includeContent: true)`. The fork may have transformed fields the parent fetch didn't expose — regenerated block `id`s, the title-suffix appended, a fresh slug. Apply your patch against THAT shape, not against the blocks you fetched from the parent earlier. Failing to re-fetch causes silent block-id collisions and lost edits.
 
 ### Update
 - `mcp__simplerdevelopment-postcaptain__posts_update` with:
