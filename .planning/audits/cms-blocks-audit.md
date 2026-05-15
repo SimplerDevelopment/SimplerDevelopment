@@ -1,7 +1,7 @@
 # CMS Blocks Audit
 
-**Status:** ✅ FULLY CLOSED — audit complete; all 6 design items resolved 2026-04-26
-**Last updated:** 2026-04-26 (dual-editor architecture documented; iframe editor parity ported)
+**Status:** ✅ FULLY CLOSED — audit complete; all 6 design items resolved 2026-04-26; html-render deep dive 2026-05-14; dual-editor parity sweep 2026-05-15
+**Last updated:** 2026-05-15 (dual-editor parity gaps closed; harness reports zero gaps)
 **Scope:** every block type registered in `types/blocks.ts` Block union
 
 ## ⚠️ READ FIRST — dual-editor architecture
@@ -868,4 +868,64 @@ Given the user's "drive the audit overnight" framing, the priority order is:
 - **G6** — Nested arrays (`array.items[].subItems[]`). High complexity, hits storage shape, low ROI vs. current parallel-arrays workaround.
 - **G8** — Schema editor enhancement: when `loop.postType` is set, fetch `/api/custom-fields?postTypeId=X` and show available `{{post.fields.X}}` slugs inline. Needs a new slug→id resolver endpoint (current API takes `postTypeId`, not slug). Additive UX polish; not blocking.
 - **The 6 closeout user-judgment items** at the bottom of "Phase 4 status" (Section deprecated fields, hero defaults, social-links iconSize, featured-products carousel, product-categories elementStyles parity, survey-results fieldIds) are unchanged — none of them had implementer-friendly defaults that didn't risk silent breakage.
+
+---
+
+## Dual-editor parity sweep — 2026-05-15
+
+**Scope:** the v2 controls-coverage harness was emitting a handful of one-side gaps (fields wired in BlockSettings panel chain but not the iframe-mode `BlockContentEditor.tsx`, or vice versa). None tripped the regression baseline (which only watches `fromBoth`), but together they violated the dual-editor invariant ("any settings change must touch both files"). Closed all of them in two commits.
+
+**Real wiring fixes (commit `a4bf4d6e3`):**
+
+| Block | Gap | Fix |
+|---|---|---|
+| `popup` | Zero coverage in `BlockContentEditor.tsx` (8 fields visible only in `FormPanel`'s panel chain) | Added a full `block.type === 'popup'` section to BCE: headline, body, ctaLabel, ctaUrl, trigger, delaySeconds (conditional), scrollPercent (conditional), frequency, dismissable. |
+| `columns` | `stackOnTablet` missing from `ColumnsEditor` in BCE (panel side already had it) | Added `<CheckboxField label="Stack on tablet" ...>` next to the existing `stackOnMobile` toggle. |
+| `hero-slideshow` | `transitionDuration`, `backgroundVideo`, `backgroundVideoOpacity` missing from BCE's Slideshow Settings group | Added all three controls (number input + URL field + range slider with percent label). |
+| `services-grid` | `services` array editor missing from `ServicesGridBlockSettings` in `SectionsPanel.tsx` | Added a per-service array editor (title/description/icon/image/link/linkText) following the same pattern as MetricCardsBlockSettings. Bullets remain BCE-only since they're a nested array and the panel idiom doesn't generalize cleanly. |
+
+**Harness improvements (commit `93b74a879`):**
+
+The above fixes uncovered two false-positives in the harness:
+
+1. `html-render.html` was reported missing from `BlockContentEditor.tsx` even though it's wired through the delegated `<HtmlRenderEditor />` component (which lives in its own 1.6kLOC file). Fix: scan `HtmlRenderEditor.tsx` and `HtmlEmbedEditor.tsx` alongside `BlockContentEditor.tsx` when building the iframe-mode field set.
+2. `hero-slideshow.{showDots,showArrows,kenBurns,autoplay,pauseOnHover}` were reported missing from panels because they're wired via the `[{ key: 'showDots', ... }, ...].map(({ key }) => onChange({ [key]: ... }))` mapped-array idiom — invisible to the literal-field regex. Fix: when a file contains `onChange({ [key]: ...` mapping, also pull field names from the array literal's `key: 'fieldName'` entries.
+
+After both, harness reports `fromContentEditorOnly: 0` and (post-deprecation) `fromPanelsOnly: 0`.
+
+**Type cleanup + harness sharpening (commit `1e67ad11f`):**
+
+- Marked `SectionBlock.backgroundSize` and `SectionBlock.backgroundPosition` `@deprecated` in `types/blocks/layout.ts`. Both already deferred to `block.style.*` in the renderer (line 75–76 of `SectionBlockRender.tsx`); the JSDoc just documents the existing cascade. Brings them in line with the 6 sibling direct-style legacy fields that were already marked.
+- Taught `parseFields` in the harness to skip fields preceded by a `/** @deprecated */` JSDoc block. One change replaces every per-block carve-out for known dead fields.
+- Dropped `section`'s baseline from 6 → 0 in `blocks-controls-coverage.baseline.json`. **Net effect:** any new non-deprecated field added to `SectionBlock` without a settings control will fail the harness — sharper regression net than the previous "swallow 6 expected gaps" baseline.
+
+**Final harness state (after this sweep):**
+
+| Metric | Before | After |
+|---|---|---|
+| `missingFieldsFromBoth` | 6 (baselined for section) | 0 |
+| `missingFieldsFromPanelsOnly` | 6 (mostly hero-slideshow false-positives) | 0 |
+| `missingFieldsFromContentEditorOnly` | 12 | 0 |
+| `deadElementKeys` | 0 | 0 |
+| Drift (`blocksRegistryCompleteness`) | 6/6 | 6/6 |
+| Coverage (`blocksControlsCoverage`) | 5/5 | 5/5 |
+| Total touched files | 4 (3 wiring + 1 harness) | — |
+
+**Quality gates run:**
+
+- `bunx tsc --noEmit` — clean for all touched files; pre-existing unrelated TS errors remain in `tests/unit/blockRendererResponsiveDispatch.test.tsx`, `tests/unit/types-blocks-export-parity.test.ts`, `tests/unit/route-survey-*.test.ts`, `tests/unit/route-block-templates.test.ts` (the audit doc previously flagged these as out-of-scope).
+- `bunx vitest run tests/unit/blocks*.test.ts tests/unit/htmlRender*.test.ts tests/unit/blockRenderer*.test.tsx` — **110/110 pass** (no new tests added; existing coverage already exercises every touched layer).
+- `bun test:tenancy` — not run (no data-access changes — all edits are to UI/type/harness files).
+- `bun test:critical` — not run (no DB context overnight; flagged for the user to run after review).
+
+**Files touched in this sweep:**
+
+- `components/portal/visual-editor/BlockContentEditor.tsx` — popup section (35 lines), columns stackOnTablet (1 line), hero-slideshow advanced controls (16 lines).
+- `components/blocks/visual/block-settings/panels/SectionsPanel.tsx` — services array editor (~80 lines).
+- `tests/unit/blocksControlsCoverage.test.ts` — harness scans delegated editors + dynamic-key onChange + skips `@deprecated` fields.
+- `types/blocks/layout.ts` — added `@deprecated` to `backgroundSize` and `backgroundPosition`.
+- `.planning/audits/blocks-controls-coverage.baseline.json` — dropped section baseline 6 → 0.
+- `.planning/audits/cms-blocks-audit.md` — this section.
+
+**No new gaps surfaced for the morning.** The harness now reports the cleanest state in the audit's history. Audit door stays open for design-judgment items (the 6 closeout decisions + html-render G5/G6/G8); none unlocked themselves overnight.
 
