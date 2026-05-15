@@ -297,18 +297,35 @@ function parseFields(source: string, start: number): string[] {
   // `tabs: Array<{ id: string; ... }>;` still register `tabs` (the `{`
   // bumps depth mid-line, but the field declaration itself begins at
   // depth 0).
+  //
+  // Fields preceded by a `/** @deprecated */`-style JSDoc block at depth 0
+  // are skipped — they're audit-acknowledged dead fields kept for on-disk
+  // compatibility (e.g. SectionBlock's pre-style.* legacy direct-style props).
   const fields: string[] = [];
   let depthAtLineStart = 0;
   let runningDepth = 0;
   let lineStart = 0;
+  let inJsdoc = false;
+  let pendingJsdocDeprecated = false;
   for (let j = 0; j <= body.length; j++) {
     const c = j < body.length ? body[j] : '\n';
     if (c === '\n' || j === body.length) {
       if (depthAtLineStart === 0) {
         const line = body.slice(lineStart, j).trim();
-        if (line && !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*')) {
+        // Track JSDoc opening / closing / contents at depth 0
+        if (line.startsWith('/**')) {
+          inJsdoc = true;
+          pendingJsdocDeprecated = /@deprecated/i.test(line);
+          if (line.endsWith('*/')) inJsdoc = false;
+        } else if (inJsdoc) {
+          if (/@deprecated/i.test(line)) pendingJsdocDeprecated = true;
+          if (line.endsWith('*/')) inJsdoc = false;
+        } else if (line && !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*')) {
           const m = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\??:/);
-          if (m && m[1] !== 'type') fields.push(m[1]);
+          if (m && m[1] !== 'type') {
+            if (!pendingJsdocDeprecated) fields.push(m[1]);
+            pendingJsdocDeprecated = false;
+          }
         }
       }
       lineStart = j + 1;

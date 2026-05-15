@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-05-15T09:59:02.744Z",
+  "generatedAt": "2026-05-15T10:16:25.772Z",
   "totalBlocks": 48,
-  "blocksWithMissingFields": 1,
+  "blocksWithMissingFields": 0,
   "blocksWithDeadElementKeys": 0,
   "blocksWithoutE2E": 0,
   "totals": {
-    "missingFieldsFromBoth": 6,
-    "missingFieldsFromPanelsOnly": 1,
+    "missingFieldsFromBoth": 0,
+    "missingFieldsFromPanelsOnly": 0,
     "missingFieldsFromContentEditorOnly": 0,
     "deadElementKeys": 0
   },
@@ -372,65 +372,29 @@
       "type": "section",
       "interfaceFields": [
         "blocks",
-        "backgroundColor",
         "backgroundImage",
-        "backgroundSize",
-        "backgroundPosition",
         "maxWidth",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight",
-        "color",
-        "fontFamily",
         "htmlTag",
         "splitColor",
         "splitClipPath"
       ],
       "fieldsInPanels": [
-        "backgroundColor",
         "backgroundImage",
         "maxWidth",
-        "color",
         "htmlTag",
         "splitColor",
         "splitClipPath"
       ],
       "fieldsInContentEditor": [
-        "backgroundColor",
         "backgroundImage",
         "maxWidth",
-        "color",
-        "fontFamily",
         "htmlTag",
         "splitColor",
         "splitClipPath"
       ],
-      "fieldsMissingFromPanels": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight",
-        "fontFamily"
-      ],
-      "fieldsMissingFromContentEditor": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight"
-      ],
-      "fieldsMissingFromBoth": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight"
-      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
       "deadElementKeys": [],
