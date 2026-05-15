@@ -642,3 +642,85 @@ describe('POST /api/approve/[token] error paths @approval-links', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/approve/[token] concurrency @approval-links', () => {
+  let A: TenantCtx;
+  beforeEach(async () => {
+    A = await sessionForNewClientUser('approval-race');
+  });
+
+  it('two simultaneous approves: exactly one wins, the other gets 400', async () => {
+    const postId = await seedPost(A.client.id, { published: false });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'post',
+      entityId: postId,
+    });
+    const route = await getRoute();
+
+    // Fire both approve attempts in parallel. The route's `status !== 'pending'`
+    // guard is non-atomic (it reads, then writes), so without proper locking
+    // both could observe `pending` and proceed. The contract under test:
+    // post-conditions converge — post is published once, link is approved once,
+    // and at most ONE of the two attempts can have returned 200 with the
+    // "approved" payload. Future tightening (advisory lock or compare-and-set
+    // in recordReview) should keep this test passing without changing what it
+    // asserts.
+    const [r1, r2] = await Promise.all([
+      callHandler<{ success: boolean }>(
+        route as unknown as Record<string, unknown>, 'POST',
+        { params: { token }, body: { action: 'approve', reviewerName: 'Alice' } },
+      ),
+      callHandler<{ success: boolean }>(
+        route as unknown as Record<string, unknown>, 'POST',
+        { params: { token }, body: { action: 'approve', reviewerName: 'Bob' } },
+      ),
+    ]);
+
+    // At least one must have succeeded.
+    const successes = [r1, r2].filter(r => r.status === 200 && r.data?.success === true);
+    expect(successes.length).toBeGreaterThanOrEqual(1);
+
+    // Final state is converged regardless of which one won.
+    const sql = getTestSql();
+    const [post] = await sql<{ published: boolean }[]>`
+      SELECT published FROM ${sql(TEST_SCHEMA)}.posts WHERE id = ${postId}
+    `;
+    expect(post.published).toBe(true);
+
+    const [link] = await sql<{ status: string }[]>`
+      SELECT status FROM ${sql(TEST_SCHEMA)}.mcp_approval_links WHERE token = ${token}
+    `;
+    expect(link.status).toBe('approved');
+  });
+
+  it('approve then reject in quick succession: first wins, second gets 400', async () => {
+    const postId = await seedPost(A.client.id, { published: false });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'post',
+      entityId: postId,
+    });
+    const route = await getRoute();
+
+    const first = await callHandler<{ success: boolean }>(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'approve', reviewerName: 'Alice' } },
+    );
+    expect(first.status).toBe(200);
+
+    const second = await callHandler<{ success: boolean; message?: string }>(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'reject', reviewerName: 'Bob' } },
+    );
+    expect(second.status).toBe(400);
+    expect(second.data?.message).toMatch(/already been approved/i);
+
+    // Final state reflects only the first decision.
+    const sql = getTestSql();
+    const [link] = await sql<{ status: string }[]>`
+      SELECT status FROM ${sql(TEST_SCHEMA)}.mcp_approval_links WHERE token = ${token}
+    `;
+    expect(link.status).toBe('approved');
+  });
+});

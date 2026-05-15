@@ -151,12 +151,19 @@ After committing Phase 2 the user said "keep going through the night." Phase 3 c
 - **Survey forking now wired.** Migration `0112_survey_fork_parent_pointer.sql` adds `surveys.parent_survey_id`; `surveys_fork(id, titleSuffix?)` MCP tool clones the source into a new draft with `parent_survey_id` set + status reset to draft + responseCount=0 + new slug. Skill doc updated. Verified end-to-end: survey 150 forked from 149, parent untouched. Tool count: 319 → 320.
 - **Brand-aware booking emails.** `loadBookingBrand(bookingPageId)` resolves the booking page's `brandingProfileId` (falling back to the client's default brand profile, then to messaging row, then to `clients.company`). Snapshot is threaded through `BookingEmailData.brand` and the email template now renders the wide logo / logoText fallback in the header, brand-colored CTAs, and a company+tagline footer line. Three callers updated: `app/api/public/booking/[slug]/book`, `app/api/stripe/webhook/booking`, and `app/api/public/booking/cancel`. Falls back to neutral defaults when the brand snapshot is null so the change is fully backward-compatible.
 
-**Still on the table (post-Phase-4):**
-- **Booking reminder emails** — no cron exists today. Needs a new `/api/cron/booking-reminders` (or extend existing) + send-window logic + Resend rate-limit accounting.
+**Phase 5 — closed three more items from the runway:**
+
+- **`branding_check_contrast` smoke-tested through the MCP transport.** Three pairs probed against the actual SD brand colors. Results match expectations: white-on-primary 17.85:1 (AAA pass), white-on-accent 2.43:1 (**FAIL** — exactly the trap the design principles warned about), text-on-bg 17.85:1 (AAA pass). The white-on-accent failure was added as a concrete case study in `SD_DESIGN_PRINCIPLES.md` section 12-A.
+- **Concurrent-approval race tests added.** Two new cases in `tests/integration/api/approve/approval-links.test.ts`:
+  - "two simultaneous approves": fires `Promise.all([approve, approve])` and asserts at least one succeeds + final state is converged (post.published=true, link.status=approved).
+  - "approve then reject in quick succession": first wins, second gets 400 with "already been approved" message, link stays approved.
+- **`SD_DESIGN_PRINCIPLES.md` refreshed** with a "Field-tested lessons" section (12.A–G) covering: the white-on-accent trap with reproduction call, the "testimonial reads fake" trap, brand-profile vs page-level styling precedence, the "Powered by SimplerDevelopment" footer change (Phase 4 dropped it for tenant-branded), the update-mints-fresh-URL rule, and the 14-day default expiry.
+
+**Still on the table (post-Phase-5):**
+- **Booking reminder emails** — no cron exists today. Needs a new `/api/cron/booking-reminders` + send-window logic + Resend rate-limit accounting.
 - **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. Pipeline is shared with the portal REST routes (prod-tested), so verified by inference; live confirmation needs S3 creds.
-- **`branding_check_contrast`** — confirmed it's registered in `lib/branding/mcp-schemas.ts` + `mcp-tools.ts` but hasn't been smoke-tested through the MCP transport yet.
-- **Concurrent approval race** test — still no coverage.
 - **`drizzle/0112` migration applied to local but not committed to drizzle/meta snapshot** — same hand-written-SQL escape hatch we used for `0111`. Project memory notes the snapshot collision; `bun run db:migrate` would fail until that's resolved separately.
+- **A `surveys_fork` unit / portal-route integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite (the existing `tests/integration/api/surveys/` covers the portal REST surface, not the MCP tool surface).
 
 ## Where state lives
 

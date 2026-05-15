@@ -217,7 +217,57 @@ This is the difference between "draft" and "garbage." Drafts have honest placeho
 
 ---
 
-## 12. Reference
+## 12. Field-tested lessons (from the autonomous test runs)
+
+These are specific to the SimplerDevelopment stack and came out of the Phase 1–4 end-to-end tests against the prod-mirror local instance. Keep them in your head before authoring; they're failure modes you'll otherwise hit.
+
+### A. White-on-accent is a real failure, not theoretical
+
+The SD brand uses `#06B6D4` (cyan) as `accentColor`. White text on it scores **2.43:1** — fails WCAG-AA for both normal and large text. Every AI-generated landing page in this codebase happily renders `bg=#06B6D4 color=#FFFFFF` CTAs that are unreadable.
+
+The rule: **never render white text on an accent color without running `branding_check_contrast` first.** When the check fails, swap to `textColor` (near-black) on the accent, OR change the CTA bg to `primaryColor` (which IS dark enough for white text in most brand palettes).
+
+### B. Verify the trap with the tool
+
+```
+mcp__simplerdevelopment-postcaptain__branding_check_contrast {
+  "foreground": "#FFFFFF",
+  "background": "#06B6D4"   // the brand's accentColor
+}
+// → { ratio: 2.43, passesAA: false }
+```
+
+Make this call before authoring any CTA whose color combo isn't obviously the brand primary on white. The 200ms it takes saves a complete render-rejection cycle.
+
+### C. The "testimonial reads fake" reflex
+
+In the Phase 1 test, the user explicitly flagged the placeholder testimonial ("Operations Lead, Mid-market services firm") as inauthentic. Inventing testimonials is the #1 trust-destroying AI slip. Even using neutral roles and industries reads as fake to anyone who pays attention.
+
+The rule: **never invent testimonials.** Use `[TESTIMONIAL TBD — ideally from <named customer>]` as a visible placeholder. The user should replace it in 2 minutes with a real quote OR delete the block entirely.
+
+Same for numbers: never invent specific stats. "Helped 200+ customers" / "99.9% uptime" / "Trusted by Fortune 500" — all garbage unless the brand profile explicitly carries those numbers. Use `[STAT TBD — ask user for: X]`.
+
+### D. Brand profile vs page-level styling — page-level wins
+
+`bookingPages`, `surveys`, and `clientWebsites` each have a `brandingProfileId` foreign key. When SET, that's the active profile for that artifact. When NULL, the client's `isDefault: true` profile is used. **The skills should always set the page-level binding** to make the artifact-brand association explicit; relying on the default works but creates drift when the default changes.
+
+### E. The "Powered by SimplerDevelopment" footer is now gone
+
+As of Phase 4, booking confirmations + host notifications + cancellation emails carry the **tenant's** company name + tagline in the footer, not "Powered by SimplerDevelopment." If the brand profile is sparse, the footer falls back to the company column on `clients` — never to the SD wordmark unless the tenant IS the SD agency. Don't bake "Powered by SimplerDevelopment" copy into new templates you build.
+
+### F. Update minting policy
+
+Every `posts_update` / `decks_update` / `email_campaigns_update` / `surveys_update` / `booking_pages_update` mints a NEW approval URL. The old one stays in whatever state it was already in. Always return the URL from the most recent tool response — never the one you saved earlier in the conversation.
+
+This is intentional: the reviewer should approve the content as-of-mint-time, not as-of-some-earlier-mint. If the author tweaks copy mid-review, the reviewer sees the new mint.
+
+`decks_replace_slides` is an exception — it mutates slide drafts in place and does NOT mint a new URL. If you want the reviewer to see slide edits via a fresh URL, call `decks_update` (a metadata edit) to force a new mint.
+
+### G. 14-day default expiry
+
+Approval links auto-expire after 14 days. Pass `expiresInDays: null` to opt out (rare), or a number to override. Authors should NOT mint without expiry unless the reviewer is on a known long timeline; long-lived public tokens are a footgun.
+
+## 13. Reference
 
 - WCAG 2.2 specification: https://www.w3.org/TR/WCAG22/
 - `branding_check_contrast` MCP tool — for any color pair, returns the WCAG ratio + AA/AAA pass/fail.
