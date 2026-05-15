@@ -47,8 +47,22 @@ export interface CreateApprovalLinkArgs {
   summary: string;
   linkType?: ApprovalLinkType; // default 'entity'
   pendingChangeId?: number | null;
-  expiresInDays?: number | null; // null = never expires
+  /**
+   * Days until the link auto-expires (auto-marked `expired` on next GET).
+   *   - `undefined` → use the default (14 days). Public review links are
+   *     a credentialed surface; long-lived tokens are a footgun.
+   *   - `null` → never expires (escape hatch for internal/long-lived links).
+   *   - positive number → that many days.
+   */
+  expiresInDays?: number | null;
 }
+
+/**
+ * Default lifetime for approval links. Reviewers who don't act on the link
+ * within two weeks are unlikely to ever act on it; the author can re-mint by
+ * calling `*_update` (which itself mints a fresh link).
+ */
+export const DEFAULT_EXPIRES_IN_DAYS = 14;
 
 export interface ApprovalLinkResult {
   approvalLinkId: number;
@@ -76,9 +90,13 @@ export function formatApprovalUrl(token: string): string {
 export async function createApprovalLink(args: CreateApprovalLinkArgs): Promise<ApprovalLinkResult> {
   const linkType: ApprovalLinkType = args.linkType ?? 'entity';
   const token = crypto.randomBytes(TOKEN_BYTES).toString('hex');
+  // `undefined` → 14-day default. `null` → never expires (explicit opt-out).
+  // Positive number → that many days. Zero or negative → null (no expiry).
+  const days =
+    args.expiresInDays === undefined ? DEFAULT_EXPIRES_IN_DAYS : args.expiresInDays;
   const expiresAt =
-    typeof args.expiresInDays === 'number' && args.expiresInDays > 0
-      ? new Date(Date.now() + args.expiresInDays * 24 * 60 * 60 * 1000)
+    typeof days === 'number' && days > 0
+      ? new Date(Date.now() + days * 24 * 60 * 60 * 1000)
       : null;
 
   const [row] = await db

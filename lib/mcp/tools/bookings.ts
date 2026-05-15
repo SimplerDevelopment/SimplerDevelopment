@@ -105,6 +105,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { createApprovalLink, approvalEnvelope } from '../approval-links';
 import {
   json,
   serializePostContent,
@@ -128,6 +129,198 @@ export function registerBookingsTools(server: McpServer, ctx: PortalMcpContext):
 
   // ── BOOKINGS / APPOINTMENTS ────────────────────────────────────────────
   // Keywords: booking, appointment, calendar, schedule, meeting, reservation.
+  // Mutating tools — create + update a bookable service. Page starts with
+  // `active=false` so the public /book/<slug> URL returns 404 until the
+  // approver flips it (the approval-link side-effect for entityType
+  // 'booking_page' does this automatically — see app/api/approve/[token]).
+  hasScope(ctx.scopes, 'bookings:write') && server.registerTool(
+    'booking_pages_create',
+    {
+      title: 'Create booking page',
+      description:
+        'Create a new bookable service / appointment type. Defaults: 30-min duration, free, Mon–Fri 09–17 America/New_York, individual booking, fixed assignment. The page starts `active=false`; approve the returned URL (or pass `active:true` explicitly) to flip it live. Returns the slim row + approval envelope.',
+      inputSchema: {
+        title: z.string().min(1).max(100),
+        slug: z.string().regex(/^[a-z0-9-]+$/i, 'Slug must be lowercase letters/digits/hyphens').optional(),
+        description: z.string().nullable().optional(),
+        websiteId: z.number().int().positive().nullable().optional(),
+        brandingProfileId: z.number().int().positive().nullable().optional(),
+        // Pricing
+        price: z.number().int().nonnegative().optional().describe('Price in cents. 0 = free.'),
+        priceLabel: z.string().optional().describe('Free-text price display (e.g. "Starts at $200").'),
+        // Schedule
+        duration: z.number().int().positive().optional().describe('Minutes. Default 30.'),
+        bufferBefore: z.number().int().nonnegative().optional(),
+        bufferAfter: z.number().int().nonnegative().optional(),
+        maxAdvanceDays: z.number().int().positive().optional(),
+        minNoticeMins: z.number().int().nonnegative().optional(),
+        timezone: z.string().optional(),
+        availability: z.any().optional().describe('Day-of-week + time-range schedule. Defaults to Mon–Fri 09–17 in `timezone`.'),
+        // Booking type
+        bookingType: z.enum(['individual', 'group', 'multi-attendee']).optional(),
+        groupCapacity: z.number().int().positive().nullable().optional(),
+        maxGuests: z.number().int().positive().nullable().optional(),
+        // Assignment
+        assignmentMode: z.enum(['fixed', 'round_robin', 'weighted_round_robin']).optional(),
+        assignedMembers: z.array(z.number().int().positive()).optional().describe('User ids on the rotation.'),
+        roundRobinPool: z.any().optional(),
+        allowStaffSelection: z.boolean().optional(),
+        // Conferencing
+        conferenceType: z.enum(['none', 'google_meet', 'zoom']).optional(),
+        googleCalendarSync: z.boolean().optional(),
+        // Questions
+        questions: z.array(z.any()).optional().describe('BookingQuestion[] — { id, label, type: text|textarea|select, required, options? }'),
+        // Toggles
+        enableAddOns: z.boolean().optional(),
+        enableGiftCertificates: z.boolean().optional(),
+        enableDiscountCodes: z.boolean().optional(),
+        enableWaivers: z.boolean().optional(),
+        waiverContent: z.string().nullable().optional(),
+        requireWaiverBeforeBooking: z.boolean().optional(),
+        checkinEnabled: z.boolean().optional(),
+        // Display
+        color: z.string().optional(),
+        styling: z.any().optional().describe('BookingPageStyling — { primaryColor?, backgroundColor?, textColor?, headingFont?, bodyFont?, borderRadius?, buttonPrimary*?, hideTitle?, hideLogo? }'),
+        thumbnail: z.string().nullable().optional(),
+        // Gate the public URL until approved
+        active: z.boolean().optional().describe('Whether the booking page is immediately public. Default false; approving the returned link flips it true.'),
+      },
+    },
+    async (args) => {
+      if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      // Slug uniqueness — auto-derive if not provided, then bump with date suffix on collision.
+      const baseSlug = (args.slug ?? args.title)
+        .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        .slice(0, 80) || 'booking';
+      let slug = baseSlug;
+      const [collide] = await db.select({ id: bookingPages.id }).from(bookingPages)
+        .where(and(eq(bookingPages.slug, slug), eq(bookingPages.clientId, clientId))).limit(1);
+      if (collide) slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+      const [row] = await db.insert(bookingPages).values({
+        clientId,
+        title: args.title.trim(),
+        slug,
+        description: args.description ?? null,
+        websiteId: args.websiteId ?? null,
+        brandingProfileId: args.brandingProfileId ?? null,
+        price: args.price ?? 0,
+        priceLabel: args.priceLabel,
+        duration: args.duration ?? 30,
+        bufferBefore: args.bufferBefore ?? 0,
+        bufferAfter: args.bufferAfter ?? 15,
+        maxAdvanceDays: args.maxAdvanceDays ?? 60,
+        minNoticeMins: args.minNoticeMins ?? 60,
+        timezone: args.timezone ?? 'America/New_York',
+        availability: args.availability ?? undefined,
+        bookingType: args.bookingType ?? 'individual',
+        groupCapacity: args.groupCapacity,
+        maxGuests: args.maxGuests,
+        assignmentMode: args.assignmentMode ?? 'fixed',
+        assignedMembers: args.assignedMembers ?? [],
+        roundRobinPool: args.roundRobinPool,
+        allowStaffSelection: args.allowStaffSelection ?? false,
+        conferenceType: args.conferenceType ?? 'none',
+        googleCalendarSync: args.googleCalendarSync ?? false,
+        questions: (args.questions ?? []) as never[],
+        enableAddOns: args.enableAddOns ?? false,
+        enableGiftCertificates: args.enableGiftCertificates ?? false,
+        enableDiscountCodes: args.enableDiscountCodes ?? false,
+        enableWaivers: args.enableWaivers ?? false,
+        waiverContent: args.waiverContent ?? null,
+        requireWaiverBeforeBooking: args.requireWaiverBeforeBooking ?? false,
+        checkinEnabled: args.checkinEnabled ?? false,
+        color: args.color ?? '#2563eb',
+        styling: args.styling ?? {},
+        thumbnail: args.thumbnail ?? null,
+        // Default to NOT-active so the public URL is gated behind approval.
+        active: args.active ?? false,
+      }).returning();
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'booking_page',
+          entityId: row.id,
+          summary: `Booking page "${row.title}"`,
+        }),
+      );
+
+      return json({ ...row, approval });
+    }
+  );
+
+  hasScope(ctx.scopes, 'bookings:write') && server.registerTool(
+    'booking_pages_update',
+    {
+      title: 'Update booking page',
+      description:
+        'Patch any combination of fields on a booking page. Same field set as booking_pages_create. Mints a fresh approval URL on every call — the old URL stays valid in whatever state it was already in. To delete a booking page, set `active=false` and flag it for cleanup; there is no destructive delete tool today.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        title: z.string().min(1).max(100).optional(),
+        description: z.string().nullable().optional(),
+        websiteId: z.number().int().positive().nullable().optional(),
+        brandingProfileId: z.number().int().positive().nullable().optional(),
+        price: z.number().int().nonnegative().optional(),
+        priceLabel: z.string().nullable().optional(),
+        duration: z.number().int().positive().optional(),
+        bufferBefore: z.number().int().nonnegative().optional(),
+        bufferAfter: z.number().int().nonnegative().optional(),
+        maxAdvanceDays: z.number().int().positive().optional(),
+        minNoticeMins: z.number().int().nonnegative().optional(),
+        timezone: z.string().optional(),
+        availability: z.any().optional(),
+        bookingType: z.enum(['individual', 'group', 'multi-attendee']).optional(),
+        groupCapacity: z.number().int().positive().nullable().optional(),
+        maxGuests: z.number().int().positive().nullable().optional(),
+        assignmentMode: z.enum(['fixed', 'round_robin', 'weighted_round_robin']).optional(),
+        assignedMembers: z.array(z.number().int().positive()).optional(),
+        roundRobinPool: z.any().optional(),
+        allowStaffSelection: z.boolean().optional(),
+        conferenceType: z.enum(['none', 'google_meet', 'zoom']).optional(),
+        googleCalendarSync: z.boolean().optional(),
+        questions: z.array(z.any()).optional(),
+        enableAddOns: z.boolean().optional(),
+        enableGiftCertificates: z.boolean().optional(),
+        enableDiscountCodes: z.boolean().optional(),
+        enableWaivers: z.boolean().optional(),
+        waiverContent: z.string().nullable().optional(),
+        requireWaiverBeforeBooking: z.boolean().optional(),
+        checkinEnabled: z.boolean().optional(),
+        color: z.string().optional(),
+        styling: z.any().optional(),
+        thumbnail: z.string().nullable().optional(),
+        active: z.boolean().optional(),
+      },
+    },
+    async ({ id, ...rest }) => {
+      if (!requireScope(ctx, 'bookings:write')) return denied('bookings:write');
+      const [existing] = await db.select({ id: bookingPages.id, title: bookingPages.title })
+        .from(bookingPages)
+        .where(and(eq(bookingPages.id, id), eq(bookingPages.clientId, clientId)))
+        .limit(1);
+      if (!existing) return json({ error: 'Booking page not found' });
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      for (const [k, v] of Object.entries(rest)) if (v !== undefined) patch[k] = v;
+
+      const [row] = await db.update(bookingPages).set(patch)
+        .where(eq(bookingPages.id, id)).returning();
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'booking_page',
+          entityId: row.id,
+          summary: `Booking page "${row.title}" (rev)`,
+        }),
+      );
+
+      return json({ ...row, approval });
+    }
+  );
+
   hasScope(ctx.scopes, 'bookings:read') && server.registerTool(
     'booking_pages_list',
     {

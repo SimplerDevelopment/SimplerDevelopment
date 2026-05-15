@@ -60,8 +60,10 @@ const EXPECTED_TOOLS: readonly string[] = [
   'block_templates_list',
   'block_templates_update',
   // ── bookings ────────────────────────────────────────────────────────
+  'booking_pages_create',
   'booking_pages_get',
   'booking_pages_list',
+  'booking_pages_update',
   'bookings_cancel',
   'bookings_get',
   'bookings_list',

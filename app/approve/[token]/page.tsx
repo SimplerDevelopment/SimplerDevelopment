@@ -23,10 +23,13 @@ import {
   emailCampaigns,
   blockTemplates,
   mcpPendingChanges,
+  surveys,
+  bookingPages,
 } from '@/lib/db/schema';
 import type {
   BlockTemplateDraft,
   PitchDeckSlideV2,
+  SurveyFieldDef,
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { lookupApprovalLink } from '@/lib/mcp/approval-links';
@@ -157,6 +160,60 @@ async function loadPreview(
         description: draft?.description ?? row.description ?? null,
         content: blockEditorJson,
         pendingDelete: draft?.pendingDelete === true,
+      };
+    }
+    case 'survey': {
+      const [row] = await db
+        .select()
+        .from(surveys)
+        .where(and(eq(surveys.id, entityId), eq(surveys.clientId, clientId)))
+        .limit(1);
+      if (!row) return { kind: 'missing', message: 'Survey not found' };
+      return {
+        kind: 'survey',
+        title: row.title,
+        slug: row.slug,
+        description: row.description ?? null,
+        status: row.status,
+        publicUrl: `/s/${row.slug}`,
+        // SurveyFieldDef from lib/db/schema is a superset of what the client
+        // preview renders — cast through unknown to avoid the structural-
+        // assignability mismatch on optional-field shapes.
+        fields: ((row.fields ?? []) as SurveyFieldDef[]) as unknown as Array<{
+          id: string;
+          type: string;
+          label: string;
+          required?: boolean;
+          order?: number;
+          options?: Array<{ id?: string; label: string; value?: string }>;
+          showIf?: unknown;
+          page?: number;
+        }>,
+        thankYouTitle: row.thankYouTitle ?? null,
+        thankYouMessage: row.thankYouMessage ?? null,
+        requireEmail: row.requireEmail ?? false,
+      };
+    }
+    case 'booking_page': {
+      const [row] = await db
+        .select()
+        .from(bookingPages)
+        .where(and(eq(bookingPages.id, entityId), eq(bookingPages.clientId, clientId)))
+        .limit(1);
+      if (!row) return { kind: 'missing', message: 'Booking page not found' };
+      return {
+        kind: 'booking_page',
+        title: row.title,
+        slug: row.slug,
+        active: row.active,
+        publicUrl: `/book/${row.slug}`,
+        duration: row.duration,
+        price: row.price,
+        priceLabel: row.priceLabel ?? null,
+        timezone: row.timezone,
+        bookingType: row.bookingType,
+        assignmentMode: row.assignmentMode,
+        description: row.description ?? null,
       };
     }
     default:

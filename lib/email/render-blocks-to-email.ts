@@ -71,8 +71,23 @@ function emailStyles(style?: BlockStyle): string {
 }
 
 function mergeStyle(base: string, extra: string): string {
-  const parts = [base, extra].filter(Boolean);
-  return parts.join(';');
+  // Parse both into property maps, with `extra` overriding `base`. Strips
+  // duplicate declarations so the emitted inline style has each property at
+  // most once — important for legibility AND for email clients that throw
+  // away "subsequent" declarations (Outlook in particular).
+  const merged = new Map<string, string>();
+  for (const raw of [base, extra]) {
+    if (!raw) continue;
+    for (const decl of raw.split(';')) {
+      const idx = decl.indexOf(':');
+      if (idx < 0) continue;
+      const k = decl.slice(0, idx).trim().toLowerCase();
+      const v = decl.slice(idx + 1).trim();
+      if (!k || !v) continue;
+      merged.set(k, v);
+    }
+  }
+  return Array.from(merged, ([k, v]) => `${k}:${v}`).join(';');
 }
 
 function escapeHtml(str: string): string {
@@ -301,7 +316,14 @@ function renderEmailHeader(block: EmailHeaderBlock): string {
 
   if (block.logoUrl) {
     const logoW = block.logoWidth ?? 150;
-    html += `\n      <img src="${escapeHtml(block.logoUrl)}" alt="Logo" width="${logoW}" style="display:${align === 'center' ? 'block' : 'inline-block'};max-width:100%;height:auto;border:0${align === 'center' ? ';margin:0 auto' : ''}" />`;
+    const logoAlt = (block as { logoAlt?: string }).logoAlt ?? 'Logo';
+    html += `\n      <img src="${escapeHtml(block.logoUrl)}" alt="${escapeHtml(logoAlt)}" width="${logoW}" style="display:${align === 'center' ? 'block' : 'inline-block'};max-width:100%;height:auto;border:0${align === 'center' ? ';margin:0 auto' : ''}" />`;
+  } else if ((block as { logoText?: string }).logoText) {
+    // Fallback when the brand only carries a wordmark. Style as small-caps
+    // wordmark in the brand-ish accent color — won't be perfect for every
+    // brand but is better than the empty header users see today.
+    const logoText = (block as { logoText: string }).logoText;
+    html += `\n      <p style="margin:0;font-size:16px;font-weight:700;letter-spacing:0.05em;color:#0f172a;text-align:${align}">${escapeHtml(logoText)}</p>`;
   }
 
   if (block.tagline) {
@@ -323,6 +345,11 @@ function renderEmailFooter(block: EmailFooterBlock): string {
 
   if (block.companyName) {
     html += `\n      <p style="margin:0 0 4px 0;font-size:13px;color:#666666;font-weight:600">${escapeHtml(block.companyName)}</p>`;
+  }
+  // Tagline sits between company name and address. Skill docs document this
+  // field; the previous renderer silently dropped it.
+  if ((block as { tagline?: string }).tagline) {
+    html += `\n      <p style="margin:0 0 8px 0;font-size:12px;color:#888888;font-style:italic">${escapeHtml((block as { tagline: string }).tagline)}</p>`;
   }
   if (block.address) {
     html += `\n      <p style="margin:0 0 12px 0;font-size:12px;color:#999999">${escapeHtml(block.address)}</p>`;

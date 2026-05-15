@@ -253,17 +253,47 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
     'surveys_update',
     {
       title: 'Update survey',
-      description: 'Update title, description, status (draft/active/closed), or fields of a survey.',
+      description:
+        'Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.',
       inputSchema: {
-        id: z.number(),
+        id: z.number().int().positive(),
         title: z.string().min(1).optional(),
         description: z.string().nullable().optional(),
         status: z.enum(['draft', 'active', 'closed']).optional(),
-        fields: z.array(z.any()).optional(),
+        fields: z.array(z.any()).optional().describe('SurveyFieldDef[]'),
         thankYouTitle: z.string().optional(),
         thankYouMessage: z.string().optional(),
         closesAt: z.string().nullable().optional(),
-        maxResponses: z.number().nullable().optional(),
+        maxResponses: z.number().int().positive().nullable().optional(),
+        // ─ branding / styling ─
+        brandingProfileId: z.number().int().positive().nullable().optional(),
+        styling: z.record(z.string(), z.any()).optional()
+          .describe('SurveyStyling — { primaryColor?, backgroundColor?, textColor?, headingFont?, bodyFont?, borderRadius?, showLogo?, hideTitle?, buttonPrimary*? }'),
+        color: z.string().optional().describe('Legacy single-color override (hex). Prefer styling.primaryColor.'),
+        // ─ pages ─
+        pages: z.array(z.object({
+          title: z.string().optional(),
+          description: z.string().optional(),
+        })).optional().describe('Per-page metadata. Page boundaries inferred from fields with type=page_break.'),
+        // ─ public results / certificate ─
+        publishResults: z.boolean().optional(),
+        certificateEnabled: z.boolean().optional(),
+        consentField: z.string().nullable().optional()
+          .describe('Field id that gates response submission via explicit consent checkbox.'),
+        // ─ notifications ─
+        notifyOnResponse: z.boolean().optional(),
+        notifyDigest: z.enum(['off', 'daily', 'weekly']).optional(),
+        // ─ scoring + CRM auto-route ─
+        scoringConfig: z.any().optional()
+          .describe('SurveyScoringConfig — { autoRouteToCrm?: { enabled, minScore, pipelineId, stageId, dealTitleTemplate? } }'),
+        // ─ recommendation engine ─
+        recommendation: z.any().optional()
+          .describe('SurveyRecommendationConfig — { offerings[], questions[], overrides[], hybrid?, alwaysAlsoOfferingKey?, bookUrl?, narrativeTemplate? }'),
+        // ─ linking (to another artifact) ─
+        linkedType: z.enum(['email_campaign', 'crm_deal', 'crm_proposal', 'booking_page', 'website', 'pitch_deck']).nullable().optional(),
+        linkedId: z.number().int().positive().nullable().optional(),
+        redirectUrl: z.string().nullable().optional()
+          .describe('Send respondents here after submit. Overrides the thank-you screen.'),
       },
     },
     async ({ id, closesAt, fields, ...rest }) => {

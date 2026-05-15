@@ -7,12 +7,12 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 
 # sd-create-booking-page
 
-This skill is split into two flows because of a gap in the MCP surface:
+This skill is split into two flows:
 
-- **Flow A: embed an existing booking page** — fully wired today. Just embed via the `booking` block.
-- **Flow B: author a new booking page from scratch** — MCP doesn't yet expose `booking_pages_create` / `booking_pages_update`. The skill walks the user through portal-side setup (with the exact fields), then comes back to Flow A.
+- **Flow A: embed an existing booking page** — list, pick, embed.
+- **Flow B: author a new booking page from scratch via `booking_pages_create`** — fully wired in MCP. The new page is created with `active=false` and a fresh approval URL is minted; approving the URL flips `active=true` so `/book/<slug>` accepts reservations. Iterate via `booking_pages_update`.
 
-The roadmap is: scaffold `booking_pages_create` + `booking_pages_update` MCP tools (use the `simplerdev-mcp-tool` skill) and widen this skill to author end-to-end. Until then, **be honest about the constraint** in the response.
+Both flows return the public URL, the portal edit URL, and the approval URL. The skill picks Flow A by default if `booking_pages_list` already has a matching page; otherwise it pivots to Flow B.
 
 ## Pre-flight
 
@@ -93,22 +93,37 @@ Booking pages send confirmation + cancellation emails automatically via `lib/ema
 
 Reminder emails are **NOT** sent today — no cron exists. If the user wants reminders, that's also a server-side change request.
 
-## Flow B — author a new booking page (portal-side)
+## Flow B — author a new booking page via MCP
 
-If no existing page fits, the skill produces a step-by-step recipe for the user to follow in `/portal/tools/booking/new`:
+Call `mcp__simplerdevelopment-postcaptain__booking_pages_create` with the minimum:
 
-1. **Identity:** `title` (max 100), `slug` (auto-derived from title, editable), `description`.
-2. **Pricing:** `price` (in cents), `priceLabel` (free text e.g. "Starts at $200"). For free consultations: `price: 0`, `priceLabel: "Free"`.
-3. **Schedule:** `duration` (minutes), `bufferBefore`, `bufferAfter`, `maxAdvanceDays`, `minNoticeMins`, `timezone` (default America/New_York).
-4. **Availability:** day-of-week + time-range matrix. Default Mon–Fri 09:00–17:00.
-5. **Questions:** an array of `{ id, label, type: 'text'|'textarea'|'select', required, options? }` shown to the booker before confirming.
-6. **Assignment:** `assignmentMode: 'fixed' | 'round_robin' | 'weighted_round_robin'` + `assignedMembers: [userId, ...]`.
-7. **Booking type:** `individual` (one attendee per slot), `group` (one host, multiple attendees, `groupCapacity` cap), or `multi-attendee` (multiple discrete slots).
-8. **Add-ons / discounts / gift cert / waiver toggles** if needed.
-9. **Branding:** pick the brand profile so it inherits colors + fonts. Override `styling.{primaryColor, backgroundColor, textColor, headingFont, bodyFont, borderRadius}` only if the brand defaults are wrong for this page.
-10. **Conferencing:** `conferenceType: 'none' | 'google_meet' | 'zoom'` (Google Meet requires Workspace OAuth connection).
+```json
+{
+  "title": "Discovery call",
+  "description": "30-minute intake to scope your project.",
+  "duration": 30,
+  "price": 0,
+  "priceLabel": "Free",
+  "timezone": "America/New_York",
+  "brandingProfileId": <from .sd/config.json>,
+  "questions": [
+    { "id": "q-company", "label": "Company", "type": "text", "required": true },
+    { "id": "q-context", "label": "What hurts about your current stack?", "type": "textarea", "required": false }
+  ],
+  "conferenceType": "google_meet",
+  "active": false
+}
+```
 
-After the user creates the page, come back to Flow A and embed it.
+The response includes `{ id, slug, ..., approval: { url, ... } }`. Hand the approval URL to the user; approving flips `active=true` so the public `/book/<slug>` route starts accepting reservations.
+
+For more complex needs, the tool accepts the full field set: `availability` (day-of-week + time-range matrix; defaults to Mon–Fri 09–17), `assignmentMode` (`fixed`/`round_robin`/`weighted_round_robin`) + `assignedMembers`, `bookingType` (`individual`/`group`/`multi-attendee`) + `groupCapacity`, add-ons / discount / waiver / gift-cert toggles, `styling` overrides, etc. Default Mon–Fri 09–17 in the chosen timezone is set server-side if `availability` is omitted.
+
+**For client-specific waivers:** pass `enableWaivers: true`, `waiverContent: "<your text>"`, `requireWaiverBeforeBooking: true`.
+
+**For Google Meet conferencing:** the tenant needs a connected Google Workspace OAuth (`/portal/integrations/google`). Without that, `conferenceType: 'google_meet'` will still save but bookings won't get calendar invites.
+
+Iterate via `booking_pages_update` (same field shape, `id` required). Each update mints a fresh approval URL.
 
 ## Brand-aware embed
 

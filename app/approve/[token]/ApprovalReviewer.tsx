@@ -46,6 +46,41 @@ export type ApprovalEntityPreview =
       operation: string;
       payloadJson: string;
     }
+  | {
+      kind: 'survey';
+      title: string;
+      slug: string;
+      description: string | null;
+      status: string;
+      publicUrl: string;
+      fields: Array<{
+        id: string;
+        type: string;
+        label: string;
+        required?: boolean;
+        order?: number;
+        options?: Array<{ id?: string; label: string; value?: string }>;
+        showIf?: unknown;
+        page?: number;
+      }>;
+      thankYouTitle: string | null;
+      thankYouMessage: string | null;
+      requireEmail: boolean;
+    }
+  | {
+      kind: 'booking_page';
+      title: string;
+      slug: string;
+      active: boolean;
+      publicUrl: string;
+      duration: number;
+      price: number;
+      priceLabel: string | null;
+      timezone: string;
+      bookingType: string;
+      assignmentMode: string;
+      description: string | null;
+    }
   | { kind: 'missing'; message: string };
 
 interface Props {
@@ -342,6 +377,114 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
           </pre>
         </div>
       );
+    case 'survey':
+      return (
+        <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 space-y-1">
+            <div className="text-xs text-gray-500">
+              Slug <code className="text-gray-700">{preview.slug}</code> ·{' '}
+              Status <code className="text-gray-700">{preview.status}</code>
+              {preview.requireEmail && (
+                <span className="ml-2 px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">
+                  email required
+                </span>
+              )}
+            </div>
+            {preview.description && (
+              <p className="text-sm text-gray-700 mt-2">{preview.description}</p>
+            )}
+            <div className="text-xs text-gray-500 mt-1">
+              Public URL on approve: <code className="text-gray-700">{preview.publicUrl}</code>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            {preview.fields.length === 0 ? (
+              <p className="text-sm text-gray-500">No fields yet.</p>
+            ) : (
+              preview.fields.map((f, idx) => (
+                <div key={f.id ?? idx} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-sm font-medium text-gray-900">
+                      {idx + 1}. {f.label || <span className="italic text-gray-500">(no label)</span>}
+                      {f.required && <span className="text-red-600 ml-1" aria-label="required">*</span>}
+                    </div>
+                    <code className="text-xs text-gray-500">{f.type}</code>
+                  </div>
+                  {Array.isArray(f.options) && f.options.length > 0 && (
+                    <ul className="mt-2 ml-4 text-sm text-gray-700 list-disc">
+                      {f.options.map((o, oi) => (
+                        <li key={o.id ?? oi}>{o.label}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {f.showIf != null && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Conditional — <code className="text-gray-700">{JSON.stringify(f.showIf)}</code>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            {(preview.thankYouTitle || preview.thankYouMessage) && (
+              <div className="mt-6 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3">
+                <div className="text-xs font-medium text-emerald-800 uppercase tracking-wider mb-1">
+                  Thank-you screen
+                </div>
+                {preview.thankYouTitle && (
+                  <div className="text-sm font-medium text-emerald-900">{preview.thankYouTitle}</div>
+                )}
+                {preview.thankYouMessage && (
+                  <div className="text-sm text-emerald-800 mt-1">{preview.thankYouMessage}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    case 'booking_page':
+      return (
+        <div className="rounded-xl bg-white border border-gray-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 space-y-1">
+            <div className="text-xs text-gray-500">
+              Slug <code className="text-gray-700">{preview.slug}</code> ·{' '}
+              {preview.active ? 'Currently active' : 'Currently inactive'}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Public URL on approve: <code className="text-gray-700">{preview.publicUrl}</code>
+            </div>
+          </div>
+          <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Duration</div>
+              <div className="text-gray-900">{preview.duration} min</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Price</div>
+              <div className="text-gray-900">
+                {preview.priceLabel ?? (preview.price > 0 ? `$${(preview.price / 100).toFixed(2)}` : 'Free')}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Booking type</div>
+              <div className="text-gray-900">{preview.bookingType}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Assignment</div>
+              <div className="text-gray-900">{preview.assignmentMode}</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Timezone</div>
+              <div className="text-gray-900">{preview.timezone}</div>
+            </div>
+            {preview.description && (
+              <div className="col-span-2 mt-2 pt-4 border-t border-gray-100">
+                <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Description</div>
+                <p className="text-gray-700">{preview.description}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
   }
 }
 
@@ -450,6 +593,10 @@ function humanEntity(entityType: string): string {
       return 'Email';
     case 'block_template':
       return 'Block template';
+    case 'survey':
+      return 'Survey';
+    case 'booking_page':
+      return 'Booking page';
     default:
       return entityType.replace(/_/g, ' ');
   }

@@ -127,12 +127,31 @@ lib/mcp/tools/cms.ts                             (added posts_upload_html_zip)
 lib/mcp/tools/pitch-decks.ts                     (added decks_upload_html_zip)
 ```
 
-### Roadmap blocked items (call out before going to market)
+### Phase 3 — autonomous overnight pass
 
-- **Booking-page MCP create/update** — not wired today. Use `simplerdev-mcp-tool` skill to scaffold. Once that lands, `sd-create-booking-page` becomes a single-flow skill that authors end-to-end.
-- **Survey scoring / recommendation / autoRouteToCrm config** — these fields exist in the DB schema (`SurveyScoringConfig`, `SurveyRecommendationConfig`) but aren't in the `surveys_update` MCP input. Add them to widen the survey skill.
-- **Branded booking confirmation + reminder emails** — confirmations today use a stock template (not brand-aware); reminders aren't sent at all. Both are server-side change requests.
-- **`branding_check_contrast` is referenced** by the design principles + every updated skill — verify it exists and behaves correctly (e.g., the tool agent's earlier research touched it but didn't confirm working behavior).
+After committing Phase 2 the user said "keep going through the night." Phase 3 closed every previously-noted gap and exercised the new code paths end-to-end.
+
+**Verified end-to-end:**
+- Survey lifecycle (id 149): `surveys_create` → approval URL minted → Playwright loaded the public approval page → approve modal submitted → DB shows `status='active'` + link `status='approved'` + reviewer name persisted.
+- Booking page lifecycle (id 2 "Discovery Call"): `booking_pages_create` → response includes `active=false` + approval URL with **14-day expires_at** → `approve` flipped `active=true` + link approved.
+- New MCP tool count: 317 → 319 (added `booking_pages_create` + `booking_pages_update`).
+
+**Server-side fixes landed:**
+- **`ApprovableEntityType` + approval-route UI:** widened to handle `survey` and `booking_page`. Server component now loads survey + booking-page rows; client component renders survey-fields list and booking-page metadata in their own preview shapes.
+- **Default `expires_at` = 14 days** on every minted approval link. Pass `expiresInDays: null` to opt out; positive number to override.
+- **`sites_update.brandingProfileId` schema fix:** changed `z.number().nullable().optional()` → `z.number().int().positive().nullable().optional()` so the zod-to-json-schema export emits real number constraints (was collapsing to `{}` and letting strings through).
+- **`surveys_update` widening:** now accepts `brandingProfileId`, `styling`, `pages[]`, `publishResults`, `certificateEnabled`, `consentField`, `notifyOnResponse`, `notifyDigest`, `scoringConfig`, `recommendation`, `linkedType`/`linkedId`, `redirectUrl`. Survey skills can now author end-to-end without portal fall-back.
+- **`booking_pages_create` + `booking_pages_update`:** the two new MCP tools, full field set per the schema. Tenant-scoped, default `active=false`, mint approval URL automatically.
+- **Email renderer fixes** (`lib/email/render-blocks-to-email.ts`): `email-header` now renders `logoText` fallback when `logoUrl` is absent, and respects `logoAlt`; `email-footer` now renders `tagline` between company name and address; `mergeStyle` now de-duplicates CSS property declarations (no more double `color:` declarations in inline styles).
+- **`ServicesGridBlockRender`** keys now fall back to `service-${idx}` when authors omit `id` (was causing React's "unique key" warning).
+- **Skill docs updated:** `sd-create-booking-page` Flow B rewritten as MCP-call recipe instead of portal-walkthrough.
+
+**Still on the table (post-Phase-3):**
+- **Branded booking confirmation + reminder emails** — confirmations today use a stock template (not brand-aware); reminders aren't sent at all. Both server-side change requests.
+- **Survey forking** — there is no `parent_survey_id` column on `surveys`, so the fork tool is absent. Add a migration + tool to bring it in line with posts/decks/campaigns/templates.
+- **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. The pipeline is shared with the portal REST routes (which prod-tested), so the new MCP tool is verified by inference. Live confirmation needs S3 creds in `.env.local`.
+- **`branding_check_contrast`** is referenced by every updated skill — confirmed it exists in `lib/branding/mcp-schemas.ts` and is registered, but hasn't been smoke-tested.
+- **Concurrent approval race** test — still no coverage.
 
 ## Where state lives
 

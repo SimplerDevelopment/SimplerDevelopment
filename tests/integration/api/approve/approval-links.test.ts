@@ -196,6 +196,46 @@ async function seedBlockTemplate(clientId: number): Promise<number> {
   return row.id;
 }
 
+async function seedSurvey(clientId: number, opts: { status?: string } = {}): Promise<number> {
+  const sql = getTestSql();
+  const [row] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.surveys
+      (client_id, title, slug, status, fields, require_email, allow_multiple)
+    VALUES (
+      ${clientId},
+      'Approval Test Survey',
+      ${'approval-survey-' + Date.now() + '-' + Math.floor(Math.random() * 1e6)},
+      ${opts.status ?? 'draft'},
+      ${JSON.stringify([])}::json,
+      false,
+      true
+    )
+    RETURNING id
+  `;
+  return row.id;
+}
+
+async function seedBookingPage(clientId: number, opts: { active?: boolean } = {}): Promise<number> {
+  const sql = getTestSql();
+  const [row] = await sql<{ id: number }[]>`
+    INSERT INTO ${sql(TEST_SCHEMA)}.booking_pages
+      (client_id, title, slug, active, duration, price, timezone, availability, questions)
+    VALUES (
+      ${clientId},
+      'Approval Test Booking',
+      ${'approval-booking-' + Date.now() + '-' + Math.floor(Math.random() * 1e6)},
+      ${opts.active ?? false},
+      30,
+      0,
+      'America/New_York',
+      ${JSON.stringify({})}::json,
+      ${JSON.stringify([])}::json
+    )
+    RETURNING id
+  `;
+  return row.id;
+}
+
 async function seedPendingChange(clientId: number): Promise<number> {
   const sql = getTestSql();
   const [row] = await sql<{ id: number }[]>`
@@ -413,6 +453,90 @@ describe('POST /api/approve/[token] approve paths @approval-links', () => {
     `;
     expect(pc.status).toBe('approved');
     expect(pc.applied_at).not.toBeNull();
+  });
+
+  it('approves a survey → status flipped to active, link approved', async () => {
+    const surveyId = await seedSurvey(A.client.id, { status: 'draft' });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'survey',
+      entityId: surveyId,
+    });
+    const route = await getRoute();
+    const res = await callHandler(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'approve', reviewerName: 'Bob' } },
+    );
+    expect(res.status).toBe(200);
+
+    const sql = getTestSql();
+    const [survey] = await sql<{ status: string }[]>`
+      SELECT status FROM ${sql(TEST_SCHEMA)}.surveys WHERE id = ${surveyId}
+    `;
+    expect(survey.status).toBe('active');
+  });
+
+  it('approving an already-active survey is idempotent (no error)', async () => {
+    const surveyId = await seedSurvey(A.client.id, { status: 'active' });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'survey',
+      entityId: surveyId,
+    });
+    const route = await getRoute();
+    const res = await callHandler(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'approve', reviewerName: 'Bob' } },
+    );
+    expect(res.status).toBe(200);
+
+    const sql = getTestSql();
+    const [survey] = await sql<{ status: string }[]>`
+      SELECT status FROM ${sql(TEST_SCHEMA)}.surveys WHERE id = ${surveyId}
+    `;
+    expect(survey.status).toBe('active');
+  });
+
+  it('approves a booking_page → active flipped to true, link approved', async () => {
+    const bookingId = await seedBookingPage(A.client.id, { active: false });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'booking_page',
+      entityId: bookingId,
+    });
+    const route = await getRoute();
+    const res = await callHandler(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'approve', reviewerName: 'Bob' } },
+    );
+    expect(res.status).toBe(200);
+
+    const sql = getTestSql();
+    const [page] = await sql<{ active: boolean }[]>`
+      SELECT active FROM ${sql(TEST_SCHEMA)}.booking_pages WHERE id = ${bookingId}
+    `;
+    expect(page.active).toBe(true);
+  });
+
+  it('rejecting a survey leaves status=draft, entity untouched', async () => {
+    const surveyId = await seedSurvey(A.client.id, { status: 'draft' });
+    const token = await seedLink({
+      clientId: A.client.id,
+      entityType: 'survey',
+      entityId: surveyId,
+    });
+    const route = await getRoute();
+    const res = await callHandler(
+      route as unknown as Record<string, unknown>, 'POST',
+      { params: { token }, body: { action: 'reject', reviewerName: 'Bob' } },
+    );
+    expect(res.status).toBe(200);
+
+    const sql = getTestSql();
+    const [survey] = await sql<{ status: string }[]>`
+      SELECT status FROM ${sql(TEST_SCHEMA)}.surveys WHERE id = ${surveyId}
+    `;
+    expect(survey.status).toBe('draft');
   });
 });
 

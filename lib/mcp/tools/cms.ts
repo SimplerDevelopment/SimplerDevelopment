@@ -994,7 +994,14 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         description: z.string().nullable().optional(),
         active: z.boolean().optional(),
         publicAccess: z.boolean().optional(),
-        brandingProfileId: z.number().nullable().optional(),
+        // Use `.int().positive()` to force a non-empty JSON-schema export.
+        // Plain `z.number().nullable().optional()` collapses to `{}` in the
+        // current zod-to-json-schema serializer the MCP transport uses,
+        // which lets clients send `"104"` (string) past the front door —
+        // server-side zod then rejects with the schema-says-number error.
+        // The `.int().positive()` chain emits proper number constraints
+        // that the transport coerces correctly.
+        brandingProfileId: z.number().int().positive().nullable().optional(),
       },
     },
     async ({ id, ...rest }) => {

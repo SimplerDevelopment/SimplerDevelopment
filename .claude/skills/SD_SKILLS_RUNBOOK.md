@@ -50,9 +50,9 @@ Run once per project. Resolves the active client, default site, default brand pr
 
 ### `sd-create-booking-page` — booking widgets
 
-**Split into two flows because of an MCP gap.**
-- Flow A (fully wired): list existing booking pages, embed via `booking` block (`{ slug, title?, height?, ... }`) into a CMS page or deck slide, or link via absolute URL (`/book/<slug>`) in an email.
-- Flow B (portal-side): when no booking page fits, walk the user through `/portal/tools/booking/new` field-by-field — `booking_pages_create`/`update` are not yet in MCP. Roadmap: scaffold those tools via `simplerdev-mcp-tool`.
+Two flows, both fully wired now:
+- **Flow A — embed existing:** list existing booking pages, embed via `booking` block (`{ slug, title?, height?, ... }`) into a CMS page or deck slide, or link via absolute URL (`/book/<slug>`) in an email.
+- **Flow B — author new:** call `booking_pages_create` (and follow-up `booking_pages_update`) with title + duration + price + brand profile + questions etc. The page is created `active=false` and a fresh approval URL is minted; approving flips `active=true` so `/book/<slug>` starts accepting reservations.
 
 ### `sd-build-html-embed` — custom HTML experiences
 

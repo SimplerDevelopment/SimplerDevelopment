@@ -441,6 +441,10 @@ export interface EmailHeaderBlock extends BaseBlock {
   type: 'email-header';
   logoUrl?: string;
   logoWidth?: number;
+  /** Accessible alt text for the logo. Defaults to "Logo" if absent. */
+  logoAlt?: string;
+  /** Fallback wordmark rendered when `logoUrl` is absent. */
+  logoText?: string;
   tagline?: string;
   alignment?: 'left' | 'center' | 'right';
 }
@@ -448,6 +452,8 @@ export interface EmailHeaderBlock extends BaseBlock {
 export interface EmailFooterBlock extends BaseBlock {
   type: 'email-footer';
   companyName?: string;
+  /** Short positioning line under the company name, italicized. */
+  tagline?: string;
   address?: string;
   showUnsubscribe?: boolean; // default true
   showViewInBrowser?: boolean;

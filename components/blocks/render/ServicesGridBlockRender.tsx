@@ -76,9 +76,13 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
       )}
 
       <div className={`grid grid-cols-1 ${columnsClass} gap-6`}>
-        {(block.services || []).map((service) => (
+        {(block.services || []).map((service, idx) => (
           <div
-            key={service.id}
+            // Authors who hand-roll JSON sometimes omit per-item `id` fields.
+            // Fall back to a stable per-index key so React doesn't warn — note
+            // index-as-key is fine here because we never re-order services
+            // mid-render (the block JSON is the authoritative order).
+            key={service.id ?? `service-${idx}`}
             className="flex flex-col h-full rounded-xl border bg-white p-7 transition-all hover:shadow-md hover:-translate-y-0.5"
             style={{ borderColor: '#E5E7EB', ...cardStyle }}
           >
@@ -110,8 +114,8 @@ export function ServicesGridBlockRender({ block }: ServicesGridBlockRenderProps)
 
             {service.bullets && service.bullets.length > 0 && (
               <ul className="space-y-2 mb-5 mt-auto" style={bulletStyle}>
-                {service.bullets.map((bullet) => (
-                  <li key={bullet.id} className="flex items-start gap-2 text-sm text-gray-700">
+                {service.bullets.map((bullet, bi) => (
+                  <li key={bullet.id ?? `bullet-${bi}`} className="flex items-start gap-2 text-sm text-gray-700">
                     <span
                       className="material-icons shrink-0"
                       style={{ fontSize: '18px', color: accentColor, marginTop: '1px' }}
