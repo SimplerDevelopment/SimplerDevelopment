@@ -12,6 +12,7 @@ import {
   crmCustomFieldValues,
 } from '@/lib/db/schema';
 import { and, eq, desc, inArray } from 'drizzle-orm';
+import { validateCrmName } from '@/lib/crm/parse';
 
 async function getAuthedClient() {
   const session = await auth();
@@ -149,9 +150,32 @@ export async function PUT(
 
   const body = await req.json();
 
+  // Validate free-text inputs (see contacts/route.ts POST for rationale).
+  for (const field of ['firstName', 'lastName', 'notes'] as const) {
+    if (body[field] !== undefined) {
+      const v = validateCrmName(body[field], field);
+      if (!v.ok) {
+        return NextResponse.json(
+          { success: false, error: v.error, field },
+          { status: 400 }
+        );
+      }
+      // Replace on body so the downstream assignment uses the cleaned value.
+      body[field] = v.value;
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
-  if (body.firstName !== undefined) updateData.firstName = body.firstName.trim();
-  if (body.lastName !== undefined) updateData.lastName = body.lastName?.trim() || null;
+  if (body.firstName !== undefined) {
+    if (!body.firstName) {
+      return NextResponse.json(
+        { success: false, message: 'First name is required' },
+        { status: 400 }
+      );
+    }
+    updateData.firstName = body.firstName;
+  }
+  if (body.lastName !== undefined) updateData.lastName = body.lastName ?? null;
   if (body.email !== undefined) updateData.email = body.email?.trim() || null;
   if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
   if (body.linkedinUrl !== undefined) updateData.linkedinUrl = body.linkedinUrl?.trim() || null;
@@ -161,7 +185,7 @@ export async function PUT(
   if (body.companyId !== undefined) updateData.companyId = body.companyId || null;
   if (body.avatarUrl !== undefined) updateData.avatarUrl = body.avatarUrl || null;
   if (body.address !== undefined) updateData.address = body.address?.trim() || null;
-  if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
+  if (body.notes !== undefined) updateData.notes = body.notes ?? null;
   if (body.lastContactedAt !== undefined)
     updateData.lastContactedAt = body.lastContactedAt ? new Date(body.lastContactedAt) : null;
   if (body.ownerId !== undefined) updateData.ownerId = body.ownerId || null;
