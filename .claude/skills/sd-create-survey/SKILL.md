@@ -184,7 +184,7 @@ Or its aggregated results displayed via `survey-results` (only useful once respo
 
 - Edit fields → call `surveys_update` with the new `fields` array. **Each `surveys_update` mints a fresh approval URL.**
 - Flip status manually (skip approval) → `surveys_update { status: 'active' }`. Rarely the right call; prefer the approval flow.
-- Major rework → no fork tool currently (surveys lack a `parent_*_id` column). Either iterate in place or duplicate manually via `surveys_create` and copy fields.
+- Major rework / variant test → call `surveys_fork(id)` to clone the source into a new draft row with `parent_survey_id` set. Slug auto-bumps; response counters reset; status resets to draft. Approve the fork to flip it `active` without touching the parent.
 
 ## Failure modes
 

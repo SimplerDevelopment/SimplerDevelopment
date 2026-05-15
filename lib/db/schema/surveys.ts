@@ -222,6 +222,10 @@ export const surveys = pgTable('surveys', {
   // Meta
   responseCount: integer('response_count').default(0).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  // Self-reference for the `surveys_fork` tool. Informational pointer only —
+  // no FK to keep the parent-deleted case simple (matches posts/decks/email
+  // campaigns / block_templates).
+  parentSurveyId: integer('parent_survey_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

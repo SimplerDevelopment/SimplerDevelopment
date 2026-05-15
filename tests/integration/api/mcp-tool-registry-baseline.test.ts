@@ -330,6 +330,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'suggested_project_requests_create',
   'suggested_projects_list',
   'surveys_create',
+  'surveys_fork',
   'surveys_get',
   'surveys_list',
   'surveys_list_responses',

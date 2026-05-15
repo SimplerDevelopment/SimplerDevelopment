@@ -146,12 +146,17 @@ After committing Phase 2 the user said "keep going through the night." Phase 3 c
 - **`ServicesGridBlockRender`** keys now fall back to `service-${idx}` when authors omit `id` (was causing React's "unique key" warning).
 - **Skill docs updated:** `sd-create-booking-page` Flow B rewritten as MCP-call recipe instead of portal-walkthrough.
 
-**Still on the table (post-Phase-3):**
-- **Branded booking confirmation + reminder emails** — confirmations today use a stock template (not brand-aware); reminders aren't sent at all. Both server-side change requests.
-- **Survey forking** — there is no `parent_survey_id` column on `surveys`, so the fork tool is absent. Add a migration + tool to bring it in line with posts/decks/campaigns/templates.
-- **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. The pipeline is shared with the portal REST routes (which prod-tested), so the new MCP tool is verified by inference. Live confirmation needs S3 creds in `.env.local`.
-- **`branding_check_contrast`** is referenced by every updated skill — confirmed it exists in `lib/branding/mcp-schemas.ts` and is registered, but hasn't been smoke-tested.
+**Phase 4 — extends Phase 3 in the same overnight session:**
+
+- **Survey forking now wired.** Migration `0112_survey_fork_parent_pointer.sql` adds `surveys.parent_survey_id`; `surveys_fork(id, titleSuffix?)` MCP tool clones the source into a new draft with `parent_survey_id` set + status reset to draft + responseCount=0 + new slug. Skill doc updated. Verified end-to-end: survey 150 forked from 149, parent untouched. Tool count: 319 → 320.
+- **Brand-aware booking emails.** `loadBookingBrand(bookingPageId)` resolves the booking page's `brandingProfileId` (falling back to the client's default brand profile, then to messaging row, then to `clients.company`). Snapshot is threaded through `BookingEmailData.brand` and the email template now renders the wide logo / logoText fallback in the header, brand-colored CTAs, and a company+tagline footer line. Three callers updated: `app/api/public/booking/[slug]/book`, `app/api/stripe/webhook/booking`, and `app/api/public/booking/cancel`. Falls back to neutral defaults when the brand snapshot is null so the change is fully backward-compatible.
+
+**Still on the table (post-Phase-4):**
+- **Booking reminder emails** — no cron exists today. Needs a new `/api/cron/booking-reminders` (or extend existing) + send-window logic + Resend rate-limit accounting.
+- **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. Pipeline is shared with the portal REST routes (prod-tested), so verified by inference; live confirmation needs S3 creds.
+- **`branding_check_contrast`** — confirmed it's registered in `lib/branding/mcp-schemas.ts` + `mcp-tools.ts` but hasn't been smoke-tested through the MCP transport yet.
 - **Concurrent approval race** test — still no coverage.
+- **`drizzle/0112` migration applied to local but not committed to drizzle/meta snapshot** — same hand-written-SQL escape hatch we used for `0111`. Project memory notes the snapshot collision; `bun run db:migrate` would fail until that's resolved separately.
 
 ## Where state lives
 

@@ -89,9 +89,9 @@ A survey's recommendation engine has a `bookUrl` field — set it to the public 
 
 ### 5. Confirmation emails
 
-Booking pages send confirmation + cancellation emails automatically via `lib/email/booking-emails.ts`. **They are NOT brand-aware out of the box** — they use a stock template. If the user wants branded confirmations, that's a server-side change request (note in the response).
+Booking pages send confirmation + host-notification + cancellation emails automatically via `lib/email/booking-emails.ts`. **They are now brand-aware** — `loadBookingBrand(bookingPageId)` is called by every send-site to fetch the page's branding profile (or fall back to the client's default profile + messaging), and the email template uses the logo, primary color, accent color, company name, and tagline. If the brand profile is unset / sparse, the email falls back to the neutral SimplerDevelopment house template so a missing brand never blocks the send.
 
-Reminder emails are **NOT** sent today — no cron exists. If the user wants reminders, that's also a server-side change request.
+Reminder emails are **NOT** sent today — no cron exists. If the user wants reminders, that's a separate server-side change (cron + send-window logic + Resend rate-limit accounting).
 
 ## Flow B — author a new booking page via MCP
 

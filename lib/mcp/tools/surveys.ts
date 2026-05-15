@@ -323,4 +323,70 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       return json({ ...row, approval });
     }
   );
+
+  // Clone an existing survey into a new draft row with `parent_survey_id`
+  // pointing at the source. Use for variant tests, A/B subject lines, or
+  // "remix this published intake for next quarter without disturbing the
+  // running one." The fork starts in draft so the public /s/<slug> route
+  // refuses responses until approved.
+  hasScope(ctx.scopes, 'surveys:write') && server.registerTool(
+    'surveys_fork',
+    {
+      title: 'Fork a survey into a draft',
+      description:
+        'Duplicate a survey into a new draft row tied to the original via parent_survey_id. Copies fields, branding, styling, recommendation/scoring config, thank-you copy. Status resets to draft + responseCount=0; the fork has its own slug and approval URL. The parent stays untouched on approve or reject. Use for A/B tests or revising a live survey without taking it down.',
+      inputSchema: {
+        id: z.number().int().positive().describe('Source survey id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional().describe('Appended to the cloned title.'),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+      if (!(await requireService(clientId, 'surveys'))) return serviceDenied('surveys');
+      const [source] = await db.select().from(surveys)
+        .where(and(eq(surveys.id, id), eq(surveys.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source survey not found' });
+
+      const baseSlug = source.slug.replace(/-fork-[a-z0-9]+$/i, '');
+      const forkSlug = `${baseSlug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(surveys).values({
+        clientId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        fields: source.fields,
+        pages: source.pages,
+        thankYouTitle: source.thankYouTitle,
+        thankYouMessage: source.thankYouMessage,
+        requireEmail: source.requireEmail,
+        allowMultiple: source.allowMultiple,
+        redirectUrl: source.redirectUrl,
+        color: source.color,
+        brandingProfileId: source.brandingProfileId,
+        styling: source.styling,
+        publishResults: source.publishResults,
+        certificateEnabled: source.certificateEnabled,
+        consentField: source.consentField,
+        notifyOnResponse: source.notifyOnResponse,
+        notifyDigest: source.notifyDigest,
+        recommendation: source.recommendation,
+        scoringConfig: source.scoringConfig,
+        // Always start drafts — even if source was 'active'.
+        status: 'draft',
+        // Response counters reset on a fork — it's a brand-new survey.
+        responseCount: 0,
+        createdBy: ctx.userId,
+        parentSurveyId: source.id,
+      }).returning();
+
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'survey',
+        entityId: forkRow.id,
+        summary: `Fork of survey #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentSurveyId: source.id, approval: approvalEnvelope(link) });
+    }
+  );
 }
