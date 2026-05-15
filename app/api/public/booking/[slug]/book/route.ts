@@ -8,7 +8,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, ne, gte, lte, sql } from 'drizzle-orm';
 import crypto from 'crypto';
-import { sendGuestConfirmation, sendHostNotification } from '@/lib/email/booking-emails';
+import { sendGuestConfirmation, sendHostNotification, loadBookingBrand } from '@/lib/email/booking-emails';
 import { createCalendarEvent } from '@/lib/google-calendar';
 import { createZoomMeeting } from '@/lib/zoom';
 import { clients, users } from '@/lib/db/schema';
@@ -521,6 +521,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     bookingSlug: page.slug,
     duration: page.duration,
     meetingLink,
+    brand: await loadBookingBrand(page.id),
   };
 
   sendGuestConfirmation(emailData).catch(() => {});

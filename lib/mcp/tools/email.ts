@@ -104,6 +104,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
   json,
@@ -222,9 +223,12 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'email_campaign', summary: `Campaign "${args.name}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -739,9 +743,66 @@ export function registerEmailTools(server: McpServer, ctx: PortalMcpContext): vo
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'email_campaign',
+          summary: `Campaign "${existing.name}" update`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
+    }
+  );
+
+  // ── email_campaigns_fork ───────────────────────────────────────────
+  // Lightweight clone — duplicates the source campaign into a new draft
+  // campaign tied back via `parent_campaign_id`. Send analytics, status,
+  // and schedule metadata are NOT carried — only the editable content.
+  hasScope(ctx.scopes, 'email:write') && server.registerTool(
+    'email_campaigns_fork',
+    {
+      title: 'Fork an email campaign into a draft',
+      description:
+        'Duplicate an email campaign into a new draft campaign tied to the original via parent_campaign_id. Use to remix a high-performing campaign for a re-send, or to spin a variant subject line off a sent campaign. Status, send counts, and schedule metadata are NOT carried over — only the editable content. Returns the new campaign id + an approval URL.',
+      inputSchema: {
+        id: z.number().describe('Source campaign id to fork.'),
+        nameSuffix: z.string().default(' (fork)').optional(),
+      },
+    },
+    async ({ id, nameSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'email:write')) return denied('email:write');
+      if (!(await requireService(clientId, 'email'))) return serviceDenied('email');
+      const [source] = await db.select().from(emailCampaigns)
+        .where(and(eq(emailCampaigns.id, id), eq(emailCampaigns.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source campaign not found' });
+      const [forkRow] = await db.insert(emailCampaigns).values({
+        name: `${source.name}${nameSuffix}`,
+        subject: source.subject,
+        previewText: source.previewText,
+        fromName: source.fromName,
+        fromEmail: source.fromEmail,
+        replyTo: source.replyTo,
+        listId: source.listId,
+        clientId,
+        htmlContent: source.htmlContent,
+        blockContent: source.blockContent,
+        contentBlocks: source.contentBlocks,
+        useBlockEditor: source.useBlockEditor,
+        status: 'draft',
+        parentCampaignId: source.id,
+        createdBy: ctx.userId,
+      }).returning(campaignProjection(false));
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'email_campaign',
+        entityId: forkRow.id,
+        summary: `Fork of campaign #${source.id} "${source.name}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentCampaignId: source.id, approval: approvalEnvelope(link) });
     }
   );
 

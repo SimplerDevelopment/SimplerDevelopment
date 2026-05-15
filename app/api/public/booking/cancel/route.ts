@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { bookings, bookingPages, clients, users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { sendCancellationEmail } from '@/lib/email/booking-emails';
+import { sendCancellationEmail, loadBookingBrand } from '@/lib/email/booking-emails';
 import { deleteCalendarEvent } from '@/lib/google-calendar';
 import { deleteZoomMeeting } from '@/lib/zoom';
 
@@ -50,8 +50,10 @@ export async function POST(req: Request) {
     deleteZoomMeeting(booking.clientId, booking.meetingLink).catch(() => {});
   }
 
-  // Send cancellation email to guest
+  // Send cancellation email to guest (brand-aware — pulls colors/logo from the
+  // booking page's branding profile or the client's default).
   if (page) {
+    const brand = await loadBookingBrand(page.id);
     sendCancellationEmail(
       booking.guestEmail,
       booking.guestName,
@@ -59,6 +61,7 @@ export async function POST(req: Request) {
       booking.startTime,
       booking.timezone,
       page.slug,
+      brand,
     ).catch(() => {});
 
     // Notify host

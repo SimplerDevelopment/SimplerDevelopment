@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { bookings, bookingPages, bookingQuotes, clients, users, giftCertificates } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { sendGuestConfirmation, sendHostNotification } from '@/lib/email/booking-emails';
+import { sendGuestConfirmation, sendHostNotification, loadBookingBrand } from '@/lib/email/booking-emails';
 import { createCalendarEvent } from '@/lib/google-calendar';
 import { createZoomMeeting } from '@/lib/zoom';
 
@@ -158,6 +158,7 @@ export async function POST(req: Request) {
         bookingSlug: page.slug,
         duration: page.duration,
         meetingLink,
+        brand: await loadBookingBrand(page.id),
       };
 
       sendGuestConfirmation(emailData).catch(() => {});
