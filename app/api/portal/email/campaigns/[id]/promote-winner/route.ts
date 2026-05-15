@@ -32,6 +32,7 @@ import {
   pickAbWinner,
   isAbDecisionWindowReady,
 } from '@/lib/email/subject-ab';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function requireClient() {
   const session = await auth();
@@ -40,6 +41,10 @@ async function requireClient() {
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -178,6 +183,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
 // Allow GET for status preview (counts + would-be winner) without dispatching.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
