@@ -169,12 +169,16 @@ After committing Phase 2 the user said "keep going through the night." Phase 3 c
 
 - `tests/integration/api/cron/booking-reminders.test.ts`: 10 cases covering the cron's auth surface (401/200 across bearer + vercel-cron header), selection logic (24h yes / 12h no / 48h no / already-reminded no / cancelled no), idempotency (second invocation is a no-op), and failure resilience (failed send leaves `reminder_sent_at` NULL so the next tick retries). `sendBookingReminder` + `loadBookingBrand` are mocked so the test asserts cron behavior without actually sending mail.
 
-**Still on the table (post-Phase-7):**
-- **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. Pipeline is shared with the portal REST routes (prod-tested), so verified by inference; live confirmation needs S3 creds.
-- **Drizzle meta snapshot drift** — `0112` + `0113` are hand-written SQL because `drizzle-kit generate` is stuck on the pre-existing snapshot collision. `bun run db:migrate` won't run until that's resolved separately.
-- **`booking-reminders` Vercel cron schedule entry** — not added in this PR. Add `/api/cron/booking-reminders` with `0 * * * *` (hourly) to the Vercel cron config when this lands.
-- **Formal `surveys_fork` integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite.
-- **`sd-create-website` skill is documentation-only** — its sub-skill calls all use existing MCP tools, but the orchestration hasn't been exercised end-to-end. Pick a simple 3-page funnel site to drive through it as a smoke test once you wake up.
+**Phase 8 — final closure pass:**
+- **`sd-create-website` driven end-to-end as a 3-page funnel.** Posts 700 (homepage), 701 (qualify — embeds survey 149), 702 (contact — embeds booking page 2). 3 nav items wired + published. The skill's documented funnel-spine pattern works end-to-end.
+- **Vercel cron schedule entry committed.** `/api/cron/booking-reminders` scheduled at `0 * * * *` in `vercel.json`.
+
+**Still on the table (post-Phase-8) — needs human / external resources:**
+- **PR to staging.** Branch `claude/serene-lamarr-729c5e` has 9 unpushed commits ready.
+- **Embed bundle live test** — `posts_upload_html_zip` needs S3 creds in `.env.local`. Verified by inference (pipeline shared with portal REST routes); live confirmation needs S3 creds.
+- **Drizzle meta snapshot drift** — `0111` / `0112` / `0113` are hand-written SQL because `drizzle-kit generate` is stuck on the pre-existing snapshot collision. `bun run db:migrate` won't run until that's repaired separately. Touch carefully.
+- **First production hourly run of `/api/cron/booking-reminders`** — once you deploy, the first tick is the real first proof.
+- **Formal `surveys_fork` integration test** — verified at runtime; no test file. ~15 min to add if you want belt-and-suspenders.
 
 ## Where state lives
 
