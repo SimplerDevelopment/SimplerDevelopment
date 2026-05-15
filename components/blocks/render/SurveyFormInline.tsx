@@ -961,6 +961,51 @@ function renderField(
         </div>
       );
 
+    case 'nps': {
+      // Standard 0-10 NPS scale. We render 11 buttons in a single row so the
+      // visitor can pick their score directly without a slider. The selected
+      // value is stored as an integer (matches scoreNps in lib/surveys/score.ts:
+      // 0-6 = detractor, 7-8 = passive, 9-10 = promoter). Buttons are colour-
+      // coded by band so the meaning of the scale is visible at a glance.
+      const selected = answers[field.id];
+      const selectedNum = typeof selected === 'number' ? selected : Number(selected);
+      const bandColor = (n: number): string => {
+        if (n <= 6) return '#dc2626'; // detractor — red-600
+        if (n <= 8) return '#f59e0b'; // passive  — amber-500
+        return '#16a34a';             // promoter — green-600
+      };
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: 11 }, (_, n) => {
+              const isActive = Number.isFinite(selectedNum) && selectedNum === n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  aria-label={`NPS score ${n}`}
+                  aria-pressed={isActive}
+                  onClick={() => setAnswer(field.id, n)}
+                  className="min-w-9 h-9 px-2 rounded-md border text-sm font-medium transition-all"
+                  style={{
+                    borderColor: isActive ? bandColor(n) : '#d1d5db',
+                    backgroundColor: isActive ? bandColor(n) : 'transparent',
+                    color: isActive ? '#ffffff' : (optionTextColor || undefined),
+                  }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Not at all likely</span>
+            <span>Extremely likely</span>
+          </div>
+        </div>
+      );
+    }
+
     case 'slider':
       return (
         <div className="space-y-1">
