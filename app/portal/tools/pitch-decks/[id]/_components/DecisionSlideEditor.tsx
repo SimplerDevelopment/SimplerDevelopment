@@ -20,7 +20,7 @@ export function DecisionSlideEditor({
   onUpdateLabel, onAddOption, onUpdateOption, onRemoveOption, onUpdateCover, onRemoveSlide,
 }: DecisionSlideEditorProps) {
   return (
-    <div className="bg-card border border-border rounded-xl p-8 space-y-6" style={{ minHeight: '600px' }}>
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-8 space-y-6" style={{ minHeight: '600px' }}>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
           <span className="material-icons text-2xl text-amber-500">fork_right</span>

@@ -28,7 +28,7 @@ export interface SurveySlideQuestionListProps {
 
 export function SurveySlideQuestionList({ slide, fields, onSelectField, onRemoveSlide }: SurveySlideQuestionListProps) {
   return (
-    <div className="bg-card border border-border rounded-xl p-6 space-y-4" style={{ minHeight: '600px' }}>
+    <div className="bg-card border border-border rounded-xl p-4 sm:p-6 space-y-4" style={{ minHeight: '600px' }}>
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
           <span className="material-icons text-xl text-emerald-500">assignment</span>
@@ -185,9 +185,10 @@ export function SurveyFieldEditorView({
           the public tenant-subdomain view uses, so the editor and the live deck never drift.
           Field properties are edited in the right-hand SurveyFieldPropertiesPanel, which
           writes back to the survey record (source of truth). */}
-      <div className="flex gap-4" style={{ minHeight: '600px' }}>
+      {/* Stacks below md so the live preview gets the full width on phone */}
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4" style={{ minHeight: '600px' }}>
         <div
-          className="flex-1 rounded-xl border border-border relative"
+          className="flex-1 rounded-xl border border-border relative min-w-0"
           style={{
             backgroundColor: slide.pageSettings?.backgroundColor || theme.backgroundColor,
             color: theme.textColor,
@@ -212,7 +213,7 @@ export function SurveyFieldEditorView({
             />
           ) : null}
         </div>
-        <div className="w-80 shrink-0 bg-card border border-border rounded-xl p-4 overflow-y-auto space-y-6" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+        <div className="w-full md:w-80 shrink-0 bg-card border border-border rounded-xl p-4 overflow-y-auto space-y-6 md:max-h-[calc(100vh-220px)]">
           {editingField && slide.surveyId ? (
             <SurveyFieldPropertiesPanel
               field={editingField as SurveyFieldForPanel}
