@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-05-15T02:54:03.452Z",
+  "generatedAt": "2026-05-15T09:59:02.744Z",
   "totalBlocks": 48,
   "blocksWithMissingFields": 1,
   "blocksWithDeadElementKeys": 0,
   "blocksWithoutE2E": 0,
   "totals": {
     "missingFieldsFromBoth": 6,
-    "missingFieldsFromPanelsOnly": 6,
-    "missingFieldsFromContentEditorOnly": 12,
+    "missingFieldsFromPanelsOnly": 1,
+    "missingFieldsFromContentEditorOnly": 0,
     "deadElementKeys": 0
   },
   "reports": [
@@ -303,12 +303,11 @@
       "fieldsInContentEditor": [
         "gap",
         "stackOnMobile",
+        "stackOnTablet",
         "reverseOnStack"
       ],
       "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
-        "stackOnTablet"
-      ],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
@@ -392,6 +391,7 @@
         "backgroundColor",
         "backgroundImage",
         "maxWidth",
+        "color",
         "htmlTag",
         "splitColor",
         "splitClipPath"
@@ -413,7 +413,6 @@
         "paddingBottom",
         "paddingLeft",
         "paddingRight",
-        "color",
         "fontFamily"
       ],
       "fieldsMissingFromContentEditor": [
@@ -524,8 +523,11 @@
         "interval",
         "transition",
         "transitionDuration",
+        "showDots",
+        "showArrows",
         "pauseOnHover",
         "height",
+        "kenBurns",
         "backgroundVideo",
         "backgroundVideoOpacity",
         "arrowColor",
@@ -541,12 +543,14 @@
         "autoplay",
         "interval",
         "transition",
+        "transitionDuration",
         "showDots",
         "showArrows",
         "pauseOnHover",
         "height",
         "kenBurns",
         "backgroundVideo",
+        "backgroundVideoOpacity",
         "arrowColor",
         "arrowBackground",
         "arrowBorderColor",
@@ -555,15 +559,8 @@
         "progressBarColor",
         "stats"
       ],
-      "fieldsMissingFromPanels": [
-        "showDots",
-        "showArrows",
-        "kenBurns"
-      ],
-      "fieldsMissingFromContentEditor": [
-        "transitionDuration",
-        "backgroundVideoOpacity"
-      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [
         "title",
@@ -654,6 +651,7 @@
         "overline",
         "title",
         "description",
+        "services",
         "columns",
         "accentColor"
       ],
@@ -665,9 +663,7 @@
         "columns",
         "accentColor"
       ],
-      "fieldsMissingFromPanels": [
-        "services"
-      ],
+      "fieldsMissingFromPanels": [],
       "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [
@@ -2119,13 +2115,12 @@
         "loop"
       ],
       "fieldsInContentEditor": [
+        "html",
         "width",
         "loop"
       ],
       "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
-        "html"
-      ],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
@@ -2158,10 +2153,6 @@
         "dismissable"
       ],
       "fieldsInContentEditor": [
-        "ctaUrl"
-      ],
-      "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
         "trigger",
         "delaySeconds",
         "scrollPercent",
@@ -2169,8 +2160,11 @@
         "headline",
         "body",
         "ctaLabel",
+        "ctaUrl",
         "dismissable"
       ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
