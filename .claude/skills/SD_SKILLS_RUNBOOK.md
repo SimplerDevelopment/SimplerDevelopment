@@ -62,6 +62,10 @@ Author `index.html` (+ optional `style.css` + `script.js` + `assets/`) locally u
 
 Result is a draft `page` post (or 1-slide deck) wrapping a single `html-embed` block. The bundled `index.html` is served from S3 via the path-based media proxy; relative refs (`./style.css`, `assets/img.png`) resolve naturally. Returns post id + approval URL.
 
+### `sd-create-website` — compose a multi-page site
+
+The "build me a complete site" wrapper. Plans a sitemap (Marketing / Service-provider / Funnel / Knowledge-base spines documented), drives `sd-create-page` for each entry, calls `nav_create` + `nav_publish_all` to wire the top nav, and embeds `booking` and `survey` blocks where the spine calls for them. Returns a bundled response with every approval URL. Pushes back at >12 pages.
+
 ### `sd-learn` — self-improvement
 
 The accumulating-knowledge layer. Invoke after a `sd-create-*` run where the user gave feedback ("not quite," "drop the X section," "use the wide logo, not the icon"). Records the feedback into `.sd/learnings.md` as a structured entry with a derived rule. Sibling skills read `## Active rules` from that file on every run, so the next iteration inherits the preference. Append-only, idempotent, project-local. No remote storage.

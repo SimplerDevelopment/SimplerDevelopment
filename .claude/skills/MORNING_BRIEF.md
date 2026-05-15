@@ -159,11 +159,17 @@ After committing Phase 2 the user said "keep going through the night." Phase 3 c
   - "approve then reject in quick succession": first wins, second gets 400 with "already been approved" message, link stays approved.
 - **`SD_DESIGN_PRINCIPLES.md` refreshed** with a "Field-tested lessons" section (12.A–G) covering: the white-on-accent trap with reproduction call, the "testimonial reads fake" trap, brand-profile vs page-level styling precedence, the "Powered by SimplerDevelopment" footer change (Phase 4 dropped it for tenant-branded), the update-mints-fresh-URL rule, and the 14-day default expiry.
 
-**Still on the table (post-Phase-5):**
-- **Booking reminder emails** — no cron exists today. Needs a new `/api/cron/booking-reminders` + send-window logic + Resend rate-limit accounting.
+**Phase 6 — two more items off the runway:**
+
+- **Booking reminder cron.** New `/api/cron/booking-reminders` endpoint sends a brand-aware reminder ~24h before each upcoming booking. Window is `now + 23h .. now + 25h`; selects only `status='confirmed' AND reminder_sent_at IS NULL`. Stamps `reminder_sent_at` after a successful send so the next tick skips. Migration `0113_booking_reminder_sent_at.sql` adds the column + a partial index on `(start_time) WHERE reminder_sent_at IS NULL AND status='confirmed'` so the hot-path query stays fast. New `sendBookingReminder()` send function in `lib/email/booking-emails.ts` — same brand-aware template family as the confirmation. Verified end-to-end: seeded booking 24h ahead, cron picked it up (`scanned=1, sent=1`), Resend delivered the real reminder, re-running scanned 0 (idempotent).
+
+- **New `sd-create-website` skill.** The "compose a whole site" wrapper that drives `sd-create-page` for each entry in a planned sitemap, then wires top-nav via `nav_*` MCP tools and embeds `booking` + `survey` blocks where the spine calls for them. Four canonical sitemap spines documented: Marketing (5–7 pages), Service provider (3–4), Funnel/qualifier (3 — homepage + qualify + booking), Knowledge base (3 + post type). Pushes back at >12 pages. Returns a bundled response with every page's approval URL.
+
+**Still on the table (post-Phase-6):**
 - **Embed bundle live test** — couldn't run `posts_upload_html_zip` end-to-end locally because the local dev server has no S3 creds. Pipeline is shared with the portal REST routes (prod-tested), so verified by inference; live confirmation needs S3 creds.
-- **`drizzle/0112` migration applied to local but not committed to drizzle/meta snapshot** — same hand-written-SQL escape hatch we used for `0111`. Project memory notes the snapshot collision; `bun run db:migrate` would fail until that's resolved separately.
-- **A `surveys_fork` unit / portal-route integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite (the existing `tests/integration/api/surveys/` covers the portal REST surface, not the MCP tool surface).
+- **Drizzle meta snapshot drift** — `0112` and `0113` are hand-written SQL because `drizzle-kit generate` is stuck on the pre-existing snapshot collision (project memory). `bun run db:migrate` won't run until that's resolved separately.
+- **`booking-reminders` Vercel cron schedule entry** — not added in this PR. Add `/api/cron/booking-reminders` with `0 * * * *` (hourly) to the Vercel cron config when this lands.
+- **Formal `surveys_fork` unit / portal-route integration test** — verified end-to-end against the live local DB but not added to the formal vitest suite.
 
 ## Where state lives
 

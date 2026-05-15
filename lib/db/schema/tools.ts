@@ -371,6 +371,10 @@ export const bookings = pgTable('bookings', {
   checkinCode: varchar('checkin_code', { length: 10 }),
   checkedInAt: timestamp('checked_in_at'),
   checkedInBy: integer('checked_in_by').references(() => users.id, { onDelete: 'set null' }),
+  // Reminder dispatch — set when /api/cron/booking-reminders sends a
+  // pre-booking nudge to the guest. NULL = no reminder sent yet. The cron
+  // is idempotent: it only picks rows where this column is NULL.
+  reminderSentAt: timestamp('reminder_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -91,7 +91,7 @@ A survey's recommendation engine has a `bookUrl` field — set it to the public 
 
 Booking pages send confirmation + host-notification + cancellation emails automatically via `lib/email/booking-emails.ts`. **They are now brand-aware** — `loadBookingBrand(bookingPageId)` is called by every send-site to fetch the page's branding profile (or fall back to the client's default profile + messaging), and the email template uses the logo, primary color, accent color, company name, and tagline. If the brand profile is unset / sparse, the email falls back to the neutral SimplerDevelopment house template so a missing brand never blocks the send.
 
-Reminder emails are **NOT** sent today — no cron exists. If the user wants reminders, that's a separate server-side change (cron + send-window logic + Resend rate-limit accounting).
+**Reminder emails** are now sent via `/api/cron/booking-reminders` (added in Phase 6). The cron picks bookings whose `start_time` falls inside the 23–25h-ahead window and whose `reminder_sent_at` is NULL, sends a brand-aware reminder, then stamps `reminder_sent_at`. Idempotent — re-running is a no-op for already-reminded bookings. Schedule this cron at `0 * * * *` (hourly) via Vercel cron or Railway scheduler.
 
 ## Flow B — author a new booking page via MCP
 
