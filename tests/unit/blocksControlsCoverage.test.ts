@@ -368,6 +368,11 @@ const PANEL_FILES = [
   'components/blocks/visual/block-settings/panels/SurveyResultsSettings.tsx',
   'components/blocks/visual/block-settings/panels/ColumnsSettings.tsx',
   'components/blocks/visual/block-settings/panels/HtmlEmbedSettings.tsx',
+  // ContentPanel.HtmlRenderBlockSettings delegates to this rich editor
+  // (same one the iframe path uses) — scan it so html-render's `html`/`width`/
+  // `fields`/`values`/`loop` fields are detected as covered. Without this,
+  // the harness would incorrectly flag `html-render: html` as missing.
+  'components/portal/visual-editor/HtmlRenderEditor.tsx',
 ];
 
 let _panelsCache: string | null = null;
@@ -422,7 +427,15 @@ function extractContentEditorSectionFor(type: string): string {
 let _allPanelFieldsCache: Set<string> | null = null;
 function getAllPanelFields(): Set<string> {
   if (_allPanelFieldsCache !== null) return _allPanelFieldsCache;
-  _allPanelFieldsCache = extractOnChangeFields(getCombinedPanelsSource());
+  // Most panels write through `onChange({ field: ... })`. ContentPanel's
+  // html-render arm now delegates to the canonical HtmlRenderEditor (which
+  // uses `onUpdate({ field: ... })`); scan both call shapes so the harness
+  // sees fields written through that delegated editor.
+  const src = getCombinedPanelsSource();
+  const out = new Set<string>();
+  for (const f of extractOnChangeFields(src)) out.add(f);
+  for (const f of extractOnUpdateFields(src)) out.add(f);
+  _allPanelFieldsCache = out;
   return _allPanelFieldsCache;
 }
 
