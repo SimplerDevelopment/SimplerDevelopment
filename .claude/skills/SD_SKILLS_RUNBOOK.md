@@ -44,6 +44,39 @@ Run once per project. Resolves the active client, default site, default brand pr
 
 `email_campaigns_create` tied to a list. Forces `status: 'draft'`. **Approval ≠ send.** Approving the link records a "ready" stamp on the link itself; the campaign stays `draft` until you (or the author) explicitly call `email_campaigns_send` or schedule via the portal.
 
+### `sd-create-survey` — surveys / forms / intake
+
+`surveys_create` + a follow-up `surveys_update` to patch in branding, pages, styling, scoring config. Returns survey id + public `/s/<slug>` URL + approval URL. **Approving flips status `draft` → `active`** — only then does the public route accept responses. Custom logic (showIf rules, page-jump branching, conditional options, NPS/option-map/numeric scoring, recommendation engine, CRM auto-route) all expressed in the JSON; see the skill for shape. Note: scoring config + recommendations currently need a follow-up portal edit or direct DB write — they're not in the MCP `surveys_update` input schema yet.
+
+### `sd-create-booking-page` — booking widgets
+
+**Split into two flows because of an MCP gap.**
+- Flow A (fully wired): list existing booking pages, embed via `booking` block (`{ slug, title?, height?, ... }`) into a CMS page or deck slide, or link via absolute URL (`/book/<slug>`) in an email.
+- Flow B (portal-side): when no booking page fits, walk the user through `/portal/tools/booking/new` field-by-field — `booking_pages_create`/`update` are not yet in MCP. Roadmap: scaffold those tools via `simplerdev-mcp-tool`.
+
+### `sd-build-html-embed` — custom HTML experiences
+
+Author `index.html` (+ optional `style.css` + `script.js` + `assets/`) locally under `.sd/embeds/<slug>/`, then upload via one of two MCP tools:
+- `posts_upload_html` / `decks_upload_html` — single ≤1 MB HTML file.
+- `posts_upload_html_zip` / `decks_upload_html_zip` — zipped bundle, ≤50 MB total / 200 files / 10 MB per file. **Both upload-zip tools are new in this batch** and wrap the existing `lib/html-zip-upload.ts` pipeline that already powers the portal UI's zip path.
+
+Result is a draft `page` post (or 1-slide deck) wrapping a single `html-embed` block. The bundled `index.html` is served from S3 via the path-based media proxy; relative refs (`./style.css`, `assets/img.png`) resolve naturally. Returns post id + approval URL.
+
+### `sd-learn` — self-improvement
+
+The accumulating-knowledge layer. Invoke after a `sd-create-*` run where the user gave feedback ("not quite," "drop the X section," "use the wide logo, not the icon"). Records the feedback into `.sd/learnings.md` as a structured entry with a derived rule. Sibling skills read `## Active rules` from that file on every run, so the next iteration inherits the preference. Append-only, idempotent, project-local. No remote storage.
+
+### `SD_DESIGN_PRINCIPLES.md` — design + a11y reference
+
+Shared reference doc consulted by every `sd-create-*` / `sd-build-*` skill before authoring. Encodes:
+- The cut test ("delete this — is it worse? if not, delete.").
+- Banned defaults (Inter unless brand, purple→pink gradients, bento grid, rounded-card-with-left-accent).
+- 8pt grid spacing (8/16/24/32/48/64/96/128).
+- Hierarchy contrast ≥ 2.5×.
+- WCAG-AA floors (4.5:1 body, 3:1 large/UI, 44×44 tap targets, 16px body, 1.5–1.7 line-height).
+- Logo policy (which logo asset on which surface).
+- 5-dimension self-review (Philosophy / Hierarchy / Craft / Functionality / Originality, 1–10 each, surface scores + quick wins in the response).
+
 **Email-block discipline** (constrained vs web):
 - Allowed: `text`, `heading`, `image`, `button`, `divider`, `spacer`, `columns` (2-col max), `email-header`, `email-footer`.
 - Avoid complex visual-editor blocks (tabs, accordion, marquee, video, embedded HTML).
@@ -66,9 +99,11 @@ Run once per project. Resolves the active client, default site, default brand pr
 | Entity type | What approve does |
 |---|---|
 | `post` | `published=true`, `publishedAt=now`. Revalidates `/sites` + `/portal`. |
-| `pitch_deck` | `status='published'` + **runs `decks_publish_all` to promote every slide draft to live**. Verified end-to-end after a route fix (was a bug — flipped status only, slides stayed in draft). |
+| `pitch_deck` | `status='published'` + **runs `applyPublishAllToSlides` to promote every slide draft to live**. Verified end-to-end after a route fix (was a bug — flipped status only, slides stayed in draft). |
 | `email_campaign` | **No status change.** Approving just stamps the link. Send is a deliberate `email_campaigns_send` after. |
 | `block_template` | Draft cleared, `draft.{name,description,category,scope,blocks,...}` copied to live, `version` bumped. If `draft.pendingDelete` was set, the row is deleted. |
+| `survey` | `status='active'`. The public `/s/<slug>` route accepts responses only once status is `active`. |
+| `booking_page` | `active=true`. The public `/book/<slug>` route accepts reservations only once `active=true`. |
 | `pending_change` | `applyPendingChange(change)` runs (same path the authed `approvals_approve` tool uses). Mutation lands. `mcp_pending_changes.status='approved'`, `applied_at=now`. |
 
 ### Reject side-effects

@@ -15,8 +15,10 @@ Draft an email campaign in the portal. The campaign is created in draft status, 
 
 1. **Read `.sd/config.json`** — confirm `client`, `defaultSiteId`, `brand`. Run `sd-init` first if missing.
 2. **Read brand messaging** — emails lean heavily on `toneOfVoice`, `valueProposition`, `keyDifferentiators`, `boilerplate`.
-3. **Identify the target list.** Ask the user which list the campaign goes to. List candidates with `mcp__simplerdevelopment-postcaptain__email_lists` (or `email_lists_create` for a brand-new list). Record `listId` — required for `email_campaigns_create`.
-4. **From-address sanity.** Resolve `fromName` and `fromEmail`. Prefer ones the tenant has already used in past campaigns (check `email_campaigns_list`). For a new tenant, ask explicitly — getting this wrong can land the campaign in spam.
+3. **Read `SD_DESIGN_PRINCIPLES.md`** — section 9 has the email-specific tweaks (`<table>` layouts, inline styles, max-width 600px, 16px body, max 40px logo height).
+4. **Read `.sd/learnings.md`** if present — apply `## Active rules`. Pay extra attention to email-specific rules since deliverability gotchas accumulate fast (e.g. "client X doesn't want emoji in subject lines," "campaigns to list Y always go from hello@, not the personal address").
+5. **Identify the target list.** Ask the user which list the campaign goes to. List candidates with `mcp__simplerdevelopment-postcaptain__email_lists` (or `email_lists_create` for a brand-new list). Record `listId` — required for `email_campaigns_create`.
+6. **From-address sanity.** Resolve `fromName` and `fromEmail`. Prefer ones the tenant has already used in past campaigns (check `email_campaigns_list`). For a new tenant, ask explicitly — getting this wrong can land the campaign in spam.
 
 ## Sourcing — ASK if unclear
 
@@ -51,6 +53,25 @@ Same options as `sd-create-page`:
    - **Nurture:** header → contextual hook → 1 short value section → soft CTA → footer.
 
 5. **Brand voice.** As with pages — `toneOfVoice`, `brandPersonality`, `writingStyle` set register; `valueProposition` and `keyDifferentiators` anchor the content. **Skip the corporate-voice phrasing** unless the brand explicitly calls for it.
+
+6. **Logo in the header.** From `.sd/config.json:brand.logos.logoUrl`, place the wide logo as the first row of the email. Constraints:
+   - Image element, NOT base64 (Gmail/Outlook block data: URIs in email).
+   - `max-height: 40px` — bigger reads as amateur.
+   - Center-align on dark headers, left-align on light headers.
+   - `alt` text from `logos.logoAlt` or `<companyName> logo`.
+
+   If `logoUrl` is null, use the styled wordmark variant of `logoText` in the brand accent color.
+
+7. **Footer.** Always include unsubscribe (the renderer injects `{{UNSUBSCRIBE_URL}}`). Include the company wordmark + a one-line address ("simplerdevelopment.com" or the physical address from the brand profile). Light-on-dark or dark-on-light — match the header's pattern.
+
+8. **Run the email-specific contrast check.** All body text and button labels must pass 4.5:1. Buttons commonly fail when the background uses the brand `accentColor` — call `branding_check_contrast` for `button.style.color` vs `button.style.backgroundColor` and adjust if it fails.
+
+9. **Link related artifacts.** Common patterns:
+   - **CTA to a booking page** — `button` block whose `url` is the absolute booking URL: `https://<site-domain>/book/<slug>`. (Email links MUST be absolute.) Pair with a secondary "or reply to this email" inline link.
+   - **Link to a survey** — same pattern, `https://<site-domain>/s/<survey-slug>`.
+   - **Link to a CMS page** — same pattern. Always absolute.
+
+   Don't try to embed the survey or booking widget directly in an email — email clients don't run React. Always link out.
 
 ## MCP call
 

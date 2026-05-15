@@ -19,6 +19,15 @@ One-shot setup for SimplerDevelopment portal MCP work. Run once per project; it'
 
 4. **Pull the brand messaging snapshot.** Call `mcp__simplerdevelopment-postcaptain__branding_get_messaging` for the resolved profile. Capture: companyName, tagline, valueProposition, toneOfVoice, brandPersonality, keyDifferentiators, targetAudience, elevatorPitch, boilerplate. This is the source material future skills lean on; if any of those are empty, flag to the user with a one-line "your brand voice is sparse, content quality will suffer" warning — don't fix it inline (that's a separate workflow).
 
+5. **Pull the logo + asset snapshot.** From the same `branding_get_profile` response, capture the logo URLs: `logoUrl` (wide), `logoSquareUrl`, `logoRectUrl`, `logoIconUrl`, `logoText`, `logoAlt`. Skills under `sd-create-*` use these by default to brand every artifact they produce. If `logoUrl` is null, surface explicitly: "no wide logo on the brand profile — content will fall back to the wordmark; upload via `branding_update_profile` to elevate."
+
+6. **Audit contrast.** Call `branding_check_contrast` for the brand pairs that will appear on every artifact:
+   - `textColor` vs `backgroundColor` (body)
+   - white (`#FFFFFF`) vs `primaryColor` (typical CTA)
+   - white (`#FFFFFF`) vs `accentColor` (alternate CTA)
+
+   Record the WCAG ratios in `.sd/config.json:brand.contrast`. If any pair fails 4.5:1 for body text or 3:1 for large/UI text, flag it — the failing pair becomes a `learnings.md` rule ("never put white on accent — fails contrast; use near-black instead").
+
 5. **Inventory reusable assets.**
    - `mcp__simplerdevelopment-postcaptain__block_templates_list` — record `{ id, name, slug, category, scope }` for every published template.
    - `mcp__simplerdevelopment-postcaptain__email_templates_list` — record `{ id, name, category }` for every email template.
@@ -30,7 +39,9 @@ One-shot setup for SimplerDevelopment portal MCP work. Run once per project; it'
    - Deck theme: cover, content, section break, closing (as `scope: block` templates that future deck skills can pull in).
    Each creation uses `*_create` with the resolved brand profile applied. **Don't seed silently** — list what you'd create and confirm.
 
-7. **Write `.sd/config.json`** in the working directory. Shape:
+7. **Bootstrap `.sd/learnings.md`** if it doesn't already exist. Use the template from the `sd-learn` skill (canonical header + `## Active rules` + `## Artifact log` sections, no entries yet). Skills under `sd-create-*` will read this file on every run to pick up accumulated user feedback.
+
+8. **Write `.sd/config.json`** in the working directory. Shape:
 
    ```json
    {
@@ -41,6 +52,27 @@ One-shot setup for SimplerDevelopment portal MCP work. Run once per project; it'
      "brand": {
        "profileId": 789,
        "profileName": "Default",
+       "primaryColor": "#0F172A",
+       "secondaryColor": "#2563EB",
+       "accentColor": "#06B6D4",
+       "backgroundColor": "#FFFFFF",
+       "textColor": "#0F172A",
+       "headingFont": "Inter",
+       "bodyFont": "Inter",
+       "logos": {
+         "logoUrl": "...",
+         "logoSquareUrl": "...",
+         "logoRectUrl": "...",
+         "logoIconUrl": "...",
+         "logoText": "...",
+         "logoAlt": "..."
+       },
+       "contrast": {
+         "bodyOnBg": 12.6,
+         "whiteOnPrimary": 16.1,
+         "whiteOnAccent": 2.8,
+         "warnings": ["whiteOnAccent fails WCAG-AA (need 4.5, got 2.8) — never use white text on accentColor; use textColor instead"]
+       },
        "messaging": {
          "companyName": "...",
          "tagline": "...",

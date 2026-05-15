@@ -80,6 +80,60 @@ Branch: `claude/serene-lamarr-729c5e` — **not pushed** (per repo policy).
 3. Patch the email-renderer drop bugs (logoText, tagline, duplicate styles).
 4. Decide whether to push `claude/serene-lamarr-729c5e` to remote and open a PR against staging, or keep it local for further iteration.
 
+---
+
+## Phase 2 expansion (committed in this same branch, after the original feature)
+
+The user came back and asked for: beautiful design + accessibility built in, branding by default (logos), self-improvement / learning from feedback, artifact linking (surveys + bookings), and an HTML-embed authoring skill. Everything below was added on top:
+
+### New foundation docs
+- **`.claude/skills/SD_DESIGN_PRINCIPLES.md`** — single source of truth for design + a11y + logo policy. Every `sd-create-*` and `sd-build-*` skill cites it. Distilled from the vendored `huashu-design` skill (20 design philosophies, 5-dim review, banned defaults) + WCAG 2.2 floors + field experience from the autonomous test run.
+- **`.claude/skills/sd-learn/`** — append-only `.sd/learnings.md` mechanism. Captures user feedback into a per-project markdown file with derived rules. Sibling skills read `## Active rules` before authoring on every run, so the next iteration inherits preferences. No remote storage, no analytics.
+
+### New authoring skills
+- **`sd-create-survey/`** — fully wired against existing surveys MCP. Supports custom branching logic (showIf rules with AND combinator + comparison operators, page-jump branching via goToPage), per-field scoring (option_map / numeric / NPS), CRM auto-route, recommendation engine. Approve flips `draft → active`.
+- **`sd-create-booking-page/`** — split into Flow A (embed existing) and Flow B (portal-side authoring). MCP currently has no `booking_pages_create`/`update` — the skill is honest about that and offers to scaffold them via `simplerdev-mcp-tool` (TODO). Embeds via the `booking` block or links absolutely from emails.
+- **`sd-build-html-embed/`** — author single-file or multi-file HTML locally in Claude Code, then upload via one of two new MCP tools (see below). Result is a draft post (or 1-slide deck) wrapping a single `html-embed` block. Bundle path uses the path-based media proxy so relative refs in `index.html` resolve naturally.
+
+### Server-side widening (in `feat(mcp)` commit on top of the existing branch)
+- **`ApprovableEntityType`** in `lib/mcp/approval-links.ts` widened to include `survey` and `booking_page`.
+- **Approve route** (`app/api/approve/[token]/route.ts`) — added `survey` case (sets `status='active'`) and `booking_page` case (sets `active=true`). Idempotent: re-approving an already-active survey/page is a no-op.
+- **`surveys_create` + `surveys_update`** now mint approval links and return `{...row, approval}`.
+- **`posts_upload_html_zip` + `decks_upload_html_zip`** — new MCP tools that wrap the existing `lib/html-zip-upload.ts` pipeline. Accept a base64-encoded zip, validate via the same path-traversal + extension + size guards the portal UI uses, upload every entry under a shared `media/<uuid>/` S3 prefix, return a draft post / deck wrapping an `html-embed` block. Cap: 50 MB / 200 files / 10 MB per file.
+
+### Updated existing skills (every one of the four cites the new foundation now)
+- **`sd-init`** — added logo discovery (captures `logoUrl/Square/Rect/Icon/Text/Alt`), contrast audit step (calls `branding_check_contrast` for body/CTA pairs, records ratios + warnings into config), `.sd/learnings.md` bootstrap. Config-file shape updated.
+- **`sd-create-page`** — added design + a11y + logo + artifact-linking sections. Calls out the cut test, runs the 5-dim self-review before returning, embeds surveys / bookings when the user's intent fits.
+- **`sd-create-deck`** — same pattern; deck-specific: wide logo on cover, icon on content slides, contrast check on every per-slide bg/color pair, optional `booking`/`survey` block on close slide.
+- **`sd-create-email`** — same pattern; email-specific: logo in header capped at 40px, button contrast check, absolute URLs for links to surveys / bookings / pages (email clients don't run React, so widgets can't be embedded — they're linked).
+
+### Files added / changed in this expansion
+
+```
+.claude/skills/SD_DESIGN_PRINCIPLES.md           (new — design + a11y reference)
+.claude/skills/sd-learn/SKILL.md                 (new — self-improvement)
+.claude/skills/sd-create-survey/SKILL.md         (new)
+.claude/skills/sd-create-booking-page/SKILL.md   (new)
+.claude/skills/sd-build-html-embed/SKILL.md      (new)
+.claude/skills/sd-init/SKILL.md                  (updated — logos, contrast, learnings)
+.claude/skills/sd-create-page/SKILL.md           (updated — design, a11y, branding, linking)
+.claude/skills/sd-create-deck/SKILL.md           (updated — same)
+.claude/skills/sd-create-email/SKILL.md          (updated — same)
+.claude/skills/SD_SKILLS_RUNBOOK.md              (updated — new skills documented)
+lib/mcp/approval-links.ts                        (widened entityType enum)
+app/api/approve/[token]/route.ts                 (added survey + booking_page approve cases)
+lib/mcp/tools/surveys.ts                         (mint approval links on create + update)
+lib/mcp/tools/cms.ts                             (added posts_upload_html_zip)
+lib/mcp/tools/pitch-decks.ts                     (added decks_upload_html_zip)
+```
+
+### Roadmap blocked items (call out before going to market)
+
+- **Booking-page MCP create/update** — not wired today. Use `simplerdev-mcp-tool` skill to scaffold. Once that lands, `sd-create-booking-page` becomes a single-flow skill that authors end-to-end.
+- **Survey scoring / recommendation / autoRouteToCrm config** — these fields exist in the DB schema (`SurveyScoringConfig`, `SurveyRecommendationConfig`) but aren't in the `surveys_update` MCP input. Add them to widen the survey skill.
+- **Branded booking confirmation + reminder emails** — confirmations today use a stock template (not brand-aware); reminders aren't sent at all. Both are server-side change requests.
+- **`branding_check_contrast` is referenced** by the design principles + every updated skill — verify it exists and behaves correctly (e.g., the tool agent's earlier research touched it but didn't confirm working behavior).
+
 ## Where state lives
 
 - Local DB: `simplerdev_local_20260514` (Postgres 18.3, prod mirror from earlier today)

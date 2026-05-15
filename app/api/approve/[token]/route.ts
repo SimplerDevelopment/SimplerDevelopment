@@ -28,6 +28,8 @@ import {
   emailCampaigns,
   blockTemplates,
   mcpPendingChanges,
+  surveys,
+  bookingPages,
 } from '@/lib/db/schema';
 import type { BlockTemplateDraft } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -201,6 +203,45 @@ async function applyApproval(link: ApprovalLinkRow): Promise<void> {
         .where(eq(emailCampaigns.id, link.entityId))
         .limit(1);
       if (!row) throw new Error('Campaign not found');
+      return;
+    }
+    case 'survey': {
+      // Approving a survey draft flips status -> 'active' so it accepts public
+      // responses. Tenancy is scoped via the link's clientId. If the survey was
+      // already 'active' (re-shared link) the update is a no-op.
+      const [row] = await db
+        .select({ id: surveys.id, status: surveys.status })
+        .from(surveys)
+        .where(and(eq(surveys.id, link.entityId), eq(surveys.clientId, link.clientId)))
+        .limit(1);
+      if (!row) throw new Error('Survey not found');
+      if (row.status !== 'active') {
+        await db
+          .update(surveys)
+          .set({ status: 'active', updatedAt: new Date() })
+          .where(eq(surveys.id, link.entityId));
+      }
+      revalidatePath('/sites', 'layout');
+      revalidatePath('/portal', 'layout');
+      return;
+    }
+    case 'booking_page': {
+      // Approving a booking page flips active=true so the public /book/<slug>
+      // route accepts reservations. Same idempotency pattern as survey above.
+      const [row] = await db
+        .select({ id: bookingPages.id, active: bookingPages.active })
+        .from(bookingPages)
+        .where(and(eq(bookingPages.id, link.entityId), eq(bookingPages.clientId, link.clientId)))
+        .limit(1);
+      if (!row) throw new Error('Booking page not found');
+      if (!row.active) {
+        await db
+          .update(bookingPages)
+          .set({ active: true, updatedAt: new Date() })
+          .where(eq(bookingPages.id, link.entityId));
+      }
+      revalidatePath('/book', 'layout');
+      revalidatePath('/portal', 'layout');
       return;
     }
     case 'block_template': {

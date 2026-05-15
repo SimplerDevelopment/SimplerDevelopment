@@ -33,7 +33,9 @@ export type ApprovableEntityType =
   | 'post'
   | 'pitch_deck'
   | 'email_campaign'
-  | 'block_template';
+  | 'block_template'
+  | 'survey'
+  | 'booking_page';
 
 export type ApprovalLinkType = 'entity' | 'pending_change';
 

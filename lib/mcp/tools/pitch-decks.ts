@@ -94,6 +94,11 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import {
+  unpackAndUploadZip,
+  isHttpError as isZipHttpError,
+  MAX_ZIP_TOTAL_BYTES,
+} from '@/lib/html-zip-upload';
+import {
   renderBlocksToEmailHtml,
   resend,
   buildCampaignHtml,
@@ -728,6 +733,130 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
       if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
       revalidateForWrite('portal');
       return json(result.data);
+    }
+  );
+
+  // Multi-file (zipped) variant of decks_upload_html. Bundle must contain at
+  // least one .html file (preferred root `index.html`). All assets are uploaded
+  // to a shared media/<uuid>/ prefix; relative refs from the index resolve
+  // through the path-based media proxy. Caps mirror the portal REST route:
+  // 50 MB uncompressed, 200 files, 10 MB per file. Single full-bleed slide.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_upload_html_zip',
+    {
+      title: 'Upload HTML bundle (zip) as pitch deck',
+      description: 'Upload a zip (base64-encoded) containing index.html + supporting assets as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed for full-bleed presentation. Requires an active pitch-decks subscription. The slide lands in draft (pendingCreate); call `decks_publish_all` or approve via the returned approval URL to flip live.',
+      inputSchema: {
+        filename: z.string().min(1).regex(/\.zip$/i, 'File must be a .zip'),
+        contentBase64: z.string().min(1).describe('Base64-encoded zip body. Decoded size must be ≤ 50 MB.'),
+        title: z.string().optional().describe('Override the deck title; defaults to the zip filename without extension.'),
+      },
+    },
+    async ({ filename, contentBase64, title }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+
+      let zipBuffer: Buffer;
+      try {
+        zipBuffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      if (zipBuffer.byteLength === 0) return json({ error: 'Empty zip' });
+      if (zipBuffer.byteLength > MAX_ZIP_TOTAL_BYTES) {
+        return json({ error: `Zip exceeds ${MAX_ZIP_TOTAL_BYTES} bytes` });
+      }
+
+      let unpacked;
+      try {
+        unpacked = await unpackAndUploadZip(zipBuffer);
+      } catch (err) {
+        if (isZipHttpError(err)) return json({ error: err.message });
+        throw err;
+      }
+
+      // One media row per uploaded file, no websiteId (decks are tenant-scoped, not site-scoped).
+      const mediaRows = unpacked.entries.map((entry) => ({
+        filename: entry.relativePath,
+        storedFilename: entry.upload.storedFilename,
+        mimeType: entry.mimeType,
+        fileSize: entry.upload.fileSize,
+        url: entry.upload.url,
+        uploadedBy: ctx.userId,
+        clientId,
+      }));
+      await db.insert(media).values(mediaRows);
+
+      const baseSlug = (filename.trim().toLowerCase()
+        .replace(/\.zip$/i, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 80)) || 'deck';
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
+      const titleNorm = title?.trim() || baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded HTML Deck';
+
+      const ts = Date.now();
+      const slide: PitchDeckSlideV2 = {
+        id: `slide-${ts}`,
+        label: titleNorm,
+        blocks: [
+          {
+            id: `block-${ts}-html`,
+            type: 'html-embed',
+            order: 1,
+            url: unpacked.index.upload.url,
+            filename: unpacked.index.relativePath,
+            height: '100vh',
+            width: 'full',
+            sandbox: 'scripts',
+            iframeTitle: titleNorm,
+          },
+        ],
+      };
+
+      const [deck] = await db.insert(pitchDecks).values({
+        clientId,
+        title: titleNorm,
+        slug,
+        description: null,
+        slides: [slide],
+        formatVersion: 2,
+        theme: {
+          primaryColor: '#2563eb',
+          accentColor: '#60a5fa',
+          backgroundColor: '#0f172a',
+          textColor: '#f8fafc',
+          headingFont: 'Inter',
+          bodyFont: 'Inter',
+          showSlideNumber: false,
+        },
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+
+      void publishSlidesUpdate({
+        entityId: deck.id,
+        slides: [slide],
+      }).catch((err) => {
+        console.warn('[mcp/decks_upload_html_zip] realtime publish failed:', err);
+      });
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'pitch_deck',
+          entityId: deck.id,
+          summary: `Bundle "${filename}" → deck "${titleNorm}"`,
+        }),
+      );
+
+      revalidateForWrite('portal');
+      return json({
+        ...deck,
+        bundleFileCount: unpacked.entries.length,
+        bundlePrefix: unpacked.prefix,
+        url: unpacked.index.upload.url,
+        approval,
+      });
     }
   );
 

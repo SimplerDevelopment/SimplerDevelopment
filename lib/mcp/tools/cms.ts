@@ -93,6 +93,11 @@ import { logCardActivity } from '@/lib/pm-activity';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
+import {
+  unpackAndUploadZip,
+  isHttpError as isZipHttpError,
+  MAX_ZIP_TOTAL_BYTES,
+} from '@/lib/html-zip-upload';
 import { assertSafeUrl } from '@/lib/ssrf-guard';
 import {
   renderBlocksToEmailHtml,
@@ -574,6 +579,128 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     }
   );
 
+
+  // Same as posts_upload_html but for a zipped multi-file bundle. The skill
+  // `sd-build-html-embed` authors `index.html` + `style.css` + `script.js` +
+  // `assets/` locally, then ships the whole tree through this tool. The zip
+  // pipeline (lib/html-zip-upload.ts) is shared with the portal UI's REST
+  // route — same validation (50 MB total / 200 files / 10 MB per file,
+  // ext allowlist, traversal guards) — so block JSON is byte-identical to
+  // what the portal upload button produces.
+  hasScope(ctx.scopes, 'sites:write') && server.registerTool(
+    'posts_upload_html_zip',
+    {
+      title: 'Upload HTML bundle (zip) as page',
+      description: 'Upload a zip archive (base64-encoded) containing index.html + supporting assets (css/js/images/fonts) as a draft `page` post wrapping a single html-embed block. Every file in the zip is uploaded to S3 under a shared media/<uuid>/ prefix; relative refs (./style.css, assets/img.png) resolve through the path-based media proxy. Limits: 50 MB uncompressed total, 200 files, 10 MB per file, ext allowlist (html/css/js/png/jpg/webp/svg/woff/woff2/ttf/json/...). The index entry priority is: root /index.html → first root .html → first .html anywhere.',
+      inputSchema: {
+        websiteId: z.number().int().positive(),
+        filename: z.string().min(1).regex(/\.zip$/i, 'File must be a .zip'),
+        contentBase64: z.string().min(1).describe('Base64-encoded zip body. Decoded size must be ≤ 50 MB.'),
+      },
+    },
+    async ({ websiteId, filename, contentBase64 }) => {
+      if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
+      try {
+        await assertBlocksAllowedForUserId([{ type: 'html-embed' }], ctx.userId);
+      } catch (e) {
+        if (e instanceof BlockGateError) return json({ error: e.message });
+        throw e;
+      }
+      const [site] = await db.select({ id: clientWebsites.id, name: clientWebsites.name }).from(clientWebsites)
+        .where(and(eq(clientWebsites.id, websiteId), eq(clientWebsites.clientId, clientId))).limit(1);
+      if (!site) return json({ error: 'Site not found' });
+
+      let zipBuffer: Buffer;
+      try {
+        zipBuffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      if (zipBuffer.byteLength === 0) return json({ error: 'Empty zip' });
+      if (zipBuffer.byteLength > MAX_ZIP_TOTAL_BYTES) {
+        return json({ error: `Zip exceeds ${MAX_ZIP_TOTAL_BYTES} bytes` });
+      }
+
+      let unpacked;
+      try {
+        unpacked = await unpackAndUploadZip(zipBuffer);
+      } catch (err) {
+        if (isZipHttpError(err)) return json({ error: err.message });
+        throw err;
+      }
+
+      // Insert one media row per uploaded file under the shared prefix.
+      const mediaRows = unpacked.entries.map((entry) => ({
+        filename: entry.relativePath,
+        storedFilename: entry.upload.storedFilename,
+        mimeType: entry.mimeType,
+        fileSize: entry.upload.fileSize,
+        url: entry.upload.url,
+        uploadedBy: ctx.userId,
+        clientId,
+        websiteId: site.id,
+      }));
+      await db.insert(media).values(mediaRows);
+
+      // Pick a free slug derived from the zip filename minus .zip.
+      const baseSlug = (filename.trim().toLowerCase()
+        .replace(/\.zip$/i, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 80)) || 'bundle';
+      let slug = baseSlug;
+      for (let i = 2; i < 100; i++) {
+        const [collision] = await db.select({ id: posts.id }).from(posts)
+          .where(and(eq(posts.slug, slug), eq(posts.websiteId, site.id))).limit(1);
+        if (!collision) break;
+        slug = `${baseSlug}-${i}`;
+      }
+
+      const ts = Date.now();
+      const titleBase = baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded Bundle';
+      const uploadedBlocks = [
+        {
+          id: `block-${ts}-html`,
+          type: 'html-embed' as const,
+          order: 1,
+          url: unpacked.index.upload.url,
+          filename: unpacked.index.relativePath,
+          height: '100vh',
+          width: 'full' as const,
+          sandbox: 'scripts',
+          iframeTitle: titleBase,
+        },
+      ];
+      const blockContent = JSON.stringify({ blocks: uploadedBlocks });
+
+      const [post] = await db.insert(posts).values({
+        title: titleBase,
+        slug,
+        postType: 'page',
+        content: blockContent,
+        published: false,
+        websiteId: site.id,
+      }).returning(SLIM_POST_COLUMNS);
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'post',
+          entityId: post.id,
+          summary: `Bundle "${filename}" → page "${titleBase}"`,
+        }),
+      );
+
+      revalidateForWrite('posts');
+      return json({
+        ...post,
+        bundleFileCount: unpacked.entries.length,
+        bundlePrefix: unpacked.prefix,
+        url: unpacked.index.upload.url,
+        approval,
+      });
+    }
+  );
 
   // ── MEDIA ──────────────────────────────────────────────────────────────
   hasScope(ctx.scopes, 'media:read') && server.registerTool(

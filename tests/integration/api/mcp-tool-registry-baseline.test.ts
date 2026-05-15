@@ -184,6 +184,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'decks_replace_slides',
   'decks_update',
   'decks_upload_html',
+  'decks_upload_html_zip',
   // ── email ───────────────────────────────────────────────────────────
   'email_campaigns_create',
   'email_campaigns_delete',
@@ -280,6 +281,7 @@ const EXPECTED_TOOLS: readonly string[] = [
   'posts_set_taxonomies',
   'posts_update',
   'posts_upload_html',
+  'posts_upload_html_zip',
   'profile_get',
   'profile_update',
   'service_catalog_list',

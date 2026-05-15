@@ -105,6 +105,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { createApprovalLink, approvalEnvelope } from '../approval-links';
 import {
   json,
   serializePostContent,
@@ -233,8 +234,18 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
         allowMultiple: args.allowMultiple ?? true,
         createdBy: ctx.userId,
       }).returning();
+      // Mint an approval URL — survey starts in `draft` and approving flips
+      // status to `active` so the public /s/<slug> route accepts responses.
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'survey',
+          entityId: row.id,
+          summary: `Survey "${row.title}"`,
+        }),
+      );
       revalidateForWrite('portal');
-      return json(row);
+      return json({ ...row, approval });
     }
   );
 
@@ -267,8 +278,19 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       if (closesAt !== undefined) patch.closesAt = closesAt ? new Date(closesAt) : null;
       const [row] = await db.update(surveys).set(patch)
         .where(eq(surveys.id, id)).returning();
+      // Re-mint approval URL on every update — author may have edited fields
+      // / scoring / etc. between the previous mint and this update. The old
+      // URL stays valid in whatever state it was already in.
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'survey',
+          entityId: row.id,
+          summary: `Survey "${row.title}" (rev)`,
+        }),
+      );
       revalidateForWrite('portal');
-      return json(row);
+      return json({ ...row, approval });
     }
   );
 }

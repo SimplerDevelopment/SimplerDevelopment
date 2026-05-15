@@ -13,7 +13,9 @@ Draft a pitch deck in the portal. The deck is created in draft status with slide
 
 1. **Read `.sd/config.json`** — confirm `client`, `defaultSiteId`, `brand`. If missing/stale, ask the user to run `sd-init` first.
 2. **Read brand messaging.** This skill leans on `brand.messaging.tagline`, `valueProposition`, `keyDifferentiators`, `targetAudience`, `boilerplate` heavily — the cover and section breaks are almost entirely brand-driven.
-3. **READ the `blocks://schema` MCP resource** before authoring slides. Slide blocks use the visual-editor schema with extra slide-specific affordances (per-slide `customCss`, `pageSettings`, `notes`).
+3. **Read `SD_DESIGN_PRINCIPLES.md`** — apply the design + a11y + 8pt-grid rules. Deck-specific tweaks live in section 10 of that doc (24px+ body, 60–120px titles, one concept per slide, dark/light alternation for visual rhythm, speaker notes on every slide).
+4. **Read `.sd/learnings.md`** if present — apply `## Active rules`.
+5. **READ the `blocks://schema` MCP resource** before authoring slides. Slide blocks use the visual-editor schema with extra slide-specific affordances (per-slide `customCss`, `pageSettings`, `notes`).
 
 ## Sourcing — ASK if unclear
 
@@ -54,6 +56,15 @@ Pick the spine, list the slides, then author one slide at a time.
    - `customCss` — only for genuinely custom slides; do not lean on this as a substitute for proper block styling.
 
 4. **Brand theme inheritance.** Do NOT pass a `theme` argument to `decks_create` unless the user explicitly says "use different colors than my brand". The MCP tool auto-inherits from the client's default branding profile.
+
+5. **Logos by default.** From `.sd/config.json:brand.logos`:
+   - **Cover slide:** the wide `logoUrl` centered above the eyebrow, height 56–96px. If only `logoText` exists, render as styled small-uppercase wordmark.
+   - **Content slides:** the icon `logoIconUrl` (or `logoSquareUrl`) bottom-right at 32px. Skip entirely on dark section-break slides where the icon would clash. Don't repeat the wide logo on every slide — it's noise.
+   - **Closing slide:** wide `logoUrl` again, smaller (40–48px), bottom-center with the contact info.
+
+6. **Contrast check on every slide.** Per-slide `pageSettings.backgroundColor` + `pageSettings.color` must pass WCAG-AA. Call `branding_check_contrast` on the pair. Dark-bg slides need the body text near-white (#F8FAFC, not pure white — pure white on near-black causes shimmer). Light-bg slides need body text near-black (#0F172A).
+
+7. **Embed related artifacts only when they fit the deck's job.** Decks are usually self-contained narratives — but a sales deck CAN end with a `booking` block on the close slide (so the prospect can book a call without leaving the deck), or a `survey` block on a section break (qualification mid-pitch). Use sparingly; most decks don't need embedded widgets.
 
 ## MCP calls
 

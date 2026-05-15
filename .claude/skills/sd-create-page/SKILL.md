@@ -13,6 +13,8 @@ Draft a CMS page (blog post, landing page, marketing entry) in the portal. The p
 
 1. **Read `.sd/config.json`.** If missing or stale (>14 days), tell the user to run `sd-init` first. Don't proceed — every step depends on the client/brand/site already being resolved.
 2. **Read brand messaging** from `.sd/config.json:brand.messaging`. If `brand` is null, warn the user that output will use SD house defaults and proceed only if confirmed.
+3. **Read `SD_DESIGN_PRINCIPLES.md`** (sibling skill doc). This is non-negotiable — it encodes the anti-AI-slop discipline, WCAG-AA contrast floors, 8pt grid, branded-logo policy, and the 5-dimension self-review the skill MUST run before returning the approval URL.
+4. **Read `.sd/learnings.md`** if it exists — apply its `## Active rules` to authoring decisions. If a rule prohibits something the skill was about to do, surface explicitly ("learnings.md says X — adjusting Y accordingly").
 
 ## Sourcing — ASK if unclear
 
@@ -46,6 +48,20 @@ If the source is `postcaptain-kb` but `.sd/config.json:client.id` is NOT the SD 
    - `boilerplate` can seed the about/footer section if relevant.
 
 4. **SEO.** Always set `seoTitle`, `seoDescription`. Default `noIndex: false` for production pages; `true` for drafts the user only wants to share.
+
+5. **Brand logo by default.** If `.sd/config.json:brand.logos.logoUrl` is set, place an `image` block at the very top of the page above the hero. Use the wide logo (`logoUrl`) — never the icon (`logoIconUrl`) at this scale. `alt` text from `logos.logoAlt` or fall back to `<companyName> logo`. Cap displayed height at 40–64px. If only `logoText` exists, render as a small uppercase text block in the brand accent color, letterSpacing 0.2em.
+
+6. **Accessibility — run the contrast checks.** Before returning, validate every text/bg pair on the page against the WCAG-AA floors documented in `SD_DESIGN_PRINCIPLES.md` (4.5:1 body, 3:1 large/UI). Use the MCP tool `branding_check_contrast` for any pair you're unsure about. If a CTA fails (a very common case: white text on a low-saturation accent color), swap the foreground to `textColor` from the brand profile. Surface every fix you made in the response so the user can audit it.
+
+7. **Link related artifacts when they help the page do its job.** A landing page is rarely a leaf — it often pairs with a survey (qualifying intake) or a booking page (call-to-book). When the user's intent matches, embed natively:
+
+   - **Embed an existing survey** — append a `survey` block: `{ id, type: 'survey', slug: '<survey-slug>', showLogo: true }`. The slug comes from `surveys_list`. If the user wants a NEW survey, hand off to the `sd-create-survey` skill and embed after it returns the slug.
+   - **Embed a booking widget** — append a `booking` block: `{ id, type: 'booking', slug: '<booking-page-slug>', showLogo: true, height: 720 }`. Slug comes from `booking_pages_list`. For an all-services menu, use `{ type: 'booking-menu', columns: 3 }`.
+   - **Link to an existing pitch deck or another page** — use a `button` block whose `url` points at `/portal/preview/decks/<id>` or `/<post-slug>`.
+
+   Don't embed an artifact just because it exists — embed only when the user's stated goal benefits. (A "pricing page" probably doesn't need a survey embedded; a "find-out-if-we're-a-fit" page does.)
+
+8. **Run the 5-dimension self-review** from `SD_DESIGN_PRINCIPLES.md` before returning. Score 1–10 on Philosophy / Hierarchy / Craft / Functionality / Originality. Surface scores + quick-wins in the response.
 
 ## MCP call
 
