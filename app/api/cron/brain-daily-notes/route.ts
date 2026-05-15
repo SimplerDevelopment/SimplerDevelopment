@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { brainNoteTemplates } from '@/lib/db/schema';
 import { applyTemplate } from '@/lib/brain/template';
 import { createNote, getNoteBySourceUrl } from '@/lib/brain/notes';
+import { isBrainEntitled } from '@/lib/brain/entitlement';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -49,12 +50,34 @@ async function _GET(req: Request) {
 
   let created = 0;
   let skipped = 0;
+  let skippedUnentitled = 0;
   let failed = 0;
   const failures: { templateId: number; clientId: number; reason: string }[] = [];
+
+  // Tiny per-run cache so we only hit the entitlement query once per client,
+  // even if a tenant has multiple daily templates configured.
+  const entitlementCache = new Map<number, boolean>();
+  async function tenantEntitled(clientId: number): Promise<boolean> {
+    const cached = entitlementCache.get(clientId);
+    if (cached !== undefined) return cached;
+    const ok = await isBrainEntitled(clientId);
+    entitlementCache.set(clientId, ok);
+    return ok;
+  }
 
   for (const tpl of templates) {
     const sourceUrl = `daily://${tpl.id}/${dateKey}`;
     try {
+      // Per-tenant entitlement gate — this cron is unauthenticated (Vercel
+      // cron header / shared secret) so we cannot use the request-scoped
+      // `requireBrainEntitlement`. Defense-in-depth: if a tenant churned but
+      // still has `enabled=true` daily templates lying around, do not write
+      // new notes on their behalf. Use the explicit-clientId helper.
+      if (!(await tenantEntitled(tpl.clientId))) {
+        skippedUnentitled++;
+        continue;
+      }
+
       const existing = await getNoteBySourceUrl(tpl.clientId, sourceUrl);
       if (existing) { skipped++; continue; }
 
@@ -91,6 +114,7 @@ async function _GET(req: Request) {
     examined: templates.length,
     created,
     skipped,
+    skippedUnentitled,
     failed,
     failures: failures.slice(0, 20),
   });
