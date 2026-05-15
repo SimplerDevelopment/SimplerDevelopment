@@ -32,6 +32,20 @@ async function authorizeProject(projectId: number, session: any): Promise<{ proj
   return { project: owned, canEdit: await canUserEditProject(userId, projectId) };
 }
 
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const projectId = parseInt(id, 10);
+  if (!Number.isFinite(projectId)) return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 });
+
+  const result = await authorizeProject(projectId, session);
+  if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: result.project });
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });

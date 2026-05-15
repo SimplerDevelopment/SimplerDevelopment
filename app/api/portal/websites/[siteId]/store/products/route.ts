@@ -118,6 +118,27 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'name, slug, and price are required' }, { status: 400 });
   }
 
+  // Reject negative prices (allow 0 for free items, null already excluded).
+  const priceNum = Number(price);
+  if (Number.isFinite(priceNum) && priceNum < 0) {
+    return NextResponse.json(
+      { success: false, error: 'price must be >= 0' },
+      { status: 400 }
+    );
+  }
+  if (compareAtPrice != null && Number(compareAtPrice) < 0) {
+    return NextResponse.json(
+      { success: false, error: 'compareAtPrice must be >= 0' },
+      { status: 400 }
+    );
+  }
+  if (costPrice != null && Number(costPrice) < 0) {
+    return NextResponse.json(
+      { success: false, error: 'costPrice must be >= 0' },
+      { status: 400 }
+    );
+  }
+
   // Check slug uniqueness within website
   const [existing] = await db
     .select({ id: products.id })

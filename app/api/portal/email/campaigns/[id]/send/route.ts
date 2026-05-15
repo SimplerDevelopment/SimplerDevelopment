@@ -8,6 +8,7 @@ import { getOrRenderCampaignHtml, htmlToText } from '@/lib/email/render-cache';
 import type { Block } from '@/types/blocks';
 import { getPortalClient } from '@/lib/portal-client';
 import { splitForAbTest, type AbVariant } from '@/lib/email/subject-ab';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function requireClient() {
   const session = await auth();
@@ -16,6 +17,10 @@ async function requireClient() {
 }
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 

@@ -12,6 +12,7 @@ import { and, eq, desc, sql, inArray } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { notifyAllClientUsers } from '@/lib/crm/notifications';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
+import { validateCrmName } from '@/lib/crm/parse';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -194,13 +195,43 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate free-text inputs that flow into CSV export / email merge / PDF
+  // generation (where escaping is not automatic).
+  const firstName = validateCrmName(body.firstName, 'firstName');
+  if (!firstName.ok) {
+    return NextResponse.json(
+      { success: false, error: firstName.error, field: 'firstName' },
+      { status: 400 }
+    );
+  }
+  if (firstName.value === null) {
+    return NextResponse.json(
+      { success: false, message: 'First name is required' },
+      { status: 400 }
+    );
+  }
+  const lastName = validateCrmName(body.lastName, 'lastName');
+  if (!lastName.ok) {
+    return NextResponse.json(
+      { success: false, error: lastName.error, field: 'lastName' },
+      { status: 400 }
+    );
+  }
+  const notes = validateCrmName(body.notes, 'notes');
+  if (!notes.ok) {
+    return NextResponse.json(
+      { success: false, error: notes.error, field: 'notes' },
+      { status: 400 }
+    );
+  }
+
   const [contact] = await db
     .insert(crmContacts)
     .values({
       clientId: client.id,
       companyId: body.companyId || null,
-      firstName: body.firstName.trim(),
-      lastName: body.lastName?.trim() || null,
+      firstName: firstName.value,
+      lastName: lastName.value,
       email: body.email?.trim() || null,
       phone: body.phone?.trim() || null,
       linkedinUrl: body.linkedinUrl?.trim() || null,
@@ -209,7 +240,7 @@ export async function POST(req: Request) {
       status: body.status || 'active',
       avatarUrl: body.avatarUrl || null,
       address: body.address?.trim() || null,
-      notes: body.notes?.trim() || null,
+      notes: notes.value,
       ownerId: body.ownerId || null,
     })
     .returning();

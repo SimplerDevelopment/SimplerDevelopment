@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
 import { renderBlocksToEmailHtml } from '@/lib/email';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 async function requireClient() {
   const session = await auth();
@@ -70,6 +71,11 @@ export async function POST(req: Request) {
   if (Array.isArray(contentBlocks)) {
     finalHtml = renderBlocksToEmailHtml(contentBlocks);
   }
+  // Strip <script>/<iframe>/<object>/<embed>/event handlers from any
+  // user-supplied HTML before it's stored or rendered. sanitizeRichHtml
+  // keeps inline styles + classes — the email-safe surface — but drops
+  // executable payloads.
+  if (finalHtml) finalHtml = sanitizeRichHtml(finalHtml);
 
   if (!name?.trim() || !subject?.trim() || !fromName?.trim() || !fromEmail?.trim() || !listId || !finalHtml) {
     return NextResponse.json({ success: false, message: 'name, subject, fromName, fromEmail, listId, and content are required' }, { status: 400 });

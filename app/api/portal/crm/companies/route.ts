@@ -6,6 +6,7 @@ import { crmCompanies, crmContacts, crmDeals } from '@/lib/db/schema';
 import { and, eq, desc, sql } from 'drizzle-orm';
 import { buildCustomFieldFilters } from '@/lib/crm-custom-field-filter';
 import { geocodeAddress } from '@/lib/geocode';
+import { validateCrmName } from '@/lib/crm/parse';
 
 function parseCoordinate(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null;
@@ -104,6 +105,28 @@ export async function POST(req: Request) {
     );
   }
 
+  // Validate free-text inputs that flow into CSV / email merge / PDF.
+  const name = validateCrmName(body.name, 'name');
+  if (!name.ok) {
+    return NextResponse.json(
+      { success: false, error: name.error, field: 'name' },
+      { status: 400 }
+    );
+  }
+  if (name.value === null) {
+    return NextResponse.json(
+      { success: false, message: 'Company name is required' },
+      { status: 400 }
+    );
+  }
+  const notes = validateCrmName(body.notes, 'notes');
+  if (!notes.ok) {
+    return NextResponse.json(
+      { success: false, error: notes.error, field: 'notes' },
+      { status: 400 }
+    );
+  }
+
   const address = body.address?.trim() || null;
   const explicitLat = parseCoordinate(body.latitude);
   const explicitLng = parseCoordinate(body.longitude);
@@ -127,7 +150,7 @@ export async function POST(req: Request) {
     .insert(crmCompanies)
     .values({
       clientId: client.id,
-      name: body.name.trim(),
+      name: name.value,
       domain: body.domain?.trim() || null,
       industry: body.industry?.trim() || null,
       size: body.size || null,
@@ -135,7 +158,7 @@ export async function POST(req: Request) {
       address,
       website: body.website?.trim() || null,
       logoUrl: body.logoUrl?.trim() || null,
-      notes: body.notes?.trim() || null,
+      notes: notes.value,
       // Drizzle's numeric() accepts string | null for input.
       latitude: latitude !== null ? String(latitude) : null,
       longitude: longitude !== null ? String(longitude) : null,

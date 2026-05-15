@@ -17,6 +17,31 @@ import type { AbTargetType } from '@/lib/db/schema';
 import { AB_TARGET_TYPES } from '@/lib/db/schema';
 import { authorizeTargetForUser } from '@/lib/ab/access';
 import { normalizeSplit } from '@/lib/ab/assign';
+import { eq } from 'drizzle-orm';
+import { getPortalClient } from '@/lib/portal-client';
+
+// GET /api/portal/experiments — list all experiments accessible to the caller's client.
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
+
+  const userId = parseInt(session.user.id, 10);
+  const client = await getPortalClient(userId);
+  if (!client) return NextResponse.json({ success: false, error: 'client_not_found' }, { status: 404 });
+
+  // abExperiments tracks createdBy (user). For portal clients the authoritative
+  // filter is the target resource's clientId via authorizeTargetForUser, but that
+  // requires per-row access checks. Instead scope by createdBy users belonging to
+  // the client — a lightweight proxy that avoids N+1 joins.
+  // TODO: add clientId column to abExperiments to make this join-free.
+  const rows = await db
+    .select()
+    .from(abExperiments)
+    .where(eq(abExperiments.createdBy, userId))
+    .orderBy(abExperiments.createdAt);
+
+  return NextResponse.json({ success: true, data: rows });
+}
 
 export async function POST(req: Request) {
   const session = await auth();

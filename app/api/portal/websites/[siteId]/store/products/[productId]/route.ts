@@ -99,6 +99,20 @@ export async function PUT(req: Request, { params }: Params) {
   if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
+
+  // Reject negative monetary values (allow 0 for free items, null to clear).
+  for (const f of ['price', 'compareAtPrice', 'costPrice'] as const) {
+    if (body[f] !== undefined && body[f] !== null) {
+      const n = Number(body[f]);
+      if (Number.isFinite(n) && n < 0) {
+        return NextResponse.json(
+          { success: false, error: `${f} must be >= 0` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   const fields = [

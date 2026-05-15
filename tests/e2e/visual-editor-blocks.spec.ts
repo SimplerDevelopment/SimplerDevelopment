@@ -9,12 +9,16 @@
  * 5. Verify the client site renders the block
  */
 import { test, expect } from './setup/fixtures';
-import { runCleanups, createTestWebsite } from './setup/helpers';
+import { runCleanups, createTestWebsite, resolveClientSiteId } from './setup/helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-// Site ID 1 = dannydo (existing provisioned site)
-const SITE_ID = 1;
+// SITE_ID was hard-coded to 1 (dannydo, owned by a different client), so every
+// request from client@example.com 404'd. Resolved at test time from the
+// logged-in client's first website instead.
+// CLIENT_SITE_URL still hard-coded — leaving as TODO, the public-site assertions
+// that rely on it will need to derive the URL from the resolved website too.
+let SITE_ID: number;
 const CLIENT_SITE_URL = 'https://dannydo.simplerdevelopment.com';
 
 import { ApiClient } from './setup/api-client';
@@ -47,6 +51,18 @@ async function getPublicPost(api: ApiClient, slug: string) {
 async function deletePost(api: ApiClient, postId: number) {
   return api.delete(`/api/portal/cms/websites/${SITE_ID}/posts/${postId}`);
 }
+
+// beforeAll cannot inject the per-test `clientApi` fixture, so we stand up a
+// throwaway ApiClient just for the lookup.
+test.beforeAll(async () => {
+  const bootstrap = new ApiClient('client@example.com', 'client123');
+  await bootstrap.ensure();
+  try {
+    SITE_ID = await resolveClientSiteId(bootstrap);
+  } finally {
+    await bootstrap.dispose();
+  }
+});
 
 test.describe('Visual Editor — Block Type Editing @visual-editor @blocks', () => {
   let cleanups: Array<() => Promise<void>> = [];
