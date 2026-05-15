@@ -175,6 +175,94 @@ function ServicesGridBlockSettings({ block, onChange, currentViewport }: { block
         />
         <p className="text-xs text-muted-foreground mt-1">Used for icons, bullets, and the link arrow.</p>
       </div>
+      <div className="border-t border-border pt-4 space-y-2">
+        <label className="block text-sm font-medium text-foreground">Services</label>
+        {(block.services || []).map((service, i) => (
+          <div key={service.id ?? i} className="space-y-1 p-2 rounded border border-border">
+            <input
+              type="text"
+              value={service.title}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], title: e.target.value };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground font-bold"
+              placeholder="Service title"
+            />
+            <textarea
+              value={service.description}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], description: e.target.value };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Service description"
+              rows={2}
+            />
+            <input
+              type="text"
+              value={service.icon || ''}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], icon: e.target.value || undefined };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Material Icon name (e.g. 'design_services')"
+            />
+            <input
+              type="url"
+              value={service.image || ''}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], image: e.target.value || undefined };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Service image URL (optional)"
+            />
+            <input
+              type="url"
+              value={service.link || ''}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], link: e.target.value || undefined };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder="Link URL (optional)"
+            />
+            <input
+              type="text"
+              value={service.linkText || ''}
+              onChange={(e) => {
+                const next = [...(block.services || [])];
+                next[i] = { ...next[i], linkText: e.target.value || undefined };
+                onChange({ services: next });
+              }}
+              className="w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground"
+              placeholder='CTA text (default "Learn More")'
+            />
+            <button
+              type="button"
+              onClick={() => onChange({ services: (block.services || []).filter((_, j) => j !== i) })}
+              className="text-xs text-destructive hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange({ services: [...(block.services || []), { id: `service-${Date.now()}`, title: 'New service', description: '', bullets: [] }] })}
+          className="w-full px-3 py-2 text-xs font-medium rounded border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        >
+          + Add Service
+        </button>
+        <p className="text-xs text-muted-foreground">Per-service bullets are edited via the iframe editor (BlockContentEditor). The bullet array is preserved on round-trip.</p>
+      </div>
     </div>
   );
 }

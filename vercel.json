@@ -46,6 +46,10 @@
       "schedule": "0 11 * * 1"
     },
     {
+      "path": "/api/cron/ticket-sla-breaches",
+      "schedule": "7 * * * *"
+    },
+    {
       "path": "/api/cron/stuck-booking-holds",
       "schedule": "*/30 * * * *"
     },
