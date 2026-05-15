@@ -122,6 +122,19 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+  // Reject negative deal value (allow 0 and null/undefined for unscoped deals).
+  if (body.value != null && Number(body.value) < 0) {
+    return NextResponse.json(
+      { success: false, error: 'value must be >= 0' },
+      { status: 400 }
+    );
+  }
+  if (body.recurringValue != null && Number(body.recurringValue) < 0) {
+    return NextResponse.json(
+      { success: false, error: 'recurringValue must be >= 0' },
+      { status: 400 }
+    );
+  }
 
   const [deal] = await db
     .insert(crmDeals)
