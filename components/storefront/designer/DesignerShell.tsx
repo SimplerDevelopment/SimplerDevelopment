@@ -13,6 +13,7 @@ import type {
 } from '@/lib/designer/types';
 
 import AddLayerPanel from './AddLayerPanel';
+import AlignmentToolbar from './AlignmentToolbar';
 import CanvasControls from './CanvasControls';
 import DesignCanvas from './DesignCanvas';
 import LayersPanel from './LayersPanel';
@@ -62,6 +63,9 @@ export function DesignerShell({
   const setActiveSurface = useCanvasStore((s) => s.setActiveSurface);
   const designName = useCanvasStore((s) => s.designName);
   const designId = useCanvasStore((s) => s.designId);
+  const showPrintArea = useCanvasStore((s) => s.showPrintArea);
+  const togglePrintArea = useCanvasStore((s) => s.togglePrintArea);
+  const selectedLayers = useCanvasStore((s) => s.selectedLayers);
 
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('layers');
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -173,6 +177,27 @@ export function DesignerShell({
 
         <button
           type="button"
+          onClick={togglePrintArea}
+          aria-pressed={showPrintArea}
+          title={
+            showPrintArea
+              ? 'Hide print-area overlay'
+              : 'Show print-area overlay'
+          }
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
+            showPrintArea
+              ? 'border-primary text-primary bg-primary/5 hover:bg-primary/10'
+              : 'border-border text-foreground bg-background hover:bg-muted'
+          }`}
+        >
+          <span className="material-icons text-base">crop_free</span>
+          <span className="hidden md:inline">
+            {showPrintArea ? 'Print area on' : 'Print area off'}
+          </span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => void forceSave()}
           disabled={isSaving}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted text-sm text-foreground disabled:opacity-50"
@@ -203,6 +228,13 @@ export function DesignerShell({
           }`}
         >
           {error || statusMessage}
+        </div>
+      )}
+
+      {/* Alignment / distribution toolbar — only visible with a live selection */}
+      {selectedLayers.length > 0 && (
+        <div className="flex justify-center px-4 py-2 border-b border-border bg-background">
+          <AlignmentToolbar surface={currentSurface ?? null} />
         </div>
       )}
 

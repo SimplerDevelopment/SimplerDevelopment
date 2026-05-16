@@ -23,7 +23,21 @@ interface AddLayerPanelProps {
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
 }
 
-const POPULAR_ICONS: string[] = ['star', 'heart', 'circle', 'square', 'triangle', 'diamond'];
+// Each entry is the icon name we store on the layer + the Material Icons glyph
+// used both for the panel button and for rendering on the canvas via
+// createFabricIcon. Keeping these in one place stops the panel from showing
+// six identical stars (the original bug — every shape button rendered "star").
+const POPULAR_ICONS: Array<{ name: string; glyph: string; label: string }> = [
+  { name: 'star',     glyph: 'star',           label: 'Star' },
+  { name: 'heart',    glyph: 'favorite',       label: 'Heart' },
+  { name: 'circle',   glyph: 'circle',         label: 'Circle' },
+  { name: 'square',   glyph: 'square',         label: 'Square' },
+  { name: 'triangle', glyph: 'change_history', label: 'Triangle' },
+  { name: 'diamond',  glyph: 'diamond',        label: 'Diamond' },
+  { name: 'arrow',    glyph: 'north_east',     label: 'Arrow' },
+  { name: 'check',    glyph: 'check_circle',   label: 'Check' },
+  { name: 'bolt',     glyph: 'bolt',           label: 'Bolt' },
+];
 
 /**
  * Add-layer panel — buttons for inserting text, icons, and uploaded images.
@@ -224,16 +238,17 @@ export default function AddLayerPanel({
             Icons
           </p>
           <div className="grid grid-cols-3 gap-2">
-            {POPULAR_ICONS.map((name) => (
+            {POPULAR_ICONS.map(({ name, glyph, label }) => (
               <button
                 key={name}
                 type="button"
                 onClick={() => handleAddIcon(name)}
-                className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-md border border-border bg-background hover:bg-muted text-sm transition-colors capitalize"
-                title={`Add ${name}`}
+                className="inline-flex flex-col items-center justify-center gap-1 px-2 py-2.5 rounded-md border border-border bg-background hover:bg-muted text-sm transition-colors"
+                title={`Add ${label.toLowerCase()}`}
+                aria-label={`Add ${label.toLowerCase()}`}
               >
-                <span className="material-icons text-base">star</span>
-                <span className="text-xs">{name}</span>
+                <span className="material-icons text-xl text-foreground/80">{glyph}</span>
+                <span className="text-[10px] text-muted-foreground">{label}</span>
               </button>
             ))}
           </div>

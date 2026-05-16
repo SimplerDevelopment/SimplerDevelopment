@@ -10,6 +10,13 @@ interface DesignerClientProps {
   domain: string;
   product: { id: number; slug: string; name: string };
   surfaces: DesignerSurface[];
+  /**
+   * Where to send the customer after a successful add-to-cart. The storefront
+   * doesn't ship a built-in cart page — the merchant builds one in the CMS —
+   * so the default is to stay put and surface a success message; pass a path
+   * here when a cart page exists.
+   */
+  afterAddToCartPath?: string;
 }
 
 function getOrCreateSessionId(): string {
@@ -22,12 +29,13 @@ function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-export function DesignerClient({ siteId, product, surfaces }: DesignerClientProps) {
+export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }: DesignerClientProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string>('');
   const [initialDesign, setInitialDesign] = useState<DesignDoc | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   // Bootstrap sessionId + any existing draft design for this product/session.
   useEffect(() => {
@@ -161,12 +169,17 @@ export function DesignerClient({ siteId, product, surfaces }: DesignerClientProp
         }
 
         window.dispatchEvent(new CustomEvent('cart-updated'));
-        router.push('/cart');
+        setToast({ kind: 'success', text: 'Added to cart!' });
+        // Only redirect when the host product/storefront supplies a cart
+        // page path — otherwise stay put and let the customer keep designing.
+        if (afterAddToCartPath) {
+          router.push(afterAddToCartPath);
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to add to cart');
       }
     },
-    [siteId, product.id, sessionId, router],
+    [siteId, product.id, sessionId, router, afterAddToCartPath],
   );
 
   if (loading) {
@@ -187,6 +200,28 @@ export function DesignerClient({ siteId, product, surfaces }: DesignerClientProp
             type="button"
             onClick={() => setError(null)}
             className="ml-2 p-0.5 hover:bg-red-100 dark:hover:bg-red-900/40 rounded"
+          >
+            <span className="material-icons text-base">close</span>
+          </button>
+        </div>
+      )}
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 p-3 rounded-xl text-sm shadow-lg ${
+            toast.kind === 'success'
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400'
+              : 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+          }`}
+        >
+          <span className="material-icons text-base">
+            {toast.kind === 'success' ? 'check_circle' : 'error'}
+          </span>
+          {toast.text}
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="ml-2 p-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded"
+            aria-label="Dismiss"
           >
             <span className="material-icons text-base">close</span>
           </button>

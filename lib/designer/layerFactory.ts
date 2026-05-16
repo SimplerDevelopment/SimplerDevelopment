@@ -28,6 +28,14 @@ const UNICODE_ICON_MAP: Record<string, string> = {
   close: '✕',
   plus: '+',
   minus: '−',
+  bolt: '⚡',
+  sun: '☀',
+  moon: '☾',
+  music: '♪',
+  smile: '☺',
+  flag: '⚑',
+  crown: '♛',
+  flower: '✿',
 };
 
 interface FabricCommonOptions {
@@ -65,17 +73,33 @@ interface FabricIconOptions extends FabricCommonOptions {
   fontSize?: number;
 }
 
+// Strip undefined- and null-valued keys from options so the {...options}
+// spread doesn't blow away the explicit defaults below. Without this,
+// callers that pass `fontFamily: undefined` (very common when round-tripping
+// LayerData where the property is just missing) hit Fabric's getFontCache
+// crash "Cannot read properties of undefined (reading 'toLowerCase')".
+function stripNullish<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const out: Partial<T> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
+
 /** Create a Fabric Text object for a text layer. */
 export function createFabricText(
   text: string,
   options: FabricTextOptions = {}
 ): FabricText {
+  const clean = stripNullish(options as Record<string, unknown>);
   const merged = {
     fontFamily: 'Arial',
     fontSize: 24,
+    fontWeight: 'normal',
+    fontStyle: 'normal',
     fill: '#000000',
     textAlign: 'left',
-    ...options,
+    ...clean,
     data: {
       id: options.data?.id || uuidv4(),
       type: 'text' as const,
@@ -91,12 +115,13 @@ export function createFabricIcon(
   options: FabricIconOptions = {}
 ): FabricText {
   const glyph = UNICODE_ICON_MAP[iconName] || UNICODE_ICON_MAP.star;
+  const clean = stripNullish(options as Record<string, unknown>);
   const merged = {
     fontFamily: 'Arial, sans-serif',
     fontSize: 48,
     fill: '#333333',
     textAlign: 'center',
-    ...options,
+    ...clean,
     data: {
       id: options.data?.id || uuidv4(),
       type: 'icon' as const,

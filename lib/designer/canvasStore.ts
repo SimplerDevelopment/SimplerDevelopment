@@ -90,6 +90,11 @@ export interface CanvasStoreState {
   toggleLayerVisibility: (layerId: string) => void;
   toggleLayerLock: (layerId: string) => void;
 
+  // Print-area overlay visibility
+  showPrintArea: boolean;
+  setShowPrintArea: (visible: boolean) => void;
+  togglePrintArea: () => void;
+
   // Pan / zoom
   zoom: number;
   panX: number;
@@ -672,6 +677,11 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
     if (!l) return;
     get().setLayerLocked(layerId, !l.locked);
   },
+
+  // Print-area overlay visibility (default on so customers see safe-zone)
+  showPrintArea: true,
+  setShowPrintArea: (visible) => set({ showPrintArea: visible }),
+  togglePrintArea: () => set((s) => ({ showPrintArea: !s.showPrintArea })),
 
   // Pan / zoom
   zoom: INITIAL_ZOOM,
