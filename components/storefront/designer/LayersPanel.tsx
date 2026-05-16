@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -197,6 +197,41 @@ function SortableLayerRow({
   onMoveUp,
   onMoveDown,
 }: SortableLayerRowProps) {
+  const updateLayer = useCanvasStore((s) => s.updateLayer);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(layer.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // When entering edit mode, focus + select the whole name so a customer can
+  // immediately retype without first clearing it.
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  // Keep the draft in sync if the layer's name changes externally
+  // (e.g. an Undo while we're editing).
+  useEffect(() => {
+    if (!editing) setDraftName(layer.name);
+  }, [layer.name, editing]);
+
+  const commitName = () => {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== layer.name) {
+      updateLayer(layer.id, { name: trimmed });
+    } else {
+      setDraftName(layer.name);
+    }
+    setEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setDraftName(layer.name);
+    setEditing(false);
+  };
+
   const {
     attributes,
     listeners,
@@ -255,15 +290,52 @@ function SortableLayerRow({
       <span className="material-icons text-base text-muted-foreground">
         {typeIcon}
       </span>
-      <span
-        className={`flex-1 text-sm truncate ${
-          layer.visible ? 'text-foreground' : 'text-muted-foreground line-through'
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          onBlur={commitName}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitName();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelEdit();
+            }
+            e.stopPropagation();
+          }}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Rename layer"
+          className="flex-1 text-sm px-1 py-0.5 rounded border border-border bg-background text-foreground focus:outline-none focus:border-primary"
+        />
+      ) : (
+        <span
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setEditing(true);
+          }}
+          title="Double-click to rename"
+          className={`flex-1 text-sm truncate cursor-text select-none ${
+            layer.visible ? 'text-foreground' : 'text-muted-foreground line-through'
+          }`}
+        >
+          {layer.name}
+        </span>
+      )}
+
+      {/* Action buttons are removed from layout (not just faded) until the
+          row is hovered/focused, so the layer name has room to display
+          renamed strings like "My Cool Star Front" without being clipped. */}
+      <div
+        className={`items-center gap-0.5 ${
+          active || selected
+            ? 'flex'
+            : 'hidden group-hover:flex group-focus-within:flex'
         }`}
       >
-        {layer.name}
-      </span>
-
-      <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
         <IconButton
           ariaLabel={layer.visible ? 'Hide layer' : 'Show layer'}
           onClick={onToggleVisibility}
