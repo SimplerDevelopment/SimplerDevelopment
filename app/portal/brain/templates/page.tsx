@@ -249,7 +249,7 @@ export default function BrainTemplatesPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <span className="material-icons text-primary">description</span>

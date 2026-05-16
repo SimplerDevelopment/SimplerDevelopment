@@ -196,7 +196,7 @@ export default function BrainConnectPage() {
 
       {/* Section A — Status */}
       <section className="rounded-md border border-border p-5 space-y-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <span className="material-icons text-base">power</span>
@@ -226,8 +226,8 @@ export default function BrainConnectPage() {
             No API keys with brain scopes yet. Generate one below to get started.
           </p>
         ) : (
-          <div className="rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-muted/50">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-medium">Name</th>
