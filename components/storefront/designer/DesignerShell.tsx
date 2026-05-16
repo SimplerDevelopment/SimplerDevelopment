@@ -35,8 +35,11 @@ interface DesignerShellProps {
   onCreate: (doc: DesignDoc) => Promise<{ id: string }>;
   /** Image uploader supplied by the parent — wires to the storefront API. */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
-  /** Attach the (saved) design to the cart. */
-  onAddToCart: (designId: string) => Promise<void>;
+  /**
+   * Attach the (saved) design to the cart. Receives the saved design id and
+   * the quantity picked from the toolbar.
+   */
+  onAddToCart: (designId: string, quantity: number) => Promise<void>;
   className?: string;
 }
 
@@ -80,6 +83,7 @@ export function DesignerShell({
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [quantity, setQuantity] = useState<number>(1);
 
   // Bootstrap store from props on mount.
   useEffect(() => {
@@ -139,7 +143,7 @@ export function DesignerShell({
         setStatusMessage('Please save your design before adding to cart.');
         return;
       }
-      await onAddToCart(id);
+      await onAddToCart(id, Math.max(1, Math.min(999, Math.floor(quantity) || 1)));
       setStatusMessage('Added to cart!');
     } catch (err) {
       setStatusMessage(
@@ -148,7 +152,7 @@ export function DesignerShell({
     } finally {
       setIsAddingToCart(false);
     }
-  }, [forceSave, onAddToCart]);
+  }, [forceSave, onAddToCart, quantity]);
 
   const currentSurface = useMemo(
     () => surfaces.find((s) => s.slug === activeSurface) || surfaces[0],
@@ -251,6 +255,38 @@ export function DesignerShell({
           <span className="material-icons text-base">save</span>
           Save
         </button>
+        <div className="flex items-center rounded-md border border-border bg-background overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            disabled={quantity <= 1}
+            aria-label="Decrease quantity"
+            className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-icons text-base">remove</span>
+          </button>
+          <input
+            type="number"
+            min={1}
+            max={999}
+            value={quantity}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setQuantity(Number.isNaN(v) ? 1 : Math.max(1, Math.min(999, v)));
+            }}
+            aria-label="Quantity"
+            className="w-12 text-center text-sm bg-transparent border-x border-border focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <button
+            type="button"
+            onClick={() => setQuantity((q) => Math.min(999, q + 1))}
+            disabled={quantity >= 999}
+            aria-label="Increase quantity"
+            className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-icons text-base">add</span>
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => void handleAddToCart()}

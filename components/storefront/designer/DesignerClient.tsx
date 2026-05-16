@@ -145,13 +145,13 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
   );
 
   const onAddToCart = useCallback(
-    async (designId: string, thumbnailDataUrl?: string): Promise<void> => {
+    async (designId: string, quantity: number = 1): Promise<void> => {
       try {
         // 1. Finalize the design (server snapshots a thumbnail if provided).
         await fetch(`/api/storefront/${siteId}/designs/${designId}/finalize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ thumbnail: thumbnailDataUrl, sessionId }),
+          body: JSON.stringify({ sessionId }),
         });
 
         // 2. Add the customized line to the cart.
@@ -161,7 +161,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
           body: JSON.stringify({
             sessionId,
             productId: product.id,
-            quantity: 1,
+            quantity: Math.max(1, Math.min(999, Math.floor(quantity) || 1)),
             designId,
           }),
         });
