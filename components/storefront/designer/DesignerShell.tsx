@@ -229,21 +229,23 @@ export function DesignerShell({
           type="button"
           onClick={togglePrintArea}
           aria-pressed={showPrintArea}
-          title={
+          aria-label={
             showPrintArea
               ? 'Hide print-area overlay'
               : 'Show print-area overlay'
           }
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
+          title={
+            showPrintArea
+              ? 'Print area shown — click to hide'
+              : 'Print area hidden — click to show'
+          }
+          className={`inline-flex items-center justify-center w-8 h-8 rounded-md border ${
             showPrintArea
               ? 'border-primary text-primary bg-primary/5 hover:bg-primary/10'
               : 'border-border text-foreground bg-background hover:bg-muted'
           }`}
         >
           <span className="material-icons text-base">crop_free</span>
-          <span className="hidden md:inline">
-            {showPrintArea ? 'Print area on' : 'Print area off'}
-          </span>
         </button>
 
         <div className="flex items-center gap-0.5">
