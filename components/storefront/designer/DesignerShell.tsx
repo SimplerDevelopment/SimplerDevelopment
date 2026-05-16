@@ -20,6 +20,7 @@ import DesignCanvas from './DesignCanvas';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
 import PreviewModal from './PreviewModal';
+import ProductColorPicker from './ProductColorPicker';
 import ShortcutsModal from './ShortcutsModal';
 import SurfaceSelector from './SurfaceSelector';
 
@@ -475,7 +476,10 @@ export function DesignerShell({
           }}
         >
           <div className="flex flex-col items-center gap-3">
-            {surfaces.length > 1 && <SurfaceSelector surfaces={surfaces} />}
+            <div className="flex items-center flex-wrap gap-3 justify-center">
+              {surfaces.length > 1 && <SurfaceSelector surfaces={surfaces} />}
+              <ProductColorPicker />
+            </div>
             {currentSurface ? (
               <DesignCanvas
                 key={currentSurface.slug}

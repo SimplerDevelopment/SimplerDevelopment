@@ -133,6 +133,8 @@ export interface DesignDoc {
   canvasSize: CanvasSize;
   status: DesignStatus;
   thumbnailUrl?: string | null;
+  /** Hex color applied as a multiply tint to the mockup, or null for none. */
+  mockupTint?: string | null;
 }
 
 export interface LayerSelection {
@@ -156,6 +158,8 @@ export interface ExportedDesignData {
   productId: number | null;
   layersBySurface: Record<string, LayerData[]>;
   canvasSize: CanvasSize;
+  /** Hex color tint applied to the mockup, or null when un-tinted. */
+  mockupTint?: string | null;
   exportedAt: string;
   version: string;
 }

@@ -84,6 +84,38 @@ export default function DesignCanvas({
   const layers = useCanvasStore(
     (s) => s.layersBySurface[surface.slug] ?? (EMPTY_LAYERS as LayerData[])
   );
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+
+  // Apply / clear a color tint on the mockup background so customers can
+  // preview their design on different shirt colors without separate mockup
+  // images. Uses Fabric's BlendColor filter in 'multiply' mode, which darkens
+  // a white mockup toward the chosen hex while preserving texture/shadows.
+  useEffect(() => {
+    const c = fabricRef.current;
+    if (!c || !isReady) return;
+    const bg = c.getObjects().find(
+      (o) => (o as unknown as { id?: string }).id === BACKGROUND_ID
+    ) as FabricImage | undefined;
+    if (!bg) return;
+    if (mockupTint) {
+      bg.filters = [
+        new fabricFilters.BlendColor({
+          color: mockupTint,
+          mode: 'multiply',
+          alpha: 1,
+        }),
+      ];
+    } else {
+      bg.filters = [];
+    }
+    try {
+      bg.applyFilters();
+      c.requestRenderAll();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to apply mockup tint:', err);
+    }
+  }, [mockupTint, isReady, surface.slug]);
 
   // Mobile gesture wiring.
   useMobileGestures({

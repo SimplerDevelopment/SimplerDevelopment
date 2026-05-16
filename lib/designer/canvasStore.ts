@@ -65,6 +65,23 @@ export interface CanvasStoreState {
   reorderLayer: (layerId: string, directionOrIndex: 'up' | 'down' | number) => void;
   clearLayers: () => void;
 
+  /**
+   * Copy every layer from the active surface to the given target surface
+   * (or to *every* other surface when targetSlug is omitted). Layers get
+   * fresh ids so subsequent edits don't fan out across surfaces. Replaces
+   * any existing layers on the target.
+   */
+  mirrorActiveSurfaceTo: (targetSlug?: string) => void;
+
+  /**
+   * Hex color the mockup background image is tinted with — simulates the
+   * customer picking a different shirt color (white / black / red / navy).
+   * `null` means no tint (use the mockup image as-is). DesignCanvas reacts
+   * to this and applies a Fabric BlendColor filter to the background.
+   */
+  mockupTint: string | null;
+  setMockupTint: (hex: string | null) => void;
+
   // Selection
   selectedLayers: FabricObject[];
   activeLayerId: string | null;
@@ -470,6 +487,44 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
     get().pushHistory({ action: 'clear' });
   },
 
+  mirrorActiveSurfaceTo: (targetSlug) => {
+    const state = get();
+    const currentSurface = state.activeSurface;
+    if (!currentSurface) return;
+    const sourceLayers = state.layersBySurface[currentSurface] || [];
+    if (sourceLayers.length === 0) return;
+
+    // Resolve targets: explicit single, or every other configured surface.
+    const targets: string[] = targetSlug
+      ? [targetSlug]
+      : state.surfaces
+          .map((s) => s.slug)
+          .filter((slug) => slug && slug !== currentSurface);
+    if (targets.length === 0) return;
+
+    const cloneLayer = (layer: LayerData): LayerData => ({
+      ...layer,
+      id: uuidv4(),
+      // Deep-clone data so mutating the original doesn't bleed into the copy.
+      data: JSON.parse(JSON.stringify(layer.data ?? {})),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const updated = { ...state.layersBySurface };
+    for (const slug of targets) {
+      updated[slug] = sourceLayers.map(cloneLayer);
+    }
+
+    set({
+      layersBySurface: updated,
+      layers: updated[currentSurface] || [],
+      isDirty: true,
+    });
+    // The history entry's surface is auto-stamped by pushHistory.
+    get().pushHistory({ action: 'batch' });
+  },
+
   // Selection
   selectedLayers: [],
   activeLayerId: null,
@@ -700,6 +755,9 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
   showPrintArea: true,
   setShowPrintArea: (visible) => set({ showPrintArea: visible }),
   togglePrintArea: () => set((s) => ({ showPrintArea: !s.showPrintArea })),
+
+  mockupTint: null,
+  setMockupTint: (hex) => set({ mockupTint: hex, isDirty: true }),
 
   // Pan / zoom
   zoom: INITIAL_ZOOM,
@@ -936,7 +994,14 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
       designName: state.designName,
       productId: state.productId,
       layersBySurface: state.layersBySurface,
-      canvasSize: state.canvasSize,
+      // canvasSize is the jsonb column the API stores; wedge mockupTint
+      // inside it so we don't need a schema change for the tint to survive
+      // autosave + reload. DesignCanvas + importCanvasData read it back out.
+      canvasSize: {
+        ...state.canvasSize,
+        mockupTint: state.mockupTint ?? null,
+      } as CanvasSize & { mockupTint: string | null },
+      mockupTint: state.mockupTint,
       exportedAt: new Date().toISOString(),
       version: '1.0',
     };
@@ -976,6 +1041,21 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
           ? data.canvasSize
           : state.canvasSize;
 
+      // mockupTint may live either as a top-level field or wedged inside
+      // canvasSize (where exportCanvasData stashes it so we don't need a
+      // dedicated DB column).
+      const cs = canvasSize as unknown as Record<string, unknown>;
+      const stashedTint =
+        cs && 'mockupTint' in cs
+          ? (cs.mockupTint as string | null | undefined)
+          : undefined;
+      const mockupTint =
+        'mockupTint' in data && typeof data.mockupTint !== 'undefined'
+          ? (data.mockupTint as string | null)
+          : typeof stashedTint !== 'undefined'
+            ? stashedTint
+            : state.mockupTint;
+
       set({
         designId,
         designName,
@@ -984,6 +1064,7 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
         layers: layersBySurface[activeSurface] || [],
         activeSurface,
         canvasSize,
+        mockupTint,
         isDirty: false,
       });
     }
