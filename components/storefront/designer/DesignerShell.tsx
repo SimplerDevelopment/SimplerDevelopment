@@ -23,9 +23,27 @@ import SurfaceSelector from './SurfaceSelector';
 
 type SidebarTab = 'add' | 'layers' | 'properties';
 
+// Format an integer-cent amount as a localized currency string. Falls back to
+// a plain "$N.NN" if the supplied currency code isn't recognized by Intl.
+function formatMoney(cents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(cents / 100);
+  } catch {
+    return `$${(cents / 100).toFixed(2)}`;
+  }
+}
+
 interface DesignerShellProps {
   productId: number;
   productName: string;
+  /** Base unit price in cents — used to show live "$N.NN × Q" in the toolbar. */
+  productPriceCents?: number;
+  /** ISO 4217 currency code. Defaults to USD. */
+  currency?: string;
   surfaces: DesignerSurface[];
   /** Optional existing in-progress design to bootstrap from. */
   initialDesign?: DesignDoc;
@@ -51,6 +69,8 @@ interface DesignerShellProps {
 export function DesignerShell({
   productId,
   productName,
+  productPriceCents,
+  currency = 'USD',
   surfaces,
   initialDesign,
   onSave,
@@ -287,6 +307,15 @@ export function DesignerShell({
             <span className="material-icons text-base">add</span>
           </button>
         </div>
+        {typeof productPriceCents === 'number' && productPriceCents > 0 && (
+          <div
+            className="text-sm font-semibold text-foreground tabular-nums"
+            aria-live="polite"
+            aria-label={`Total ${formatMoney(productPriceCents * quantity, currency)}`}
+          >
+            {formatMoney(productPriceCents * quantity, currency)}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => void handleAddToCart()}

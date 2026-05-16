@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { and, asc, eq } from 'drizzle-orm';
 import { getClientWebsiteByDomain } from '@/lib/actions/client-sites';
 import { db } from '@/lib/db';
-import { products, productDesignSurfaces } from '@/lib/db/schema';
+import { products, productDesignSurfaces, storeSettings } from '@/lib/db/schema';
 import { DesignerClient } from '@/components/storefront/designer/DesignerClient';
 
 // Designer pages are interactive — never cache.
@@ -57,11 +57,24 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
 
   // sessionId lives in localStorage on the storefront — the client wrapper
   // reads it and creates a draft design (or loads any existing draft).
+  // Storefront settings give us the currency for the price label.
+  const [store] = await db
+    .select({ currency: storeSettings.currency })
+    .from(storeSettings)
+    .where(eq(storeSettings.websiteId, site.id))
+    .limit(1);
+
   return (
     <DesignerClient
       siteId={site.id}
       domain={domain}
-      product={{ id: product.id, slug: product.slug, name: product.name }}
+      product={{
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        priceCents: product.price,
+        currency: store?.currency || 'USD',
+      }}
       surfaces={surfaces.map((s) => ({
         id: s.id,
         name: s.name,

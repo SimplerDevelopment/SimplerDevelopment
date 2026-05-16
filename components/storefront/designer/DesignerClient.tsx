@@ -11,7 +11,15 @@ import type { DesignDoc, DesignerSurface } from '@/lib/designer/types';
 interface DesignerClientProps {
   siteId: number;
   domain: string;
-  product: { id: number; slug: string; name: string };
+  product: {
+    id: number;
+    slug: string;
+    name: string;
+    /** Base price in cents — what's stored on the products row. */
+    priceCents?: number;
+    /** ISO 4217 code, e.g. "USD". Defaults to USD if not supplied. */
+    currency?: string;
+  };
   surfaces: DesignerSurface[];
   /**
    * Where to send the customer after a successful add-to-cart. The storefront
@@ -233,6 +241,8 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       <DesignerShell
         productId={product.id}
         productName={product.name}
+        productPriceCents={product.priceCents}
+        currency={product.currency}
         surfaces={surfaces}
         initialDesign={initialDesign}
         onCreate={onCreate}
