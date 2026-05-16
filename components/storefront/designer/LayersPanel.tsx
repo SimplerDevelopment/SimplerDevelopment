@@ -54,6 +54,15 @@ export default function LayersPanel({
   const toggleLayerSelection = useCanvasStore((s) => s.toggleLayerSelection);
   const reorderLayer = useCanvasStore((s) => s.reorderLayer);
   const reorderLayers = useCanvasStore((s) => s.reorderLayers);
+  const clearLayers = useCanvasStore((s) => s.clearLayers);
+
+  const handleClearAll = () => {
+    if (layers.length === 0) return;
+    const ok = typeof window !== 'undefined'
+      ? window.confirm(`Remove all ${layers.length} layer${layers.length === 1 ? '' : 's'} from this surface? This can be undone with Ctrl+Z.`)
+      : true;
+    if (ok) clearLayers();
+  };
 
   const sorted = useMemo(
     () => [...layers].sort((a, b) => b.zIndex - a.zIndex),
@@ -106,15 +115,28 @@ export default function LayersPanel({
     <div
       className={`bg-background border border-border rounded-md ${className}`}
     >
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-foreground">
           Layers <span className="text-muted-foreground">({sorted.length})</span>
         </h3>
-        {layerSelection.selectionMode === 'multiple' && (
-          <span className="text-xs text-muted-foreground">
-            {layerSelection.selectedLayerIds.length} selected
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {layerSelection.selectionMode === 'multiple' && (
+            <span className="text-xs text-muted-foreground">
+              {layerSelection.selectedLayerIds.length} selected
+            </span>
+          )}
+          {sorted.length >= 2 && (
+            <button
+              type="button"
+              onClick={handleClearAll}
+              title="Remove every layer on this surface"
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              <span className="material-icons text-sm">delete_sweep</span>
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {onShowAddLayerPanel && (

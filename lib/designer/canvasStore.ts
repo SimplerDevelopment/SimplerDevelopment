@@ -436,9 +436,27 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
     if (!currentSurface) return;
     const canvas = state.canvas;
     if (canvas) {
-      canvas.clear();
-      canvas.backgroundColor = '#ffffff';
-      canvas.renderAll();
+      // Only remove customer-added objects. canvas.clear() also wipes the
+      // mockup background image and the print-area overlay, which makes the
+      // empty surface look broken; iterate and skip anything tagged as
+      // non-user content (BACKGROUND_ID, _designerPrintArea, snap guides).
+      const toRemove = canvas.getObjects().filter((obj) => {
+        const tagged = obj as unknown as {
+          id?: string;
+          data?: { id?: string };
+          _designerPrintArea?: boolean;
+          _designerGuide?: boolean;
+          excludeFromExport?: boolean;
+        };
+        if (tagged._designerPrintArea) return false;
+        if (tagged._designerGuide) return false;
+        if (tagged.excludeFromExport) return false;
+        if (tagged.id === 'designer-canvas-background') return false;
+        return Boolean(tagged.data?.id);
+      });
+      toRemove.forEach((obj) => canvas.remove(obj));
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
     }
     const updated = { ...state.layersBySurface, [currentSurface]: [] };
     set({
