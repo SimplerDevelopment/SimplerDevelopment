@@ -9,6 +9,7 @@ export default function WebsiteSettingsForm({
   initialDescription,
   subdomain,
   initialPublicAccess = false,
+  initialPreviewCode = null,
   isAdmin = false,
 }: {
   siteId: number;
@@ -16,6 +17,7 @@ export default function WebsiteSettingsForm({
   initialDescription: string;
   subdomain?: string;
   initialPublicAccess?: boolean;
+  initialPreviewCode?: string | null;
   isAdmin?: boolean;
 }) {
   const router = useRouter();
@@ -23,10 +25,32 @@ export default function WebsiteSettingsForm({
   const [description, setDescription] = useState(initialDescription);
   const [sub, setSub] = useState(subdomain || '');
   const [publicAccess, setPublicAccess] = useState(initialPublicAccess);
+  const [previewCode, setPreviewCode] = useState(initialPreviewCode || '');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
-  const dirty = name !== initialName || description !== initialDescription || sub !== (subdomain || '') || publicAccess !== initialPublicAccess;
+  const normalizedInitialPreviewCode = initialPreviewCode || '';
+  const dirty =
+    name !== initialName ||
+    description !== initialDescription ||
+    sub !== (subdomain || '') ||
+    publicAccess !== initialPublicAccess ||
+    previewCode !== normalizedInitialPreviewCode;
+
+  const handlePreviewCodeChange = (val: string) => {
+    setPreviewCode(val.toUpperCase().replace(/\s+/g, '').slice(0, 64));
+  };
+
+  const generatePreviewCode = () => {
+    // 8-char base32-ish code (no I/O/0/1 to avoid ambiguity) grouped 4-4
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    for (let i = 0; i < 8; i++) {
+      out += alphabet[Math.floor(Math.random() * alphabet.length)];
+      if (i === 3) out += '-';
+    }
+    setPreviewCode(out);
+  };
 
   const handleSubChange = (val: string) => {
     setSub(val.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 63));
@@ -40,7 +64,13 @@ export default function WebsiteSettingsForm({
       const res = await fetch(`/api/portal/cms/websites/${siteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim(), subdomain: sub.trim() || null, publicAccess }),
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          subdomain: sub.trim() || null,
+          publicAccess,
+          previewCode: previewCode.trim() || null,
+        }),
       });
       const json = await res.json();
       if (json.success) {
@@ -117,6 +147,34 @@ export default function WebsiteSettingsForm({
         >
           <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${publicAccess ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
+      </div>
+
+      {/* Preview Access Code */}
+      <div className="py-3 border-t border-border space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <label className="block text-sm font-medium text-foreground">Preview access code</label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Optional. Share this code with stakeholders so they can preview the site at{' '}
+              <span className="font-mono">simplerdevelopment.com</span> while it&apos;s still gated.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={generatePreviewCode}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-muted/50 transition-colors"
+          >
+            <span className="material-icons text-sm">refresh</span>
+            Generate
+          </button>
+        </div>
+        <input
+          value={previewCode}
+          onChange={e => handlePreviewCodeChange(e.target.value)}
+          placeholder="ACME-2026"
+          autoComplete="off"
+          className="w-full px-3 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:border-primary text-sm font-mono uppercase tracking-wider"
+        />
       </div>
 
       <div className="flex items-center gap-3">

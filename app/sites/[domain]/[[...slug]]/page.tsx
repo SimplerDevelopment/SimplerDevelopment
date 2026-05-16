@@ -9,8 +9,11 @@ import { ShopPage } from '@/components/storefront/ShopPage';
 import { getBrandingByWebsiteId } from '@/lib/branding';
 import { auth } from '@/lib/auth';
 import { verifyPreviewToken } from '@/lib/preview-token';
+import { unlockCookieName, verifyUnlockCookieValue } from '@/lib/preview-unlock';
+import { cookies } from 'next/headers';
 import { applyAbToPostContent } from '@/lib/ab/render';
 import { AbGoalTracker } from '@/components/blocks/AbGoalTracker';
+import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -121,15 +124,23 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
   }
 
   // Gate non-public sites: block public visitors, allow preview/edit access
+  // or visitors who unlocked the site with its preview code.
   if (!site.publicAccess && !preview) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md px-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-3">{site.name}</h1>
-          <p className="text-gray-500">This site is not yet available to the public.</p>
+    const cookieStore = await cookies();
+    const unlockedCookie = cookieStore.get(unlockCookieName(site.id))?.value;
+    if (!verifyUnlockCookieValue(site.id, unlockedCookie)) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 py-12">
+          <div className="w-full max-w-md text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">{site.name}</h1>
+            <p className="text-gray-500 mb-8">This site is not yet available to the public.</p>
+            <div className="text-left bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <AccessCodeForm />
+            </div>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   const pageSlug = slug?.join('/');
