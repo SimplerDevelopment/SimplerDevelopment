@@ -35,6 +35,11 @@ type FabricEventHandler<T = any> = (opt: T) => void;
 // Background image id used to keep the mockup pinned to the bottom of the stack.
 const BACKGROUND_ID = 'designer-canvas-background';
 
+// Stable empty array — Zustand selectors that fall back to `[]` MUST reuse the
+// same reference, otherwise React 19 fires "getSnapshot should be cached to
+// avoid an infinite loop" and our save-loop reactivity breaks.
+const EMPTY_LAYERS: readonly LayerData[] = Object.freeze([]);
+
 export default function DesignCanvas({
   surface,
   productId,
@@ -53,8 +58,8 @@ export default function DesignCanvas({
   const zoom = useCanvasStore((s) => s.zoom);
   const setZoom = useCanvasStore((s) => s.setZoom);
   const setPan = useCanvasStore((s) => s.setPan);
-  const layers = useCanvasStore((s) =>
-    s.layersBySurface[surface.slug] || []
+  const layers = useCanvasStore(
+    (s) => s.layersBySurface[surface.slug] ?? (EMPTY_LAYERS as LayerData[])
   );
 
   // Mobile gesture wiring.

@@ -178,7 +178,7 @@ export function DesignerClient({ siteId, product, surfaces }: DesignerClientProp
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full">
+    <div className="h-screen w-full">
       {error && (
         <div className="fixed top-4 right-4 z-50 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 shadow-lg">
           <span className="material-icons text-base">error</span>
