@@ -69,6 +69,7 @@ interface Product {
   variants: ProductVariant[];
   bulkPricing: BulkPricingRule[];
   category: ProductCategory | null;
+  designable?: boolean;
 }
 
 interface ProductPageProps {
@@ -479,10 +480,24 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
               </div>
             </div>
 
+            {product.designable && (
+              <Link
+                href={`/design/${product.slug}?siteId=${siteId}`}
+                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary text-primary-foreground text-lg font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                <span className="material-icons text-xl">brush</span>
+                Customize this product
+              </Link>
+            )}
+
             <button
               onClick={addToCart}
               disabled={!inStock || addingToCart || (product.variants.length > 0 && !matchedVariant)}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary text-primary-foreground text-lg font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`w-full flex items-center justify-center gap-3 px-6 py-4 ${
+                product.designable
+                  ? 'bg-background text-foreground border-2 border-primary hover:bg-primary/5'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              } text-lg font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {addingToCart ? (
                 <>
@@ -496,7 +511,7 @@ export function ProductPage({ siteId, productSlug }: ProductPageProps) {
               ) : (
                 <>
                   <span className="material-icons text-xl">shopping_cart</span>
-                  Add to Cart — {formatPrice(effectivePrice * quantity)}
+                  {product.designable ? 'Buy as-is' : 'Add to Cart'} — {formatPrice(effectivePrice * quantity)}
                 </>
               )}
             </button>

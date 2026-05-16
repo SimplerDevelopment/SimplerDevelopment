@@ -12,6 +12,16 @@ interface OrderItem {
   quantity: number;
   unitPriceCents: number;
   totalCents: number;
+  // Original column on order_items.designId — present when the customer
+  // attached a saved design at checkout. May be set even when `design`
+  // below is null (the design row was deleted after the order shipped).
+  designId?: number | null;
+  design?: {
+    id: number;
+    uuid: string | null;
+    name: string | null;
+    thumbnailUrl: string | null;
+  } | null;
 }
 
 interface Address {
@@ -369,8 +379,33 @@ export default function OrderDetailPage() {
               {order.items.map((item) => (
                 <tr key={item.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">{item.productName}</p>
-                    {item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}</p>}
+                    <div className="flex items-start gap-3">
+                      {item.design?.thumbnailUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.design.thumbnailUrl}
+                          alt={item.design.name || 'Custom design'}
+                          className="w-12 h-12 rounded border border-border object-cover bg-white flex-shrink-0"
+                        />
+                      ) : item.design ? (
+                        <div className="w-12 h-12 rounded border border-border bg-muted/20 flex items-center justify-center flex-shrink-0">
+                          <span className="material-icons text-muted-foreground/40 text-base">brush</span>
+                        </div>
+                      ) : null}
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{item.productName}</p>
+                        {item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}</p>}
+                        {item.design ? (
+                          <p className="text-xs italic text-muted-foreground mt-0.5">
+                            Custom design: {item.design.name || 'Untitled design'}
+                          </p>
+                        ) : item.designId ? (
+                          <p className="text-xs italic text-muted-foreground/70 mt-0.5">
+                            Design no longer available
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{item.sku || '--'}</td>
                   <td className="px-4 py-3 text-foreground text-right">{item.quantity}</td>

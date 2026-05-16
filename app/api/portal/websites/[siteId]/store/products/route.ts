@@ -111,7 +111,7 @@ export async function POST(
   const {
     name, slug, description, shortDescription, price, compareAtPrice, costPrice,
     sku, barcode, trackInventory, quantity, weight, weightUnit, status,
-    featured, categoryId, tags, seoTitle, seoDescription, images,
+    featured, designable, categoryId, tags, seoTitle, seoDescription, images,
   } = body;
 
   if (!name || !slug || price === undefined) {
@@ -169,6 +169,7 @@ export async function POST(
       weightUnit: weightUnit || 'g',
       status: status || 'draft',
       featured: featured ?? false,
+      designable: designable ?? false,
       categoryId: categoryId ? parseInt(String(categoryId)) : null,
       tags: tags || [],
       seoTitle: seoTitle || null,

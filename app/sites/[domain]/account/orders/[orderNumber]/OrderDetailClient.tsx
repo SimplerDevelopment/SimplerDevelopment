@@ -14,6 +14,13 @@ interface OrderItem {
   unitPrice: number;
   total: number;
   imageUrl?: string;
+  designId?: number | null;
+  design?: {
+    id: number;
+    uuid: string | null;
+    name: string | null;
+    thumbnailUrl: string | null;
+  } | null;
 }
 
 interface Address {
@@ -169,28 +176,41 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
                     <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Items</h2>
                   </div>
                   <div className="divide-y divide-gray-200">
-                    {items.map(item => (
-                      <div key={item.id} className="flex items-center gap-4 px-5 py-4">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.productName} className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
-                        ) : (
-                          <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <span className="material-icons text-gray-300" style={{ fontSize: '24px' }}>image</span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{item.productName}</p>
-                          {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
-                          <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{formatCurrency(item.total)}</p>
-                          {item.quantity > 1 && (
-                            <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
+                    {items.map(item => {
+                      // Prefer the customer's design thumbnail over the
+                      // generic product photo when this line was a
+                      // custom-designed item — that's the version the
+                      // customer ordered and the version we shipped.
+                      const thumb = item.design?.thumbnailUrl || item.imageUrl;
+                      return (
+                        <div key={item.id} className="flex items-center gap-4 px-5 py-4">
+                          {thumb ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={thumb} alt={item.productName} className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+                          ) : (
+                            <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <span className="material-icons text-gray-300" style={{ fontSize: '24px' }}>image</span>
+                            </div>
                           )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{item.productName}</p>
+                            {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
+                            {item.design ? (
+                              <p className="text-xs italic text-gray-500">Custom: {item.design.name || 'Untitled design'}</p>
+                            ) : item.designId ? (
+                              <p className="text-xs italic text-gray-400">Design no longer available</p>
+                            ) : null}
+                            <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">{formatCurrency(item.total)}</p>
+                            {item.quantity > 1 && (
+                              <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   {/* Totals */}
                   <div className="border-t border-gray-200 px-5 py-4 space-y-2">
