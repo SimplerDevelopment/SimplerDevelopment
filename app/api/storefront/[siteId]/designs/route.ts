@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { storeSettings, products, designs } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { validateSession } from '@/lib/storefront/customer-auth';
 
 async function verifyStore(websiteId: number) {
@@ -9,6 +9,70 @@ async function verifyStore(websiteId: number) {
     .where(and(eq(storeSettings.websiteId, websiteId), eq(storeSettings.enabled, true)))
     .limit(1);
   return store;
+}
+
+// Look up existing designs for a session / customer + optional filters. Used
+// by DesignerClient to restore an in-progress draft when a customer returns
+// to the designer page. Returns [] (not 404) when no match — the client
+// expects { success: true, data: [...] } and handles an empty list.
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ siteId: string }> }
+) {
+  try {
+    const { siteId } = await params;
+    const websiteId = parseInt(siteId, 10);
+    if (isNaN(websiteId)) {
+      return NextResponse.json({ success: false, message: 'Invalid site ID' }, { status: 400 });
+    }
+
+    const store = await verifyStore(websiteId);
+    if (!store) {
+      return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
+    }
+
+    const url = new URL(req.url);
+    const qSessionId = url.searchParams.get('sessionId');
+    const qCustomerToken = url.searchParams.get('customerToken');
+    const qProductId = url.searchParams.get('productId');
+    const qStatus = url.searchParams.get('status'); // draft|finalized|rendered
+
+    // Ownership filter: either sessionId or customerToken must scope the
+    // query — we never return another visitor's designs.
+    const conditions = [eq(designs.websiteId, websiteId)];
+    if (qCustomerToken) {
+      const customerSession = await validateSession(qCustomerToken);
+      if (!customerSession || customerSession.websiteId !== websiteId) {
+        return NextResponse.json({ success: false, message: 'Invalid customer token' }, { status: 401 });
+      }
+      conditions.push(eq(designs.customerId, customerSession.customerId));
+    } else if (qSessionId) {
+      conditions.push(eq(designs.sessionId, qSessionId));
+    } else {
+      return NextResponse.json(
+        { success: false, message: 'sessionId or customerToken is required' },
+        { status: 400 },
+      );
+    }
+    if (qProductId) {
+      const pid = parseInt(qProductId, 10);
+      if (!isNaN(pid)) conditions.push(eq(designs.productId, pid));
+    }
+    if (qStatus && ['draft', 'finalized', 'rendered'].includes(qStatus)) {
+      conditions.push(eq(designs.status, qStatus));
+    }
+
+    const rows = await db.select()
+      .from(designs)
+      .where(and(...conditions))
+      .orderBy(desc(designs.updatedAt))
+      .limit(20);
+
+    return NextResponse.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Storefront designs GET error:', err);
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(
