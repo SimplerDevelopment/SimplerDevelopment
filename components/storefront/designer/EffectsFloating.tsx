@@ -48,6 +48,9 @@ export default function EffectsFloating() {
   const [shadowEnabled, setShadowEnabled] = useState(false);
   const [shadowColor, setShadowColor] = useState('#000000');
   const [shadowOffsetX, setShadowOffsetX] = useState(2);
+  // Collapsed = chip-only at bottom-right. Expanded = full panel. Persist so
+  // the customer's preference survives selection changes during one session.
+  const [collapsed, setCollapsed] = useState(false);
   const [shadowOffsetY, setShadowOffsetY] = useState(2);
   const [shadowBlur, setShadowBlur] = useState(4);
 
@@ -107,15 +110,41 @@ export default function EffectsFloating() {
 
   if (!isSingleTextSelection || !fabricObj) return null;
 
+  // Collapsed: a single chip the customer can click to expand the full panel.
+  // Keeps the canvas centre unobstructed when the panel isn't actively in use.
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsed(false)}
+        className="fixed bottom-20 right-4 z-30 inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 shadow-md text-xs text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-900"
+        aria-label="Show text effects"
+      >
+        <span className="material-icons text-sm">auto_fix_high</span>
+        Effects
+      </button>
+    );
+  }
+
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg p-3 flex flex-col gap-3 text-xs text-neutral-700 dark:text-neutral-200 min-w-[420px]"
+      className="fixed bottom-20 right-4 z-30 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg p-3 flex flex-col gap-3 text-xs text-neutral-700 dark:text-neutral-200 w-[360px]"
       role="region"
       aria-label="Text effects"
     >
-      <div className="flex items-center gap-1 font-medium text-neutral-900 dark:text-neutral-100">
-        <span className="material-icons text-sm">auto_fix_high</span>
-        Effects
+      <div className="flex items-center justify-between gap-1 font-medium text-neutral-900 dark:text-neutral-100">
+        <span className="flex items-center gap-1">
+          <span className="material-icons text-sm">auto_fix_high</span>
+          Effects
+        </span>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          aria-label="Collapse effects"
+          className="p-0.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+        >
+          <span className="material-icons text-base">close_fullscreen</span>
+        </button>
       </div>
 
       {/* Outline row */}
