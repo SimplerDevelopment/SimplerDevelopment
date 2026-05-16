@@ -251,7 +251,8 @@ export default function WebhookConsole({ rows }: { rows: UnifiedWebhookRow[] }) 
       {/* Rows */}
       {filtered.length > 0 && (
         <div className="border border-border rounded-xl bg-card overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-muted/40">
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Source</th>
@@ -287,6 +288,7 @@ export default function WebhookConsole({ rows }: { rows: UnifiedWebhookRow[] }) 
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

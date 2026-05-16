@@ -300,8 +300,9 @@ export default function McpApiKeysManager({
         </div>
       )}
 
-      <div className="rounded-md border border-border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-md border border-border">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
               <th className="px-3 py-2 font-medium">Name</th>
@@ -367,6 +368,7 @@ export default function McpApiKeysManager({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

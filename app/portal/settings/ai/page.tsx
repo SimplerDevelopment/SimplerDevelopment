@@ -150,7 +150,7 @@ export default function AISettingsPage() {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4">
           <span className="material-icons text-lg text-blue-500">mail</span>
           <p className="mt-2 text-xl font-bold text-foreground">{emailCount}</p>
@@ -175,7 +175,7 @@ export default function AISettingsPage() {
 
       {/* Token Receipts */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="material-icons text-base text-primary">receipt_long</span>
             <h2 className="text-sm font-semibold text-foreground">Token Receipts</h2>
@@ -288,7 +288,7 @@ export default function AISettingsPage() {
 
       {/* Request Log */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Request Log</h2>
           <div className="flex items-center gap-1 bg-accent rounded-lg p-0.5">
             {([
