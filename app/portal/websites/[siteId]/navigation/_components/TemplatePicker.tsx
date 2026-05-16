@@ -37,7 +37,7 @@ export function TemplatePicker({ branding, onSelectTemplate }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[340px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-[340px] bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
           <div className="px-3 py-2 border-b border-border">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Navigation Template

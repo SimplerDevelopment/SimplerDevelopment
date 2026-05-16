@@ -27,7 +27,7 @@ export function ColorsTab({ profile, update, updateDark }: Props) {
         <PaletteFromImage onApply={(roles) => update(roles)} />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {(
           [
             { key: 'primaryColor', label: 'Primary', desc: 'Buttons, links, accents' },
@@ -69,7 +69,7 @@ export function ColorsTab({ profile, update, updateDark }: Props) {
         <p className="text-xs text-muted-foreground mb-4">
           Colors used when the site is in dark mode. Falls back to light values if not set.
         </p>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(
             [
               { key: 'primaryColor' as const, label: 'Primary' },

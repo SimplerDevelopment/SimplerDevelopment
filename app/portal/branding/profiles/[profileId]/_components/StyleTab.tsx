@@ -22,7 +22,7 @@ export function StyleTab({ profile, update }: Props) {
         <p className="text-sm text-muted-foreground mb-4">
           Global shape language applied to cards, inputs, and UI elements. Button radius is configured separately.
         </p>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { value: '0px', label: 'Sharp' },
             { value: '4px', label: 'Subtle' },
