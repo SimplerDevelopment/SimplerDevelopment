@@ -242,6 +242,8 @@ export function DesignerShell({
           type="text"
           value={designName}
           onChange={(e) => setDesignName(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          placeholder={`${productName} design`}
           className="flex-1 max-w-md px-2 py-1 text-sm font-medium rounded-md border border-transparent hover:border-border focus:border-border focus:bg-background bg-transparent text-foreground"
           aria-label="Design name"
         />

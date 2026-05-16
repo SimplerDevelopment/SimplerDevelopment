@@ -55,6 +55,7 @@ export default function LayersPanel({
   const reorderLayer = useCanvasStore((s) => s.reorderLayer);
   const reorderLayers = useCanvasStore((s) => s.reorderLayers);
   const clearLayers = useCanvasStore((s) => s.clearLayers);
+  const [filter, setFilter] = useState('');
 
   const handleClearAll = () => {
     if (layers.length === 0) return;
@@ -69,7 +70,18 @@ export default function LayersPanel({
     [layers]
   );
 
-  const sortedIds = useMemo(() => sorted.map((l) => l.id), [sorted]);
+  // Filter is applied AFTER sorting so the visible order matches the canvas
+  // z-order. Comparison is case-insensitive and also matches the layer type
+  // ("text", "icon", "image") so customers can type "image" to narrow.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((l) =>
+      l.name.toLowerCase().includes(q) || l.type.toLowerCase().includes(q)
+    );
+  }, [sorted, filter]);
+
+  const sortedIds = useMemo(() => filtered.map((l) => l.id), [filtered]);
 
   // Distance activation lets simple clicks on the handle still pass through
   // to selection logic without immediately starting a drag.
@@ -152,6 +164,36 @@ export default function LayersPanel({
         </div>
       )}
 
+      {/* Filter input — only shown when there are enough layers that
+          scrolling/scanning becomes friction. */}
+      {sorted.length >= 6 && (
+        <div className="px-2 pt-2">
+          <div className="relative">
+            <span className="material-icons text-sm text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+              search
+            </span>
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter layers"
+              aria-label="Filter layers"
+              className="w-full pl-7 pr-7 py-1 text-sm rounded-md border border-border bg-background focus:outline-none focus:border-primary"
+            />
+            {filter && (
+              <button
+                type="button"
+                onClick={() => setFilter('')}
+                aria-label="Clear filter"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground"
+              >
+                <span className="material-icons text-sm">close</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="max-h-96 overflow-y-auto p-2 space-y-1">
         {sorted.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
@@ -160,6 +202,11 @@ export default function LayersPanel({
             </span>
             <p className="text-sm">No layers yet</p>
             <p className="text-xs mt-1">Add content to get started</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center text-muted-foreground py-6 text-xs">
+            <span className="material-icons text-2xl mb-1 block">search_off</span>
+            No layers match &ldquo;{filter}&rdquo;
           </div>
         ) : (
           <DndContext
@@ -171,7 +218,7 @@ export default function LayersPanel({
               items={sortedIds}
               strategy={verticalListSortingStrategy}
             >
-              {sorted.map((layer) => (
+              {filtered.map((layer) => (
                 <SortableLayerRow
                   key={layer.id}
                   layer={layer}

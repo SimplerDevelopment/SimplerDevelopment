@@ -154,6 +154,7 @@ function GeneralProperties({
   updateLayer: (id: string, updates: Partial<LayerData>) => void;
 }) {
   const [props, setProps] = useState<GeneralPropertiesState>(DEFAULT_PROPS);
+  const [lockAspect, setLockAspect] = useState(true);
 
   useEffect(() => {
     if (!primaryObject) return;
@@ -223,7 +224,14 @@ function GeneralProperties({
           min={0.1}
           max={10}
           value={Number(props.scaleX.toFixed(2))}
-          onChange={(v) => handleChange('scaleX', v)}
+          onChange={(v) => {
+            if (lockAspect) {
+              handleChange('scaleX', v);
+              handleChange('scaleY', v);
+            } else {
+              handleChange('scaleX', v);
+            }
+          }}
         />
         <NumberField
           label="Y"
@@ -231,14 +239,47 @@ function GeneralProperties({
           min={0.1}
           max={10}
           value={Number(props.scaleY.toFixed(2))}
-          onChange={(v) => handleChange('scaleY', v)}
+          onChange={(v) => {
+            if (lockAspect) {
+              handleChange('scaleX', v);
+              handleChange('scaleY', v);
+            } else {
+              handleChange('scaleY', v);
+            }
+          }}
         />
+        <button
+          type="button"
+          onClick={() => setLockAspect((v) => !v)}
+          aria-pressed={lockAspect}
+          aria-label={lockAspect ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
+          title={lockAspect ? 'Aspect ratio locked' : 'Lock aspect ratio'}
+          className={`p-1 rounded ${
+            lockAspect
+              ? 'text-primary bg-primary/10'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          }`}
+        >
+          <span className="material-icons text-base">
+            {lockAspect ? 'link' : 'link_off'}
+          </span>
+        </button>
       </FieldRow>
 
       <div>
-        <label className="block text-xs font-medium text-foreground mb-1">
-          Rotation: {props.angle}°
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-foreground">
+            Rotation
+          </label>
+          <NumberField
+            label="°"
+            step={1}
+            min={0}
+            max={359}
+            value={props.angle}
+            onChange={(v) => handleChange('angle', ((v % 360) + 360) % 360)}
+          />
+        </div>
         <input
           type="range"
           min={0}
