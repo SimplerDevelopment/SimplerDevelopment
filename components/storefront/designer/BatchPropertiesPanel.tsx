@@ -4,6 +4,8 @@ import React, { useCallback, useMemo, useState } from 'react';
 
 import type { BatchUpdateData, LayerType } from '@/lib/designer/types';
 
+import ColorPicker from './ColorPicker';
+
 interface BatchPropertiesPanelProps {
   selectedLayerIds: string[];
   onBatchUpdate: (updates: BatchUpdateData) => void;
@@ -101,28 +103,13 @@ export default function BatchPropertiesPanel({
             <span className="material-icons text-sm">palette</span>
             Color
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => {
-                setColor(e.target.value);
-                applyUpdate({ color: e.target.value });
-              }}
-              className="w-12 h-8 rounded-md border border-border cursor-pointer"
-            />
-            <input
-              type="text"
-              value={color}
-              onChange={(e) => {
-                const v = e.target.value;
-                setColor(v);
-                if (/^#[0-9A-F]{6}$/i.test(v)) applyUpdate({ color: v });
-              }}
-              className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
-              placeholder="#000000"
-            />
-          </div>
+          <ColorPicker
+            value={color}
+            onChange={(hex) => {
+              setColor(hex);
+              applyUpdate({ color: hex });
+            }}
+          />
         </div>
       )}
 

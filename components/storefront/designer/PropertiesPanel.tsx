@@ -1,16 +1,21 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import type { FabricObject } from 'fabric';
+import { filters as fabricFilters } from 'fabric';
+import type { FabricImage, FabricObject } from 'fabric';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import type {
   IconLayerData,
+  ImageFiltersData,
+  ImageLayerData,
   LayerData,
   TextLayerData,
 } from '@/lib/designer/types';
 
 import BatchPropertiesPanel from './BatchPropertiesPanel';
+import ColorPicker from './ColorPicker';
+import FontPicker from './FontPicker';
 
 interface PropertiesPanelProps {
   className?: string;
@@ -128,6 +133,9 @@ export default function PropertiesPanel({ className = '' }: PropertiesPanelProps
         )}
         {primaryLayer?.type === 'icon' && (
           <IconProperties layer={primaryLayer} updateLayer={updateLayer} />
+        )}
+        {primaryLayer?.type === 'image' && (
+          <ImageProperties layer={primaryLayer} updateLayer={updateLayer} />
         )}
       </div>
     </div>
@@ -306,34 +314,36 @@ function TextProperties({
           className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
         />
       </div>
-      <FieldRow label="Font">
-        <input
-          type="text"
-          value={data.fontFamily || ''}
-          onChange={(e) => patch({ fontFamily: e.target.value })}
-          placeholder="Arial"
-          className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
-        />
-        <NumberField
-          label="px"
-          value={data.fontSize ?? 24}
-          onChange={(v) => patch({ fontSize: v })}
-        />
-      </FieldRow>
-      <FieldRow label="Color">
-        <input
-          type="color"
-          value={(data.fill || data.color || '#000000') as string}
-          onChange={(e) => patch({ fill: e.target.value, color: e.target.value })}
-          className="w-10 h-8 rounded-md border border-border cursor-pointer"
-        />
-        <input
-          type="text"
-          value={(data.fill || data.color || '#000000') as string}
-          onChange={(e) => patch({ fill: e.target.value, color: e.target.value })}
-          className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
-        />
-      </FieldRow>
+      <div>
+        <label className="block text-xs font-medium text-foreground mb-1">
+          Font
+        </label>
+        <div className="flex items-center gap-2">
+          <FontPicker
+            className="flex-1"
+            value={data.fontFamily || ''}
+            onChange={(family) =>
+              patch({
+                fontFamily: family,
+                fontSource: 'google',
+                googleFont: { family },
+              })
+            }
+          />
+          <div className="w-20">
+            <NumberField
+              label="px"
+              value={data.fontSize ?? 24}
+              onChange={(v) => patch({ fontSize: v })}
+            />
+          </div>
+        </div>
+      </div>
+      <ColorPicker
+        label="Color"
+        value={(data.fill || data.color || '#000000') as string}
+        onChange={(hex) => patch({ fill: hex, color: hex })}
+      />
     </div>
   );
 }
@@ -361,19 +371,164 @@ function IconProperties({
           className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
         />
       </FieldRow>
-      <FieldRow label="Color">
-        <input
-          type="color"
-          value={(data.fill || data.color || '#000000') as string}
-          onChange={(e) => patch({ fill: e.target.value, color: e.target.value })}
-          className="w-10 h-8 rounded-md border border-border cursor-pointer"
-        />
+      <ColorPicker
+        label="Color"
+        value={(data.fill || data.color || '#000000') as string}
+        onChange={(hex) => patch({ fill: hex, color: hex })}
+      />
+      <FieldRow label="Size">
         <NumberField
           label="px"
           value={data.size ?? 48}
           onChange={(v) => patch({ size: v })}
         />
       </FieldRow>
+    </div>
+  );
+}
+
+const DEFAULT_IMAGE_FILTERS: ImageFiltersData = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  blur: 0,
+};
+
+function ImageProperties({
+  layer,
+  updateLayer,
+}: {
+  layer: LayerData;
+  updateLayer: (id: string, updates: Partial<LayerData>) => void;
+}) {
+  const data = (layer.data || {}) as ImageLayerData;
+  const canvas = useCanvasStore((s) => s.canvas);
+
+  // Local state lets sliders feel responsive even as we re-apply filters on
+  // the underlying Fabric image. Sync from layer.data when the active layer
+  // changes.
+  const [vals, setVals] = useState<ImageFiltersData>(
+    data.filters ?? DEFAULT_IMAGE_FILTERS
+  );
+
+  useEffect(() => {
+    setVals(data.filters ?? DEFAULT_IMAGE_FILTERS);
+    // We only want to reset when switching to a different layer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layer.id]);
+
+  const applyToCanvas = (next: ImageFiltersData) => {
+    if (!canvas) return;
+    const obj = canvas.getObjects().find((o) => {
+      const id =
+        (o as unknown as { data?: { id?: string } }).data?.id ||
+        (o as unknown as { id?: string }).id;
+      return id === layer.id;
+    }) as FabricImage | undefined;
+    if (!obj) return;
+    obj.filters = [
+      new fabricFilters.Brightness({ brightness: next.brightness }),
+      new fabricFilters.Contrast({ contrast: next.contrast }),
+      new fabricFilters.Saturation({ saturation: next.saturation }),
+      new fabricFilters.Blur({ blur: next.blur }),
+    ];
+    obj.applyFilters();
+    canvas.requestRenderAll();
+  };
+
+  const update = (next: ImageFiltersData) => {
+    setVals(next);
+    applyToCanvas(next);
+    updateLayer(layer.id, {
+      data: { ...data, filters: next } as Partial<ImageLayerData>,
+    } as Partial<LayerData>);
+  };
+
+  const reset = () => update(DEFAULT_IMAGE_FILTERS);
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-foreground inline-flex items-center gap-1">
+          <span className="material-icons text-sm">auto_fix_high</span>
+          Filters
+        </span>
+        <button
+          type="button"
+          onClick={reset}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <span className="material-icons text-sm">refresh</span>
+          Reset
+        </button>
+      </div>
+
+      <FilterSlider
+        label="Brightness"
+        value={vals.brightness}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, brightness: v })}
+      />
+      <FilterSlider
+        label="Contrast"
+        value={vals.contrast}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, contrast: v })}
+      />
+      <FilterSlider
+        label="Saturation"
+        value={vals.saturation}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, saturation: v })}
+      />
+      <FilterSlider
+        label="Blur"
+        value={vals.blur}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ ...vals, blur: v })}
+      />
+    </div>
+  );
+}
+
+function FilterSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs font-medium text-foreground mb-1">
+        <span>{label}</span>
+        <span className="text-muted-foreground tabular-nums">{value.toFixed(2)}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full"
+      />
     </div>
   );
 }

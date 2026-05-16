@@ -18,6 +18,7 @@ import CanvasControls from './CanvasControls';
 import DesignCanvas from './DesignCanvas';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
+import ShortcutsModal from './ShortcutsModal';
 import SurfaceSelector from './SurfaceSelector';
 
 type SidebarTab = 'add' | 'layers' | 'properties';
@@ -66,10 +67,19 @@ export function DesignerShell({
   const showPrintArea = useCanvasStore((s) => s.showPrintArea);
   const togglePrintArea = useCanvasStore((s) => s.togglePrintArea);
   const selectedLayers = useCanvasStore((s) => s.selectedLayers);
+  const undo = useCanvasStore((s) => s.undo);
+  const redo = useCanvasStore((s) => s.redo);
+  // The store exposes canUndo/canRedo as functions; subscribe to the underlying
+  // history fields so this component re-renders when the stack changes.
+  const canUndo = useCanvasStore((s) => s.historyIndex >= 0);
+  const canRedo = useCanvasStore(
+    (s) => s.historyIndex < s.history.length - 1
+  );
 
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('layers');
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Bootstrap store from props on mount.
   useEffect(() => {
@@ -113,7 +123,10 @@ export function DesignerShell({
     intervalMs: 15_000,
   });
 
-  useKeyboardShortcuts({ onSave: () => void forceSave() });
+  useKeyboardShortcuts({
+    onSave: () => void forceSave(),
+    onToggleHelp: () => setShortcutsOpen((s) => !s),
+  });
 
   const handleAddToCart = useCallback(async () => {
     setStatusMessage(null);
@@ -194,6 +207,39 @@ export function DesignerShell({
           <span className="hidden md:inline">
             {showPrintArea ? 'Print area on' : 'Print area off'}
           </span>
+        </button>
+
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => undo()}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+            className="inline-flex items-center justify-center p-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-icons text-base">undo</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => redo()}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+            className="inline-flex items-center justify-center p-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="material-icons text-base">redo</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShortcutsOpen(true)}
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          className="inline-flex items-center justify-center p-1.5 rounded-md border border-border bg-background hover:bg-muted text-foreground"
+        >
+          <span className="material-icons text-base">help_outline</span>
         </button>
 
         <button
@@ -290,6 +336,11 @@ export function DesignerShell({
           </div>
         </main>
       </div>
+
+      <ShortcutsModal
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </div>
   );
 }

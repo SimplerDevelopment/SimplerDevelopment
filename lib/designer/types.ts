@@ -7,6 +7,19 @@
 
 export type LayerType = 'text' | 'icon' | 'image';
 
+/**
+ * Persisted drop-shadow effect description. Round-tripped to/from Fabric's
+ * `Shadow` instance so effects survive save/load. All values optional so
+ * partial payloads from older designs remain readable.
+ */
+export interface TextShadowEffect {
+  enabled: boolean;
+  color: string;
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+}
+
 export interface TextLayerData {
   text: string;
   fontFamily: string;
@@ -28,6 +41,8 @@ export interface TextLayerData {
   textBackgroundColor?: string;
   stroke?: string;
   strokeWidth?: number;
+  /** Persisted drop-shadow effect (offsetX/Y/blur/color). Replayed on canvas rebuild. */
+  shadow?: TextShadowEffect | null;
 }
 
 export interface IconLayerData {
@@ -40,12 +55,25 @@ export interface IconLayerData {
   strokeWidth?: number;
 }
 
+export interface ImageFiltersData {
+  /** -1 → 1, 0 default. */
+  brightness: number;
+  /** -1 → 1, 0 default. */
+  contrast: number;
+  /** -1 → 1, 0 default. */
+  saturation: number;
+  /** 0 → 1, 0 default. */
+  blur: number;
+}
+
 export interface ImageLayerData {
   url: string;
   originalWidth?: number;
   originalHeight?: number;
   altText?: string;
   fit?: 'cover' | 'contain' | 'fill';
+  /** Persisted Fabric image filters — replayed on canvas rebuild. */
+  filters?: ImageFiltersData;
 }
 
 export type LayerDataPayload = TextLayerData | IconLayerData | ImageLayerData;

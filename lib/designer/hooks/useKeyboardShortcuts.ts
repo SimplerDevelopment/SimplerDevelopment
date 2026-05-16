@@ -8,6 +8,8 @@ interface KeyboardShortcutsConfig {
   onSave?: () => void;
   onExport?: () => void;
   onDeleteLayer?: () => void;
+  /** Toggle the keyboard-shortcuts cheatsheet modal (bound to the "?" key). */
+  onToggleHelp?: () => void;
   enabled?: boolean;
 }
 
@@ -30,7 +32,13 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
   const setZoom = useCanvasStore((s) => s.setZoom);
   const zoom = useCanvasStore((s) => s.zoom);
 
-  const { onSave, onExport, enabled = true, onDeleteLayer } = config;
+  const {
+    onSave,
+    onExport,
+    enabled = true,
+    onDeleteLayer,
+    onToggleHelp,
+  } = config;
 
   useEffect(() => {
     if (!enabled) return;
@@ -68,6 +76,14 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
       if (ctrlKey && k === 's') {
         e.preventDefault();
         onSave?.();
+        return;
+      }
+      // Help cheatsheet — "?" (no modifier). On most layouts this requires
+      // Shift+/, but we trigger off the resulting character to stay layout
+      // agnostic.
+      if (!ctrlKey && !e.altKey && e.key === '?') {
+        e.preventDefault();
+        onToggleHelp?.();
         return;
       }
       // Copy / paste
@@ -186,6 +202,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
     onSave,
     onExport,
     onDeleteLayer,
+    onToggleHelp,
   ]);
 }
 

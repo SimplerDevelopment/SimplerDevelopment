@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Point } from 'fabric';
+import { Point, filters as fabricFilters } from 'fabric';
 import type { Canvas, FabricImage, FabricObject } from 'fabric';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
@@ -46,6 +46,16 @@ interface FabricMovingEvent {
   e?: { altKey?: boolean };
 }
 
+interface FabricRotatingEvent {
+  target?: FabricObject;
+  e?: { shiftKey?: boolean };
+}
+
+// Rotation snaps to multiples of this many degrees.
+const ROTATION_SNAP_STEP = 15;
+// Snap threshold (degrees) for rotation snapping.
+const ROTATION_SNAP_THRESHOLD = 5;
+
 // Stable empty array — Zustand selectors that fall back to `[]` MUST reuse the
 // same reference, otherwise React 19 fires "getSnapshot should be cached to
 // avoid an infinite loop" and our save-loop reactivity breaks.
@@ -58,6 +68,7 @@ export default function DesignCanvas({
 }: DesignCanvasProps) {
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
+  const rotationBadgeRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
   const isSyncingRef = useRef(false);
   const productIdRef = useRef(productId);
@@ -417,6 +428,27 @@ export default function DesignCanvas({
       const objRight = objLeft + objW;
       const objBottom = objTop + objH;
 
+      // Collect snap targets from other layers (centers + edges).
+      // Skip the moving target itself, the background, the print-area overlay,
+      // any guide lines (excludeFromExport / _designerGuide tagged), plus any
+      // other internal-only objects.
+      const otherObjects = c.getObjects().filter((obj) => {
+        if (obj === target) return false;
+        const meta = obj as unknown as {
+          id?: string;
+          _designerPrintArea?: boolean;
+          _designerGuide?: string;
+          excludeFromExport?: boolean;
+        };
+        if (meta.id === BACKGROUND_ID) return false;
+        if (meta._designerPrintArea) return false;
+        if (meta._designerGuide) return false;
+        if (meta.excludeFromExport) return false;
+        return true;
+      });
+
+      const otherRects = otherObjects.map((obj) => obj.getBoundingRect());
+
       // Vertical guides (x-axis snapping — moves target.left).
       const verticalTargets: Array<{ x: number; kind: 'center' | 'edge' }> = [
         { x: paCx, kind: 'center' },
@@ -424,6 +456,11 @@ export default function DesignCanvas({
         { x: paX, kind: 'edge' },
         { x: paX + paW, kind: 'edge' },
       ];
+      for (const r of otherRects) {
+        verticalTargets.push({ x: r.left + r.width / 2, kind: 'center' });
+        verticalTargets.push({ x: r.left, kind: 'edge' });
+        verticalTargets.push({ x: r.left + r.width, kind: 'edge' });
+      }
 
       let snappedX = false;
       // We need to snap based on the object's bounding-rect center/edges, but
@@ -478,6 +515,11 @@ export default function DesignCanvas({
         { y: paY, kind: 'edge' },
         { y: paY + paH, kind: 'edge' },
       ];
+      for (const r of otherRects) {
+        horizontalTargets.push({ y: r.top + r.height / 2, kind: 'center' });
+        horizontalTargets.push({ y: r.top, kind: 'edge' });
+        horizontalTargets.push({ y: r.top + r.height, kind: 'edge' });
+      }
 
       let snappedY = false;
       const dyCenter = objCy - (target.top ?? 0);
@@ -552,6 +594,64 @@ export default function DesignCanvas({
     surface.printAreaWidth,
     surface.printAreaHeight,
   ]);
+
+  /* ────────────────────────────────────────────────────────────────────
+   * Rotation snap — snap angle to 15° multiples while rotating, show a
+   * small fixed badge in the canvas corner with the live angle. Shift
+   * disables snapping.
+   * ──────────────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const c = fabricRef.current;
+    if (!c || !isReady) return;
+
+    const showBadge = (angle: number) => {
+      const el = rotationBadgeRef.current;
+      if (!el) return;
+      const normalized = ((angle % 360) + 360) % 360;
+      el.textContent = `${Math.round(normalized)}°`;
+      el.style.display = 'block';
+    };
+
+    const hideBadge = () => {
+      const el = rotationBadgeRef.current;
+      if (!el) return;
+      el.style.display = 'none';
+    };
+
+    const handleRotating = (opt: FabricRotatingEvent) => {
+      const target = opt.target;
+      if (!target) return;
+      let angle = target.angle ?? 0;
+      // Shift disables snapping.
+      if (!opt.e?.shiftKey) {
+        const snapped = Math.round(angle / ROTATION_SNAP_STEP) * ROTATION_SNAP_STEP;
+        if (Math.abs(angle - snapped) <= ROTATION_SNAP_THRESHOLD) {
+          target.set({ angle: snapped });
+          target.setCoords();
+          angle = snapped;
+        }
+      }
+      showBadge(angle);
+      c.requestRenderAll();
+    };
+
+    c.on(
+      'object:rotating',
+      handleRotating as unknown as FabricEventHandler
+    );
+    c.on('mouse:up', hideBadge as unknown as FabricEventHandler);
+    c.on('object:modified', hideBadge as unknown as FabricEventHandler);
+
+    return () => {
+      c.off(
+        'object:rotating',
+        handleRotating as unknown as FabricEventHandler
+      );
+      c.off('mouse:up', hideBadge as unknown as FabricEventHandler);
+      c.off('object:modified', hideBadge as unknown as FabricEventHandler);
+      hideBadge();
+    };
+  }, [isReady]);
 
   /* ────────────────────────────────────────────────────────────────────
    * Layer sync — keep Fabric objects in lock-step with the store.
@@ -643,6 +743,12 @@ export default function DesignCanvas({
         style={{ maxWidth: '100%', height: 'auto' }}
         data-product-id={productId}
       />
+      <div
+        ref={rotationBadgeRef}
+        aria-hidden="true"
+        className="absolute top-2 right-2 z-10 px-2 py-1 rounded bg-black/70 text-white text-xs font-mono pointer-events-none"
+        style={{ display: 'none' }}
+      />
       {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
           <span className="material-icons animate-spin text-muted-foreground">
@@ -707,7 +813,7 @@ async function buildFabricFromLayer(
   if (layer.type === 'image') {
     const d = layer.data as Partial<ImageLayerData>;
     if (!d.url) return null;
-    return createFabricImage(d.url, {
+    const img = await createFabricImage(d.url, {
       left: layer.left,
       top: layer.top,
       scaleX: layer.scaleX,
@@ -719,8 +825,26 @@ async function buildFabricFromLayer(
       evented: !layer.locked,
       data: { id: layer.id },
     });
+    // Replay persisted filters so saved designs render with the same look.
+    if (d.filters) {
+      applyImageFilters(img, d.filters);
+    }
+    return img;
   }
   return null;
+}
+
+function applyImageFilters(
+  img: FabricImage,
+  filterData: NonNullable<ImageLayerData['filters']>
+): void {
+  img.filters = [
+    new fabricFilters.Brightness({ brightness: filterData.brightness }),
+    new fabricFilters.Contrast({ contrast: filterData.contrast }),
+    new fabricFilters.Saturation({ saturation: filterData.saturation }),
+    new fabricFilters.Blur({ blur: filterData.blur }),
+  ];
+  img.applyFilters();
 }
 
 function applyLayerToFabric(obj: FabricObject, layer: LayerData): void {

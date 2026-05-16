@@ -1,6 +1,6 @@
 'use client';
 
-import { FabricImage, FabricObject, FabricText, Path as FabricPath } from 'fabric';
+import { FabricImage, FabricObject, FabricText, Path as FabricPath, Shadow } from 'fabric';
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
@@ -8,6 +8,7 @@ import type {
   ImageLayerData,
   LayerData,
   TextLayerData,
+  TextShadowEffect,
 } from './types';
 
 /**
@@ -183,7 +184,7 @@ export async function layerToFabricObject(
 
   if (layer.type === 'text') {
     const d = layer.data as Partial<TextLayerData>;
-    return createFabricText(d.text ?? 'Text', {
+    const text = createFabricText(d.text ?? 'Text', {
       ...common,
       fontFamily: d.fontFamily,
       fontSize: d.fontSize,
@@ -197,6 +198,11 @@ export async function layerToFabricObject(
       stroke: d.stroke,
       strokeWidth: d.strokeWidth,
     });
+    // Replay persisted drop-shadow effect, if any.
+    if (d.shadow && d.shadow.enabled) {
+      applyShadowEffectToFabricObject(text, d.shadow);
+    }
+    return text;
   }
   if (layer.type === 'icon') {
     const d = layer.data as Partial<IconLayerData>;
@@ -243,6 +249,31 @@ export function fabricObjectToLayer(
     if (objLike.fontSize) data.fontSize = objLike.fontSize;
     if (objLike.fontFamily) data.fontFamily = objLike.fontFamily;
     if (objLike.fontWeight) data.fontWeight = objLike.fontWeight;
+    // Capture text effects (stroke + shadow) so the panel's mutations
+    // round-trip through autosave.
+    const fxLike = obj as unknown as {
+      stroke?: string | null;
+      strokeWidth?: number;
+      shadow?: {
+        color?: string;
+        offsetX?: number;
+        offsetY?: number;
+        blur?: number;
+      } | null;
+    };
+    if (fxLike.stroke !== undefined) data.stroke = fxLike.stroke ?? undefined;
+    if (fxLike.strokeWidth !== undefined) data.strokeWidth = fxLike.strokeWidth;
+    if (fxLike.shadow === null) {
+      data.shadow = null;
+    } else if (fxLike.shadow) {
+      data.shadow = {
+        enabled: true,
+        color: fxLike.shadow.color ?? '#000000',
+        offsetX: fxLike.shadow.offsetX ?? 0,
+        offsetY: fxLike.shadow.offsetY ?? 0,
+        blur: fxLike.shadow.blur ?? 0,
+      } satisfies TextShadowEffect;
+    }
   }
   if (current?.type === 'icon' && objLike.fill) {
     data.fill = objLike.fill;
@@ -264,3 +295,52 @@ export function fabricObjectToLayer(
 
 // Re-export Path constructor in case consumers need it (e.g. SVG icons).
 export { FabricPath };
+
+/**
+ * Apply (or clear) a drop-shadow effect on a FabricObject. When the effect is
+ * disabled or omitted, the shadow is removed. Centralised so the Effects UI
+ * and the layer→fabric replay use exactly the same semantics.
+ */
+export function applyShadowEffectToFabricObject(
+  obj: FabricObject,
+  effect: TextShadowEffect | null | undefined
+): void {
+  if (!effect || !effect.enabled) {
+    (obj as unknown as { set: (k: string, v: unknown) => void }).set(
+      'shadow',
+      null
+    );
+    return;
+  }
+  const shadow = new Shadow({
+    color: effect.color || '#000000',
+    offsetX: effect.offsetX ?? 0,
+    offsetY: effect.offsetY ?? 0,
+    blur: effect.blur ?? 0,
+  });
+  (obj as unknown as { set: (k: string, v: unknown) => void }).set(
+    'shadow',
+    shadow
+  );
+}
+
+/**
+ * Apply (or clear) a text outline (stroke) on a FabricObject. width === 0
+ * clears the outline.
+ */
+export function applyOutlineEffectToFabricObject(
+  obj: FabricObject,
+  color: string,
+  width: number
+): void {
+  const setter = (obj as unknown as {
+    set: (k: string, v: unknown) => void;
+  }).set;
+  if (!width || width <= 0) {
+    setter.call(obj, 'stroke', null);
+    setter.call(obj, 'strokeWidth', 0);
+    return;
+  }
+  setter.call(obj, 'stroke', color);
+  setter.call(obj, 'strokeWidth', width);
+}

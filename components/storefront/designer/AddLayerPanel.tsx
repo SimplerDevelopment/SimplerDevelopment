@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { createFabricIcon, createFabricImage, createFabricText } from '@/lib/designer/layerFactory';
+import { loadGoogleFont } from '@/lib/designer/fontVirtualizer';
 import type {
   IconLayerData,
   ImageLayerData,
@@ -22,6 +23,98 @@ interface AddLayerPanelProps {
    */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
 }
+
+// Pre-styled text presets shown in a small gallery — one-click drop-in for
+// customers who don't want to fiddle with font pickers. Each preset is a
+// partial TextLayerData override merged over the standard text defaults.
+const TEXT_PRESETS: Array<{
+  label: string;
+  preview: string;
+  textData: Partial<TextLayerData>;
+}> = [
+  {
+    label: 'Headline',
+    preview: 'BIG BOLD HEADLINE',
+    textData: {
+      text: 'BIG BOLD HEADLINE',
+      fontFamily: 'Anton',
+      fontSize: 64,
+      fontWeight: 'bold',
+      fill: '#000000',
+      fontSource: 'google',
+      googleFont: { family: 'Anton', variants: ['400'] },
+    },
+  },
+  {
+    label: 'Script',
+    preview: 'elegant script',
+    textData: {
+      text: 'elegant script',
+      fontFamily: 'Pacifico',
+      fontSize: 48,
+      fontWeight: 'normal',
+      fontStyle: 'italic',
+      fill: '#374151',
+      fontSource: 'google',
+      googleFont: { family: 'Pacifico', variants: ['400'] },
+    },
+  },
+  {
+    label: 'Vintage',
+    preview: 'Vintage Stamp',
+    textData: {
+      text: 'Vintage Stamp',
+      fontFamily: 'Bebas Neue',
+      fontSize: 56,
+      fontWeight: 'bold',
+      fill: 'transparent',
+      stroke: '#000000',
+      strokeWidth: 2,
+      fontSource: 'google',
+      googleFont: { family: 'Bebas Neue', variants: ['400'] },
+    },
+  },
+  {
+    label: 'Pink',
+    preview: 'rainbow',
+    textData: {
+      text: 'rainbow',
+      fontFamily: 'Roboto',
+      fontSize: 48,
+      fontWeight: 'normal',
+      fill: '#ec4899',
+      fontSource: 'google',
+      googleFont: { family: 'Roboto', variants: ['400'] },
+    },
+  },
+  {
+    label: 'Mono',
+    preview: 'MONOSPACE',
+    textData: {
+      text: 'MONOSPACE',
+      fontFamily: 'Roboto Mono',
+      fontSize: 36,
+      fontWeight: 'normal',
+      fill: '#0ea5e9',
+      fontSource: 'google',
+      googleFont: { family: 'Roboto Mono', variants: ['400'] },
+    },
+  },
+  {
+    label: 'Quote',
+    preview: 'Quote',
+    textData: {
+      text: 'Quote',
+      fontFamily: 'Playfair Display',
+      fontSize: 40,
+      fontWeight: 'normal',
+      fontStyle: 'italic',
+      fill: '#1e293b',
+      fontSource: 'google',
+      googleFont: { family: 'Playfair Display', variants: ['400'] },
+    },
+  },
+];
 
 // Each entry is the icon name we store on the layer + the Material Icons glyph
 // used both for the panel button and for rendering on the canvas via
@@ -56,11 +149,11 @@ export default function AddLayerPanel({
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddText = () => {
+  const handleAddText = (override?: Partial<TextLayerData>) => {
     if (!canvas) return;
     const cx = canvas.getWidth() / 2;
     const cy = canvas.getHeight() / 2;
-    const textData: TextLayerData = {
+    const defaults: TextLayerData = {
       text: 'New Text',
       fontFamily: 'Arial',
       fontSize: 32,
@@ -70,6 +163,7 @@ export default function AddLayerPanel({
       lineHeight: 1.2,
       charSpacing: 0,
     };
+    const textData: TextLayerData = { ...defaults, ...(override || {}) };
     const layerId = addLayer({
       type: 'text',
       name: 'Text Layer',
@@ -90,8 +184,14 @@ export default function AddLayerPanel({
       originY: 'center',
       fontFamily: textData.fontFamily,
       fontSize: textData.fontSize,
+      fontWeight: textData.fontWeight,
+      fontStyle: textData.fontStyle,
       fill: textData.fill,
       textAlign: textData.textAlign,
+      lineHeight: textData.lineHeight,
+      charSpacing: textData.charSpacing,
+      stroke: textData.stroke,
+      strokeWidth: textData.strokeWidth,
       data: { id: layerId, type: 'text' },
     });
     canvas.add(fab);
@@ -99,6 +199,22 @@ export default function AddLayerPanel({
     canvas.renderAll();
     setSelectedLayers([fab]);
     onLayerAdded?.('text');
+  };
+
+  const handleAddPreset = async (
+    preset: (typeof TEXT_PRESETS)[number]
+  ): Promise<void> => {
+    // Best-effort: load Google font before adding so Fabric measures glyphs
+    // against the real face. Non-fatal if the load fails — handleAddText still
+    // proceeds with the requested family.
+    if (preset.textData.googleFont) {
+      try {
+        await loadGoogleFont(preset.textData.googleFont);
+      } catch {
+        // ignore — handleAddText will still render with fallback.
+      }
+    }
+    handleAddText(preset.textData);
   };
 
   const handleAddIcon = (iconName: string) => {
@@ -217,7 +333,7 @@ export default function AddLayerPanel({
       <div className="p-3 space-y-2">
         <button
           type="button"
-          onClick={handleAddText}
+          onClick={() => handleAddText()}
           className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-background text-foreground hover:bg-muted text-sm transition-colors"
         >
           <span className="material-icons text-base">text_fields</span>
@@ -251,6 +367,50 @@ export default function AddLayerPanel({
                 <span className="text-[10px] text-muted-foreground">{label}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            Text presets
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {TEXT_PRESETS.map((preset) => {
+              const previewStyle: React.CSSProperties = {
+                fontFamily: preset.textData.fontFamily,
+                fontSize: '14px',
+                fontWeight: preset.textData.fontWeight as React.CSSProperties['fontWeight'],
+                fontStyle: preset.textData.fontStyle,
+                color:
+                  preset.textData.fill && preset.textData.fill !== 'transparent'
+                    ? preset.textData.fill
+                    : preset.textData.stroke || '#111111',
+                WebkitTextStroke:
+                  preset.textData.fill === 'transparent' && preset.textData.stroke
+                    ? `1px ${preset.textData.stroke}`
+                    : undefined,
+              };
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => void handleAddPreset(preset)}
+                  className="inline-flex flex-col items-center justify-center gap-1 px-2 py-2.5 rounded-md border border-border bg-background hover:bg-muted transition-colors overflow-hidden"
+                  title={`Add "${preset.preview}" preset`}
+                  aria-label={`Add ${preset.label} text preset`}
+                >
+                  <span
+                    className="truncate max-w-full leading-tight"
+                    style={previewStyle}
+                  >
+                    {preset.preview}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {preset.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
