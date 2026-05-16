@@ -243,6 +243,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         productName={product.name}
         productPriceCents={product.priceCents}
         currency={product.currency}
+        exitHref={`/${product.slug}`}
         surfaces={surfaces}
         initialDesign={initialDesign}
         onCreate={onCreate}

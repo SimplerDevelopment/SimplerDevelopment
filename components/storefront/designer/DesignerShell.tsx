@@ -44,6 +44,8 @@ interface DesignerShellProps {
   productPriceCents?: number;
   /** ISO 4217 currency code. Defaults to USD. */
   currency?: string;
+  /** Optional href for a "Back" / exit affordance in the toolbar. */
+  exitHref?: string;
   surfaces: DesignerSurface[];
   /** Optional existing in-progress design to bootstrap from. */
   initialDesign?: DesignDoc;
@@ -71,6 +73,7 @@ export function DesignerShell({
   productName,
   productPriceCents,
   currency = 'USD',
+  exitHref,
   surfaces,
   initialDesign,
   onSave,
@@ -185,6 +188,16 @@ export function DesignerShell({
     >
       {/* Top toolbar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-background">
+        {exitHref && (
+          <a
+            href={exitHref}
+            aria-label={`Back to ${productName}`}
+            title={`Back to ${productName}`}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <span className="material-icons text-base">arrow_back</span>
+          </a>
+        )}
         <input
           type="text"
           value={designName}
