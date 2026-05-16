@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { DesignerShell } from '@/components/storefront/designer/DesignerShell';
+import EffectsFloating from '@/components/storefront/designer/EffectsFloating';
+import ExportButton from '@/components/storefront/designer/ExportButton';
+import TemplatesDrawer from '@/components/storefront/designer/TemplatesDrawer';
 import type { DesignDoc, DesignerSurface } from '@/lib/designer/types';
 
 interface DesignerClientProps {
@@ -237,6 +240,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         onUploadImage={onUploadImage}
         onAddToCart={onAddToCart}
       />
+      {/* Floating designer-utility mounts — siblings of DesignerShell so
+          they don't conflict with the wave-2/3 panels living inside it. */}
+      <EffectsFloating />
+      <TemplatesDrawer siteId={siteId} productId={product.id} />
+      <ExportButton />
     </div>
   );
 }

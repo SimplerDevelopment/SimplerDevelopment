@@ -36,6 +36,25 @@ export async function GET(
     const qCustomerToken = url.searchParams.get('customerToken');
     const qProductId = url.searchParams.get('productId');
     const qStatus = url.searchParams.get('status'); // draft|finalized|rendered
+    const qTemplates = url.searchParams.get('templates'); // "1" → site-wide templates
+
+    // Templates are site-wide reusable designs — no session/customer scoping.
+    if (qTemplates === '1') {
+      const templateConditions = [
+        eq(designs.websiteId, websiteId),
+        eq(designs.isTemplate, true),
+      ];
+      if (qProductId) {
+        const pid = parseInt(qProductId, 10);
+        if (!isNaN(pid)) templateConditions.push(eq(designs.productId, pid));
+      }
+      const rows = await db.select()
+        .from(designs)
+        .where(and(...templateConditions))
+        .orderBy(desc(designs.updatedAt))
+        .limit(50);
+      return NextResponse.json({ success: true, data: rows });
+    }
 
     // Ownership filter: either sessionId or customerToken must scope the
     // query — we never return another visitor's designs.

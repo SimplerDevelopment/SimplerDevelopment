@@ -431,6 +431,8 @@ export const designs = pgTable('designs', {
   thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
   renderedUrl: varchar('rendered_url', { length: 500 }),       // hi-res composite, populated by webhook
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, finalized, rendered
+  /** When true this row is a site-wide reusable template, not a customer design. */
+  isTemplate: boolean('is_template').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
@@ -438,6 +440,7 @@ export const designs = pgTable('designs', {
   index('designs_customer_idx').on(t.customerId),
   index('designs_session_idx').on(t.sessionId),
   index('designs_product_idx').on(t.productId),
+  index('designs_template_idx').on(t.isTemplate),
 ]);
 
 // User-uploaded image assets used inside a design (separate from the rendered output).
