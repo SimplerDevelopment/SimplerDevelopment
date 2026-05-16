@@ -26,6 +26,8 @@ export interface TextLayerData {
   fontSize: number;
   fontWeight: string | number;
   fontStyle?: 'normal' | 'italic';
+  /** Single-line underline below the text. Maps directly to Fabric's `underline`. */
+  underline?: boolean;
   fill: string;
   color?: string;
   textAlign: 'left' | 'center' | 'right' | 'justify';

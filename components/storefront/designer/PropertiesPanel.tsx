@@ -344,7 +344,91 @@ function TextProperties({
         value={(data.fill || data.color || '#000000') as string}
         onChange={(hex) => patch({ fill: hex, color: hex })}
       />
+      {/* B / I / U + alignment quick-toggles — same row, each is an
+          icon-only button that lights up when the style is active. */}
+      <div>
+        <label className="block text-xs font-medium text-foreground mb-1">
+          Style
+        </label>
+        <div className="inline-flex items-center rounded-md border border-border overflow-hidden">
+          {(() => {
+            const isBold = data.fontWeight === 'bold' || Number(data.fontWeight) >= 600;
+            const isItalic = data.fontStyle === 'italic';
+            const isUnderline = data.underline === true;
+            return (
+              <>
+                <StyleToggle
+                  label="Bold"
+                  glyph="format_bold"
+                  active={isBold}
+                  onClick={() => patch({ fontWeight: isBold ? 'normal' : 'bold' })}
+                />
+                <StyleToggle
+                  label="Italic"
+                  glyph="format_italic"
+                  active={isItalic}
+                  onClick={() => patch({ fontStyle: isItalic ? 'normal' : 'italic' })}
+                />
+                <StyleToggle
+                  label="Underline"
+                  glyph="format_underlined"
+                  active={isUnderline}
+                  onClick={() => patch({ underline: !isUnderline })}
+                />
+                <div className="w-px h-5 bg-border self-center" />
+                <StyleToggle
+                  label="Align left"
+                  glyph="format_align_left"
+                  active={data.textAlign === 'left'}
+                  onClick={() => patch({ textAlign: 'left' })}
+                />
+                <StyleToggle
+                  label="Align center"
+                  glyph="format_align_center"
+                  active={data.textAlign === 'center'}
+                  onClick={() => patch({ textAlign: 'center' })}
+                />
+                <StyleToggle
+                  label="Align right"
+                  glyph="format_align_right"
+                  active={data.textAlign === 'right'}
+                  onClick={() => patch({ textAlign: 'right' })}
+                />
+              </>
+            );
+          })()}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function StyleToggle({
+  glyph,
+  label,
+  active,
+  onClick,
+}: {
+  glyph: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`w-7 h-7 inline-flex items-center justify-center transition-colors ${
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      }`}
+    >
+      <span className="material-icons text-base">{glyph}</span>
+    </button>
   );
 }
 

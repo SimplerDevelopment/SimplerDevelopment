@@ -59,6 +59,7 @@ interface FabricTextOptions extends FabricCommonOptions {
   fontSize?: number;
   fontWeight?: string | number;
   fontStyle?: string;
+  underline?: boolean;
   fill?: string;
   textAlign?: string;
   lineHeight?: number;
@@ -190,6 +191,7 @@ export async function layerToFabricObject(
       fontSize: d.fontSize,
       fontWeight: d.fontWeight,
       fontStyle: d.fontStyle,
+      underline: d.underline,
       fill: d.fill || d.color,
       textAlign: d.textAlign,
       lineHeight: d.lineHeight,

@@ -783,6 +783,7 @@ async function buildFabricFromLayer(
       fontSize: d.fontSize,
       fontWeight: d.fontWeight,
       fontStyle: d.fontStyle,
+      underline: d.underline,
       fill: d.fill || d.color,
       textAlign: d.textAlign,
       lineHeight: d.lineHeight,

@@ -38,6 +38,22 @@ function formatMoney(cents: number, currency: string): string {
   }
 }
 
+// Short relative time ("just now", "2 min ago", "1 hr ago") used by the save
+// indicator. Returns null when we have no timestamp yet.
+function relativeTime(date: Date | null | undefined): string | null {
+  if (!date) return null;
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 5_000) return 'just now';
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 interface DesignerShellProps {
   productId: number;
   productName: string;
@@ -150,10 +166,29 @@ export function DesignerShell({
     [onCreate, onSave, productId, setDesign]
   );
 
-  const { isSaving, forceSave, hasUnsavedChanges, error } = useAutoSave({
+  const { isSaving, forceSave, hasUnsavedChanges, lastSaved, error } = useAutoSave({
     onSave: handleSave,
     intervalMs: 15_000,
   });
+
+  // Mirror the current designName into the browser tab title so customers can
+  // pick this tab out of a wall of open tabs while shopping multiple sites.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const prev = document.title;
+    const dirtyMark = hasUnsavedChanges ? '• ' : '';
+    document.title = `${dirtyMark}${designName || 'Untitled'} — ${productName}`;
+    return () => { document.title = prev; };
+  }, [designName, productName, hasUnsavedChanges]);
+
+  // Tick once a minute so the "Saved 2 min ago" indicator updates as the
+  // customer keeps working without re-saving.
+  const [, forceRelTick] = useState(0);
+  useEffect(() => {
+    if (!lastSaved || hasUnsavedChanges || isSaving) return;
+    const id = setInterval(() => forceRelTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [lastSaved, hasUnsavedChanges, isSaving]);
 
   useKeyboardShortcuts({
     onSave: () => void forceSave(),
@@ -225,7 +260,9 @@ export function DesignerShell({
           ) : designId ? (
             <>
               <span className="material-icons text-base">check_circle</span>
-              Saved
+              <span title={lastSaved ? lastSaved.toLocaleString() : undefined}>
+                {lastSaved ? `Saved ${relativeTime(lastSaved)}` : 'Saved'}
+              </span>
             </>
           ) : null}
         </div>
