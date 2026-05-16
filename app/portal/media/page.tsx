@@ -255,7 +255,7 @@ export default function PortalMediaPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Media Library</h1>
           <p className="text-muted-foreground text-sm mt-1">Upload and manage images, videos, and documents across all services.</p>

@@ -286,12 +286,12 @@ export default function PortalApprovalsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 border-b border-border text-sm">
+      <div className="flex gap-1 border-b border-border text-sm overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         {(['pending', 'applied', 'rejected', 'failed', 'expired', 'all'] as StatusFilter[]).map(f => (
           <button
             key={f}
             onClick={() => { setFilter(f); setSelected(null); setCheckedIds(new Set()); }}
-            className={`px-4 py-2.5 font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2.5 font-medium border-b-2 transition-colors whitespace-nowrap ${
               filter === f
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -522,7 +522,7 @@ export default function PortalApprovalsPage() {
 
       {/* Floating bulk-action bar */}
       {checkedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-full shadow-lg px-4 py-2 flex items-center gap-3">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-full shadow-lg px-4 py-2 flex items-center gap-3 flex-wrap max-w-[calc(100vw-2rem)]">
           <span className="text-sm font-medium text-foreground">
             {checkedIds.size} selected
           </span>

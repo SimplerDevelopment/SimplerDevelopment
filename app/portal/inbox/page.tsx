@@ -90,7 +90,7 @@ export default function InboxPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <span className="material-icons">forum</span>
@@ -111,13 +111,13 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-b">
+      <div className="flex gap-2 border-b overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
-            className={`px-3 py-2 text-sm border-b-2 transition-colors ${
+            className={`px-3 py-2 text-sm border-b-2 transition-colors whitespace-nowrap ${
               filter === f.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
