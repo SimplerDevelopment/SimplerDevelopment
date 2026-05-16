@@ -1,0 +1,240 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+
+import { useCanvasStore } from '@/lib/designer/canvasStore';
+import type { DesignerSurface } from '@/lib/designer/types';
+
+interface PreviewModalProps {
+  open: boolean;
+  onClose: () => void;
+  surfaces: DesignerSurface[];
+  productName: string;
+  /** Final-price string to show under the preview (e.g. "$125.00"). */
+  totalLabel?: string | null;
+  quantity: number;
+  onConfirm?: () => void;
+}
+
+/**
+ * Final-review modal that shows what the customer's design actually looks
+ * like rendered cleanly — no print-area dashes, no snap guides — across
+ * every configured surface. Mirrors what they would see on the printed
+ * product. Capture happens with canvas.toDataURL after temporarily hiding
+ * the print-area overlay + guides, same approach as ExportButton.
+ */
+export default function PreviewModal({
+  open,
+  onClose,
+  surfaces,
+  productName,
+  totalLabel,
+  quantity,
+  onConfirm,
+}: PreviewModalProps) {
+  const canvas = useCanvasStore((s) => s.canvas);
+  const activeSurface = useCanvasStore((s) => s.activeSurface);
+  const setActiveSurface = useCanvasStore((s) => s.setActiveSurface);
+  // The store exposes per-surface layer storage so we can render thumbnails
+  // even for surfaces the customer hasn't visited yet.
+  const layersBySurface = useCanvasStore((s) => s.layersBySurface);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document !== 'undefined') {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [open]);
+
+  // For each surface, switch the active surface (which triggers DesignCanvas
+  // to repaint with that surface's layers), capture toDataURL, then restore
+  // the original active surface. Done sequentially to avoid two repaints
+  // colliding. Print-area overlay and guides are hidden during capture.
+  useEffect(() => {
+    if (!open || !canvas) return;
+    let cancelled = false;
+    const originalSurface = activeSurface;
+
+    const captureOne = (slug: string): Promise<string> =>
+      new Promise((resolve) => {
+        setActiveSurface(slug);
+        // Wait for the next animation frame + a beat so DesignCanvas finishes
+        // recreating the Fabric objects for the new surface.
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            try {
+              const hidden: Array<{ obj: { visible?: boolean }; was: boolean | undefined }> = [];
+              canvas.getObjects().forEach((obj) => {
+                const tagged = obj as unknown as {
+                  visible?: boolean;
+                  _designerPrintArea?: boolean;
+                  _designerGuide?: boolean;
+                  excludeFromExport?: boolean;
+                };
+                if (tagged._designerPrintArea || tagged._designerGuide || tagged.excludeFromExport) {
+                  hidden.push({ obj: tagged, was: tagged.visible });
+                  tagged.visible = false;
+                }
+              });
+              canvas.requestRenderAll();
+              const data = canvas.toDataURL({
+                format: 'png',
+                multiplier: 1,
+                quality: 0.92,
+              });
+              hidden.forEach(({ obj, was }) => {
+                obj.visible = was;
+              });
+              canvas.requestRenderAll();
+              resolve(data);
+            } catch {
+              resolve('');
+            }
+          }, 250);
+        });
+      });
+
+    (async () => {
+      const next: Record<string, string> = {};
+      for (const s of surfaces) {
+        if (cancelled) break;
+        // Skip empty surfaces — show a placeholder card instead.
+        if (!layersBySurface[s.slug]?.length) continue;
+        // eslint-disable-next-line no-await-in-loop
+        next[s.slug] = await captureOne(s.slug);
+      }
+      if (!cancelled) {
+        setPreviews(next);
+        // Restore the customer's original active surface so closing the
+        // modal lands them where they were editing.
+        setActiveSurface(originalSurface);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Design preview"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl bg-background border border-border shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">
+              Preview your {productName}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              This is what will be printed — print area, guides, and rulers are hidden.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close preview"
+            className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <span className="material-icons text-base">close</span>
+          </button>
+        </div>
+
+        <div className="p-5 grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {surfaces.map((s) => {
+            const url = previews[s.slug];
+            const empty = !layersBySurface[s.slug]?.length;
+            return (
+              <div
+                key={s.slug}
+                className="rounded-lg border border-border overflow-hidden bg-muted/30"
+              >
+                <div className="px-3 py-2 flex items-center justify-between border-b border-border">
+                  <span className="text-sm font-medium text-foreground">{s.name}</span>
+                  {empty && (
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Empty
+                    </span>
+                  )}
+                </div>
+                <div className="aspect-[4/3] flex items-center justify-center bg-white">
+                  {empty ? (
+                    <span className="material-icons text-3xl text-muted-foreground/50">
+                      block
+                    </span>
+                  ) : url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={url}
+                      alt={`${s.name} preview`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <span className="material-icons animate-spin text-muted-foreground">
+                      refresh
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border bg-muted/20">
+          <div className="text-sm text-muted-foreground">
+            {totalLabel && (
+              <span>
+                <span className="font-semibold text-foreground tabular-nums">
+                  {totalLabel}
+                </span>
+                <span className="ml-1">
+                  for {quantity} {quantity === 1 ? 'piece' : 'pieces'}
+                </span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-sm rounded-md border border-border bg-background hover:bg-muted text-foreground"
+            >
+              Keep editing
+            </button>
+            {onConfirm && (
+              <button
+                type="button"
+                onClick={() => {
+                  onConfirm();
+                  onClose();
+                }}
+                className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <span className="material-icons text-sm align-middle mr-1">
+                  shopping_cart
+                </span>
+                Add to cart
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

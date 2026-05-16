@@ -19,6 +19,7 @@ import CanvasControls from './CanvasControls';
 import DesignCanvas from './DesignCanvas';
 import LayersPanel from './LayersPanel';
 import PropertiesPanel from './PropertiesPanel';
+import PreviewModal from './PreviewModal';
 import ShortcutsModal from './ShortcutsModal';
 import SurfaceSelector from './SurfaceSelector';
 
@@ -123,6 +124,7 @@ export function DesignerShell({
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [dragOver, setDragOver] = useState(false);
 
@@ -377,6 +379,15 @@ export function DesignerShell({
         )}
         <button
           type="button"
+          onClick={() => setPreviewOpen(true)}
+          title="See what your design will look like printed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted text-sm text-foreground"
+        >
+          <span className="material-icons text-base">visibility</span>
+          Preview
+        </button>
+        <button
+          type="button"
           onClick={() => void handleAddToCart()}
           disabled={isAddingToCart}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground text-sm disabled:opacity-50"
@@ -503,6 +514,19 @@ export function DesignerShell({
       <ShortcutsModal
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+      <PreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        surfaces={surfaces}
+        productName={productName}
+        quantity={quantity}
+        totalLabel={
+          typeof productPriceCents === 'number' && productPriceCents > 0
+            ? formatMoney(productPriceCents * quantity, currency)
+            : null
+        }
+        onConfirm={() => void handleAddToCart()}
       />
     </div>
   );
