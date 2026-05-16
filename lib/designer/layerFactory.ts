@@ -1,0 +1,241 @@
+'use client';
+
+import { FabricImage, FabricObject, FabricText, Path as FabricPath } from 'fabric';
+import { v4 as uuidv4 } from 'uuid';
+
+import type {
+  IconLayerData,
+  ImageLayerData,
+  LayerData,
+  TextLayerData,
+} from './types';
+
+/**
+ * Map of common icon names → unicode glyphs.
+ * Same compatibility set used by the productDesigner source. For richer icons
+ * (FontAwesome / Material), the consuming app should render the glyph by name
+ * and pass it in as text + fontFamily.
+ */
+const UNICODE_ICON_MAP: Record<string, string> = {
+  star: '★',
+  heart: '♥',
+  circle: '●',
+  square: '■',
+  triangle: '▲',
+  diamond: '♦',
+  arrow: '→',
+  check: '✓',
+  close: '✕',
+  plus: '+',
+  minus: '−',
+};
+
+interface FabricCommonOptions {
+  left?: number;
+  top?: number;
+  originX?: 'left' | 'center' | 'right';
+  originY?: 'top' | 'center' | 'bottom';
+  scaleX?: number;
+  scaleY?: number;
+  angle?: number;
+  opacity?: number;
+  visible?: boolean;
+  selectable?: boolean;
+  evented?: boolean;
+  data?: Record<string, unknown>;
+}
+
+interface FabricTextOptions extends FabricCommonOptions {
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string | number;
+  fontStyle?: string;
+  fill?: string;
+  textAlign?: string;
+  lineHeight?: number;
+  charSpacing?: number;
+  textBackgroundColor?: string;
+  stroke?: string;
+  strokeWidth?: number;
+}
+
+interface FabricIconOptions extends FabricCommonOptions {
+  fill?: string;
+  fontFamily?: string;
+  fontSize?: number;
+}
+
+/** Create a Fabric Text object for a text layer. */
+export function createFabricText(
+  text: string,
+  options: FabricTextOptions = {}
+): FabricText {
+  const merged = {
+    fontFamily: 'Arial',
+    fontSize: 24,
+    fill: '#000000',
+    textAlign: 'left',
+    ...options,
+    data: {
+      id: options.data?.id || uuidv4(),
+      type: 'text' as const,
+      ...(options.data || {}),
+    },
+  };
+  return new FabricText(text, merged as unknown as Record<string, unknown>);
+}
+
+/** Create a Fabric icon (rendered as a unicode FabricText for now). */
+export function createFabricIcon(
+  iconName: string,
+  options: FabricIconOptions = {}
+): FabricText {
+  const glyph = UNICODE_ICON_MAP[iconName] || UNICODE_ICON_MAP.star;
+  const merged = {
+    fontFamily: 'Arial, sans-serif',
+    fontSize: 48,
+    fill: '#333333',
+    textAlign: 'center',
+    ...options,
+    data: {
+      id: options.data?.id || uuidv4(),
+      type: 'icon' as const,
+      iconName,
+      ...(options.data || {}),
+    },
+  };
+  return new FabricText(glyph, merged as unknown as Record<string, unknown>);
+}
+
+/** Create a Fabric Image object from a URL. Async because images must load. */
+export async function createFabricImage(
+  imageUrl: string,
+  options: FabricCommonOptions = {}
+): Promise<FabricImage> {
+  const img = (await FabricImage.fromURL(imageUrl, {
+    crossOrigin: 'anonymous',
+  })) as FabricImage;
+  if (!img) throw new Error('Failed to load image');
+  const defaults = {
+    ...options,
+    data: {
+      id: options.data?.id || uuidv4(),
+      type: 'image' as const,
+      url: imageUrl,
+      ...(options.data || {}),
+    },
+  };
+  img.set(defaults as unknown as Record<string, unknown>);
+  return img;
+}
+
+/**
+ * Build a FabricObject from a LayerData record. Returns null for unrecognised
+ * types or async types whose data is missing (e.g. image without url).
+ *
+ * For images the caller must `await` — the factory returns a Promise to keep a
+ * single entry point.
+ */
+export async function layerToFabricObject(
+  layer: LayerData
+): Promise<FabricObject | null> {
+  const common: FabricCommonOptions = {
+    left: layer.left,
+    top: layer.top,
+    scaleX: layer.scaleX,
+    scaleY: layer.scaleY,
+    angle: layer.angle,
+    opacity: layer.opacity,
+    visible: layer.visible,
+    selectable: !layer.locked,
+    evented: !layer.locked,
+    data: {
+      id: layer.id,
+      type: layer.type,
+      ...(layer.data as Record<string, unknown>),
+    },
+  };
+
+  if (layer.type === 'text') {
+    const d = layer.data as Partial<TextLayerData>;
+    return createFabricText(d.text ?? 'Text', {
+      ...common,
+      fontFamily: d.fontFamily,
+      fontSize: d.fontSize,
+      fontWeight: d.fontWeight,
+      fontStyle: d.fontStyle,
+      fill: d.fill || d.color,
+      textAlign: d.textAlign,
+      lineHeight: d.lineHeight,
+      charSpacing: d.charSpacing,
+      textBackgroundColor: d.textBackgroundColor,
+      stroke: d.stroke,
+      strokeWidth: d.strokeWidth,
+    });
+  }
+  if (layer.type === 'icon') {
+    const d = layer.data as Partial<IconLayerData>;
+    return createFabricIcon(d.iconName ?? 'star', {
+      ...common,
+      fill: d.fill || d.color,
+      fontSize: d.size,
+    });
+  }
+  if (layer.type === 'image') {
+    const d = layer.data as Partial<ImageLayerData>;
+    if (!d.url) return null;
+    return createFabricImage(d.url, common);
+  }
+  return null;
+}
+
+/**
+ * Convert a Fabric object back to LayerData. Used by event handlers that
+ * detect drag/resize/edit changes on the canvas.
+ */
+export function fabricObjectToLayer(
+  obj: FabricObject,
+  current?: LayerData
+): Partial<LayerData> {
+  const data: Record<string, unknown> = current
+    ? { ...(current.data as Record<string, unknown>) }
+    : {};
+  const objLike = obj as unknown as {
+    fill?: string;
+    text?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: string | number;
+  };
+
+  if ((current?.type === 'text' || obj.type === 'text' || obj.type === 'i-text') &&
+    objLike.fill) {
+    data.fill = objLike.fill;
+    data.color = objLike.fill;
+  }
+  if (current?.type === 'text') {
+    if (objLike.text !== undefined) data.text = objLike.text;
+    if (objLike.fontSize) data.fontSize = objLike.fontSize;
+    if (objLike.fontFamily) data.fontFamily = objLike.fontFamily;
+    if (objLike.fontWeight) data.fontWeight = objLike.fontWeight;
+  }
+  if (current?.type === 'icon' && objLike.fill) {
+    data.fill = objLike.fill;
+    data.color = objLike.fill;
+    if (objLike.fontSize) data.size = objLike.fontSize;
+  }
+
+  return {
+    left: obj.left ?? 0,
+    top: obj.top ?? 0,
+    scaleX: obj.scaleX ?? 1,
+    scaleY: obj.scaleY ?? 1,
+    angle: obj.angle ?? 0,
+    opacity: obj.opacity ?? 1,
+    visible: obj.visible !== false,
+    data,
+  };
+}
+
+// Re-export Path constructor in case consumers need it (e.g. SVG icons).
+export { FabricPath };

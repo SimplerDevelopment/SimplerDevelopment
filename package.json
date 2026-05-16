@@ -65,6 +65,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
     "expo": "~54.0.33",
+    "fabric": "^6.7.1",
     "framer-motion": "^12.26.2",
     "googleapis": "^171.4.0",
     "gsap": "^3.14.2",
@@ -105,10 +106,13 @@
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
     "unified": "^11.0.5",
+    "use-debounce": "^10",
+    "uuid": "^11",
     "y-protocols": "^1.0.6",
     "y-websocket": "^2.0.0",
     "yjs": "^13.6.20",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "zustand": "^5"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.1",
