@@ -91,16 +91,16 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
       <AgencyChromeProvider>
         <PortalTitle />
         <ImpersonationBanner />
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background overflow-x-hidden">
           {!previewMode && <PortalSidebar apps={apps} />}
           <div>
             {!previewMode && (
-              <div className="flex justify-end items-center gap-1 px-6 pt-4 pb-0">
+              <div className="flex justify-end items-center gap-1 px-4 sm:px-6 pt-4 pb-0">
                 <PmNotificationBell />
                 <CrmNotificationBell />
               </div>
             )}
-            <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-6'}`}>{children}</main>
+            <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
           </div>
           {!previewMode && <AIChatWidget />}
         </div>
