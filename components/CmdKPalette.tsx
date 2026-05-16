@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { buildPortalNavItems, flattenPortalNav, type PortalNavTarget } from '@/lib/portal-nav';
+import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 
 type EntityType =
   | 'meeting'
@@ -110,7 +111,14 @@ function scoreMatch(haystack: string, queryTokens: string[]): number {
   return score;
 }
 
-export default function CmdKPalette() {
+interface CmdKPaletteProps {
+  /** Plugin apps the active client is entitled to see. Forwarded into
+   *  `buildPortalNavItems` so the palette picks up the "Apps" group + each
+   *  plugin's manifest nav items as searchable jump targets. */
+  apps?: UserAppNavMeta[];
+}
+
+export default function CmdKPalette({ apps }: CmdKPaletteProps = {}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<BrainSearchHit[]>([]);
@@ -144,8 +152,8 @@ export default function CmdKPalette() {
   // flat target list with breadcrumbs + haystack — the tree shape is the
   // sidebar's concern.
   const navTargets = useMemo<PortalNavTarget[]>(() => {
-    return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName));
-  }, [activeSiteId, activeSiteName]);
+    return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName, apps));
+  }, [activeSiteId, activeSiteName, apps]);
 
   // Global Cmd+K / Ctrl+K listener — toggles open. Cmd+K is not a typing key
   // so it is safe to capture even when an input/textarea is focused (matches

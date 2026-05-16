@@ -3,6 +3,8 @@
 // lets the sidebar render its tree and lets the palette flatten it into a
 // searchable list of jumpable targets.
 
+import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+
 export interface PortalNavChild {
   href: string;
   label: string;
@@ -23,12 +25,19 @@ export interface PortalNavItem extends PortalNavChild {
  * Build the full portal nav tree. Per-site branches are only included when
  * the user is already inside `/portal/websites/[siteId]/...` — palette callers
  * should pass `null` for activeSiteId when they don't have site context yet.
+ *
+ * The optional `apps` param injects an "Apps" group (one parent + one child
+ * per installed plugin + grandchildren for each plugin's manifest nav items)
+ * directly before the trailing "Settings" entry. Server callers that know
+ * the active client's entitled apps pass them in; client callers that don't
+ * have that context omit the param and get the unmodified base tree.
  */
 export function buildPortalNavItems(
   activeSiteId: string | null,
   activeSiteName: string | null,
+  apps?: UserAppNavMeta[],
 ): PortalNavItem[] {
-  return [
+  const items: PortalNavItem[] = [
     { href: '/portal/dashboard', label: 'Dashboard', icon: 'dashboard', keywords: ['home', 'overview'] },
     {
       href: '/portal/brain',
@@ -174,6 +183,44 @@ export function buildPortalNavItems(
     },
     { href: '/portal/settings', label: 'Settings', icon: 'settings', keywords: ['account', 'team', 'billing'] },
   ];
+
+  // Inject the "Apps" group before Settings when the caller supplied a list
+  // of entitled plugins. Done as a post-process splice (rather than inline
+  // in the array literal) so the base tree stays trivially readable and the
+  // existing call signature `buildPortalNavItems(siteId, siteName)` keeps
+  // working unchanged.
+  if (apps && apps.length > 0) {
+    const appsGroup: PortalNavItem = {
+      href: '/portal/apps',
+      label: 'Apps',
+      icon: 'apps',
+      keywords: ['plugins', 'integrations'],
+      children: apps.map((a) => ({
+        href: `/portal/apps/${a.slug}`,
+        label: a.name,
+        icon: a.icon,
+        keywords: [a.slug],
+        children: a.navItems.map((item) => ({
+          // Manifest hrefs are plugin-local and start with `/`. The portal
+          // rewrites them under `/portal/apps/<slug>`. A bare `/` becomes
+          // the slug root itself rather than appearing as `/<slug>/`.
+          href: `/portal/apps/${a.slug}${item.href === '/' ? '' : item.href}`,
+          label: item.label,
+          icon: item.icon,
+          keywords: item.keywords ?? [],
+        })),
+      })),
+    };
+
+    const settingsIdx = items.findIndex((i) => i.href === '/portal/settings');
+    if (settingsIdx >= 0) {
+      items.splice(settingsIdx, 0, appsGroup);
+    } else {
+      items.push(appsGroup);
+    }
+  }
+
+  return items;
 }
 
 export interface PortalNavTarget {
