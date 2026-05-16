@@ -314,10 +314,11 @@ const REDACTION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
   // Bearer tokens (case-insensitive). Stops on whitespace or end-of-line.
   { pattern: /Bearer\s+[A-Za-z0-9._\-+/=]+/gi, replacement: 'Bearer [REDACTED]' },
   // Common env-var-looking secrets. Captures KEY=value where KEY contains
-  // "secret", "token", "key", "password", or "api". Conservative match on
+  // "secret", "token", "key", "password", or "api" — case-insensitive
+  // so lower-case `api_token=...` also gets caught. Conservative match on
   // the value (no whitespace, no quote characters).
   {
-    pattern: /\b([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|API)[A-Z0-9_]*)=([^\s"']{4,})/g,
+    pattern: /\b([A-Za-z][A-Za-z0-9_]*(?:secret|token|key|password|api)[A-Za-z0-9_]*)=([^\s"']{4,})/gi,
     replacement: '$1=[REDACTED]',
   },
 ];

@@ -17,11 +17,20 @@
 // enforce them because the registry doesn't know which scope a route needs
 // until the dispatcher looks the handler up.
 //
-// Audit volume note: an audit row is written ONLY on the happy path through
-// step 4 (post-verify, pre-tenancy). Failures earlier than step 4 don't
-// persist — the unsigned/expired/origin-mismatched JWT can't be safely
-// attributed to a client. Failures at step 5 (tenancy) DO leave an audit
-// row in place because the dispatcher overwrites `status` on response.
+// Audit behaviour:
+//   - Steps 1-3 (no Bearer / verify fail / origin mismatch) cannot be
+//     attributed to a client because either the JWT is missing or the
+//     signature didn't verify. These fail-closed events are logged via
+//     `logCallbackDeny` as a structured console.warn so they show up in
+//     runtime logs without polluting the audit table with unauthenticated
+//     noise. The audit DB row models *authenticated* activity.
+//   - Step 4 (post-verify) inserts the audit row keyed by jti UNIQUE. The
+//     status column is provisional at insert time (200). The dispatcher
+//     calls `updateCallbackAuditStatus(jti, finalStatus)` after the handler
+//     runs so the row reflects the real HTTP code (incl. step-5 tenancy
+//     403 and any handler 4xx/5xx).
+//   - Step 5 (tenancy reject) — audit row is patched to 403 inline before
+//     return.
 
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
@@ -55,6 +64,62 @@ export type CallbackAuthResult =
 const CODE_UNAUTHORIZED = 'unauthorized';
 const CODE_FORBIDDEN = 'forbidden';
 const CODE_REPLAY = 'replay';
+
+/**
+ * Structured deny log for steps 1-3 of the auth pipeline (no Bearer, JWT
+ * verify failed, Origin mismatch). These cannot become DB audit rows
+ * because either the JWT is missing or its signature didn't verify, so
+ * we cannot attribute them to a real client. Instead we emit a single
+ * JSON line that ops can grep in production logs.
+ */
+export function logCallbackDeny(opts: {
+  appSlug: string;
+  reason: string;
+  status: number;
+  method: string;
+  route: string;
+  requestId: string;
+  ip?: string | null;
+  userAgent?: string | null;
+}): void {
+  console.warn(
+    JSON.stringify({
+      kind: 'plugin-callback-deny',
+      appSlug: opts.appSlug,
+      reason: opts.reason,
+      status: opts.status,
+      method: opts.method,
+      route: opts.route,
+      requestId: opts.requestId,
+      ip: opts.ip ?? null,
+      userAgent: opts.userAgent ?? null,
+      ts: new Date().toISOString(),
+    }),
+  );
+}
+
+/**
+ * Patch a previously-inserted audit row's `status` column to the final
+ * HTTP status of the response. Called by the dispatcher after the handler
+ * runs (and by step 5 inline before returning a 403). No-op if the row
+ * doesn't exist (e.g. step 4 conflict path — the row that won the unique
+ * key was a prior replay and shouldn't be overwritten).
+ */
+export async function updateCallbackAuditStatus(
+  jti: string,
+  status: number,
+): Promise<void> {
+  try {
+    await db
+      .update(registeredAppCallbacksAudit)
+      .set({ status })
+      .where(eq(registeredAppCallbacksAudit.jti, jti));
+  } catch {
+    // Audit status updates are best-effort. The row is already in place
+    // with the provisional 200; a transient DB blip here shouldn't
+    // surface to the caller.
+  }
+}
 
 function readBearer(req: NextRequest): string | null {
   const h = req.headers.get('authorization') ?? req.headers.get('Authorization');
@@ -97,12 +162,14 @@ export function requireScope(granted: string[], required: string): boolean {
 
 // Test runtime detection — mirrors lib/plugins/entitlement.ts so the
 // integration tests don't have to mock NextRequest's Origin header. When
-// PLUGINS_CALLBACK_ORIGIN_BYPASS=1 OR a vitest runtime is detected we skip
-// the Origin check. The tenancy + JWT + replay checks still run.
+// PLUGINS_CALLBACK_ORIGIN_BYPASS=1 we skip the Origin check; the tenancy +
+// JWT + replay checks still run.
+//
+// HARD-DISABLED in production: a stray env-var copy-paste cannot turn off
+// cross-origin protection on a live tenant.
 function isOriginBypass(): boolean {
+  if (process.env.NODE_ENV === 'production') return false;
   if (process.env.PLUGINS_CALLBACK_ORIGIN_BYPASS === '1') return true;
-  // Specific opt-in flag for integration tests that want to verify Origin
-  // behaviour but otherwise want bypass. Vitest unit tests rely on this.
   return false;
 }
 
@@ -116,10 +183,19 @@ export async function authenticateCallback(
   appSlug: string,
 ): Promise<CallbackAuthResult> {
   const requestId = ensureRequestId(req);
+  const route = (() => {
+    try { return new URL(req.url).pathname; } catch { return req.url; }
+  })();
+  const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? null;
+  const userAgent = req.headers.get('user-agent');
 
   // ─── Step 1: Authorization: Bearer <jwt> ────────────────────────────────
   const token = readBearer(req);
   if (!token) {
+    logCallbackDeny({
+      appSlug, reason: 'missing-bearer', status: 401,
+      method: req.method, route, requestId, ip, userAgent,
+    });
     return {
       ok: false,
       status: 401,
@@ -131,8 +207,10 @@ export async function authenticateCallback(
   // ─── Step 2: verifyPluginJwt ────────────────────────────────────────────
   const verified = await verifyPluginJwt(token, appSlug);
   if (!verified.ok) {
-    // Map verify reasons to HTTP status. All are 401-level — the caller is
-    // unauthenticated (either by bad signature, bad audience, or expiry).
+    logCallbackDeny({
+      appSlug, reason: `jwt-${verified.reason}`, status: 401,
+      method: req.method, route, requestId, ip, userAgent,
+    });
     return {
       ok: false,
       status: 401,
@@ -155,6 +233,10 @@ export async function authenticateCallback(
     ))
     .limit(1);
   if (!app) {
+    logCallbackDeny({
+      appSlug, reason: 'app-not-active', status: 401,
+      method: req.method, route, requestId, ip, userAgent,
+    });
     return {
       ok: false,
       status: 401,
@@ -168,6 +250,10 @@ export async function authenticateCallback(
     const inboundOrigin = normaliseOrigin(req.headers.get('origin'));
     const expectedOrigin = normaliseOrigin(app.hostUrl);
     if (!inboundOrigin || !expectedOrigin || inboundOrigin !== expectedOrigin) {
+      logCallbackDeny({
+        appSlug, reason: 'origin-mismatch', status: 403,
+        method: req.method, route, requestId, ip, userAgent,
+      });
       return {
         ok: false,
         status: 403,
@@ -258,6 +344,9 @@ export async function authenticateCallback(
   }
 
   if (!tenancyOk) {
+    // Audit row was inserted at step 4 with provisional status=200.
+    // Patch it now so forensics correctly show the 403.
+    await updateCallbackAuditStatus(claims.jti, 403);
     return {
       ok: false,
       status: 403,

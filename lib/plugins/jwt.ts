@@ -34,7 +34,7 @@ import {
   type JwtPayload,
 } from 'jsonwebtoken';
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   registeredApps,
@@ -119,6 +119,9 @@ export async function signPluginJwt(
   const exp = iat + ttl;
   const jti = randomUUID();
 
+  // If a botched rotation leaves two `active` rows, deterministically pick
+  // the newest one so signs and verifies converge on the same key. Ordering
+  // by createdAt DESC also keeps the most-recently-rotated key in front.
   const rows = await db
     .select()
     .from(registeredAppSigningKeys)
@@ -128,6 +131,7 @@ export async function signPluginJwt(
         eq(registeredAppSigningKeys.status, 'active'),
       ),
     )
+    .orderBy(desc(registeredAppSigningKeys.createdAt))
     .limit(1);
   const row = rows[0];
   if (!row) {

@@ -96,12 +96,72 @@ function isCacheFresh(entry: CacheEntry, now: number): boolean {
   return now - entry.fetchedAt < CACHE_TTL_MS;
 }
 
+/**
+ * Reject manifest URLs that point at private/loopback addresses or use any
+ * scheme other than https. This is a defence-in-depth against SSRF: an admin
+ * (or a compromised admin path) registering a plugin with
+ * `https://10.0.0.5/sd-manifest.json` would otherwise pull the portal into
+ * fetching internal metadata services. https-only also blocks `file://`
+ * and `gopher://` shenanigans.
+ *
+ * Development exception: `localhost` / 127.0.0.1 / [::1] are allowed when
+ * NODE_ENV !== 'production' so devs can run the plugin on port 3001 locally.
+ */
+function isSafeManifestUrl(raw: string): { ok: true } | { ok: false; reason: string } {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    return { ok: false, reason: 'manifest url is not a parseable URL' };
+  }
+  if (u.protocol !== 'https:') {
+    if (process.env.NODE_ENV !== 'production' && u.protocol === 'http:') {
+      // dev-mode http fallthrough is fine; check the host below
+    } else {
+      return { ok: false, reason: `manifest url must be https (got ${u.protocol})` };
+    }
+  }
+  const host = u.hostname.toLowerCase();
+  const isLoopback =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host.endsWith('.localhost');
+  if (isLoopback) {
+    if (process.env.NODE_ENV === 'production') {
+      return { ok: false, reason: 'loopback host not allowed in production' };
+    }
+    return { ok: true };
+  }
+  // Block RFC1918 + link-local + unique-local IPv6 + IPv4-mapped IPv6.
+  // We only need to catch literal IP addresses — DNS rebinding is a separate
+  // problem the OS resolver can't easily fix from here, but blocking literals
+  // catches >90% of accidental-misconfig SSRF vectors.
+  if (/^10\./.test(host)) return { ok: false, reason: 'rfc1918 (10/8) address blocked' };
+  if (/^192\.168\./.test(host)) return { ok: false, reason: 'rfc1918 (192.168/16) address blocked' };
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) return { ok: false, reason: 'rfc1918 (172.16/12) address blocked' };
+  if (/^169\.254\./.test(host)) return { ok: false, reason: 'link-local (169.254/16) address blocked' };
+  if (/^127\./.test(host)) return { ok: false, reason: 'loopback (127/8) address blocked' };
+  if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd')) {
+    return { ok: false, reason: 'ipv6 link-local / ULA address blocked' };
+  }
+  if (host === '0.0.0.0' || host === '::') {
+    return { ok: false, reason: 'unspecified address blocked' };
+  }
+  return { ok: true };
+}
+
 async function fetchManifestJson(
   url: string,
 ): Promise<{ ok: true; json: unknown } | { ok: false; reason: string }> {
+  const safe = isSafeManifestUrl(url);
+  if (!safe.ok) {
+    return { ok: false, reason: `fetch-blocked: ${safe.reason}` };
+  }
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: 'error',  // don't follow redirects — they could escape the host check
     });
     if (!res.ok) {
       return { ok: false, reason: `fetch-failed: ${res.status}` };

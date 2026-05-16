@@ -17,6 +17,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import {
   authenticateCallback,
   requireScope,
+  updateCallbackAuditStatus,
 } from '@/lib/plugins/callback-auth';
 import {
   checkPluginCallbackRateLimit,
@@ -74,13 +75,20 @@ async function dispatch(
     );
   }
 
-  // 5. Delegate
+  // 5. Delegate, then patch the audit row's status to the final HTTP code
+  //    so forensics reflect what the caller actually saw (not the provisional
+  //    200 we wrote at audit-insert time).
+  let response: Response;
   try {
-    return await handler.handle(req, ctx, urlParams);
+    response = await handler.handle(req, ctx, urlParams);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Handler threw.';
-    return fail('internal_error', message, 500);
+    response = fail('internal_error', message, 500);
   }
+  // Fire-and-forget; updateCallbackAuditStatus swallows DB errors so we
+  // never block the response on the audit write.
+  void updateCallbackAuditStatus(ctx.jti, response.status);
+  return response;
 }
 
 export async function GET(req: NextRequest, ctx: { params: RouteParams }) {
