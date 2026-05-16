@@ -29,6 +29,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
   const removeLayer = useCanvasStore((s) => s.removeLayer);
   const duplicateLayer = useCanvasStore((s) => s.duplicateLayer);
   const selectAllLayers = useCanvasStore((s) => s.selectAllLayers);
+  const reorderLayer = useCanvasStore((s) => s.reorderLayer);
   const setZoom = useCanvasStore((s) => s.setZoom);
   const zoom = useCanvasStore((s) => s.zoom);
 
@@ -118,6 +119,26 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
         selectAllLayers();
         return;
       }
+      // Layer z-order: Cmd/Ctrl+] forward, Cmd/Ctrl+[ backward; add Shift to
+      // jump all the way to front/back. Standard Adobe / Figma binding.
+      if (ctrlKey && (e.key === ']' || e.key === '[')) {
+        const first = selectedLayers[0] as unknown as {
+          data?: { id?: string };
+          id?: string;
+        };
+        const id = first?.data?.id || first?.id;
+        if (id) {
+          e.preventDefault();
+          if (e.key === ']') {
+            reorderLayer(id, e.shiftKey ? 0 : 'up');
+          } else {
+            const total =
+              useCanvasStore.getState().layers.length;
+            reorderLayer(id, e.shiftKey ? total - 1 : 'down');
+          }
+        }
+        return;
+      }
       // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedLayers.length > 0) {
@@ -197,6 +218,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
     removeLayer,
     duplicateLayer,
     selectAllLayers,
+    reorderLayer,
     setZoom,
     zoom,
     onSave,

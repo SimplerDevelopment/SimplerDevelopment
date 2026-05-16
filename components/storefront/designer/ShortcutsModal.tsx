@@ -36,6 +36,10 @@ const GROUPS: ShortcutGroup[] = [
       { keys: 'Ctrl/Cmd + V', description: 'Paste from clipboard' },
       { keys: 'Ctrl/Cmd + A', description: 'Select all layers' },
       { keys: 'Delete / Backspace', description: 'Delete selected' },
+      { keys: 'Ctrl/Cmd + ]', description: 'Bring forward (one step)' },
+      { keys: 'Ctrl/Cmd + [', description: 'Send backward (one step)' },
+      { keys: 'Ctrl/Cmd + Shift + ]', description: 'Bring to front' },
+      { keys: 'Ctrl/Cmd + Shift + [', description: 'Send to back' },
     ],
   },
   {
