@@ -136,7 +136,7 @@ export default function PortalEmailListsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Link href="/portal/email" className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-base">arrow_back</span>

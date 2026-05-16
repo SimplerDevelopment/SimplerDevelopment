@@ -62,7 +62,7 @@ export default function PortalEmailPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Email Marketing</h1>
           <p className="text-muted-foreground mt-1">Manage your campaigns and subscriber lists.</p>

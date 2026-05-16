@@ -512,8 +512,8 @@ export default function CrmContactsPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted/40">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
