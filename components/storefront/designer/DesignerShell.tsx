@@ -12,6 +12,7 @@ import type {
   UploadedImageResult,
 } from '@/lib/designer/types';
 
+import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
 import AddLayerPanel from './AddLayerPanel';
 import AlignmentToolbar from './AlignmentToolbar';
 import CanvasControls from './CanvasControls';
@@ -107,6 +108,10 @@ export function DesignerShell({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Drag-and-drop image upload — same code path as the file picker.
+  const addImageLayer = useAddImageLayer({ onUploadImage });
 
   // Bootstrap store from props on mount.
   useEffect(() => {
@@ -394,8 +399,31 @@ export function DesignerShell({
           </div>
         </aside>
 
-        {/* Canvas area */}
-        <main className="flex-1 relative bg-muted/40 overflow-auto p-4">
+        {/* Canvas area — also a drop target for image files so customers can
+            drag a photo from their desktop straight onto the print area. */}
+        <main
+          className="flex-1 relative bg-muted/40 overflow-auto p-4"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes('Files')) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+              if (!dragOver) setDragOver(true);
+            }
+          }}
+          onDragLeave={(e) => {
+            // Only clear when the drag leaves the entire main element, not when
+            // it crosses over a child node.
+            if (e.currentTarget === e.target) setDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const file = Array.from(e.dataTransfer.files).find((f) =>
+              f.type.startsWith('image/')
+            );
+            if (file) void addImageLayer(file);
+          }}
+        >
           <div className="flex flex-col items-center gap-3">
             {surfaces.length > 1 && <SurfaceSelector surfaces={surfaces} />}
             {currentSurface ? (
@@ -414,6 +442,22 @@ export function DesignerShell({
           <div className="absolute bottom-4 right-4">
             <CanvasControls />
           </div>
+          {/* Drop-zone overlay — only visible while a file is being dragged */}
+          {dragOver && (
+            <div
+              className="pointer-events-none absolute inset-2 z-20 rounded-xl border-2 border-dashed border-primary bg-primary/5 flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <div className="text-center text-primary">
+                <span className="material-icons text-4xl block mb-1">
+                  add_photo_alternate
+                </span>
+                <p className="text-sm font-medium">
+                  Drop image to add it as a layer
+                </p>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 

@@ -3,11 +3,11 @@
 import React, { useRef } from 'react';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
-import { createFabricIcon, createFabricImage, createFabricText } from '@/lib/designer/layerFactory';
+import { createFabricIcon, createFabricText } from '@/lib/designer/layerFactory';
 import { loadGoogleFont } from '@/lib/designer/fontVirtualizer';
+import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
 import type {
   IconLayerData,
-  ImageLayerData,
   TextLayerData,
   UploadedImageResult,
 } from '@/lib/designer/types';
@@ -148,6 +148,9 @@ export default function AddLayerPanel({
   const addLayer = useCanvasStore((s) => s.addLayer);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Shared with DesignerShell's canvas drop zone — keeps the upload-then-add
+  // behavior in one place so both code paths render identical layers.
+  const addImageLayer = useAddImageLayer({ onUploadImage });
 
   const handleAddText = (override?: Partial<TextLayerData>) => {
     if (!canvas) return;
@@ -255,61 +258,10 @@ export default function AddLayerPanel({
     onLayerAdded?.('icon');
   };
 
-  const handleFileSelected = async (file: File) => {
-    if (!canvas) return;
-    try {
-      const result = await onUploadImage(file);
-      const cx = canvas.getWidth() / 2;
-      const cy = canvas.getHeight() / 2;
-      const imageData: ImageLayerData = {
-        url: result.url,
-        originalWidth: result.width,
-        originalHeight: result.height,
-      };
-      const fab = await createFabricImage(result.url, {
-        left: cx,
-        top: cy,
-        originX: 'center',
-        originY: 'center',
-      });
-      // Scale down oversized uploads.
-      const maxSize = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.6;
-      if ((fab.width ?? 0) > maxSize || (fab.height ?? 0) > maxSize) {
-        const s = maxSize / Math.max(fab.width ?? 1, fab.height ?? 1);
-        fab.scale(s);
-      }
-      const layerId = addLayer({
-        type: 'image',
-        name: 'Image Layer',
-        visible: true,
-        locked: false,
-        opacity: 1,
-        left: fab.left ?? cx,
-        top: fab.top ?? cy,
-        scaleX: fab.scaleX ?? 1,
-        scaleY: fab.scaleY ?? 1,
-        angle: 0,
-        data: imageData as unknown as Record<string, unknown>,
-      });
-      (fab as unknown as { data: Record<string, unknown> }).data = {
-        id: layerId,
-        type: 'image',
-      };
-      canvas.add(fab);
-      canvas.setActiveObject(fab);
-      canvas.renderAll();
-      setSelectedLayers([fab]);
-      onLayerAdded?.('image');
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Image upload failed:', err);
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      void handleFileSelected(file);
+      void addImageLayer(file).then(() => onLayerAdded?.('image'));
     }
     e.target.value = '';
   };

@@ -6,6 +6,7 @@ import { DesignerShell } from '@/components/storefront/designer/DesignerShell';
 import EffectsFloating from '@/components/storefront/designer/EffectsFloating';
 import ExportButton from '@/components/storefront/designer/ExportButton';
 import TemplatesDrawer from '@/components/storefront/designer/TemplatesDrawer';
+import { useCanvasStore } from '@/lib/designer/canvasStore';
 import type { DesignDoc, DesignerSurface } from '@/lib/designer/types';
 
 interface DesignerClientProps {
@@ -132,8 +133,32 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
   );
 
   const onUploadImage = useCallback(
-    async (file: File, designId?: string): Promise<{ url: string; width: number; height: number }> => {
-      if (!designId) throw new Error('Design must be created before uploading assets');
+    async (file: File): Promise<{ url: string; width: number; height: number }> => {
+      // The image-upload endpoint hangs off /designs/[id]/assets, so we need
+      // a saved design first. Callers (AddLayerPanel's file picker, the
+      // canvas drop zone) only know about the File — we read the current
+      // designId from the canvas store and auto-create an empty design when
+      // none exists yet, so the very first action a customer takes can be
+      // an image upload.
+      let designId = useCanvasStore.getState().designId;
+      if (!designId) {
+        const res = await fetch(`/api/storefront/${siteId}/designs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: product.id,
+            name: `${product.name} design`,
+            sessionId,
+          }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'Failed to create design');
+        designId = json.data.id as string;
+        // Seed the store so subsequent autosaves PUT instead of POSTing again.
+        useCanvasStore
+          .getState()
+          .setDesign(designId, json.data.name || product.name, product.id);
+      }
       const form = new FormData();
       form.append('file', file);
       form.append('sessionId', sessionId);
@@ -149,7 +174,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         height: json.data.height || 0,
       };
     },
-    [siteId, sessionId],
+    [siteId, sessionId, product.id, product.name],
   );
 
   const onAddToCart = useCallback(
