@@ -220,8 +220,11 @@ function SortableLayerRow({
   onMoveDown,
 }: SortableLayerRowProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer);
+  const reorderLayer = useCanvasStore((s) => s.reorderLayer);
+  const layerCount = useCanvasStore((s) => s.layers.length);
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(layer.name);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // When entering edit mode, focus + select the whole name so a customer can
@@ -271,17 +274,83 @@ function SortableLayerRow({
     position: 'relative',
   };
 
-  const typeIcon = layer.type === 'text'
-    ? 'text_fields'
-    : layer.type === 'icon'
-      ? 'star'
-      : 'image';
+  // Build a tiny inline preview for the row instead of a single generic icon:
+  // text shows the first 2 chars in the layer's own font + color; icons
+  // render their glyph in their own fill color; images show a 24×24
+  // thumbnail of the URL.
+  const data = (layer.data ?? {}) as Record<string, unknown>;
+  const layerPreview = (() => {
+    if (layer.type === 'text') {
+      const text = (data.text as string) || 'T';
+      const fontFamily = (data.fontFamily as string) || 'Arial';
+      const fill = (data.fill as string) || (data.color as string) || '#111';
+      return (
+        <span
+          className="inline-flex items-center justify-center w-6 h-6 text-[10px] font-bold rounded bg-muted overflow-hidden"
+          style={{ fontFamily, color: fill }}
+          aria-hidden="true"
+        >
+          {text.slice(0, 2)}
+        </span>
+      );
+    }
+    if (layer.type === 'icon') {
+      const glyphMap: Record<string, string> = {
+        star: 'star',
+        heart: 'favorite',
+        circle: 'circle',
+        square: 'square',
+        triangle: 'change_history',
+        diamond: 'diamond',
+        arrow: 'north_east',
+        check: 'check_circle',
+        bolt: 'bolt',
+      };
+      const iconName = (data.iconName as string) || 'star';
+      const fill = (data.fill as string) || (data.color as string) || '#111';
+      return (
+        <span
+          className="inline-flex items-center justify-center w-6 h-6 rounded bg-muted"
+          style={{ color: fill }}
+          aria-hidden="true"
+        >
+          <span className="material-icons text-base">
+            {glyphMap[iconName] ?? 'star'}
+          </span>
+        </span>
+      );
+    }
+    if (layer.type === 'image' && typeof data.url === 'string') {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={data.url}
+          alt=""
+          className="w-6 h-6 rounded object-cover bg-muted"
+          aria-hidden="true"
+        />
+      );
+    }
+    return (
+      <span
+        className="inline-flex items-center justify-center w-6 h-6 rounded bg-muted text-muted-foreground"
+        aria-hidden="true"
+      >
+        <span className="material-icons text-base">image</span>
+      </span>
+    );
+  })();
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       onClick={onSelect}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onSelect(e);
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -309,9 +378,7 @@ function SortableLayerRow({
         <span className="material-icons text-base">drag_indicator</span>
       </button>
 
-      <span className="material-icons text-base text-muted-foreground">
-        {typeIcon}
-      </span>
+      {layerPreview}
       {editing ? (
         <input
           ref={inputRef}
@@ -381,6 +448,103 @@ function SortableLayerRow({
         />
         <IconButton ariaLabel="Delete layer" onClick={onDelete} name="delete" />
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            { glyph: 'flip_to_front', label: 'Bring to front', onClick: () => reorderLayer(layer.id, 0) },
+            { glyph: 'arrow_upward', label: 'Bring forward', onClick: onMoveUp },
+            { glyph: 'arrow_downward', label: 'Send backward', onClick: onMoveDown },
+            { glyph: 'flip_to_back', label: 'Send to back', onClick: () => reorderLayer(layer.id, Math.max(0, layerCount - 1)) },
+            { divider: true },
+            { glyph: 'edit', label: 'Rename', onClick: () => setEditing(true) },
+            { glyph: 'content_copy', label: 'Duplicate', onClick: onDuplicate },
+            { glyph: layer.visible ? 'visibility_off' : 'visibility', label: layer.visible ? 'Hide' : 'Show', onClick: onToggleVisibility },
+            { glyph: layer.locked ? 'lock_open' : 'lock', label: layer.locked ? 'Unlock' : 'Lock', onClick: onToggleLock },
+            { divider: true },
+            { glyph: 'delete', label: 'Delete', onClick: onDelete, destructive: true },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+interface MenuItemDivider {
+  divider: true;
+}
+interface MenuItemAction {
+  glyph: string;
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+}
+type MenuItem = MenuItemDivider | MenuItemAction;
+
+function ContextMenu({
+  x,
+  y,
+  items,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  items: MenuItem[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('mousedown', onClickOutside);
+    window.addEventListener('keydown', onEsc);
+    return () => {
+      window.removeEventListener('mousedown', onClickOutside);
+      window.removeEventListener('keydown', onEsc);
+    };
+  }, [onClose]);
+
+  // Clamp the menu inside the viewport so right-click near the edge doesn't
+  // push the menu off-screen.
+  const left = Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 220);
+  const top = Math.min(y, (typeof window !== 'undefined' ? window.innerHeight : 9999) - items.length * 32 - 16);
+
+  return (
+    <div
+      ref={ref}
+      style={{ left, top }}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+      className="fixed z-50 min-w-[200px] py-1 rounded-md border border-border bg-background shadow-lg text-sm"
+      role="menu"
+    >
+      {items.map((it, i) =>
+        'divider' in it ? (
+          <div key={`d-${i}`} className="my-1 border-t border-border" />
+        ) : (
+          <button
+            key={`${it.label}-${i}`}
+            type="button"
+            onClick={() => {
+              it.onClick();
+              onClose();
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-muted ${
+              it.destructive ? 'text-destructive' : 'text-foreground'
+            }`}
+            role="menuitem"
+          >
+            <span className="material-icons text-base">{it.glyph}</span>
+            {it.label}
+          </button>
+        )
+      )}
     </div>
   );
 }
