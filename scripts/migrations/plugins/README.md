@@ -67,3 +67,100 @@ This seed script does **not** rotate keys. When a rotation is needed:
 
 A dedicated rotation script is reserved for a follow-up (out of scope for
 this seed).
+
+## Operator runbook (full rollout for postcaptain-tools)
+
+### 1. Apply the schema migration
+
+The Drizzle tracker is out of sync in production (see project memory). Apply
+`drizzle/0114_plugin_registry.sql` by hand via psql against the target DB:
+
+```bash
+psql "$DATABASE_URL" -f drizzle/0114_plugin_registry.sql
+```
+
+Idempotent (CREATE TABLE IF NOT EXISTS + EXCEPTION-handled FK adds).
+
+### 2. Ensure `PORTAL_KMS_KEY` is set in the portal's environment
+
+Generate once and store in Vercel project env vars:
+
+```bash
+openssl rand -base64 32
+```
+
+Set in BOTH preview and production Vercel envs. (Loss of this key revokes
+ALL plugin signing keys it has encrypted — there is no recovery.)
+
+### 3. Run the seed migration
+
+```bash
+bun run scripts/migrations/plugins/seed-postcaptain-tools.ts
+```
+
+This will:
+- Insert the `plugin-postcaptain-tools` services row
+- Grant it to client 103 (Post Captain Consulting)
+- Insert the `postcaptain-tools` registered_apps row with status=`'draft'`
+- Mint a 32-byte HMAC signing key, AES-GCM-encrypt it via `PORTAL_KMS_KEY`,
+  insert into `registered_app_signing_keys`, and PRINT THE PLAINTEXT SECRET
+  ONCE — copy it into the postcaptain-tools deploy's `PORTAL_JWT_SECRET` env var.
+
+### 4. Deploy the postcaptain-tools plugin app
+
+The plugin repo lives at `/Users/dancoyle/simplerdevelopment/postcaptain-tools/`
+(separate from this repo). Deploy it to its own Vercel project. Required env:
+
+```
+PORTAL_JWT_SECRET=<the plaintext printed by step 3>
+PORTAL_BASE_URL=https://simplerdevelopment.com
+NEXT_PUBLIC_PLUGIN_ORIGIN=https://<plugin-host>
+PLUGIN_DEV_BYPASS=0
+```
+
+Set the production domain to e.g. `postcaptain-tools.simplerdevelopment.com`.
+
+### 5. Flip the app to active
+
+After confirming the plugin host responds at `/sd-manifest.json`, flip the
+app's status in the portal DB:
+
+```sql
+UPDATE registered_apps
+   SET host_url = 'https://postcaptain-tools.simplerdevelopment.com',
+       manifest_url = 'https://postcaptain-tools.simplerdevelopment.com/sd-manifest.json',
+       status = 'active'
+ WHERE slug = 'postcaptain-tools';
+```
+
+The plugin now appears in the postcaptain client's sidebar.
+
+### 6. Sanity check
+
+Log in as a postcaptain user. The sidebar should show "Apps → Postcaptain Tools"
+with sub-items pulled from the plugin's manifest. Click in — the dashboard
+loads via reverse-proxy. Trigger a test research brief; watch the run row in
+`/portal/apps/postcaptain-tools/runs` reach `succeeded`.
+
+### 7. Key rotation (optional, for verifying the flow works)
+
+Generate a new signing key, mark the previous one `retiring`:
+
+```sql
+-- (run the rotation script or do it by hand; see kms.ts)
+```
+
+Update the postcaptain-tools env with the new secret. Old tokens minted before
+rotation continue to verify against the retiring key until they expire (60s).
+After the retiring key has been quiet for >60s, mark it `revoked`.
+
+## Troubleshooting
+
+- **"Plugin temporarily unavailable"** in the proxied page → check
+  `registered_app_callbacks_audit` for recent rows + statuses. 401 in
+  status column = signature mismatch (`PORTAL_JWT_SECRET` drift).
+- **"unknown-kid"** in JWT verify → the plugin's `PORTAL_JWT_SECRET` is from
+  a different signing-key row than the portal expects. Re-run rotation OR
+  re-check the kid in `registered_app_signing_keys WHERE status='active'`.
+- **Replay 409s** → expected if the plugin retries a request before its
+  60s JWT expires. Plugin should mint a fresh request, not retry.

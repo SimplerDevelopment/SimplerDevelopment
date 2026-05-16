@@ -16,6 +16,7 @@ const categoryIcon: Record<string, string> = {
   hosting: 'cloud',
   development: 'code',
   maintenance: 'build',
+  plugins: 'extension',
 };
 
 export default async function PortalServicesPage({
