@@ -282,16 +282,43 @@ export async function authenticateCallback(
       requestId,
     });
   } catch (err) {
-    // Postgres unique_violation = SQLSTATE 23505. The drizzle error wraps the
-    // pg error; match on the code/message defensively.
+    // Postgres unique_violation = SQLSTATE 23505. Drizzle wraps the original
+    // PostgresError in a DrizzleQueryError, putting the code on `.cause.code`
+    // rather than `.code` — check both, plus a defensive message regex (some
+    // adapters don't propagate the code at all). Also defensively check the
+    // FK violation 23503 below: if the FK fails, the JWT's clientId is
+    // bogus and we should refuse rather than 500.
     const message = err instanceof Error ? err.message : String(err);
-    const code = (err as { code?: string }).code;
-    if (code === '23505' || /duplicate key|unique constraint/i.test(message)) {
+    const direct = (err as { code?: string }).code;
+    const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+    const causeCode = cause?.code;
+    const causeMessage = cause?.message ?? '';
+    if (
+      direct === '23505' ||
+      causeCode === '23505' ||
+      /duplicate key|unique constraint/i.test(message) ||
+      /duplicate key|unique constraint/i.test(causeMessage)
+    ) {
       return {
         ok: false,
         status: 409,
         code: CODE_REPLAY,
         message: 'JWT has already been used (jti replay).',
+      };
+    }
+    // FK violation on client_id — JWT claims a clientId that doesn't exist
+    // in `clients`. Treat as a tenancy violation (403), not a 500.
+    if (
+      direct === '23503' ||
+      causeCode === '23503' ||
+      /foreign key|violates foreign key/i.test(message) ||
+      /foreign key|violates foreign key/i.test(causeMessage)
+    ) {
+      return {
+        ok: false,
+        status: 403,
+        code: CODE_FORBIDDEN,
+        message: 'Tenant is not entitled to this plugin.',
       };
     }
     // Any other DB error should NOT silently grant access — return 500.

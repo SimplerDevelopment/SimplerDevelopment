@@ -322,9 +322,11 @@ describe('plugin-callback tenancy @plugins @tenancy', () => {
     expect(res.data?.error.code).toBe('forbidden');
   });
 
-  // 3. Allowlist mismatch — same as #2 in shape but uses a non-existent
-  //    clientId to assert behaviour even when the row doesn't exist.
-  it('rejects when JWT clientId is not in app.allowedClientIds (403)', async () => {
+  // 3. Allowlist mismatch — JWT claims a clientId that doesn't exist at all
+  //    in the clients table. The audit-write FK on client_id catches this
+  //    BEFORE the visibility check; either way the surface result must be a
+  //    403 tenancy refusal (never a 500 leak).
+  it('rejects when JWT clientId references a non-existent client (403)', async () => {
     const fx = await setupPluginFixture({ allowList: 'A' });
     const token = await mintToken(fx.secret, {
       sub: '999999',
