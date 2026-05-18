@@ -11,10 +11,55 @@ interface Snapshot {
   createdAt: string;
   layersBySurface: Record<string, LayerData[]>;
   mockupTint: string | null;
+  /** Data URL of a low-res PNG preview captured at snapshot time. Optional —
+   * older snapshots taken before this feature shipped won't have one. */
+  thumbnail?: string | null;
 }
 
 const STORAGE_PREFIX = 'designer:snapshots:';
 const MAX_SNAPSHOTS = 20;
+// Aim for ~150 px wide thumbnails. Canvases default to 800 px so 0.2 lands
+// around 160 px — small enough for many entries to coexist in localStorage
+// (5 MB cap on most browsers), large enough to identify the design at a glance.
+const THUMBNAIL_MULTIPLIER = 0.2;
+
+/**
+ * Capture a low-res PNG of the current canvas, hiding overlays + guides so
+ * the snapshot thumbnail matches what would ship to print. Returns null if
+ * the canvas isn't available or toDataURL throws (e.g. tainted canvas).
+ */
+function captureCanvasThumbnail(): string | null {
+  const canvas = useCanvasStore.getState().canvas;
+  if (!canvas) return null;
+  const hidden: Array<{ obj: { visible?: boolean }; was: boolean | undefined }> = [];
+  try {
+    canvas.getObjects().forEach((obj) => {
+      const tagged = obj as unknown as {
+        visible?: boolean;
+        _designerPrintArea?: boolean;
+        _designerGuide?: boolean;
+        excludeFromExport?: boolean;
+      };
+      if (tagged._designerPrintArea || tagged._designerGuide || tagged.excludeFromExport) {
+        hidden.push({ obj: tagged, was: tagged.visible });
+        tagged.visible = false;
+      }
+    });
+    canvas.requestRenderAll();
+    return canvas.toDataURL({
+      format: 'png',
+      multiplier: THUMBNAIL_MULTIPLIER,
+      quality: 0.85,
+    });
+  } catch {
+    return null;
+  } finally {
+    hidden.forEach(({ obj, was }) => {
+      obj.visible = was;
+    });
+    canvas.requestRenderAll();
+  }
+}
 
 function loadSnapshots(designId: string | null): Snapshot[] {
   if (!designId || typeof window === 'undefined') return [];
@@ -160,6 +205,7 @@ export default function SnapshotsDropdown() {
       createdAt: new Date().toISOString(),
       layersBySurface: JSON.parse(JSON.stringify(layersBySurface)),
       mockupTint,
+      thumbnail: captureCanvasThumbnail(),
     };
     const next = [snap, ...snapshots].slice(0, MAX_SNAPSHOTS);
     setSnapshots(next);
@@ -299,29 +345,49 @@ export default function SnapshotsDropdown() {
                     <button
                       type="button"
                       onClick={() => handleRestore(snap)}
-                      className="flex-1 text-left"
+                      className="flex-1 text-left flex items-center gap-2"
                       title={
                         isConfirming
                           ? 'Click again to replace the current canvas'
                           : 'Restore this snapshot'
                       }
                     >
-                      <div className="text-sm font-medium text-foreground line-clamp-1">
-                        {snap.name}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {isConfirming ? (
-                          <span className="text-amber-600 dark:text-amber-400">
-                            Click again to replace current canvas
-                          </span>
+                      <span className="w-10 h-10 flex-none rounded border border-border bg-muted overflow-hidden flex items-center justify-center">
+                        {snap.thumbnail ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={snap.thumbnail}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <>
-                            {relativeTime(new Date(snap.createdAt))} ·{' '}
-                            {layerCount} layer
-                            {layerCount === 1 ? '' : 's'}
-                          </>
+                          <span
+                            className="material-icons text-base text-muted-foreground/60"
+                            aria-hidden="true"
+                          >
+                            photo
+                          </span>
                         )}
-                      </div>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-medium text-foreground line-clamp-1">
+                          {snap.name}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          {isConfirming ? (
+                            <span className="text-amber-600 dark:text-amber-400">
+                              Click again to replace current canvas
+                            </span>
+                          ) : (
+                            <>
+                              {relativeTime(new Date(snap.createdAt))} ·{' '}
+                              {layerCount} layer
+                              {layerCount === 1 ? '' : 's'}
+                            </>
+                          )}
+                        </span>
+                      </span>
                     </button>
                     <button
                       type="button"
