@@ -201,6 +201,43 @@ export function DesignerShell({
     onToggleHelp: () => setShortcutsOpen((s) => !s),
   });
 
+  // System-clipboard paste — a screenshot from the OS or an image copied
+  // from a webpage drops onto the canvas as a new layer. Same code path as
+  // the drag-and-drop handler. Skipped while the customer is typing in an
+  // input/textarea/contenteditable (rename layer, snapshot name field,
+  // text-layer editor) so Ctrl/Cmd+V into those still pastes plain text.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+      }
+      const items = e.clipboardData?.items;
+      if (!items || items.length === 0) return;
+      const imageItem = Array.from(items).find(
+        (it) => it.kind === 'file' && it.type.startsWith('image/')
+      );
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      e.preventDefault();
+      // Material-icons "content_paste" hint via the status banner so the
+      // customer gets feedback even if the upload takes a beat.
+      setStatusMessage('Pasting image…');
+      void addImageLayer(file).finally(() => {
+        // Clear the "Pasting…" hint after the upload settles. The newly
+        // added layer is auto-selected, which is feedback enough.
+        setStatusMessage((m) => (m === 'Pasting image…' ? null : m));
+      });
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [addImageLayer]);
+
   const handleAddToCart = useCallback(async () => {
     setStatusMessage(null);
     try {
