@@ -131,6 +131,11 @@ export function DesignerShell({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [dragOver, setDragOver] = useState(false);
+  // Sidebar starts closed on small viewports so the canvas owns the screen
+  // by default. The toggle button below md flips it open as an overlay
+  // (backdrop dim, slides in from the left). On md+ the aside is part of
+  // the flex layout and this state is ignored.
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Drag-and-drop image upload — same code path as the file picker.
   const addImageLayer = useAddImageLayer({ onUploadImage });
@@ -281,6 +286,17 @@ export function DesignerShell({
             <span className="material-icons text-base">arrow_back</span>
           </a>
         )}
+        {/* Mobile sidebar toggle — only visible on viewports too narrow for
+            the persistent left sidebar to fit comfortably (md and below). */}
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          aria-label="Open layers and tools"
+          title="Open layers and tools"
+          className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <span className="material-icons text-base">menu</span>
+        </button>
         <input
           type="text"
           value={designName}
@@ -480,9 +496,36 @@ export function DesignerShell({
         </div>
       )}
 
-      <div className="flex-1 flex min-h-0">
-        {/* Sidebar */}
-        <aside className="w-80 border-r border-border bg-background flex flex-col min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
+        {/* Backdrop for the mobile slide-in sidebar — only visible on small
+            viewports while the sidebar is open. */}
+        {mobileSidebarOpen && (
+          <div
+            className="md:hidden fixed inset-0 z-30 bg-black/50"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        {/* Sidebar — slide-in drawer below md, persistent flex column at md+. */}
+        <aside
+          className={`w-80 border-r border-border bg-background flex flex-col min-h-0
+            md:relative md:translate-x-0 md:z-auto
+            fixed inset-y-0 left-0 z-40 transform transition-transform duration-200
+            ${mobileSidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0'}`}
+        >
+          {/* Mobile close affordance — collapses the drawer back into the
+              canvas. On md+ the sidebar can't close, so this stays hidden. */}
+          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-sm font-semibold text-foreground">Tools</span>
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              aria-label="Close layers and tools"
+              className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <span className="material-icons text-base">close</span>
+            </button>
+          </div>
           <div className="flex border-b border-border">
             {(['add', 'layers', 'properties'] as SidebarTab[]).map((tab) => (
               <button
