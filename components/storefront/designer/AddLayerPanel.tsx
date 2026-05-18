@@ -31,15 +31,13 @@ interface AddLayerPanelProps {
    */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
   /**
-   * Caller-provided AI image generator. Receives the prompt + style options
-   * and must resolve with a public URL + image dimensions. The parent wires
-   * this to POST /api/storefront/[siteId]/designs/[designId]/ai-image, which
-   * also persists a `design_assets` row so the image survives reload.
-   * Optional — the AI Image button is hidden when undefined.
+   * Truthy gate — when present the "Generate with AI" button is rendered
+   * inside the panel and dispatches a `designer:open-ai-modal` window event.
+   * The actual generation lives in DesignerShell (which owns the modal and
+   * variation handoff), so the panel only needs to know whether the feature
+   * is wired up — it does not call this function directly.
    */
-  onGenerateAiImage?: (
-    req: GenerateAiImageRequest,
-  ) => Promise<UploadedImageResult>;
+  onGenerateAiImage?: unknown;
 }
 
 // Pre-styled text presets shown in a small gallery — one-click drop-in for
@@ -361,7 +359,7 @@ export default function AddLayerPanel({
           <span className="flex-1 text-left">Upload image</span>
         </button>
 
-        {onGenerateAiImage && (
+        {Boolean(onGenerateAiImage) && (
           <button
             type="button"
             onClick={() => {

@@ -98,11 +98,6 @@ const SYSTEM_PROMPT = `You write short apparel headlines / slogans / taglines fo
 Respond with VALID JSON only — no markdown, no code fences, no commentary.
 Shape: { "suggestions": ["...", "...", ...] }`;
 
-interface AnthropicTextBlock {
-  type: 'text';
-  text: string;
-}
-
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ siteId: string; designId: string }> },
@@ -259,11 +254,10 @@ export async function POST(
     }
 
     const text = (response.content || [])
-      .filter(
-        (block): block is AnthropicTextBlock =>
-          (block as { type?: string }).type === 'text',
-      )
-      .map((b) => b.text)
+      .map((block) => {
+        const b = block as { type?: string; text?: string };
+        return b.type === 'text' && typeof b.text === 'string' ? b.text : '';
+      })
       .join('')
       .trim();
 
