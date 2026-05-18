@@ -180,6 +180,11 @@ export default function AddLayerPanel({
     const cy = canvas.getHeight() / 2;
     const tint = useCanvasStore.getState().mockupTint;
     const tintInk = contrastingInkForTint(tint);
+    // Only inject a smart per-tint override when the caller didn't provide
+    // its own `fill`. Presets pick deliberate colours (Pink, Vintage, etc.)
+    // and shouldn't be overridden to white/black on dark mockups.
+    const callerHasFill =
+      override?.fill !== undefined || override?.color !== undefined;
     const defaults: TextLayerData = {
       text: 'New Text',
       fontFamily: 'Arial',
@@ -194,7 +199,7 @@ export default function AddLayerPanel({
       textAlign: 'left',
       lineHeight: 1.2,
       charSpacing: 0,
-      ...(tint && tintInk
+      ...(tint && tintInk && !callerHasFill
         ? { fillByTint: { [tint.toLowerCase()]: tintInk } }
         : {}),
     };
