@@ -24,11 +24,18 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
   const addLayer = useCanvasStore((s) => s.addLayer);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
 
-  return useCallback(
-    async (file: File): Promise<void> => {
-      if (!canvas) return;
+  /**
+   * Adds an already-uploaded image (caller-supplied URL + dimensions) to
+   * the canvas as a new image layer. Used by the AI-image flow which
+   * uploads server-side rather than going through the FormData uploader.
+   */
+  const addFromResult = useCallback(
+    async (
+      result: UploadedImageResult,
+      layerName: string,
+    ): Promise<string | null> => {
+      if (!canvas) return null;
       try {
-        const result = await onUploadImage(file);
         const cx = canvas.getWidth() / 2;
         const cy = canvas.getHeight() / 2;
         const imageData: ImageLayerData = {
@@ -42,8 +49,6 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
           originX: 'center',
           originY: 'center',
         });
-        // Scale oversized uploads down so they fit comfortably inside the
-        // print area without the customer having to resize manually.
         const maxSize = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.6;
         if ((fab.width ?? 0) > maxSize || (fab.height ?? 0) > maxSize) {
           const s = maxSize / Math.max(fab.width ?? 1, fab.height ?? 1);
@@ -51,7 +56,7 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
         }
         const layerId = addLayer({
           type: 'image',
-          name: file.name || 'Image Layer',
+          name: layerName || 'Image Layer',
           visible: true,
           locked: false,
           opacity: 1,
@@ -70,13 +75,40 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
         canvas.setActiveObject(fab);
         canvas.renderAll();
         setSelectedLayers([fab]);
+        return layerId;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Image layer add failed:', err);
+        return null;
+      }
+    },
+    [canvas, addLayer, setSelectedLayers],
+  );
+
+  const addFromFile = useCallback(
+    async (file: File): Promise<void> => {
+      if (!canvas) return;
+      try {
+        const result = await onUploadImage(file);
+        await addFromResult(result, file.name || 'Image Layer');
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error('Image upload failed:', err);
       }
     },
-    [canvas, addLayer, setSelectedLayers, onUploadImage]
+    [canvas, onUploadImage, addFromResult],
   );
+
+  // Backwards-compatible default: callers that treat this hook as
+  // `(file) => Promise<void>` still work. The function carries the
+  // `addFromResult` escape hatch for code paths that already have an
+  // uploaded URL (AI generation, drag-and-drop with a remote URL).
+  type AddImageLayerFn = ((file: File) => Promise<void>) & {
+    addFromResult: typeof addFromResult;
+  };
+  const fn = addFromFile as unknown as AddImageLayerFn;
+  fn.addFromResult = addFromResult;
+  return fn;
 }
 
 export default useAddImageLayer;
