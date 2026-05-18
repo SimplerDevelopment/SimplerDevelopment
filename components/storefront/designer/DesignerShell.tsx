@@ -76,6 +76,16 @@ interface DesignerShellProps {
   /** Image uploader supplied by the parent — wires to the storefront API. */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
   /**
+   * Caller-supplied AI image generator. When provided the AddLayerPanel
+   * grows a "Generate with AI" button that opens the prompt modal.
+   * Resolves with the public URL + dimensions of the persisted asset.
+   */
+  onGenerateAiImage?: (req: {
+    prompt: string;
+    style: 'illustration' | 'photo' | 'graphic' | 'auto';
+    transparent: boolean;
+  }) => Promise<UploadedImageResult>;
+  /**
    * Attach the (saved) design to the cart. Receives the saved design id and
    * the quantity picked from the toolbar.
    */
@@ -99,6 +109,7 @@ export function DesignerShell({
   onSave,
   onCreate,
   onUploadImage,
+  onGenerateAiImage,
   onAddToCart,
   className = '',
 }: DesignerShellProps) {
@@ -544,7 +555,10 @@ export function DesignerShell({
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {sidebarTab === 'add' && (
-              <AddLayerPanel onUploadImage={onUploadImage} />
+              <AddLayerPanel
+                onUploadImage={onUploadImage}
+                onGenerateAiImage={onGenerateAiImage}
+              />
             )}
             {sidebarTab === 'layers' && (
               <LayersPanel onShowAddLayerPanel={() => setSidebarTab('add')} />

@@ -1,21 +1,30 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { contrastingInkForTint as sharedContrastInk } from '@/lib/designer/contrastInk';
 import { createFabricIcon, createFabricText } from '@/lib/designer/layerFactory';
 import { loadGoogleFont } from '@/lib/designer/fontVirtualizer';
 import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
+import type { AiImageStyle } from '@/lib/designer/aiPromptBuilder';
 import type {
   IconLayerData,
   TextLayerData,
   UploadedImageResult,
 } from '@/lib/designer/types';
 
+import AiImageModal from './AiImageModal';
+
+export interface GenerateAiImageRequest {
+  prompt: string;
+  style: AiImageStyle;
+  transparent: boolean;
+}
+
 interface AddLayerPanelProps {
   className?: string;
-  onLayerAdded?: (type: 'text' | 'icon' | 'image') => void;
+  onLayerAdded?: (type: 'text' | 'icon' | 'image' | 'ai-image') => void;
   onClose?: () => void;
   /**
    * Caller-provided uploader. Receives the user's file and must resolve with
@@ -23,6 +32,16 @@ interface AddLayerPanelProps {
    * this to the storefront image-upload API.
    */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
+  /**
+   * Caller-provided AI image generator. Receives the prompt + style options
+   * and must resolve with a public URL + image dimensions. The parent wires
+   * this to POST /api/storefront/[siteId]/designs/[designId]/ai-image, which
+   * also persists a `design_assets` row so the image survives reload.
+   * Optional — the AI Image button is hidden when undefined.
+   */
+  onGenerateAiImage?: (
+    req: GenerateAiImageRequest,
+  ) => Promise<UploadedImageResult>;
 }
 
 // Pre-styled text presets shown in a small gallery — one-click drop-in for
@@ -139,12 +158,21 @@ const POPULAR_ICONS: Array<{ name: string; glyph: string; label: string }> = [
  * Image upload is delegated to a parent-supplied callback so this component
  * stays agnostic of the storefront API.
  */
+/**
+ * Hook + helper: take a successful AI-image upload result and add it as an
+ * image layer using the same Fabric flow as the file-upload code path.
+ * Lives inline so AddLayerPanel can reuse useAddImageLayer's hook closure
+ * without piping yet another callback through props.
+ */
+
 export default function AddLayerPanel({
   className = '',
   onLayerAdded,
   onClose,
   onUploadImage,
+  onGenerateAiImage,
 }: AddLayerPanelProps) {
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const canvas = useCanvasStore((s) => s.canvas);
   const addLayer = useCanvasStore((s) => s.addLayer);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
@@ -336,6 +364,24 @@ export default function AddLayerPanel({
           <span className="flex-1 text-left">Upload image</span>
         </button>
 
+        {onGenerateAiImage && (
+          <button
+            type="button"
+            onClick={() => setAiModalOpen(true)}
+            className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-md border border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 text-sm transition-colors"
+          >
+            <span className="material-icons text-base text-primary">
+              auto_awesome
+            </span>
+            <span className="flex-1 text-left">
+              Generate with AI
+              <span className="block text-[10px] text-muted-foreground">
+                Print-ready PNG, transparent background
+              </span>
+            </span>
+          </button>
+        )}
+
         <div className="pt-2 border-t border-border">
           <p className="text-xs font-medium text-muted-foreground mb-2">
             Icons
@@ -409,6 +455,24 @@ export default function AddLayerPanel({
         onChange={handleFileChange}
         className="hidden"
       />
+
+      {onGenerateAiImage && (
+        <AiImageModal
+          open={aiModalOpen}
+          onClose={() => setAiModalOpen(false)}
+          onGenerate={async (req) => {
+            const result = await onGenerateAiImage(req);
+            // Place the freshly-uploaded image as an image layer using the
+            // same Fabric path as the file uploader.
+            const layerId = await addImageLayer.addFromResult(
+              result,
+              `AI · ${req.prompt.slice(0, 40)}`,
+            );
+            if (layerId) onLayerAdded?.('ai-image');
+            return result;
+          }}
+        />
+      )}
     </div>
   );
 }
