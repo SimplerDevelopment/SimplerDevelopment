@@ -78,15 +78,15 @@ interface DesignerShellProps {
   /** Image uploader supplied by the parent — wires to the storefront API. */
   onUploadImage: (file: File) => Promise<UploadedImageResult>;
   /**
-   * Caller-supplied AI image generator. When provided the AddLayerPanel
-   * grows a "Generate with AI" button that opens the prompt modal.
-   * Resolves with the public URL + dimensions of the persisted asset.
+   * Caller-supplied AI image generator. Returns the variants array so the
+   * modal can render a picker when the customer asked for n > 1.
    */
   onGenerateAiImage?: (req: {
     prompt: string;
     style: 'illustration' | 'photo' | 'graphic' | 'auto';
     transparent: boolean;
-  }) => Promise<UploadedImageResult>;
+    n?: number;
+  }) => Promise<{ variants: UploadedImageResult[] }>;
   /**
    * Attach the (saved) design to the cart. Receives the saved design id and
    * the quantity picked from the toolbar.
@@ -709,7 +709,17 @@ export function DesignerShell({
           }
           onClose={() => setAiModal({ open: false })}
           onGenerate={async (req) => {
-            const result = await onGenerateAiImage(req);
+            // Just forward to the page-level fetcher; it returns the
+            // normalised `{ variants }` shape. Regenerate mode forces n=1
+            // because the in-place layer swap can't compose with a picker.
+            return onGenerateAiImage({
+              prompt: req.prompt,
+              style: req.style,
+              transparent: req.transparent,
+              n: aiModal.regenerateLayerId ? 1 : req.n,
+            });
+          }}
+          onPick={async (variant, req) => {
             if (aiModal.regenerateLayerId && storeCanvas) {
               // Regenerate path — swap the existing Fabric image's source
               // in place so the layer keeps its position, scale, and
@@ -728,16 +738,16 @@ export function DesignerShell({
                     src: string,
                     options?: { crossOrigin?: string },
                   ) => Promise<unknown>;
-                }).setSrc(result.url, { crossOrigin: 'anonymous' });
+                }).setSrc(variant.url, { crossOrigin: 'anonymous' });
                 (fab as unknown as { setCoords?: () => void }).setCoords?.();
                 storeCanvas.renderAll();
               }
               updateLayer(targetId, {
                 name: `AI · ${req.prompt.slice(0, 40)}`,
                 data: {
-                  url: result.url,
-                  originalWidth: result.width,
-                  originalHeight: result.height,
+                  url: variant.url,
+                  originalWidth: variant.width,
+                  originalHeight: variant.height,
                   ai: {
                     prompt: req.prompt,
                     style: req.style,
@@ -745,11 +755,11 @@ export function DesignerShell({
                   },
                 },
               });
-              return result;
+              return;
             }
             // Fresh add path — drop into the canvas as a new image layer.
             await addImageLayer.addFromResult(
-              result,
+              variant,
               `AI · ${req.prompt.slice(0, 40)}`,
               {
                 ai: {
@@ -759,7 +769,6 @@ export function DesignerShell({
                 },
               },
             );
-            return result;
           }}
         />
       )}

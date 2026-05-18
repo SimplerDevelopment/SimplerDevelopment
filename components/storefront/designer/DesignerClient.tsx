@@ -182,6 +182,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       prompt: string;
       style: 'illustration' | 'photo' | 'graphic' | 'auto';
       transparent: boolean;
+      n?: number;
     }) => {
       // Same auto-create-design-on-first-action pattern as onUploadImage —
       // a customer who pops the AI modal before they've made any changes
@@ -214,6 +215,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
             prompt: req.prompt,
             style: req.style,
             transparent: req.transparent,
+            n: req.n ?? 1,
             sessionId,
           }),
         },
@@ -222,11 +224,24 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       if (!res.ok || !json.success) {
         throw new Error(json.message || 'AI image generation failed');
       }
-      return {
-        url: json.data.url,
-        width: json.data.width || 0,
-        height: json.data.height || 0,
-      };
+      // Backwards-compat: if the route still returns a single top-level
+      // result (n=1 path), normalise to a variants array so the modal can
+      // treat both paths uniformly.
+      const variants =
+        Array.isArray(json.data?.variants) && json.data.variants.length > 0
+          ? json.data.variants.map((v: { url: string; width?: number; height?: number }) => ({
+              url: v.url,
+              width: v.width || 0,
+              height: v.height || 0,
+            }))
+          : [
+              {
+                url: json.data.url,
+                width: json.data.width || 0,
+                height: json.data.height || 0,
+              },
+            ];
+      return { variants };
     },
     [siteId, sessionId, product.id, product.name],
   );

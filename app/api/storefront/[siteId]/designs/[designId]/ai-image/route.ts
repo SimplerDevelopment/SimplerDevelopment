@@ -152,6 +152,7 @@ export async function POST(
       transparent?: unknown;
       size?: unknown;
       quality?: unknown;
+      n?: unknown;
     };
 
     const prompt =
@@ -192,6 +193,15 @@ export async function POST(
         ? body.quality
         : 'high'
     ) as string;
+
+    // Number of variations to generate. Capped at 4 to bound cost (each
+    // variation is a separate image charge) and at 1 minimum so the contract
+    // stays "always returns at least one image". Anything outside is clamped.
+    const requestedN =
+      typeof body.n === 'number' && Number.isFinite(body.n)
+        ? Math.floor(body.n)
+        : 1;
+    const n = Math.max(1, Math.min(4, requestedN));
 
     const callerSessionId =
       typeof body.sessionId === 'string' ? body.sessionId : null;
@@ -240,9 +250,12 @@ export async function POST(
 
     // Soft rate-limit before the OpenAI hit so a runaway customer can't
     // pin the merchant's bill (or our platform key) at full throttle.
+    // Variations multiply the spend, so we tell the limiter how many we
+    // intend to consume and let it short-circuit if even one over the cap.
     const rate = await checkAiImageRateLimit({
       clientId: merchantClientId,
       designId: resolved.design.id,
+      additionalImages: n,
     });
     if (!rate.allowed) {
       return NextResponse.json(
@@ -290,7 +303,8 @@ export async function POST(
 
     // gpt-image-1 returns base64 (no URL) and supports `background:'transparent'`
     // for clean cutouts — perfect for print on garments where the background
-    // shirt colour comes from the mockup.
+    // shirt colour comes from the mockup. `n` is bounded 1..4 above; OpenAI
+    // returns one base64 per array slot.
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -300,7 +314,7 @@ export async function POST(
       body: JSON.stringify({
         model: 'gpt-image-1',
         prompt: augmentedPrompt,
-        n: 1,
+        n,
         size,
         quality,
         // `background:'transparent'` is only honoured when output_format
@@ -329,72 +343,81 @@ export async function POST(
     }
 
     const openaiJson = (await openaiRes.json()) as OpenAIImageResponse;
-    const b64 = openaiJson.data?.[0]?.b64_json;
-    if (!b64) {
+    const items = (openaiJson.data ?? []).filter(
+      (item): item is { b64_json: string } =>
+        typeof item.b64_json === 'string' && item.b64_json.length > 0,
+    );
+    if (items.length === 0) {
       return NextResponse.json(
         { success: false, message: 'AI model returned no image' },
         { status: 502 },
       );
     }
 
-    const buffer = Buffer.from(b64, 'base64');
-
-    // sharp metadata gives us width/height for the layer scaling logic. The
-    // upload still succeeds without it; metadata is best-effort.
-    let width: number | null = null;
-    let height: number | null = null;
-    try {
-      const meta = await sharp(buffer).metadata();
-      width = meta.width || null;
-      height = meta.height || null;
-    } catch {
-      // ignore — non-fatal
-    }
-
-    const key = `media/designs/${resolved.design.id}/ai/${crypto.randomUUID()}.png`;
-    const uploadResult = await uploadToS3(buffer, 'ai-image.png', 'image/png', {
-      key,
-    });
-
-    const filename =
+    // Upload every variation in parallel — most of the time is the OpenAI
+    // call itself, so spending an extra 200ms on serial S3 puts feels bad.
+    const baseFilename =
       `${style}-${prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '')}.png`.toLowerCase();
 
-    const [asset] = await db
-      .insert(designAssets)
-      .values({
-        designId: resolved.design.id,
-        url: uploadResult.url,
-        storedFilename: uploadResult.storedFilename,
-        originalFilename: filename,
-        mimeType: 'image/png',
-        width,
-        height,
-        fileSize: uploadResult.fileSize,
-      })
-      .returning();
-
-    // Best-effort metering: append a usage_meter_events row keyed by the
-    // merchant's clientId. We don't await this — it's telemetry and must
-    // never block the response.
-    void recordAiImageUsage({
-      clientId: merchantClientId,
-      source: keySource,
-      images: 1,
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
+    const variants = await Promise.all(
+      items.map(async (item) => {
+        const buffer = Buffer.from(item.b64_json, 'base64');
+        let width: number | null = null;
+        let height: number | null = null;
+        try {
+          const meta = await sharp(buffer).metadata();
+          width = meta.width || null;
+          height = meta.height || null;
+        } catch {
+          // metadata is best-effort
+        }
+        const key = `media/designs/${resolved.design.id}/ai/${crypto.randomUUID()}.png`;
+        const uploadResult = await uploadToS3(buffer, 'ai-image.png', 'image/png', {
+          key,
+        });
+        const [asset] = await db
+          .insert(designAssets)
+          .values({
+            designId: resolved.design.id,
+            url: uploadResult.url,
+            storedFilename: uploadResult.storedFilename,
+            originalFilename: baseFilename,
+            mimeType: 'image/png',
+            width,
+            height,
+            fileSize: uploadResult.fileSize,
+          })
+          .returning();
+        return {
           id: asset.id,
           url: asset.url,
           width: asset.width,
           height: asset.height,
           mimeType: asset.mimeType,
           fileSize: asset.fileSize,
+        };
+      }),
+    );
+
+    // Best-effort metering: one event per generated image so the daily
+    // cap math stays accurate. Fire-and-forget.
+    void recordAiImageUsage({
+      clientId: merchantClientId,
+      source: keySource,
+      images: variants.length,
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          // Backwards-compat: the original n=1 callers expect the first
+          // variant at the top level. New callers should read `variants`.
+          ...variants[0],
           prompt,
           augmentedPrompt,
           style,
+          variants,
         },
       },
       { status: 201 },
