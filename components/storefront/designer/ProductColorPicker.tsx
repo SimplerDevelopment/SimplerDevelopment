@@ -44,6 +44,17 @@ export default function ProductColorPicker({
 }: ProductColorPickerProps) {
   const mockupTint = useCanvasStore((s) => s.mockupTint);
   const setMockupTint = useCanvasStore((s) => s.setMockupTint);
+  // Surface the active shirt-colour name so customers can tell at a glance
+  // which preview they're looking at without having to find the ringed
+  // swatch (small visual on a busy toolbar).
+  const activeLabel = (() => {
+    const matched = options.find(
+      (o) => (o.hex ?? null) === (mockupTint ?? null),
+    );
+    if (matched) return matched.label;
+    if (mockupTint) return mockupTint.toUpperCase();
+    return 'None';
+  })();
 
   return (
     <div
@@ -51,7 +62,11 @@ export default function ProductColorPicker({
       role="radiogroup"
       aria-label="Garment color"
     >
-      <span className="text-xs font-medium text-muted-foreground">Color</span>
+      <span className="text-xs font-medium text-muted-foreground">
+        Color
+        <span className="ml-1 text-foreground/80">·</span>
+        <span className="ml-1 text-foreground/80 font-semibold">{activeLabel}</span>
+      </span>
       <div className="inline-flex items-center gap-1">
         {options.map((opt) => {
           const active = (opt.hex ?? null) === (mockupTint ?? null);
