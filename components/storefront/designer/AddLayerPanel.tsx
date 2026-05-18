@@ -3,6 +3,7 @@
 import React, { useRef } from 'react';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { contrastingInkForTint as sharedContrastInk } from '@/lib/designer/contrastInk';
 import { createFabricIcon, createFabricText } from '@/lib/designer/layerFactory';
 import { loadGoogleFont } from '@/lib/designer/fontVirtualizer';
 import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
@@ -154,24 +155,16 @@ export default function AddLayerPanel({
 
   /**
    * Pick a high-contrast ink colour for a given tint. Returns null when the
-   * base colour (#111111) is already readable. The customer can still
-   * override with the properties panel — this just sets a sensible default
-   * so new layers don't drop in invisible against a dark shirt.
-   * YIQ brightness lifted from the W3C WCAG draft heuristic.
+   * base colour (#111111) is already readable on light tints — keeping the
+   * `null` filters those out of the fillByTint map so the layer falls
+   * through to its base colour for white / heather / mustard.
    */
-  const contrastingInkForTint = (tint: string | null | undefined): string | null => {
+  const contrastingInkForTint = (
+    tint: string | null | undefined,
+  ): string | null => {
     if (!tint) return null;
-    const hex = tint.replace('#', '');
-    const full = hex.length === 3
-      ? hex.split('').map((c) => c + c).join('')
-      : hex;
-    if (full.length !== 6) return null;
-    const r = parseInt(full.slice(0, 2), 16);
-    const g = parseInt(full.slice(2, 4), 16);
-    const b = parseInt(full.slice(4, 6), 16);
-    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness < 128 ? '#ffffff' : null;
+    const v = sharedContrastInk(tint);
+    return v === '#111111' ? null : v;
   };
 
   const handleAddText = (override?: Partial<TextLayerData>) => {

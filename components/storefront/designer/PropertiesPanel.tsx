@@ -5,6 +5,7 @@ import { filters as fabricFilters } from 'fabric';
 import type { FabricImage, FabricObject } from 'fabric';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { contrastingInkForTint } from '@/lib/designer/contrastInk';
 import { resolveLayerFill, tintKey } from '@/lib/designer/fillResolver';
 import type {
   IconLayerData,
@@ -157,6 +158,32 @@ function TintAwareColorPicker({
     });
   };
 
+  /**
+   * One-click readable-everywhere — sets an override for every standard
+   * apparel tint where the base fill would lack contrast. Skips tints
+   * where the base reads fine on its own so we don't clutter the override
+   * map with no-op entries. Dark tints → white; light tints (where the
+   * heuristic says black wins) get no entry and fall through to base.
+   */
+  const handleAutoContrastAll = () => {
+    const next: Record<string, string> = { ...overrides };
+    for (const opt of ALL_TINTS) {
+      if (!opt.hex) continue;
+      const ink = contrastingInkForTint(opt.hex);
+      if (!ink) continue;
+      // Only set white-on-dark; leave light tints to fall through to base.
+      if (ink === '#111111') continue;
+      next[opt.hex.toLowerCase()] = ink;
+    }
+    patch({ fillByTint: Object.keys(next).length > 0 ? next : undefined });
+  };
+
+  const hasAnyOverride = Object.keys(overrides).length > 0;
+  const handleClearAll = () => {
+    if (!hasAnyOverride) return;
+    patch({ fillByTint: undefined });
+  };
+
   return (
     <div className="space-y-2">
       <ColorPicker
@@ -186,6 +213,31 @@ function TintAwareColorPicker({
         </p>
       )}
       <PerTintColorGrid layer={layer} />
+      {/* Bulk per-tint helpers. Auto-contrast fills overrides on every dark
+          shirt with white so the layer reads on dark mockups without manual
+          clicks; Clear-all wipes the override map for a clean slate. */}
+      <div className="flex items-center gap-2 text-[11px]">
+        <button
+          type="button"
+          onClick={handleAutoContrastAll}
+          title="Set white for every dark shirt colour so the layer reads everywhere"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-sm">auto_fix_high</span>
+          Auto-contrast all tints
+        </button>
+        {hasAnyOverride && (
+          <button
+            type="button"
+            onClick={handleClearAll}
+            title="Remove every per-tint override on this layer"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            <span className="material-icons text-sm">clear_all</span>
+            Clear all
+          </button>
+        )}
+      </div>
     </div>
   );
 }
