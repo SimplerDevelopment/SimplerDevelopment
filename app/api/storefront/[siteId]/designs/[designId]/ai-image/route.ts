@@ -12,6 +12,7 @@ import {
 import { recordAiImageUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { checkAiImageRateLimit } from '@/lib/designer/aiRateLimit';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 import {
@@ -234,6 +235,25 @@ export async function POST(
         // 402 = Payment Required matches the rest of the AI surface so the
         // client can show "upgrade or add a BYOK key" copy uniformly.
         { status: 402 },
+      );
+    }
+
+    // Soft rate-limit before the OpenAI hit so a runaway customer can't
+    // pin the merchant's bill (or our platform key) at full throttle.
+    const rate = await checkAiImageRateLimit({
+      clientId: merchantClientId,
+      designId: resolved.design.id,
+    });
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: rate.message,
+          reason: rate.reason,
+          count: rate.count,
+          cap: rate.cap,
+        },
+        { status: 429 },
       );
     }
 
