@@ -246,6 +246,62 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
     [siteId, sessionId, product.id, product.name],
   );
 
+  const onGenerateAiText = useCallback(
+    async (req: {
+      prompt: string;
+      currentText?: string;
+      productName?: string;
+      n?: number;
+    }) => {
+      // Mirrors onGenerateAiImage's auto-create-design-on-first-use, so a
+      // brand-new customer can ask for tagline ideas before they've saved
+      // anything yet.
+      let designId = useCanvasStore.getState().designId;
+      if (!designId) {
+        const res = await fetch(`/api/storefront/${siteId}/designs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: product.id,
+            name: `${product.name} design`,
+            sessionId,
+          }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'Failed to create design');
+        designId = json.data.id as string;
+        useCanvasStore
+          .getState()
+          .setDesign(designId, json.data.name || product.name, product.id);
+      }
+
+      const res = await fetch(
+        `/api/storefront/${siteId}/designs/${designId}/ai-text`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: req.prompt,
+            currentText: req.currentText,
+            productName: req.productName ?? product.name,
+            n: req.n ?? 4,
+            sessionId,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'AI suggestion call failed');
+      }
+      return {
+        suggestions: Array.isArray(json.data?.suggestions)
+          ? (json.data.suggestions as string[])
+          : [],
+      };
+    },
+    [siteId, sessionId, product.id, product.name],
+  );
+
   const onAddToCart = useCallback(
     async (designId: string, quantity: number = 1): Promise<void> => {
       try {
@@ -344,6 +400,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         onSave={onSave}
         onUploadImage={onUploadImage}
         onGenerateAiImage={onGenerateAiImage}
+        onGenerateAiText={onGenerateAiText}
         onAddToCart={onAddToCart}
       />
       {/* Floating designer-utility mounts — siblings of DesignerShell so

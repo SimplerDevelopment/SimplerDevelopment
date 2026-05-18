@@ -244,6 +244,17 @@ function TintAwareColorPicker({
 
 interface PropertiesPanelProps {
   className?: string;
+  /** AI text-suggestion generator threaded down from DesignerShell so the
+   *  Text properties view can offer tagline / slogan suggestions inline. */
+  onGenerateAiText?: (req: {
+    prompt: string;
+    currentText?: string;
+    productName?: string;
+    n?: number;
+  }) => Promise<{ suggestions: string[] }>;
+  /** Product name passed to the AI text route as context — helps the
+   *  model match the vibe ("write a tagline for this T-shirt"). */
+  productName?: string;
 }
 
 interface GeneralPropertiesState {
@@ -277,7 +288,11 @@ const DEFAULT_PROPS: GeneralPropertiesState = {
  * for the currently selected layer(s). When >1 layer is selected, shows the
  * BatchPropertiesPanel.
  */
-export default function PropertiesPanel({ className = '' }: PropertiesPanelProps) {
+export default function PropertiesPanel({
+  className = '',
+  onGenerateAiText,
+  productName,
+}: PropertiesPanelProps) {
   const selectedLayers = useCanvasStore((s) => s.selectedLayers);
   const layers = useCanvasStore((s) => s.layers);
   const updateLayer = useCanvasStore((s) => s.updateLayer);
@@ -354,7 +369,12 @@ export default function PropertiesPanel({ className = '' }: PropertiesPanelProps
       <div className="p-3 space-y-4">
         <GeneralProperties primaryObject={primary} primaryLayer={primaryLayer} updateLayer={updateLayer} />
         {primaryLayer?.type === 'text' && (
-          <TextProperties layer={primaryLayer} updateLayer={updateLayer} />
+          <TextProperties
+            layer={primaryLayer}
+            updateLayer={updateLayer}
+            onGenerateAiText={onGenerateAiText}
+            productName={productName}
+          />
         )}
         {primaryLayer?.type === 'icon' && (
           <IconProperties layer={primaryLayer} updateLayer={updateLayer} />
@@ -555,11 +575,25 @@ function GeneralProperties({
 function TextProperties({
   layer,
   updateLayer,
+  onGenerateAiText,
+  productName,
 }: {
   layer: LayerData;
   updateLayer: (id: string, updates: Partial<LayerData>) => void;
+  onGenerateAiText?: (req: {
+    prompt: string;
+    currentText?: string;
+    productName?: string;
+    n?: number;
+  }) => Promise<{ suggestions: string[] }>;
+  productName?: string;
 }) {
   const data = (layer.data || {}) as TextLayerData;
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
 
   const patch = (next: Partial<TextLayerData>) => {
     updateLayer(layer.id, {
@@ -567,12 +601,49 @@ function TextProperties({
     } as Partial<LayerData>);
   };
 
+  const handleSuggest = async () => {
+    if (!onGenerateAiText) return;
+    const prompt = aiPrompt.trim();
+    if (!prompt) {
+      setAiError('Tell us the vibe (e.g. "punny dog dad").');
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const result = await onGenerateAiText({
+        prompt,
+        currentText: data.text,
+        productName,
+        n: 4,
+      });
+      setAiSuggestions(result.suggestions ?? []);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'Failed to fetch suggestions');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-3 border-t border-border pt-3">
       <div>
-        <label className="block text-xs font-medium text-foreground mb-1">
-          Text
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-medium text-foreground">
+            Text
+          </label>
+          {onGenerateAiText && (
+            <button
+              type="button"
+              onClick={() => setAiOpen((v) => !v)}
+              className="text-[11px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-primary hover:bg-primary/10"
+              title="Ask AI for tagline ideas"
+            >
+              <span className="material-icons text-sm">auto_awesome</span>
+              {aiOpen ? 'Hide AI' : 'AI ideas'}
+            </button>
+          )}
+        </div>
         <textarea
           rows={2}
           value={data.text || ''}
@@ -580,6 +651,95 @@ function TextProperties({
           className="w-full px-2 py-1.5 text-sm rounded-md border border-border bg-background text-foreground"
         />
       </div>
+
+      {onGenerateAiText && aiOpen && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-2">
+          <label
+            htmlFor="ai-text-prompt"
+            className="block text-[10px] uppercase tracking-wide text-muted-foreground"
+          >
+            Describe the vibe
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              id="ai-text-prompt"
+              type="text"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              maxLength={600}
+              disabled={aiLoading}
+              placeholder="e.g. punny dog dad, retro arcade, gym bro"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSuggest();
+                }
+              }}
+              className="flex-1 px-2 py-1 text-xs rounded border border-border bg-background text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => void handleSuggest()}
+              disabled={aiLoading || !aiPrompt.trim()}
+              className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              {aiLoading ? (
+                <>
+                  <span className="material-icons text-sm animate-spin">
+                    refresh
+                  </span>
+                  …
+                </>
+              ) : (
+                <>
+                  <span className="material-icons text-sm">auto_awesome</span>
+                  Suggest
+                </>
+              )}
+            </button>
+          </div>
+
+          {aiError && (
+            <p className="text-[11px] text-destructive leading-snug">
+              {aiError}
+            </p>
+          )}
+
+          {aiSuggestions.length > 0 && (
+            <div className="space-y-1">
+              <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+                Pick one
+              </span>
+              <div className="flex flex-col gap-1">
+                {aiSuggestions.map((s, idx) => (
+                  <button
+                    key={`${idx}-${s}`}
+                    type="button"
+                    onClick={() => {
+                      patch({ text: s });
+                      // Leave the panel open so the customer can try another
+                      // option without re-clicking AI ideas; clear the
+                      // suggestion list once accepted to confirm the pick.
+                      setAiSuggestions([]);
+                    }}
+                    className="text-left px-2 py-1.5 rounded border border-border bg-background text-xs text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSuggest()}
+                disabled={aiLoading}
+                className="text-[10px] text-primary hover:underline disabled:opacity-50"
+              >
+                Another batch
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div>
         <label className="block text-xs font-medium text-foreground mb-1">
           Font

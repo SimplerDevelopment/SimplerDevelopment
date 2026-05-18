@@ -88,6 +88,18 @@ interface DesignerShellProps {
     n?: number;
   }) => Promise<{ variants: UploadedImageResult[] }>;
   /**
+   * Caller-supplied AI text-suggestion generator. Returns up to N short
+   * tagline / slogan candidates for the customer to pick from. Optional —
+   * the Suggest button in the Text properties panel is hidden when
+   * undefined.
+   */
+  onGenerateAiText?: (req: {
+    prompt: string;
+    currentText?: string;
+    productName?: string;
+    n?: number;
+  }) => Promise<{ suggestions: string[] }>;
+  /**
    * Attach the (saved) design to the cart. Receives the saved design id and
    * the quantity picked from the toolbar.
    */
@@ -112,6 +124,7 @@ export function DesignerShell({
   onCreate,
   onUploadImage,
   onGenerateAiImage,
+  onGenerateAiText,
   onAddToCart,
   className = '',
 }: DesignerShellProps) {
@@ -614,7 +627,12 @@ export function DesignerShell({
             {sidebarTab === 'layers' && (
               <LayersPanel onShowAddLayerPanel={() => setSidebarTab('add')} />
             )}
-            {sidebarTab === 'properties' && <PropertiesPanel />}
+            {sidebarTab === 'properties' && (
+              <PropertiesPanel
+                onGenerateAiText={onGenerateAiText}
+                productName={productName}
+              />
+            )}
           </div>
         </aside>
 
