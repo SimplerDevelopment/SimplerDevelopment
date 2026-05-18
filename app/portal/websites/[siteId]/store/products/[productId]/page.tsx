@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
+import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
 
 interface ProductImage {
   id?: number;
@@ -48,6 +49,7 @@ interface ProductForm {
   description: string;
   status: string;
   featured: boolean;
+  isDesignable: boolean;
   priceCents: number;
   compareAtPriceCents: number;
   costPriceCents: number;
@@ -91,6 +93,7 @@ const defaultForm: ProductForm = {
   description: '',
   status: 'draft',
   featured: false,
+  isDesignable: false,
   priceCents: 0,
   compareAtPriceCents: 0,
   costPriceCents: 0,
@@ -125,6 +128,7 @@ export default function ProductEditPage() {
   const [showSeo, setShowSeo] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [showBulkPricing, setShowBulkPricing] = useState(false);
+  const [showCustomization, setShowCustomization] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showMediaUpload, setShowMediaUpload] = useState(false);
   const [mediaItems, setMediaItems] = useState<{ id: number; filename: string; url: string; mimeType: string; alt?: string | null }[]>([]);
@@ -156,6 +160,7 @@ export default function ProductEditPage() {
             description: p.description || '',
             status: p.status || 'draft',
             featured: p.featured || false,
+            isDesignable: p.isDesignable || false,
             priceCents: p.priceCents || 0,
             compareAtPriceCents: p.compareAtPriceCents || 0,
             costPriceCents: p.costPriceCents || 0,
@@ -177,6 +182,7 @@ export default function ProductEditPage() {
           if (p.seoTitle || p.seoDescription) setShowSeo(true);
           if (p.options?.length || p.variants?.length) setShowVariants(true);
           if (p.bulkPricing?.length) setShowBulkPricing(true);
+          if (p.isDesignable) setShowCustomization(true);
         }
       })
       .catch(() => {})
@@ -998,6 +1004,68 @@ export default function ProductEditPage() {
           </div>
         )}
       </div>
+
+      {/* Customization (collapsible) — designer-enabled products */}
+      {!isNew && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCustomization(!showCustomization)}
+            className="w-full px-6 py-4 flex items-center justify-between text-foreground hover:bg-muted/20 transition-colors"
+          >
+            <span className="font-semibold flex items-center gap-2">
+              <span className="material-icons text-lg text-muted-foreground">brush</span>
+              Customization
+            </span>
+            <span className="material-icons text-muted-foreground">{showCustomization ? 'expand_less' : 'expand_more'}</span>
+          </button>
+          {showCustomization && (
+            <div className="px-6 pb-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className={labelClass}>Allow customers to customize this product</label>
+                <div className="flex items-center gap-3 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const next = !form.isDesignable;
+                      updateField('isDesignable', next);
+                      // Persist the toggle immediately so the surfaces editor
+                      // reflects the saved state without requiring a full save.
+                      try {
+                        await fetch(`${base}/products/${productId}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ isDesignable: next }),
+                        });
+                      } catch { /* non-fatal — full save will catch it */ }
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      form.isDesignable ? 'bg-primary' : 'bg-border'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        form.isDesignable ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-muted-foreground">
+                    {form.isDesignable ? 'Enabled — customers see a Customize button' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+              {form.isDesignable && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Each surface (front/back/sleeve…) is a separate canvas customers can design on.
+                  </p>
+                  <DesignSurfacesEditor productId={parseInt(productId)} siteId={siteId} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bulk Pricing (collapsible) */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">

@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   storeSettings, carts, cartItems, products, productImages,
-  productVariants,
+  productVariants, designs,
 } from '@/lib/db/schema';
 import { eq, and, asc, sql } from 'drizzle-orm';
+import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 
 async function verifyStore(websiteId: number) {
   const [store] = await db.select().from(storeSettings)
@@ -150,10 +151,45 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { sessionId, productId, variantId, quantity = 1 } = body;
+    const { sessionId, productId, variantId, quantity = 1, designId } = body;
 
     if (!sessionId || !productId) {
       return NextResponse.json({ success: false, message: 'sessionId and productId are required' }, { status: 400 });
+    }
+
+    // Validate optional designId — must belong to this site & product, and caller must own it
+    if (designId !== undefined && designId !== null) {
+      if (typeof designId !== 'string' || !/^[0-9a-fA-F-]{36}$/.test(designId)) {
+        return NextResponse.json({ success: false, message: 'Invalid designId' }, { status: 400 });
+      }
+
+      const [design] = await db.select().from(designs)
+        .where(and(
+          eq(designs.id, designId),
+          eq(designs.websiteId, websiteId),
+          eq(designs.productId, productId),
+        ))
+        .limit(1);
+
+      if (!design) {
+        return NextResponse.json({ success: false, message: 'Design not found' }, { status: 404 });
+      }
+
+      // Authorize: either logged-in customer matches OR sessionId matches
+      let authorized = false;
+      const token = extractToken(req);
+      if (token) {
+        const customerSession = await validateSession(token);
+        if (customerSession && customerSession.websiteId === websiteId && design.customerId === customerSession.customerId) {
+          authorized = true;
+        }
+      }
+      if (!authorized && design.sessionId && design.sessionId === sessionId) {
+        authorized = true;
+      }
+      if (!authorized) {
+        return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+      }
     }
 
     // Verify product is active and in this store
@@ -210,7 +246,8 @@ export async function POST(
       cart = newCart;
     }
 
-    // Check if item already exists in cart
+    // Check if item already exists in cart — designed items are always treated as a new line
+    // (different design = different fulfillment), so skip the merge when designId is present.
     const existingConditions = [
       eq(cartItems.cartId, cart.id),
       eq(cartItems.productId, productId),
@@ -219,9 +256,9 @@ export async function POST(
       existingConditions.push(eq(cartItems.variantId, variantId));
     }
 
-    const [existing] = await db.select().from(cartItems)
+    const existing = !designId ? (await db.select().from(cartItems)
       .where(and(...existingConditions))
-      .limit(1);
+      .limit(1))[0] : undefined;
 
     if (existing) {
       const newQty = existing.quantity + quantity;
@@ -244,6 +281,7 @@ export async function POST(
       cartId: cart.id,
       productId,
       variantId: variantId || null,
+      designId: designId || null,
       quantity,
       unitPrice,
     }).returning();

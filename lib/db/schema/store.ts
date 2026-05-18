@@ -1,6 +1,6 @@
 // E-commerce: products, options/variants, inventory, carts, orders, customers, and store messaging.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex, index, numeric, uuid } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
@@ -91,6 +91,7 @@ export const products = pgTable('products', {
   weightUnit: varchar('weight_unit', { length: 5 }).default('g'),
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
   featured: boolean('featured').default(false).notNull(),
+  isDesignable: boolean('is_designable').default(false).notNull(),
   seoTitle: varchar('seo_title', { length: 255 }),
   seoDescription: text('seo_description'),
   tags: json('tags').$type<string[]>().default([]),
@@ -99,6 +100,30 @@ export const products = pgTable('products', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   uniqueIndex('products_slug_website_idx').on(t.slug, t.websiteId),
+]);
+
+// Per-product design surface configuration — front/back/sleeve/etc.
+// Each surface has its own mockup image and print-area bounds.
+export const productDesignSurfaces = pgTable('product_design_surfaces', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 80 }).notNull(),                  // "Front", "Back", "Left Sleeve"
+  slug: varchar('slug', { length: 80 }).notNull(),                  // "front", "back", "left-sleeve"
+  displayOrder: integer('display_order').default(0).notNull(),
+  mockupImage: varchar('mockup_image', { length: 500 }).notNull(),  // S3 url to base product image
+  canvasWidth: integer('canvas_width').default(800).notNull(),
+  canvasHeight: integer('canvas_height').default(600).notNull(),
+  // Print area in px relative to mockup image (the region a customer can place art into)
+  printAreaX: integer('print_area_x').default(100).notNull(),
+  printAreaY: integer('print_area_y').default(100).notNull(),
+  printAreaWidth: integer('print_area_width').default(600).notNull(),
+  printAreaHeight: integer('print_area_height').default(400).notNull(),
+  printDpi: integer('print_dpi').default(300).notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('product_design_surfaces_product_slug_idx').on(t.productId, t.slug),
 ]);
 
 export const productImages = pgTable('product_images', {
@@ -198,6 +223,7 @@ export const cartItems = pgTable('cart_items', {
   cartId: integer('cart_id').notNull().references(() => carts.id, { onDelete: 'cascade' }),
   productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  designId: uuid('design_id'), // FK added at runtime to avoid circular ref with designs table below
   quantity: integer('quantity').default(1).notNull(),
   unitPrice: integer('unit_price').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -247,6 +273,10 @@ export const orderItems = pgTable('order_items', {
   orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   productId: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
   variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  designId: uuid('design_id'), // FK added at runtime to designs.id
+  // Frozen snapshot of layersBySurface + canvasSize at checkout, so deleting the design doesn't break fulfillment
+  designSnapshot: jsonb('design_snapshot'),
+  printReadyUrl: varchar('print_ready_url', { length: 500 }), // hi-res render, populated by Stripe webhook
   productName: varchar('product_name', { length: 255 }).notNull(),
   variantName: varchar('variant_name', { length: 255 }),
   sku: varchar('sku', { length: 100 }),
@@ -379,6 +409,52 @@ export const storeProductReviews = pgTable('store_product_reviews', {
   title: varchar('title', { length: 255 }),
   body: text('body'),
   status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, approved, rejected
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── PRODUCT DESIGNER ───────────────────────────────────────────────────────
+
+// Saved customer designs — one per "customize this product" session.
+// Owned by either a logged-in storeCustomer (customerId) or a guest session (sessionId).
+export const designs = pgTable('designs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id'),                  // FK to storeCustomers, nullable for guests
+  sessionId: varchar('session_id', { length: 255 }),   // storefront guest session, nullable for logged-in
+  name: varchar('name', { length: 255 }).notNull().default('Untitled design'),
+  // layersBySurface is keyed by productDesignSurfaces.slug:
+  //   { "front": LayerData[], "back": LayerData[], ... }
+  // LayerData mirrors the productDesigner LayerData type (id, type, name, transform, data, zIndex)
+  layersBySurface: jsonb('layers_by_surface').$type<Record<string, unknown[]>>().default({}).notNull(),
+  canvasSize: jsonb('canvas_size').$type<{ width: number; height: number; dpi: number }>().default({ width: 800, height: 600, dpi: 72 }).notNull(),
+  thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
+  renderedUrl: varchar('rendered_url', { length: 500 }),       // hi-res composite, populated by webhook
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, finalized, rendered
+  /** When true this row is a site-wide reusable template, not a customer design. */
+  isTemplate: boolean('is_template').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('designs_website_idx').on(t.websiteId),
+  index('designs_customer_idx').on(t.customerId),
+  index('designs_session_idx').on(t.sessionId),
+  index('designs_product_idx').on(t.productId),
+  index('designs_template_idx').on(t.isTemplate),
+]);
+
+// User-uploaded image assets used inside a design (separate from the rendered output).
+// Tracked so we can clean up S3 when a design is deleted.
+export const designAssets = pgTable('design_assets', {
+  id: serial('id').primaryKey(),
+  designId: uuid('design_id').notNull().references(() => designs.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  storedFilename: varchar('stored_filename', { length: 255 }),
+  originalFilename: varchar('original_filename', { length: 255 }),
+  mimeType: varchar('mime_type', { length: 80 }),
+  width: integer('width'),
+  height: integer('height'),
+  fileSize: integer('file_size'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
