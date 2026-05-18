@@ -32,6 +32,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
   const reorderLayer = useCanvasStore((s) => s.reorderLayer);
   const setZoom = useCanvasStore((s) => s.setZoom);
   const zoom = useCanvasStore((s) => s.zoom);
+  const updateLayer = useCanvasStore((s) => s.updateLayer);
 
   const {
     onSave,
@@ -175,7 +176,10 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
         onExport?.();
         return;
       }
-      // Arrow nudge
+      // Arrow nudge — Fabric `obj.set` doesn't fire `object:modified`, so we
+      // also push the new left/top into the store. Without this, nudged
+      // positions are visible on the canvas but never make it into the
+      // saved design payload and revert on the next reload.
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         if (selectedLayers.length > 0) {
           e.preventDefault();
@@ -183,20 +187,31 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
           selectedLayers.forEach((obj) => {
             const left = (obj.left as number | undefined) ?? 0;
             const top = (obj.top as number | undefined) ?? 0;
+            let nextLeft = left;
+            let nextTop = top;
             switch (e.key) {
               case 'ArrowLeft':
-                obj.set('left', left - distance);
+                nextLeft = left - distance;
                 break;
               case 'ArrowRight':
-                obj.set('left', left + distance);
+                nextLeft = left + distance;
                 break;
               case 'ArrowUp':
-                obj.set('top', top - distance);
+                nextTop = top - distance;
                 break;
               case 'ArrowDown':
-                obj.set('top', top + distance);
+                nextTop = top + distance;
                 break;
             }
+            obj.set('left', nextLeft);
+            obj.set('top', nextTop);
+            // Keep the bounding-box / coords in sync so the next nudge reads
+            // the updated position.
+            (obj as unknown as { setCoords?: () => void }).setCoords?.();
+            const id =
+              (obj as unknown as { data?: { id?: string } }).data?.id ||
+              (obj as unknown as { id?: string }).id;
+            if (id) updateLayer(id, { left: nextLeft, top: nextTop });
           });
           canvas?.renderAll();
         }
@@ -225,6 +240,7 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig = {}): void
     onExport,
     onDeleteLayer,
     onToggleHelp,
+    updateLayer,
   ]);
 }
 
