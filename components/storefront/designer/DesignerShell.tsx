@@ -267,6 +267,23 @@ export function DesignerShell({
     return () => { document.title = prev; };
   }, [designName, productName, hasUnsavedChanges]);
 
+  // Warn before the tab closes / navigates away if there are unsaved
+  // changes. Autosave runs every 15 s but a customer who closes the tab
+  // mid-edit still loses ~15 s of work without this guard — and on a fresh
+  // design with no designId yet, autosave hasn't created the row yet so
+  // they'd lose *everything*. The modern browsers ignore the custom
+  // message string and show their own generic confirm — we just need to
+  // call preventDefault + returnValue to trigger it.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   // Tick once a minute so the "Saved 2 min ago" indicator updates as the
   // customer keeps working without re-saving.
   const [, forceRelTick] = useState(0);
