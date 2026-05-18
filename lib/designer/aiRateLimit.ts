@@ -53,6 +53,10 @@ export interface AiImageRateLimitVerdict {
 interface CheckOpts {
   clientId: number;
   designId: string;
+  /** Number of images the caller is about to consume. Lets variations
+   *  (n>1) fail the gate when even one would push past the cap, instead
+   *  of partially generating + then erroring. Defaults to 1. */
+  additionalImages?: number;
 }
 
 /**
@@ -71,6 +75,7 @@ export async function checkAiImageRateLimit(
     'AI_IMAGE_PER_DESIGN_CAP',
     DEFAULT_PER_DESIGN_CAP,
   );
+  const additionalImages = Math.max(1, opts.additionalImages ?? 1);
 
   // ── client daily cap ────────────────────────────────────────────────
   if (clientDailyCap > 0) {
@@ -88,13 +93,16 @@ export async function checkAiImageRateLimit(
         ),
       );
     const count = Number(row?.count ?? 0);
-    if (count >= clientDailyCap) {
+    if (count + additionalImages > clientDailyCap) {
       return {
         allowed: false,
         reason: 'client_daily_cap',
         message:
-          `Daily AI image limit reached (${clientDailyCap} per day). ` +
-          `Try again tomorrow or ask the site owner to raise their quota.`,
+          additionalImages === 1
+            ? `Daily AI image limit reached (${clientDailyCap} per day). ` +
+              `Try again tomorrow or ask the site owner to raise their quota.`
+            : `Generating ${additionalImages} variations would exceed today's AI image limit ` +
+              `(${count}/${clientDailyCap} used). Try fewer variations or wait until tomorrow.`,
         count,
         cap: clientDailyCap,
       };
@@ -117,13 +125,17 @@ export async function checkAiImageRateLimit(
         ),
       );
     const count = Number(row?.count ?? 0);
-    if (count >= perDesignCap) {
+    if (count + additionalImages > perDesignCap) {
       return {
         allowed: false,
         reason: 'design_cap',
         message:
-          `This design already has ${perDesignCap} AI-generated images. ` +
-          `Delete some layers from the design before generating more.`,
+          additionalImages === 1
+            ? `This design already has ${perDesignCap} AI-generated images. ` +
+              `Delete some layers from the design before generating more.`
+            : `Generating ${additionalImages} variations would push this design past the ` +
+              `${perDesignCap}-image AI cap (${count} already saved). Pick fewer variations or ` +
+              `delete some existing AI layers first.`,
         count,
         cap: perDesignCap,
       };
