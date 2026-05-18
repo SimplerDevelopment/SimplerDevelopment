@@ -7,6 +7,7 @@ import type { FabricImage, FabricObject } from 'fabric';
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { contrastingInkForTint } from '@/lib/designer/contrastInk';
 import { resolveLayerFill, tintKey } from '@/lib/designer/fillResolver';
+import { assessPrintQuality } from '@/lib/designer/printQuality';
 import type {
   IconLayerData,
   ImageFiltersData,
@@ -954,8 +955,52 @@ function ImageProperties({
 
   const reset = () => update(DEFAULT_IMAGE_FILTERS);
 
+  // Cheap "is this going to print well?" check using the layer's display
+  // width vs the source image's natural width. Surfaces *before* checkout
+  // so customers can shrink a low-res image instead of waiting for a
+  // disappointing printed shirt.
+  const printQuality = assessPrintQuality({
+    naturalWidth: data.originalWidth,
+    layerWidth: layer.width,
+    scaleX: layer.scaleX,
+  });
+
   return (
     <div className="space-y-3 border-t border-border pt-3">
+      {printQuality && (
+        <div
+          className={`rounded-md border p-2 text-xs flex items-start gap-2 ${
+            printQuality.level === 'great'
+              ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+              : printQuality.level === 'okay'
+              ? 'border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300'
+              : 'border-red-500/40 bg-red-500/5 text-red-700 dark:text-red-300'
+          }`}
+          title={printQuality.reason}
+        >
+          <span className="material-icons text-sm mt-0.5">
+            {printQuality.level === 'great'
+              ? 'check_circle'
+              : printQuality.level === 'okay'
+              ? 'info'
+              : 'warning'}
+          </span>
+          <span className="flex-1 leading-snug">
+            <span className="font-medium block">
+              Print quality:{' '}
+              {printQuality.level === 'great'
+                ? 'Great'
+                : printQuality.level === 'okay'
+                ? 'Okay'
+                : 'Poor'}
+            </span>
+            <span className="text-[11px] opacity-80 line-clamp-2">
+              {printQuality.reason}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* AI provenance — only shown when the layer carries the `ai`
           metadata block stamped by the Generate flow. Surfaces the prompt
           + a one-click Regenerate that fires a window event the
