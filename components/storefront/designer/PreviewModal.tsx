@@ -16,6 +16,19 @@ interface PreviewModalProps {
   onConfirm?: () => void;
 }
 
+const TINT_OPTIONS: Array<{ label: string; hex: string | null }> = [
+  { label: 'None', hex: null },
+  { label: 'White', hex: '#ffffff' },
+  { label: 'Heather Grey', hex: '#c9cbcd' },
+  { label: 'Black', hex: '#111111' },
+  { label: 'Navy', hex: '#1f2a44' },
+  { label: 'Royal Blue', hex: '#1d4ed8' },
+  { label: 'Forest Green', hex: '#1f5132' },
+  { label: 'Red', hex: '#b71c1c' },
+  { label: 'Burgundy', hex: '#65161f' },
+  { label: 'Mustard', hex: '#c9a227' },
+];
+
 /**
  * Final-review modal that shows what the customer's design actually looks
  * like rendered cleanly — no print-area dashes, no snap guides — across
@@ -38,6 +51,8 @@ export default function PreviewModal({
   // The store exposes per-surface layer storage so we can render thumbnails
   // even for surfaces the customer hasn't visited yet.
   const layersBySurface = useCanvasStore((s) => s.layersBySurface);
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const setMockupTint = useCanvasStore((s) => s.setMockupTint);
   const [previews, setPreviews] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -162,8 +177,17 @@ export default function PreviewModal({
     return () => {
       cancelled = true;
     };
+    // Re-run when the customer flips shirt colour from the swatch strip below
+    // so the previews repaint without forcing the modal to close+open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, mockupTint]);
+
+  // Reset stale previews while the next batch captures, so the spinner
+  // re-appears instead of showing the prior tint's image.
+  useEffect(() => {
+    if (!open) return;
+    setPreviews({});
+  }, [open, mockupTint]);
 
   if (!open) return null;
 
@@ -197,6 +221,43 @@ export default function PreviewModal({
           >
             <span className="material-icons text-base">close</span>
           </button>
+        </div>
+
+        {/* Tint swatch strip — lets the customer flip the preview through
+            every shirt colour without leaving the modal. Mirrors the
+            ProductColorPicker palette so the experience is consistent. */}
+        <div className="px-5 pt-3 pb-2 border-b border-border flex flex-wrap items-center gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            Shirt colour
+          </span>
+          <div className="inline-flex flex-wrap items-center gap-1">
+            {TINT_OPTIONS.map((opt) => {
+              const active = (opt.hex ?? null) === (mockupTint ?? null);
+              const isNone = opt.hex === null;
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setMockupTint(opt.hex)}
+                  aria-pressed={active}
+                  title={opt.label}
+                  aria-label={opt.label}
+                  className={`relative w-6 h-6 rounded-full border-2 transition-shadow ${
+                    active
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-border hover:border-foreground/40'
+                  }`}
+                  style={{
+                    backgroundColor: isNone ? 'transparent' : opt.hex ?? undefined,
+                    backgroundImage: isNone
+                      ? 'repeating-linear-gradient(45deg, transparent 0 4px, currentColor 4px 5px)'
+                      : undefined,
+                    color: 'rgba(120,120,120,0.55)',
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
 
         <div className="p-5 grid gap-4 grid-cols-1 sm:grid-cols-2">
