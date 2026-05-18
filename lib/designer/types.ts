@@ -45,6 +45,14 @@ export interface TextLayerData {
   strokeWidth?: number;
   /** Persisted drop-shadow effect (offsetX/Y/blur/color). Replayed on canvas rebuild. */
   shadow?: TextShadowEffect | null;
+  /**
+   * Optional per-mockup-tint colour overrides. Keyed by lowercase tint hex
+   * (e.g. '#1f2a44') or the literal string 'none' for the no-tint state.
+   * When the active tint has an entry here, the layer is rendered with this
+   * fill instead of the base `fill`. Lets a customer pick different ink
+   * colours per shirt colour without duplicating the layer.
+   */
+  fillByTint?: Record<string, string>;
 }
 
 export interface IconLayerData {
@@ -55,6 +63,8 @@ export interface IconLayerData {
   /** Display size of icon in px (mapped to Fabric fontSize for unicode glyphs). */
   size?: number;
   strokeWidth?: number;
+  /** Per-tint overrides — same shape as TextLayerData.fillByTint. */
+  fillByTint?: Record<string, string>;
 }
 
 export interface ImageFiltersData {

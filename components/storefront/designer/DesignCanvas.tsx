@@ -5,6 +5,7 @@ import { Point, filters as fabricFilters } from 'fabric';
 import type { Canvas, FabricImage, FabricObject } from 'fabric';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { resolveLayerFill } from '@/lib/designer/fillResolver';
 import {
   createFabricIcon,
   createFabricImage,
@@ -127,6 +128,36 @@ export default function DesignCanvas({
     applyMockupTint(bg, mockupTint);
     c.requestRenderAll();
   }, [mockupTint, isReady, surface.slug, applyMockupTint]);
+
+  // When the active mockup tint changes, walk every text/icon Fabric object
+  // and re-resolve its fill — so layers with a fillByTint override switch to
+  // their per-tint colour without the customer having to touch them.
+  useEffect(() => {
+    const c = fabricRef.current;
+    if (!c || !isReady) return;
+    let changed = false;
+    for (const obj of c.getObjects()) {
+      const objAny = obj as unknown as {
+        id?: string;
+        data?: { id?: string };
+        type?: string;
+        _designerPrintArea?: boolean;
+        _designerGuide?: boolean;
+      };
+      if (objAny.id === BACKGROUND_ID) continue;
+      if (objAny._designerPrintArea || objAny._designerGuide) continue;
+      const layerId = objAny.data?.id || objAny.id;
+      if (!layerId) continue;
+      const layer = layers.find((l) => l.id === layerId);
+      if (!layer || (layer.type !== 'text' && layer.type !== 'icon')) continue;
+      const resolved = resolveLayerFill(layer, mockupTint);
+      if (resolved && (obj as unknown as { fill?: string }).fill !== resolved) {
+        obj.set('fill', resolved);
+        changed = true;
+      }
+    }
+    if (changed) c.requestRenderAll();
+  }, [mockupTint, isReady, layers, surface.slug]);
 
   // Mobile gesture wiring.
   useMobileGestures({
@@ -749,7 +780,7 @@ export default function DesignCanvas({
 
           if (!existing) {
             try {
-              const fab = await buildFabricFromLayer(layer);
+              const fab = await buildFabricFromLayer(layer, mockupTint);
               if (cancelled || !fab) continue;
               c.add(fab);
             } catch (err) {
@@ -757,7 +788,7 @@ export default function DesignCanvas({
               console.error('Failed to create fabric object for layer:', layer.id, err);
             }
           } else {
-            applyLayerToFabric(existing, layer);
+            applyLayerToFabric(existing, layer, mockupTint);
           }
         }
 
@@ -833,10 +864,12 @@ export default function DesignCanvas({
  * ────────────────────────────────────────────────────────────────────────── */
 
 async function buildFabricFromLayer(
-  layer: LayerData
+  layer: LayerData,
+  tint: string | null,
 ): Promise<FabricObject | null> {
   if (layer.type === 'text') {
     const d = layer.data as Partial<TextLayerData>;
+    const fill = resolveLayerFill(layer, tint) ?? d.fill ?? d.color;
     return createFabricText(d.text ?? 'Text', {
       left: layer.left,
       top: layer.top,
@@ -852,7 +885,7 @@ async function buildFabricFromLayer(
       fontWeight: d.fontWeight,
       fontStyle: d.fontStyle,
       underline: d.underline,
-      fill: d.fill || d.color,
+      fill,
       textAlign: d.textAlign,
       lineHeight: d.lineHeight,
       charSpacing: d.charSpacing,
@@ -864,6 +897,7 @@ async function buildFabricFromLayer(
   }
   if (layer.type === 'icon') {
     const d = layer.data as Partial<IconLayerData>;
+    const fill = resolveLayerFill(layer, tint) ?? d.fill ?? d.color;
     return createFabricIcon(d.iconName ?? 'star', {
       left: layer.left,
       top: layer.top,
@@ -874,7 +908,7 @@ async function buildFabricFromLayer(
       visible: layer.visible,
       selectable: !layer.locked,
       evented: !layer.locked,
-      fill: d.fill || d.color,
+      fill,
       fontSize: d.size,
       data: { id: layer.id },
     });
@@ -916,7 +950,11 @@ function applyImageFilters(
   img.applyFilters();
 }
 
-function applyLayerToFabric(obj: FabricObject, layer: LayerData): void {
+function applyLayerToFabric(
+  obj: FabricObject,
+  layer: LayerData,
+  tint: string | null = null,
+): void {
   const props: Record<string, unknown> = {
     left: layer.left,
     top: layer.top,
@@ -930,7 +968,9 @@ function applyLayerToFabric(obj: FabricObject, layer: LayerData): void {
   };
   if (layer.type === 'text' || layer.type === 'icon') {
     const d = layer.data as Partial<TextLayerData & IconLayerData>;
-    if (d.fill || d.color) props.fill = d.fill || d.color;
+    const resolvedFill = resolveLayerFill(layer, tint);
+    const fill = resolvedFill ?? d.fill ?? d.color;
+    if (fill) props.fill = fill;
     if (layer.type === 'text') {
       if (d.text !== undefined) props.text = d.text;
       if (d.fontSize) props.fontSize = d.fontSize;

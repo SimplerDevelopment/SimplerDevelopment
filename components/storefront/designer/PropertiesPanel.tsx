@@ -5,6 +5,7 @@ import { filters as fabricFilters } from 'fabric';
 import type { FabricImage, FabricObject } from 'fabric';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { resolveLayerFill, tintKey } from '@/lib/designer/fillResolver';
 import type {
   IconLayerData,
   ImageFiltersData,
@@ -16,6 +17,105 @@ import type {
 import BatchPropertiesPanel from './BatchPropertiesPanel';
 import ColorPicker from './ColorPicker';
 import FontPicker from './FontPicker';
+
+// Tint hex → human-friendly label, lifted from ProductColorPicker so the
+// per-tint colour swatch can say "Color (Navy)" instead of "(#1f2a44)".
+const TINT_LABELS: Record<string, string> = {
+  '#ffffff': 'White',
+  '#c9cbcd': 'Heather Grey',
+  '#111111': 'Black',
+  '#1f2a44': 'Navy',
+  '#1d4ed8': 'Royal Blue',
+  '#1f5132': 'Forest Green',
+  '#b71c1c': 'Red',
+  '#65161f': 'Burgundy',
+  '#c9a227': 'Mustard',
+};
+
+function tintLabel(tint: string | null): string {
+  if (!tint) return 'No tint';
+  return TINT_LABELS[tint.toLowerCase()] ?? tint.toUpperCase();
+}
+
+/**
+ * Wrapper around `ColorPicker` that scopes a single layer's fill to the
+ * currently active mockup tint. When no tint is active it edits the base
+ * `data.fill`. When a tint is active it reads/writes `data.fillByTint[key]`,
+ * lets the customer fall back to the base, and surfaces a "Reset" button so
+ * they can delete the per-tint override.
+ *
+ * The caller stays generic — it just passes the layer and the patch fn so
+ * this can serve both Text and Icon panels.
+ */
+function TintAwareColorPicker({
+  layer,
+  label = 'Color',
+  patch,
+}: {
+  layer: LayerData;
+  label?: string;
+  patch: (next: Partial<TextLayerData & IconLayerData>) => void;
+}) {
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const data = (layer.data || {}) as Partial<TextLayerData & IconLayerData>;
+  const key = tintKey(mockupTint);
+  const overrides = data.fillByTint ?? {};
+  const baseFill = data.fill || data.color || '#000000';
+  const effective = mockupTint
+    ? (overrides[key] ?? baseFill)
+    : baseFill;
+  const hasOverride = mockupTint != null && typeof overrides[key] === 'string';
+
+  const handleChange = (hex: string) => {
+    if (!mockupTint) {
+      patch({ fill: hex, color: hex });
+      return;
+    }
+    patch({
+      fillByTint: { ...overrides, [key]: hex },
+    });
+  };
+
+  const handleReset = () => {
+    if (!hasOverride) return;
+    const next = { ...overrides };
+    delete next[key];
+    patch({
+      fillByTint: Object.keys(next).length > 0 ? next : undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-1">
+      <ColorPicker
+        label={mockupTint ? `${label} (${tintLabel(mockupTint)})` : label}
+        value={effective}
+        onChange={handleChange}
+      />
+      {mockupTint && (
+        <p className="text-[10px] text-muted-foreground leading-snug">
+          {hasOverride ? (
+            <>
+              Override active for {tintLabel(mockupTint)} ·{' '}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-primary hover:underline"
+              >
+                reset to base
+              </button>
+            </>
+          ) : (
+            <>
+              Pick a colour to override the base fill only when{' '}
+              {tintLabel(mockupTint)} is selected.
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface PropertiesPanelProps {
   className?: string;
@@ -380,10 +480,9 @@ function TextProperties({
           </div>
         </div>
       </div>
-      <ColorPicker
-        label="Color"
-        value={(data.fill || data.color || '#000000') as string}
-        onChange={(hex) => patch({ fill: hex, color: hex })}
+      <TintAwareColorPicker
+        layer={layer}
+        patch={(next) => patch(next as Partial<TextLayerData>)}
       />
       {/* B / I / U + alignment quick-toggles — same row, each is an
           icon-only button that lights up when the style is active. */}
@@ -496,10 +595,9 @@ function IconProperties({
           className="flex-1 px-2 py-1 text-sm rounded-md border border-border bg-background text-foreground"
         />
       </FieldRow>
-      <ColorPicker
-        label="Color"
-        value={(data.fill || data.color || '#000000') as string}
-        onChange={(hex) => patch({ fill: hex, color: hex })}
+      <TintAwareColorPicker
+        layer={layer}
+        patch={(next) => patch(next as Partial<IconLayerData>)}
       />
       <FieldRow label="Size">
         <NumberField
