@@ -796,6 +796,51 @@ function ImageProperties({
 
   return (
     <div className="space-y-3 border-t border-border pt-3">
+      {/* AI provenance — only shown when the layer carries the `ai`
+          metadata block stamped by the Generate flow. Surfaces the prompt
+          + a one-click Regenerate that fires a window event the
+          AddLayerPanel listens to (it owns the modal mount). */}
+      {data.ai && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="material-icons text-base text-primary mt-0.5">
+              auto_awesome
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                AI generated · {data.ai.style}
+              </div>
+              <div
+                className="text-xs text-foreground line-clamp-2"
+                title={data.ai.prompt}
+              >
+                &ldquo;{data.ai.prompt}&rdquo;
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(
+                new CustomEvent('designer:request-ai-regenerate', {
+                  detail: {
+                    layerId: layer.id,
+                    prompt: data.ai!.prompt,
+                    style: data.ai!.style,
+                    transparent: data.ai!.transparent,
+                  },
+                }),
+              );
+            }}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs rounded border border-primary/40 bg-background text-primary hover:bg-primary/10"
+          >
+            <span className="material-icons text-sm">refresh</span>
+            Regenerate
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-foreground inline-flex items-center gap-1">
           <span className="material-icons text-sm">auto_fix_high</span>

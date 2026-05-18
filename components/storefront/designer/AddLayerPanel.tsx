@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { contrastingInkForTint as sharedContrastInk } from '@/lib/designer/contrastInk';
@@ -13,8 +13,6 @@ import type {
   TextLayerData,
   UploadedImageResult,
 } from '@/lib/designer/types';
-
-import AiImageModal from './AiImageModal';
 
 export interface GenerateAiImageRequest {
   prompt: string;
@@ -172,7 +170,6 @@ export default function AddLayerPanel({
   onUploadImage,
   onGenerateAiImage,
 }: AddLayerPanelProps) {
-  const [aiModalOpen, setAiModalOpen] = useState(false);
   const canvas = useCanvasStore((s) => s.canvas);
   const addLayer = useCanvasStore((s) => s.addLayer);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
@@ -367,7 +364,10 @@ export default function AddLayerPanel({
         {onGenerateAiImage && (
           <button
             type="button"
-            onClick={() => setAiModalOpen(true)}
+            onClick={() => {
+              if (typeof window === 'undefined') return;
+              window.dispatchEvent(new CustomEvent('designer:open-ai-modal'));
+            }}
             className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-md border border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 text-sm transition-colors"
           >
             <span className="material-icons text-base text-primary">
@@ -456,23 +456,6 @@ export default function AddLayerPanel({
         className="hidden"
       />
 
-      {onGenerateAiImage && (
-        <AiImageModal
-          open={aiModalOpen}
-          onClose={() => setAiModalOpen(false)}
-          onGenerate={async (req) => {
-            const result = await onGenerateAiImage(req);
-            // Place the freshly-uploaded image as an image layer using the
-            // same Fabric path as the file uploader.
-            const layerId = await addImageLayer.addFromResult(
-              result,
-              `AI · ${req.prompt.slice(0, 40)}`,
-            );
-            if (layerId) onLayerAdded?.('ai-image');
-            return result;
-          }}
-        />
-      )}
     </div>
   );
 }

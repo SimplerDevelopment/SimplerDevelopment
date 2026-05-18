@@ -28,11 +28,16 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
    * Adds an already-uploaded image (caller-supplied URL + dimensions) to
    * the canvas as a new image layer. Used by the AI-image flow which
    * uploads server-side rather than going through the FormData uploader.
+   *
+   * `extraData` is shallow-merged into the resulting `ImageLayerData` so
+   * callers can stamp AI metadata (prompt / style) without forking the
+   * scale-and-place plumbing.
    */
   const addFromResult = useCallback(
     async (
       result: UploadedImageResult,
       layerName: string,
+      extraData?: Partial<ImageLayerData>,
     ): Promise<string | null> => {
       if (!canvas) return null;
       try {
@@ -42,6 +47,7 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
           url: result.url,
           originalWidth: result.width,
           originalHeight: result.height,
+          ...(extraData ?? {}),
         };
         const fab = await createFabricImage(result.url, {
           left: cx,
@@ -104,7 +110,11 @@ export function useAddImageLayer({ onUploadImage }: UseAddImageLayerOptions) {
   // `addFromResult` escape hatch for code paths that already have an
   // uploaded URL (AI generation, drag-and-drop with a remote URL).
   type AddImageLayerFn = ((file: File) => Promise<void>) & {
-    addFromResult: typeof addFromResult;
+    addFromResult: (
+      result: UploadedImageResult,
+      layerName: string,
+      extraData?: Partial<ImageLayerData>,
+    ) => Promise<string | null>;
   };
   const fn = addFromFile as unknown as AddImageLayerFn;
   fn.addFromResult = addFromResult;

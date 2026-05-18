@@ -18,6 +18,16 @@ interface AiImageModalProps {
   }) => Promise<UploadedImageResult>;
   /** Called after the generated image is fully placed on the canvas. */
   onPlaced?: () => void;
+  /** Pre-fill the form when re-opening in regenerate mode. */
+  prefill?: {
+    prompt: string;
+    style: AiImageStyle;
+    transparent: boolean;
+  };
+  /** When set, the modal flips its CTA to "Regenerate" and clarifies the
+   *  intent (the AddLayerPanel side replaces the existing layer rather
+   *  than adding a new one). The value is just a label for copy. */
+  regenerateLayerName?: string;
 }
 
 const STYLE_OPTIONS: Array<{
@@ -58,6 +68,8 @@ export default function AiImageModal({
   onClose,
   onGenerate,
   onPlaced,
+  prefill,
+  regenerateLayerName,
 }: AiImageModalProps) {
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState<AiImageStyle>('illustration');
@@ -65,12 +77,34 @@ export default function AiImageModal({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const isRegenerate = Boolean(regenerateLayerName);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
-    const t = window.setTimeout(() => promptRef.current?.focus(), 30);
+    // Apply prefill on each open so a second "Regenerate" reseeds the form
+    // even if the customer cancelled the first attempt with tweaked values.
+    if (prefill) {
+      setPrompt(prefill.prompt);
+      setStyle(prefill.style);
+      setTransparent(prefill.transparent);
+    }
+    const t = window.setTimeout(() => {
+      const el = promptRef.current;
+      if (!el) return;
+      el.focus();
+      // Move caret to end when prefilled — feels less disruptive than a
+      // full select-all that the customer has to clear before typing.
+      const len = el.value.length;
+      try {
+        el.setSelectionRange(len, len);
+      } catch {
+        // Some browsers throw on programmatic selection; ignore.
+      }
+    }, 30);
     return () => window.clearTimeout(t);
+    // We intentionally re-run on every open even when prefill is unchanged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Lock body scroll while open — matches PreviewModal.
@@ -131,13 +165,14 @@ export default function AiImageModal({
           <div>
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
               <span className="material-icons text-base text-primary">
-                auto_awesome
+                {isRegenerate ? 'refresh' : 'auto_awesome'}
               </span>
-              Generate AI image
+              {isRegenerate ? 'Regenerate AI image' : 'Generate AI image'}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Describe what you want — we&apos;ll create a print-ready PNG and
-              drop it on your canvas.
+              {isRegenerate
+                ? `Tweak the prompt or style and we'll replace ${regenerateLayerName} with a fresh render.`
+                : "Describe what you want — we'll create a print-ready PNG and drop it on your canvas."}
             </p>
           </div>
           <button
@@ -287,12 +322,14 @@ export default function AiImageModal({
                   <span className="material-icons text-base animate-spin">
                     refresh
                   </span>
-                  Generating…
+                  {isRegenerate ? 'Regenerating…' : 'Generating…'}
                 </>
               ) : (
                 <>
-                  <span className="material-icons text-base">auto_awesome</span>
-                  Generate
+                  <span className="material-icons text-base">
+                    {isRegenerate ? 'refresh' : 'auto_awesome'}
+                  </span>
+                  {isRegenerate ? 'Regenerate' : 'Generate'}
                 </>
               )}
             </button>

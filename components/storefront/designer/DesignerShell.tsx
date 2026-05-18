@@ -13,7 +13,9 @@ import type {
 } from '@/lib/designer/types';
 
 import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
+import type { AiImageStyle } from '@/lib/designer/aiPromptBuilder';
 import AddLayerPanel from './AddLayerPanel';
+import AiImageModal from './AiImageModal';
 import AlignmentToolbar from './AlignmentToolbar';
 import CanvasControls from './CanvasControls';
 import DesignCanvas from './DesignCanvas';
@@ -147,9 +149,58 @@ export function DesignerShell({
   // (backdrop dim, slides in from the left). On md+ the aside is part of
   // the flex layout and this state is ignored.
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // AI image modal state — lives at the shell level so the Regenerate
+  // button in PropertiesPanel can re-open it even when the customer has
+  // switched away from the Add Layer tab (AddLayerPanel unmounts on tab
+  // switch, taking any locally-mounted modal with it).
+  const [aiModal, setAiModal] = useState<{
+    open: boolean;
+    prefill?: { prompt: string; style: AiImageStyle; transparent: boolean };
+    regenerateLayerId?: string;
+  }>({ open: false });
 
   // Drag-and-drop image upload — same code path as the file picker.
   const addImageLayer = useAddImageLayer({ onUploadImage });
+
+  // Cross-component requests to open the AI modal — used by AddLayerPanel's
+  // "Generate with AI" button (which now lives in a different tab from
+  // PropertiesPanel's "Regenerate") and by the Properties Regenerate flow.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!onGenerateAiImage) return;
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | {
+            layerId?: string;
+            prompt?: string;
+            style?: AiImageStyle;
+            transparent?: boolean;
+          }
+        | undefined;
+      if (detail?.layerId && detail.prompt && detail.style) {
+        setAiModal({
+          open: true,
+          prefill: {
+            prompt: detail.prompt,
+            style: detail.style,
+            transparent: detail.transparent ?? true,
+          },
+          regenerateLayerId: detail.layerId,
+        });
+      } else {
+        setAiModal({ open: true });
+      }
+    };
+    window.addEventListener('designer:request-ai-regenerate', onOpen);
+    window.addEventListener('designer:open-ai-modal', onOpen);
+    return () => {
+      window.removeEventListener('designer:request-ai-regenerate', onOpen);
+      window.removeEventListener('designer:open-ai-modal', onOpen);
+    };
+  }, [onGenerateAiImage]);
+
+  const updateLayer = useCanvasStore((s) => s.updateLayer);
+  const storeCanvas = useCanvasStore((s) => s.canvas);
 
   // Bootstrap store from props on mount.
   useEffect(() => {
@@ -649,6 +700,69 @@ export function DesignerShell({
         }
         onConfirm={() => void handleAddToCart()}
       />
+      {onGenerateAiImage && (
+        <AiImageModal
+          open={aiModal.open}
+          prefill={aiModal.prefill}
+          regenerateLayerName={
+            aiModal.regenerateLayerId ? 'this image' : undefined
+          }
+          onClose={() => setAiModal({ open: false })}
+          onGenerate={async (req) => {
+            const result = await onGenerateAiImage(req);
+            if (aiModal.regenerateLayerId && storeCanvas) {
+              // Regenerate path — swap the existing Fabric image's source
+              // in place so the layer keeps its position, scale, and
+              // ordering. The store data update carries the new prompt +
+              // url through to the next autosave.
+              const targetId = aiModal.regenerateLayerId;
+              const fab = storeCanvas.getObjects().find((o) => {
+                const id =
+                  (o as unknown as { data?: { id?: string } }).data?.id ||
+                  (o as unknown as { id?: string }).id;
+                return id === targetId;
+              });
+              if (fab) {
+                await (fab as unknown as {
+                  setSrc: (
+                    src: string,
+                    options?: { crossOrigin?: string },
+                  ) => Promise<unknown>;
+                }).setSrc(result.url, { crossOrigin: 'anonymous' });
+                (fab as unknown as { setCoords?: () => void }).setCoords?.();
+                storeCanvas.renderAll();
+              }
+              updateLayer(targetId, {
+                name: `AI · ${req.prompt.slice(0, 40)}`,
+                data: {
+                  url: result.url,
+                  originalWidth: result.width,
+                  originalHeight: result.height,
+                  ai: {
+                    prompt: req.prompt,
+                    style: req.style,
+                    transparent: req.transparent,
+                  },
+                },
+              });
+              return result;
+            }
+            // Fresh add path — drop into the canvas as a new image layer.
+            await addImageLayer.addFromResult(
+              result,
+              `AI · ${req.prompt.slice(0, 40)}`,
+              {
+                ai: {
+                  prompt: req.prompt,
+                  style: req.style,
+                  transparent: req.transparent,
+                },
+              },
+            );
+            return result;
+          }}
+        />
+      )}
     </div>
   );
 }
