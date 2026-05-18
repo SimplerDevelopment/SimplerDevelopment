@@ -152,6 +152,29 @@ export default function AddLayerPanel({
   // behavior in one place so both code paths render identical layers.
   const addImageLayer = useAddImageLayer({ onUploadImage });
 
+  /**
+   * Pick a high-contrast default ink colour based on the current mockup tint.
+   * Without this, dropping black text onto a navy or red shirt mockup yields
+   * something the customer can barely see; they then have to dive into the
+   * properties panel just to make the text readable. YIQ brightness lifted
+   * from the W3C WCAG draft heuristic.
+   */
+  const defaultInkColor = (): string => {
+    const tint = useCanvasStore.getState().mockupTint;
+    if (!tint) return '#111111';
+    const hex = tint.replace('#', '');
+    const full = hex.length === 3
+      ? hex.split('').map((c) => c + c).join('')
+      : hex;
+    if (full.length !== 6) return '#111111';
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    if ([r, g, b].some((v) => Number.isNaN(v))) return '#111111';
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness < 128 ? '#ffffff' : '#111111';
+  };
+
   const handleAddText = (override?: Partial<TextLayerData>) => {
     if (!canvas) return;
     const cx = canvas.getWidth() / 2;
@@ -161,7 +184,7 @@ export default function AddLayerPanel({
       fontFamily: 'Arial',
       fontSize: 32,
       fontWeight: 'normal',
-      fill: '#111111',
+      fill: defaultInkColor(),
       textAlign: 'left',
       lineHeight: 1.2,
       charSpacing: 0,
@@ -226,7 +249,7 @@ export default function AddLayerPanel({
     const cy = canvas.getHeight() / 2;
     const iconData: IconLayerData = {
       iconName,
-      fill: '#111111',
+      fill: defaultInkColor(),
       size: 64,
     };
     const layerId = addLayer({
