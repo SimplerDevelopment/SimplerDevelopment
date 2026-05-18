@@ -86,6 +86,17 @@ export interface ImageLayerData {
   fit?: 'cover' | 'contain' | 'fill';
   /** Persisted Fabric image filters — replayed on canvas rebuild. */
   filters?: ImageFiltersData;
+  /**
+   * AI-generation metadata. Stamped on layers that came from the AI
+   * Generate flow so the Properties panel can surface a "Regenerate"
+   * action pre-filled with the original prompt + style. Absent on
+   * customer uploads.
+   */
+  ai?: {
+    prompt: string;
+    style: 'illustration' | 'photo' | 'graphic' | 'auto';
+    transparent: boolean;
+  };
 }
 
 export type LayerDataPayload = TextLayerData | IconLayerData | ImageLayerData;
