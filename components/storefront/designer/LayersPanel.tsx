@@ -22,6 +22,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useCanvasStore } from '@/lib/designer/canvasStore';
 import {
   classifyLayerPrintArea,
+  computeFixOverflowPosition,
   countLayersOutsidePrintArea,
   type PrintAreaStatus,
 } from '@/lib/designer/printAreaCheck';
@@ -62,6 +63,7 @@ export default function LayersPanel({
   const clearLayers = useCanvasStore((s) => s.clearLayers);
   const surfaces = useCanvasStore((s) => s.surfaces);
   const activeSurface = useCanvasStore((s) => s.activeSurface);
+  const updateLayer = useCanvasStore((s) => s.updateLayer);
   const [filter, setFilter] = useState('');
 
   const currentSurface = useMemo(
@@ -288,6 +290,56 @@ export default function LayersPanel({
                   onDuplicate={() => duplicateLayer(layer.id)}
                   onMoveUp={() => reorderLayer(layer.id, 'up')}
                   onMoveDown={() => reorderLayer(layer.id, 'down')}
+                  onFixOverflow={
+                    currentSurface
+                      ? () => {
+                          // Icons + text don't always have width/height in
+                          // LayerData (they get measured by Fabric after
+                          // mount), so fall through to the live Fabric bbox
+                          // when needed instead of falling back to 0×0 and
+                          // returning a null fix.
+                          const fab = canvas?.getObjects().find((o) => {
+                            const id =
+                              (o as unknown as { data?: { id?: string } }).data?.id ||
+                              (o as unknown as { id?: string }).id;
+                            return id === layer.id;
+                          });
+                          const liveBbox = fab?.getBoundingRect();
+                          const layerForFix: LayerData =
+                            liveBbox && (!layer.width || !layer.height)
+                              ? {
+                                  ...layer,
+                                  width: liveBbox.width,
+                                  height: liveBbox.height,
+                                  scaleX: 1,
+                                  scaleY: 1,
+                                  // The live bbox already accounts for scale,
+                                  // so we shift the layer reference point to
+                                  // the bbox top-left to keep the maths simple.
+                                  left: liveBbox.left,
+                                  top: liveBbox.top,
+                                  angle: 0,
+                                }
+                              : layer;
+                          const next = computeFixOverflowPosition(
+                            layerForFix,
+                            currentSurface,
+                          );
+                          if (!next) return;
+                          updateLayer(layer.id, next);
+                          // Sync the live Fabric object so the move is visible
+                          // immediately — the layer-sync effect picks it up on
+                          // the next render but that's a beat too slow for a
+                          // click-driven action.
+                          if (fab) {
+                            fab.set('left', next.left);
+                            fab.set('top', next.top);
+                            (fab as unknown as { setCoords?: () => void }).setCoords?.();
+                            canvas?.renderAll();
+                          }
+                        }
+                      : undefined
+                  }
                 />
               ))}
             </SortableContext>
@@ -310,6 +362,10 @@ interface SortableLayerRowProps {
   onDuplicate: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  /** Called when the customer clicks the overflow warning icon to ask the
+   * designer to drop the layer back into the safe print area. Undefined
+   * when no active surface is known. */
+  onFixOverflow?: () => void;
 }
 
 function SortableLayerRow({
@@ -324,6 +380,7 @@ function SortableLayerRow({
   onDuplicate,
   onMoveUp,
   onMoveDown,
+  onFixOverflow,
 }: SortableLayerRowProps) {
   const updateLayer = useCanvasStore((s) => s.updateLayer);
   const reorderLayer = useCanvasStore((s) => s.reorderLayer);
@@ -523,29 +580,41 @@ function SortableLayerRow({
 
       {/* Print-area status — only render when something's wrong; full safe-zone
           rows stay clean. Distinct icons + tooltips for partial vs fully out
-          so a customer can tell whether they'll get a clip or a no-print. */}
+          so a customer can tell whether they'll get a clip or a no-print.
+          When onFixOverflow is provided the icon becomes a one-click "drop
+          it back inside" button — much faster than dragging the layer back. */}
       {layer.visible && printAreaStatus !== 'inside' && (
-        <span
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onFixOverflow?.();
+          }}
+          disabled={!onFixOverflow}
           aria-label={
             printAreaStatus === 'outside'
-              ? 'Outside print area — will not print'
-              : 'Partially outside print area — content beyond the dashed rectangle will be clipped'
+              ? 'Outside print area — click to move into the print area'
+              : 'Partially outside — click to nudge into the print area'
           }
           title={
-            printAreaStatus === 'outside'
-              ? 'Outside print area — will not print'
-              : 'Will be clipped — extends past the print area'
+            onFixOverflow
+              ? printAreaStatus === 'outside'
+                ? 'Outside print area — click to move into the safe zone'
+                : 'Will be clipped — click to nudge inside the safe zone'
+              : printAreaStatus === 'outside'
+                ? 'Outside print area — will not print'
+                : 'Will be clipped — extends past the print area'
           }
-          className={
+          className={`p-0.5 rounded ${
             printAreaStatus === 'outside'
-              ? 'text-destructive'
-              : 'text-amber-500'
-          }
+              ? 'text-destructive hover:bg-destructive/10'
+              : 'text-amber-500 hover:bg-amber-500/10'
+          } disabled:cursor-default disabled:hover:bg-transparent`}
         >
           <span className="material-icons text-sm">
             {printAreaStatus === 'outside' ? 'cancel' : 'warning_amber'}
           </span>
-        </span>
+        </button>
       )}
 
       {/* Action buttons are removed from layout (not just faded) until the

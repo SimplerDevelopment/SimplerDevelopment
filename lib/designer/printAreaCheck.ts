@@ -118,3 +118,56 @@ export function countLayersOutsidePrintArea(
   }
   return { partial, outside };
 }
+
+/**
+ * Compute the (left, top) needed to drop a layer's bounding box back inside
+ * the safe print area. For 'partial' overflows we just shift the offending
+ * edge in; for 'outside' we center the layer in the print rect so the
+ * customer doesn't have to hunt for it. Returns null when no movement is
+ * needed (already inside) or the layer has zero size (nothing to clamp).
+ */
+export function computeFixOverflowPosition(
+  layer: LayerData,
+  surface: Pick<
+    DesignerSurface,
+    'printAreaX' | 'printAreaY' | 'printAreaWidth' | 'printAreaHeight'
+  >
+): { left: number; top: number } | null {
+  const status = classifyLayerPrintArea(layer, surface);
+  if (status === 'inside') return null;
+  const bb = getLayerBoundingBox(layer);
+  const w = bb.right - bb.left;
+  const h = bb.bottom - bb.top;
+  if (w === 0 || h === 0) return null;
+
+  if (status === 'outside') {
+    // Drop the layer into the centre of the print area.
+    const cx = surface.printAreaX + surface.printAreaWidth / 2;
+    const cy = surface.printAreaY + surface.printAreaHeight / 2;
+    // Offset of layer.left from the bbox left, preserved so rotated layers
+    // still land sensibly.
+    const dx = layer.left - bb.left;
+    const dy = layer.top - bb.top;
+    return {
+      left: cx - w / 2 + dx,
+      top: cy - h / 2 + dy,
+    };
+  }
+
+  // Partial — nudge just enough that every edge is inside.
+  let nextLeft = layer.left;
+  let nextTop = layer.top;
+  if (bb.left < surface.printAreaX) {
+    nextLeft += surface.printAreaX - bb.left;
+  }
+  if (bb.top < surface.printAreaY) {
+    nextTop += surface.printAreaY - bb.top;
+  }
+  if (bb.right > surface.printAreaX + surface.printAreaWidth) {
+    nextLeft -= bb.right - (surface.printAreaX + surface.printAreaWidth);
+  }
+  if (bb.bottom > surface.printAreaY + surface.printAreaHeight) {
+    nextTop -= bb.bottom - (surface.printAreaY + surface.printAreaHeight);
+  }
+  return { left: nextLeft, top: nextTop };
+}
