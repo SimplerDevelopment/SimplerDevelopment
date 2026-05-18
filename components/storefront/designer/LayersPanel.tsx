@@ -20,7 +20,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
-import type { LayerData } from '@/lib/designer/types';
+import {
+  classifyLayerPrintArea,
+  countLayersOutsidePrintArea,
+  type PrintAreaStatus,
+} from '@/lib/designer/printAreaCheck';
+import type { DesignerSurface, LayerData } from '@/lib/designer/types';
 
 interface LayersPanelProps {
   className?: string;
@@ -55,7 +60,33 @@ export default function LayersPanel({
   const reorderLayer = useCanvasStore((s) => s.reorderLayer);
   const reorderLayers = useCanvasStore((s) => s.reorderLayers);
   const clearLayers = useCanvasStore((s) => s.clearLayers);
+  const surfaces = useCanvasStore((s) => s.surfaces);
+  const activeSurface = useCanvasStore((s) => s.activeSurface);
   const [filter, setFilter] = useState('');
+
+  const currentSurface = useMemo(
+    () => surfaces.find((s) => s.slug === activeSurface) ?? null,
+    [surfaces, activeSurface]
+  );
+
+  // Pre-compute the per-layer print-area status once so individual rows
+  // don't each redo the bounding-box maths on every layer change.
+  const statusByLayerId = useMemo(() => {
+    const map = new Map<string, PrintAreaStatus>();
+    if (!currentSurface) return map;
+    for (const layer of layers) {
+      map.set(layer.id, classifyLayerPrintArea(layer, currentSurface));
+    }
+    return map;
+  }, [layers, currentSurface]);
+
+  const overflowSummary = useMemo(
+    () =>
+      currentSurface
+        ? countLayersOutsidePrintArea(layers, currentSurface)
+        : { partial: 0, outside: 0 },
+    [layers, currentSurface]
+  );
 
   const handleClearAll = () => {
     if (layers.length === 0) return;
@@ -164,6 +195,31 @@ export default function LayersPanel({
         </div>
       )}
 
+      {/* Print-area summary — warns about content that will be clipped or
+          dropped at print time. Skipped when everything sits in the safe
+          zone so the panel doesn't get noisy. */}
+      {(overflowSummary.partial > 0 || overflowSummary.outside > 0) && (
+        <div className="mx-2 mt-2 mb-1 px-2 py-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] flex items-start gap-1.5">
+          <span className="material-icons text-sm mt-px">warning_amber</span>
+          <span className="leading-snug">
+            {overflowSummary.outside > 0 && (
+              <>
+                <strong className="font-semibold">{overflowSummary.outside}</strong>{' '}
+                outside print area
+                {overflowSummary.partial > 0 ? ', ' : ''}
+              </>
+            )}
+            {overflowSummary.partial > 0 && (
+              <>
+                <strong className="font-semibold">{overflowSummary.partial}</strong>{' '}
+                will be clipped
+              </>
+            )}
+            {' — content beyond the dashed rectangle may not print.'}
+          </span>
+        </div>
+      )}
+
       {/* Filter input — only shown when there are enough layers that
           scrolling/scanning becomes friction. */}
       {sorted.length >= 6 && (
@@ -224,6 +280,7 @@ export default function LayersPanel({
                   layer={layer}
                   active={layer.id === activeLayerId}
                   selected={layerSelection.selectedLayerIds.includes(layer.id)}
+                  printAreaStatus={statusByLayerId.get(layer.id) ?? 'inside'}
                   onSelect={(ev) => handleSelect(layer.id, ev)}
                   onToggleVisibility={() => toggleLayerVisibility(layer.id)}
                   onToggleLock={() => toggleLayerLock(layer.id)}
@@ -245,6 +302,7 @@ interface SortableLayerRowProps {
   layer: LayerData;
   active: boolean;
   selected: boolean;
+  printAreaStatus: PrintAreaStatus;
   onSelect: (ev: React.MouseEvent) => void;
   onToggleVisibility: () => void;
   onToggleLock: () => void;
@@ -258,6 +316,7 @@ function SortableLayerRow({
   layer,
   active,
   selected,
+  printAreaStatus,
   onSelect,
   onToggleVisibility,
   onToggleLock,
@@ -459,6 +518,33 @@ function SortableLayerRow({
           }`}
         >
           {layer.name}
+        </span>
+      )}
+
+      {/* Print-area status — only render when something's wrong; full safe-zone
+          rows stay clean. Distinct icons + tooltips for partial vs fully out
+          so a customer can tell whether they'll get a clip or a no-print. */}
+      {layer.visible && printAreaStatus !== 'inside' && (
+        <span
+          aria-label={
+            printAreaStatus === 'outside'
+              ? 'Outside print area — will not print'
+              : 'Partially outside print area — content beyond the dashed rectangle will be clipped'
+          }
+          title={
+            printAreaStatus === 'outside'
+              ? 'Outside print area — will not print'
+              : 'Will be clipped — extends past the print area'
+          }
+          className={
+            printAreaStatus === 'outside'
+              ? 'text-destructive'
+              : 'text-amber-500'
+          }
+        >
+          <span className="material-icons text-sm">
+            {printAreaStatus === 'outside' ? 'cancel' : 'warning_amber'}
+          </span>
         </span>
       )}
 
