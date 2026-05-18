@@ -4,6 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import type { AiImageStyle } from '@/lib/designer/aiPromptBuilder';
+import {
+  listAiPromptHistory,
+  recordAiPrompt,
+  type AiPromptHistoryEntry,
+} from '@/lib/designer/aiPromptHistory';
 import type { UploadedImageResult } from '@/lib/designer/types';
 
 export interface AiImageModalRequest {
@@ -101,6 +106,7 @@ export default function AiImageModal({
   const [variants, setVariants] = useState<UploadedImageResult[]>([]);
   const [lastRequest, setLastRequest] = useState<AiImageModalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<AiPromptHistoryEntry[]>([]);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const isRegenerate = Boolean(regenerateLayerName);
   const inPicker = variants.length > 1;
@@ -112,6 +118,9 @@ export default function AiImageModal({
     // flash before the new generate kicks off.
     setVariants([]);
     setLastRequest(null);
+    // Re-read recent prompts on each open so the list reflects history
+    // entries written during the same session by other generations.
+    setHistory(listAiPromptHistory());
     // Apply prefill on each open so a second "Regenerate" reseeds the form
     // even if the customer cancelled the first attempt with tweaked values.
     if (prefill) {
@@ -174,6 +183,11 @@ export default function AiImageModal({
         setPlacing(true);
         try {
           await onPick(result.variants[0], req);
+          recordAiPrompt({
+            prompt: req.prompt,
+            style: req.style,
+            transparent: req.transparent,
+          });
           setPrompt('');
           onClose();
         } finally {
@@ -197,6 +211,11 @@ export default function AiImageModal({
       setError(null);
       try {
         await onPick(variant, lastRequest);
+        recordAiPrompt({
+          prompt: lastRequest.prompt,
+          style: lastRequest.style,
+          transparent: lastRequest.transparent,
+        });
         setPrompt('');
         setVariants([]);
         setLastRequest(null);
@@ -380,6 +399,39 @@ export default function AiImageModal({
                 </span>
               </span>
             </label>
+
+            {/* Recent prompts — only shown when the customer has actually
+                generated something in a past session. Reapplies the full
+                request (style + transparent) on click so they don't have
+                to remember which preset they used last time. */}
+            {history.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Recent
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {history.map((entry) => (
+                    <button
+                      key={`${entry.at}-${entry.prompt}`}
+                      type="button"
+                      onClick={() => {
+                        setPrompt(entry.prompt);
+                        setStyle(entry.style);
+                        setTransparent(entry.transparent);
+                      }}
+                      disabled={generating}
+                      title={entry.prompt}
+                      className="text-[11px] max-w-[18rem] truncate px-2 py-1 rounded-full border border-primary/30 bg-primary/5 text-foreground hover:bg-primary/10 disabled:opacity-50"
+                    >
+                      <span className="material-icons text-[12px] mr-0.5 align-text-bottom text-primary">
+                        history
+                      </span>
+                      {entry.prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {!prompt.trim() && (
               <div className="space-y-1">
