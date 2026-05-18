@@ -22,6 +22,7 @@ import PropertiesPanel from './PropertiesPanel';
 import PreviewModal from './PreviewModal';
 import ProductColorPicker from './ProductColorPicker';
 import ShortcutsModal from './ShortcutsModal';
+import SnapshotsDropdown from './SnapshotsDropdown';
 import SurfaceSelector from './SurfaceSelector';
 
 type SidebarTab = 'add' | 'layers' | 'properties';
@@ -111,6 +112,8 @@ export function DesignerShell({
   const designId = useCanvasStore((s) => s.designId);
   const showPrintArea = useCanvasStore((s) => s.showPrintArea);
   const togglePrintArea = useCanvasStore((s) => s.togglePrintArea);
+  const showGrid = useCanvasStore((s) => s.showGrid);
+  const toggleGrid = useCanvasStore((s) => s.toggleGrid);
   const selectedLayers = useCanvasStore((s) => s.selectedLayers);
   const undo = useCanvasStore((s) => s.undo);
   const redo = useCanvasStore((s) => s.redo);
@@ -294,6 +297,24 @@ export function DesignerShell({
         >
           <span className="material-icons text-base">crop_free</span>
         </button>
+        <button
+          type="button"
+          onClick={toggleGrid}
+          aria-pressed={showGrid}
+          aria-label={showGrid ? 'Hide alignment grid' : 'Show alignment grid'}
+          title={
+            showGrid
+              ? 'Grid shown — click to hide'
+              : 'Grid hidden — click to show 25 px alignment grid'
+          }
+          className={`inline-flex items-center justify-center w-8 h-8 rounded-md border ${
+            showGrid
+              ? 'border-primary text-primary bg-primary/5 hover:bg-primary/10'
+              : 'border-border text-foreground bg-background hover:bg-muted'
+          }`}
+        >
+          <span className="material-icons text-base">grid_on</span>
+        </button>
 
         <div className="flex items-center gap-0.5">
           <button
@@ -317,6 +338,8 @@ export function DesignerShell({
             <span className="material-icons text-base">redo</span>
           </button>
         </div>
+
+        <SnapshotsDropdown />
 
         <button
           type="button"

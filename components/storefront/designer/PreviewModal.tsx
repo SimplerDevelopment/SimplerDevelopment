@@ -63,40 +63,83 @@ export default function PreviewModal({
     const captureOne = (slug: string): Promise<string> =>
       new Promise((resolve) => {
         setActiveSurface(slug);
-        // Wait for the next animation frame + a beat so DesignCanvas finishes
-        // recreating the Fabric objects for the new surface.
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            try {
-              const hidden: Array<{ obj: { visible?: boolean }; was: boolean | undefined }> = [];
-              canvas.getObjects().forEach((obj) => {
-                const tagged = obj as unknown as {
-                  visible?: boolean;
-                  _designerPrintArea?: boolean;
-                  _designerGuide?: boolean;
-                  excludeFromExport?: boolean;
-                };
-                if (tagged._designerPrintArea || tagged._designerGuide || tagged.excludeFromExport) {
-                  hidden.push({ obj: tagged, was: tagged.visible });
-                  tagged.visible = false;
-                }
-              });
-              canvas.requestRenderAll();
-              const data = canvas.toDataURL({
-                format: 'png',
-                multiplier: 1,
-                quality: 0.92,
-              });
-              hidden.forEach(({ obj, was }) => {
-                obj.visible = was;
-              });
-              canvas.requestRenderAll();
-              resolve(data);
-            } catch {
-              resolve('');
-            }
-          }, 250);
-        });
+        const expectedLayerCount =
+          useCanvasStore.getState().layersBySurface[slug]?.length ?? 0;
+
+        // Fabric layer sync is async — image layers fetch + decode before they
+        // land on the canvas. A fixed 250ms wait isn't enough for surfaces with
+        // image layers, which left the Front pane stuck on a spinner. Poll
+        // (capped) until the canvas has the expected user-layer count, then
+        // capture. Falls back after ~3 s so a slow image can't hang the modal.
+        const POLL_MS = 60;
+        const MAX_POLLS = 50;
+        let polls = 0;
+
+        const isUserObject = (obj: unknown): boolean => {
+          const meta = obj as {
+            id?: string;
+            _designerPrintArea?: boolean;
+            _designerGuide?: string;
+            excludeFromExport?: boolean;
+            data?: { id?: string };
+          };
+          if (meta.id === 'designer-canvas-background') return false;
+          if (meta._designerPrintArea) return false;
+          if (meta._designerGuide) return false;
+          if (meta.excludeFromExport) return false;
+          return Boolean(meta.data?.id);
+        };
+
+        const captureNow = () => {
+          try {
+            const hidden: Array<{ obj: { visible?: boolean }; was: boolean | undefined }> = [];
+            canvas.getObjects().forEach((obj) => {
+              const tagged = obj as unknown as {
+                visible?: boolean;
+                _designerPrintArea?: boolean;
+                _designerGuide?: boolean;
+                excludeFromExport?: boolean;
+              };
+              if (tagged._designerPrintArea || tagged._designerGuide || tagged.excludeFromExport) {
+                hidden.push({ obj: tagged, was: tagged.visible });
+                tagged.visible = false;
+              }
+            });
+            canvas.requestRenderAll();
+            const data = canvas.toDataURL({
+              format: 'png',
+              multiplier: 1,
+              quality: 0.92,
+            });
+            hidden.forEach(({ obj, was }) => {
+              obj.visible = was;
+            });
+            canvas.requestRenderAll();
+            resolve(data);
+          } catch {
+            resolve('');
+          }
+        };
+
+        const tick = () => {
+          if (cancelled) return resolve('');
+          const userObjects = canvas.getObjects().filter(isUserObject).length;
+          if (userObjects >= expectedLayerCount) {
+            // One more frame so any pending renderAll is flushed.
+            requestAnimationFrame(captureNow);
+            return;
+          }
+          if (++polls >= MAX_POLLS) {
+            // Best-effort capture even if we never matched the count.
+            requestAnimationFrame(captureNow);
+            return;
+          }
+          setTimeout(tick, POLL_MS);
+        };
+
+        // Give React/effects one frame to schedule the surface swap before we
+        // start polling, otherwise the first read sees the previous surface.
+        requestAnimationFrame(() => setTimeout(tick, POLL_MS));
       });
 
     (async () => {

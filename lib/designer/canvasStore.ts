@@ -82,6 +82,10 @@ export interface CanvasStoreState {
   mockupTint: string | null;
   setMockupTint: (hex: string | null) => void;
 
+  /** When true, DesignCanvas draws a faint 25 px alignment grid. */
+  showGrid: boolean;
+  toggleGrid: () => void;
+
   // Selection
   selectedLayers: FabricObject[];
   activeLayerId: string | null;
@@ -758,6 +762,9 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   mockupTint: null,
   setMockupTint: (hex) => set({ mockupTint: hex, isDirty: true }),
+
+  showGrid: false,
+  toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
 
   // Pan / zoom
   zoom: INITIAL_ZOOM,

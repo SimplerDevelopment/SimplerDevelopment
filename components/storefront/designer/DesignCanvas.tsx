@@ -85,22 +85,23 @@ export default function DesignCanvas({
     (s) => s.layersBySurface[surface.slug] ?? (EMPTY_LAYERS as LayerData[])
   );
   const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const showGrid = useCanvasStore((s) => s.showGrid);
 
   // Apply / clear a color tint on the mockup background so customers can
   // preview their design on different shirt colors without separate mockup
   // images. Uses Fabric's BlendColor filter in 'multiply' mode, which darkens
   // a white mockup toward the chosen hex while preserving texture/shadows.
-  useEffect(() => {
-    const c = fabricRef.current;
-    if (!c || !isReady) return;
-    const bg = c.getObjects().find(
-      (o) => (o as unknown as { id?: string }).id === BACKGROUND_ID
-    ) as FabricImage | undefined;
-    if (!bg) return;
-    if (mockupTint) {
+  //
+  // The mockup image is loaded asynchronously when surface changes, so this
+  // effect alone races the bg replacement and the tint silently drops off on
+  // surface switch. The bg-loading effect calls applyMockupTint after the new
+  // image is mounted; this effect handles the live case when the user picks
+  // a different swatch while the bg is already present.
+  const applyMockupTint = useCallback((bg: FabricImage, tint: string | null) => {
+    if (tint) {
       bg.filters = [
         new fabricFilters.BlendColor({
-          color: mockupTint,
+          color: tint,
           mode: 'multiply',
           alpha: 1,
         }),
@@ -110,12 +111,22 @@ export default function DesignCanvas({
     }
     try {
       bg.applyFilters();
-      c.requestRenderAll();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('Failed to apply mockup tint:', err);
     }
-  }, [mockupTint, isReady, surface.slug]);
+  }, []);
+
+  useEffect(() => {
+    const c = fabricRef.current;
+    if (!c || !isReady) return;
+    const bg = c.getObjects().find(
+      (o) => (o as unknown as { id?: string }).id === BACKGROUND_ID
+    ) as FabricImage | undefined;
+    if (!bg) return;
+    applyMockupTint(bg, mockupTint);
+    c.requestRenderAll();
+  }, [mockupTint, isReady, surface.slug, applyMockupTint]);
 
   // Mobile gesture wiring.
   useMobileGestures({
@@ -276,6 +287,13 @@ export default function DesignCanvas({
         (img as unknown as { id?: string }).id = BACKGROUND_ID;
         c.add(img);
         c.moveObjectTo(img, 0);
+        // Re-apply tint synchronously so it survives surface switches. The
+        // standalone tint effect can fire before this async load resolves,
+        // which silently drops the tint when navigating front → back → front.
+        const currentTint = useCanvasStore.getState().mockupTint;
+        if (currentTint) {
+          applyMockupTint(img, currentTint);
+        }
         c.renderAll();
       } catch (err) {
         // eslint-disable-next-line no-console
@@ -286,7 +304,13 @@ export default function DesignCanvas({
     return () => {
       cancelled = true;
     };
-  }, [surface.mockupImage, surface.canvasWidth, surface.canvasHeight, isReady]);
+  }, [
+    surface.mockupImage,
+    surface.canvasWidth,
+    surface.canvasHeight,
+    isReady,
+    applyMockupTint,
+  ]);
 
   /* ────────────────────────────────────────────────────────────────────
    * Print-area overlay — non-interactive dashed rect showing the safe zone.
@@ -781,6 +805,18 @@ export default function DesignCanvas({
         className="absolute top-2 right-2 z-10 px-2 py-1 rounded bg-black/70 text-white text-xs font-mono pointer-events-none"
         style={{ display: 'none' }}
       />
+      {showGrid && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 z-[5] pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, rgba(99,102,241,0.12) 1px, transparent 1px),' +
+              'linear-gradient(to bottom, rgba(99,102,241,0.12) 1px, transparent 1px)',
+            backgroundSize: '25px 25px',
+          }}
+        />
+      )}
       {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
           <span className="material-icons animate-spin text-muted-foreground">
