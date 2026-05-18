@@ -32,9 +32,81 @@ const TINT_LABELS: Record<string, string> = {
   '#c9a227': 'Mustard',
 };
 
+// Canonical apparel tints (mirrors ProductColorPicker DEFAULT_COLORS) used by
+// the at-a-glance per-tint grid in the Properties panel. The 'No tint' entry
+// stays in front so customers always see the base-fill swatch first.
+const ALL_TINTS: Array<{ hex: string | null; label: string }> = [
+  { hex: null, label: 'No tint' },
+  { hex: '#ffffff', label: 'White' },
+  { hex: '#c9cbcd', label: 'Heather Grey' },
+  { hex: '#111111', label: 'Black' },
+  { hex: '#1f2a44', label: 'Navy' },
+  { hex: '#1d4ed8', label: 'Royal Blue' },
+  { hex: '#1f5132', label: 'Forest Green' },
+  { hex: '#b71c1c', label: 'Red' },
+  { hex: '#65161f', label: 'Burgundy' },
+  { hex: '#c9a227', label: 'Mustard' },
+];
+
 function tintLabel(tint: string | null): string {
   if (!tint) return 'No tint';
   return TINT_LABELS[tint.toLowerCase()] ?? tint.toUpperCase();
+}
+
+/**
+ * At-a-glance row of mini swatches — one per standard apparel tint —
+ * showing the resolved fill that will render on each shirt colour for the
+ * currently selected layer. Clicking a swatch jumps the active mockup
+ * tint to that shirt colour so the customer can edit its override in the
+ * picker above without leaving the panel.
+ */
+function PerTintColorGrid({ layer }: { layer: LayerData }) {
+  const setMockupTint = useCanvasStore((s) => s.setMockupTint);
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const data = (layer.data || {}) as Partial<TextLayerData & IconLayerData>;
+  const baseFill = data.fill || data.color || '#000000';
+  const overrides = data.fillByTint ?? {};
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        Per-shirt colour
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {ALL_TINTS.map((opt) => {
+          const key = opt.hex ? opt.hex.toLowerCase() : 'none';
+          const override = overrides[key];
+          const effective = override ?? baseFill;
+          const isCurrent = (mockupTint ?? null) === (opt.hex ?? null);
+          return (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setMockupTint(opt.hex)}
+              aria-label={`${opt.label} → ${
+                override ? `override ${override}` : 'base color'
+              }`}
+              title={
+                override
+                  ? `${opt.label}: ${override} (override)`
+                  : `${opt.label}: ${effective} (base)`
+              }
+              className={`relative w-5 h-5 rounded border ${
+                isCurrent ? 'border-primary ring-1 ring-primary/40' : 'border-border'
+              }`}
+              style={{ backgroundColor: effective }}
+            >
+              {override && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary border border-background"
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -86,7 +158,7 @@ function TintAwareColorPicker({
   };
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <ColorPicker
         label={mockupTint ? `${label} (${tintLabel(mockupTint)})` : label}
         value={effective}
@@ -113,6 +185,7 @@ function TintAwareColorPicker({
           )}
         </p>
       )}
+      <PerTintColorGrid layer={layer} />
     </div>
   );
 }
