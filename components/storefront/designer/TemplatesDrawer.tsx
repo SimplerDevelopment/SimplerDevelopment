@@ -97,12 +97,56 @@ export default function TemplatesDrawer({ siteId, productId }: TemplatesDrawerPr
         typeof window !== 'undefined'
           ? localStorage.getItem('cart_session_id') || undefined
           : undefined;
+
+      // Best-effort canvas thumbnail. Hide overlays + guides so the preview
+      // matches the print-ready output, then restore them in a finally
+      // block. Null on failure — the API treats the field as optional.
+      let thumbnailDataUrl: string | null = null;
+      const canvas = useCanvasStore.getState().canvas;
+      if (canvas) {
+        const hidden: Array<{
+          obj: { visible?: boolean };
+          was: boolean | undefined;
+        }> = [];
+        try {
+          canvas.getObjects().forEach((obj) => {
+            const tagged = obj as unknown as {
+              visible?: boolean;
+              _designerPrintArea?: boolean;
+              _designerGuide?: boolean;
+              excludeFromExport?: boolean;
+            };
+            if (
+              tagged._designerPrintArea ||
+              tagged._designerGuide ||
+              tagged.excludeFromExport
+            ) {
+              hidden.push({ obj: tagged, was: tagged.visible });
+              tagged.visible = false;
+            }
+          });
+          canvas.requestRenderAll();
+          thumbnailDataUrl = canvas.toDataURL({
+            format: 'png',
+            multiplier: 0.3,
+            quality: 0.85,
+          });
+        } catch {
+          thumbnailDataUrl = null;
+        } finally {
+          hidden.forEach(({ obj, was }) => {
+            obj.visible = was;
+          });
+          canvas.requestRenderAll();
+        }
+      }
+
       const res = await fetch(
         `/api/storefront/${siteId}/designs/${designId}/save-as-template`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, thumbnailDataUrl }),
         }
       );
       const json = await res.json();

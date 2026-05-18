@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { storeSettings, designs } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
+import { uploadToS3 } from '@/lib/s3/upload';
 
 async function verifyStore(websiteId: number) {
   const [store] = await db.select().from(storeSettings)
@@ -39,6 +40,10 @@ export async function POST(
     const body = (await req.json().catch(() => ({}))) as {
       sessionId?: string;
       name?: string;
+      /** Optional inline PNG/JPEG/WebP data URL captured from the canvas. When
+       * supplied we decode + upload to S3 so the template row carries a real
+       * thumbnail URL the drawer can render. */
+      thumbnailDataUrl?: string;
     };
     const callerSessionId = body.sessionId || null;
 
@@ -74,6 +79,39 @@ export async function POST(
       (typeof body.name === 'string' && body.name.trim()) ||
       `(template) ${source.name}`;
 
+    // Decode + upload the optional thumbnail before the insert so the template
+    // row lands with a usable preview URL. We mirror the finalize endpoint's
+    // dataUrl-handling so the two stay consistent.
+    let thumbnailUrl: string | null = null;
+    if (body.thumbnailDataUrl && typeof body.thumbnailDataUrl === 'string') {
+      const match = body.thumbnailDataUrl.match(
+        /^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/,
+      );
+      if (!match) {
+        return NextResponse.json(
+          { success: false, message: 'Invalid thumbnailDataUrl' },
+          { status: 400 },
+        );
+      }
+      const mimeType = match[1];
+      const b64 = match[2];
+      const buffer = Buffer.from(b64, 'base64');
+      const ext = mimeType === 'image/jpeg' ? 'jpg' : mimeType.split('/')[1];
+      // Hash isn't worth the complexity here — a per-template UUID-ish path
+      // keeps things readable; templates get a stable id after insert so we
+      // re-key via Date.now to avoid the chicken-and-egg.
+      const key = `media/templates/${websiteId}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.${ext}`;
+      const uploadResult = await uploadToS3(
+        buffer,
+        `template.${ext}`,
+        mimeType,
+        { key },
+      );
+      thumbnailUrl = uploadResult.url;
+    }
+
     const [template] = await db.insert(designs).values({
       websiteId,
       productId: source.productId,
@@ -82,6 +120,7 @@ export async function POST(
       name: templateName.slice(0, 255),
       layersBySurface: source.layersBySurface,
       canvasSize: source.canvasSize,
+      thumbnailUrl,
       isTemplate: true,
       status: 'draft',
     }).returning();
