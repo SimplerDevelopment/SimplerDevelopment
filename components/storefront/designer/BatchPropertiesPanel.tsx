@@ -2,9 +2,23 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 
+import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { tintKey } from '@/lib/designer/fillResolver';
 import type { BatchUpdateData, LayerType } from '@/lib/designer/types';
 
 import ColorPicker from './ColorPicker';
+
+const TINT_LABELS: Record<string, string> = {
+  '#ffffff': 'White',
+  '#c9cbcd': 'Heather Grey',
+  '#111111': 'Black',
+  '#1f2a44': 'Navy',
+  '#1d4ed8': 'Royal Blue',
+  '#1f5132': 'Forest Green',
+  '#b71c1c': 'Red',
+  '#65161f': 'Burgundy',
+  '#c9a227': 'Mustard',
+};
 
 interface BatchPropertiesPanelProps {
   selectedLayerIds: string[];
@@ -31,6 +45,10 @@ export default function BatchPropertiesPanel({
   const [visible, setVisible] = useState<boolean>(true);
   const [locked, setLocked] = useState<boolean>(false);
   const [color, setColor] = useState<string>('#000000');
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const tintLabel = mockupTint
+    ? (TINT_LABELS[mockupTint.toLowerCase()] ?? mockupTint.toUpperCase())
+    : null;
 
   const canEditColor = useMemo(() => {
     if (!batchEditableProperties.includes('color')) return false;
@@ -52,11 +70,18 @@ export default function BatchPropertiesPanel({
       if (next.opacity !== undefined) filtered.opacity = next.opacity;
       if (next.visible !== undefined) filtered.visible = next.visible;
       if (next.locked !== undefined) filtered.locked = next.locked;
-      if (next.color !== undefined) filtered.color = next.color;
+      if (next.color !== undefined) {
+        filtered.color = next.color;
+        // When a mockup tint is active, scope the bulk colour change to that
+        // tint via fillByTint so other shirt colours keep their base fill.
+        if (mockupTint) {
+          filtered.colorTintKey = tintKey(mockupTint);
+        }
+      }
       if (Object.keys(filtered).length === 0) return;
       onBatchUpdate(filtered);
     },
-    [disabled, selectedLayerIds.length, onBatchUpdate]
+    [disabled, selectedLayerIds.length, onBatchUpdate, mockupTint]
   );
 
   if (selectedLayerIds.length === 0) return null;
@@ -101,7 +126,7 @@ export default function BatchPropertiesPanel({
         <div className="space-y-1">
           <div className="text-xs font-medium text-foreground inline-flex items-center gap-1">
             <span className="material-icons text-sm">palette</span>
-            Color
+            {tintLabel ? `Color (${tintLabel})` : 'Color'}
           </div>
           <ColorPicker
             value={color}
@@ -110,6 +135,12 @@ export default function BatchPropertiesPanel({
               applyUpdate({ color: hex });
             }}
           />
+          {tintLabel && (
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Override the fill for the {selectedLayerIds.length} selected
+              layers only when {tintLabel} is the active shirt colour.
+            </p>
+          )}
         </div>
       )}
 

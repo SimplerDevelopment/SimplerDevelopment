@@ -160,6 +160,13 @@ export interface BatchUpdateData {
   visible?: boolean;
   locked?: boolean;
   color?: string;
+  /**
+   * When set alongside `color`, routes the colour write into each layer's
+   * `fillByTint[tintKey]` map instead of clobbering the base `fill`. Keeps
+   * a batch colour change on a tinted mockup scoped to that tint, matching
+   * how the single-layer TintAwareColorPicker behaves.
+   */
+  colorTintKey?: string;
 }
 
 export interface ExportedDesignData {

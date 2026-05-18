@@ -153,41 +153,50 @@ export default function AddLayerPanel({
   const addImageLayer = useAddImageLayer({ onUploadImage });
 
   /**
-   * Pick a high-contrast default ink colour based on the current mockup tint.
-   * Without this, dropping black text onto a navy or red shirt mockup yields
-   * something the customer can barely see; they then have to dive into the
-   * properties panel just to make the text readable. YIQ brightness lifted
-   * from the W3C WCAG draft heuristic.
+   * Pick a high-contrast ink colour for a given tint. Returns null when the
+   * base colour (#111111) is already readable. The customer can still
+   * override with the properties panel — this just sets a sensible default
+   * so new layers don't drop in invisible against a dark shirt.
+   * YIQ brightness lifted from the W3C WCAG draft heuristic.
    */
-  const defaultInkColor = (): string => {
-    const tint = useCanvasStore.getState().mockupTint;
-    if (!tint) return '#111111';
+  const contrastingInkForTint = (tint: string | null | undefined): string | null => {
+    if (!tint) return null;
     const hex = tint.replace('#', '');
     const full = hex.length === 3
       ? hex.split('').map((c) => c + c).join('')
       : hex;
-    if (full.length !== 6) return '#111111';
+    if (full.length !== 6) return null;
     const r = parseInt(full.slice(0, 2), 16);
     const g = parseInt(full.slice(2, 4), 16);
     const b = parseInt(full.slice(4, 6), 16);
-    if ([r, g, b].some((v) => Number.isNaN(v))) return '#111111';
+    if ([r, g, b].some((v) => Number.isNaN(v))) return null;
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness < 128 ? '#ffffff' : '#111111';
+    return brightness < 128 ? '#ffffff' : null;
   };
 
   const handleAddText = (override?: Partial<TextLayerData>) => {
     if (!canvas) return;
     const cx = canvas.getWidth() / 2;
     const cy = canvas.getHeight() / 2;
+    const tint = useCanvasStore.getState().mockupTint;
+    const tintInk = contrastingInkForTint(tint);
     const defaults: TextLayerData = {
       text: 'New Text',
       fontFamily: 'Arial',
       fontSize: 32,
       fontWeight: 'normal',
-      fill: defaultInkColor(),
+      // Base fill stays black so the layer reads correctly on any *other*
+      // tint the customer hasn't customised yet. When the current tint
+      // needs a contrasting ink, we stash it in `fillByTint` so switching
+      // away from this shirt colour reveals the base black instead of
+      // carrying the white-on-black guess everywhere.
+      fill: '#111111',
       textAlign: 'left',
       lineHeight: 1.2,
       charSpacing: 0,
+      ...(tint && tintInk
+        ? { fillByTint: { [tint.toLowerCase()]: tintInk } }
+        : {}),
     };
     const textData: TextLayerData = { ...defaults, ...(override || {}) };
     const layerId = addLayer({
@@ -247,10 +256,15 @@ export default function AddLayerPanel({
     if (!canvas) return;
     const cx = canvas.getWidth() / 2;
     const cy = canvas.getHeight() / 2;
+    const tint = useCanvasStore.getState().mockupTint;
+    const tintInk = contrastingInkForTint(tint);
     const iconData: IconLayerData = {
       iconName,
-      fill: defaultInkColor(),
+      fill: '#111111',
       size: 64,
+      ...(tint && tintInk
+        ? { fillByTint: { [tint.toLowerCase()]: tintInk } }
+        : {}),
     };
     const layerId = addLayer({
       type: 'icon',

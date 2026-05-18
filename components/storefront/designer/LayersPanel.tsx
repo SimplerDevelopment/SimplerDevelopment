@@ -20,13 +20,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import { useCanvasStore } from '@/lib/designer/canvasStore';
+import { tintKey } from '@/lib/designer/fillResolver';
 import {
   classifyLayerPrintArea,
   computeFixOverflowPosition,
   countLayersOutsidePrintArea,
   type PrintAreaStatus,
 } from '@/lib/designer/printAreaCheck';
-import type { DesignerSurface, LayerData } from '@/lib/designer/types';
+import type { DesignerSurface, IconLayerData, LayerData, TextLayerData } from '@/lib/designer/types';
 
 interface LayersPanelProps {
   className?: string;
@@ -64,6 +65,8 @@ export default function LayersPanel({
   const surfaces = useCanvasStore((s) => s.surfaces);
   const activeSurface = useCanvasStore((s) => s.activeSurface);
   const updateLayer = useCanvasStore((s) => s.updateLayer);
+  const mockupTint = useCanvasStore((s) => s.mockupTint);
+  const currentTintKey = useMemo(() => tintKey(mockupTint), [mockupTint]);
   const [filter, setFilter] = useState('');
 
   const currentSurface = useMemo(
@@ -283,6 +286,8 @@ export default function LayersPanel({
                   active={layer.id === activeLayerId}
                   selected={layerSelection.selectedLayerIds.includes(layer.id)}
                   printAreaStatus={statusByLayerId.get(layer.id) ?? 'inside'}
+                  currentTintKey={currentTintKey}
+                  hasActiveTint={mockupTint != null}
                   onSelect={(ev) => handleSelect(layer.id, ev)}
                   onToggleVisibility={() => toggleLayerVisibility(layer.id)}
                   onToggleLock={() => toggleLayerLock(layer.id)}
@@ -355,6 +360,9 @@ interface SortableLayerRowProps {
   active: boolean;
   selected: boolean;
   printAreaStatus: PrintAreaStatus;
+  /** Canonical key for the currently-active mockup tint ('none' if no tint). */
+  currentTintKey: string;
+  hasActiveTint: boolean;
   onSelect: (ev: React.MouseEvent) => void;
   onToggleVisibility: () => void;
   onToggleLock: () => void;
@@ -373,6 +381,8 @@ function SortableLayerRow({
   active,
   selected,
   printAreaStatus,
+  currentTintKey,
+  hasActiveTint,
   onSelect,
   onToggleVisibility,
   onToggleLock,
@@ -576,6 +586,29 @@ function SortableLayerRow({
         >
           {layer.name}
         </span>
+      )}
+
+      {/* Per-tint override indicator — palette glyph with a small dot when
+          the selected layer has a fillByTint entry for the currently active
+          mockup tint. Helps a customer spot which layers are "different on
+          this shirt colour" at a glance. Skipped for non-text/icon layers
+          and when there's no tint active (the override only matters then). */}
+      {(layer.type === 'text' || layer.type === 'icon') && hasActiveTint && (
+        (() => {
+          const overrides = ((layer.data ?? {}) as Partial<
+            TextLayerData & IconLayerData
+          >).fillByTint;
+          const overrideColor = overrides?.[currentTintKey];
+          if (!overrideColor) return null;
+          return (
+            <span
+              aria-label="Per-tint colour override active for this shirt colour"
+              title="Per-tint colour override active"
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-border"
+              style={{ backgroundColor: overrideColor }}
+            />
+          );
+        })()
       )}
 
       {/* Print-area status — only render when something's wrong; full safe-zone

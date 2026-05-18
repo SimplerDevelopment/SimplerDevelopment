@@ -670,8 +670,23 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
         updates.color !== undefined &&
         (layer.type === 'text' || layer.type === 'icon')
       ) {
-        const data = (layer.data || {}) as Record<string, unknown>;
-        next.data = { ...data, color: updates.color, fill: updates.color };
+        const data = (layer.data || {}) as Record<string, unknown> & {
+          fillByTint?: Record<string, string>;
+        };
+        if (updates.colorTintKey && updates.colorTintKey !== 'none') {
+          // Scope the colour to the active tint — preserve the base fill so
+          // other shirt colours still show the canonical layer color.
+          next.data = {
+            ...data,
+            fillByTint: {
+              ...(data.fillByTint ?? {}),
+              [updates.colorTintKey]: updates.color,
+            },
+          };
+        } else {
+          // No tint active → write the base fill like before.
+          next.data = { ...data, color: updates.color, fill: updates.color };
+        }
       }
       return next;
     });
