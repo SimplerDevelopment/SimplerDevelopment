@@ -3,7 +3,15 @@ import { and, eq } from 'drizzle-orm';
 import sharp from 'sharp';
 
 import { db } from '@/lib/db';
-import { designs, designAssets, storeSettings } from '@/lib/db/schema';
+import {
+  clientWebsites,
+  designs,
+  designAssets,
+  storeSettings,
+} from '@/lib/db/schema';
+import { recordAiImageUsage } from '@/lib/ai/audit';
+import { checkAiPlanGate } from '@/lib/ai/plan-gate';
+import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 import {
@@ -195,13 +203,60 @@ export async function POST(
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    // Storefront customers aren't authenticated as portal users — the AI
+    // call is billed against the *merchant* who owns the website. Look up
+    // that clientId via client_websites so we can apply the same plan
+    // gate + BYOK resolution used by every portal AI route.
+    const [siteRow] = await db
+      .select({ clientId: clientWebsites.clientId })
+      .from(clientWebsites)
+      .where(eq(clientWebsites.id, websiteId))
+      .limit(1);
+    if (!siteRow) {
+      return NextResponse.json(
+        { success: false, message: 'Site owner not found' },
+        { status: 500 },
+      );
+    }
+    const merchantClientId = siteRow.clientId;
+
+    const gate = await checkAiPlanGate({
+      clientId: merchantClientId,
+      provider: 'openai',
+    });
+    if (!gate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: gate.message,
+          reason: gate.reason,
+        },
+        // 402 = Payment Required matches the rest of the AI surface so the
+        // client can show "upgrade or add a BYOK key" copy uniformly.
+        { status: 402 },
+      );
+    }
+
+    let openaiKey: string;
+    let keySource: 'byok' | 'platform';
+    try {
+      const resolvedKey = await resolveClientApiKey({
+        clientId: merchantClientId,
+        provider: 'openai',
+      });
+      openaiKey = resolvedKey.key;
+      keySource = resolvedKey.source as 'byok' | 'platform';
+    } catch (err) {
+      // resolveClientApiKey throws when neither BYOK nor platform env is set.
+      // Surface as 503 so the client distinguishes from a quota / billing
+      // problem (402).
       return NextResponse.json(
         {
           success: false,
           message:
-            'AI image generation is not configured — OPENAI_API_KEY is missing.',
+            err instanceof Error
+              ? err.message
+              : 'AI image generation is not configured — no OpenAI key available.',
         },
         { status: 503 },
       );
@@ -219,7 +274,7 @@ export async function POST(
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${openaiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -297,6 +352,15 @@ export async function POST(
         fileSize: uploadResult.fileSize,
       })
       .returning();
+
+    // Best-effort metering: append a usage_meter_events row keyed by the
+    // merchant's clientId. We don't await this — it's telemetry and must
+    // never block the response.
+    void recordAiImageUsage({
+      clientId: merchantClientId,
+      source: keySource,
+      images: 1,
+    });
 
     return NextResponse.json(
       {
