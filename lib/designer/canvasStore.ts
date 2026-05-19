@@ -102,6 +102,16 @@ export interface CanvasStoreState {
   brandLogoUrl: string;
   setBrandLogoUrl: (url: string) => void;
 
+  /**
+   * Brand-profile heading / body fonts (Google Font family names). Surfaced
+   * by FontPicker as a pinned "Brand" row at the top of the font dropdown
+   * so customers can pick the store's official type without scrolling
+   * through 24 alternatives. Empty when the brand profile has no font
+   * fields set or the values aren't Google Fonts we already cache.
+   */
+  brandFonts: { heading?: string; body?: string };
+  setBrandFonts: (fonts: { heading?: string; body?: string }) => void;
+
   /** When true, DesignCanvas draws a faint 25 px alignment grid. */
   showGrid: boolean;
   toggleGrid: () => void;
@@ -803,6 +813,9 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   brandLogoUrl: '',
   setBrandLogoUrl: (url) => set({ brandLogoUrl: url }),
+
+  brandFonts: {},
+  setBrandFonts: (fonts) => set({ brandFonts: fonts }),
 
   showGrid: false,
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),

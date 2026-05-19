@@ -86,6 +86,16 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
   const brandLogoUrl = branding
     ? branding.logoSquareUrl || branding.logoUrl || branding.logoRectUrl || ''
     : '';
+  // Brand fonts — surfaced by FontPicker as a pinned "Brand" row at the
+  // top of the dropdown. Only fields that look like real font names get
+  // plumbed; empty strings / nulls are filtered out so the row hides
+  // cleanly when nothing's configured.
+  const brandFonts = branding
+    ? {
+        heading: branding.headingFont || undefined,
+        body: branding.bodyFont || undefined,
+      }
+    : {};
 
   return (
     <DesignerClient
@@ -93,6 +103,7 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
       domain={domain}
       brandColors={brandColors}
       brandLogoUrl={brandLogoUrl}
+      brandFonts={brandFonts}
       product={{
         id: product.id,
         slug: product.slug,

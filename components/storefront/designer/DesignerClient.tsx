@@ -41,6 +41,11 @@ interface DesignerClientProps {
    * "Use my logo" button. Empty string when nothing is configured.
    */
   brandLogoUrl?: string;
+  /**
+   * Brand-profile heading + body Google Font family names. Surfaced by
+   * FontPicker as a pinned "Brand" row at the top of the dropdown.
+   */
+  brandFonts?: { heading?: string; body?: string };
 }
 
 function getOrCreateSessionId(): string {
@@ -53,7 +58,7 @@ function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors, brandLogoUrl }: DesignerClientProps) {
+export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors, brandLogoUrl, brandFonts }: DesignerClientProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string>('');
   const [initialDesign, setInitialDesign] = useState<DesignDoc | undefined>(undefined);
@@ -74,6 +79,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
   useEffect(() => {
     useCanvasStore.getState().setBrandLogoUrl(brandLogoUrl ?? '');
   }, [brandLogoUrl]);
+
+  // Brand fonts feed the FontPicker's pinned "Brand" row.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandFonts(brandFonts ?? {});
+  }, [brandFonts]);
 
   // Bootstrap sessionId + any existing draft design for this product/session.
   useEffect(() => {
