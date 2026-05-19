@@ -130,18 +130,29 @@ takes minutes). Drop a tally into this file when re-measured:
 | 2 | (not measured) | (not measured) | 36 | dropbox-sign |
 | 3 | (not measured) | (not measured) | 24 | workflows/runtime |
 | 4 | (not measured) | (not measured) | 21 | chat/rate-limit + ai/audit |
-| 5 | (pending measurement) | (pending) | 57 | crm/parse |
+| 5 | **5.15** | **4.62** | 57 | crm/parse + first real measurement |
 
-## Honest assessment (added iteration #4)
+**Cumulative after 5 iterations:** +0.26pp statements / +0.28pp
+branches / +193 unit tests (1039 → 1232). Hard data.
 
-The arithmetic is sobering. Baseline = 3,531/72,177 = 4.89%. Target =
-30% = ~21,650 covered statements. **Gap = ~18,000 statements.**
+## Honest assessment — REVISED with real numbers (iteration #5)
 
-Per-iteration so far:
-- Avg tests/iter: ~45
-- Avg statements newly covered/iter: ~200–400 (small files give 50–100, mid
-  files like render-blocks-to-email give 300+)
-- ⇒ ~50–80 iterations to plausibly close the gap via unit tests alone
+**Measured, not estimated:** after 5 iterations, 193 new passing
+unit tests, statement coverage moved **+0.26pp** (4.89% → 5.15%).
+
+That is ~1 statement of coverage per new test on average. Far worse
+than the estimate in the iter-4 note (which guessed 200–400 statements
+per iteration). The error: I was counting *lines in the source file*,
+not the *uncovered* lines a new test newly hits. Most files I picked
+had existing tests already covering the bulk of the file; the marginal
+gain per new test is small.
+
+**Updated horizon:** to close the remaining ~17,900 statement gap at
+the observed rate (≈1 stmt per new test), this loop needs ≈17,900 more
+unit tests. At ~45 tests per iteration, that is ~400 more iterations.
+At ~3 min compute each, ~20 hours of compute. **Not realistic.**
+
+Real-talk on why:
 
 Practical issue: most of the un-covered statement mass lives in regions
 that don't unit-test cleanly — `app/api/**/route.ts` (NextAuth +
