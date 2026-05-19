@@ -440,15 +440,25 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
   const { products, productCategories, productImages } = await import('../../lib/db/schema/store');
   const { and, eq, desc } = await import('drizzle-orm');
 
+  // Select only the columns we actually need. `select()` would pull every
+  // column in the products schema, including ones added by later migrations
+  // that may not exist on every environment (e.g. shipping's length_in/
+  // width_in/height_in). Keeping the projection narrow makes this query
+  // tolerant of migration drift across local/staging/prod.
   const [category] = await db
-    .select()
+    .select({ id: productCategories.id })
     .from(productCategories)
     .where(and(eq(productCategories.websiteId, websiteId), eq(productCategories.slug, CATEGORY_SLUG)))
     .limit(1);
   if (!category) return {};
 
   const [latest] = await db
-    .select()
+    .select({
+      id: products.id,
+      slug: products.slug,
+      name: products.name,
+      shortDescription: products.shortDescription,
+    })
     .from(products)
     .where(and(
       eq(products.websiteId, websiteId),
@@ -460,7 +470,7 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
   if (!latest) return {};
 
   const [image] = await db
-    .select()
+    .select({ url: productImages.url })
     .from(productImages)
     .where(eq(productImages.productId, latest.id))
     .orderBy(productImages.order)
