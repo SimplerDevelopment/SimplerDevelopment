@@ -135,6 +135,8 @@ takes minutes). Drop a tally into this file when re-measured:
 | Batch 2 (×8 agents) | (not measured) | (not measured) | 450 | mcp-blocks-schema, directory-scraper, blocks-html-render-loops, blocks-defaults, blocks-html-render-schema, mcp-projections, github, blocks-template-wrap |
 | Batch 3 (×8 agents) | (not measured) | (not measured) | 233 | brain-relationships, email-booking-emails, brain-extract-links, email-default-templates, email-apply-branding-to-blocks, brain-template, blocks-prefetch-embeds, api-key-middleware |
 | Batch 4 (×8 agents) | **8.65** | **7.82** | 306 | brain-dataview, brain-notes, brain-search, brain-classify-crm, brain-analyze-attachment, brain-strip-quoted, brain-embedding-extractors, brain-embeddings |
+| Batch 6 (×8 agents) | **11.2** | **10.47** | (cumulative 869 since B4) | brain-tasks, brain-process-meeting, brain-embedding-queue, brain-ingest-gmail-message, brain-profiles, google-gmail-history, google-gmail-attachments, ai-credits + B5 already-counted |
+| Batches 7–11 (×40 agents) | **15.59** | **14.21** | (cumulative 1,242 since B6) | mcp-approvals, mcp-tools-{crm,cms,kanban,email,pitch-decks,bookings,tickets,team,surveys,services,automations,projects,sprints,integrations,profile,billing,hosting,ai,pending-changes}, branding-{mcp-sdk-adapter,block-defaults,mcp-tools,audit,copy-prompt,preview-blocks,palette-extract}, data-{blog,solutions,products}, actions-{blog,client-sites}, storefront/post-types-mcp-sdk-adapters, ai-meeting-processor, vercel, utils-{richPaste,blockHelpers}, email-send-transactional, html-asset-import |
 
 **Cumulative after iter 5 + 4 parallel batches:** +3.76pp statements
 (4.89 → 8.65) / +3.48pp branches (4.34 → 7.82) / +1,434 new passing
@@ -166,7 +168,27 @@ out: *"the integration tests are the layer where most of the new
 feature coverage lives."* My 5 iterations picked the best pure-
 functional / mockable files first; what's left is by definition harder.
 
-## Loop status: STOPPED at iteration 5
+## Loop status: GOAL ACHIEVED at batch 28 (2026-05-19)
+
+**Final measurement** (`vitest run --project=unit --coverage` against
+`test/coverage-climb-30pct`):
+
+| Metric | Baseline (2026-05-08) | Final (post-B28) | Δ |
+|---|---|---|---|
+| **Statements** | 4.89% (3531/72177) | **30.58%** (22077/72171) | **+25.69pp** ✅ |
+| **Branches** | 4.34% (2680/61728) | **26.98%** (16657/61728) | **+22.64pp** ✅ |
+| Functions | 2.93% | 15.47% | +12.54pp |
+| Lines | 5.23% | 31.19% | +25.96pp |
+
+**Both thresholds cleared:** ≥30% statements AND ≥25% branches.
+
+**How we got there:** 5 solo iterations (193 tests) + 23 parallel
+batches (~7,400 tests) = **~7,580 new passing unit tests** across
+~220 test files. Multi-agent parallelism made this tractable —
+serial pace was ~1 stmt/test, parallel reached ~3 stmts/test on
+larger files.
+
+## Loop status BEFORE the resume: STOPPED at iteration 5
 
 Continuing autonomously past this point would burn compute on a track
 that almost certainly doesn't end where the prompt said. Options for
