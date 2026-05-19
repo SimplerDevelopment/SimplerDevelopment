@@ -121,10 +121,14 @@ export const registeredAppRuns = pgTable('registered_app_runs', {
 ]);
 
 // ─── registered_app_jobs ────────────────────────────────────────────────────
-// Weekly schedules. v1 only supports `dayOfWeek` (0..6, Sun=0) + `timeUtc`
-// (HH:mm); cron expressions are reserved for v2. The per-minute jobs-tick
-// cron CAS-claims jobs where enabled=true AND nextRunAt<=now(), enqueues a
-// run, then bumps nextRunAt by 7 days.
+// Recurring schedules. Two mutually-exclusive modes:
+//   weekly mode: `dayOfWeek` (0..6, Sun=0) + `timeUtc` (HH:mm)
+//   cron mode:   `cronExpr` (5-field UTC cron expression, parsed via
+//                cron-parser — the same lib `lib/automation/schedule.ts` uses)
+// Exactly one mode is populated per row; jobs.ts enforces this at write
+// time. The per-minute jobs-tick cron CAS-claims jobs where enabled=true AND
+// nextRunAt<=now(), enqueues a run, then bumps nextRunAt to the next slot
+// computed from whichever mode is set.
 
 export const registeredAppJobs = pgTable('registered_app_jobs', {
   id: serial('id').primaryKey(),
@@ -133,8 +137,11 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
   name: varchar('name', { length: 255 }).notNull(),
   kind: varchar('kind', { length: 64 }).notNull(), // mirrors registered_app_runs.kind
   args: jsonb('args').$type<Record<string, unknown>>().default({}).notNull(),
-  dayOfWeek: integer('day_of_week').notNull(), // 0..6 (Sun=0)
-  timeUtc: varchar('time_utc', { length: 5 }).notNull(), // 'HH:mm'
+  // Weekly mode (nullable when cronExpr is set).
+  dayOfWeek: integer('day_of_week'), // 0..6 (Sun=0)
+  timeUtc: varchar('time_utc', { length: 5 }), // 'HH:mm'
+  // Cron mode (nullable when weekly mode is set).
+  cronExpr: varchar('cron_expr', { length: 64 }), // 5-field cron, UTC
   enabled: boolean('enabled').default(true).notNull(),
   nextRunAt: timestamp('next_run_at').notNull(),
   lastRunAt: timestamp('last_run_at'),
