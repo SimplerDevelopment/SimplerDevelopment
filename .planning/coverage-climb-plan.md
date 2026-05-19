@@ -32,6 +32,17 @@ The second command lists every iteration committed so far.
     getSignedFileUrl (happy path + empty-id + non-2xx + missing field +
     query-string + missing-API-key + URL encoding)
   - baseline-file's stmt% before: 18.7% — should now be 80-90% (verifyWebhookSignature path already covered by sister file)
+- **#4** — `test(chat,ai): rate-limit + AI-usage audit unit tests`
+  - files: `tests/unit/chat-rate-limit.test.ts` (13 tests),
+    `tests/unit/ai-audit.test.ts` (8 tests)
+  - covers: `checkVisitorRateLimit` (1st hit / under-cap / 11th rejected /
+    key isolation / window expiry / partial expiry / retryAfter math:
+    correct + clamp-to-1 + ceil-up / `now` default / GC reset + GC
+    preserves in-window entries), `recordAiUsage` (happy-path insert
+    shape / tokens-as-string / both sources / period default = current
+    UTC month / period override / error swallow / warn with context /
+    no insert on failure).
+  - both files were 0% covered in the baseline report.
 - **#3** — `test(workflows): branch-coverage tests for runtime executor`
   - file: `tests/unit/workflows-runtime-branches.test.ts` (24 tests)
   - covers: workflow-not-found throw, triggeredBy default + override,
@@ -101,6 +112,7 @@ takes minutes). Drop a tally into this file when re-measured:
 | 1 | (not measured) | (not measured) | 100 | render-blocks-to-email |
 | 2 | (not measured) | (not measured) | 36 | dropbox-sign |
 | 3 | (not measured) | (not measured) | 24 | workflows/runtime |
+| 4 | (not measured) | (not measured) | 21 | chat/rate-limit + ai/audit |
 
 ## Stop condition
 
