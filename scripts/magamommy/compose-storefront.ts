@@ -148,6 +148,23 @@ interface LatestDropSummary {
 function buildHomeContent(latestDrop: LatestDropSummary): string {
   const id = makeIdFactory('mm-home');
 
+  // Section banner factory — a tilted "★ ★ ★ LABEL ★ ★ ★" stamp chip used
+  // to give each section a fair-flyer header treatment. Returns an
+  // html-render block ready to drop into the wrap() array.
+  const sectionBanner = (label: string, opts: { bg?: string; fg?: string; topPad?: number; bottomPad?: number } = {}) => {
+    const bg = opts.bg ?? BLUE;
+    const fg = opts.fg ?? WHITE;
+    return {
+      id: id(),
+      type: 'html-render',
+      order: 0,
+      html: `
+<div style="background:${fg};text-align:center;padding-top:${opts.topPad ?? 48}px;padding-bottom:${opts.bottomPad ?? 12}px;">
+  <div style="display:inline-block;background:${bg};color:${fg};padding:14px 32px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${bg};box-shadow:8px 8px 0 ${RED};transform:rotate(-1.5deg);">★ ★ ★ ${label} ★ ★ ★</div>
+</div>`,
+    };
+  };
+
   // 1. Top promo marquee — 4th-of-July fair-flyer style with star separators
   // between every claim. Brand red field, white slab-stencil-feeling type.
   const promoClaims = [
@@ -394,56 +411,61 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 </div>`,
   };
 
-  // 3. Bento grid — asymmetric 2-card row. Left card is the "what" (this
-  // week's drop, urgent), right card is the "why" (the model). Lead/items
-  // map directly onto BentoCard.
+  // 3. "PROGRAM" section — custom html-render replaces the generic bento-grid
+  // so the cards read like printed signs at a fairground booth: chunky
+  // borders, offset shadows, star bullets in the lists, slab-serif card
+  // titles, a real banner header instead of a small overline.
+  const bentoSloganHtml = (latestDrop.slogan ?? 'Fresh off the press.').replace(/</g, '&lt;');
+  const bentoLeadHtml = (latestDrop.tagline ?? 'A brand-new design, printed Monday morning, pulled from the loudest political story of the week.').replace(/</g, '&lt;');
   const bento = {
     id: id(),
-    type: 'bento-grid',
+    type: 'html-render',
     order: 2,
-    overline: 'This week, in cotton',
-    title: 'Wear what everyone is talking about.',
-    subtitle: 'One shirt. One slogan. Seven days only.',
-    cards: [
-      {
-        id: id(),
-        title: latestDrop.slogan ?? 'Fresh off the press.',
-        lead: latestDrop.tagline
-          ?? 'A brand-new design, printed Monday morning, pulled from the loudest political story of the week.',
-        items: [
-          'Heavyweight 6 oz cotton tee',
-          'Sizes S–XXL, three colorways',
-          'Ships within 48 hours',
-          latestDrop.heroImageUrl
-            ? 'Featured in this week\'s lookbook'
-            : 'First drop arriving Monday',
-        ],
-        link: heroCtaLink,
-        linkText: 'See the drop →',
-        variant: 'dark',
-        span: 7,
-      },
-      {
-        id: id(),
-        title: 'Why limited?',
-        lead: 'Because relevance has a shelf life. Last week\'s outrage is this week\'s lookbook.',
-        items: [
-          'Drops Monday 9 AM ET',
-          'Capped at 100 per week',
-          'Retired Sunday 11:59 PM',
-          'Never restocked',
-        ],
-        variant: 'light',
-        span: 5,
-      },
-    ],
-    darkBg: BLUE,
-    lightBorder: '#E2E2E2',
-    style: {
-      paddingTop: '96px',
-      paddingBottom: '96px',
-      backgroundColor: '#F7F4ED',
-    },
+    html: `
+<div style="background:#F7F4ED;padding:72px 24px 96px;position:relative;border-top:6px solid ${BLUE};border-bottom:6px solid ${BLUE};">
+
+  <!-- Banner header -->
+  <div style="text-align:center;margin-bottom:48px;">
+    <div style="display:inline-block;background:${BLUE};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${BLUE};box-shadow:6px 6px 0 ${RED};margin-bottom:24px;">★ ★ ★ This Week's Program ★ ★ ★</div>
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:64px;line-height:0.96;letter-spacing:-0.015em;text-transform:uppercase;margin:0;color:${BLUE};">Wear what everyone <br/>is talking about.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:18px;color:#444;margin:18px 0 0;">One shirt. One slogan. Seven days only.</p>
+  </div>
+
+  <!-- Two-card row -->
+  <div style="max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(12, 1fr);gap:24px;">
+
+    <!-- Left card: this week's drop. Wider (7/12). Dark navy. -->
+    <div style="grid-column:span 7;background:${BLUE};color:${WHITE};padding:40px;border:4px solid ${BLUE};box-shadow:10px 10px 0 ${RED};position:relative;">
+      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ This Week ★</div>
+      <h3 style="font-family:'Alfa Slab One',serif;font-size:40px;line-height:1;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 16px 0;color:${WHITE};">${bentoSloganHtml}</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:17px;line-height:1.45;color:rgba(255,255,255,0.86);margin:0 0 24px 0;">${bentoLeadHtml}</p>
+      <ul style="list-style:none;padding:0;margin:0 0 32px 0;font-family:'Inter',sans-serif;font-size:16px;color:${WHITE};">
+        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Heavyweight 6 oz cotton tee</li>
+        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Sizes S–XXL, three colorways</li>
+        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Ships within 48 hours</li>
+        <li style="padding:8px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>${latestDrop.heroImageUrl ? 'Featured in this week\'s lookbook' : 'First drop arriving Monday'}</li>
+      </ul>
+      <a href="${heroCtaLink}" style="display:inline-block;background:${RED};color:${WHITE};font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.16em;text-transform:uppercase;text-decoration:none;padding:14px 24px;border:3px solid ${WHITE};box-shadow:4px 4px 0 ${WHITE};">See the drop →</a>
+    </div>
+
+    <!-- Right card: why limited. Narrower (5/12). White on red. -->
+    <div style="grid-column:span 5;background:${WHITE};color:${BLUE};padding:40px;border:4px solid ${BLUE};box-shadow:10px 10px 0 ${BLUE};position:relative;">
+      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ Why Limited? ★</div>
+      <h3 style="font-family:'Alfa Slab One',serif;font-size:32px;line-height:1.05;letter-spacing:-0.005em;text-transform:uppercase;margin:0 0 16px 0;color:${BLUE};">Because relevance<br/>has a shelf life.</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:16px;line-height:1.45;color:#333;margin:0 0 24px 0;">Last week's outrage is this week's lookbook. We retire each design Sunday at midnight — no exceptions, no restocks.</p>
+      <ul style="list-style:none;padding:0;margin:0;font-family:'Inter',sans-serif;font-size:15px;color:${BLUE};">
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Drops Monday 9 AM ET</li>
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Capped at 100 per week</li>
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Retired Sunday 11:59 PM</li>
+        <li style="padding:6px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Never restocked. Ever.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Footer stars — extra fair-flyer flourish at the bottom -->
+  <div style="text-align:center;margin-top:48px;font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${RED};">★ &middot; ★ &middot; ★ &middot; ★ &middot; ★ &middot; ★ &middot; ★</div>
+</div>`,
   };
 
   // 4. Big single-product featured row. featured-products doesn't filter
@@ -520,37 +542,60 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  // 6. Metric cards — proof points. 4 numbers, 4 columns, accent red.
+  // 6. "RECORD BOARD" — custom html-render replaces the generic metric-cards
+  // block so we can crank the number sizes, add star bullets between cards,
+  // and give it that high-school-gym scoreboard feel.
   const metrics = {
     id: id(),
-    type: 'metric-cards',
+    type: 'html-render',
     order: 5,
-    overline: 'The format',
-    title: 'A shop that runs on a metronome.',
-    description:
-      'Every number on this page is a constraint on purpose. Constraints are what make the drop feel like a drop.',
-    columns: 4,
-    accentColor: RED,
-    metrics: [
-      { id: id(), value: '1', label: 'NEW SHIRT EVERY WEEK', institution: 'Monday morning, no exceptions' },
-      { id: id(), value: '100', label: 'UNITS PER DROP', institution: 'Capped on purpose' },
-      { id: id(), value: '48h', label: 'SHIP TIME', institution: 'From order to porch' },
-      { id: id(), value: '0', label: 'RESTOCKS', institution: 'Never. Ever.' },
-    ],
-    style: {
-      paddingTop: '88px',
-      paddingBottom: '88px',
-      backgroundColor: '#0E0E0E',
-      color: WHITE,
-    },
+    html: `
+<div style="background:#0E0E0E;color:${WHITE};padding:64px 24px;text-align:center;border-top:6px solid ${RED};border-bottom:6px solid ${RED};position:relative;overflow:hidden;">
+  <!-- Subtle star pattern across the back -->
+  <div aria-hidden="true" style="position:absolute;inset:0;opacity:0.06;background-image:radial-gradient(circle at 25% 25%, ${WHITE} 1.5px, transparent 2px), radial-gradient(circle at 75% 75%, ${WHITE} 1.5px, transparent 2px);background-size:40px 40px;"></div>
+
+  <div style="position:relative;max-width:1100px;margin:0 auto;">
+    <!-- Banner header -->
+    <div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ The Record Board ★ ★ ★</div>
+
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 14px 0;color:${WHITE};">A shop that runs on a metronome.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:18px;color:rgba(255,255,255,0.72);max-width:640px;margin:0 auto 56px;">Every number is a constraint on purpose. Constraints are what make the drop feel like a drop.</p>
+
+    <!-- 4 stats in a row, with star separators -->
+    <div style="display:flex;align-items:stretch;justify-content:space-between;gap:0;flex-wrap:wrap;">
+      ${[
+        { v: '1',    l: 'New Shirt / Week',    s: 'Monday morning, no exceptions' },
+        { v: '100',  l: 'Units / Drop',         s: 'Capped on purpose' },
+        { v: '48h',  l: 'Ship Time',            s: 'From order to porch' },
+        { v: '0',    l: 'Restocks',             s: 'Never. Ever.' },
+      ].map((m, i, arr) => `
+        <div style="flex:1 1 200px;min-width:200px;text-align:center;padding:12px 8px;${i < arr.length - 1 ? `border-right:2px dashed rgba(255,255,255,0.18);` : ''}">
+          <div style="font-family:'Alfa Slab One',serif;font-size:96px;line-height:0.9;letter-spacing:-0.03em;color:${RED};text-shadow:4px 4px 0 rgba(255,255,255,0.08);">${m.v}</div>
+          <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.2em;text-transform:uppercase;margin-top:14px;color:${WHITE};">${m.l}</div>
+          <div style="font-family:'Inter',sans-serif;font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;">${m.s}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+</div>`,
   };
 
-  // 7. FAQ accordion.
+  // 7. FAQ accordion — wrapped in a flyer-style header.
+  const faqHeader = sectionBanner('Step Up & Ask', { bg: BLUE, fg: WHITE, topPad: 80, bottomPad: 16 });
+  const faqTitle = {
+    id: id(),
+    type: 'html-render',
+    order: 0,
+    html: `
+<div style="background:${WHITE};text-align:center;padding-bottom:40px;">
+  <h2 style="font-family:'Alfa Slab One',serif;font-size:54px;line-height:1;letter-spacing:-0.01em;text-transform:uppercase;margin:0;color:${BLUE};">The fine print, but louder.</h2>
+  <p style="font-family:'Inter',sans-serif;font-size:17px;color:#444;margin:14px 0 0;">Everything you'd hear if you yelled the question across the parking lot.</p>
+</div>`,
+  };
   const faq = {
     id: id(),
     type: 'accordion',
     order: 6,
-    title: 'The fine print, but louder.',
     items: [
       {
         id: id(),
@@ -578,31 +623,64 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       },
     ],
     style: {
-      paddingTop: '96px',
-      paddingBottom: '96px',
+      paddingTop: '8px',
+      paddingBottom: '80px',
+      paddingLeft: '24px',
+      paddingRight: '24px',
       backgroundColor: WHITE,
+      maxWidth: '880px',
+      marginLeft: 'auto',
+      marginRight: 'auto',
     },
   };
 
-  // 8. Big closing CTA — gradient bg, primary push to the latest drop.
+  // 8. Closing CTA — flashy finale with bunting at top, big SVG eagle
+  // silhouette watermark behind the headline, gradient + stars background.
+  const closingShoutSlogan = cleanSlogan ? `Grab "${cleanSlogan}"` : 'Shop the drop';
   const closing = {
     id: id(),
-    type: 'cta',
+    type: 'html-render',
     order: 7,
-    title: 'See this week\'s drop.',
-    description:
-      'Sunday at midnight it\'s gone. Next Monday a new one takes its place. That\'s the whole bit.',
-    primaryButtonText: latestDrop.slogan ? `Shop "${latestDrop.slogan}"` : 'Shop the drop',
-    primaryButtonUrl: heroCtaLink,
-    secondaryButtonText: 'Email me future drops',
-    secondaryButtonUrl: `mailto:${CONTACT_EMAIL}?subject=Subscribe%20me%20to%20drop%20alerts`,
-    backgroundStyle: 'gradient',
-    style: {
-      color: WHITE,
-      paddingTop: '112px',
-      paddingBottom: '112px',
-      backgroundGradient: `linear-gradient(135deg, ${RED} 0%, ${BLUE} 100%)`,
-    },
+    html: `
+<div style="position:relative;background:linear-gradient(135deg, ${RED} 0%, ${BLUE} 100%);color:${WHITE};text-align:center;padding:0 0 96px 0;overflow:hidden;">
+
+  <!-- Bunting strip at top -->
+  <svg viewBox="0 0 1440 50" preserveAspectRatio="none" style="display:block;width:100%;height:50px;">
+    <defs>
+      <pattern id="closing-bunting" x="0" y="0" width="80" height="50" patternUnits="userSpaceOnUse">
+        <path d="M0 0 L40 42 L80 0 Z" fill="${WHITE}" />
+        <path d="M40 0 L60 21 L20 21 Z" fill="${RED}" opacity="0.85" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="50" fill="url(#closing-bunting)" />
+  </svg>
+
+  <!-- Eagle silhouette watermark — large, low opacity, sits behind headline -->
+  <svg aria-hidden="true" viewBox="0 0 320 200" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-46%);width:520px;max-width:90%;opacity:0.08;">
+    <g fill="${WHITE}">
+      <path d="M -90 -20 Q -60 -45 -30 -28 Q -45 -10 -90 -20 Z" transform="translate(160 130)"/>
+      <path d="M  90 -20 Q  60 -45  30 -28 Q  45 -10  90 -20 Z" transform="translate(160 130)"/>
+      <path d="M -22 -28 L 22 -28 L 22 8 Q 0 28 -22 8 Z" transform="translate(160 130)"/>
+      <circle cx="160" cy="94" r="14"/>
+    </g>
+  </svg>
+
+  <div style="position:relative;padding:80px 24px 24px;max-width:880px;margin:0 auto;">
+    <!-- Eyebrow chip -->
+    <div style="display:inline-block;background:${WHITE};color:${RED};padding:10px 24px;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 rgba(0,0,0,0.25);margin-bottom:36px;">★ Last Call ★</div>
+
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:88px;line-height:0.95;letter-spacing:-0.015em;text-transform:uppercase;margin:0 0 18px 0;color:${WHITE};text-shadow:0 4px 16px rgba(0,0,0,0.25);">See this week's drop.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:22px;color:rgba(255,255,255,0.94);max-width:640px;margin:0 auto 44px;line-height:1.4;">Sunday at midnight it's gone. Next Monday a new one takes its place. That's the whole bit.</p>
+
+    <!-- CTA pair -->
+    <div style="display:inline-flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:center;">
+      <a href="${heroCtaLink}" style="display:inline-block;background:${WHITE};color:${BLUE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};box-shadow:6px 6px 0 rgba(0,0,0,0.35);">${closingShoutSlogan} →</a>
+      <a href="mailto:${CONTACT_EMAIL}?subject=Subscribe%20me%20to%20drop%20alerts" style="display:inline-block;background:transparent;color:${WHITE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};">Email me future drops</a>
+    </div>
+
+    <div style="margin-top:36px;font-family:'Inter',sans-serif;font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.16em;text-transform:uppercase;">★ ★ ★ &nbsp;Printed in Pennsylvania &nbsp;·&nbsp; Made for the suburban mom &nbsp; ★ ★ ★</div>
+  </div>
+</div>`,
   };
 
   // Bunting between marquee and hero — string of triangular pennant flags.
@@ -711,7 +789,21 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 </div>`,
   };
 
-  return wrap([marquee, bunting, hero, barkerBanner, bento, eagleDivider, timeline, metrics, faq, finaleBanner, closing]);
+  return wrap([
+    marquee,
+    bunting,
+    hero,
+    barkerBanner,
+    bento,
+    eagleDivider,
+    timeline,
+    metrics,        // now a custom html-render "RECORD BOARD"
+    faqHeader,      // ★ STEP UP & ASK ★ banner
+    faqTitle,       // big slab-serif "The fine print, but louder."
+    faq,
+    finaleBanner,
+    closing,        // custom html-render with bunting + eagle watermark
+  ]);
 }
 
 /**
