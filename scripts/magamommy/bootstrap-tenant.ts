@@ -5,8 +5,8 @@
  * This script provisions the foundational rows that every weekly drop job
  * later assumes exist:
  *
- *   1. users               magamommy@simplerdevelopment.com (role=client)
- *   2. clients             Magamommy (emailPrefix=magamommy)
+ *   1. users               info@danielpcoyle.com (role=client)
+ *   2. clients             existing owner client, or Magamommy if absent
  *   3. clientMembers       owner link (user -> client)
  *   4. clientWebsites      magamommy.simplerdevelopment.com (custom: magamommy.com)
  *   5. storeSettings       enabled, USD, no Stripe Connect yet (manual step)
@@ -44,8 +44,8 @@ const PROD_INDICATORS = [
   'metro.proxy.rlwy.net:25565',
 ];
 
-const MAGAMOMMY_USER_EMAIL = 'magamommy@simplerdevelopment.com';
-const MAGAMOMMY_USER_NAME = 'Magamommy';
+const OWNER_USER_EMAIL = 'info@danielpcoyle.com';
+const OWNER_USER_NAME = 'Daniel Coyle';
 const MAGAMOMMY_COMPANY = 'Magamommy';
 const MAGAMOMMY_DOMAIN = 'magamommy.com';
 const MAGAMOMMY_DESIRED_SUBDOMAIN = 'magamommy';
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
   let [user] = await db
     .select()
     .from(users)
-    .where(eq(users.email, MAGAMOMMY_USER_EMAIL))
+    .where(eq(users.email, OWNER_USER_EMAIL))
     .limit(1);
   if (user) {
     console.log(`  user            skipping (already exists) id=${user.id}`);
@@ -116,8 +116,8 @@ async function main(): Promise<void> {
     [user] = await db
       .insert(users)
       .values({
-        name: MAGAMOMMY_USER_NAME,
-        email: MAGAMOMMY_USER_EMAIL,
+        name: OWNER_USER_NAME,
+        email: OWNER_USER_EMAIL,
         password: hashed,
         role: 'client',
         active: true,
@@ -127,6 +127,9 @@ async function main(): Promise<void> {
   }
 
   // ── Step 2: client ───────────────────────────────────────────────────────
+  // `clients.user_id` is legacy one-to-one. If the owner already has a portal
+  // client, attach Magamommy to that account instead of trying to create a
+  // second direct-owned client row.
   let [client] = await db
     .select()
     .from(clients)
@@ -160,6 +163,13 @@ async function main(): Promise<void> {
     .limit(1);
   if (existingMember) {
     console.log(`  clientMembers   skipping (already exists) id=${existingMember.id}`);
+    if (existingMember.role !== 'owner') {
+      await db
+        .update(clientMembers)
+        .set({ role: 'owner' })
+        .where(eq(clientMembers.id, existingMember.id));
+      console.log(`  clientMembers   promoted to owner id=${existingMember.id}`);
+    }
   } else {
     const [member] = await db
       .insert(clientMembers)
@@ -180,6 +190,14 @@ async function main(): Promise<void> {
     .limit(1);
   if (website) {
     console.log(`  clientWebsites  skipping (already exists) id=${website.id}`);
+    if (website.clientId !== client.id) {
+      await db
+        .update(clientWebsites)
+        .set({ clientId: client.id })
+        .where(eq(clientWebsites.id, website.id));
+      console.log(`  clientWebsites  reassigned clientId=${client.id}`);
+      website = { ...website, clientId: client.id };
+    }
   } else {
     // Prefer the desired slug; fall back to a unique variant if taken.
     let subdomain = MAGAMOMMY_DESIRED_SUBDOMAIN;
@@ -324,6 +342,9 @@ async function main(): Promise<void> {
         isDesignable: true,
         trackInventory: false,
         quantity: 0,
+        metadata: {
+          productDesignMode: 'customer',
+        },
       })
       .returning();
     console.log(`  template product created id=${templateProduct.id}`);
@@ -466,15 +487,7 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-// Run when invoked directly (matches sibling scripts that use `bun scripts/...`).
-declare const require: { main?: unknown } | undefined;
-const isDirectRun =
-  (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) ||
-  // bun-specific: import.meta.main is true when the file is the entrypoint.
-  // Cast through unknown to keep TS happy without pulling @types/bun.
-  ((import.meta as unknown as { main?: boolean }).main === true);
-
-if (isDirectRun) {
+if ((import.meta as unknown as { main?: boolean }).main === true) {
   main().catch((err) => {
     console.error('[bootstrap-magamommy] failed:', err);
     process.exit(1);

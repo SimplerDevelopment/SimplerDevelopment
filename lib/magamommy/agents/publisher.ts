@@ -272,6 +272,8 @@ export async function runPublisher(input: PublisherInput): Promise<PublisherOutp
       seoDescription: concept.tagline,
       tags: ['weekly-drop', weekTag, concept.style, concept.topicSlug].filter(Boolean),
       metadata: {
+        productDesignMode: 'store',
+        storeDesignId: design.id,
         magamommyConceptId: String(concept.id),
         magamommyBriefId: String(concept.briefId),
         magamommyDesignId: design.id,

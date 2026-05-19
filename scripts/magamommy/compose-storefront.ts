@@ -26,8 +26,8 @@
  * bootstrap-tenant.ts). Block-level `style.backgroundColor` etc. is left
  * unset wherever the brand should win.
  *
- * Resolution: tenant lookup is `clients.company = 'Magamommy'` → most-recent
- * `clientWebsites` row for that client. Throws if the tenant isn't
+ * Resolution: tenant lookup is `clientWebsites.domain = 'magamommy.com'`,
+ * falling back to `subdomain = 'magamommy'`. Throws if the tenant isn't
  * bootstrapped yet (run `scripts/magamommy/bootstrap-tenant.ts` first).
  *
  * Idempotence: each page is upserted by (websiteId, slug). If a page already
@@ -60,7 +60,8 @@ const PROD_INDICATORS = [
   'metro.proxy.rlwy.net:25565',
 ];
 
-const MAGAMOMMY_COMPANY = 'Magamommy';
+const MAGAMOMMY_DOMAIN = 'magamommy.com';
+const MAGAMOMMY_SUBDOMAIN = 'magamommy';
 const CATEGORY_SLUG = 'weekly-drops';
 const CONTACT_EMAIL = 'contact@magamommy.com';
 
@@ -527,40 +528,31 @@ async function main(): Promise<void> {
   if (force) console.log('[compose-storefront] --force: existing content WILL be overwritten');
 
   const { db } = await import('../../lib/db');
-  const { clients, clientWebsites } = await import('../../lib/db/schema/sites');
+  const { clientWebsites } = await import('../../lib/db/schema/sites');
   const { posts } = await import('../../lib/db/schema/cms');
-  const { eq, and, desc } = await import('drizzle-orm');
+  const { eq, and } = await import('drizzle-orm');
 
   // ── Resolve magamommy websiteId ────────────────────────────────────────────
-  // company is varchar(255) NULL-able so we filter explicitly. There should
-  // be exactly one Magamommy client row; if multiple exist (e.g. dev seed
-  // collision), prefer the most recent.
-  const [client] = await db
-    .select()
-    .from(clients)
-    .where(eq(clients.company, MAGAMOMMY_COMPANY))
-    .orderBy(desc(clients.createdAt))
-    .limit(1);
-  if (!client) {
-    throw new Error(
-      `Magamommy tenant not found. Run \`bun scripts/magamommy/bootstrap-tenant.ts\` first.`,
-    );
-  }
-
-  const [website] = await db
+  let [website] = await db
     .select()
     .from(clientWebsites)
-    .where(eq(clientWebsites.clientId, client.id))
-    .orderBy(desc(clientWebsites.createdAt))
+    .where(eq(clientWebsites.domain, MAGAMOMMY_DOMAIN))
     .limit(1);
   if (!website) {
+    [website] = await db
+      .select()
+      .from(clientWebsites)
+      .where(eq(clientWebsites.subdomain, MAGAMOMMY_SUBDOMAIN))
+      .limit(1);
+  }
+  if (!website) {
     throw new Error(
-      `Magamommy client #${client.id} has no clientWebsites row. Re-run bootstrap-tenant.ts.`,
+      `Magamommy website not found. Run \`bun scripts/magamommy/bootstrap-tenant.ts\` first.`,
     );
   }
 
   console.log(
-    `[compose-storefront] tenant: client #${client.id} (${client.company}) → website #${website.id} (${website.domain ?? website.subdomain})`,
+    `[compose-storefront] tenant: client #${website.clientId} → website #${website.id} (${website.domain ?? website.subdomain})`,
   );
 
   const pageSpecs: PageSpec[] = [
@@ -664,15 +656,7 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-// Run when invoked directly (matches sibling scripts that use `bun scripts/...`).
-declare const require: { main?: unknown } | undefined;
-const isDirectRun =
-  (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) ||
-  // bun-specific: import.meta.main is true when the file is the entrypoint.
-  // Cast through unknown to keep TS happy without pulling @types/bun.
-  ((import.meta as unknown as { main?: boolean }).main === true);
-
-if (isDirectRun) {
+if ((import.meta as unknown as { main?: boolean }).main === true) {
   main().catch((err) => {
     console.error('[compose-storefront] failed:', err);
     process.exit(1);

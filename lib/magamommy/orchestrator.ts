@@ -19,7 +19,6 @@
 import { db } from '@/lib/db';
 import {
   magamommyDrops,
-  clients,
   clientWebsites,
   products,
 } from '@/lib/db/schema';
@@ -40,7 +39,7 @@ export type DropStatus =
   | 'failed';
 
 export interface OrchestratorInput {
-  /** Site to drop into. Looked up via `clients.company = 'Magamommy'` if omitted. */
+  /** Site to drop into. Looked up via the Magamommy domain/subdomain if omitted. */
   websiteId?: number;
   /** Drop week (Monday in UTC). Defaults to "this week's Monday". */
   weekOf?: Date;
@@ -94,22 +93,25 @@ async function resolveMagamommyContext(websiteIdHint?: number): Promise<{
     if (!row) throw new Error(`[orchestrator] website ${websiteId} not found`);
     clientId = row.clientId;
   } else {
-    // Lookup by company name. The bootstrap script sets clients.company = 'Magamommy'.
-    const [client] = await db
-      .select({ id: clients.id })
-      .from(clients)
-      .where(eq(clients.company, 'Magamommy'))
-      .limit(1);
-    if (!client) {
-      throw new Error('[orchestrator] no client named "Magamommy" — run scripts/magamommy/bootstrap-tenant.ts first');
-    }
-    clientId = client.id;
-    const [site] = await db
-      .select({ id: clientWebsites.id })
+    const [siteByDomain] = await db
+      .select({ id: clientWebsites.id, clientId: clientWebsites.clientId })
       .from(clientWebsites)
-      .where(eq(clientWebsites.clientId, clientId))
+      .where(eq(clientWebsites.domain, 'magamommy.com'))
       .limit(1);
-    if (!site) throw new Error('[orchestrator] Magamommy client has no website — rerun bootstrap');
+
+    let site = siteByDomain;
+    if (!site) {
+      [site] = await db
+        .select({ id: clientWebsites.id, clientId: clientWebsites.clientId })
+        .from(clientWebsites)
+        .where(eq(clientWebsites.subdomain, 'magamommy'))
+        .limit(1);
+    }
+
+    if (!site) {
+      throw new Error('[orchestrator] Magamommy website not found — run scripts/magamommy/bootstrap-tenant.ts first');
+    }
+    clientId = site.clientId;
     websiteId = site.id;
   }
 

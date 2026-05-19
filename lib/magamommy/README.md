@@ -14,7 +14,7 @@ lib/magamommy/agents/designer.ts          # gpt-image-1 → artwork, composite, 
 lib/magamommy/agents/publisher.ts         # products + variants + images → live drop
 lib/magamommy/orchestrator.ts             # State-machine runner: research→concept→design→publish
 
-scripts/magamommy/bootstrap-tenant.ts     # One-time: create the magamommy client + site + template product
+scripts/magamommy/bootstrap-tenant.ts     # One-time: attach the magamommy site + template product to info@danielpcoyle.com
 scripts/magamommy/generate-blank-mockups.ts  # One-time: regenerate blank shirt PNGs
 scripts/magamommy/run-weekly-drop.ts      # Manual trigger for end-to-end testing
 
@@ -56,7 +56,7 @@ psql "$DATABASE_URL" -f drizzle/0116_magamommy_autoshop.sql
 # 2. Regenerate the blank shirt mockups (already done; re-run only if you delete them).
 bun scripts/magamommy/generate-blank-mockups.ts
 
-# 3. Bootstrap the magamommy tenant — user, client, website, brand profile, template product.
+# 3. Bootstrap the magamommy tenant under info@danielpcoyle.com — website, brand profile, template product.
 #    Idempotent. Prints the generated password ONCE on initial create.
 bun scripts/magamommy/bootstrap-tenant.ts
 

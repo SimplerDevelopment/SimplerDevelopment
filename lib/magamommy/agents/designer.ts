@@ -4,9 +4,10 @@
 //
 // Takes a magamommy_concepts row (slogan + visualPrompt + palette) and
 // renders the print-ready artwork via OpenAI gpt-image-1, composites it
-// onto the seeded "Heavyweight Tee" base mockup, uploads both the raw
-// artwork and the composited mockup to S3, then persists a `designs` row
-// (isTemplate=true) so the publisher can spin up product variants from it.
+// onto the seeded "Heavyweight Tee" base mockup for fulfillment/debugging,
+// generates a photoreal lifestyle product shot of the shirt being worn,
+// uploads all assets to S3, then persists a `designs` row (isTemplate=true)
+// so the publisher can spin up product variants from it.
 //
 // Hand-off contract is `DesignerResult` in ../types.ts. Errors throw with
 // a `[designer]` prefix so the orchestrator (magamommy_drops) can stash
@@ -44,6 +45,13 @@ interface OpenAIImageResponse {
   error?: { message?: string };
 }
 
+interface GenerateImageArgs {
+  openaiKey: string;
+  prompt: string;
+  size: '1024x1024' | '1024x1536' | '1536x1024';
+  transparent?: boolean;
+}
+
 /**
  * The fixed style preamble appended to every designer prompt. Keeps the
  * gpt-image-1 output print-ready and on-brand without the concept-writer
@@ -66,6 +74,85 @@ function buildDesignerPrompt(concept: {
     `- The slogan "${concept.slogan}" must be the most prominent text, in bold sans-serif (Oswald, Anton, or Bebas Neue style)`,
     '- Square 1024x1024 aspect ratio',
   ].join('\n');
+}
+
+/**
+ * Prompt for the customer-facing image. This is intentionally not a flat-lay:
+ * the storefront should look like a real apparel brand, with the shirt worn by
+ * an adult model and enough fabric/body context for buyers to judge fit.
+ */
+export function buildLifestyleMockupPrompt(concept: {
+  visualPrompt: string;
+  palette: Array<{ name: string; hex: string }>;
+  slogan: string;
+  tagline: string;
+  placement: string;
+}): string {
+  const paletteHex = concept.palette.map((c) => c.hex).join(', ');
+  const printSide =
+    concept.placement === 'back'
+      ? 'show the model turned slightly so the back print is clearly visible'
+      : 'show the front of the shirt clearly';
+
+  return [
+    'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
+    'An adult model wearing a clean white heavyweight crew-neck t-shirt in a bright neutral studio with soft natural shadows.',
+    printSide + '.',
+    `The shirt print must feature the exact slogan "${concept.slogan}" as the dominant readable text.`,
+    `The printed graphic should follow this concept: ${concept.visualPrompt}`,
+    `Use these print colors where possible: ${paletteHex}.`,
+    `Brand mood: ${concept.tagline}`,
+    '',
+    'STRICT REQUIREMENTS:',
+    '- The model must be an adult; no children.',
+    '- The model must be a fictional person, not a celebrity, public figure, politician, or real named person.',
+    '- The shirt must be worn by the model, not floating, not flat-lay, not on a mannequin.',
+    '- The print must appear naturally integrated on the cotton fabric with realistic folds, lighting, and perspective.',
+    '- No real-world brands, logos, campaign marks, flags as brand logos, watermarks, captions, price tags, or extra text.',
+    '- Clean product photo, waist-up framing, enough negative space for a storefront crop.',
+  ].join('\n');
+}
+
+export async function generateOpenAIImage(args: GenerateImageArgs): Promise<Buffer> {
+  const body: Record<string, unknown> = {
+    model: 'gpt-image-1',
+    prompt: args.prompt,
+    n: 1,
+    size: args.size,
+    output_format: 'png',
+    quality: 'high',
+  };
+  if (args.transparent) {
+    body.background = 'transparent';
+  }
+
+  const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${args.openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!openaiRes.ok) {
+    const errText = await openaiRes.text();
+    let errMessage = `OpenAI returned ${openaiRes.status}`;
+    try {
+      const parsed = JSON.parse(errText) as OpenAIImageResponse;
+      if (parsed.error?.message) errMessage = parsed.error.message;
+    } catch {
+      // body wasn't JSON
+    }
+    throw new Error(errMessage);
+  }
+
+  const json = (await openaiRes.json()) as OpenAIImageResponse;
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error('OpenAI returned no b64_json image data');
+  }
+  return Buffer.from(b64, 'base64');
 }
 
 /**
@@ -207,48 +294,14 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
     );
   }
 
-  // Use the same `fetch` path as `app/api/storefront/.../ai-image/route.ts`
-  // since the `openai` npm SDK is not a project dep. b64_json keeps the
-  // output local so we control the S3 key/prefix.
   let artworkPng: Buffer;
   try {
-    const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-image-1',
-        prompt: augmentedPrompt,
-        n: 1,
-        size: '1024x1024',
-        background: 'transparent',
-        output_format: 'png',
-        // Internal/batch use — go high so the seeded art is good enough to
-        // print without a re-render pass.
-        quality: 'high',
-      }),
+    artworkPng = await generateOpenAIImage({
+      openaiKey,
+      prompt: augmentedPrompt,
+      size: '1024x1024',
+      transparent: true,
     });
-
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      let errMessage = `OpenAI returned ${openaiRes.status}`;
-      try {
-        const parsed = JSON.parse(errText) as OpenAIImageResponse;
-        if (parsed.error?.message) errMessage = parsed.error.message;
-      } catch {
-        // body wasn't JSON
-      }
-      throw new Error(errMessage);
-    }
-
-    const json = (await openaiRes.json()) as OpenAIImageResponse;
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) {
-      throw new Error('OpenAI returned no b64_json image data');
-    }
-    artworkPng = Buffer.from(b64, 'base64');
   } catch (err) {
     throw new Error(
       `[designer] gpt-image-1 generation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -277,10 +330,34 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
     );
   }
 
-  // 6) Upload both to S3.
+  // 5b) Generate the customer-facing lifestyle shot with the shirt worn.
+  let lifestylePng: Buffer;
+  try {
+    lifestylePng = await generateOpenAIImage({
+      openaiKey,
+      prompt: buildLifestyleMockupPrompt({
+        visualPrompt: concept.visualPrompt,
+        palette: concept.palette,
+        slogan: concept.slogan,
+        tagline: concept.tagline,
+        placement,
+      }),
+      size: '1024x1536',
+    });
+  } catch (err) {
+    throw new Error(
+      `[designer] lifestyle image generation failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  console.log(
+    `[designer] lifestyle mockup rendered (${lifestylePng.length} bytes)`,
+  );
+
+  // 6) Upload the print artwork, flat composite, and lifestyle shot to S3.
   const ts = Date.now();
   let artworkUrl: string;
-  let mockupUrl: string;
+  let flatMockupUrl: string;
+  let lifestyleUrl: string;
   try {
     const artworkUpload = await uploadToS3(
       artworkPng,
@@ -301,14 +378,27 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
       'image/png',
       { key: `media/magamommy/mockups/${conceptId}-${surface.slug}-${ts}.png` },
     );
-    mockupUrl = mockupUpload.url;
+    flatMockupUrl = mockupUpload.url;
   } catch (err) {
     throw new Error(
       `[designer] S3 upload (mockup) failed: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
+  try {
+    const lifestyleUpload = await uploadToS3(
+      lifestylePng,
+      `${surface.slug}-lifestyle.png`,
+      'image/png',
+      { key: `media/magamommy/lifestyle/${conceptId}-${surface.slug}-${ts}.png` },
+    );
+    lifestyleUrl = lifestyleUpload.url;
+  } catch (err) {
+    throw new Error(
+      `[designer] S3 upload (lifestyle) failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
   console.log(
-    `[designer] uploaded artwork=${artworkUrl} mockup=${mockupUrl}`,
+    `[designer] uploaded artwork=${artworkUrl} flatMockup=${flatMockupUrl} lifestyle=${lifestyleUrl}`,
   );
 
   // 7) Insert the designs row (isTemplate=true — brand-authored, reusable).
@@ -340,6 +430,10 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
             prompt: concept.visualPrompt,
             transparent: true,
           },
+          generatedAssets: {
+            flatMockupUrl,
+            lifestyleUrl,
+          },
         },
         createdAt: now,
         updatedAt: now,
@@ -357,8 +451,8 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
         isTemplate: true,
         status: 'rendered',
         name: concept.slogan,
-        thumbnailUrl: mockupUrl,
-        renderedUrl: mockupUrl,
+        thumbnailUrl: lifestyleUrl,
+        renderedUrl: lifestyleUrl,
         layersBySurface,
         canvasSize: {
           width: surface.canvasWidth,
@@ -383,7 +477,7 @@ export async function runDesigner(input: DesignerInput): Promise<DesignerResult>
   return {
     designId: inserted.id,
     artworkUrl,
-    frontMockupUrl: mockupUrl,
-    backMockupUrl: placement === 'back' ? mockupUrl : undefined,
+    frontMockupUrl: lifestyleUrl,
+    backMockupUrl: placement === 'back' ? lifestyleUrl : undefined,
   };
 }

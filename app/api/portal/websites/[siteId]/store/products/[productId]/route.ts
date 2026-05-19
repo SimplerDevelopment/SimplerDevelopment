@@ -2,16 +2,30 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
-  products, productImages, productOptions, productOptionValues,
+  clients, clientMembers, clientWebsites, products, productImages, productOptions, productOptionValues,
   productVariants, bulkPricingRules,
 } from '@/lib/db/schema';
-import { and, eq, asc } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { and, eq, asc, or } from 'drizzle-orm';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
 async function resolveProduct(userId: number, siteId: string, productId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const [site] = await db
+    .select({ site: clientWebsites })
+    .from(clientWebsites)
+    .innerJoin(clients, eq(clients.id, clientWebsites.clientId))
+    .leftJoin(
+      clientMembers,
+      and(eq(clientMembers.clientId, clients.id), eq(clientMembers.userId, userId)),
+    )
+    .where(
+      and(
+        eq(clientWebsites.id, parseInt(siteId)),
+        or(eq(clients.userId, userId), eq(clientMembers.userId, userId)),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows.map((row) => row.site));
   if (!site) return { site: null, product: null };
 
   const [product] = await db
@@ -41,7 +55,7 @@ export async function GET(_req: Request, { params }: Params) {
 
   // Fetch option values for each option
   const optionIds = options.map((o) => o.id);
-  let optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
+  const optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
   if (optionIds.length > 0) {
     const allValues = await db
       .select()
