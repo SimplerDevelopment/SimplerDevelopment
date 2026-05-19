@@ -97,7 +97,7 @@ export function buildLifestyleMockupPrompt(concept: {
   return [
     'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
     'An adult WOMAN model — the target Magamommy customer — wearing a clean white heavyweight crew-neck t-shirt in a bright neutral studio with soft natural shadows.',
-    'Styling: relaxed, confident, classic Americana — natural hair (any color), minimal makeup, warm friendly approachable expression. Could be 30–55 years old, mom-energy but stylish. Think "stylish suburban mom at a Memorial Day cookout."',
+    'Styling: relaxed, confident, classic Americana — natural hair (any color), light/minimal makeup, warm friendly approachable expression. Age range 26–38, young suburban mom energy but stylish — think "millennial mom at a Memorial Day cookout" (school-age kids at home, not college-age). Should still read as a real adult, not a teenager.',
     printSide + '.',
     `The shirt print must feature the exact slogan "${concept.slogan}" as the dominant readable text.`,
     `The printed graphic should follow this concept: ${concept.visualPrompt}`,
