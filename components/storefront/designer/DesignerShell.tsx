@@ -14,6 +14,7 @@ import type {
 
 import { useAddImageLayer } from '@/lib/designer/hooks/useAddImageLayer';
 import type { AiImageStyle } from '@/lib/designer/aiPromptBuilder';
+import { assessPrintQuality } from '@/lib/designer/printQuality';
 import AddLayerPanel from './AddLayerPanel';
 import AiImageModal from './AiImageModal';
 import AlignmentToolbar from './AlignmentToolbar';
@@ -337,6 +338,37 @@ export function DesignerShell({
 
   const handleAddToCart = useCallback(async () => {
     setStatusMessage(null);
+
+    // Pre-flight: warn if any image layer is going to print blurry. We
+    // already show a per-layer banner in the Properties panel, but a
+    // customer can absolutely add-to-cart without ever clicking the bad
+    // layer. Use the same `assessPrintQuality` heuristic as the panel so
+    // the gate matches what the customer was told.
+    if (typeof window !== 'undefined') {
+      const layersBySurface = useCanvasStore.getState().layersBySurface;
+      let poorCount = 0;
+      for (const list of Object.values(layersBySurface)) {
+        for (const layer of list) {
+          if (layer.type !== 'image') continue;
+          const d = layer.data as { originalWidth?: number } | undefined;
+          const verdict = assessPrintQuality({
+            naturalWidth: d?.originalWidth,
+            layerWidth: layer.width,
+            scaleX: layer.scaleX,
+          });
+          if (verdict?.level === 'poor') poorCount += 1;
+        }
+      }
+      if (poorCount > 0) {
+        const proceed = window.confirm(
+          poorCount === 1
+            ? 'One image on your design is low-resolution and will look blurry when printed. Add to cart anyway?'
+            : `${poorCount} images on your design are low-resolution and will look blurry when printed. Add to cart anyway?`,
+        );
+        if (!proceed) return;
+      }
+    }
+
     try {
       setIsAddingToCart(true);
       // Make sure we have a saved id first.

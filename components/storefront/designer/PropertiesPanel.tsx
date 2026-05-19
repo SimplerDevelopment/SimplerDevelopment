@@ -448,6 +448,78 @@ function GeneralProperties({
     primaryObject.canvas?.renderAll();
   };
 
+  // "Center on print area" jumps the selected layer's bounding-rect center
+  // to the print-area center on the active surface. Saves a multi-select +
+  // toolbar dance for the single-layer case (which is most of them).
+  const surfaces = useCanvasStore((s) => s.surfaces);
+  const activeSurface = useCanvasStore((s) => s.activeSurface);
+  const handleCenterInPrintArea = () => {
+    if (!primaryObject || !primaryLayer) return;
+    const surface = surfaces.find((s) => s.slug === activeSurface) ?? surfaces[0];
+    if (!surface) return;
+    const bounds = primaryObject.getBoundingRect();
+    const targetCenterX = surface.printAreaX + surface.printAreaWidth / 2;
+    const targetCenterY = surface.printAreaY + surface.printAreaHeight / 2;
+    const currentCenterX = bounds.left + bounds.width / 2;
+    const currentCenterY = bounds.top + bounds.height / 2;
+    const dx = targetCenterX - currentCenterX;
+    const dy = targetCenterY - currentCenterY;
+    const newLeft = Math.round((primaryObject.left ?? 0) + dx);
+    const newTop = Math.round((primaryObject.top ?? 0) + dy);
+    primaryObject.set({ left: newLeft, top: newTop });
+    primaryObject.setCoords();
+    primaryObject.canvas?.fire('object:modified', { target: primaryObject });
+    primaryObject.canvas?.requestRenderAll();
+    updateLayer(primaryLayer.id, { left: newLeft, top: newTop });
+    setProps((p) => ({ ...p, left: newLeft, top: newTop }));
+  };
+
+  // "Fit to print area" scales the selected layer uniformly until its
+  // bounding rect just fits inside the print-area rect, then centers it.
+  // Useful for the very common "make this image fill the shirt" workflow,
+  // which otherwise requires fiddling with Scale X/Y until it lines up.
+  const handleFitToPrintArea = () => {
+    if (!primaryObject || !primaryLayer) return;
+    const surface = surfaces.find((s) => s.slug === activeSurface) ?? surfaces[0];
+    if (!surface) return;
+    const bounds = primaryObject.getBoundingRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const ratio = Math.min(
+      surface.printAreaWidth / bounds.width,
+      surface.printAreaHeight / bounds.height,
+    );
+    const currentScaleX = primaryObject.scaleX ?? 1;
+    const currentScaleY = primaryObject.scaleY ?? 1;
+    const newScaleX = currentScaleX * ratio;
+    const newScaleY = currentScaleY * ratio;
+    primaryObject.set({ scaleX: newScaleX, scaleY: newScaleY });
+    primaryObject.setCoords();
+    const refreshed = primaryObject.getBoundingRect();
+    const targetCenterX = surface.printAreaX + surface.printAreaWidth / 2;
+    const targetCenterY = surface.printAreaY + surface.printAreaHeight / 2;
+    const dx = targetCenterX - (refreshed.left + refreshed.width / 2);
+    const dy = targetCenterY - (refreshed.top + refreshed.height / 2);
+    const newLeft = Math.round((primaryObject.left ?? 0) + dx);
+    const newTop = Math.round((primaryObject.top ?? 0) + dy);
+    primaryObject.set({ left: newLeft, top: newTop });
+    primaryObject.setCoords();
+    primaryObject.canvas?.fire('object:modified', { target: primaryObject });
+    primaryObject.canvas?.requestRenderAll();
+    updateLayer(primaryLayer.id, {
+      left: newLeft,
+      top: newTop,
+      scaleX: newScaleX,
+      scaleY: newScaleY,
+    });
+    setProps((p) => ({
+      ...p,
+      left: newLeft,
+      top: newTop,
+      scaleX: newScaleX,
+      scaleY: newScaleY,
+    }));
+  };
+
   return (
     <div className="space-y-3">
       <FieldRow label="Position">
@@ -461,6 +533,24 @@ function GeneralProperties({
           value={props.top}
           onChange={(v) => handleChange('top', v)}
         />
+        <button
+          type="button"
+          onClick={handleCenterInPrintArea}
+          aria-label="Center on print area"
+          title="Center on print area"
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-base">filter_center_focus</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleFitToPrintArea}
+          aria-label="Fit to print area"
+          title="Fit to print area"
+          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          <span className="material-icons text-base">fit_screen</span>
+        </button>
       </FieldRow>
 
       <FieldRow label="Scale">

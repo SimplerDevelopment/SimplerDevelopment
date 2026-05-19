@@ -82,6 +82,36 @@ export interface CanvasStoreState {
   mockupTint: string | null;
   setMockupTint: (hex: string | null) => void;
 
+  /**
+   * Store-wide brand palette resolved from the active site's branding
+   * profile. Read by ColorPicker to surface a one-click "Brand" swatch
+   * row above Recent so customers can pick on-brand colors without
+   * memorising hex codes. Set once at DesignerShell mount; not persisted
+   * to the design payload (it's site config, not design state).
+   */
+  brandColors: string[];
+  setBrandColors: (colors: string[]) => void;
+
+  /**
+   * Public URL of the site's brand logo (square version preferred, since
+   * apparel designs are usually square-ish). Surfaced by AddLayerPanel as
+   * a one-click "Use my logo" button so customers don't have to download
+   * + re-upload their own brand mark. Empty string when the brand profile
+   * has no logo set.
+   */
+  brandLogoUrl: string;
+  setBrandLogoUrl: (url: string) => void;
+
+  /**
+   * Brand-profile heading / body fonts (Google Font family names). Surfaced
+   * by FontPicker as a pinned "Brand" row at the top of the font dropdown
+   * so customers can pick the store's official type without scrolling
+   * through 24 alternatives. Empty when the brand profile has no font
+   * fields set or the values aren't Google Fonts we already cache.
+   */
+  brandFonts: { heading?: string; body?: string };
+  setBrandFonts: (fonts: { heading?: string; body?: string }) => void;
+
   /** When true, DesignCanvas draws a faint 25 px alignment grid. */
   showGrid: boolean;
   toggleGrid: () => void;
@@ -777,6 +807,15 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   mockupTint: null,
   setMockupTint: (hex) => set({ mockupTint: hex, isDirty: true }),
+
+  brandColors: [],
+  setBrandColors: (colors) => set({ brandColors: colors }),
+
+  brandLogoUrl: '',
+  setBrandLogoUrl: (url) => set({ brandLogoUrl: url }),
+
+  brandFonts: {},
+  setBrandFonts: (fonts) => set({ brandFonts: fonts }),
 
   showGrid: false,
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
