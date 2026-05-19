@@ -57,7 +57,7 @@ export function ButtonsTab({ profile, updateButtonStyle, setButtonPresets }: Pro
         </h2>
         <p className="text-sm text-muted-foreground mb-4">Default styling for buttons and CTAs across blocks.</p>
 
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
           <div>
             <label className={LABEL_CLASS}>Default Variant</label>
             <div className="flex gap-2">
@@ -90,7 +90,7 @@ export function ButtonsTab({ profile, updateButtonStyle, setButtonPresets }: Pro
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             { value: '0px', label: 'Sharp' },
             { value: '4px', label: 'Subtle' },
@@ -121,7 +121,7 @@ export function ButtonsTab({ profile, updateButtonStyle, setButtonPresets }: Pro
       </div>
 
       {/* Button Colors */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {/* Primary Button */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-foreground">Primary Button</h3>

@@ -127,7 +127,7 @@ export default function EmailSegmentsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold">Audience</h1>
           <p className="text-sm text-muted-foreground mt-1">Segment and tag your subscribers for targeted campaigns</p>
@@ -159,7 +159,7 @@ export default function EmailSegmentsPage() {
           {showCreateSegment && (
             <form onSubmit={handleCreateSegment} className="bg-card border border-border rounded-xl p-6 space-y-4">
               <h3 className="font-semibold">Create Segment</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Segment Name</label>
                   <input value={segName} onChange={e => setSegName(e.target.value)} placeholder="e.g. Active Subscribers" className="w-full mt-1 text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50" required />
@@ -177,7 +177,7 @@ export default function EmailSegmentsPage() {
                 <label className="text-xs font-medium text-muted-foreground">Rules</label>
                 <div className="space-y-2 mt-1">
                   {segRules.map((rule, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                    <div key={i} className="flex items-center gap-2 flex-wrap">
                       <select value={rule.field} onChange={e => updateRule(i, 'field', e.target.value)} className="text-sm bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50">
                         {SEGMENT_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                       </select>

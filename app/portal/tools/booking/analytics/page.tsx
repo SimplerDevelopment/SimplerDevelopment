@@ -43,7 +43,7 @@ export default function BookingAnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Booking Analytics</h1>
           <p className="text-sm text-muted-foreground mt-1">Revenue and booking insights</p>
@@ -55,7 +55,7 @@ export default function BookingAnalyticsPage() {
       </div>
 
       {/* Date range filter */}
-      <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-4 flex-wrap">
         <span className="material-icons text-muted-foreground">date_range</span>
         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
           className="text-sm bg-background border border-border rounded-lg px-3 py-1.5" />
@@ -94,7 +94,7 @@ export default function BookingAnalyticsPage() {
           {data.addOnRevenue > 0 && (
             <div className="bg-card border border-border rounded-xl p-4">
               <h3 className="text-sm font-medium text-foreground mb-3">Revenue Breakdown</h3>
-              <div className="flex gap-6">
+              <div className="flex gap-6 flex-wrap">
                 <div>
                   <p className="text-xs text-muted-foreground">Booking Revenue</p>
                   <p className="text-lg font-semibold">{formatCents(data.bookingRevenue)}</p>

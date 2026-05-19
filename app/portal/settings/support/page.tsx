@@ -18,7 +18,7 @@ export default async function SettingsSupportPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">Get help from our team.</p>
         <Link
           href="/portal/tickets/new"
@@ -41,7 +41,8 @@ export default async function SettingsSupportPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">#</th>
@@ -75,6 +76,7 @@ export default async function SettingsSupportPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -57,7 +57,7 @@ export default async function BookingPagesListPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Booking Pages</h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -74,7 +74,7 @@ export default async function BookingPagesListPage() {
       </div>
 
       {/* Google Calendar Status */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="material-icons text-xl text-primary">event</span>
           <div>
@@ -113,7 +113,7 @@ export default async function BookingPagesListPage() {
       </div>
 
       {/* Zoom Status */}
-      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="material-icons text-xl text-primary">video_camera_front</span>
           <div>

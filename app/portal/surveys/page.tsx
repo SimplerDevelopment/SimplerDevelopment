@@ -29,7 +29,7 @@ export default async function SurveysListPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Surveys</h1>
           <p className="text-muted-foreground mt-1 text-sm">

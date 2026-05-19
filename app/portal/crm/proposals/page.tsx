@@ -593,8 +593,8 @@ function ProposalsAndDecksPage() {
             </div>
           ) : (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="border-b border-border bg-accent/30">
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>

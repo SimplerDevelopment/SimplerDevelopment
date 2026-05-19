@@ -281,7 +281,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Link href="/portal/email/campaigns" className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-base">arrow_back</span>
@@ -459,7 +459,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
               </div>
 
               {hasBlockContent ? (
-                <div className={showPreview ? 'flex gap-4 p-4' : 'p-4'}>
+                <div className={showPreview ? 'flex flex-col md:flex-row gap-4 p-4' : 'p-4'}>
                   <div className={`${showPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
                     <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-340px)]" style={{ minHeight: '500px' }}>
                       <VisualEditorShell
@@ -487,7 +487,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                     </div>
                   </div>
                   {showPreview && (
-                    <div className="w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
+                    <div className="w-full sm:w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
                       <EmailPreviewPane blocks={editBlocks} />
                     </div>
                   )}

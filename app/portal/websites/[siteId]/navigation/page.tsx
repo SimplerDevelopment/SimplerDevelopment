@@ -79,10 +79,10 @@ export default function NavigationEditorPage() {
         {/* Left Panel: Editor (collapsible) */}
         <div
           className={`flex-shrink-0 border-r border-border bg-background overflow-y-auto transition-all duration-300 ${
-            leftPanelOpen ? 'w-[420px]' : 'w-0 border-r-0'
+            leftPanelOpen ? 'w-full sm:w-[420px]' : 'w-0 border-r-0'
           }`}
         >
-          <div className={`w-[420px] ${leftPanelOpen ? '' : 'hidden'}`}>
+          <div className={`w-full sm:w-[420px] ${leftPanelOpen ? '' : 'hidden'}`}>
             {/* Tabs */}
             <div className="flex border-b border-border">
               <button

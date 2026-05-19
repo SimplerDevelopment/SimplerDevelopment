@@ -156,10 +156,10 @@ export default function BrainTasksAndReviewPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 border-b border-border overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         <button
           onClick={() => setTab('tasks')}
-          className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 ${
+          className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
             tab === 'tasks'
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -170,7 +170,7 @@ export default function BrainTasksAndReviewPage() {
         </button>
         <button
           onClick={() => setTab('review')}
-          className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 ${
+          className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
             tab === 'review'
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -837,13 +837,13 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-1 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
           {REVIEW_STATUS_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setStatusFilter(t.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                 statusFilter === t.key
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -873,7 +873,7 @@ function ReviewTab({ onPendingChange }: { onPendingChange: (n: number) => void }
       </div>
 
       {pendingIds.length > 0 && (
-        <div className="flex items-center justify-between gap-4 bg-muted/40 border border-border rounded-md px-3 py-2">
+        <div className="flex items-center justify-between gap-4 bg-muted/40 border border-border rounded-md px-3 py-2 flex-wrap">
           <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
             <input
               type="checkbox"

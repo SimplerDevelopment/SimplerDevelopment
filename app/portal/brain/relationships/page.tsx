@@ -136,7 +136,7 @@ export default function BrainRelationshipsPage() {
 
   return (
     <div className="max-w-5xl mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <span className="material-icons text-primary">{header.icon}</span>
@@ -159,12 +159,12 @@ export default function BrainRelationshipsPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-1 border-b border-border">
+      <div className="flex items-center gap-1 border-b border-border overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         {VIEWS.map((v) => (
           <button
             key={v.key}
             onClick={() => setView(v.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
               view === v.key
                 ? 'border-primary text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'

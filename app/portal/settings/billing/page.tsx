@@ -125,7 +125,8 @@ export default function SettingsBillingPage() {
           </div>
         ) : (
           <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Invoice</th>
@@ -167,6 +168,7 @@ export default function SettingsBillingPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}
