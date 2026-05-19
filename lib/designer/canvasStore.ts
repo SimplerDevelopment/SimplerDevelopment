@@ -92,6 +92,16 @@ export interface CanvasStoreState {
   brandColors: string[];
   setBrandColors: (colors: string[]) => void;
 
+  /**
+   * Public URL of the site's brand logo (square version preferred, since
+   * apparel designs are usually square-ish). Surfaced by AddLayerPanel as
+   * a one-click "Use my logo" button so customers don't have to download
+   * + re-upload their own brand mark. Empty string when the brand profile
+   * has no logo set.
+   */
+  brandLogoUrl: string;
+  setBrandLogoUrl: (url: string) => void;
+
   /** When true, DesignCanvas draws a faint 25 px alignment grid. */
   showGrid: boolean;
   toggleGrid: () => void;
@@ -790,6 +800,9 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   brandColors: [],
   setBrandColors: (colors) => set({ brandColors: colors }),
+
+  brandLogoUrl: '',
+  setBrandLogoUrl: (url) => set({ brandLogoUrl: url }),
 
   showGrid: false,
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),

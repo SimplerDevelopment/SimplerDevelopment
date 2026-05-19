@@ -79,12 +79,20 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
         branding.backgroundColor,
       ].filter((c): c is string => typeof c === 'string' && c.length > 0)
     : [];
+  // Logo URL — surfaced by AddLayerPanel as a one-click "Use my logo"
+  // button. Prefer the square variant since apparel designs are usually
+  // square-ish, then fall back to the rectangular logo, then the generic
+  // one. Empty string when nothing is configured.
+  const brandLogoUrl = branding
+    ? branding.logoSquareUrl || branding.logoUrl || branding.logoRectUrl || ''
+    : '';
 
   return (
     <DesignerClient
       siteId={site.id}
       domain={domain}
       brandColors={brandColors}
+      brandLogoUrl={brandLogoUrl}
       product={{
         id: product.id,
         slug: product.slug,

@@ -35,6 +35,12 @@ interface DesignerClientProps {
    * pick on-brand colors without needing to know hex codes.
    */
   brandColors?: string[];
+  /**
+   * Public URL of the site's brand logo (square preferred, falls back to
+   * rectangular or generic logo). Surfaced by AddLayerPanel as a one-click
+   * "Use my logo" button. Empty string when nothing is configured.
+   */
+  brandLogoUrl?: string;
 }
 
 function getOrCreateSessionId(): string {
@@ -47,7 +53,7 @@ function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors }: DesignerClientProps) {
+export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors, brandLogoUrl }: DesignerClientProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string>('');
   const [initialDesign, setInitialDesign] = useState<DesignDoc | undefined>(undefined);
@@ -62,6 +68,12 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
   useEffect(() => {
     useCanvasStore.getState().setBrandColors(brandColors ?? []);
   }, [brandColors]);
+
+  // Same idea for the brand logo URL — AddLayerPanel reads from the store
+  // and renders a "Use my logo" button only when this is non-empty.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandLogoUrl(brandLogoUrl ?? '');
+  }, [brandLogoUrl]);
 
   // Bootstrap sessionId + any existing draft design for this product/session.
   useEffect(() => {
