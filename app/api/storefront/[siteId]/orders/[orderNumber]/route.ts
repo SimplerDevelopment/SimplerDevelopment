@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { storeSettings, orders, orderItems } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { storeSettings, orders, orderItems, easypostEvents } from '@/lib/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 export async function GET(
   req: Request,
@@ -43,9 +43,19 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
-    // Fetch order items
-    const items = await db.select().from(orderItems)
-      .where(eq(orderItems.orderId, order.id));
+    // Fetch order items + last 10 EasyPost tracking events in parallel
+    const [items, trackingEvents] = await Promise.all([
+      db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
+      db.select({
+        processedAt: easypostEvents.processedAt,
+        eventType: easypostEvents.eventType,
+        payload: easypostEvents.payload,
+      })
+        .from(easypostEvents)
+        .where(eq(easypostEvents.orderId, order.id))
+        .orderBy(desc(easypostEvents.processedAt))
+        .limit(10),
+    ]);
 
     return NextResponse.json({
       success: true,
@@ -63,14 +73,18 @@ export async function GET(
         discountTotal: order.discountTotal,
         total: order.total,
         shippingMethod: order.shippingMethod,
+        carrier: order.carrier,
         trackingNumber: order.trackingNumber,
         trackingUrl: order.trackingUrl,
+        latestTrackingStatus: order.latestTrackingStatus,
+        latestTrackingEventAt: order.latestTrackingEventAt,
         customerNote: order.customerNote,
         paidAt: order.paidAt,
         shippedAt: order.shippedAt,
         deliveredAt: order.deliveredAt,
         createdAt: order.createdAt,
         items,
+        trackingEvents,
       },
     });
   } catch (err) {
