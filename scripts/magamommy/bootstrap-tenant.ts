@@ -226,8 +226,11 @@ async function main(): Promise<void> {
   }
 
   // ── Step 5: storeSettings ────────────────────────────────────────────────
+  // Narrow projection — `select()` would pull every column including
+  // shipping_provider added by a later migration that may not exist on every
+  // DB. We only need to know whether the row exists + its id.
   const [existingStore] = await db
-    .select()
+    .select({ id: storeSettings.id })
     .from(storeSettings)
     .where(eq(storeSettings.websiteId, website.id))
     .limit(1);
@@ -259,8 +262,28 @@ async function main(): Promise<void> {
       ),
     )
     .limit(1);
+  // MAGA / flag-standard palette. Reconciles on re-run so palette tweaks
+  // here actually land on existing tenants without needing a SQL migration.
+  const brandColors = {
+    primaryColor: '#BF0A30',     // bold flag-standard red
+    secondaryColor: '#002868',   // deep navy (cleaner than 3C3B6E for big fields)
+    backgroundColor: '#FFFFFF',
+  };
   if (branding) {
-    console.log(`  brandingProfile skipping (already exists) id=${branding.id}`);
+    const needsUpdate =
+      branding.primaryColor !== brandColors.primaryColor ||
+      branding.secondaryColor !== brandColors.secondaryColor ||
+      branding.backgroundColor !== brandColors.backgroundColor;
+    if (needsUpdate) {
+      await db
+        .update(brandingProfiles)
+        .set(brandColors)
+        .where(eq(brandingProfiles.id, branding.id));
+      branding = { ...branding, ...brandColors };
+      console.log(`  brandingProfile updated colors id=${branding.id}`);
+    } else {
+      console.log(`  brandingProfile skipping (already exists) id=${branding.id}`);
+    }
   } else {
     [branding] = await db
       .insert(brandingProfiles)
@@ -268,9 +291,7 @@ async function main(): Promise<void> {
         clientId: client.id,
         name: BRAND_NAME,
         isDefault: true,
-        primaryColor: '#B22234',       // Old Glory red
-        secondaryColor: '#3C3B6E',     // Old Glory blue
-        backgroundColor: '#FFFFFF',
+        ...brandColors,
         headingFont: 'Oswald',
         bodyFont: 'Inter',
       })
@@ -316,8 +337,11 @@ async function main(): Promise<void> {
   }
 
   // ── Step 8: template product (archived clone source) ─────────────────────
+  // Narrow projection — `select()` would pull every column on products,
+  // including ones added by later migrations that may not exist on every DB
+  // (e.g. shipping's length_in / width_in / height_in).
   let [templateProduct] = await db
-    .select()
+    .select({ id: products.id })
     .from(products)
     .where(
       and(

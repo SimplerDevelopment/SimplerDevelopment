@@ -65,12 +65,13 @@ const MAGAMOMMY_SUBDOMAIN = 'magamommy';
 const CATEGORY_SLUG = 'weekly-drops';
 const CONTACT_EMAIL = 'contact@magamommy.com';
 
-// Brand palette — mirrored from bootstrap-tenant.ts. Used only for hero
-// background hints; the brandingProfile FK on clientWebsites is the source
-// of truth for global colors/fonts.
-const RED = '#B22234';
-const BLUE = '#3C3B6E';
+// Brand palette — MAGA / Old Glory standard, mirrored from bootstrap-tenant.ts.
+// Used only for inline block background/style hints; the brandingProfile FK on
+// clientWebsites is the source of truth for global colors/fonts.
+const RED = '#BF0A30';   // bold flag-standard red
+const BLUE = '#002868';  // deep navy (cleaner than 3C3B6E for big fields)
 const WHITE = '#FFFFFF';
+const CREAM = '#F7F4ED'; // off-white field for warm sections
 
 function verifyDbTarget(): void {
   const url = process.env.DATABASE_URL ?? '';
@@ -182,38 +183,189 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  // 2. Hero — uses the latest drop's lifestyle photo as the background image
-  // with a dark overlay for legibility. When no drop exists (pre-bootstrap or
-  // pre-first-drop) we fall back to a flat brand-red hero so the page still
-  // reads as a real storefront, just without the photo.
+  // 2. Hero — true two-column layout. Left half is navy with the slogan,
+  // subtitle, tagline, and CTAs in white. Right half is the lifestyle photo
+  // from the latest drop, edge-to-edge. We use a `columns` block instead of
+  // the single `hero` block because hero only supports a single background
+  // image behind ALL the text — not a side-by-side composition.
+  //
+  // When no drop exists yet, the right column falls back to a flat brand-red
+  // panel with the wordmark, so the page still reads as a real storefront.
   const heroHeadline = latestDrop.slogan
     ? `This week: ${latestDrop.slogan}.`
     : 'Heat from the headlines, printed on a tee.';
   const heroDescription = latestDrop.tagline
     ?? 'Magamommy turns the week\'s loudest political moment into a wearable. Limited quantities. Gone when they\'re gone.';
   const heroCtaLink = latestDrop.productUrl ?? '/shop';
-  const heroBaseStyle: Record<string, string> = {
-    color: WHITE,
-    paddingTop: '160px',
-    paddingBottom: '160px',
-    textShadow: '0 2px 24px rgba(0,0,0,0.55)',
-  };
-  if (!latestDrop.heroImageUrl) {
-    heroBaseStyle.backgroundColor = RED;
-  }
+
+  // Right column content: lifestyle image if we have it, otherwise a tall
+  // brand-red panel with the slogan/wordmark so the column isn't empty.
+  const heroRightBlocks: Array<Record<string, unknown>> = latestDrop.heroImageUrl
+    ? [{
+        id: id(),
+        type: 'image',
+        order: 0,
+        url: latestDrop.heroImageUrl,
+        alt: latestDrop.slogan ?? 'This week\'s Magamommy drop',
+        width: 'full',
+        alignment: 'center',
+        style: {
+          width: '100%',
+          height: '100%',
+          minHeight: '560px',
+          objectFit: 'cover',
+          margin: '0',
+        },
+      }]
+    : [{
+        id: id(),
+        type: 'heading',
+        order: 0,
+        content: 'MAGA-<br/>MOMMY',
+        level: 1,
+        alignment: 'center',
+        style: {
+          color: WHITE,
+          fontSize: '96px',
+          fontWeight: '900',
+          letterSpacing: '-0.04em',
+          lineHeight: '0.95',
+          margin: '0',
+        },
+      }];
+
   const hero = {
     id: id(),
-    type: 'hero',
+    type: 'columns',
     order: 1,
-    title: heroHeadline,
-    subtitle: 'NEW DROP — MONDAY 9 AM ET',
-    description: heroDescription,
-    ctaText: latestDrop.slogan ? 'Get it before it\'s gone' : 'Shop this week\'s drop',
-    ctaLink: heroCtaLink,
-    secondaryCtaText: 'Browse the archive',
-    secondaryCtaLink: '/shop',
-    backgroundImage: latestDrop.heroImageUrl,
-    style: heroBaseStyle,
+    gap: 'none',
+    stackOnMobile: true,
+    columns: [
+      // Left — text + CTAs over deep navy
+      {
+        id: id(),
+        width: '55%',
+        verticalAlign: 'center',
+        padding: 'lg',
+        backgroundColor: BLUE,
+        blocks: [
+          {
+            id: id(),
+            type: 'text',
+            order: 0,
+            content: 'NEW DROP — MONDAY 9 AM ET',
+            size: 'sm',
+            alignment: 'left',
+            style: {
+              color: RED,
+              fontWeight: '800',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              margin: '0 0 24px 0',
+            },
+          },
+          {
+            id: id(),
+            type: 'heading',
+            order: 1,
+            content: heroHeadline,
+            level: 1,
+            alignment: 'left',
+            style: {
+              color: WHITE,
+              fontSize: '64px',
+              fontWeight: '900',
+              letterSpacing: '-0.02em',
+              lineHeight: '1.02',
+              margin: '0 0 28px 0',
+            },
+          },
+          {
+            id: id(),
+            type: 'text',
+            order: 2,
+            content: heroDescription,
+            size: 'lg',
+            alignment: 'left',
+            style: {
+              color: WHITE,
+              opacity: '0.92',
+              maxWidth: '520px',
+              margin: '0 0 40px 0',
+            },
+          },
+          // Two inline CTAs — small nested columns block so they sit side-by-side
+          {
+            id: id(),
+            type: 'columns',
+            order: 3,
+            gap: 'sm',
+            stackOnMobile: true,
+            columns: [
+              {
+                id: id(),
+                width: 'auto',
+                verticalAlign: 'center',
+                padding: 'none',
+                blocks: [
+                  {
+                    id: id(),
+                    type: 'button',
+                    order: 0,
+                    text: latestDrop.slogan ? 'Get it before it\'s gone' : 'Shop this week\'s drop',
+                    url: heroCtaLink,
+                    variant: 'primary',
+                    size: 'lg',
+                    alignment: 'left',
+                    style: {
+                      backgroundColor: RED,
+                      color: WHITE,
+                    },
+                  },
+                ],
+              },
+              {
+                id: id(),
+                width: 'auto',
+                verticalAlign: 'center',
+                padding: 'none',
+                blocks: [
+                  {
+                    id: id(),
+                    type: 'button',
+                    order: 0,
+                    text: 'Browse the archive',
+                    url: '/shop',
+                    variant: 'outline',
+                    size: 'lg',
+                    alignment: 'left',
+                    style: {
+                      borderColor: WHITE,
+                      color: WHITE,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // Right — lifestyle photo (or brand panel fallback)
+      {
+        id: id(),
+        width: '45%',
+        verticalAlign: 'center',
+        padding: 'none',
+        backgroundColor: latestDrop.heroImageUrl ? undefined : RED,
+        blocks: heroRightBlocks,
+      },
+    ],
+    style: {
+      backgroundColor: BLUE,
+      paddingTop: '0',
+      paddingBottom: '0',
+      minHeight: '600px',
+    },
   };
 
   // 3. Bento grid — asymmetric 2-card row. Left card is the "what" (this
