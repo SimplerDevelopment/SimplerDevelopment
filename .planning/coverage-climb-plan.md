@@ -168,6 +168,23 @@ out: *"the integration tests are the layer where most of the new
 feature coverage lives."* My 5 iterations picked the best pure-
 functional / mockable files first; what's left is by definition harder.
 
+## Push-to-50% (batches 29-36, post-30% milestone)
+
+After hitting the 30% goal at batch 28, user asked to push toward 50%.
+Batches 29-36 ran 64 more parallel agents covering effectively every
+remaining `app/api/**/route.ts` file (~250 more route files tested).
+
+**Post-batch-35 measurement (snapshot during B36):**
+- Statements: **40.6%** (29,306/72,171) — +9.99pp since 30% milestone
+- Branches: **35.81%** (22,108/61,728)
+- Functions: 19.13%
+- Lines: 40.97%
+
+**Remaining gap to 50%:** ~7,500 statements. With API routes now ~100%
+covered, further gains require component/hook tests (jsdom + React
+Testing Library), which is a different infra mode from the unit-test
+push that took us here.
+
 ## Loop status: GOAL ACHIEVED at batch 28 (2026-05-19)
 
 **Final measurement** (`vitest run --project=unit --coverage` against
