@@ -1,25 +1,25 @@
 // @vitest-environment node
 /**
- * Unit tests for the postcaptain-tools execution backbone:
+ * Unit tests for the postcaptain-tools execution backbone (Wave 2):
  *
  *   - redactLog: strips JWTs, sk-ant-* keys, Bearer tokens, env-var-looking
  *     KEY=value secrets. We don't assert on every false-positive case; the
  *     contract is "if it looks like a secret it's gone".
  *   - enqueueRun: hits db.insert with the correct row shape.
- *   - drainQueuedRuns: idempotent under a mocked executeRun — each
- *     candidate is processed at most once, and the counters reflect the
- *     mocked outcome.
- *   - computeNextWeeklyRun: roll-forward semantics for the weekly scheduler.
+ *   - executeRun: dispatches to the worker via dispatchRun(); does NOT call
+ *     Anthropic. Verifies the CAS-claim + classify-result branches:
+ *       dispatched | failed (permanent) | requeued (transient) | skipped.
+ *   - drainQueuedRuns: snapshots queued ids, processes each via the
+ *     CAS-claim path, returns the new five-key counter shape.
+ *   - computeNextWeeklyRun: back-compat shim — covered more thoroughly by
+ *     `plugins-schedule.test.ts`.
  *
- * The Anthropic-driven handlers (research-brief, draft-blog-post) are NOT
- * tested here — they require live API keys and are exercised in the
- * integration suite + the live demo flow.
+ * The actual research-brief and draft-blog-post handlers now live in the
+ * postcaptain-tools repo and are exercised there, not here.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ─── DB MOCK ────────────────────────────────────────────────────────────────
-// We mock @/lib/db so the runner can be exercised without Postgres. Each
-// test resets the mock state in beforeEach.
 
 const dbMock = {
   insert: vi.fn(),
@@ -40,17 +40,18 @@ vi.mock('@/lib/db/schema', () => ({
   postcaptainDrafts: { _t: 'postcaptainDrafts' },
 }));
 
-// Don't reach Anthropic from these tests.
-vi.mock('@/lib/plugins/handlers/postcaptain-tools/research-brief', () => ({
-  runResearchBrief: vi.fn(),
-}));
-vi.mock('@/lib/plugins/handlers/postcaptain-tools/draft-blog-post', () => ({
-  runDraftBlogPost: vi.fn(),
+// Mock dispatchRun so executeRun can be tested without an actual HTTP
+// round-trip to the worker.
+const dispatchRunMock = vi.fn();
+vi.mock('@/lib/plugins/handlers/postcaptain-tools/dispatch', () => ({
+  dispatchRun: dispatchRunMock,
+  DISPATCH_SCOPE: 'postcaptain:internal:execute',
 }));
 
 const {
   redactLog,
   enqueueRun,
+  executeRun,
   drainQueuedRuns,
 } = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
 
@@ -58,8 +59,7 @@ const { computeNextWeeklyRun } = await import(
   '@/lib/plugins/handlers/postcaptain-tools/jobs'
 );
 
-// Minimal RegisteredApp stub that satisfies the runner's contract — only
-// `id` is read for the insert row shape.
+// Minimal RegisteredApp stub.
 const fakeApp = {
   id: 42,
   slug: 'postcaptain-tools',
@@ -72,7 +72,7 @@ const fakeApp = {
   defaultScopes: [],
   billingServiceId: null,
   visibility: 'allowlist',
-  allowedClientIds: [103],
+  allowedClientIds: [100],
   status: 'active',
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -83,14 +83,14 @@ beforeEach(() => {
   dbMock.insert.mockReset();
   dbMock.update.mockReset();
   dbMock.select.mockReset();
+  dispatchRunMock.mockReset();
 });
 
 // ─── redactLog ──────────────────────────────────────────────────────────────
 
 describe('redactLog', () => {
   it('redacts Anthropic API keys', () => {
-    const raw = 'using key sk-ant-abcDEF123_-XYZ from env';
-    const out = redactLog(raw);
+    const out = redactLog('using key sk-ant-abcDEF123_-XYZ from env');
     expect(out).not.toContain('sk-ant-abcDEF123_-XYZ');
     expect(out).toContain('sk-ant-[REDACTED]');
   });
@@ -132,7 +132,7 @@ describe('enqueueRun', () => {
 
     const result = await enqueueRun({
       app: fakeApp,
-      client: { id: 103 },
+      client: { id: 100 },
       kind: 'research-brief',
       args: { topic: 'Slate Q1 2026' },
       jobId: 99,
@@ -142,7 +142,7 @@ describe('enqueueRun', () => {
     expect(dbMock.insert).toHaveBeenCalledTimes(1);
     expect(values).toHaveBeenCalledWith({
       appId: 42,
-      clientId: 103,
+      clientId: 100,
       jobId: 99,
       kind: 'research-brief',
       args: { topic: 'Slate Q1 2026' },
@@ -157,7 +157,7 @@ describe('enqueueRun', () => {
 
     await enqueueRun({
       app: fakeApp,
-      client: { id: 103 },
+      client: { id: 100 },
       kind: 'draft-blog-post',
       args: { briefId: 5 },
     });
@@ -172,10 +172,161 @@ describe('enqueueRun', () => {
 
     await expect(enqueueRun({
       app: fakeApp,
-      client: { id: 103 },
+      client: { id: 100 },
       kind: 'research-brief',
       args: {},
     })).rejects.toThrow(/insert returned no row/);
+  });
+});
+
+// ─── executeRun ─────────────────────────────────────────────────────────────
+// Helpers for chaining the drizzle-style builder mocks.
+
+interface ClaimedRun {
+  id: number;
+  appId: number;
+  clientId: number;
+  kind: string;
+  args: Record<string, unknown>;
+  status: string;
+}
+
+function mockClaimReturns(rows: ClaimedRun[]): ReturnType<typeof vi.fn> {
+  const returning = vi.fn().mockResolvedValue(rows);
+  const where = vi.fn().mockReturnValue({ returning });
+  const set = vi.fn().mockReturnValue({ where });
+  dbMock.update.mockReturnValue({ set });
+  return returning;
+}
+
+function mockAppLookup(rows: typeof fakeApp[]): void {
+  const limit = vi.fn().mockResolvedValue(rows);
+  const where = vi.fn().mockReturnValue({ limit });
+  const from = vi.fn().mockReturnValue({ where });
+  dbMock.select.mockReturnValue({ from });
+}
+
+describe('executeRun', () => {
+  it('returns skipped when the CAS-claim misses', async () => {
+    mockClaimReturns([]); // claim found no queued row
+
+    const result = await executeRun(123);
+
+    expect(result).toEqual({ status: 'skipped', reason: 'already-claimed' });
+    expect(dispatchRunMock).not.toHaveBeenCalled();
+  });
+
+  it('returns failed when the app row is missing', async () => {
+    mockClaimReturns([
+      { id: 1, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' },
+    ]);
+    mockAppLookup([]); // app deleted between enqueue and drain
+
+    // Second update call is markRunFailed; provide a no-op chain.
+    const ret = vi.fn().mockResolvedValue([]);
+    const where = vi.fn().mockReturnValue({ returning: ret });
+    const set = vi.fn().mockReturnValue({ where });
+    dbMock.update.mockReturnValueOnce({ set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 1, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' }]) }) }) })
+      .mockReturnValue({ set });
+
+    // Re-mock from scratch with controlled sequence:
+    dbMock.update.mockReset();
+    const claimRet = vi.fn().mockResolvedValue([
+      { id: 1, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' },
+    ]);
+    const claimWhere = vi.fn().mockReturnValue({ returning: claimRet });
+    const claimSet = vi.fn().mockReturnValue({ where: claimWhere });
+    const markFailedSet = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({}) });
+    dbMock.update
+      .mockReturnValueOnce({ set: claimSet })
+      .mockReturnValueOnce({ set: markFailedSet });
+
+    const result = await executeRun(1);
+
+    expect(result.status).toBe('failed');
+    expect(result.reason).toMatch(/unknown-app|app/i);
+    expect(dispatchRunMock).not.toHaveBeenCalled();
+  });
+
+  it('returns dispatched when dispatchRun succeeds', async () => {
+    mockClaimReturns([
+      { id: 5, appId: 42, clientId: 100, kind: 'research-brief', args: { topic: 't' }, status: 'running' },
+    ]);
+    mockAppLookup([fakeApp]);
+    dispatchRunMock.mockResolvedValue({ ok: true, status: 202 });
+
+    const result = await executeRun(5);
+
+    expect(result).toEqual({ status: 'dispatched' });
+    expect(dispatchRunMock).toHaveBeenCalledTimes(1);
+    expect(dispatchRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 42, slug: 'postcaptain-tools' }),
+      expect.objectContaining({ runId: 5, kind: 'research-brief', clientId: 100 }),
+    );
+  });
+
+  it('returns requeued when dispatchRun reports a retriable failure', async () => {
+    mockClaimReturns([
+      { id: 6, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' },
+    ]);
+    mockAppLookup([fakeApp]);
+    dispatchRunMock.mockResolvedValue({
+      ok: false,
+      retriable: true,
+      status: 503,
+      reason: 'worker 503: temporary unavailable',
+    });
+
+    // The revert-to-queued UPDATE needs a chainable mock too.
+    dbMock.update.mockReturnValueOnce({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            { id: 6, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' },
+          ]),
+        }),
+      }),
+    }).mockReturnValueOnce({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({}),
+      }),
+    });
+
+    const result = await executeRun(6);
+
+    expect(result.status).toBe('requeued');
+    expect(result.reason).toMatch(/503|unavailable/i);
+  });
+
+  it('returns failed when dispatchRun reports a non-retriable failure', async () => {
+    // Sequence: claim UPDATE (returns row), then markRunFailed UPDATE.
+    dbMock.update
+      .mockReturnValueOnce({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              { id: 7, appId: 42, clientId: 100, kind: 'research-brief', args: {}, status: 'running' },
+            ]),
+          }),
+        }),
+      })
+      .mockReturnValueOnce({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({}),
+        }),
+      });
+    mockAppLookup([fakeApp]);
+    dispatchRunMock.mockResolvedValue({
+      ok: false,
+      retriable: false,
+      status: 400,
+      reason: 'worker 400: bad kind',
+    });
+
+    const result = await executeRun(7);
+
+    expect(result.status).toBe('failed');
+    expect(result.reason).toMatch(/400|bad kind/);
   });
 });
 
@@ -183,17 +334,17 @@ describe('enqueueRun', () => {
 
 describe('drainQueuedRuns', () => {
   it('returns zeroed counters when max <= 0', async () => {
-    expect(await drainQueuedRuns(0)).toEqual({ attempted: 0, succeeded: 0, failed: 0 });
-    expect(await drainQueuedRuns(-5)).toEqual({ attempted: 0, succeeded: 0, failed: 0 });
+    expect(await drainQueuedRuns(0)).toEqual({
+      attempted: 0, dispatched: 0, failed: 0, requeued: 0, skipped: 0,
+    });
+    expect(await drainQueuedRuns(-5)).toEqual({
+      attempted: 0, dispatched: 0, failed: 0, requeued: 0, skipped: 0,
+    });
     expect(dbMock.select).not.toHaveBeenCalled();
   });
 
   it('snapshots up to `max` queued ids and processes each via the CAS-claim path', async () => {
-    // Snapshot: 3 queued ids. Each gets a CAS-claim UPDATE; whether the
-    // claim returns a row (succeed/fail path) or empty (skipped) is decided
-    // by the WHERE call argument — we can't sequence by call index because
-    // drainQueuedRuns processes in parallel batches and the interleaving is
-    // not deterministic.
+    // Snapshot returns 3 ids.
     const limit = vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
     const orderBy = vi.fn().mockReturnValue({ limit });
     const where = vi.fn().mockReturnValue({ orderBy });
@@ -202,8 +353,7 @@ describe('drainQueuedRuns', () => {
 
     // For this test, claim ALL three as "already-claimed" (returning [])
     // so we exercise the skipped path. This isolates the drain machinery
-    // from the handler-specific success/fail logic, which is covered
-    // implicitly by the rest of the runner code.
+    // from dispatch logic.
     const returning = vi.fn().mockResolvedValue([]);
     const updWhere = vi.fn().mockReturnValue({ returning });
     const updSet = vi.fn().mockReturnValue({ where: updWhere });
@@ -211,12 +361,15 @@ describe('drainQueuedRuns', () => {
 
     const result = await drainQueuedRuns(5);
 
-    // 3 candidates attempted (all skipped, none succeeded or failed).
     expect(result.attempted).toBe(3);
-    expect(result.succeeded).toBe(0);
+    expect(result.skipped).toBe(3);
+    expect(result.dispatched).toBe(0);
     expect(result.failed).toBe(0);
+    expect(result.requeued).toBe(0);
     // Each candidate triggered a CAS-claim UPDATE.
     expect(dbMock.update).toHaveBeenCalledTimes(3);
+    // dispatchRun must never be invoked when every claim misses.
+    expect(dispatchRunMock).not.toHaveBeenCalled();
   });
 
   it('returns zero counters when the queue is empty', async () => {
@@ -228,54 +381,31 @@ describe('drainQueuedRuns', () => {
 
     const result = await drainQueuedRuns(5);
 
-    expect(result).toEqual({ attempted: 0, succeeded: 0, failed: 0 });
+    expect(result).toEqual({
+      attempted: 0, dispatched: 0, failed: 0, requeued: 0, skipped: 0,
+    });
     expect(dbMock.update).not.toHaveBeenCalled();
   });
 });
 
-// ─── computeNextWeeklyRun ───────────────────────────────────────────────────
+// ─── computeNextWeeklyRun (back-compat shim — see plugins-schedule.test.ts) ─
 
 describe('computeNextWeeklyRun', () => {
   it('rolls forward to next Tuesday at 09:00 UTC from Friday 2026-05-15', () => {
-    // 2026-05-15 is a Friday (getUTCDay === 5).
     const from = new Date('2026-05-15T12:00:00Z');
     const next = computeNextWeeklyRun(2, '09:00', from);
-    // Next Tuesday after Friday 15 May 2026 is Tuesday 19 May 2026.
     expect(next.toISOString()).toBe('2026-05-19T09:00:00.000Z');
     expect(next.getUTCDay()).toBe(2);
   });
 
   it('rolls forward to next week when today is the target weekday but slot has passed', () => {
-    // 2026-05-19 is a Tuesday at 12:00 — past the 09:00 slot, so we roll to
-    // the next Tuesday (2026-05-26).
     const from = new Date('2026-05-19T12:00:00Z');
     const next = computeNextWeeklyRun(2, '09:00', from);
     expect(next.toISOString()).toBe('2026-05-26T09:00:00.000Z');
   });
 
-  it('keeps the same day when target weekday is today and slot is in the future', () => {
-    // Tuesday 06:00 — 09:00 is still ahead today.
-    const from = new Date('2026-05-19T06:00:00Z');
-    const next = computeNextWeeklyRun(2, '09:00', from);
-    expect(next.toISOString()).toBe('2026-05-19T09:00:00.000Z');
-  });
-
-  it('handles dayOfWeek=0 (Sunday)', () => {
-    const from = new Date('2026-05-15T12:00:00Z'); // Friday
-    const next = computeNextWeeklyRun(0, '14:30', from);
-    // Next Sunday is 2026-05-17.
-    expect(next.toISOString()).toBe('2026-05-17T14:30:00.000Z');
-    expect(next.getUTCDay()).toBe(0);
-  });
-
-  it('throws on invalid dayOfWeek', () => {
+  it('throws on invalid inputs', () => {
     expect(() => computeNextWeeklyRun(-1, '09:00', new Date())).toThrow();
-    expect(() => computeNextWeeklyRun(7, '09:00', new Date())).toThrow();
-  });
-
-  it('throws on invalid timeUtc', () => {
     expect(() => computeNextWeeklyRun(1, '25:00', new Date())).toThrow();
-    expect(() => computeNextWeeklyRun(1, '9:00', new Date())).toThrow(); // missing leading zero
-    expect(() => computeNextWeeklyRun(1, 'bad', new Date())).toThrow();
   });
 });
