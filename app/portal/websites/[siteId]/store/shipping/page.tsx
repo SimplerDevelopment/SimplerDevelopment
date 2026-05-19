@@ -3,14 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
+type RateSource = 'manual' | 'easypost';
+
 interface ShippingRate {
   id?: number;
   name: string;
-  type: string;
-  priceCents: number;
+  rateType: string; // 'flat' | 'weight_based' | 'price_based' | 'free' | 'live'
+  price: number; // cents (manual) or 0 (live)
   minDeliveryDays?: number | null;
   maxDeliveryDays?: number | null;
-  freeThresholdCents?: number | null;
+  freeAbove?: number | null;
+  provider?: RateSource;
+  carrierCode?: string | null;
+  serviceCode?: string | null;
+  liveRateOnly?: boolean;
 }
 
 interface ShippingZone {
@@ -35,10 +41,19 @@ function dollarsToCents(dollars: string) {
 
 const rateTypeLabels: Record<string, string> = {
   flat: 'Flat Rate',
-  weight: 'Weight Based',
-  price: 'Price Based',
+  weight_based: 'Weight Based',
+  price_based: 'Price Based',
   free: 'Free Shipping',
+  live: 'Live Carrier',
 };
+
+const CARRIER_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Any carrier' },
+  { value: 'USPS', label: 'USPS' },
+  { value: 'UPSDAP', label: 'UPS' },
+  { value: 'FedExDefault', label: 'FedEx' },
+  { value: 'DHLExpress', label: 'DHL Express' },
+];
 
 export default function ShippingSettingsPage() {
   const { siteId } = useParams<{ siteId: string }>();
@@ -59,13 +74,16 @@ export default function ShippingSettingsPage() {
   // Rate form
   const [showRateForm, setShowRateForm] = useState<number | null>(null);
   const [editingRate, setEditingRate] = useState<ShippingRate | null>(null);
+  const [rateSource, setRateSource] = useState<RateSource>('manual');
   const [rateForm, setRateForm] = useState({
     name: '',
-    type: 'flat',
-    priceCents: 0,
+    rateType: 'flat',
+    price: 0,
     minDeliveryDays: '',
     maxDeliveryDays: '',
-    freeThresholdCents: 0,
+    freeAbove: 0,
+    carrierCode: '',
+    serviceCode: '',
   });
 
   const load = async () => {
@@ -146,22 +164,40 @@ export default function ShippingSettingsPage() {
     }
   };
 
+  const resetRateForm = () => {
+    setRateSource('manual');
+    setRateForm({
+      name: '',
+      rateType: 'flat',
+      price: 0,
+      minDeliveryDays: '',
+      maxDeliveryDays: '',
+      freeAbove: 0,
+      carrierCode: '',
+      serviceCode: '',
+    });
+  };
+
   const openCreateRate = (zoneId: number) => {
     setEditingRate(null);
-    setRateForm({ name: '', type: 'flat', priceCents: 0, minDeliveryDays: '', maxDeliveryDays: '', freeThresholdCents: 0 });
+    resetRateForm();
     setShowRateForm(zoneId);
     setError('');
   };
 
   const openEditRate = (zoneId: number, rate: ShippingRate) => {
     setEditingRate(rate);
+    const isLive = rate.liveRateOnly === true || rate.provider === 'easypost';
+    setRateSource(isLive ? 'easypost' : 'manual');
     setRateForm({
       name: rate.name,
-      type: rate.type,
-      priceCents: rate.priceCents,
+      rateType: rate.rateType || 'flat',
+      price: rate.price || 0,
       minDeliveryDays: rate.minDeliveryDays != null ? String(rate.minDeliveryDays) : '',
       maxDeliveryDays: rate.maxDeliveryDays != null ? String(rate.maxDeliveryDays) : '',
-      freeThresholdCents: rate.freeThresholdCents || 0,
+      freeAbove: rate.freeAbove || 0,
+      carrierCode: rate.carrierCode || '',
+      serviceCode: rate.serviceCode || '',
     });
     setShowRateForm(zoneId);
     setError('');
@@ -173,14 +209,31 @@ export default function ShippingSettingsPage() {
     setError('');
     setSuccess('');
     try {
-      const payload = {
-        name: rateForm.name,
-        type: rateForm.type,
-        priceCents: rateForm.priceCents,
-        minDeliveryDays: rateForm.minDeliveryDays ? parseInt(rateForm.minDeliveryDays) : null,
-        maxDeliveryDays: rateForm.maxDeliveryDays ? parseInt(rateForm.maxDeliveryDays) : null,
-        freeThresholdCents: rateForm.freeThresholdCents || null,
-      };
+      const isLive = rateSource === 'easypost';
+      const payload = isLive
+        ? {
+            name: rateForm.name,
+            provider: 'easypost' as const,
+            liveRateOnly: true,
+            rateType: 'live',
+            price: 0,
+            carrierCode: rateForm.carrierCode || null,
+            serviceCode: rateForm.serviceCode.trim() || null,
+            minDeliveryDays: rateForm.minDeliveryDays ? parseInt(rateForm.minDeliveryDays) : null,
+            maxDeliveryDays: rateForm.maxDeliveryDays ? parseInt(rateForm.maxDeliveryDays) : null,
+          }
+        : {
+            name: rateForm.name,
+            provider: 'manual' as const,
+            liveRateOnly: false,
+            carrierCode: null,
+            serviceCode: null,
+            rateType: rateForm.rateType,
+            price: rateForm.price,
+            minDeliveryDays: rateForm.minDeliveryDays ? parseInt(rateForm.minDeliveryDays) : null,
+            maxDeliveryDays: rateForm.maxDeliveryDays ? parseInt(rateForm.maxDeliveryDays) : null,
+            freeAbove: rateForm.freeAbove || null,
+          };
       const url = editingRate ? `${base}/${zoneId}/rates/${editingRate.id}` : `${base}/${zoneId}/rates`;
       const method = editingRate ? 'PUT' : 'POST';
       const res = await fetch(url, {
@@ -241,6 +294,21 @@ export default function ShippingSettingsPage() {
           <span className="material-icons text-base">{showZoneForm ? 'close' : 'add'}</span>
           {showZoneForm ? 'Cancel' : 'Add Zone'}
         </button>
+      </div>
+
+      {/* Live-rates info banner */}
+      <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-sm dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+        <span className="material-icons text-base mt-0.5">info</span>
+        <p>
+          Live carrier rates require EasyPost to be enabled in{' '}
+          <a
+            href={`/portal/websites/${siteId}/store/settings`}
+            className="font-medium underline hover:no-underline"
+          >
+            Store Settings &rarr; Shipping Provider
+          </a>
+          .
+        </p>
       </div>
 
       {/* Messages */}
@@ -361,6 +429,9 @@ export default function ShippingSettingsPage() {
                         <thead>
                           <tr className="border-b border-border text-left">
                             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Name</th>
+                            <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Source</th>
+                            <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Carrier</th>
+                            <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Service</th>
                             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Type</th>
                             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Price</th>
                             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Delivery</th>
@@ -369,39 +440,74 @@ export default function ShippingSettingsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {zone.rates.map((rate) => (
-                            <tr key={rate.id}>
-                              <td className="px-3 py-2 font-medium text-foreground">{rate.name}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{rateTypeLabels[rate.type] || rate.type}</td>
-                              <td className="px-3 py-2 text-foreground">{rate.type === 'free' ? 'Free' : formatMoney(rate.priceCents)}</td>
-                              <td className="px-3 py-2 text-muted-foreground">
-                                {rate.minDeliveryDays != null && rate.maxDeliveryDays != null
-                                  ? `${rate.minDeliveryDays}-${rate.maxDeliveryDays} days`
-                                  : rate.minDeliveryDays != null
-                                  ? `${rate.minDeliveryDays}+ days`
-                                  : '--'}
-                              </td>
-                              <td className="px-3 py-2 text-muted-foreground">
-                                {rate.freeThresholdCents ? formatMoney(rate.freeThresholdCents) : '--'}
-                              </td>
-                              <td className="px-3 py-2">
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => openEditRate(zone.id, rate)}
-                                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                                  >
-                                    <span className="material-icons text-sm">edit</span>
-                                  </button>
-                                  <button
-                                    onClick={() => rate.id && deleteRate(zone.id, rate.id)}
-                                    className="p-1 text-muted-foreground hover:text-red-600 transition-colors"
-                                  >
-                                    <span className="material-icons text-sm">delete</span>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                          {zone.rates.map((rate) => {
+                            const isLive = rate.liveRateOnly === true || rate.provider === 'easypost';
+                            return (
+                              <tr key={rate.id}>
+                                <td className="px-3 py-2 font-medium text-foreground">{rate.name}</td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {isLive ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-medium">
+                                      <span className="material-icons text-xs">cloud</span>
+                                      EasyPost
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                                      <span className="material-icons text-xs">edit_note</span>
+                                      Manual
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {rate.carrierCode || (isLive ? 'Any' : '--')}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {rate.serviceCode || (isLive ? 'Any' : '--')}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {rateTypeLabels[rate.rateType] || rate.rateType}
+                                </td>
+                                <td className="px-3 py-2 text-foreground">
+                                  {isLive ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs font-bold tracking-wide">
+                                      <span className="material-icons text-xs">local_shipping</span>
+                                      LIVE
+                                    </span>
+                                  ) : rate.rateType === 'free' ? (
+                                    'Free'
+                                  ) : (
+                                    formatMoney(rate.price)
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {rate.minDeliveryDays != null && rate.maxDeliveryDays != null
+                                    ? `${rate.minDeliveryDays}-${rate.maxDeliveryDays} days`
+                                    : rate.minDeliveryDays != null
+                                    ? `${rate.minDeliveryDays}+ days`
+                                    : '--'}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {!isLive && rate.freeAbove ? formatMoney(rate.freeAbove) : '--'}
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => openEditRate(zone.id, rate)}
+                                      className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      <span className="material-icons text-sm">edit</span>
+                                    </button>
+                                    <button
+                                      onClick={() => rate.id && deleteRate(zone.id, rate.id)}
+                                      className="p-1 text-muted-foreground hover:text-red-600 transition-colors"
+                                    >
+                                      <span className="material-icons text-sm">delete</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -413,42 +519,127 @@ export default function ShippingSettingsPage() {
                       <h4 className="font-medium text-foreground text-sm">
                         {editingRate ? 'Edit Rate' : 'New Rate'}
                       </h4>
+
+                      {/* Rate source toggle */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground">Rate source</label>
+                        <div className="flex gap-2">
+                          <label
+                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                              rateSource === 'manual'
+                                ? 'border-primary bg-primary/5 text-foreground'
+                                : 'border-border bg-background text-muted-foreground hover:border-primary/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="rateSource"
+                              value="manual"
+                              checked={rateSource === 'manual'}
+                              onChange={() => setRateSource('manual')}
+                              className="accent-primary"
+                            />
+                            <span className="material-icons text-base">edit_note</span>
+                            <span className="text-sm font-medium">Manual</span>
+                          </label>
+                          <label
+                            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                              rateSource === 'easypost'
+                                ? 'border-primary bg-primary/5 text-foreground'
+                                : 'border-border bg-background text-muted-foreground hover:border-primary/40'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="rateSource"
+                              value="easypost"
+                              checked={rateSource === 'easypost'}
+                              onChange={() => setRateSource('easypost')}
+                              className="accent-primary"
+                            />
+                            <span className="material-icons text-base">cloud</span>
+                            <span className="text-sm font-medium">Live carrier rates</span>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {/* Name (both modes) */}
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">Name</label>
                           <input
                             value={rateForm.name}
                             onChange={(e) => setRateForm((p) => ({ ...p, name: e.target.value }))}
                             required
-                            placeholder="Standard, Express..."
+                            placeholder={rateSource === 'easypost' ? 'Live carrier rate' : 'Standard, Express...'}
                             className={inputClass}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">Type</label>
-                          <select
-                            value={rateForm.type}
-                            onChange={(e) => setRateForm((p) => ({ ...p, type: e.target.value }))}
-                            className={inputClass}
-                          >
-                            <option value="flat">Flat Rate</option>
-                            <option value="weight">Weight Based</option>
-                            <option value="price">Price Based</option>
-                            <option value="free">Free Shipping</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">Price ($)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={centsToDollars(rateForm.priceCents)}
-                            onChange={(e) => setRateForm((p) => ({ ...p, priceCents: dollarsToCents(e.target.value) }))}
-                            disabled={rateForm.type === 'free'}
-                            className={inputClass}
-                          />
-                        </div>
+
+                        {/* Manual-only fields */}
+                        {rateSource === 'manual' && (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-foreground">Type</label>
+                              <select
+                                value={rateForm.rateType}
+                                onChange={(e) => setRateForm((p) => ({ ...p, rateType: e.target.value }))}
+                                className={inputClass}
+                              >
+                                <option value="flat">Flat Rate</option>
+                                <option value="weight_based">Weight Based</option>
+                                <option value="price_based">Price Based</option>
+                                <option value="free">Free Shipping</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-foreground">Price ($)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={centsToDollars(rateForm.price)}
+                                onChange={(e) => setRateForm((p) => ({ ...p, price: dollarsToCents(e.target.value) }))}
+                                disabled={rateForm.rateType === 'free'}
+                                className={inputClass}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Live-only fields */}
+                        {rateSource === 'easypost' && (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-foreground">Carrier</label>
+                              <select
+                                value={rateForm.carrierCode}
+                                onChange={(e) => setRateForm((p) => ({ ...p, carrierCode: e.target.value }))}
+                                className={inputClass}
+                              >
+                                {CARRIER_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-foreground">Service</label>
+                              <input
+                                value={rateForm.serviceCode}
+                                onChange={(e) => setRateForm((p) => ({ ...p, serviceCode: e.target.value }))}
+                                placeholder="Leave blank to allow all services from this carrier"
+                                className={inputClass}
+                              />
+                              <p className="text-[11px] text-muted-foreground">
+                                Examples: Priority, Ground, Express. Exact match against EasyPost service codes.
+                              </p>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Delivery days (both modes) */}
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-foreground">Min Days</label>
                           <input
@@ -471,18 +662,22 @@ export default function ShippingSettingsPage() {
                             className={inputClass}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-foreground">Free Above ($)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={centsToDollars(rateForm.freeThresholdCents)}
-                            onChange={(e) => setRateForm((p) => ({ ...p, freeThresholdCents: dollarsToCents(e.target.value) }))}
-                            placeholder="Optional"
-                            className={inputClass}
-                          />
-                        </div>
+
+                        {/* Free above (manual only) */}
+                        {rateSource === 'manual' && (
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-foreground">Free Above ($)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={centsToDollars(rateForm.freeAbove)}
+                              onChange={(e) => setRateForm((p) => ({ ...p, freeAbove: dollarsToCents(e.target.value) }))}
+                              placeholder="Optional"
+                              className={inputClass}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-end gap-2">
                         <button
