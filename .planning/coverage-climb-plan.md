@@ -32,6 +32,23 @@ The second command lists every iteration committed so far.
     getSignedFileUrl (happy path + empty-id + non-2xx + missing field +
     query-string + missing-API-key + URL encoding)
   - baseline-file's stmt% before: 18.7% — should now be 80-90% (verifyWebhookSignature path already covered by sister file)
+- **#5** — `test(crm): unit tests for pure parse/normalize helpers`
+  - file: `tests/unit/crm-parse.test.ts` (57 tests)
+  - covers: parseDisplayName (display-name parse, quote strip, multi-word
+    last names, 1-token returns null lastName, whitespace collapse,
+    100-char caps for first/last, fallback to email local-part with
+    undefined/empty raw, case-insensitive equality, dot/underscore/hyphen
+    split, 3+ token joining, "Unknown" fallback for both-empty,
+    leading-@ smoke), normalizeDomain (empty/whitespace, lowercase,
+    trim, http/https strip, path drop, www strip, combo), domainFromEmail
+    (valid, normalize, no-@, double-@, trailing-@), capitalize (basic,
+    no-op, no trailing lower, empty), isPersonalDomain (all 17 known
+    domains + case-insensitivity + 4 non-personal + empty).
+  - file was 0% covered in baseline. Now ~100%.
+  - **Iteration #5 ALSO kicked off the first global coverage measurement**
+    (vitest --project=unit --coverage). Results pending — will land in
+    the tally table once the background run completes.
+
 - **#4** — `test(chat,ai): rate-limit + AI-usage audit unit tests`
   - files: `tests/unit/chat-rate-limit.test.ts` (13 tests),
     `tests/unit/ai-audit.test.ts` (8 tests)
@@ -113,6 +130,7 @@ takes minutes). Drop a tally into this file when re-measured:
 | 2 | (not measured) | (not measured) | 36 | dropbox-sign |
 | 3 | (not measured) | (not measured) | 24 | workflows/runtime |
 | 4 | (not measured) | (not measured) | 21 | chat/rate-limit + ai/audit |
+| 5 | (pending measurement) | (pending) | 57 | crm/parse |
 
 ## Honest assessment (added iteration #4)
 
