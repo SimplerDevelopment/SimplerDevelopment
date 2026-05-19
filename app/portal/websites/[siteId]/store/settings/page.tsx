@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
+interface ShipFromAddress {
+  name?: string | null;
+  company?: string | null;
+  line1: string;
+  line2?: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone?: string | null;
+}
+
 interface StoreSettings {
   enabled: boolean;
   storeName: string;
@@ -27,7 +39,33 @@ interface StoreSettings {
   supportEmail?: string | null;
   returnPolicyUrl?: string | null;
   shippingPolicyUrl?: string | null;
+  // Shipping provider
+  shippingProvider: 'manual' | 'easypost';
+  easypostApiKeyConfigured: boolean;
+  easypostApiKeyLast4: string | null;
+  easypostMode: 'test' | 'production' | null;
+  easypostWebhookSecret: string | null;
+  shipFromAddress: ShipFromAddress | null;
+  defaultParcelLengthIn: string | number | null;
+  defaultParcelWidthIn: string | number | null;
+  defaultParcelHeightIn: string | number | null;
+  defaultParcelWeightOz: string | number | null;
+  liveRatesFallback: boolean;
 }
+
+interface TestResultOk {
+  ok: true;
+  rateCount: number;
+  sampleRates: Array<{ carrier: string; service: string; amountCents: number; estDeliveryDays: number | null }>;
+}
+
+interface TestResultErr {
+  ok: false;
+  message: string;
+  code?: string;
+}
+
+type TestResult = TestResultOk | TestResultErr;
 
 const currencies = [
   { value: 'USD', label: 'USD - US Dollar' },
@@ -47,6 +85,10 @@ export default function StoreSettingsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [connectingStripe, setConnectingStripe] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [savingApiKey, setSavingApiKey] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -71,9 +113,32 @@ export default function StoreSettingsPage() {
     setError('');
     setSuccess('');
     try {
+      // Strip read-only / dedicated-flow fields before PUT.
+      const {
+        easypostApiKeyConfigured: _ro1,
+        easypostApiKeyLast4: _ro2,
+        stripeConnected: _ro3,
+        stripeAccountId: _ro4,
+        payoutSchedule: _ro5,
+        platformFeePercent: _ro6,
+        ...mutable
+      } = settings;
+      void _ro1; void _ro2; void _ro3; void _ro4; void _ro5; void _ro6;
       const payload = {
-        ...settings,
+        ...mutable,
         taxRate: settings.taxRate / 100, // Convert percentage to decimal for API
+        defaultParcelLengthIn: settings.defaultParcelLengthIn === '' || settings.defaultParcelLengthIn === null
+          ? null
+          : Number(settings.defaultParcelLengthIn),
+        defaultParcelWidthIn: settings.defaultParcelWidthIn === '' || settings.defaultParcelWidthIn === null
+          ? null
+          : Number(settings.defaultParcelWidthIn),
+        defaultParcelHeightIn: settings.defaultParcelHeightIn === '' || settings.defaultParcelHeightIn === null
+          ? null
+          : Number(settings.defaultParcelHeightIn),
+        defaultParcelWeightOz: settings.defaultParcelWeightOz === '' || settings.defaultParcelWeightOz === null
+          ? null
+          : Number(settings.defaultParcelWeightOz),
       };
       const res = await fetch(`${base}/settings`, {
         method: 'PUT',
@@ -120,6 +185,96 @@ export default function StoreSettingsPage() {
     setSettings({ ...settings, [key]: value });
     setError('');
     setSuccess('');
+  };
+
+  const updateShipFromField = <K extends keyof ShipFromAddress>(key: K, value: ShipFromAddress[K]) => {
+    if (!settings) return;
+    const current: ShipFromAddress = settings.shipFromAddress ?? {
+      line1: '', city: '', state: '', postalCode: '', country: 'US',
+    };
+    setSettings({ ...settings, shipFromAddress: { ...current, [key]: value } });
+    setError('');
+    setSuccess('');
+  };
+
+  const saveApiKey = async () => {
+    if (!apiKeyInput) return;
+    setSavingApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ easypostApiKeyPlaintext: apiKeyInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('EasyPost API key saved.');
+        setApiKeyInput('');
+        await load();
+      } else {
+        setError(data.message || 'Failed to save key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  const clearApiKey = async () => {
+    setSavingApiKey(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ easypostApiKeyClear: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('EasyPost API key cleared.');
+        await load();
+      } else {
+        setError(data.message || 'Failed to clear key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${base}/easypost/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({
+          ok: true,
+          rateCount: data.data.rateCount,
+          sampleRates: data.data.sampleRates,
+        });
+      } else {
+        setTestResult({ ok: false, message: data.message || 'Connection test failed', code: data.code });
+      }
+    } catch {
+      setTestResult({ ok: false, message: 'Network error running test' });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const parcelNumber = (v: string | number | null | undefined): string => {
+    if (v === null || v === undefined) return '';
+    return String(v);
   };
 
   if (loading) {
@@ -449,6 +604,338 @@ export default function StoreSettingsPage() {
               )}
               {connectingStripe ? 'Connecting...' : 'Connect Stripe'}
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Shipping Provider */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
+          Shipping Provider
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Choose how shipping rates are calculated. Manual uses your zone-based rates; EasyPost fetches live carrier rates and prints labels.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          {(['manual', 'easypost'] as const).map((opt) => (
+            <label
+              key={opt}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm ${
+                settings.shippingProvider === opt
+                  ? 'border-primary bg-primary/5 text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <input
+                type="radio"
+                name="shippingProvider"
+                className="sr-only"
+                checked={settings.shippingProvider === opt}
+                onChange={() => updateField('shippingProvider', opt)}
+              />
+              <span className="material-icons text-base">
+                {opt === 'manual' ? 'tune' : 'bolt'}
+              </span>
+              {opt === 'manual' ? 'Manual' : 'EasyPost'}
+            </label>
+          ))}
+        </div>
+
+        {settings.shippingProvider === 'easypost' && (
+          <div className="space-y-5 pt-2 border-t border-border">
+            {/* API key */}
+            <div className="space-y-2">
+              <label className={labelClass}>EasyPost API Key</label>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="material-icons text-base text-muted-foreground">
+                  {settings.easypostApiKeyConfigured ? 'lock' : 'lock_open'}
+                </span>
+                <span className={settings.easypostApiKeyConfigured ? 'text-foreground' : 'text-muted-foreground'}>
+                  {settings.easypostApiKeyConfigured
+                    ? `Key set, ends in …${settings.easypostApiKeyLast4 ?? '????'}`
+                    : 'No key configured'}
+                </span>
+                {settings.easypostApiKeyConfigured && (
+                  <button
+                    type="button"
+                    onClick={clearApiKey}
+                    disabled={savingApiKey}
+                    className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted/40 transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-icons text-sm">delete</span>
+                    Clear key
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="EZAK... or EZTK..."
+                  className={inputClass}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={saveApiKey}
+                  disabled={savingApiKey || !apiKeyInput}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                >
+                  {savingApiKey && <span className="material-icons text-base animate-spin">refresh</span>}
+                  Save key
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Stored encrypted at rest (AES-256-GCM). The plaintext is never echoed back to the browser.
+              </p>
+            </div>
+
+            {/* Mode + Webhook secret */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className={labelClass}>Mode</label>
+                <select
+                  value={settings.easypostMode ?? 'test'}
+                  onChange={(e) => updateField('easypostMode', e.target.value as 'test' | 'production')}
+                  className={inputClass}
+                >
+                  <option value="test">Test</option>
+                  <option value="production">Production</option>
+                </select>
+                <p className="text-xs text-muted-foreground">Test mode returns fake rates and never bills real money.</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Webhook Secret</label>
+                <input
+                  type="text"
+                  value={settings.easypostWebhookSecret ?? ''}
+                  onChange={(e) => updateField('easypostWebhookSecret', e.target.value || null)}
+                  placeholder="HMAC secret from EasyPost"
+                  className={inputClass}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set this in EasyPost dashboard → Webhooks → secret. URL to register:{' '}
+                  <code className="font-mono text-[11px] bg-muted/40 px-1 py-0.5 rounded">
+                    https://&lt;your-site&gt;/api/webhooks/easypost?websiteId={siteId}
+                  </code>{' '}
+                  (replace with your actual domain).
+                </p>
+              </div>
+            </div>
+
+            {/* Ship-from address */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <span className="material-icons text-base text-muted-foreground">place</span>
+                Ship-From Address
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Name</label>
+                  <input
+                    value={settings.shipFromAddress?.name ?? ''}
+                    onChange={(e) => updateShipFromField('name', e.target.value || null)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Company</label>
+                  <input
+                    value={settings.shipFromAddress?.company ?? ''}
+                    onChange={(e) => updateShipFromField('company', e.target.value || null)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className={labelClass}>Address Line 1</label>
+                  <input
+                    value={settings.shipFromAddress?.line1 ?? ''}
+                    onChange={(e) => updateShipFromField('line1', e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className={labelClass}>Address Line 2</label>
+                  <input
+                    value={settings.shipFromAddress?.line2 ?? ''}
+                    onChange={(e) => updateShipFromField('line2', e.target.value || null)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>City</label>
+                  <input
+                    value={settings.shipFromAddress?.city ?? ''}
+                    onChange={(e) => updateShipFromField('city', e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>State / Province</label>
+                  <input
+                    value={settings.shipFromAddress?.state ?? ''}
+                    onChange={(e) => updateShipFromField('state', e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Postal Code</label>
+                  <input
+                    value={settings.shipFromAddress?.postalCode ?? ''}
+                    onChange={(e) => updateShipFromField('postalCode', e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Country (2-letter)</label>
+                  <input
+                    value={settings.shipFromAddress?.country ?? 'US'}
+                    onChange={(e) => updateShipFromField('country', (e.target.value || 'US').toUpperCase())}
+                    maxLength={2}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className={labelClass}>Phone</label>
+                  <input
+                    value={settings.shipFromAddress?.phone ?? ''}
+                    onChange={(e) => updateShipFromField('phone', e.target.value || null)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Default parcel */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <span className="material-icons text-base text-muted-foreground">inventory_2</span>
+                Default Parcel
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Length (in)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={parcelNumber(settings.defaultParcelLengthIn)}
+                    onChange={(e) => updateField('defaultParcelLengthIn', e.target.value === '' ? null : e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Width (in)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={parcelNumber(settings.defaultParcelWidthIn)}
+                    onChange={(e) => updateField('defaultParcelWidthIn', e.target.value === '' ? null : e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Height (in)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={parcelNumber(settings.defaultParcelHeightIn)}
+                    onChange={(e) => updateField('defaultParcelHeightIn', e.target.value === '' ? null : e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Weight (oz)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={parcelNumber(settings.defaultParcelWeightOz)}
+                    onChange={(e) => updateField('defaultParcelWeightOz', e.target.value === '' ? null : e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live rates fallback */}
+            <div className="space-y-1.5">
+              <label className={labelClass}>Live Rates Fallback</label>
+              <div className="flex items-center gap-3 pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => updateField('liveRatesFallback', !settings.liveRatesFallback)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    settings.liveRatesFallback ? 'bg-primary' : 'bg-border'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      settings.liveRatesFallback ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-muted-foreground">Show manual rates when live rates fail</span>
+              </div>
+            </div>
+
+            {/* Test connection */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">Test Connection</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Sends a synthetic shipment from your ship-from address to San Francisco and quotes rates.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={testConnection}
+                  disabled={testingConnection}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors disabled:opacity-50 whitespace-nowrap"
+                >
+                  {testingConnection ? (
+                    <span className="material-icons text-base animate-spin">refresh</span>
+                  ) : (
+                    <span className="material-icons text-base">network_check</span>
+                  )}
+                  {testingConnection ? 'Testing...' : 'Test connection'}
+                </button>
+              </div>
+              {testResult && (testResult.ok ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+                  <div className="flex items-center gap-2 font-medium">
+                    <span className="material-icons text-base">check_circle</span>
+                    Got {testResult.rateCount} rate{testResult.rateCount === 1 ? '' : 's'}
+                  </div>
+                  {testResult.sampleRates.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs">
+                      {testResult.sampleRates.map((r, i) => (
+                        <li key={i} className="font-mono">
+                          {r.carrier} · {r.service} · ${(r.amountCents / 100).toFixed(2)}
+                          {r.estDeliveryDays != null ? ` · ${r.estDeliveryDays}d` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                  <div className="flex items-center gap-2 font-medium">
+                    <span className="material-icons text-base">error</span>
+                    {testResult.message}
+                  </div>
+                  {testResult.code && (
+                    <p className="mt-1 text-xs font-mono opacity-80">code: {testResult.code}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
