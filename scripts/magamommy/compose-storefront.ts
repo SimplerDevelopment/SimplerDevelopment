@@ -190,45 +190,49 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  // 2. Hero — true two-column layout. Left half is navy with the slogan,
-  // subtitle, tagline, and CTAs in white. Right half is the lifestyle photo
-  // from the latest drop, edge-to-edge. We use a `columns` block instead of
-  // the single `hero` block because hero only supports a single background
-  // image behind ALL the text — not a side-by-side composition.
+  // 2. Hero — two-column flyer layout.
+  //   LEFT (55%, deep navy): drop stamp → slogan-as-headline → tagline → price
+  //   strip → big primary CTA + secondary link.
+  //   RIGHT (45%, edge-to-edge photo): lifestyle photo with a tilted red
+  //   "NEW DROP!" sticker top-left and a navy "$29 · ONLY 100 MADE" chip
+  //   bottom-right. Both overlays absolutely positioned inside a single
+  //   html-render block so layering Just Works without per-block z-index dance.
   //
-  // When no drop exists yet, the right column falls back to a flat brand-red
-  // panel with the wordmark, so the page still reads as a real storefront.
-  // Strip any trailing terminator from the slogan before appending our own
-  // — concept-writer sometimes lands slogans like "Coffee Up. Gas Up. Carry On."
-  // which would otherwise render as "...Carry On.." (double period) below.
+  // Slogan-as-headline: dropping the "This week:" prefix — it competed with
+  // the eyebrow stamp for the same info and made the headline wordy. The
+  // slogan IS the hero. Trim trailing terminator so "...Carry On." doesn't
+  // become "...Carry On.." when we add styling-period later.
   const cleanSlogan = latestDrop.slogan?.replace(/[.!?]+\s*$/, '');
-  const heroHeadline = cleanSlogan
-    ? `This week: ${cleanSlogan}.`
-    : 'Heat from the headlines, printed on a tee.';
-  const heroDescription = latestDrop.tagline
-    ?? 'Magamommy turns the week\'s loudest political moment into a wearable. Limited quantities. Gone when they\'re gone.';
+  const heroHeadline = cleanSlogan ?? 'Heat from the headlines, printed on a tee';
+  const heroTagline = latestDrop.tagline
+    ?? 'A new shirt every Monday. Pulled from the loudest political moment of the week. Limited to 100.';
   const heroCtaLink = latestDrop.productUrl ?? '/shop';
 
-  // Right column content: lifestyle image if we have it, otherwise a tall
-  // brand-red panel with the slogan/wordmark so the column isn't empty.
+  // Right-column content. Lifestyle photo path uses a single html-render
+  // with absolutely-positioned overlays (NEW! sticker + price chip). Fallback
+  // path (no drop yet) renders a flat brand-red panel with the wordmark.
   const heroRightBlocks: Array<Record<string, unknown>> = latestDrop.heroImageUrl
     ? [{
         id: id(),
-        type: 'image',
+        type: 'html-render',
         order: 0,
-        url: latestDrop.heroImageUrl,
-        alt: latestDrop.slogan ?? 'This week\'s Magamommy drop',
-        width: 'full',
-        alignment: 'center',
-        style: {
-          width: '100%',
-          height: '100%',
-          minHeight: '420px',
-          maxHeight: '480px',
-          objectFit: 'cover',
-          objectPosition: 'center top',
-          margin: '0',
-        },
+        html: `
+<div style="position:relative;width:100%;height:100%;min-height:540px;background:${WHITE};overflow:hidden;">
+  <img src="${latestDrop.heroImageUrl}" alt="${(cleanSlogan ?? 'Magamommy weekly drop').replace(/"/g, '&quot;')}" style="display:block;width:100%;height:100%;min-height:540px;object-fit:cover;object-position:center 18%;"/>
+
+  <!-- "NEW DROP!" tilted sticker — top-left -->
+  <div style="position:absolute;top:28px;left:28px;width:148px;height:148px;background:${RED};color:${WHITE};border:6px solid ${WHITE};border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transform:rotate(-14deg);box-shadow:0 8px 24px rgba(0,0,0,0.35);font-family:'Alfa Slab One',serif;text-transform:uppercase;line-height:1;">
+    <div style="font-size:11px;letter-spacing:0.24em;opacity:0.92;">★ Drop ★</div>
+    <div style="font-size:34px;margin-top:6px;letter-spacing:-0.01em;">NEW!</div>
+    <div style="font-size:10px;letter-spacing:0.2em;margin-top:6px;">This Monday</div>
+  </div>
+
+  <!-- Price + scarcity chip — bottom-right -->
+  <div style="position:absolute;bottom:24px;right:24px;background:${BLUE};color:${WHITE};padding:14px 22px;border:4px solid ${WHITE};box-shadow:0 6px 18px rgba(0,0,0,0.3);transform:rotate(2deg);font-family:'Alfa Slab One',serif;text-transform:uppercase;line-height:1.05;">
+    <div style="font-size:11px;letter-spacing:0.2em;opacity:0.9;">Only 100 Made</div>
+    <div style="font-size:30px;margin-top:6px;letter-spacing:-0.01em;">$29</div>
+  </div>
+</div>`,
       }]
     : [{
         id: id(),
@@ -262,15 +266,16 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
         padding: 'lg',
         backgroundColor: BLUE,
         blocks: [
+          // Drop stamp — bigger, more prominent than before.
           {
             id: id(),
             type: 'html-render',
             order: 0,
-            html: `<div style="display:inline-block;background:${RED};color:${WHITE};padding:8px 18px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.22em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 ${WHITE};margin-bottom:32px;">★ ★ ★ Announcing! ★ ★ ★</div>`,
-            style: {
-              margin: '0 0 8px 0',
-            },
+            html: `<div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 24px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${WHITE};box-shadow:8px 8px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ This Monday's Drop ★ ★ ★</div>`,
           },
+
+          // Slogan-as-headline. ~Alfa Slab One when the font loads; falls
+          // back to Ultra / Georgia / serif weight 900 in the meantime.
           {
             id: id(),
             type: 'heading',
@@ -280,90 +285,76 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             alignment: 'left',
             style: {
               color: WHITE,
-              fontFamily: '"Alfa Slab One", "Ultra", serif',
-              fontSize: '72px',
-              fontWeight: '400',
-              letterSpacing: '-0.01em',
-              lineHeight: '0.98',
-              margin: '0 0 24px 0',
+              fontFamily: '"Alfa Slab One", "Ultra", "Georgia", serif',
+              fontSize: '88px',
+              fontWeight: '900',
+              letterSpacing: '-0.015em',
+              lineHeight: '0.95',
+              margin: '0 0 28px 0',
               textTransform: 'uppercase',
             },
           },
-          {
-            id: id(),
-            type: 'html-render',
-            order: 2,
-            html: `<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;"><span style="flex:0 0 auto;color:${RED};font-size:20px;letter-spacing:0.4em;">★ ★ ★</span><div style="flex:1 1 auto;height:3px;background:${WHITE};opacity:0.6;"></div><span style="flex:0 0 auto;color:${RED};font-size:20px;letter-spacing:0.4em;">★ ★ ★</span></div>`,
-          },
+
+          // Big confident tagline (was tiny). Yellow-cream pull-color and
+          // ~24px sits between the headline and the CTA strip and reads
+          // like a magazine deck.
           {
             id: id(),
             type: 'text',
-            order: 3,
-            content: heroDescription,
+            order: 2,
+            content: heroTagline,
             size: 'lg',
             alignment: 'left',
             style: {
               color: WHITE,
+              fontSize: '24px',
+              fontWeight: '500',
+              lineHeight: '1.35',
+              maxWidth: '540px',
+              margin: '0 0 36px 0',
               opacity: '0.95',
-              fontSize: '19px',
-              lineHeight: '1.5',
-              maxWidth: '520px',
-              margin: '0 0 40px 0',
             },
           },
-          // Two inline CTAs — small nested columns block so they sit side-by-side
+
+          // Price + ship strip — quick scannable trust signals before the CTA.
           {
             id: id(),
-            type: 'columns',
+            type: 'html-render',
             order: 3,
-            gap: 'sm',
-            stackOnMobile: true,
-            columns: [
-              {
-                id: id(),
-                width: 'auto',
-                verticalAlign: 'center',
-                padding: 'none',
-                blocks: [
-                  {
-                    id: id(),
-                    type: 'button',
-                    order: 0,
-                    text: latestDrop.slogan ? 'Get it before it\'s gone' : 'Shop this week\'s drop',
-                    url: heroCtaLink,
-                    variant: 'primary',
-                    size: 'lg',
-                    alignment: 'left',
-                    style: {
-                      backgroundColor: RED,
-                      color: WHITE,
-                    },
-                  },
-                ],
-              },
-              {
-                id: id(),
-                width: 'auto',
-                verticalAlign: 'center',
-                padding: 'none',
-                blocks: [
-                  {
-                    id: id(),
-                    type: 'button',
-                    order: 0,
-                    text: 'Browse the archive',
-                    url: '/shop',
-                    variant: 'outline',
-                    size: 'lg',
-                    alignment: 'left',
-                    style: {
-                      borderColor: WHITE,
-                      color: WHITE,
-                    },
-                  },
-                ],
-              },
-            ],
+            html: `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;font-size:14px;letter-spacing:0.18em;"><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ $29</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ Free US shipping $50+</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ Ships in 48h</span></div>`,
+          },
+
+          // Single hero CTA — outsize, brand red, "buy now" intent.
+          {
+            id: id(),
+            type: 'button',
+            order: 4,
+            text: latestDrop.slogan ? 'Grab it before Sunday →' : 'Shop this week\'s drop',
+            url: heroCtaLink,
+            variant: 'primary',
+            size: 'lg',
+            alignment: 'left',
+            style: {
+              backgroundColor: RED,
+              color: WHITE,
+              fontSize: '20px',
+              fontWeight: '800',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+              padding: '20px 36px',
+              border: `4px solid ${WHITE}`,
+              boxShadow: '6px 6px 0 rgba(0,0,0,0.35)',
+              borderRadius: '4px',
+              margin: '0 0 16px 0',
+            },
+          },
+
+          // Secondary link — text-style, low-key, "see everything" intent.
+          {
+            id: id(),
+            type: 'html-render',
+            order: 5,
+            html: `<a href="/shop" style="display:inline-flex;align-items:center;gap:8px;color:${WHITE};opacity:0.85;font-family:'Inter',sans-serif;font-size:14px;letter-spacing:0.06em;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.4);padding-bottom:2px;">Or browse every past drop →</a>`,
           },
         ],
       },
@@ -371,7 +362,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       {
         id: id(),
         width: '45%',
-        verticalAlign: 'center',
+        verticalAlign: 'top',
         padding: 'none',
         backgroundColor: latestDrop.heroImageUrl ? undefined : RED,
         blocks: heroRightBlocks,
@@ -381,7 +372,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       backgroundColor: BLUE,
       paddingTop: '0',
       paddingBottom: '0',
-      minHeight: '460px',
+      minHeight: '540px',
     },
   };
 
