@@ -131,9 +131,15 @@ takes minutes). Drop a tally into this file when re-measured:
 | 3 | (not measured) | (not measured) | 24 | workflows/runtime |
 | 4 | (not measured) | (not measured) | 21 | chat/rate-limit + ai/audit |
 | 5 | **5.15** | **4.62** | 57 | crm/parse + first real measurement |
+| Batch 1 (×7 agents) | (not measured) | (not measured) | 204 | ai-block-schemas, ai-slide-edit-optimizer, ai-slide-prompt-builder, ai-validate-slide-response, cloudflare-dns, geocode, html-embed-clean |
+| Batch 2 (×8 agents) | (not measured) | (not measured) | 450 | mcp-blocks-schema, directory-scraper, blocks-html-render-loops, blocks-defaults, blocks-html-render-schema, mcp-projections, github, blocks-template-wrap |
+| Batch 3 (×8 agents) | (not measured) | (not measured) | 233 | brain-relationships, email-booking-emails, brain-extract-links, email-default-templates, email-apply-branding-to-blocks, brain-template, blocks-prefetch-embeds, api-key-middleware |
+| Batch 4 (×8 agents) | **8.65** | **7.82** | 306 | brain-dataview, brain-notes, brain-search, brain-classify-crm, brain-analyze-attachment, brain-strip-quoted, brain-embedding-extractors, brain-embeddings |
 
-**Cumulative after 5 iterations:** +0.26pp statements / +0.28pp
-branches / +193 unit tests (1039 → 1232). Hard data.
+**Cumulative after iter 5 + 4 parallel batches:** +3.76pp statements
+(4.89 → 8.65) / +3.48pp branches (4.34 → 7.82) / +1,434 new passing
+unit tests (1039 → 2473). **The parallel approach delivered 2.0 covered
+statements per new test, not the 1.0 we projected from solo iters.**
 
 ## Honest assessment — REVISED with real numbers (iteration #5)
 
