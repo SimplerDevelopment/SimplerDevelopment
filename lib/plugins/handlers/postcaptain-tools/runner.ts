@@ -44,7 +44,7 @@ export { redactLog, capLogTail };
 const DRAIN_PARALLELISM = 4; // dispatch is fast (~1s), so we can fan wider than Wave 1
 const ERROR_SUMMARY_MAX = 1_000;
 
-export type RunKind = 'research-brief' | 'draft-blog-post';
+export type RunKind = 'research-brief' | 'draft-blog-post' | 'competitor-research';
 
 // ─── enqueueRun ─────────────────────────────────────────────────────────────
 

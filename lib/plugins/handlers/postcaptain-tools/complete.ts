@@ -52,11 +52,37 @@ const SuccessResultDraftBlogPost = z.object({
   briefId: z.number().int().positive().nullable().optional(),
 });
 
+const VulnScore = z.enum(['HIGH', 'MED', 'LOW']);
+
+const SuccessResultCompetitorResearch = z.object({
+  kind: z.literal('competitor-research'),
+  topic: z.string().min(1).max(255), // typically "Competitor: <slug>"
+  focus: z.string().nullable().optional(),
+  body: z.string().min(1),
+  sources: z.array(z.object({ url: z.string(), title: z.string().optional() })).default([]),
+  // Structured signal — persisted into postcaptain_briefs.meta so Wave 4
+  // can detect score changes between consecutive runs.
+  competitorSlug: z.string().min(1).max(64),
+  depth: z.enum(['news', 'deep']),
+  vulnerability: z.object({
+    score: VulnScore,
+    dims: z.object({
+      clarity: VulnScore.optional(),
+      differentiation: VulnScore.optional(),
+      proof: VulnScore.optional(),
+      consistency: VulnScore.optional(),
+      specificity: VulnScore.optional(),
+    }).optional(),
+    rationale: z.string().max(2000).optional(),
+  }).optional(),
+});
+
 const SuccessSchema = z.object({
   outcome: z.literal('succeeded'),
   result: z.discriminatedUnion('kind', [
     SuccessResultResearchBrief,
     SuccessResultDraftBlogPost,
+    SuccessResultCompetitorResearch,
   ]),
   logTail: z.string().max(LOG_TAIL_MAX * 2).optional(), // server caps to LOG_TAIL_MAX
 });
@@ -151,6 +177,31 @@ const postComplete: CallbackHandler = {
           focus: result.focus ?? null,
           body: result.body,
           sources: result.sources.map((s) => ({ url: s.url, title: s.title ?? s.url })),
+        }).returning({ id: postcaptainBriefs.id });
+        if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
+        resultId = row.id;
+      } else if (result.kind === 'competitor-research') {
+        if (run.kind !== 'competitor-research') {
+          return fail(
+            'validation_error',
+            `Result kind 'competitor-research' does not match run kind '${run.kind}'.`,
+            400,
+          );
+        }
+        // Persisted into postcaptain_briefs with a structured `meta` block
+        // so Wave 4 can read meta.vulnerability and diff vs prior runs.
+        const [row] = await db.insert(postcaptainBriefs).values({
+          clientId: run.clientId,
+          runId: run.id,
+          topic: result.topic.slice(0, 255),
+          focus: result.focus ?? null,
+          body: result.body,
+          sources: result.sources.map((s) => ({ url: s.url, title: s.title ?? s.url })),
+          meta: {
+            competitorSlug: result.competitorSlug,
+            depth: result.depth,
+            ...(result.vulnerability ? { vulnerability: result.vulnerability } : {}),
+          },
         }).returning({ id: postcaptainBriefs.id });
         if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
         resultId = row.id;

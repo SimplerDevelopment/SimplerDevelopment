@@ -28,7 +28,7 @@ import {
   validateCronExpr,
 } from './schedule';
 
-const KIND_ENUM = ['research-brief', 'draft-blog-post'] as const;
+const KIND_ENUM = ['research-brief', 'draft-blog-post', 'competitor-research'] as const;
 
 const ArgsResearchBrief = z.object({
   topic: z.string().min(1).max(255),
@@ -39,11 +39,17 @@ const ArgsDraftBlogPost = z.object({
   topic: z.string().min(1).max(255).optional(),
   focus: z.string().max(2000).optional(),
 });
+const ArgsCompetitorResearch = z.object({
+  competitorSlug: z.string().min(1).max(64),
+  depth: z.enum(['news', 'deep']).default('news'),
+  focus: z.string().max(2000).optional(),
+  lookbackDays: z.number().int().min(1).max(365).optional(),
+});
 
 const CreateJobSchema = z.object({
   name: z.string().min(1).max(255),
   kind: z.enum(KIND_ENUM),
-  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost]),
+  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost, ArgsCompetitorResearch]),
   dayOfWeek: z.number().int().min(0).max(6).optional(),
   timeUtc: z.string().regex(TIME_UTC_RE, 'timeUtc must be HH:mm (24h UTC)').optional(),
   cronExpr: z.string().min(1).max(64).optional(),
@@ -55,7 +61,7 @@ const UpdateJobSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
   timeUtc: z.string().regex(TIME_UTC_RE).nullable().optional(),
   cronExpr: z.string().min(1).max(64).nullable().optional(),
-  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost]).optional(),
+  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost, ArgsCompetitorResearch]).optional(),
 });
 
 /**

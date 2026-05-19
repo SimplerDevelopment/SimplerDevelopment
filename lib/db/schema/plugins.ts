@@ -155,9 +155,34 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
 ]);
 
 // ─── postcaptain_briefs ─────────────────────────────────────────────────────
-// Research brief output — the result row produced by a 'research-brief' run.
-// `body` is markdown; `sources` are the citations returned by the Anthropic
-// web_search_20250305 tool.
+// Research brief output — produced by `research-brief` and
+// `competitor-research` runs. `body` is markdown; `sources` are citations
+// returned by Anthropic's web_search_20250305 tool. `meta` is a free-form
+// jsonb bag for kind-specific structured data — e.g. `competitor-research`
+// stores a `vulnerability: { score: HIGH|MED|LOW, dims: {...} }` block here
+// so Wave 4 can detect score changes between two consecutive briefs.
+
+export type CompetitorVulnerability = {
+  score: 'HIGH' | 'MED' | 'LOW';
+  dims?: {
+    clarity?: 'HIGH' | 'MED' | 'LOW';
+    differentiation?: 'HIGH' | 'MED' | 'LOW';
+    proof?: 'HIGH' | 'MED' | 'LOW';
+    consistency?: 'HIGH' | 'MED' | 'LOW';
+    specificity?: 'HIGH' | 'MED' | 'LOW';
+  };
+  rationale?: string;
+};
+
+export type PostcaptainBriefMeta = {
+  competitorSlug?: string;
+  depth?: 'news' | 'deep';
+  lookbackDays?: number;
+  vulnerability?: CompetitorVulnerability;
+  // Open-ended — handlers can write additional structured signal as they
+  // see fit. Wave 4 reads vulnerability; other consumers should be defensive.
+  [key: string]: unknown;
+};
 
 export const postcaptainBriefs = pgTable('postcaptain_briefs', {
   id: serial('id').primaryKey(),
@@ -167,6 +192,7 @@ export const postcaptainBriefs = pgTable('postcaptain_briefs', {
   focus: text('focus'),
   body: text('body').notNull(),
   sources: jsonb('sources').$type<{ url: string; title: string }[]>().default([]).notNull(),
+  meta: jsonb('meta').$type<PostcaptainBriefMeta>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('postcaptain_briefs_client_idx').on(t.clientId),
