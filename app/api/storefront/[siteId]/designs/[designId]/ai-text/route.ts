@@ -11,6 +11,7 @@ import {
 import { recordAiUsage } from '@/lib/ai/audit';
 import { checkAiPlanGate } from '@/lib/ai/plan-gate';
 import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
+import { getBrandMessaging } from '@/lib/branding';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 
 export const maxDuration = 30;
@@ -171,7 +172,10 @@ export async function POST(
     }
 
     const [siteRow] = await db
-      .select({ clientId: clientWebsites.clientId })
+      .select({
+        clientId: clientWebsites.clientId,
+        brandingProfileId: clientWebsites.brandingProfileId,
+      })
       .from(clientWebsites)
       .where(eq(clientWebsites.id, websiteId))
       .limit(1);
@@ -182,6 +186,15 @@ export async function POST(
       );
     }
     const merchantClientId = siteRow.clientId;
+
+    // Brand voice — when the store has a brandingMessaging row we surface
+    // its tagline, tone, and writing style to the model so AI taglines
+    // sound like the store, not a generic apparel slogan. Best-effort:
+    // failures here fall back silently to the unbranded prompt.
+    const brandVoice = await getBrandMessaging(
+      merchantClientId,
+      siteRow.brandingProfileId ?? undefined,
+    ).catch(() => undefined);
 
     const gate = await checkAiPlanGate({
       clientId: merchantClientId,
@@ -222,7 +235,31 @@ export async function POST(
 
     const anthropic = new Anthropic({ apiKey });
 
+    // Brand voice context — appended only when the store has filled it in.
+    // We deliberately keep this short (tagline + tone + writing style) so
+    // we don't blow past Anthropic's context budget on a 4-suggestion call.
+    const brandLines: string[] = [];
+    if (brandVoice?.companyName) {
+      brandLines.push(`Brand: ${brandVoice.companyName}.`);
+    }
+    if (brandVoice?.tagline) {
+      brandLines.push(`Existing tagline: "${brandVoice.tagline}".`);
+    }
+    if (brandVoice?.toneOfVoice) {
+      brandLines.push(`Tone of voice: ${brandVoice.toneOfVoice}.`);
+    }
+    if (brandVoice?.brandPersonality) {
+      brandLines.push(`Personality: ${brandVoice.brandPersonality}.`);
+    }
+    if (brandVoice?.writingStyle) {
+      brandLines.push(`Writing style: ${brandVoice.writingStyle}.`);
+    }
+    if (brandLines.length > 0) {
+      brandLines.push('Match this brand voice while still respecting the customer prompt.');
+    }
+
     const userMessage = [
+      ...brandLines,
       productName ? `Product: ${productName}.` : '',
       currentText ? `Current text on the design: "${currentText}".` : '',
       `Customer wants ${n} suggestions for: ${prompt}.`,

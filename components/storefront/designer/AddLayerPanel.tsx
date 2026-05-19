@@ -171,10 +171,43 @@ export default function AddLayerPanel({
   const canvas = useCanvasStore((s) => s.canvas);
   const addLayer = useCanvasStore((s) => s.addLayer);
   const setSelectedLayers = useCanvasStore((s) => s.setSelectedLayers);
+  const brandLogoUrl = useCanvasStore((s) => s.brandLogoUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Shared with DesignerShell's canvas drop zone — keeps the upload-then-add
   // behavior in one place so both code paths render identical layers.
   const addImageLayer = useAddImageLayer({ onUploadImage });
+
+  /**
+   * "Use my logo" handler. The brand logo is already a public URL stored
+   * on the brand profile, so we skip the re-upload-to-S3 dance and load
+   * the natural dimensions client-side via an Image element before
+   * handing the result to the same addFromResult path the AI flow uses.
+   * Falls back gracefully when the image fails to load (CORS, 404, etc.).
+   */
+  const handleUseBrandLogo = React.useCallback(async () => {
+    if (!brandLogoUrl) return;
+    try {
+      const dims = await new Promise<{ width: number; height: number }>(
+        (resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () =>
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () => reject(new Error('Failed to load brand logo'));
+          // Allow CORS so the canvas can rasterise the result on export.
+          img.crossOrigin = 'anonymous';
+          img.src = brandLogoUrl;
+        },
+      );
+      await addImageLayer.addFromResult(
+        { url: brandLogoUrl, width: dims.width, height: dims.height },
+        'Brand logo',
+      );
+      onLayerAdded?.('image');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Use my logo failed:', err);
+    }
+  }, [brandLogoUrl, addImageLayer, onLayerAdded]);
 
   /**
    * Pick a high-contrast ink colour for a given tint. Returns null when the
@@ -358,6 +391,32 @@ export default function AddLayerPanel({
           <span className="material-icons text-base">image</span>
           <span className="flex-1 text-left">Upload image</span>
         </button>
+
+        {brandLogoUrl && (
+          <button
+            type="button"
+            onClick={() => void handleUseBrandLogo()}
+            className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-background text-foreground hover:bg-muted text-sm transition-colors"
+          >
+            {/* Tiny thumbnail of the actual brand logo — material-icons fallback
+                is the same workspace_premium glyph the brand panel uses when
+                the image fails to render. */}
+            <img
+              src={brandLogoUrl}
+              alt=""
+              className="w-5 h-5 object-contain rounded-sm bg-muted"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <span className="flex-1 text-left">
+              Use my logo
+              <span className="block text-[10px] text-muted-foreground">
+                From your brand profile
+              </span>
+            </span>
+          </button>
+        )}
 
         {Boolean(onGenerateAiImage) && (
           <button
