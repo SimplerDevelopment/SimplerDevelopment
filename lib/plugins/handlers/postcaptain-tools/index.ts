@@ -10,6 +10,7 @@ import { scriptsHandlers } from './scripts';
 import { jobsHandlers } from './jobs';
 import { briefsHandlers } from './briefs';
 import { draftsHandlers } from './drafts';
+import { completeHandlers } from './complete';
 
 export const POSTCAPTAIN_TOOLS_SLUG = 'postcaptain-tools' as const;
 
@@ -18,4 +19,5 @@ registerAppHandlers(POSTCAPTAIN_TOOLS_SLUG, [
   ...jobsHandlers,
   ...briefsHandlers,
   ...draftsHandlers,
+  ...completeHandlers,
 ]);

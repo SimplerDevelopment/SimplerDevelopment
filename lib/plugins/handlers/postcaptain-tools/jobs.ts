@@ -1,14 +1,19 @@
-// Postcaptain Tools — weekly schedule handlers.
+// Postcaptain Tools — schedule handlers.
 //
-// /jobs        POST    — create a weekly schedule
+// /jobs        POST    — create a schedule (weekly or cron)
 // /jobs        GET     — list schedules (filtered to clientId)
-// /jobs/:id    PATCH   — partial update; recomputes nextRunAt if day/time
-//                        change
+// /jobs/:id    PATCH   — partial update; recomputes nextRunAt if the
+//                        schedule shape changes
 // /jobs/:id    DELETE  — hard delete (IDOR-defended)
 //
-// v1 only supports weekly schedules (dayOfWeek 0..6 + timeUtc HH:mm). Cron
-// expressions are out of scope per .planning/plugin-registry-spec.md
-// §"Out of scope for v1".
+// Two mutually-exclusive schedule modes:
+//   weekly  — dayOfWeek (0..6) + timeUtc ('HH:mm'), the original v1 mode
+//   cron    — cronExpr (5-field UTC cron), added in v2 for sub-weekly
+//             cadences like daily competitor news-watch
+//
+// Math + validation live in `./schedule.ts` so this file only does HTTP
+// concerns. `computeNextWeeklyRun` is re-exported for back-compat with any
+// callers that still import it.
 
 import { z } from 'zod';
 import { and, eq, desc } from 'drizzle-orm';
@@ -16,10 +21,14 @@ import { db } from '@/lib/db';
 import { registeredAppJobs } from '@/lib/db/schema/plugins';
 import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
+import {
+  TIME_UTC_RE,
+  assertExactlyOneMode,
+  computeNextRun,
+  validateCronExpr,
+} from './schedule';
 
-const KIND_ENUM = ['research-brief', 'draft-blog-post'] as const;
-
-const TIME_UTC_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const KIND_ENUM = ['research-brief', 'draft-blog-post', 'competitor-research'] as const;
 
 const ArgsResearchBrief = z.object({
   topic: z.string().min(1).max(255),
@@ -30,67 +39,43 @@ const ArgsDraftBlogPost = z.object({
   topic: z.string().min(1).max(255).optional(),
   focus: z.string().max(2000).optional(),
 });
+const ArgsCompetitorResearch = z.object({
+  competitorSlug: z.string().min(1).max(64),
+  depth: z.enum(['news', 'deep']).default('news'),
+  focus: z.string().max(2000).optional(),
+  lookbackDays: z.number().int().min(1).max(365).optional(),
+});
 
 const CreateJobSchema = z.object({
   name: z.string().min(1).max(255),
   kind: z.enum(KIND_ENUM),
-  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost]),
-  dayOfWeek: z.number().int().min(0).max(6),
-  timeUtc: z.string().regex(TIME_UTC_RE, 'timeUtc must be HH:mm (24h UTC)'),
+  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost, ArgsCompetitorResearch]),
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  timeUtc: z.string().regex(TIME_UTC_RE, 'timeUtc must be HH:mm (24h UTC)').optional(),
+  cronExpr: z.string().min(1).max(64).optional(),
 });
 
 const UpdateJobSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   enabled: z.boolean().optional(),
-  dayOfWeek: z.number().int().min(0).max(6).optional(),
-  timeUtc: z.string().regex(TIME_UTC_RE).optional(),
-  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost]).optional(),
+  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+  timeUtc: z.string().regex(TIME_UTC_RE).nullable().optional(),
+  cronExpr: z.string().min(1).max(64).nullable().optional(),
+  args: z.union([ArgsResearchBrief, ArgsDraftBlogPost, ArgsCompetitorResearch]).optional(),
 });
 
 /**
- * Pure helper: compute the next UTC `Date` at which a weekly job should
- * run, given the (dayOfWeek, timeUtc) tuple and a reference `now`. If the
- * computed slot is exactly `now` or in the past today, we roll forward to
- * next week — schedules never fire instantly when created (avoids
- * accidental same-tick duplicates).
- *
- *   dayOfWeek: 0=Sunday, 6=Saturday (matches Date#getUTCDay)
- *   timeUtc:   'HH:mm' (24-hour UTC)
+ * Back-compat shim: `computeNextWeeklyRun(dow, time, now)` was the v1 API.
+ * Kept as a thin wrapper over the new `computeNextRun()` so any external
+ * caller still importing it keeps working. Internal callers should use
+ * `computeNextRun` directly.
  */
 export function computeNextWeeklyRun(
   dayOfWeek: number,
   timeUtc: string,
   now: Date = new Date(),
 ): Date {
-  const m = timeUtc.match(TIME_UTC_RE);
-  if (!m) throw new Error(`computeNextWeeklyRun: invalid timeUtc='${timeUtc}'`);
-  const hours = Number(m[1]);
-  const minutes = Number(m[2]);
-  if (
-    !Number.isInteger(dayOfWeek) ||
-    dayOfWeek < 0 ||
-    dayOfWeek > 6
-  ) {
-    throw new Error(`computeNextWeeklyRun: invalid dayOfWeek=${dayOfWeek}`);
-  }
-
-  const candidate = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    hours,
-    minutes,
-    0,
-    0,
-  ));
-  // Days until target dayOfWeek. 0..6.
-  let daysAhead = (dayOfWeek - candidate.getUTCDay() + 7) % 7;
-  // If it's today AND we've already passed the slot, push to next week.
-  if (daysAhead === 0 && candidate.getTime() <= now.getTime()) {
-    daysAhead = 7;
-  }
-  candidate.setUTCDate(candidate.getUTCDate() + daysAhead);
-  return candidate;
+  return computeNextRun({ dayOfWeek, timeUtc, cronExpr: null }, now);
 }
 
 const postJob: CallbackHandler = {
@@ -113,8 +98,28 @@ const postJob: CallbackHandler = {
         parsed.error.flatten(),
       );
     }
-    const { name, kind, args, dayOfWeek, timeUtc } = parsed.data;
-    const nextRunAt = computeNextWeeklyRun(dayOfWeek, timeUtc);
+    const { name, kind, args, dayOfWeek, timeUtc, cronExpr } = parsed.data;
+
+    // Mutually-exclusive mode validation. Errors from assertExactlyOneMode
+    // become 400s with the precise reason so the caller sees what they got
+    // wrong rather than a generic 'invalid schedule'.
+    try {
+      assertExactlyOneMode({ dayOfWeek, timeUtc, cronExpr });
+    } catch (err) {
+      return fail(
+        'validation_error',
+        err instanceof Error ? err.message : 'Invalid schedule.',
+        400,
+      );
+    }
+    if (cronExpr) {
+      const cronCheck = validateCronExpr(cronExpr);
+      if (!cronCheck.ok) {
+        return fail('validation_error', cronCheck.error, 400);
+      }
+    }
+
+    const nextRunAt = computeNextRun({ dayOfWeek, timeUtc, cronExpr });
 
     const [row] = await db
       .insert(registeredAppJobs)
@@ -124,8 +129,9 @@ const postJob: CallbackHandler = {
         name,
         kind,
         args: args as Record<string, unknown>,
-        dayOfWeek,
-        timeUtc,
+        dayOfWeek: dayOfWeek ?? null,
+        timeUtc: timeUtc ?? null,
+        cronExpr: cronExpr ?? null,
         nextRunAt,
         // createdBy: best-effort — the JWT sub field is the user id as
         // string. Coerce safely; null if non-numeric.
@@ -197,20 +203,49 @@ const patchJob: CallbackHandler = {
     if (parsed.data.name !== undefined) updates.name = parsed.data.name;
     if (parsed.data.enabled !== undefined) updates.enabled = parsed.data.enabled;
     if (parsed.data.args !== undefined) updates.args = parsed.data.args;
-    let dayChanged = false;
-    let timeChanged = false;
-    if (parsed.data.dayOfWeek !== undefined) {
-      updates.dayOfWeek = parsed.data.dayOfWeek;
-      dayChanged = parsed.data.dayOfWeek !== existing.dayOfWeek;
-    }
-    if (parsed.data.timeUtc !== undefined) {
-      updates.timeUtc = parsed.data.timeUtc;
-      timeChanged = parsed.data.timeUtc !== existing.timeUtc;
-    }
-    if (dayChanged || timeChanged) {
-      const effectiveDow = (parsed.data.dayOfWeek ?? existing.dayOfWeek) as number;
-      const effectiveTime = (parsed.data.timeUtc ?? existing.timeUtc) as string;
-      updates.nextRunAt = computeNextWeeklyRun(effectiveDow, effectiveTime);
+
+    // Schedule fields: a PATCH may set, change, or null any of the three.
+    // `null` is the explicit "clear this mode" signal — important when
+    // switching from weekly to cron (or vice versa). `undefined` means
+    // "leave as-is". We compute the *effective* post-update shape, validate
+    // it, then recompute nextRunAt only if any schedule field actually
+    // changed (avoids needless nextRunAt churn on name-only edits).
+    const scheduleTouched =
+      parsed.data.dayOfWeek !== undefined ||
+      parsed.data.timeUtc !== undefined ||
+      parsed.data.cronExpr !== undefined;
+
+    if (scheduleTouched) {
+      const effective = {
+        dayOfWeek: parsed.data.dayOfWeek !== undefined
+          ? parsed.data.dayOfWeek
+          : existing.dayOfWeek,
+        timeUtc: parsed.data.timeUtc !== undefined
+          ? parsed.data.timeUtc
+          : existing.timeUtc,
+        cronExpr: parsed.data.cronExpr !== undefined
+          ? parsed.data.cronExpr
+          : existing.cronExpr,
+      };
+      try {
+        assertExactlyOneMode(effective);
+      } catch (err) {
+        return fail(
+          'validation_error',
+          err instanceof Error ? err.message : 'Invalid schedule.',
+          400,
+        );
+      }
+      if (effective.cronExpr) {
+        const cronCheck = validateCronExpr(effective.cronExpr);
+        if (!cronCheck.ok) {
+          return fail('validation_error', cronCheck.error, 400);
+        }
+      }
+      if (parsed.data.dayOfWeek !== undefined) updates.dayOfWeek = parsed.data.dayOfWeek;
+      if (parsed.data.timeUtc !== undefined) updates.timeUtc = parsed.data.timeUtc;
+      if (parsed.data.cronExpr !== undefined) updates.cronExpr = parsed.data.cronExpr;
+      updates.nextRunAt = computeNextRun(effective);
     }
 
     const [updated] = await db

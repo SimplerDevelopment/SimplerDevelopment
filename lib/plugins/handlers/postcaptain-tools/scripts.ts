@@ -18,17 +18,20 @@ import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 import { enqueueRun } from './runner';
 
-const RUN_KINDS = ['research-brief', 'draft-blog-post'] as const;
+const RUN_KINDS = ['research-brief', 'draft-blog-post', 'competitor-research'] as const;
 
-// Body schema for POST /scripts/run. `briefId` only makes sense for
-// `draft-blog-post`; `topic` only makes sense for `research-brief`. We allow
-// either shape at the schema level and let the runner enforce the
-// kind-specific requirement so the error message can be more precise.
+// Body schema for POST /scripts/run. Most fields are kind-specific; the
+// runner contract enforces per-kind requirements after Zod has done its
+// shape check.
 const RunBodySchema = z.object({
   kind: z.enum(RUN_KINDS),
   topic: z.string().min(1).max(255).optional(),
   focus: z.string().max(2000).optional(),
   briefId: z.number().int().positive().optional(),
+  // competitor-research args
+  competitorSlug: z.string().min(1).max(64).optional(),
+  depth: z.enum(['news', 'deep']).optional(),
+  lookbackDays: z.number().int().min(1).max(365).optional(),
 });
 
 const ListRunsQuerySchema = z.object({
@@ -56,7 +59,7 @@ const postScriptsRun: CallbackHandler = {
         parsed.error.flatten(),
       );
     }
-    const { kind, topic, focus, briefId } = parsed.data;
+    const { kind, topic, focus, briefId, competitorSlug, depth, lookbackDays } = parsed.data;
 
     // Light per-kind required-field check — keeps the runner contract tight.
     if (kind === 'research-brief' && !topic) {
@@ -73,13 +76,30 @@ const postScriptsRun: CallbackHandler = {
         400,
       );
     }
+    if (kind === 'competitor-research' && !competitorSlug) {
+      return fail(
+        'validation_error',
+        "'competitorSlug' is required for kind='competitor-research'.",
+        400,
+      );
+    }
+
+    // Build args narrowly per kind so unrelated fields don't leak through.
+    let args: Record<string, unknown>;
+    if (kind === 'competitor-research') {
+      args = { competitorSlug, depth: depth ?? 'news', focus, lookbackDays };
+    } else if (kind === 'research-brief') {
+      args = { topic, focus };
+    } else {
+      args = { topic, focus, briefId };
+    }
 
     try {
       const { runId } = await enqueueRun({
         app: ctx.app,
         client: ctx.client,
         kind,
-        args: { topic, focus, briefId },
+        args,
       });
       return ok({ runId }, { status: 202 });
     } catch (err) {

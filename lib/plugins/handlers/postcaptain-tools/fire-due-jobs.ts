@@ -13,7 +13,7 @@
 import { db } from '@/lib/db';
 import { registeredAppJobs, registeredApps } from '@/lib/db/schema';
 import { and, eq, inArray, lte } from 'drizzle-orm';
-import { computeNextWeeklyRun } from './jobs';
+import { computeNextRun } from './schedule';
 import { enqueueRun, type RunKind } from './runner';
 
 export interface FireDueJobsResult {
@@ -58,9 +58,12 @@ export async function fireDueJobs(now: Date = new Date()): Promise<FireDueJobsRe
     if (!app) continue; // app was deleted out from under us; skip
 
     const currentNextRunAt = job.nextRunAt;
-    const newNextRunAt = computeNextWeeklyRun(
-      job.dayOfWeek,
-      job.timeUtc,
+    const newNextRunAt = computeNextRun(
+      {
+        dayOfWeek: job.dayOfWeek,
+        timeUtc: job.timeUtc,
+        cronExpr: job.cronExpr,
+      },
       now,
     );
 

@@ -121,10 +121,14 @@ export const registeredAppRuns = pgTable('registered_app_runs', {
 ]);
 
 // ─── registered_app_jobs ────────────────────────────────────────────────────
-// Weekly schedules. v1 only supports `dayOfWeek` (0..6, Sun=0) + `timeUtc`
-// (HH:mm); cron expressions are reserved for v2. The per-minute jobs-tick
-// cron CAS-claims jobs where enabled=true AND nextRunAt<=now(), enqueues a
-// run, then bumps nextRunAt by 7 days.
+// Recurring schedules. Two mutually-exclusive modes:
+//   weekly mode: `dayOfWeek` (0..6, Sun=0) + `timeUtc` (HH:mm)
+//   cron mode:   `cronExpr` (5-field UTC cron expression, parsed via
+//                cron-parser — the same lib `lib/automation/schedule.ts` uses)
+// Exactly one mode is populated per row; jobs.ts enforces this at write
+// time. The per-minute jobs-tick cron CAS-claims jobs where enabled=true AND
+// nextRunAt<=now(), enqueues a run, then bumps nextRunAt to the next slot
+// computed from whichever mode is set.
 
 export const registeredAppJobs = pgTable('registered_app_jobs', {
   id: serial('id').primaryKey(),
@@ -133,8 +137,11 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
   name: varchar('name', { length: 255 }).notNull(),
   kind: varchar('kind', { length: 64 }).notNull(), // mirrors registered_app_runs.kind
   args: jsonb('args').$type<Record<string, unknown>>().default({}).notNull(),
-  dayOfWeek: integer('day_of_week').notNull(), // 0..6 (Sun=0)
-  timeUtc: varchar('time_utc', { length: 5 }).notNull(), // 'HH:mm'
+  // Weekly mode (nullable when cronExpr is set).
+  dayOfWeek: integer('day_of_week'), // 0..6 (Sun=0)
+  timeUtc: varchar('time_utc', { length: 5 }), // 'HH:mm'
+  // Cron mode (nullable when weekly mode is set).
+  cronExpr: varchar('cron_expr', { length: 64 }), // 5-field cron, UTC
   enabled: boolean('enabled').default(true).notNull(),
   nextRunAt: timestamp('next_run_at').notNull(),
   lastRunAt: timestamp('last_run_at'),
@@ -148,9 +155,34 @@ export const registeredAppJobs = pgTable('registered_app_jobs', {
 ]);
 
 // ─── postcaptain_briefs ─────────────────────────────────────────────────────
-// Research brief output — the result row produced by a 'research-brief' run.
-// `body` is markdown; `sources` are the citations returned by the Anthropic
-// web_search_20250305 tool.
+// Research brief output — produced by `research-brief` and
+// `competitor-research` runs. `body` is markdown; `sources` are citations
+// returned by Anthropic's web_search_20250305 tool. `meta` is a free-form
+// jsonb bag for kind-specific structured data — e.g. `competitor-research`
+// stores a `vulnerability: { score: HIGH|MED|LOW, dims: {...} }` block here
+// so Wave 4 can detect score changes between two consecutive briefs.
+
+export type CompetitorVulnerability = {
+  score: 'HIGH' | 'MED' | 'LOW';
+  dims?: {
+    clarity?: 'HIGH' | 'MED' | 'LOW';
+    differentiation?: 'HIGH' | 'MED' | 'LOW';
+    proof?: 'HIGH' | 'MED' | 'LOW';
+    consistency?: 'HIGH' | 'MED' | 'LOW';
+    specificity?: 'HIGH' | 'MED' | 'LOW';
+  };
+  rationale?: string;
+};
+
+export type PostcaptainBriefMeta = {
+  competitorSlug?: string;
+  depth?: 'news' | 'deep';
+  lookbackDays?: number;
+  vulnerability?: CompetitorVulnerability;
+  // Open-ended — handlers can write additional structured signal as they
+  // see fit. Wave 4 reads vulnerability; other consumers should be defensive.
+  [key: string]: unknown;
+};
 
 export const postcaptainBriefs = pgTable('postcaptain_briefs', {
   id: serial('id').primaryKey(),
@@ -160,6 +192,7 @@ export const postcaptainBriefs = pgTable('postcaptain_briefs', {
   focus: text('focus'),
   body: text('body').notNull(),
   sources: jsonb('sources').$type<{ url: string; title: string }[]>().default([]).notNull(),
+  meta: jsonb('meta').$type<PostcaptainBriefMeta>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('postcaptain_briefs_client_idx').on(t.clientId),

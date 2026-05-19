@@ -1,40 +1,50 @@
-// Execution backbone for postcaptain-tools plugin runs. Three layers:
+// Execution backbone for postcaptain-tools plugin runs.
 //
-//   1. enqueueRun() — inserts a registered_app_runs row with status='queued'.
-//      Used by the callback handler ('/scripts/run') and by the
-//      jobs-tick cron (when a weekly schedule fires).
-//   2. executeRun() — claims a queued run via a CAS UPDATE, routes to the
-//      kind-specific handler (research-brief or draft-blog-post), persists
-//      the result into postcaptain_briefs or postcaptain_drafts, and bumps
-//      the run row to succeeded/failed. Idempotent: calling on a non-queued
-//      run returns { status: 'skipped' }.
-//   3. drainQueuedRuns() — picks up to N queued runs, executes them with
-//      bounded parallelism, returns aggregate counters. Used by the
-//      plugin-runs-drain cron, kept under the Vercel 60s function limit by
-//      capping parallelism (research-brief can take 30-60s).
+// Wave 1 ran Anthropic + web_search inline on SD's compute. Wave 2 moved
+// that to the postcaptain-tools deploy: SD now claims a queued run, posts
+// a dispatch payload to the worker, and waits for an asynchronous
+// completion callback (see `./complete.ts`). This file only owns the
+// queue / claim / dispatch lifecycle on the SD side.
 //
-// Log redaction (redactLog) is applied before persisting `logTail`; the
-// tail is capped at 64 KB. Common leaks stripped: JWTs, Anthropic API keys
-// (sk-ant-…), Bearer tokens, env-var-ish KEY=value patterns.
+//   1. enqueueRun()       — inserts a registered_app_runs row with
+//                           status='queued'. Used by the callback handler
+//                           ('/scripts/run') and by the jobs-tick cron.
+//   2. executeRun()       — CAS-claims a queued run (status='queued' →
+//                           'running'), looks up the app, then calls
+//                           dispatchRun(). On dispatch success the run
+//                           STAYS in 'running' until the worker posts back
+//                           via '/scripts/runs/:id/complete'. On dispatch
+//                           failure we either revert to 'queued' (transient)
+//                           or transition to 'failed' (permanent).
+//   3. drainQueuedRuns()  — picks up to N queued runs and calls executeRun
+//                           for each in parallel. Dispatch is fast (10s
+//                           timeout); the heavy work happens on the worker
+//                           and finalizes via callback.
+//
+// `redactLog` and `capLogTail` live in `./runner-redact.ts` so they can be
+// shared with `./complete.ts`. They are re-exported here for back-compat
+// with `tests/unit/plugins-runner.test.ts` which imports them from this
+// module.
 
 import { db } from '@/lib/db';
 import {
   registeredAppRuns,
-  postcaptainBriefs,
-  postcaptainDrafts,
+  registeredApps,
   type RegisteredApp,
 } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { runResearchBrief } from './research-brief';
-import { runDraftBlogPost } from './draft-blog-post';
+import { dispatchRun } from './dispatch';
+import { redactLog, capLogTail } from './runner-redact';
+
+// Re-exported so existing callers / tests don't have to change their imports.
+export { redactLog, capLogTail };
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const LOG_TAIL_MAX_BYTES = 64 * 1024; // 64 KB
-const DRAIN_PARALLELISM = 2; // research can take 30-60s; keep cron <60s
+const DRAIN_PARALLELISM = 4; // dispatch is fast (~1s), so we can fan wider than Wave 1
 const ERROR_SUMMARY_MAX = 1_000;
 
-export type RunKind = 'research-brief' | 'draft-blog-post';
+export type RunKind = 'research-brief' | 'draft-blog-post' | 'competitor-research';
 
 // ─── enqueueRun ─────────────────────────────────────────────────────────────
 
@@ -47,8 +57,8 @@ export interface EnqueueRunOpts {
 }
 
 /**
- * Inserts a queued run row. Returns the new run id. The actual execution is
- * deferred to the drain cron — this function never blocks on Anthropic.
+ * Inserts a queued run row. Returns the new run id. Never blocks on the
+ * worker — that handshake happens on the next drain tick.
  */
 export async function enqueueRun(opts: EnqueueRunOpts): Promise<{ runId: number }> {
   const [row] = await db.insert(registeredAppRuns).values({
@@ -66,21 +76,33 @@ export async function enqueueRun(opts: EnqueueRunOpts): Promise<{ runId: number 
 // ─── executeRun ─────────────────────────────────────────────────────────────
 
 export type ExecuteRunResult =
-  | { status: 'succeeded'; reason?: string }
+  // dispatched: claim succeeded and the worker accepted the POST; the run
+  //   stays in 'running' until the worker calls back into /complete.
+  | { status: 'dispatched'; reason?: string }
+  // failed: permanent failure (e.g. 4xx from worker, unknown app); the run
+  //   has been moved to terminal 'failed'.
   | { status: 'failed'; reason?: string }
+  // requeued: transient failure (5xx, network); the run has been put back
+  //   to 'queued' so the next drain tick retries.
+  | { status: 'requeued'; reason?: string }
+  // skipped: the CAS claim missed — another tick already grabbed it, or the
+  //   row isn't in 'queued' at call time.
   | { status: 'skipped'; reason?: string };
 
 /**
- * CAS-claims a queued run (status='queued' → 'running'), executes the
- * kind-specific handler, persists the result, and finalizes the row.
+ * CAS-claims a queued run, looks up its app, and dispatches it to the
+ * postcaptain-tools worker. Idempotent: a non-queued row returns 'skipped'.
  *
- * Idempotent: if the run is not in status='queued' at call time (another
- * worker grabbed it, it was cancelled, or it's already terminal), returns
- * { status: 'skipped' } without doing any work.
+ * On dispatch failure we explicitly classify retriable vs not:
+ *   - retriable (5xx / network) → run reverts to 'queued' for next tick
+ *   - non-retriable (4xx)       → run transitions to 'failed' immediately
+ *
+ * This function never calls Anthropic and never persists results — both of
+ * those moved to the worker + the /complete callback handler.
  */
 export async function executeRun(runId: number): Promise<ExecuteRunResult> {
-  // CAS-claim. `RETURNING *` lets us read the kind/args without a second
-  // round-trip after the claim.
+  // CAS-claim. RETURNING * surfaces the kind/args/appId without a second
+  // round-trip.
   const claimed = await db
     .update(registeredAppRuns)
     .set({
@@ -97,183 +119,83 @@ export async function executeRun(runId: number): Promise<ExecuteRunResult> {
   if (claimed.length === 0) {
     return { status: 'skipped', reason: 'already-claimed' };
   }
-
   const run = claimed[0];
-  const logBuf: string[] = [];
-  const log = (line: string) => { logBuf.push(line); };
 
-  try {
-    log(`[${new Date().toISOString()}] run ${runId} kind=${run.kind} starting`);
-
-    let resultId: number;
-    if (run.kind === 'research-brief') {
-      resultId = await handleResearchBrief(run, log);
-    } else if (run.kind === 'draft-blog-post') {
-      resultId = await handleDraftBlogPost(run, log);
-    } else {
-      throw new Error(`unknown run kind: ${run.kind}`);
-    }
-
-    log(`[${new Date().toISOString()}] run ${runId} succeeded resultId=${resultId}`);
-
-    await db.update(registeredAppRuns)
-      .set({
-        status: 'succeeded',
-        finishedAt: new Date(),
-        updatedAt: new Date(),
-        exitCode: 0,
-        resultId,
-        logTail: capLogTail(redactLog(logBuf.join('\n'))),
-      })
-      .where(eq(registeredAppRuns.id, runId));
-
-    return { status: 'succeeded' };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log(`[${new Date().toISOString()}] run ${runId} FAILED: ${message}`);
-    if (err instanceof Error && err.stack) {
-      log(err.stack);
-    }
-
-    await db.update(registeredAppRuns)
-      .set({
-        status: 'failed',
-        finishedAt: new Date(),
-        updatedAt: new Date(),
-        exitCode: 1,
-        errorSummary: redactLog(message).slice(0, ERROR_SUMMARY_MAX),
-        logTail: capLogTail(redactLog(logBuf.join('\n'))),
-      })
-      .where(eq(registeredAppRuns.id, runId));
-
-    return { status: 'failed', reason: message };
-  }
-}
-
-// ─── Kind handlers ──────────────────────────────────────────────────────────
-
-interface RunRow {
-  id: number;
-  clientId: number;
-  args: Record<string, unknown>;
-}
-
-async function handleResearchBrief(
-  run: RunRow,
-  log: (line: string) => void,
-): Promise<number> {
-  const args = run.args ?? {};
-  const topic = typeof args.topic === 'string' ? args.topic.trim() : '';
-  if (!topic) {
-    throw new Error('research-brief run missing required arg: topic');
-  }
-  const focus = typeof args.focus === 'string' && args.focus.trim()
-    ? args.focus.trim()
-    : undefined;
-
-  log(`calling Anthropic for research brief: topic=${topic}`);
-  const brief = await runResearchBrief({ topic, focus });
-  log(`brief ready: ${brief.body.length} chars, ${brief.sources.length} sources`);
-
-  const [briefRow] = await db.insert(postcaptainBriefs).values({
-    clientId: run.clientId,
-    runId: run.id,
-    topic: brief.topic.slice(0, 255),
-    focus: brief.focus,
-    body: brief.body,
-    // Schema requires {url, title}[]; if the model didn't return a title,
-    // default to the URL itself so we don't violate the type.
-    sources: brief.sources.map(s => ({ url: s.url, title: s.title ?? s.url })),
-  }).returning({ id: postcaptainBriefs.id });
-
-  if (!briefRow) throw new Error('research-brief: insert returned no row');
-  return briefRow.id;
-}
-
-async function handleDraftBlogPost(
-  run: RunRow,
-  log: (line: string) => void,
-): Promise<number> {
-  const args = run.args ?? {};
-  // Two input modes: pass a briefId to load from postcaptain_briefs, or pass
-  // an inline brief object. The callback handler ('/scripts/run') is
-  // expected to normalize to briefId for persistence.
-  let briefData: { topic: string; body: string; sources: Array<{ url: string; title?: string }> };
-  let briefId: number | null = null;
-
-  if (typeof args.briefId === 'number') {
-    briefId = args.briefId;
-    const rows = await db.select()
-      .from(postcaptainBriefs)
-      .where(eq(postcaptainBriefs.id, briefId))
-      .limit(1);
-    if (rows.length === 0) {
-      throw new Error(`draft-blog-post: brief ${briefId} not found`);
-    }
-    const b = rows[0];
-    if (b.clientId !== run.clientId) {
-      throw new Error('draft-blog-post: brief belongs to a different client');
-    }
-    briefData = {
-      topic: b.topic,
-      body: b.body,
-      sources: b.sources,
-    };
-  } else if (args.brief && typeof args.brief === 'object') {
-    const raw = args.brief as Partial<{ topic: string; body: string; sources: unknown }>;
-    if (typeof raw.topic !== 'string' || typeof raw.body !== 'string') {
-      throw new Error('draft-blog-post: inline brief missing topic/body');
-    }
-    briefData = {
-      topic: raw.topic,
-      body: raw.body,
-      sources: Array.isArray(raw.sources)
-        ? (raw.sources as Array<{ url: string; title?: string }>).filter(s => s && typeof s.url === 'string')
-        : [],
-    };
-  } else {
-    throw new Error('draft-blog-post run missing brief or briefId arg');
+  // Look up the app row for hostUrl + slug. Cached at most a few hits per
+  // drain tick — we don't bother memoizing here since drainQueuedRuns
+  // typically processes a single app.
+  const [app] = await db.select()
+    .from(registeredApps)
+    .where(eq(registeredApps.id, run.appId))
+    .limit(1);
+  if (!app) {
+    // App was deleted between enqueue and drain. Surface as a permanent
+    // failure so we don't keep retrying.
+    await markRunFailed(runId, `unknown app id=${run.appId}`);
+    return { status: 'failed', reason: 'unknown-app' };
   }
 
-  const targetLength = args.targetLength === 'short' || args.targetLength === 'long'
-    ? args.targetLength
-    : 'medium';
+  const result = await dispatchRun(
+    { id: app.id, slug: app.slug, hostUrl: app.hostUrl },
+    {
+      runId: run.id,
+      kind: run.kind,
+      args: (run.args ?? {}) as Record<string, unknown>,
+      clientId: run.clientId,
+    },
+  );
 
-  log(`calling Anthropic for blog draft: topic=${briefData.topic} length=${targetLength}`);
-  const draft = await runDraftBlogPost({ brief: briefData, targetLength });
-  log(`draft ready: title="${draft.title}" body=${draft.body.length} chars`);
+  if (result.ok) {
+    return { status: 'dispatched' };
+  }
 
-  const [draftRow] = await db.insert(postcaptainDrafts).values({
-    clientId: run.clientId,
-    runId: run.id,
-    briefId,
-    title: draft.title.slice(0, 255),
-    body: draft.body,
-    status: 'draft',
-  }).returning({ id: postcaptainDrafts.id });
+  if (result.retriable) {
+    // Revert to queued so the next minute's tick tries again. We don't
+    // increment any retry counter today — out of scope for Wave 2; a stuck-
+    // run reaper will eventually shoot a row that's been bouncing for too
+    // long once we add it.
+    await db.update(registeredAppRuns).set({
+      status: 'queued',
+      startedAt: null,
+      updatedAt: new Date(),
+    }).where(eq(registeredAppRuns.id, runId));
+    return { status: 'requeued', reason: result.reason };
+  }
 
-  if (!draftRow) throw new Error('draft-blog-post: insert returned no row');
-  return draftRow.id;
+  await markRunFailed(runId, result.reason);
+  return { status: 'failed', reason: result.reason };
+}
+
+async function markRunFailed(runId: number, reason: string): Promise<void> {
+  await db.update(registeredAppRuns).set({
+    status: 'failed',
+    finishedAt: new Date(),
+    updatedAt: new Date(),
+    exitCode: 1,
+    errorSummary: redactLog(reason).slice(0, ERROR_SUMMARY_MAX),
+  }).where(eq(registeredAppRuns.id, runId));
 }
 
 // ─── drainQueuedRuns ────────────────────────────────────────────────────────
 
 /**
- * Drains up to `max` queued runs in parallel, with bounded concurrency
- * (DRAIN_PARALLELISM = 2). Returns aggregate counters. Long runs (Anthropic
- * 30-60s) mean we deliberately leave excess work for the next tick — the
- * cron fires every minute, so backlog clears quickly.
+ * Drains up to `max` queued runs. Each one is CAS-claimed and dispatched
+ * to the worker. Dispatch itself is fast (~1s round-trip to 202); the
+ * actual heavy work happens on the worker, with results posted back later
+ * via the /complete callback. Concurrent ticks are safe: claim is a CAS
+ * update so a race only lets one win.
  */
 export async function drainQueuedRuns(max: number): Promise<{
   attempted: number;
-  succeeded: number;
+  dispatched: number;
   failed: number;
+  requeued: number;
+  skipped: number;
 }> {
-  if (max <= 0) return { attempted: 0, succeeded: 0, failed: 0 };
+  if (max <= 0) {
+    return { attempted: 0, dispatched: 0, failed: 0, requeued: 0, skipped: 0 };
+  }
 
-  // Snapshot the queue — pick the oldest queued IDs. We DON'T claim here;
-  // claim happens inside executeRun via CAS so concurrent drain ticks don't
-  // double-fire.
   const candidates = await db.select({ id: registeredAppRuns.id })
     .from(registeredAppRuns)
     .where(eq(registeredAppRuns.status, 'queued'))
@@ -281,68 +203,22 @@ export async function drainQueuedRuns(max: number): Promise<{
     .limit(max);
 
   let attempted = 0;
-  let succeeded = 0;
+  let dispatched = 0;
   let failed = 0;
+  let requeued = 0;
+  let skipped = 0;
 
-  // Process in batches of DRAIN_PARALLELISM. Skipped runs (already claimed
-  // by another tick) don't count toward succeeded/failed — they're just
-  // misses on the CAS.
   for (let i = 0; i < candidates.length; i += DRAIN_PARALLELISM) {
     const batch = candidates.slice(i, i + DRAIN_PARALLELISM);
-    const results = await Promise.all(batch.map(c => executeRun(c.id)));
+    const results = await Promise.all(batch.map((c) => executeRun(c.id)));
     for (const r of results) {
       attempted += 1;
-      if (r.status === 'succeeded') succeeded += 1;
+      if (r.status === 'dispatched') dispatched += 1;
       else if (r.status === 'failed') failed += 1;
+      else if (r.status === 'requeued') requeued += 1;
+      else if (r.status === 'skipped') skipped += 1;
     }
   }
 
-  return { attempted, succeeded, failed };
-}
-
-// ─── redactLog ──────────────────────────────────────────────────────────────
-
-const REDACTION_RULES: Array<{ pattern: RegExp; replacement: string }> = [
-  // Anthropic API keys.
-  { pattern: /sk-ant-[A-Za-z0-9_-]+/g, replacement: 'sk-ant-[REDACTED]' },
-  // JWTs — three base64url segments separated by dots, anchored on the JWT
-  // header prefix "eyJ" so we avoid clobbering version strings like 1.2.3.
-  {
-    pattern: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-    replacement: '[REDACTED_JWT]',
-  },
-  // Bearer tokens (case-insensitive). Stops on whitespace or end-of-line.
-  { pattern: /Bearer\s+[A-Za-z0-9._\-+/=]+/gi, replacement: 'Bearer [REDACTED]' },
-  // Common env-var-looking secrets. Captures KEY=value where KEY contains
-  // "secret", "token", "key", "password", or "api" — case-insensitive
-  // so lower-case `api_token=...` also gets caught. Conservative match on
-  // the value (no whitespace, no quote characters).
-  {
-    pattern: /\b([A-Za-z][A-Za-z0-9_]*(?:secret|token|key|password|api)[A-Za-z0-9_]*)=([^\s"']{4,})/gi,
-    replacement: '$1=[REDACTED]',
-  },
-];
-
-export function redactLog(raw: string): string {
-  let out = raw;
-  for (const rule of REDACTION_RULES) {
-    out = out.replace(rule.pattern, rule.replacement);
-  }
-  return out;
-}
-
-function capLogTail(s: string): string {
-  // Cap by BYTES (not characters) since logTail is text with UTF-8 storage
-  // in Postgres and the spec says 64 KB. We keep the trailing window
-  // because the most recent lines are usually the most relevant on failure.
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(s);
-  if (bytes.byteLength <= LOG_TAIL_MAX_BYTES) return s;
-  // Slice from the tail. Find a safe character boundary by decoding.
-  const tail = bytes.slice(bytes.byteLength - LOG_TAIL_MAX_BYTES);
-  // Trim any leading bytes that may have started mid-character.
-  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(tail);
-  // Strip up to the first newline so we don't show a half-line.
-  const firstNl = decoded.indexOf('\n');
-  return firstNl >= 0 ? `…[truncated]\n${decoded.slice(firstNl + 1)}` : `…[truncated]\n${decoded}`;
+  return { attempted, dispatched, failed, requeued, skipped };
 }
