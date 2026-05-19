@@ -34,7 +34,11 @@ import { randomBytes, createHash } from 'node:crypto';
 
 dotenv.config({ path: '.env' });
 
-const POSTCAPTAIN_CLIENT_ID = 103;
+// Post Captain Consulting — clients.id=100 in prod (verified
+// 2026-05-19). The earlier value 103 was wrong (that's Crossover
+// Capital Advisors); a seed run with the old constant would have
+// granted the plugin entitlement to the wrong tenant.
+const POSTCAPTAIN_CLIENT_ID = 100;
 const SERVICE_SLUG = 'plugin-postcaptain-tools';
 const APP_SLUG = 'postcaptain-tools';
 
