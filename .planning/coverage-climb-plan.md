@@ -22,6 +22,16 @@ The second command lists every iteration committed so far.
   - covers: text/heading/image/button/spacer/divider/columns/quote/section/
     social-links/email-header/email-footer renderer branches
   - baseline-file's stmt% before: 45.2% — should be near-100% now (not re-measured this iteration; defer to a "measure every N iterations" cadence)
+- **#2** — `test(esign): fetch-path unit tests for DropboxSign client`
+  - file: `tests/unit/dropbox-sign-fetch.test.ts` (36 tests)
+  - covers: createSignatureRequest (happy path + testMode default + override +
+    form-field assembly + 3 error paths + missing-API-key gate),
+    getEmbeddedSignUrl (happy path + 5-min default + URL encoding + 3 errors),
+    cancelSignatureRequest (happy path + empty-id + 404/410 swallow +
+    500 throw + missing-API-key + URL encoding),
+    getSignedFileUrl (happy path + empty-id + non-2xx + missing field +
+    query-string + missing-API-key + URL encoding)
+  - baseline-file's stmt% before: 18.7% — should now be 80-90% (verifyWebhookSignature path already covered by sister file)
 
 ## Next-target candidates
 
@@ -29,9 +39,7 @@ Ranked by `(unit-friendliness × LOC × current-gap)`. Source: per-file
 breakdown in `.planning/coverage-baseline-2026-05-08.md` + the report's
 own follow-up list.
 
-1. **`lib/esign/dropbox-sign.ts`** — 16.7% — wrapper error paths
-   (missing API key, network failure, malformed signature URL). Pure-
-   functional except for `fetch` — mockable via `vi.spyOn(globalThis, 'fetch')`.
+1. ~~`lib/esign/dropbox-sign.ts`~~ — covered by iteration #2.
 2. **`lib/booking/assign.ts`** — 31.1% — round-robin tie-breaking edge
    cases. Pure-functional (no DB). Already has PR #44 + integration
    tests but per-the-report still needs unit edge-case coverage.
@@ -59,6 +67,7 @@ takes minutes). Drop a tally into this file when re-measured:
 |---:|---:|---:|---:|---|
 | 0 (baseline) | 4.89 | 4.34 | — | — |
 | 1 | (not measured) | (not measured) | 100 | render-blocks-to-email |
+| 2 | (not measured) | (not measured) | 36 | dropbox-sign |
 
 ## Stop condition
 
