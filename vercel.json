@@ -88,6 +88,14 @@
     {
       "path": "/api/cron/process-scheduled-automations",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-runs-drain",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-jobs-tick",
+      "schedule": "* * * * *"
     }
   ]
 }

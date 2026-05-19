@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { resolveCustomDomain } from '@/lib/agency/custom-domain';
+import { getPortalClient } from '@/lib/portal-client';
+import {
+  loadActiveAppBySlug,
+  isClientEntitled,
+  buildProxyUrl,
+} from '@/lib/plugins/proxy';
+import { signPluginJwt } from '@/lib/plugins/jwt';
 
 // Hostnames that belong to the app itself (not client sites)
 const APP_HOSTNAMES = new Set([
@@ -174,10 +181,174 @@ export async function middleware(req: NextRequest) {
     return response;
   }
 
+  // ── Plugin registry: /portal/apps/<slug>/* ─────────────────────────────
+  // Reverse-proxy the request to the registered plugin's host_url, minting a
+  // short-lived (60s) signed tenancy JWT that the plugin verifies. Cookies and
+  // ambient Authorization headers are stripped so the plugin only ever sees
+  // the JWT we mint — never portal session credentials.
+  //
+  // Order matters: this runs BEFORE the generic NextAuth `auth()` fallthrough
+  // so we control the rewrite + response headers ourselves and avoid leaking
+  // portal cookies to a different origin.
+  if (pathname.startsWith('/portal/apps/')) {
+    const pluginResp = await handlePluginRoute(req, pathname);
+    if (pluginResp) return pluginResp;
+    // Fell through (app not found, not entitled, or mint failure) — let
+    // Next.js render the `/portal/apps/[appId]/...` route tree, which is
+    // responsible for the 404 / upsell / error layouts.
+    return NextResponse.next();
+  }
+
   // For the app's own hostname, run the standard NextAuth middleware
   return (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
+}
+
+// ─── Plugin proxy handler ──────────────────────────────────────────────────
+// Extracted so the main `middleware()` function stays readable. Returns a
+// `NextResponse` when it took ownership of the request (rewrite or redirect),
+// or `null` to let the caller fall through to the normal route tree (which
+// renders 404 / upsell / error layouts from `app/portal/apps/[appId]/`).
+
+async function handlePluginRoute(
+  req: NextRequest,
+  pathname: string,
+): Promise<NextResponse | null> {
+  // `/portal/apps/<slug>` or `/portal/apps/<slug>/<rest>`
+  // Split off the prefix; first segment after `/portal/apps/` is the slug.
+  const remainder = pathname.slice('/portal/apps/'.length);
+  if (!remainder) return null; // bare `/portal/apps/` — let the page render
+  const firstSlash = remainder.indexOf('/');
+  const slug =
+    firstSlash === -1 ? remainder : remainder.slice(0, firstSlash);
+  const pathSuffix = firstSlash === -1 ? '' : remainder.slice(firstSlash);
+
+  // 1. Authenticate. No session → bounce to login with `callbackUrl` so the
+  //    user returns to the plugin page after sign-in.
+  const session = await auth();
+  if (!session?.user?.id) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = '/portal/login';
+    loginUrl.search = '';
+    loginUrl.searchParams.set(
+      'callbackUrl',
+      pathname + (req.nextUrl.search || ''),
+    );
+    return NextResponse.redirect(loginUrl);
+  }
+  const userId = parseInt(String(session.user.id), 10);
+
+  // 2. Resolve active client. No client → portal dashboard.
+  let client: { id: number } | null = null;
+  try {
+    client = await getPortalClient(userId);
+  } catch {
+    client = null;
+  }
+  if (!client) {
+    const dashboardUrl = req.nextUrl.clone();
+    dashboardUrl.pathname = '/portal/dashboard';
+    dashboardUrl.search = '';
+    return NextResponse.redirect(dashboardUrl);
+  }
+
+  // 3. Load the plugin app. Unknown / disabled → fall through so the Next
+  //    route tree renders `not-found.tsx`.
+  const app = await loadActiveAppBySlug(slug);
+  if (!app) return null;
+
+  // 4. Entitlement check. Unentitled → fall through so the entitlement layout
+  //    renders the upsell. CRITICAL: we MUST NOT mint a JWT for unentitled
+  //    users (data minimisation — never give an unentitled user a signed
+  //    tenancy token to replay).
+  const entitled = await isClientEntitled(client.id, app);
+  if (!entitled) return null;
+
+  // 5. Mint the tenancy JWT. On failure (DB unreachable, missing signing
+  //    key, KMS error) we fall through so the error/upsell layout renders
+  //    a graceful message instead of bubbling a 500 from middleware.
+  let jwt: string;
+  try {
+    jwt = await signPluginJwt(
+      app.id,
+      {
+        aud: app.slug,
+        sub: String(userId),
+        clientId: client.id,
+        siteId: null, // site-context is deferred to v2
+        scopes: app.defaultScopes ?? [],
+      },
+      { ttlSeconds: 60 },
+    );
+  } catch {
+    return null;
+  }
+
+  // 6. Build the proxy URL. Throws if the registered host_url isn't https://
+  //    (defence-in-depth — admin form should validate too).
+  let target: URL;
+  try {
+    target = buildProxyUrl(app.hostUrl, pathSuffix, req.nextUrl.search);
+  } catch {
+    return null;
+  }
+
+  // 7. Construct the rewrite headers. Start from a CLEAN Headers instance
+  //    so we don't accidentally leak anything from the inbound portal
+  //    request. We forward only what the plugin needs.
+  const requestId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const proxyHeaders = new Headers();
+
+  // Forward a minimal set of safe request-side headers.
+  const inbound = req.headers;
+  const safeForward = [
+    'accept',
+    'accept-language',
+    'user-agent',
+    'content-type',
+    'content-length',
+  ];
+  for (const name of safeForward) {
+    const v = inbound.get(name);
+    if (v != null) proxyHeaders.set(name, v);
+  }
+
+  // Tenancy + provenance
+  proxyHeaders.set('x-sd-tenant', jwt);
+  proxyHeaders.set('x-sd-request-id', requestId);
+  proxyHeaders.set('x-sd-portal-origin', req.nextUrl.origin);
+  // Avoid double-compression on the proxied response — the portal edge will
+  // re-encode if appropriate.
+  proxyHeaders.set('accept-encoding', 'identity');
+
+  // CRITICAL: strip portal session cookies + ambient auth before crossing
+  // origins. NEVER let these reach the plugin.
+  proxyHeaders.set('cookie', '');
+  proxyHeaders.set('authorization', '');
+
+  // 8. Issue the rewrite. The new `request.headers` argument is what
+  //    NextResponse forwards downstream.
+  const response = NextResponse.rewrite(target, {
+    request: { headers: proxyHeaders },
+  });
+
+  // 9. Defence-in-depth on the response surface: prevent the plugin's UI
+  //    from being framed by any other origin (incl. our own), tag the
+  //    response with the plugin slug + request id for log correlation.
+  response.headers.set('content-security-policy', "frame-ancestors 'none'");
+  response.headers.set('x-plugin-app', app.slug);
+  response.headers.set('x-request-id', requestId);
+
+  return response;
 }
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
+
+// Switch the middleware to Node.js runtime so it can pull in lib/plugins/{jwt,kms}
+// (which use node:crypto via jsonwebtoken). Edge runtime can't load node: modules.
+// Next 16+ recognizes a top-level `runtime` export on middleware.
+export const runtime = 'nodejs';

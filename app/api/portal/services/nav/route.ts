@@ -16,6 +16,7 @@ const categoryIcon: Record<string, string> = {
   hosting: 'cloud',
   development: 'code',
   maintenance: 'build',
+  plugins: 'extension',
 };
 
 const categoryPath: Record<string, string> = {
@@ -24,6 +25,7 @@ const categoryPath: Record<string, string> = {
   booking: '/portal/tools/booking',
   'pitch-decks': '/portal/tools/pitch-decks',
   hosting: '/portal/hosting',
+  plugins: '/portal/apps',
 };
 
 export async function GET() {

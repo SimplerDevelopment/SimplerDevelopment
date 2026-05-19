@@ -4,7 +4,21 @@ import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/c
 import { getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { siteTracking } from '@/lib/db/schema';
 import { SiteNavClient } from './SiteNavClient';
+import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
+
+// 1:1 with clientWebsites — null means the row hasn't been initialised yet.
+async function getTrackingConfigForWebsite(websiteId: number) {
+  const rows = await db
+    .select()
+    .from(siteTracking)
+    .where(eq(siteTracking.websiteId, websiteId))
+    .limit(1);
+  return rows[0] ?? null;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +91,28 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     metadata.icons = { icon: [{ url: faviconUrl, sizes: 'any' }] };
   }
 
+  // Search-engine verification meta tags. We already short-circuited above for
+  // gated sites, so reaching this branch implies the site is publicly indexed
+  // — only then do verification tags carry any value.
+  const trackingConfig = await getTrackingConfigForWebsite(site.id);
+  if (trackingConfig && trackingConfig.enabled !== false) {
+    const otherVerification: Record<string, string> = {};
+    if (trackingConfig.bingVerification) {
+      otherVerification['msvalidate.01'] = trackingConfig.bingVerification;
+    }
+    if (trackingConfig.pinterestVerification) {
+      otherVerification['p:domain_verify'] = trackingConfig.pinterestVerification;
+    }
+    const hasGoogle = !!trackingConfig.gscVerification;
+    const hasOther = Object.keys(otherVerification).length > 0;
+    if (hasGoogle || hasOther) {
+      metadata.verification = {
+        ...(hasGoogle ? { google: trackingConfig.gscVerification as string } : {}),
+        ...(hasOther ? { other: otherVerification } : {}),
+      };
+    }
+  }
+
   return metadata;
 }
 
@@ -110,6 +146,11 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   const branding = await getBrandingByWebsiteId(site.id);
 
+  // Tracking is suppressed on gated/in-development sites so unfinished URLs
+  // never reach GA / Meta / etc. Preview-unlock logic lives in
+  // [[...slug]]/page.tsx; mirroring it here would duplicate state.
+  const trackingConfig = site.publicAccess ? await getTrackingConfigForWebsite(site.id) : null;
+
   // Build link + button brand styles
   const brandStyles = [
     branding.linkColor && `a { color: ${branding.linkColor}; }`,
@@ -128,6 +169,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   if (site.customLayout) {
     return (
       <>
+        <TrackingNoscriptBody config={trackingConfig} />
+        <TrackingScripts config={trackingConfig} />
         {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -164,6 +207,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   return (
     <>
+      <TrackingNoscriptBody config={trackingConfig} />
+      <TrackingScripts config={trackingConfig} />
       {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
