@@ -29,6 +29,7 @@ import {
 import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 import { redactLog, capLogTail } from './runner-redact';
+import { ingestCompetitorBriefArtifacts } from './competitor-brain';
 
 const LOG_TAIL_MAX = 64 * 1024; // matches runner-redact.ts; used only for the input Zod cap
 const ERROR_SUMMARY_MAX = 1_000;
@@ -205,6 +206,39 @@ const postComplete: CallbackHandler = {
         }).returning({ id: postcaptainBriefs.id });
         if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
         resultId = row.id;
+
+        // Wave 4 — brain ingestion + card-comment loop. We deliberately do
+        // NOT block the /complete response on these side-effects: if either
+        // throws, the run still succeeds (the brief itself is the primary
+        // artifact). ingestCompetitorBriefArtifacts swallows errors and
+        // returns a summary we can log via logTail.
+        try {
+          const summary = await ingestCompetitorBriefArtifacts({
+            clientId: run.clientId,
+            briefId: resultId,
+            competitorSlug: result.competitorSlug,
+            depth: result.depth,
+            topic: result.topic,
+            body: result.body,
+            newVulnerability: result.vulnerability,
+          });
+          // Surface a one-line trace into the run's logTail so operators
+          // can see what happened after the brief landed. The worker's
+          // logTail (in parsed.data.logTail) is concatenated below.
+          const trace = `[brain] noteId=${summary.brainNoteId ?? 'none'} ${
+            summary.scoreChange
+              ? `cardComment=${summary.cardCommentId} change=${summary.scoreChange.fromScore}→${summary.scoreChange.toScore}`
+              : 'cardComment=none'
+          }`;
+          parsed.data.logTail = parsed.data.logTail
+            ? `${parsed.data.logTail}\n${trace}`
+            : trace;
+        } catch (err) {
+          // Best-effort — don't fail the /complete response. Log into the
+          // run's logTail so it's findable later.
+          const msg = err instanceof Error ? err.message : String(err);
+          parsed.data.logTail = `${parsed.data.logTail ?? ''}\n[brain] ingestion failed: ${msg}`;
+        }
       } else {
         if (run.kind !== 'draft-blog-post') {
           return fail(
