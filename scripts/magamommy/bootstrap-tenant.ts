@@ -262,25 +262,30 @@ async function main(): Promise<void> {
       ),
     )
     .limit(1);
-  // MAGA / flag-standard palette. Reconciles on re-run so palette tweaks
-  // here actually land on existing tenants without needing a SQL migration.
-  const brandColors = {
+  // MAGA / flag-standard palette + 4th-of-July fair-flyer typography.
+  // Reconciles on re-run so palette/font tweaks here actually land on
+  // existing tenants without needing a SQL migration.
+  const brandFields = {
     primaryColor: '#BF0A30',     // bold flag-standard red
     secondaryColor: '#002868',   // deep navy (cleaner than 3C3B6E for big fields)
     backgroundColor: '#FFFFFF',
+    headingFont: 'Alfa Slab One', // chunky slab serif — quintessential fair-flyer headline face
+    bodyFont: 'Inter',
   };
   if (branding) {
     const needsUpdate =
-      branding.primaryColor !== brandColors.primaryColor ||
-      branding.secondaryColor !== brandColors.secondaryColor ||
-      branding.backgroundColor !== brandColors.backgroundColor;
+      branding.primaryColor !== brandFields.primaryColor ||
+      branding.secondaryColor !== brandFields.secondaryColor ||
+      branding.backgroundColor !== brandFields.backgroundColor ||
+      branding.headingFont !== brandFields.headingFont ||
+      branding.bodyFont !== brandFields.bodyFont;
     if (needsUpdate) {
       await db
         .update(brandingProfiles)
-        .set(brandColors)
+        .set(brandFields)
         .where(eq(brandingProfiles.id, branding.id));
-      branding = { ...branding, ...brandColors };
-      console.log(`  brandingProfile updated colors id=${branding.id}`);
+      branding = { ...branding, ...brandFields };
+      console.log(`  brandingProfile updated palette+fonts id=${branding.id}`);
     } else {
       console.log(`  brandingProfile skipping (already exists) id=${branding.id}`);
     }
@@ -291,9 +296,7 @@ async function main(): Promise<void> {
         clientId: client.id,
         name: BRAND_NAME,
         isDefault: true,
-        ...brandColors,
-        headingFont: 'Oswald',
-        bodyFont: 'Inter',
+        ...brandFields,
       })
       .returning();
     console.log(`  brandingProfile created id=${branding.id}`);

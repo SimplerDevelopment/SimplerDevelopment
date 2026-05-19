@@ -148,38 +148,45 @@ interface LatestDropSummary {
 function buildHomeContent(latestDrop: LatestDropSummary): string {
   const id = makeIdFactory('mm-home');
 
-  // 1. Top promo marquee — single inline scroller of slogans/promises. Brand
-  // colors via inline style; brandingProfile typography still wins.
-  const promoItems = [
-    'NEW DROP EVERY MONDAY 9 AM ET',
-    'LIMITED TO 100 SHIRTS PER DROP',
-    'HEAVYWEIGHT 6 OZ COTTON',
-    'FREE U.S. SHIPPING OVER $50',
-    'PRINTED IN PENNSYLVANIA',
-    'SHIPS WITHIN 48 HOURS',
+  // 1. Top promo marquee — 4th-of-July fair-flyer style with star separators
+  // between every claim. Brand red field, white slab-stencil-feeling type.
+  const promoClaims = [
+    '★ NEW DROP EVERY MONDAY 9 AM ★',
+    '★ LIMITED 100 SHIRTS PER DROP ★',
+    '★ HEAVYWEIGHT 6 OZ COTTON ★',
+    '★ FREE U.S. SHIPPING OVER $50 ★',
+    '★ PRINTED IN PENNSYLVANIA ★',
+    '★ SHIPS WITHIN 48 HOURS ★',
   ];
   const marquee = {
     id: id(),
     type: 'marquee',
     order: 0,
-    items: promoItems.map((text) => ({
+    items: promoClaims.map((text) => ({
       id: id(),
       type: 'text',
       content: text,
     })),
-    speed: 60,
+    speed: 70,
     direction: 'left',
     pauseOnHover: true,
     autoFill: true,
-    gap: '48px',
+    gap: '64px',
     style: {
-      backgroundColor: BLUE,
+      backgroundColor: RED,
       color: WHITE,
-      paddingTop: '14px',
-      paddingBottom: '14px',
-      fontSize: '13px',
-      fontWeight: '700',
-      letterSpacing: '0.12em',
+      paddingTop: '16px',
+      paddingBottom: '16px',
+      fontSize: '14px',
+      fontWeight: '800',
+      letterSpacing: '0.18em',
+      textTransform: 'uppercase',
+      borderTopWidth: '3px',
+      borderTopColor: BLUE,
+      borderTopStyle: 'solid',
+      borderBottomWidth: '3px',
+      borderBottomColor: BLUE,
+      borderBottomStyle: 'solid',
     },
   };
 
@@ -251,17 +258,11 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
         blocks: [
           {
             id: id(),
-            type: 'text',
+            type: 'html-render',
             order: 0,
-            content: 'NEW DROP — MONDAY 9 AM ET',
-            size: 'sm',
-            alignment: 'left',
+            html: `<div style="display:inline-block;background:${RED};color:${WHITE};padding:8px 18px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.22em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 ${WHITE};margin-bottom:32px;">★ ★ ★ Announcing! ★ ★ ★</div>`,
             style: {
-              color: RED,
-              fontWeight: '800',
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              margin: '0 0 24px 0',
+              margin: '0 0 8px 0',
             },
           },
           {
@@ -273,23 +274,33 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             alignment: 'left',
             style: {
               color: WHITE,
-              fontSize: '64px',
-              fontWeight: '900',
-              letterSpacing: '-0.02em',
-              lineHeight: '1.02',
-              margin: '0 0 28px 0',
+              fontFamily: '"Alfa Slab One", "Ultra", serif',
+              fontSize: '72px',
+              fontWeight: '400',
+              letterSpacing: '-0.01em',
+              lineHeight: '0.98',
+              margin: '0 0 24px 0',
+              textTransform: 'uppercase',
             },
           },
           {
             id: id(),
-            type: 'text',
+            type: 'html-render',
             order: 2,
+            html: `<div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;"><span style="flex:0 0 auto;color:${RED};font-size:20px;letter-spacing:0.4em;">★ ★ ★</span><div style="flex:1 1 auto;height:3px;background:${WHITE};opacity:0.6;"></div><span style="flex:0 0 auto;color:${RED};font-size:20px;letter-spacing:0.4em;">★ ★ ★</span></div>`,
+          },
+          {
+            id: id(),
+            type: 'text',
+            order: 3,
             content: heroDescription,
             size: 'lg',
             alignment: 'left',
             style: {
               color: WHITE,
-              opacity: '0.92',
+              opacity: '0.95',
+              fontSize: '19px',
+              lineHeight: '1.5',
               maxWidth: '520px',
               margin: '0 0 40px 0',
             },
@@ -366,6 +377,24 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       paddingBottom: '0',
       minHeight: '600px',
     },
+  };
+
+  // 2b. Barker banner — full-bleed flag-stripe band with a fair-flyer
+  // headline. Sits between the hero and the bento to break up the visuals
+  // and amplify the urgency. Pure html-render so we get the diagonal
+  // ribbons + repeating stripes for free.
+  const barkerBanner = {
+    id: id(),
+    type: 'html-render',
+    order: 2,
+    html: `
+<div style="position:relative;background:repeating-linear-gradient(90deg,${RED} 0,${RED} 60px,${WHITE} 60px,${WHITE} 120px);padding:48px 24px;border-top:6px solid ${BLUE};border-bottom:6px solid ${BLUE};text-align:center;overflow:hidden;">
+  <div style="display:inline-block;background:${BLUE};color:${WHITE};padding:24px 56px;border:4px solid ${WHITE};box-shadow:0 0 0 6px ${BLUE}, 12px 12px 0 ${RED};transform:rotate(-1.5deg);">
+    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-bottom:8px;">★ ★ ★ Step Right Up ★ ★ ★</div>
+    <div style="font-family:'Alfa Slab One',serif;font-size:42px;line-height:1;color:${WHITE};text-transform:uppercase;letter-spacing:-0.005em;">One Shirt &middot; One Week &middot; Gone Forever</div>
+    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-top:8px;">★ ★ ★ Tonight Only Energy, Every Week ★ ★ ★</div>
+  </div>
+</div>`,
   };
 
   // 3. Bento grid — asymmetric 2-card row. Left card is the "what" (this
@@ -579,7 +608,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  return wrap([marquee, hero, bento, featuredDrop, timeline, metrics, faq, closing]);
+  return wrap([marquee, hero, barkerBanner, bento, featuredDrop, timeline, metrics, faq, closing]);
 }
 
 /**
