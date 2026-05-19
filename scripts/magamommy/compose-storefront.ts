@@ -198,8 +198,12 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
   //
   // When no drop exists yet, the right column falls back to a flat brand-red
   // panel with the wordmark, so the page still reads as a real storefront.
-  const heroHeadline = latestDrop.slogan
-    ? `This week: ${latestDrop.slogan}.`
+  // Strip any trailing terminator from the slogan before appending our own
+  // — concept-writer sometimes lands slogans like "Coffee Up. Gas Up. Carry On."
+  // which would otherwise render as "...Carry On.." (double period) below.
+  const cleanSlogan = latestDrop.slogan?.replace(/[.!?]+\s*$/, '');
+  const heroHeadline = cleanSlogan
+    ? `This week: ${cleanSlogan}.`
     : 'Heat from the headlines, printed on a tee.';
   const heroDescription = latestDrop.tagline
     ?? 'Magamommy turns the week\'s loudest political moment into a wearable. Limited quantities. Gone when they\'re gone.';

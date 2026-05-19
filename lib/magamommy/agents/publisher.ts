@@ -166,8 +166,15 @@ export async function runPublisher(input: PublisherInput): Promise<PublisherOutp
     throw new Error(`[publisher] design ${designId} has no renderedUrl — designer must complete before publish`);
   }
 
+  // Narrow projection — avoids hitting columns added by later migrations
+  // (shipping's length_in/width_in/height_in) that may not exist on every DB.
   const [templateProduct] = await db
-    .select()
+    .select({
+      id: products.id,
+      websiteId: products.websiteId,
+      weight: products.weight,
+      weightUnit: products.weightUnit,
+    })
     .from(products)
     .where(eq(products.id, templateProductId))
     .limit(1);
@@ -280,7 +287,7 @@ export async function runPublisher(input: PublisherInput): Promise<PublisherOutp
         magamommyWeekOf: weekTag,
       },
     })
-    .returning();
+    .returning({ id: products.id });
 
   const productId = product.id;
   console.log(`[publisher] inserted product id=${productId} slug=${slug}`);
