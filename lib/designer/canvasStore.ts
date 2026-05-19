@@ -82,6 +82,16 @@ export interface CanvasStoreState {
   mockupTint: string | null;
   setMockupTint: (hex: string | null) => void;
 
+  /**
+   * Store-wide brand palette resolved from the active site's branding
+   * profile. Read by ColorPicker to surface a one-click "Brand" swatch
+   * row above Recent so customers can pick on-brand colors without
+   * memorising hex codes. Set once at DesignerShell mount; not persisted
+   * to the design payload (it's site config, not design state).
+   */
+  brandColors: string[];
+  setBrandColors: (colors: string[]) => void;
+
   /** When true, DesignCanvas draws a faint 25 px alignment grid. */
   showGrid: boolean;
   toggleGrid: () => void;
@@ -777,6 +787,9 @@ export const useCanvasStore = create<CanvasStoreState>((set, get) => ({
 
   mockupTint: null,
   setMockupTint: (hex) => set({ mockupTint: hex, isDirty: true }),
+
+  brandColors: [],
+  setBrandColors: (colors) => set({ brandColors: colors }),
 
   showGrid: false,
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),

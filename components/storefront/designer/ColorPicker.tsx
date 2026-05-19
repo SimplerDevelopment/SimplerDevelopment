@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useCanvasStore } from '@/lib/designer/canvasStore';
+
 interface ColorPickerProps {
   value: string;
   onChange: (hex: string) => void;
@@ -74,6 +76,23 @@ export default function ColorPicker({
   const [hexDraft, setHexDraft] = useState(value);
   const [recent, setRecent] = useState<string[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Brand swatch row is sourced from the active site's branding profile.
+  // De-dup + filter to valid hex so a malformed value in the DB doesn't
+  // render a broken chip.
+  const brandColorsRaw = useCanvasStore((s) => s.brandColors);
+  const brandColors = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const c of brandColorsRaw) {
+      const normalized = normalizeHex(c);
+      if (!normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      out.push(normalized);
+    }
+    return out;
+  }, [brandColorsRaw]);
 
   useEffect(() => {
     setHexDraft(value);
@@ -200,6 +219,34 @@ export default function ColorPicker({
               ))}
             </div>
           </div>
+
+          {brandColors.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase text-muted-foreground mb-1 flex items-center gap-1">
+                <span className="material-icons text-xs">palette</span>
+                Brand
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {brandColors.map((hex) => {
+                  const isActive = value.toLowerCase() === hex.toLowerCase();
+                  return (
+                    <button
+                      key={`brand-${hex}`}
+                      type="button"
+                      onClick={() => commit(hex)}
+                      title={`${hex} (brand)`}
+                      className={`w-6 h-6 rounded border transition-shadow ${
+                        isActive
+                          ? 'border-foreground ring-2 ring-foreground/40'
+                          : 'border-border hover:ring-2 hover:ring-foreground/20'
+                      }`}
+                      style={{ backgroundColor: hex }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {recent.length > 0 && (
             <div>

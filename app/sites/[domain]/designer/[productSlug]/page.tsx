@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { and, asc, eq } from 'drizzle-orm';
 import { getClientWebsiteByDomain } from '@/lib/actions/client-sites';
+import { getBrandingByWebsiteId } from '@/lib/branding';
 import { db } from '@/lib/db';
 import { products, productDesignSurfaces, storeSettings } from '@/lib/db/schema';
 import { DesignerClient } from '@/components/storefront/designer/DesignerClient';
@@ -64,10 +65,26 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
     .where(eq(storeSettings.websiteId, site.id))
     .limit(1);
 
+  // Brand palette — surfaced by ColorPicker as a one-click "Brand" row so
+  // customers can pick on-brand colors without typing hex codes. Falls back
+  // to an empty list when the site has no branding profile assigned.
+  const branding = await getBrandingByWebsiteId(site.id).catch(() => null);
+  const brandColors = branding
+    ? [
+        branding.primaryColor,
+        branding.secondaryColor,
+        branding.accentColor,
+        branding.linkColor,
+        branding.textColor,
+        branding.backgroundColor,
+      ].filter((c): c is string => typeof c === 'string' && c.length > 0)
+    : [];
+
   return (
     <DesignerClient
       siteId={site.id}
       domain={domain}
+      brandColors={brandColors}
       product={{
         id: product.id,
         slug: product.slug,

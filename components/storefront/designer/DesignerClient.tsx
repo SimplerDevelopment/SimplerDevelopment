@@ -29,6 +29,12 @@ interface DesignerClientProps {
    * here when a cart page exists.
    */
   afterAddToCartPath?: string;
+  /**
+   * Brand palette resolved server-side from the site's branding profile.
+   * Surfaced by ColorPicker as a one-click "Brand" swatch row so customers
+   * pick on-brand colors without needing to know hex codes.
+   */
+  brandColors?: string[];
 }
 
 function getOrCreateSessionId(): string {
@@ -41,13 +47,21 @@ function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }: DesignerClientProps) {
+export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors }: DesignerClientProps) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string>('');
   const [initialDesign, setInitialDesign] = useState<DesignDoc | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  // Push brand colors from the server-resolved branding profile into the
+  // canvas store on mount so ColorPicker can render the Brand swatch row.
+  // Empty array clears any previous tenant's colors when the customer
+  // switches stores in the same browser session.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandColors(brandColors ?? []);
+  }, [brandColors]);
 
   // Bootstrap sessionId + any existing draft design for this product/session.
   useEffect(() => {
