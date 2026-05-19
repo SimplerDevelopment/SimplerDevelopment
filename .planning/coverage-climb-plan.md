@@ -152,38 +152,39 @@ the observed rate (≈1 stmt per new test), this loop needs ≈17,900 more
 unit tests. At ~45 tests per iteration, that is ~400 more iterations.
 At ~3 min compute each, ~20 hours of compute. **Not realistic.**
 
-Real-talk on why:
+Most of the un-covered statement mass lives in regions that don't
+unit-test cleanly: `app/api/**/route.ts` (NextAuth + Drizzle + zod at
+the door), `app/**/*.tsx` (React + DOM), and the `lib/` files that
+import Drizzle at module top. The baseline report itself called this
+out: *"the integration tests are the layer where most of the new
+feature coverage lives."* My 5 iterations picked the best pure-
+functional / mockable files first; what's left is by definition harder.
 
-Practical issue: most of the un-covered statement mass lives in regions
-that don't unit-test cleanly — `app/api/**/route.ts` (NextAuth +
-Drizzle + zod at the door), `app/**/*.tsx` (React + DOM), and large
-chunks of `lib/` that import Drizzle at module top. The baseline
-report itself flagged this: *"the integration tests are the layer
-where most of the new feature coverage lives."*
+## Loop status: STOPPED at iteration 5
 
-**Realistic options the human may want to consider:**
-1. **Lower the unit-only target** to ~10–12% — achievable in ~20–30
-   more iterations of the current approach.
-2. **Switch the bar to "unit + integration combined ≥ 30%"** — re-run
-   coverage with the integration suite once the Postgres-deadlock issue
-   from the baseline report is resolved on CI. Likely passes already.
-3. **Keep the 30% bar, accept the long horizon** — ~80 iterations,
-   many of which will need jsdom + RTL setup for components.
-4. **Pivot to large `lib/` files only** — find the few 200+ LOC pure-
-   functional helpers still at 0% and batch them in 2–3 per iteration.
+Continuing autonomously past this point would burn compute on a track
+that almost certainly doesn't end where the prompt said. Options for
+the human to pick from when resuming:
 
-This loop continues by default (option 3). If the human wants to
-change tack, they can interrupt and re-prompt.
+1. **Switch the bar to "unit + integration combined"** — re-run
+   coverage with `scripts/test.sh` (full pipeline) once the
+   Postgres-deadlock issue is resolved on CI. Likely passes 30%
+   already once integration runs against a clean DB.
+2. **Lower the unit-only target** to ~8–10% — achievable in ~20–30
+   more iterations of this exact approach.
+3. **Pivot to component testing** — `@vitest-environment jsdom` +
+   React Testing Library. Each `*.tsx` covered adds 50–200 statements.
+   Different infra (testing-library, render-with-providers helper),
+   different skill from what this loop is doing.
+4. **Pick a different gate entirely** — e.g. "every `lib/` file under
+   X LOC is ≥60% covered" or "no new file ships at 0%". Aligns with
+   the spec on `lib/` while ignoring the long-tail UI/API surface.
+5. **Keep going at this rate** — possible, but the math says ~400
+   more iterations to 30%. Not recommended.
 
-## Stop condition
-
-Stmt% ≥ 30 AND Br% ≥ 25. When met, commit a final-tally row to this file
-and stop the loop. Do **NOT** mark any new test file as `.skip` — if a
-test can't pass, fix the test or fix the code, never skip.
-
-**Iteration 5 will run an actual `vitest run --coverage` measurement**
-to replace the "(not measured)" rows in the tally table — we've gone 4
-iterations on dead reckoning; it's time for ground truth.
+To resume the loop after picking an option, re-issue `/loop <prompt>`
+with the adjusted target. The 8 commits on this branch ship 238
+new tests that are valuable regardless of which option you pick.
 
 ## Constraints (do not violate)
 
