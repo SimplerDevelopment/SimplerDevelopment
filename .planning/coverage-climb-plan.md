@@ -32,6 +32,22 @@ The second command lists every iteration committed so far.
     getSignedFileUrl (happy path + empty-id + non-2xx + missing field +
     query-string + missing-API-key + URL encoding)
   - baseline-file's stmt% before: 18.7% — should now be 80-90% (verifyWebhookSignature path already covered by sister file)
+- **#3** — `test(workflows): branch-coverage tests for runtime executor`
+  - file: `tests/unit/workflows-runtime-branches.test.ts` (24 tests)
+  - covers: workflow-not-found throw, triggeredBy default + override,
+    wait clamping (zero / negative / maxWaitMs cap / positive),
+    webhook non-2xx + throw + payload default + JSON serialize,
+    walk's failed-step short-circuit + cycle guard,
+    condition branching (true/false override + default-true + no-key +
+    unlabeled-edge follow), send_email/add_to_list skip-with-todo,
+    create_task no-clientId + no-project short-circuits,
+    no-trigger-node failed run row + error echo, input cloning.
+  - file's pre-iteration coverage: 61.3% lines / **28.6% branches** —
+    after iter #3 should be substantially higher on branches (most
+    uncovered branch paths exercised).
+  - Skipped booking/assign + booking/capacity: their *pure* functions
+    are already well-covered by existing tests; the *DB-coupled*
+    functions would need full Drizzle chain mocks for marginal gain.
 
 ## Next-target candidates
 
@@ -40,23 +56,39 @@ breakdown in `.planning/coverage-baseline-2026-05-08.md` + the report's
 own follow-up list.
 
 1. ~~`lib/esign/dropbox-sign.ts`~~ — covered by iteration #2.
-2. **`lib/booking/assign.ts`** — 31.1% — round-robin tie-breaking edge
-   cases. Pure-functional (no DB). Already has PR #44 + integration
-   tests but per-the-report still needs unit edge-case coverage.
-3. **`lib/booking/capacity.ts`** — 42.9% — slot-counting math.
-   Pure-functional.
-4. **`lib/workflows/runtime.ts`** — 61.3% lines / **28.6% branches** —
-   branch-coverage gap. Step-resolver / condition-evaluator. Likely
-   pure-functional.
+2. ~~`lib/booking/assign.ts`~~ — pure function already covered; DB function deferred.
+3. ~~`lib/booking/capacity.ts`~~ — pure function already covered; DB function deferred.
+4. ~~`lib/workflows/runtime.ts`~~ — branches covered by iteration #3.
 5. **`lib/email/render-blocks-to-email.ts`** — was 45.2% — should now be
    close to 100% after iteration #1. Skip unless re-measurement shows
    remaining gaps.
 
-After this list, pivot to the **0%-coverage / large-LOC** pool: open
-`coverage/vitest/coverage-summary-unit.json` and pick the largest
-pure-functional file at 0%. Skip files in `app/api/**/route.ts` and
-anything that needs Drizzle/NextAuth at module load — those are
-integration-territory.
+Named candidate list exhausted. **From iteration #4 onward**, pivot to
+the **0%-coverage / large-LOC** pool. Strategy:
+
+1. Run `npm run test:coverage` (or `vitest run --coverage`) once to
+   emit `coverage/vitest/coverage-summary-unit.json` if it's not
+   already present.
+2. Parse that JSON for files in `lib/` with `lines.pct === 0` and
+   `lines.total >= 50` (skip type-only files).
+3. Prefer pure-functional helpers — anything that imports from
+   `drizzle-orm`, `next-auth`, or `@/lib/db/schema` at module top is
+   harder to unit-test (full Drizzle chain mock OR mock these modules).
+4. Skip `app/api/**/route.ts` files — those need integration tests.
+5. Also skip `app/**/*.tsx` (UI components) — they need
+   `@vitest-environment jsdom` + react testing library, slower.
+
+Other promising regions to scout (named here so next iteration doesn't
+have to re-discover):
+- `lib/agency/*.ts` — multi-tenant helpers, likely some at 0%
+- `lib/ai/*.ts` — some unit-tested (plan-gate, resolve-client-key),
+  others (audit) still 0%
+- `lib/billing/*.ts` — usage-rollup tested, metered-items at 0%
+- `lib/chat/*.ts` — token + realtime tested, rate-limit at 0%
+- `lib/snapshots/*.ts` — types + util tested, export + import at 0%
+  (probably DB-coupled though)
+- `lib/automations/*.ts`, `lib/crm/*.ts`, `lib/pm/*.ts` — broad
+  feature dirs with likely lots of pure helpers
 
 ## Coverage measurement cadence
 
@@ -68,6 +100,7 @@ takes minutes). Drop a tally into this file when re-measured:
 | 0 (baseline) | 4.89 | 4.34 | — | — |
 | 1 | (not measured) | (not measured) | 100 | render-blocks-to-email |
 | 2 | (not measured) | (not measured) | 36 | dropbox-sign |
+| 3 | (not measured) | (not measured) | 24 | workflows/runtime |
 
 ## Stop condition
 
