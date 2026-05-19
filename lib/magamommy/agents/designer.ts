@@ -96,7 +96,8 @@ export function buildLifestyleMockupPrompt(concept: {
 
   return [
     'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
-    'An adult model wearing a clean white heavyweight crew-neck t-shirt in a bright neutral studio with soft natural shadows.',
+    'An adult WOMAN model — the target Magamommy customer — wearing a clean white heavyweight crew-neck t-shirt in a bright neutral studio with soft natural shadows.',
+    'Styling: relaxed, confident, classic Americana — natural hair (any color), minimal makeup, warm friendly approachable expression. Could be 30–55 years old, mom-energy but stylish. Think "stylish suburban mom at a Memorial Day cookout."',
     printSide + '.',
     `The shirt print must feature the exact slogan "${concept.slogan}" as the dominant readable text.`,
     `The printed graphic should follow this concept: ${concept.visualPrompt}`,
@@ -104,7 +105,7 @@ export function buildLifestyleMockupPrompt(concept: {
     `Brand mood: ${concept.tagline}`,
     '',
     'STRICT REQUIREMENTS:',
-    '- The model must be an adult; no children.',
+    '- The model must be an adult WOMAN; no men, no children.',
     '- The model must be a fictional person, not a celebrity, public figure, politician, or real named person.',
     '- The shirt must be worn by the model, not floating, not flat-lay, not on a mannequin.',
     '- The print must appear naturally integrated on the cotton fabric with realistic folds, lighting, and perspective.',

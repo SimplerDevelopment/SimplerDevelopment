@@ -219,8 +219,10 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
         style: {
           width: '100%',
           height: '100%',
-          minHeight: '560px',
+          minHeight: '420px',
+          maxHeight: '480px',
           objectFit: 'cover',
+          objectPosition: 'center top',
           margin: '0',
         },
       }]
@@ -375,7 +377,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       backgroundColor: BLUE,
       paddingTop: '0',
       paddingBottom: '0',
-      minHeight: '600px',
+      minHeight: '460px',
     },
   };
 
@@ -608,7 +610,113 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  return wrap([marquee, hero, barkerBanner, bento, featuredDrop, timeline, metrics, faq, closing]);
+  // Bunting between marquee and hero — string of triangular pennant flags.
+  const bunting = {
+    id: id(),
+    type: 'html-render',
+    order: 0,
+    html: `
+<div style="background:${BLUE};padding:0;line-height:0;">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style="display:block;width:100%;height:60px;">
+    <defs>
+      <pattern id="bunting-flags" x="0" y="0" width="80" height="60" patternUnits="userSpaceOnUse">
+        <path d="M0 0 L40 50 L80 0 Z" fill="${RED}" />
+        <path d="M40 0 L60 25 L20 25 Z" fill="${WHITE}" opacity="0.85" />
+      </pattern>
+      <pattern id="bunting-flags-2" x="40" y="0" width="80" height="60" patternUnits="userSpaceOnUse">
+        <path d="M0 0 L40 50 L80 0 Z" fill="${WHITE}" />
+        <circle cx="40" cy="18" r="6" fill="${RED}" />
+      </pattern>
+    </defs>
+    <path d="M0 2 Q 720 14 1440 2" stroke="${WHITE}" stroke-width="2" fill="none" opacity="0.6"/>
+    <rect width="100%" height="60" fill="url(#bunting-flags)" />
+  </svg>
+</div>`,
+  };
+
+  // Big SVG-eagle + crossed-flags ornament — sits between the bento and the
+  // timeline as a flashy section divider. All inline SVG so it scales crisp.
+  const eagleDivider = {
+    id: id(),
+    type: 'html-render',
+    order: 0,
+    html: `
+<div style="background:${WHITE};padding:48px 24px 32px;text-align:center;border-top:6px solid ${RED};border-bottom:6px solid ${RED};">
+  <svg viewBox="0 0 320 200" style="width:200px;height:auto;display:block;margin:0 auto;">
+    <!-- Crossed flags behind the eagle -->
+    <g transform="translate(40 30) rotate(-18)">
+      <rect x="0" y="0" width="60" height="42" fill="${BLUE}"/>
+      <g fill="${WHITE}">
+        <text x="6" y="14" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+        <text x="6" y="26" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+        <text x="6" y="38" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+      </g>
+      <rect x="60" y="0" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="12" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="24" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="36" width="60" height="6" fill="${RED}"/>
+      <line x1="-4" y1="0" x2="-4" y2="80" stroke="${BLUE}" stroke-width="3"/>
+    </g>
+    <g transform="translate(280 30) rotate(18) scale(-1 1)">
+      <rect x="0" y="0" width="60" height="42" fill="${BLUE}"/>
+      <g fill="${WHITE}">
+        <text x="6" y="14" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+        <text x="6" y="26" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+        <text x="6" y="38" font-family="Alfa Slab One, serif" font-size="10">★ ★</text>
+      </g>
+      <rect x="60" y="0" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="12" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="24" width="60" height="6" fill="${RED}"/>
+      <rect x="60" y="36" width="60" height="6" fill="${RED}"/>
+      <line x1="-4" y1="0" x2="-4" y2="80" stroke="${BLUE}" stroke-width="3"/>
+    </g>
+    <!-- Stylized eagle silhouette (folk-art style) -->
+    <g transform="translate(160 120)">
+      <!-- Wings spread -->
+      <path d="M -90 -20 Q -60 -45 -30 -28 Q -45 -10 -90 -20 Z" fill="${BLUE}"/>
+      <path d="M -85 -10 Q -55 -25 -25 -15 Q -45 5 -85 -10 Z" fill="${BLUE}" opacity="0.7"/>
+      <path d="M  90 -20 Q  60 -45  30 -28 Q  45 -10  90 -20 Z" fill="${BLUE}"/>
+      <path d="M  85 -10 Q  55 -25  25 -15 Q  45 5  85 -10 Z" fill="${BLUE}" opacity="0.7"/>
+      <!-- Body / shield -->
+      <path d="M -22 -28 L 22 -28 L 22 8 Q 0 28 -22 8 Z" fill="${WHITE}" stroke="${BLUE}" stroke-width="2"/>
+      <rect x="-22" y="-28" width="44" height="10" fill="${BLUE}"/>
+      <g fill="${WHITE}">
+        <text x="-18" y="-20" font-family="Alfa Slab One, serif" font-size="6">★ ★ ★ ★ ★</text>
+      </g>
+      <rect x="-22" y="-14" width="44" height="3" fill="${RED}"/>
+      <rect x="-22" y="-7" width="44" height="3" fill="${RED}"/>
+      <rect x="-22" y="0" width="44" height="3" fill="${RED}"/>
+      <!-- Head -->
+      <circle cx="0" cy="-36" r="12" fill="${WHITE}" stroke="${BLUE}" stroke-width="2"/>
+      <circle cx="3" cy="-37" r="2" fill="${BLUE}"/>
+      <path d="M 10 -34 L 18 -32 L 10 -30 Z" fill="${RED}"/>
+    </g>
+  </svg>
+  <div style="font-family:'Alfa Slab One',serif;font-size:32px;color:${BLUE};text-transform:uppercase;letter-spacing:0.02em;margin-top:8px;">★ The Drop Schedule ★</div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:${BLUE};opacity:0.7;letter-spacing:0.2em;text-transform:uppercase;margin-top:4px;">A Magamommy Tradition Since This Monday</div>
+</div>`,
+  };
+
+  // Star-burst banner before the closing CTA — extra flash.
+  const finaleBanner = {
+    id: id(),
+    type: 'html-render',
+    order: 0,
+    html: `
+<div style="background:${RED};padding:40px 24px;text-align:center;border-top:6px solid ${WHITE};border-bottom:6px solid ${WHITE};">
+  <div style="display:inline-flex;align-items:center;gap:24px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;">
+    <svg viewBox="0 0 60 60" style="width:60px;height:60px;flex:0 0 auto;">
+      <polygon points="30,4 36,22 56,22 40,34 46,54 30,42 14,54 20,34 4,22 24,22" fill="${WHITE}"/>
+    </svg>
+    <div style="font-size:36px;letter-spacing:0.02em;line-height:1;">Sunday Midnight &middot; It's Gone</div>
+    <svg viewBox="0 0 60 60" style="width:60px;height:60px;flex:0 0 auto;">
+      <polygon points="30,4 36,22 56,22 40,34 46,54 30,42 14,54 20,34 4,22 24,22" fill="${WHITE}"/>
+    </svg>
+  </div>
+</div>`,
+  };
+
+  return wrap([marquee, bunting, hero, barkerBanner, bento, eagleDivider, timeline, metrics, faq, finaleBanner, closing]);
 }
 
 /**

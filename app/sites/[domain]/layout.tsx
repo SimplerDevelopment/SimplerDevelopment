@@ -151,18 +151,31 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // [[...slug]]/page.tsx; mirroring it here would duplicate state.
   const trackingConfig = site.publicAccess ? await getTrackingConfigForWebsite(site.id) : null;
 
-  // Build link + button brand styles
+  // Build link + button brand styles.
+  // The h1-h6 rule wires up `--brand-heading-font` (set by lib/branding/css-vars
+  // via the site stylesheet) — without it, headings inherit the body font
+  // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
+    branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: "${branding.headingFont}", system-ui, sans-serif; }`,
     branding.linkColor && `a { color: ${branding.linkColor}; }`,
     branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
     branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
     branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
   ].filter(Boolean).join('\n');
 
-  // Google Fonts for branding fonts
+  // Google Fonts for branding fonts.
+  //
+  // We deliberately request the family WITHOUT a weight specifier. The
+  // explicit `:ital,wght@0,300;0,400;...;1,700` syntax fails silently for
+  // single-weight display fonts (Alfa Slab One, Bungee, Anton, Ultra, etc.) —
+  // when the API can't fulfill every requested weight it returns nothing for
+  // that family, and the font never loads. Requesting just `family=Name`
+  // returns every weight that font actually has (variable fonts return the
+  // full axis; single-weight fonts return 400). Browsers faux-bold / faux-
+  // italic as needed for any weight CSS the page actually uses.
   const fonts = [branding.headingFont, branding.bodyFont].filter(Boolean);
   const googleFontsUrl = fonts.length > 0
-    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700`).join('&')}&display=swap`
+    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}`).join('&')}&display=swap`
     : null;
 
   // Custom layout mode: blocks handle their own nav/footer/styling

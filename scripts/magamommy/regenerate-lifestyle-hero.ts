@@ -75,8 +75,13 @@ async function main(): Promise<void> {
     designId = drop.designId;
   }
 
+  // Narrow projection — avoids hitting columns added by later migrations
+  // (shipping's length_in/width_in/height_in) that may not exist on every DB.
   const [product] = await db
-    .select()
+    .select({
+      id: products.id,
+      metadata: products.metadata,
+    })
     .from(products)
     .where(and(eq(products.id, productId), eq(products.websiteId, site.id)))
     .limit(1);
@@ -85,9 +90,9 @@ async function main(): Promise<void> {
   }
 
   if (!conceptId || !designId) {
-    const metadata = product.metadata ?? {};
+    const metadata = (product.metadata ?? {}) as Record<string, unknown>;
     conceptId = Number(metadata.magamommyConceptId);
-    designId = metadata.magamommyDesignId;
+    designId = metadata.magamommyDesignId as string | undefined;
   }
   if (!conceptId || !designId) {
     throw new Error(`Product ${productId} is missing Magamommy concept/design metadata`);
