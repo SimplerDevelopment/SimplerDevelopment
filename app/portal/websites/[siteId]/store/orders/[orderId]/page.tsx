@@ -51,6 +51,29 @@ interface Order {
   internalNotes?: string | null;
   statusHistory: StatusEvent[];
   createdAt: string;
+  carrier?: string | null;
+  shippingMethod?: string | null;
+  labelUrl?: string | null;
+  labelCostCents?: number | null;
+  labelPurchasedAt?: string | null;
+  easypostShipmentId?: string | null;
+}
+
+interface RateQuote {
+  id: string;
+  shipmentId: string;
+  carrier: string;
+  service: string;
+  amountCents: number;
+  currency: string;
+  estDeliveryDays: number | null;
+}
+
+interface ParcelSummary {
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightOz: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -92,6 +115,16 @@ export default function OrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState('');
   const [trackingUrl, setTrackingUrl] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+
+  // ─── Shipping label state ──────────────────────────────────────────────
+  const [rates, setRates] = useState<RateQuote[] | null>(null);
+  const [parcelSummary, setParcelSummary] = useState<ParcelSummary | null>(null);
+  const [selectedRateId, setSelectedRateId] = useState<string>('');
+  const [ratesShipmentId, setRatesShipmentId] = useState<string>('');
+  const [ratesLoading, setRatesLoading] = useState(false);
+  const [labelBuying, setLabelBuying] = useState(false);
+  const [labelRefunding, setLabelRefunding] = useState(false);
+  const [labelError, setLabelError] = useState('');
 
   const loadOrder = async () => {
     setLoading(true);
@@ -216,6 +249,84 @@ export default function OrderDetailPage() {
       setError('Something went wrong.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ─── Shipping label handlers ───────────────────────────────────────────
+  const computeRates = async () => {
+    setRatesLoading(true);
+    setLabelError('');
+    setRates(null);
+    setParcelSummary(null);
+    setSelectedRateId('');
+    setRatesShipmentId('');
+    try {
+      const res = await fetch(`${base}/orders/${orderId}/rates`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const fetched = (data.data.rates || []) as RateQuote[];
+        const sorted = [...fetched].sort((a, b) => a.amountCents - b.amountCents);
+        setRates(sorted);
+        setParcelSummary(data.data.parcel as ParcelSummary);
+        setRatesShipmentId(data.data.shipmentId as string);
+        if (sorted.length > 0) setSelectedRateId(sorted[0].id);
+      } else {
+        setLabelError(data.message || 'Failed to compute rates.');
+      }
+    } catch {
+      setLabelError('Failed to compute rates.');
+    } finally {
+      setRatesLoading(false);
+    }
+  };
+
+  const buyLabel = async () => {
+    if (!selectedRateId || !ratesShipmentId) return;
+    setLabelBuying(true);
+    setLabelError('');
+    try {
+      const res = await fetch(`${base}/orders/${orderId}/label`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rateId: selectedRateId, shipmentId: ratesShipmentId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Label purchased.');
+        setRates(null);
+        setParcelSummary(null);
+        setSelectedRateId('');
+        setRatesShipmentId('');
+        loadOrder();
+      } else {
+        setLabelError(data.message || 'Failed to purchase label.');
+      }
+    } catch {
+      setLabelError('Failed to purchase label.');
+    } finally {
+      setLabelBuying(false);
+    }
+  };
+
+  const refundLabel = async () => {
+    if (typeof window !== 'undefined' && !window.confirm('Request a refund for this shipping label? The label will be voided and removed from the order.')) {
+      return;
+    }
+    setLabelRefunding(true);
+    setLabelError('');
+    try {
+      const res = await fetch(`${base}/orders/${orderId}/label`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Label refund requested.');
+        loadOrder();
+      } else {
+        setLabelError(data.message || 'Failed to refund label.');
+      }
+    } catch {
+      setLabelError('Failed to refund label.');
+    } finally {
+      setLabelRefunding(false);
     }
   };
 
@@ -442,6 +553,195 @@ export default function OrderDetailPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Shipping Label */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">local_shipping</span>
+          Shipping Label
+        </h2>
+
+        {labelError && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+            <span className="material-icons text-base">error</span>
+            {labelError}
+          </div>
+        )}
+
+        {order.labelUrl ? (
+          /* State B — label purchased */
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              {order.carrier && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Carrier</p>
+                  <p className="text-foreground">{order.carrier}</p>
+                </div>
+              )}
+              {order.shippingMethod && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Service</p>
+                  <p className="text-foreground">{order.shippingMethod}</p>
+                </div>
+              )}
+              {order.trackingNumber && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tracking</p>
+                  {order.trackingUrl ? (
+                    <a
+                      href={order.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-mono text-xs"
+                    >
+                      {order.trackingNumber}
+                    </a>
+                  ) : (
+                    <p className="text-foreground font-mono text-xs">{order.trackingNumber}</p>
+                  )}
+                </div>
+              )}
+              {order.labelPurchasedAt && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Purchased</p>
+                  <p className="text-foreground">{new Date(order.labelPurchasedAt).toLocaleString()}</p>
+                </div>
+              )}
+              {order.labelCostCents != null && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Label Cost</p>
+                  <p className="text-foreground">{formatMoney(order.labelCostCents)}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href={order.labelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                <span className="material-icons text-base">download</span>
+                View Label
+              </a>
+              <button
+                onClick={refundLabel}
+                disabled={labelRefunding}
+                className="flex items-center gap-2 px-4 py-2 bg-accent text-foreground rounded-lg text-sm font-medium hover:bg-accent/80 transition-colors disabled:opacity-50"
+              >
+                {labelRefunding ? (
+                  <span className="material-icons text-base animate-spin">refresh</span>
+                ) : (
+                  <span className="material-icons text-base">cancel</span>
+                )}
+                Refund Label
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* State A — no label yet */
+          <div className="space-y-4">
+            {!rates && (
+              <button
+                onClick={computeRates}
+                disabled={ratesLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {ratesLoading ? (
+                  <span className="material-icons text-base animate-spin">refresh</span>
+                ) : (
+                  <span className="material-icons text-base">calculate</span>
+                )}
+                Compute Rates
+              </button>
+            )}
+
+            {rates && parcelSummary && (
+              <>
+                <div className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
+                  <span className="font-medium">Parcel:</span>{' '}
+                  {parcelSummary.lengthIn} × {parcelSummary.widthIn} × {parcelSummary.heightIn} in,{' '}
+                  {parcelSummary.weightOz} oz
+                </div>
+
+                {rates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No rates returned for this shipment.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {rates.map((r, idx) => {
+                      const isCheapest = idx === 0;
+                      const checked = selectedRateId === r.id;
+                      return (
+                        <label
+                          key={r.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            checked
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/40'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="rate"
+                            value={r.id}
+                            checked={checked}
+                            onChange={() => setSelectedRateId(r.id)}
+                            className="accent-primary"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">
+                                {r.carrier} {r.service}
+                              </p>
+                              {isCheapest && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                  <span className="material-icons text-[10px]">star</span>
+                                  Best value
+                                </span>
+                              )}
+                            </div>
+                            {r.estDeliveryDays != null && (
+                              <p className="text-xs text-muted-foreground">
+                                Est. {r.estDeliveryDays} day{r.estDeliveryDays === 1 ? '' : 's'}
+                              </p>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold text-foreground tabular-nums">
+                            ${(r.amountCents / 100).toFixed(2)}
+                          </p>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={buyLabel}
+                    disabled={labelBuying || !selectedRateId}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {labelBuying ? (
+                      <span className="material-icons text-base animate-spin">refresh</span>
+                    ) : (
+                      <span className="material-icons text-base">shopping_cart</span>
+                    )}
+                    Buy Label
+                  </button>
+                  <button
+                    onClick={computeRates}
+                    disabled={ratesLoading || labelBuying}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-icons text-base">refresh</span>
+                    Refresh rates
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Internal Notes */}
