@@ -3,54 +3,12 @@ import { db } from '@/lib/db';
 import {
   storeSettings,
   designs,
-  clients,
-  clientMembers,
-  clientWebsites,
   productDesignSurfaces,
   productImages,
 } from '@/lib/db/schema';
-import { and, asc, eq, or } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
-import { auth } from '@/lib/auth';
-
-/**
- * Portal-staff auth check. Returns true when:
- *   1. The request carries a valid NextAuth (portal) session, AND
- *   2. The user is either the direct owner of the client that owns the
- *      website, OR a clientMembers row links them to that client.
- *
- * Used by the design GET/PUT/DELETE endpoints to let portal staff edit
- * "store-mode" designs (designs created server-side by the publisher with
- * no sessionId/customerId — so the normal storefront auth paths reject).
- *
- * Triggered by the `x-portal-staff: 1` request header so we don't take
- * the auth() round-trip on every storefront request; clients in admin
- * mode set the header explicitly.
- */
-async function isPortalStaffWithSiteAccess(req: Request, websiteId: number): Promise<boolean> {
-  if (req.headers.get('x-portal-staff') !== '1') return false;
-  const session = await auth();
-  const userIdRaw = session?.user?.id;
-  if (!userIdRaw) return false;
-  const userId = parseInt(userIdRaw, 10);
-  if (!Number.isFinite(userId)) return false;
-  const [hit] = await db
-    .select({ id: clientWebsites.id })
-    .from(clientWebsites)
-    .innerJoin(clients, eq(clients.id, clientWebsites.clientId))
-    .leftJoin(
-      clientMembers,
-      and(eq(clientMembers.clientId, clients.id), eq(clientMembers.userId, userId)),
-    )
-    .where(
-      and(
-        eq(clientWebsites.id, websiteId),
-        or(eq(clients.userId, userId), eq(clientMembers.userId, userId)),
-      ),
-    )
-    .limit(1);
-  return !!hit;
-}
+import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
 
 async function verifyStore(websiteId: number) {
   const [store] = await db.select().from(storeSettings)

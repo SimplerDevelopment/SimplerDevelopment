@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { storeSettings, designs, designAssets } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
+import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
 import { uploadToS3 } from '@/lib/s3/upload';
 import sharp from 'sharp';
 
@@ -35,6 +36,13 @@ async function resolveDesign(
 
   if (!design) {
     return { kind: 'error', status: 404, message: 'Design not found' };
+  }
+
+  // Portal-staff path — header + auth() session + site access. Allows staff
+  // to upload an image asset to any design on a site they have access to,
+  // including the publisher-authored designs with NULL sessionId/customerId.
+  if (await isPortalStaffWithSiteAccess(req, websiteId)) {
+    return { kind: 'ok', design };
   }
 
   const token = extractToken(req);

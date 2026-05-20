@@ -191,18 +191,19 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
     async (doc: DesignDoc): Promise<{ id: string }> => {
       const res = await fetch(`/api/storefront/${siteId}/designs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...staffHeaders },
         body: JSON.stringify({
           productId: product.id,
           name: doc.name || `${product.name} design`,
-          sessionId,
+          sessionId: staffMode ? null : sessionId,
         }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message || 'Failed to create design');
       return { id: json.data.id };
     },
-    [siteId, product.id, product.name, sessionId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, product.id, product.name, sessionId, staffMode],
   );
 
   const onSave = useCallback(
@@ -238,11 +239,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
       if (!designId) {
         const res = await fetch(`/api/storefront/${siteId}/designs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             productId: product.id,
             name: `${product.name} design`,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         });
         const json = await res.json();
@@ -255,9 +256,12 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
       }
       const form = new FormData();
       form.append('file', file);
-      form.append('sessionId', sessionId);
+      // sessionId only matters for the customer auth path. Staff mode authes
+      // via x-portal-staff + NextAuth session below.
+      if (!staffMode) form.append('sessionId', sessionId);
       const res = await fetch(`/api/storefront/${siteId}/designs/${designId}/assets`, {
         method: 'POST',
+        headers: { ...staffHeaders },
         body: form,
       });
       const json = await res.json();
@@ -268,7 +272,8 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
         height: json.data.height || 0,
       };
     },
-    [siteId, sessionId, product.id, product.name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, sessionId, product.id, product.name, staffMode],
   );
 
   const onGenerateAiImage = useCallback(
@@ -285,11 +290,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
       if (!designId) {
         const res = await fetch(`/api/storefront/${siteId}/designs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             productId: product.id,
             name: `${product.name} design`,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         });
         const json = await res.json();
@@ -304,13 +309,13 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
         `/api/storefront/${siteId}/designs/${designId}/ai-image`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             prompt: req.prompt,
             style: req.style,
             transparent: req.transparent,
             n: req.n ?? 1,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         },
       );
@@ -337,7 +342,8 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
             ];
       return { variants };
     },
-    [siteId, sessionId, product.id, product.name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, sessionId, product.id, product.name, staffMode],
   );
 
   const onGenerateAiText = useCallback(
