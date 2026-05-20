@@ -78,8 +78,14 @@ function buildDesignerPrompt(concept: {
 
 /**
  * Prompt for the customer-facing image. This is intentionally not a flat-lay:
- * the storefront should look like a real apparel brand, with the shirt worn by
- * an adult model and enough fabric/body context for buyers to judge fit.
+ * the storefront should look like a real apparel brand, with the garment worn
+ * on the body and enough fabric / scene context for buyers to judge fit.
+ *
+ * Two modes via `garmentType`:
+ *   'tee'    — adult woman model in the heavyweight crew-neck t-shirt (default).
+ *   'onesie' — baby (6–18 months) in a snap-closure baby onesie, photographed
+ *              in a soft, sleepy nursery scene. Photographed safely: no faces
+ *              in close-up, no real-named kids.
  */
 export function buildLifestyleMockupPrompt(concept: {
   visualPrompt: string;
@@ -87,8 +93,37 @@ export function buildLifestyleMockupPrompt(concept: {
   slogan: string;
   tagline: string;
   placement: string;
+  garmentType?: 'tee' | 'onesie';
 }): string {
   const paletteHex = concept.palette.map((c) => c.hex).join(', ');
+  const garmentType = concept.garmentType ?? 'tee';
+
+  if (garmentType === 'onesie') {
+    const printSide =
+      concept.placement === 'back'
+        ? 'show the back of the onesie clearly'
+        : 'show the front of the onesie clearly';
+    return [
+      'Photorealistic ecommerce lifestyle product photography for a baby-apparel storefront.',
+      'A baby (around 9–12 months old) wearing a clean white short-sleeve cotton baby onesie with a snap closure at the bottom, in a soft pastel nursery scene with natural daylight. The baby is photographed safely — sitting up on a soft white blanket, three-quarter angle, body fills the frame.',
+      'Photo composition: waist-up framing, the onesie occupies the center of the frame, sleepy gentle mood. The baby may be looking down, looking at a toy, or with eyes partially closed — avoid sharp, direct face close-ups.',
+      printSide + '.',
+      `The onesie print must feature the exact slogan "${concept.slogan}" as the dominant readable text on the front.`,
+      `The printed graphic should follow this concept: ${concept.visualPrompt}`,
+      `Use these print colors where possible: ${paletteHex}.`,
+      `Brand mood: ${concept.tagline}`,
+      '',
+      'STRICT REQUIREMENTS:',
+      '- The baby must be a fictional person, not based on any real named child.',
+      '- The onesie must be worn by the baby, not flat-lay, not on a mannequin.',
+      '- The print must appear naturally integrated on the cotton fabric with realistic folds, lighting, and perspective.',
+      '- No real-world brands, logos, campaign marks, flags as brand logos, watermarks, captions, price tags, or extra text in the photo.',
+      '- Soft, sleepy, comforting nursery palette in the background (cream, soft pink, dusty blue) so the slogan + print read cleanly.',
+      '- No weapons, no political imagery in the scene itself — the only political reference is the slogan printed on the garment.',
+      '- Clean product photo, enough negative space for a storefront crop.',
+    ].join('\n');
+  }
+
   const printSide =
     concept.placement === 'back'
       ? 'show the model turned slightly so the back print is clearly visible'

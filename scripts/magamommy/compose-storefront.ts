@@ -147,6 +147,8 @@ interface LatestDropSummary {
   tagline?: string;
   /** Public URL of the lifestyle product image. */
   heroImageUrl?: string;
+  /** Product price in cents — drives the hero trust-strip + sticker chip. */
+  priceCents?: number;
 }
 
 function buildHomeContent(latestDrop: LatestDropSummary): string {
@@ -193,8 +195,8 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
   // 1. Top promo marquee — 4th-of-July fair-flyer style with star separators
   // between every claim. Brand red field, white slab-stencil-feeling type.
   const promoClaims = [
-    '★ NEW DROP EVERY MONDAY 9 AM ★',
-    '★ LIMITED 100 SHIRTS PER DROP ★',
+    '★ MADE BY MAMA, FOR MAMA ★',
+    '★ FAITH ★ FAMILY ★ FREEDOM ★',
     '★ HEAVYWEIGHT 6 OZ COTTON ★',
     '★ FREE U.S. SHIPPING OVER $50 ★',
     '★ PRINTED IN PENNSYLVANIA ★',
@@ -245,10 +247,16 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
   // slogan IS the hero. Trim trailing terminator so "...Carry On." doesn't
   // become "...Carry On.." when we add styling-period later.
   const cleanSlogan = latestDrop.slogan?.replace(/[.!?]+\s*$/, '');
-  const heroHeadline = cleanSlogan ?? 'Heat from the headlines, printed on a tee';
+  const heroHeadline = cleanSlogan ?? 'Faith. Family. Freedom. Fabric.';
   const heroTagline = latestDrop.tagline
-    ?? 'A new shirt every Monday. Pulled from the loudest political moment of the week. Limited to 100.';
+    ?? 'Patriotic apparel for the suburban Republican mama. Made by mama. For mama.';
   const heroCtaLink = latestDrop.productUrl ?? '/shop';
+  // Render price as a clean dollar string — "24" not "24.00" when whole.
+  const heroPriceLabel = latestDrop.priceCents != null
+    ? '$' + (latestDrop.priceCents % 100 === 0
+        ? String(latestDrop.priceCents / 100)
+        : (latestDrop.priceCents / 100).toFixed(2))
+    : '$29';
 
   // Right-column content. Lifestyle photo path uses a single html-render
   // with absolutely-positioned overlays (NEW! sticker + price chip). Fallback
@@ -264,15 +272,15 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 
   <!-- "NEW DROP!" tilted sticker — top-left -->
   <div style="position:absolute;top:28px;left:28px;width:148px;height:148px;background:${RED};color:${WHITE};border:6px solid ${WHITE};border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transform:rotate(-14deg);box-shadow:0 8px 24px rgba(0,0,0,0.35);font-family:'Alfa Slab One',serif;text-transform:uppercase;line-height:1;">
-    <div style="font-size:11px;letter-spacing:0.24em;opacity:0.92;">★ Drop ★</div>
-    <div style="font-size:34px;margin-top:6px;letter-spacing:-0.01em;">NEW!</div>
-    <div style="font-size:10px;letter-spacing:0.2em;margin-top:6px;">This Monday</div>
+    <div style="font-size:11px;letter-spacing:0.24em;opacity:0.92;">★ Mama ★</div>
+    <div style="font-size:34px;margin-top:6px;letter-spacing:-0.01em;">PICK!</div>
+    <div style="font-size:10px;letter-spacing:0.2em;margin-top:6px;">Featured</div>
   </div>
 
   <!-- Price + scarcity chip — bottom-right -->
   <div style="position:absolute;bottom:24px;right:24px;background:${BLUE};color:${WHITE};padding:14px 22px;border:4px solid ${WHITE};box-shadow:0 6px 18px rgba(0,0,0,0.3);transform:rotate(2deg);font-family:'Alfa Slab One',serif;text-transform:uppercase;line-height:1.05;">
     <div style="font-size:11px;letter-spacing:0.2em;opacity:0.9;">Only 100 Made</div>
-    <div style="font-size:30px;margin-top:6px;letter-spacing:-0.01em;">$29</div>
+    <div style="font-size:30px;margin-top:6px;letter-spacing:-0.01em;">${heroPriceLabel}</div>
   </div>
 </div>`,
       }]
@@ -317,7 +325,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             order: 0,
             html: `
 <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:56px;color:${GOLD};line-height:0.95;letter-spacing:0.02em;margin:0 0 18px 0;text-shadow:1px 1px 0 rgba(0,0,0,0.25);font-weight:700;">hey mama &#x2661;</div>
-<div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 24px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${WHITE};border-radius:10px;box-shadow:8px 8px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ This Monday's Drop ★ ★ ★</div>`,
+<div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 24px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${WHITE};border-radius:10px;box-shadow:8px 8px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ Magamommy Featured ★ ★ ★</div>`,
           },
 
           // Slogan-as-headline. ~Alfa Slab One when the font loads; falls
@@ -367,7 +375,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             id: id(),
             type: 'html-render',
             order: 3,
-            html: `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;font-size:14px;letter-spacing:0.18em;"><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ $29</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Free US shipping $50+</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Ships in 48h</span></div>`,
+            html: `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;font-size:14px;letter-spacing:0.18em;"><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ ${heroPriceLabel}</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Free US shipping $50+</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Ships in 48h</span></div>`,
           },
 
           // Single hero CTA — outsize, brand red, "buy now" intent.
@@ -375,7 +383,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             id: id(),
             type: 'button',
             order: 4,
-            text: latestDrop.slogan ? 'Grab it before Sunday →' : 'Shop this week\'s drop',
+            text: latestDrop.slogan ? `Shop "${cleanSlogan}" →` : 'Shop the collection',
             url: heroCtaLink,
             variant: 'primary',
             size: 'lg',
@@ -400,7 +408,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             id: id(),
             type: 'html-render',
             order: 5,
-            html: `<a href="/shop" style="display:inline-flex;align-items:center;gap:8px;color:${WHITE};opacity:0.85;font-family:'Inter',sans-serif;font-size:14px;letter-spacing:0.06em;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.4);padding-bottom:2px;">Or browse every past drop →</a>`,
+            html: `<a href="/shop" style="display:inline-flex;align-items:center;gap:8px;color:${WHITE};opacity:0.85;font-family:'Inter',sans-serif;font-size:14px;letter-spacing:0.06em;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.4);padding-bottom:2px;">Or browse the full collection →</a>`,
           },
         ],
       },
@@ -433,9 +441,9 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     html: `
 <div style="position:relative;background:repeating-linear-gradient(90deg,${RED} 0,${RED} 60px,${WHITE} 60px,${WHITE} 120px);padding:48px 24px;border-top:6px solid ${BLUE};border-bottom:6px solid ${BLUE};text-align:center;overflow:hidden;">
   <div style="display:inline-block;background:${BLUE};color:${WHITE};padding:24px 56px;border:4px solid ${WHITE};box-shadow:0 0 0 6px ${BLUE}, 12px 12px 0 ${RED};transform:rotate(-1.5deg);">
-    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-bottom:8px;">★ ★ ★ Step Right Up ★ ★ ★</div>
-    <div style="font-family:'Alfa Slab One',serif;font-size:42px;line-height:1;color:${WHITE};text-transform:uppercase;letter-spacing:-0.005em;">One Shirt &middot; One Week &middot; Gone Forever</div>
-    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-top:8px;">★ ★ ★ Tonight Only Energy, Every Week ★ ★ ★</div>
+    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-bottom:8px;">★ ★ ★ Magamommy Apparel ★ ★ ★</div>
+    <div style="font-family:'Alfa Slab One',serif;font-size:42px;line-height:1;color:${WHITE};text-transform:uppercase;letter-spacing:-0.005em;">Faith &middot; Family &middot; Freedom &middot; Fabric</div>
+    <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.32em;color:${WHITE};text-transform:uppercase;margin-top:8px;">★ ★ ★ Made by a Mama, for the Mamas ★ ★ ★</div>
   </div>
 </div>`,
   };
@@ -455,9 +463,9 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 
   <!-- Banner header -->
   <div style="text-align:center;margin-bottom:48px;">
-    <div style="display:inline-block;background:${BLUE};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${BLUE};box-shadow:6px 6px 0 ${RED};margin-bottom:24px;">★ ★ ★ This Week's Program ★ ★ ★</div>
-    <h2 style="font-family:'Alfa Slab One',serif;font-size:64px;line-height:0.96;letter-spacing:-0.015em;text-transform:uppercase;margin:0;color:${BLUE};">Wear what everyone <br/>is talking about.</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:18px;color:#444;margin:18px 0 0;">One shirt. One slogan. Seven days only.</p>
+    <div style="display:inline-block;background:${BLUE};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${BLUE};box-shadow:6px 6px 0 ${RED};margin-bottom:24px;">★ ★ ★ Mama's Picks ★ ★ ★</div>
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:64px;line-height:0.96;letter-spacing:-0.015em;text-transform:uppercase;margin:0;color:${BLUE};">Wear your values.<br/>Loud and proud.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:18px;color:#444;margin:18px 0 0;">Heavyweight cotton tees, baby onesies, and accessories — every one mama-approved.</p>
   </div>
 
   <!-- Two-card row -->
@@ -465,28 +473,28 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 
     <!-- Left card: this week's drop. Wider (7/12). Dark navy. -->
     <div style="grid-column:span 7;background:${BLUE};color:${WHITE};padding:40px;border:4px solid ${BLUE};box-shadow:10px 10px 0 ${RED};position:relative;">
-      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ This Week ★</div>
+      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ Mama's Featured ★</div>
       <h3 style="font-family:'Alfa Slab One',serif;font-size:40px;line-height:1;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 16px 0;color:${WHITE};">${bentoSloganHtml}</h3>
       <p style="font-family:'Inter',sans-serif;font-size:17px;line-height:1.45;color:rgba(255,255,255,0.86);margin:0 0 24px 0;">${bentoLeadHtml}</p>
       <ul style="list-style:none;padding:0;margin:0 0 32px 0;font-family:'Inter',sans-serif;font-size:16px;color:${WHITE};">
-        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Heavyweight 6 oz cotton tee</li>
-        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Sizes S–XXL, three colorways</li>
+        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Soft 100% cotton, mama-approved</li>
+        <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Tees S–XXL, onesies NB–24M, three colorways</li>
         <li style="padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.25);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Ships within 48 hours</li>
-        <li style="padding:8px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>${latestDrop.heroImageUrl ? 'Featured in this week\'s lookbook' : 'First drop arriving Monday'}</li>
+        <li style="padding:8px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Printed by hand in Pennsylvania</li>
       </ul>
-      <a href="${heroCtaLink}" style="display:inline-block;background:${RED};color:${WHITE};font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.16em;text-transform:uppercase;text-decoration:none;padding:14px 24px;border:3px solid ${WHITE};box-shadow:4px 4px 0 ${WHITE};">See the drop →</a>
+      <a href="${heroCtaLink}" style="display:inline-block;background:${RED};color:${WHITE};font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.16em;text-transform:uppercase;text-decoration:none;padding:14px 24px;border:3px solid ${WHITE};box-shadow:4px 4px 0 ${WHITE};">Shop this design →</a>
     </div>
 
-    <!-- Right card: why limited. Narrower (5/12). White on red. -->
+    <!-- Right card: brand promise. Narrower (5/12). White card with navy outline. -->
     <div style="grid-column:span 5;background:${WHITE};color:${BLUE};padding:40px;border:4px solid ${BLUE};box-shadow:10px 10px 0 ${BLUE};position:relative;">
-      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ Why Limited? ★</div>
-      <h3 style="font-family:'Alfa Slab One',serif;font-size:32px;line-height:1.05;letter-spacing:-0.005em;text-transform:uppercase;margin:0 0 16px 0;color:${BLUE};">Because relevance<br/>has a shelf life.</h3>
-      <p style="font-family:'Inter',sans-serif;font-size:16px;line-height:1.45;color:#333;margin:0 0 24px 0;">Last week's outrage is this week's lookbook. We retire each design Sunday at midnight — no exceptions, no restocks.</p>
+      <div style="font-family:'Alfa Slab One',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${RED};margin-bottom:12px;">★ Why Magamommy? ★</div>
+      <h3 style="font-family:'Alfa Slab One',serif;font-size:32px;line-height:1.05;letter-spacing:-0.005em;text-transform:uppercase;margin:0 0 16px 0;color:${BLUE};">Built by a mama<br/>who gets it.</h3>
+      <p style="font-family:'Inter',sans-serif;font-size:16px;line-height:1.45;color:#333;margin:0 0 24px 0;">Patriotic apparel for the kitchen-table conservative — designed at the same dining table where I help with my kids' homework. No corporate boardroom in sight.</p>
       <ul style="list-style:none;padding:0;margin:0;font-family:'Inter',sans-serif;font-size:15px;color:${BLUE};">
-        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Drops Monday 9 AM ET</li>
-        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Capped at 100 per week</li>
-        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Retired Sunday 11:59 PM</li>
-        <li style="padding:6px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Never restocked. Ever.</li>
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Faith. Family. Freedom.</li>
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Tees, onesies, accessories</li>
+        <li style="padding:6px 0;border-bottom:1px dashed rgba(0,40,104,0.2);"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Printed in the U.S.A.</li>
+        <li style="padding:6px 0;"><span style="color:${RED};font-weight:800;margin-right:10px;">★</span>Free shipping on orders $50+</li>
       </ul>
     </div>
 
@@ -520,55 +528,27 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     },
   };
 
-  // 5. Timeline — how it works. Layout='left' (vertical), big numbered
-  // milestones, our brand red for the line + numbers so it ties into the
-  // hero color.
-  const timeline = {
+  // 5. Brand-story section — replaces the old "how a drop works" timeline.
+  // Magamommy isn't a weekly-drop site anymore; it's a general apparel store
+  // for the MAGA mama, so we sell the brand story instead of the schedule.
+  const brandStory = {
     id: id(),
-    type: 'timeline',
+    type: 'html-render',
     order: 4,
-    overline: 'How a drop works',
-    title: 'From the headlines to your front porch in 6 days.',
-    subtitle: 'Same rhythm every single week — predictable, limited, gone.',
-    steps: [
-      {
-        id: id(),
-        title: 'Monday 9 AM ET — Drop',
-        number: '01',
-        description:
-          'A new shirt design lands in the shop. Pulled from the past seven days of political news. 100 units. Three colorways. Sizes S–XXL.',
-      },
-      {
-        id: id(),
-        title: 'Monday – Saturday — Sells through',
-        number: '02',
-        description:
-          'You order. We print to-order on heavyweight cotton in Pennsylvania, then ship within 48 hours. Tracking lands in your inbox the same day.',
-      },
-      {
-        id: id(),
-        title: 'Sunday 11:59 PM — Retired',
-        number: '03',
-        description:
-          'The drop closes. The page stays up as part of the archive. The shirt itself is never reprinted — what\'s out there is all there is.',
-      },
-      {
-        id: id(),
-        title: 'Next Monday — Repeat',
-        number: '04',
-        description:
-          'Fresh news cycle, fresh design, fresh tee. Subscribe to the drop list and we\'ll email you the moment it goes live.',
-      },
-    ],
-    lineColor: RED,
-    numberColor: RED,
-    nodeColor: WHITE,
-    layout: 'left',
-    style: {
-      paddingTop: '96px',
-      paddingBottom: '96px',
-      backgroundColor: WHITE,
-    },
+    html: `
+<div style="background:${WHITE};padding:96px 24px;text-align:center;">
+  <div style="max-width:760px;margin:0 auto;">
+    <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:42px;color:${GOLD};line-height:1;margin-bottom:12px;font-weight:700;">our story</div>
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:54px;line-height:1.02;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 28px 0;color:${BLUE};">A brand built<br/>at the kitchen table.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:19px;line-height:1.55;color:#333;margin:0 0 20px 0;">Magamommy was started by one mom &mdash; a real one, with three real kids and a real heat press in the garage &mdash; who was tired of finding political apparel that was either too crude for her kids&rsquo; school pickup or too soft to actually say anything.</p>
+    <p style="font-family:'Inter',sans-serif;font-size:19px;line-height:1.55;color:#333;margin:0 0 32px 0;">Every shirt, every onesie, every accessory is designed for the suburban Republican mama who shows up to PTA, drives the carpool, and still wants the world to know exactly where she stands. Faith. Family. Freedom. Printed loud.</p>
+    <div style="display:inline-flex;gap:32px;flex-wrap:wrap;justify-content:center;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.22em;color:${BLUE};text-transform:uppercase;">
+      <div>★ Mama-owned</div>
+      <div>★ Printed in PA</div>
+      <div>★ Ships in 48h</div>
+    </div>
+  </div>
+</div>`,
   };
 
   // 6. "RECORD BOARD" — custom html-render replaces the generic metric-cards
@@ -590,16 +570,16 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     <!-- Banner header (rounded) -->
     <div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${CREAM};border-radius:10px;box-shadow:6px 6px 0 rgba(217,162,27,0.6);margin-bottom:24px;">★ ★ ★ The Record Board ★ ★ ★</div>
 
-    <h2 style="font-family:'Alfa Slab One',serif;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 14px 0;color:${CREAM};">A shop that runs on a metronome.</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:18px;color:rgba(247,244,237,0.78);max-width:640px;margin:0 auto 56px;">Every number is a constraint on purpose. Constraints are what make the drop feel like a drop.</p>
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 14px 0;color:${CREAM};">Promises a mama can keep.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:18px;color:rgba(247,244,237,0.78);max-width:640px;margin:0 auto 56px;">Every number is a promise to you and the next mama who orders.</p>
 
     <!-- 4 stats in a row, gold numbers, cream dashed dividers -->
     <div style="display:flex;align-items:stretch;justify-content:space-between;gap:0;flex-wrap:wrap;">
       ${[
-        { v: '1',    l: 'New Shirt / Week',    s: 'Monday morning, no exceptions' },
-        { v: '100',  l: 'Units / Drop',         s: 'Capped on purpose' },
-        { v: '48h',  l: 'Ship Time',            s: 'From order to porch' },
-        { v: '0',    l: 'Restocks',             s: 'Never. Ever.' },
+        { v: '100%', l: 'USA Printed',     s: 'In our Pennsylvania shop' },
+        { v: '6oz',  l: 'Cotton Weight',   s: 'Combed, ring-spun, soft' },
+        { v: '48h',  l: 'Ship Time',       s: 'From order to porch' },
+        { v: '1',    l: 'Mama, Real',      s: 'Family-owned & operated' },
       ].map((m, i, arr) => `
         <div style="flex:1 1 200px;min-width:200px;text-align:center;padding:12px 8px;${i < arr.length - 1 ? `border-right:2px dashed rgba(247,244,237,0.22);` : ''}">
           <div style="font-family:'Alfa Slab One',serif;font-size:96px;line-height:0.9;letter-spacing:-0.03em;color:${GOLD};text-shadow:4px 4px 0 rgba(0,0,0,0.18);">${m.v}</div>
@@ -631,15 +611,15 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     items: [
       {
         id: id(),
-        title: 'How do I know when a new drop is live?',
+        title: 'What\'s in the shop?',
         content:
-          'Every Monday at 9 AM ET. Hit "Email me the drops" at the bottom and we\'ll send you the link the moment it goes live — usually before our own site cache catches up.',
+          'Adult tees (S–XXL, three colorways), kids\' tees (sizes 2T–12), baby onesies (NB–24M), plus the occasional accessory drop — tote bags, koozies, stickers. New designs added as inspiration strikes, not on a clock.',
       },
       {
         id: id(),
-        title: 'What if my size sells out?',
+        title: 'How does sizing run?',
         content:
-          'It\'s gone for that drop, and we won\'t reprint it. We size up generously and over-stock the middle (M / L / XL) to spread out the run, but the only way to lock in your size is to grab it Monday.',
+          'True to size. Heavyweight 6 oz cotton with a relaxed unisex cut on the adult tees, classic kids\' silhouette on the youth and onesies. If you\'re between sizes, size up — these wash and hold their shape but they don\'t stretch out.',
       },
       {
         id: id(),
@@ -668,7 +648,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
 
   // 8. Closing CTA — flashy finale with bunting at top, big SVG eagle
   // silhouette watermark behind the headline, gradient + stars background.
-  const closingShoutSlogan = cleanSlogan ? `Grab "${cleanSlogan}"` : 'Shop the drop';
+  const closingShoutSlogan = cleanSlogan ? `Shop "${cleanSlogan}"` : 'Shop the collection';
   const closing = {
     id: id(),
     type: 'html-render',
@@ -715,13 +695,13 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     </svg>
 
     <!-- Eyebrow chip (rounded, gold-tinted shadow) -->
-    <div style="display:inline-block;background:${WHITE};color:${RED};padding:10px 24px;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};border-radius:10px;box-shadow:6px 6px 0 rgba(217,162,27,0.55);margin-bottom:30px;">★ Last Call ★</div>
+    <div style="display:inline-block;background:${WHITE};color:${RED};padding:10px 24px;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};border-radius:10px;box-shadow:6px 6px 0 rgba(217,162,27,0.55);margin-bottom:30px;">★ Shop the Collection ★</div>
 
     <!-- Script accent above the big headline -->
-    <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:42px;color:${GOLD};line-height:1;margin-bottom:8px;">don&rsquo;t miss it, mama</div>
+    <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:42px;color:${GOLD};line-height:1;margin-bottom:8px;">come shop with us, mama</div>
 
-    <h2 style="font-family:'Alfa Slab One',serif;font-size:88px;line-height:0.95;letter-spacing:-0.015em;text-transform:uppercase;margin:0 0 18px 0;color:${WHITE};text-shadow:0 4px 16px rgba(0,0,0,0.25);">See this week's drop.</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:22px;color:rgba(255,255,255,0.94);max-width:640px;margin:0 auto 44px;line-height:1.4;">Sunday at midnight it's gone. Next Monday a new one takes its place. That's the whole bit.</p>
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:88px;line-height:0.95;letter-spacing:-0.015em;text-transform:uppercase;margin:0 0 18px 0;color:${WHITE};text-shadow:0 4px 16px rgba(0,0,0,0.25);">Made for your mama.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:22px;color:rgba(255,255,255,0.94);max-width:640px;margin:0 auto 44px;line-height:1.4;">Heavyweight cotton. Honest slogans. American printed. Free shipping over $50.</p>
 
     <!-- CTA pair — rounded -->
     <div style="display:inline-flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:center;">
@@ -818,8 +798,8 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
       <path d="M 10 -34 L 18 -32 L 10 -30 Z" fill="${RED}"/>
     </g>
   </svg>
-  <div style="font-family:'Alfa Slab One',serif;font-size:32px;color:${BLUE};text-transform:uppercase;letter-spacing:0.02em;margin-top:8px;">★ The Drop Schedule ★</div>
-  <div style="font-family:'Inter',sans-serif;font-size:14px;color:${BLUE};opacity:0.7;letter-spacing:0.2em;text-transform:uppercase;margin-top:4px;">A Magamommy Tradition Since This Monday</div>
+  <div style="font-family:'Alfa Slab One',serif;font-size:32px;color:${BLUE};text-transform:uppercase;letter-spacing:0.02em;margin-top:8px;">★ Meet the Mama ★</div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:${BLUE};opacity:0.7;letter-spacing:0.2em;text-transform:uppercase;margin-top:4px;">By a mama, for the mamas</div>
 </div>`,
   };
 
@@ -834,7 +814,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     <svg viewBox="0 0 60 60" style="width:60px;height:60px;flex:0 0 auto;">
       <polygon points="30,4 36,22 56,22 40,34 46,54 30,42 14,54 20,34 4,22 24,22" fill="${WHITE}"/>
     </svg>
-    <div style="font-size:36px;letter-spacing:0.02em;line-height:1;">Sunday Midnight &middot; It's Gone</div>
+    <div style="font-size:36px;letter-spacing:0.02em;line-height:1;">God Bless America &middot; God Bless Mama</div>
     <svg viewBox="0 0 60 60" style="width:60px;height:60px;flex:0 0 auto;">
       <polygon points="30,4 36,22 56,22 40,34 46,54 30,42 14,54 20,34 4,22 24,22" fill="${WHITE}"/>
     </svg>
@@ -850,8 +830,8 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     barkerBanner,
     bento,
     eagleDivider,
-    timeline,
-    metrics,        // custom html-render "RECORD BOARD" — now warm navy + gold
+    brandStory,     // replaces the old "how a drop works" timeline
+    metrics,        // custom html-render "Promises a mama can keep" — warm navy + gold
     faqHeader,      // ★ STEP UP & ASK ★ banner
     faqTitle,       // big slab-serif "The fine print, but louder."
     faq,
@@ -888,6 +868,7 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
       slug: products.slug,
       name: products.name,
       shortDescription: products.shortDescription,
+      price: products.price,
     })
     .from(products)
     .where(and(
@@ -911,6 +892,7 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
     slogan: latest.name,
     tagline: latest.shortDescription ?? undefined,
     heroImageUrl: image?.url ?? undefined,
+    priceCents: latest.price,
   };
 }
 

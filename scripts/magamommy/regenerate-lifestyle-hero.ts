@@ -80,6 +80,8 @@ async function main(): Promise<void> {
   const [product] = await db
     .select({
       id: products.id,
+      name: products.name,
+      tags: products.tags,
       metadata: products.metadata,
     })
     .from(products)
@@ -107,6 +109,18 @@ async function main(): Promise<void> {
     throw new Error(`Concept ${conceptId} not found`);
   }
 
+  // Detect garment type: onesie products are tagged or named accordingly.
+  // The convert-to-onesie.ts script sets tags=['baby','onesie',...] and
+  // renames the product to "... (Baby Onesie)" — either signal flips the
+  // designer prompt into onesie mode.
+  const productTags = Array.isArray(product.tags) ? (product.tags as string[]) : [];
+  const isOnesie =
+    productTags.includes('onesie') ||
+    productTags.includes('baby') ||
+    /onesie/i.test(product.name ?? '');
+  const garmentType: 'tee' | 'onesie' = isOnesie ? 'onesie' : 'tee';
+  console.log(`[lifestyle-hero] garmentType=${garmentType}`);
+
   const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'openai' });
   const prompt = buildLifestyleMockupPrompt({
     visualPrompt: concept.visualPrompt,
@@ -114,6 +128,7 @@ async function main(): Promise<void> {
     slogan: concept.slogan,
     tagline: concept.tagline,
     placement: concept.placement,
+    garmentType,
   });
 
   console.log(`[lifestyle-hero] generating productId=${productId} conceptId=${conceptId}`);
