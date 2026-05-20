@@ -1,7 +1,7 @@
 // Portal tools: pitch decks, booking pages and bookings, gift certificates, and Google Workspace / Zoom integrations.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
-import { users } from './auth';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { portalApiKeys, users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
 import { productVariants, products } from './store';
@@ -61,6 +61,29 @@ export interface PitchDeckSlideV2 {
    * centered-grid layout is used.
    */
   decisionCover?: PitchDeckDecisionCover;
+  /**
+   * Per-slide draft overlay. The editor reads and writes `draft.*` when set;
+   * the public deck renderer ignores `draft` entirely and always reads the
+   * sibling live fields (`blocks`, `customCss`, `pageSettings`). The
+   * `decks_publish_slide` / `decks_publish_all` MCP tools copy `draft.*`
+   * onto the live fields and clear `draft`.
+   *
+   * `pendingCreate` / `pendingDelete` mirror the `SiteNavigationDraft`
+   * convention: a `pendingCreate` slide exists in the slides array but its
+   * live fields (`blocks`, `customCss`, etc.) are empty until publish;
+   * a `pendingDelete` slide is a tombstone — still rendered live until the
+   * publish step removes it.
+   */
+  draft?: {
+    blocks?: import('@/types/blocks').Block[];
+    customCss?: string;
+    pageSettings?: import('@/types/blocks').PageSettings;
+    notes?: string;
+    pendingCreate?: boolean;
+    pendingDelete?: boolean;
+    updatedAt?: string; // ISO timestamp of the last draft write
+    updatedBy?: number; // userId
+  };
 }
 
 export interface PitchDeckDecisionOption {
@@ -176,6 +199,9 @@ export const pitchDecks = pgTable('pitch_decks', {
   ogImage: varchar('og_image', { length: 500 }),
   canonicalUrl: varchar('canonical_url', { length: 500 }),
   noIndex: boolean('no_index').default(false).notNull(),
+  // Lightweight fork pointer — set by decks_fork. Points to pitch_decks.id of
+  // the deck this row was duplicated from.
+  parentDeckId: integer('parent_deck_id'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -345,6 +371,10 @@ export const bookings = pgTable('bookings', {
   checkinCode: varchar('checkin_code', { length: 10 }),
   checkedInAt: timestamp('checked_in_at'),
   checkedInBy: integer('checked_in_by').references(() => users.id, { onDelete: 'set null' }),
+  // Reminder dispatch — set when /api/cron/booking-reminders sends a
+  // pre-booking nudge to the guest. NULL = no reminder sent yet. The cron
+  // is idempotent: it only picks rows where this column is NULL.
+  reminderSentAt: timestamp('reminder_sent_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -660,4 +690,61 @@ export const giftCertificateRedemptions = pgTable('gift_certificate_redemptions'
 });
 
 // ─── EMAIL CAMPAIGNS ────────────────────────────────────────────────────────
+
+// ─── MCP tool call telemetry ────────────────────────────────────────────────
+//
+// Per-call audit log of every tool invocation through the in-repo MCP server.
+// Captures size + duration + tokens so we can spot expensive tools, blast
+// radius on errors, and rank-order callers. Raw events have a 14-day TTL via
+// the mcp-cleanup cron; anything older lives only in the daily rollup table
+// below (kept forever).
+//
+// Token estimation is content-aware (JSON ~3.0 chars/tok, hex/UUID ~2.0,
+// CJK ~1.0) but still an estimate — async reconciliation against Claude's
+// count_tokens API self-tunes coefficients.
+
+export const mcpToolCalls = pgTable('mcp_tool_calls', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  apiKeyId: integer('api_key_id').references(() => portalApiKeys.id, { onDelete: 'set null' }),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  toolName: varchar('tool_name', { length: 100 }).notNull(),
+  requestBytes: integer('request_bytes').default(0).notNull(),
+  responseBytes: integer('response_bytes').default(0).notNull(),
+  estimatedTokens: integer('estimated_tokens').default(0).notNull(),
+  durationMs: integer('duration_ms').default(0).notNull(),
+  success: boolean('success').default(true).notNull(),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('mcp_tool_calls_client_created_idx').on(t.clientId, t.createdAt),
+  index('mcp_tool_calls_tool_created_idx').on(t.toolName, t.createdAt),
+]);
+
+// Daily aggregates of mcp_tool_calls. Persisted forever; raw events table has
+// a 14-day TTL. Re-runnable via UPSERT on (day, client_id, tool_name).
+// p95_* columns use percentile_cont(0.95) — friction signal (avg drowns in
+// the cheap-tool count, max overstates).
+export const mcpToolCallDailyRollups = pgTable('mcp_tool_call_daily_rollups', {
+  id: serial('id').primaryKey(),
+  day: timestamp('day', { mode: 'date' }).notNull(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  toolName: varchar('tool_name', { length: 100 }).notNull(),
+  callCount: integer('call_count').default(0).notNull(),
+  successCount: integer('success_count').default(0).notNull(),
+  errorCount: integer('error_count').default(0).notNull(),
+  totalRequestBytes: integer('total_request_bytes').default(0).notNull(),
+  totalResponseBytes: integer('total_response_bytes').default(0).notNull(),
+  totalEstimatedTokens: integer('total_estimated_tokens').default(0).notNull(),
+  totalDurationMs: integer('total_duration_ms').default(0).notNull(),
+  p95ResponseBytes: integer('p95_response_bytes').default(0).notNull(),
+  p95EstimatedTokens: integer('p95_estimated_tokens').default(0).notNull(),
+  p95DurationMs: integer('p95_duration_ms').default(0).notNull(),
+  maxResponseBytes: integer('max_response_bytes').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('mcp_rollups_day_client_tool_uq').on(t.day, t.clientId, t.toolName),
+  index('mcp_rollups_day_idx').on(t.day),
+  index('mcp_rollups_client_day_idx').on(t.clientId, t.day),
+]);
 

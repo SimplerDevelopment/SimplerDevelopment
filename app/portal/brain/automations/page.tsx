@@ -5,6 +5,14 @@ import Link from 'next/link';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import { PRODUCT_PRESET_GROUPS } from '@/lib/automation/product-presets';
 
+interface AutomationSchedule {
+  cadence: 'daily' | 'weekly' | 'monthly' | 'cron';
+  time?: string;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  cronExpression?: string;
+}
+
 interface AutomationRule {
   id: number;
   name: string;
@@ -15,9 +23,41 @@ interface AutomationRule {
   enabled: boolean;
   source: string;
   productScope: string | null;
+  schedule: AutomationSchedule | null;
+  nextRunAt: string | null;
   executionCount: number;
   lastExecutedAt: string | null;
   createdAt: string;
+}
+
+const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+];
+
+function describeScheduleClient(s: AutomationSchedule): string {
+  switch (s.cadence) {
+    case 'daily':
+      return `Daily at ${s.time ?? '??:??'} UTC`;
+    case 'weekly': {
+      const day = s.dayOfWeek != null ? `${DAYS_OF_WEEK[s.dayOfWeek]?.label}s` : 'Unknown day';
+      return `${day} at ${s.time ?? '??:??'} UTC`;
+    }
+    case 'monthly': {
+      const n = s.dayOfMonth;
+      const suffix = n == null ? '' : ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'));
+      return `${n ?? '?'}${suffix} of each month at ${s.time ?? '??:??'} UTC`;
+    }
+    case 'cron':
+      return `Custom: ${s.cronExpression ?? '?'}`;
+    default:
+      return 'Unknown schedule';
+  }
 }
 
 interface AutomationLog {
@@ -244,6 +284,32 @@ export default function BrainAutomationsPage() {
   const [installingTemplateId, setInstallingTemplateId] = useState<string | null>(null);
   const [installedTemplateIds, setInstalledTemplateIds] = useState<Set<string>>(new Set());
 
+  // Trigger-type radio in the AI-parsed preview: 'event' (default — use the
+  // AI-inferred event trigger) or 'schedule' (override with a time-based
+  // trigger configured below).
+  const [triggerMode, setTriggerMode] = useState<'event' | 'schedule'>('event');
+
+  // Standalone "Schedule a rule" form state (lives in the Create tab below
+  // the NLP input). Lets the user spin up a scheduled rule without going
+  // through NLP. The rule's actions still come from a chosen template.
+  const [schedName, setSchedName] = useState('');
+  const [schedTemplateId, setSchedTemplateId] = useState<string>('');
+  const [schedCadence, setSchedCadence] = useState<'daily' | 'weekly' | 'monthly' | 'cron'>('daily');
+  const [schedTime, setSchedTime] = useState('09:00');
+  const [schedDayOfWeek, setSchedDayOfWeek] = useState<number>(1);
+  const [schedDayOfMonth, setSchedDayOfMonth] = useState<number>(1);
+  const [schedCronExpr, setSchedCronExpr] = useState('*/15 * * * *');
+  const [schedPreview, setSchedPreview] = useState<{ description: string; nextRunAt: string | null } | null>(null);
+  const [schedPreviewError, setSchedPreviewError] = useState<string>('');
+  const [schedSaving, setSchedSaving] = useState(false);
+
+  const buildScheduleFromForm = (): AutomationSchedule => {
+    if (schedCadence === 'daily') return { cadence: 'daily', time: schedTime };
+    if (schedCadence === 'weekly') return { cadence: 'weekly', time: schedTime, dayOfWeek: schedDayOfWeek };
+    if (schedCadence === 'monthly') return { cadence: 'monthly', time: schedTime, dayOfMonth: schedDayOfMonth };
+    return { cadence: 'cron', cronExpression: schedCronExpr };
+  };
+
   useEffect(() => {
     setTab(readInitialTab());
   }, []);
@@ -286,17 +352,26 @@ export default function BrainAutomationsPage() {
     if (!parsed) return;
     setSaving(true);
     try {
+      // When the user picked "On a schedule", the AI-inferred trigger is
+      // replaced with the sentinel `automation.scheduled` and the chosen
+      // schedule is attached. The scheduler cron will fire the rule
+      // independently of the event bus.
+      const useSchedule = triggerMode === 'schedule';
+      const triggerPayload = useSchedule ? { event: 'automation.scheduled' } : parsed.trigger;
+      const schedulePayload = useSchedule ? buildScheduleFromForm() : undefined;
+
       const res = await fetch('/api/portal/automations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: parsed.name,
           description: nlpInput,
-          trigger: parsed.trigger,
+          trigger: triggerPayload,
           conditions: parsed.conditions,
           actions: parsed.actions,
           source: 'nlp',
           productScope: parsed.productScope,
+          ...(schedulePayload ? { schedule: schedulePayload } : {}),
         }),
       });
       const data = await res.json();
@@ -304,10 +379,81 @@ export default function BrainAutomationsPage() {
         setRules((prev) => [data.rule, ...prev]);
         setParsed(null);
         setNlpInput('');
+        setTriggerMode('event');
         setTab('rules');
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Live preview the next firing time for the standalone "Schedule a rule"
+  // form. Debounced via a useEffect on the schedule inputs. State updates
+  // happen inside the deferred fetch callback (not synchronously in the
+  // effect body) to avoid the react-hooks/set-state-in-effect rule.
+  useEffect(() => {
+    let cancelled = false;
+    const schedule = buildScheduleFromForm();
+    const handle = setTimeout(() => {
+      fetch('/api/portal/automations/preview-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (data.success) {
+            setSchedPreviewError('');
+            setSchedPreview({ description: data.description, nextRunAt: data.nextRunAt });
+          } else {
+            setSchedPreview(null);
+            setSchedPreviewError(data.error || 'Invalid schedule');
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSchedPreview(null);
+          setSchedPreviewError('Network error');
+        });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(handle); };
+    // buildScheduleFromForm is derived from the deps below; intentionally
+    // not listed to keep the effect cycle bounded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedCadence, schedTime, schedDayOfWeek, schedDayOfMonth, schedCronExpr]);
+
+  const handleSaveScheduledRule = async () => {
+    if (!schedName.trim() || !schedTemplateId) return;
+    const template = TEMPLATES.find((t) => t.id === schedTemplateId);
+    if (!template) return;
+    setSchedSaving(true);
+    try {
+      const res = await fetch('/api/portal/automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: schedName,
+          description: `Scheduled — ${schedName}`,
+          trigger: { event: 'automation.scheduled' },
+          conditions: [],
+          actions: template.rule.actions,
+          source: 'manual',
+          productScope: template.rule.productScope,
+          schedule: buildScheduleFromForm(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRules((prev) => [data.rule, ...prev]);
+        setSchedName('');
+        setSchedTemplateId('');
+        setTab('rules');
+      } else {
+        setSchedPreviewError(data.error || 'Failed to save');
+      }
+    } finally {
+      setSchedSaving(false);
     }
   };
 
@@ -374,7 +520,7 @@ export default function BrainAutomationsPage() {
   return (
     <div className="max-w-5xl mx-auto py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <span className="material-icons text-primary">bolt</span>
@@ -403,12 +549,12 @@ export default function BrainAutomationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-6 mt-6">
+      <div className="flex gap-1 border-b border-border mb-6 mt-6 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
         {(['rules', 'presets', 'logs', 'create'] as TabType[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               tab === t
                 ? 'border-primary text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -485,10 +631,14 @@ export default function BrainAutomationsPage() {
                         <p className="text-xs text-muted-foreground mb-2 truncate">{rule.description}</p>
                       )}
 
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <span className="material-icons text-xs">sensors</span>
-                          {EVENT_LABELS[rule.trigger.event] || rule.trigger.event}
+                          <span className="material-icons text-xs">
+                            {rule.schedule ? 'schedule' : 'sensors'}
+                          </span>
+                          {rule.schedule
+                            ? describeScheduleClient(rule.schedule)
+                            : (EVENT_LABELS[rule.trigger.event] || rule.trigger.event)}
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="material-icons text-xs">arrow_forward</span>
@@ -501,9 +651,17 @@ export default function BrainAutomationsPage() {
                           </span>
                         )}
                         {rule.lastExecutedAt && (
-                          <span>Last: {timeAgo(rule.lastExecutedAt)}</span>
+                          <span>Last fired: {timeAgo(rule.lastExecutedAt)}</span>
                         )}
                       </div>
+                      {rule.schedule && (
+                        <div className="mt-1.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                            <span className="material-icons text-[12px]">schedule</span>
+                            Schedule: {describeScheduleClient(rule.schedule)}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Action chips */}
                       <div className="flex flex-wrap gap-1.5 mt-2">
@@ -797,15 +955,60 @@ export default function BrainAutomationsPage() {
 
                 <div>
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Trigger</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="material-icons text-base text-primary">sensors</span>
-                    <span className="text-sm">{EVENT_LABELS[parsed.trigger.event] || parsed.trigger.event}</span>
-                    {parsed.trigger.filters && Object.keys(parsed.trigger.filters).length > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        (filtered: {Object.entries(parsed.trigger.filters).map(([k, v]) => `${k}=${v}`).join(', ')})
-                      </span>
-                    )}
+                  {/* Trigger-type radio: AI default is event-driven; user can
+                      flip to a time-based schedule which overrides the
+                      event match with a sentinel trigger. */}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="triggerMode"
+                        value="event"
+                        checked={triggerMode === 'event'}
+                        onChange={() => setTriggerMode('event')}
+                      />
+                      <span className="material-icons text-base text-primary">sensors</span>
+                      When event happens
+                    </label>
+                    <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="triggerMode"
+                        value="schedule"
+                        checked={triggerMode === 'schedule'}
+                        onChange={() => setTriggerMode('schedule')}
+                      />
+                      <span className="material-icons text-base text-sky-500">schedule</span>
+                      On a schedule
+                    </label>
                   </div>
+                  {triggerMode === 'event' && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="material-icons text-base text-primary">sensors</span>
+                      <span className="text-sm">{EVENT_LABELS[parsed.trigger.event] || parsed.trigger.event}</span>
+                      {parsed.trigger.filters && Object.keys(parsed.trigger.filters).length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          (filtered: {Object.entries(parsed.trigger.filters).map(([k, v]) => `${k}=${v}`).join(', ')})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {triggerMode === 'schedule' && (
+                    <ScheduleEditor
+                      cadence={schedCadence}
+                      time={schedTime}
+                      dayOfWeek={schedDayOfWeek}
+                      dayOfMonth={schedDayOfMonth}
+                      cronExpression={schedCronExpr}
+                      preview={schedPreview}
+                      previewError={schedPreviewError}
+                      onCadence={setSchedCadence}
+                      onTime={setSchedTime}
+                      onDayOfWeek={setSchedDayOfWeek}
+                      onDayOfMonth={setSchedDayOfMonth}
+                      onCronExpression={setSchedCronExpr}
+                    />
+                  )}
                 </div>
 
                 {parsed.conditions.length > 0 && (
@@ -875,8 +1078,196 @@ export default function BrainAutomationsPage() {
               </div>
             </div>
           )}
+
+          {/* Standalone "Schedule a rule" creator — lets the user spin up a
+              time-based rule without going through NLP. Pairs a chosen
+              template's actions with a cadence picker. */}
+          {!parsed && (
+            <div className="bg-card border border-border rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="material-icons text-sky-500">schedule</span>
+                <h2 className="text-lg font-semibold">Schedule a rule</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Run an action on a fixed cadence — daily, weekly, monthly, or a custom cron expression. All times are UTC.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Rule name</span>
+                  <input
+                    type="text"
+                    value={schedName}
+                    onChange={(e) => setSchedName(e.target.value)}
+                    placeholder="Weekly digest"
+                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Action template</span>
+                  <select
+                    value={schedTemplateId}
+                    onChange={(e) => setSchedTemplateId(e.target.value)}
+                    className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="">— pick one —</option>
+                    {TEMPLATES.map((t) => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4">
+                <ScheduleEditor
+                  cadence={schedCadence}
+                  time={schedTime}
+                  dayOfWeek={schedDayOfWeek}
+                  dayOfMonth={schedDayOfMonth}
+                  cronExpression={schedCronExpr}
+                  preview={schedPreview}
+                  previewError={schedPreviewError}
+                  onCadence={setSchedCadence}
+                  onTime={setSchedTime}
+                  onDayOfWeek={setSchedDayOfWeek}
+                  onDayOfMonth={setSchedDayOfMonth}
+                  onCronExpression={setSchedCronExpr}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+                <button
+                  onClick={handleSaveScheduledRule}
+                  disabled={schedSaving || !schedName.trim() || !schedTemplateId}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  {schedSaving ? (
+                    <span className="material-icons text-base animate-spin">autorenew</span>
+                  ) : (
+                    <span className="material-icons text-base">check</span>
+                  )}
+                  Save scheduled rule
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface ScheduleEditorProps {
+  cadence: 'daily' | 'weekly' | 'monthly' | 'cron';
+  time: string;
+  dayOfWeek: number;
+  dayOfMonth: number;
+  cronExpression: string;
+  preview: { description: string; nextRunAt: string | null } | null;
+  previewError: string;
+  onCadence: (c: 'daily' | 'weekly' | 'monthly' | 'cron') => void;
+  onTime: (v: string) => void;
+  onDayOfWeek: (v: number) => void;
+  onDayOfMonth: (v: number) => void;
+  onCronExpression: (v: string) => void;
+}
+
+function ScheduleEditor(props: ScheduleEditorProps) {
+  const { cadence, time, dayOfWeek, dayOfMonth, cronExpression, preview, previewError } = props;
+  return (
+    <div className="space-y-3 mt-2 p-4 bg-muted/30 border border-border rounded-lg">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cadence</span>
+          <select
+            value={cadence}
+            onChange={(e) => props.onCadence(e.target.value as ScheduleEditorProps['cadence'])}
+            className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="cron">Custom cron</option>
+          </select>
+        </label>
+
+        {(cadence === 'daily' || cadence === 'weekly' || cadence === 'monthly') && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Time (UTC)</span>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => props.onTime(e.target.value)}
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </label>
+        )}
+
+        {cadence === 'weekly' && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Day of week</span>
+            <select
+              value={dayOfWeek}
+              onChange={(e) => props.onDayOfWeek(Number(e.target.value))}
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {DAYS_OF_WEEK.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {cadence === 'monthly' && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Day of month</span>
+            <input
+              type="number"
+              min={1}
+              max={31}
+              value={dayOfMonth}
+              onChange={(e) => props.onDayOfMonth(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <span className="text-[11px] text-muted-foreground">If the month has fewer days, fires on the last day.</span>
+          </label>
+        )}
+
+        {cadence === 'cron' && (
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cron expression</span>
+            <input
+              type="text"
+              value={cronExpression}
+              onChange={(e) => props.onCronExpression(e.target.value)}
+              placeholder="*/15 * * * *"
+              className="bg-background border border-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <span className="text-[11px] text-muted-foreground">Five-field UTC cron (minute hour day-of-month month day-of-week).</span>
+          </label>
+        )}
+      </div>
+
+      <div className="flex items-start gap-2 text-xs">
+        {previewError ? (
+          <>
+            <span className="material-icons text-sm text-red-500 mt-0.5">error</span>
+            <span className="text-red-500">{previewError}</span>
+          </>
+        ) : preview ? (
+          <>
+            <span className="material-icons text-sm text-sky-500 mt-0.5">event</span>
+            <span>
+              <strong>{preview.description}</strong>
+              {preview.nextRunAt && (
+                <span className="text-muted-foreground"> · Next runs at: {new Date(preview.nextRunAt).toUTCString()}</span>
+              )}
+            </span>
+          </>
+        ) : (
+          <span className="text-muted-foreground">Computing next run…</span>
+        )}
+      </div>
     </div>
   );
 }

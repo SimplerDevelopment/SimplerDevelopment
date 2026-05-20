@@ -30,15 +30,16 @@ describe('integration-api scaffold smoke @smoke', () => {
     (auth as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(A.session);
 
     const route = await import('@/app/api/portal/projects/route');
-    const res = await callHandler<{ success: boolean; data: { agency: unknown[]; private: unknown[] } }>(
+    const res = await callHandler<{ success: boolean; data: unknown[] }>(
       route as unknown as Record<string, unknown>,
       'GET',
     );
 
     expect(res.status).toBe(200);
     expect(res.data?.success).toBe(true);
-    expect(res.data?.data.private).toEqual([]);
-    expect(res.data?.data.agency).toEqual([]);
+    // Wave 1 (2026-05) collapsed { agency, private } to a flat array.
+    expect(Array.isArray(res.data?.data)).toBe(true);
+    expect(res.data?.data).toEqual([]);
   });
 
   it('creating a project via POST persists in the test schema', async () => {

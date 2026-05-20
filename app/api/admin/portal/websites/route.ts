@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clientWebsites, clients, users } from '@/lib/db/schema';
+import { clientWebsites, clients, users, storeSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function requireStaff() {
@@ -16,7 +16,7 @@ export async function GET() {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const data = await db
+  const rows = await db
     .select({
       id: clientWebsites.id,
       clientId: clientWebsites.clientId,
@@ -29,11 +29,27 @@ export async function GET() {
       clientCompany: clients.company,
       clientUserName: users.name,
       clientUserEmail: users.email,
+      // LEFT JOIN store_settings — may be null when tenant hasn't initialised store yet.
+      stripeByokAllowed: storeSettings.stripeByokAllowed,
+      stripeMode: storeSettings.stripeMode,
+      stripeSecretKeyEncrypted: storeSettings.stripeSecretKeyEncrypted,
+      storeSettingsId: storeSettings.id,
     })
     .from(clientWebsites)
     .innerJoin(clients, eq(clientWebsites.clientId, clients.id))
     .innerJoin(users, eq(clients.userId, users.id))
+    .leftJoin(storeSettings, eq(storeSettings.websiteId, clientWebsites.id))
     .orderBy(clientWebsites.createdAt);
+
+  const data = rows.map(({ stripeByokAllowed, stripeMode, stripeSecretKeyEncrypted, storeSettingsId, ...rest }) => ({
+    ...rest,
+    storeSettings: {
+      stripeByokAllowed: stripeByokAllowed ?? false,
+      stripeMode: stripeMode ?? 'connect',
+      stripeSecretKeyConfigured: !!stripeSecretKeyEncrypted,
+      hasStoreSettingsRow: !!storeSettingsId,
+    },
+  }));
 
   return NextResponse.json({ success: true, data });
 }

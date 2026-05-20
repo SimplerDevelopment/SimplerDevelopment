@@ -5,6 +5,8 @@ import { kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
+import { recordCardColumnMove } from '@/lib/portal/sprint-snapshots';
+import { checkWipLimit } from '@/lib/portal/wip-limit';
 
 // Moving cards between columns is available to ANY user who can view the project
 // (staff, or client-team member). It is intentionally not gated by canEdit —
@@ -38,7 +40,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!project) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
   }
 
+  // WIP-limit check: skip if the card is already in the destination (reorder
+  // within the same column). Otherwise check the destination's count
+  // excluding the moving card.
+  if (card.columnId !== columnId) {
+    const wip = await checkWipLimit(columnId, cardId);
+    if (!wip.allowed) {
+      return NextResponse.json(
+        { success: false, message: wip.reason, code: 'wip_limit', limit: wip.limit, currentCount: wip.currentCount },
+        { status: 409 },
+      );
+    }
+  }
+
   const before = card;
+  const [srcCol] = await db.select({ isDone: kanbanColumns.isDone })
+    .from(kanbanColumns)
+    .where(eq(kanbanColumns.id, before.columnId))
+    .limit(1);
+
   const [updated] = await db
     .update(kanbanCards)
     .set({ columnId, order, updatedAt: new Date() })
@@ -46,7 +66,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     .returning();
 
   if (before.columnId !== columnId) {
-    await logCardActivity(cardId, parseInt(session.user.id, 10), 'card.column_changed', { from: before.columnId, to: columnId });
+    const actorId = parseInt(session.user.id, 10);
+    await logCardActivity(cardId, actorId, 'card.column_changed', { from: before.columnId, to: columnId });
+    if (srcCol) {
+      await recordCardColumnMove(cardId, srcCol.isDone, destCol.isDone, actorId);
+    }
   }
 
   return NextResponse.json({ success: true, data: updated });

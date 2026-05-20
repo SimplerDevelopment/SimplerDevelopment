@@ -72,6 +72,18 @@ export function SelectableBlock({
       data-block-id={blockId}
       data-block-type={blockType}
       onClick={(e) => {
+        // If the click landed inside a contenteditable element (e.g. an
+        // html-render block's `[data-field]`), let the browser place the
+        // caret normally. preventDefault would cancel caret placement, and
+        // firing onClicked() would trigger a BLOCKS_UPDATE round-trip that
+        // re-renders the html via dangerouslySetInnerHTML, detaching the
+        // very node the user just clicked — focus would be lost.
+        // Block selection still happens on a click outside the editable
+        // text (e.g. block padding / nav handles).
+        const target = e.target as HTMLElement | null;
+        if (target?.isContentEditable || target?.closest('[contenteditable="true"]')) {
+          return;
+        }
         e.preventDefault();
         const modifiers = { shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey };
         const isDeepSelect = (e.metaKey || e.ctrlKey) && !e.shiftKey;
@@ -736,6 +748,15 @@ function EditableContent({
       ref={contentRef}
       style={{ pointerEvents: isSelected || modifierHeld ? 'auto' : 'none' }}
       onClick={(e) => {
+        // If the click landed inside a contenteditable element, never
+        // preventDefault — the browser's default caret placement is what
+        // makes click-to-edit feel natural. Both layers (this and the outer
+        // SelectableBlock wrapper) need the same bail-out.
+        const target = e.target as HTMLElement | null;
+        if (target?.isContentEditable || target?.closest('[contenteditable="true"]')) {
+          if (isSelected) e.stopPropagation();
+          return;
+        }
         if (isSelected) {
           // Allow clicking into text when selected, but stop propagation
           // so the block doesn't re-trigger selection

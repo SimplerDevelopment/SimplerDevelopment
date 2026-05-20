@@ -15,6 +15,7 @@ import {
 } from './_components/EmailCollaborationProvider';
 import { EmailPresenceBar } from './_components/EmailPresenceBar';
 import { EmailFieldFocusIndicator } from './_components/EmailFieldFocusIndicator';
+import { EmailAbConfig } from './_components/EmailAbConfig';
 
 interface Campaign {
   id: number;
@@ -39,6 +40,12 @@ interface Campaign {
   totalClicked: number;
   totalBounced: number;
   totalUnsubscribed: number;
+  abEnabled?: boolean;
+  abSubjectB?: string | null;
+  abWinnerMetric?: 'open' | 'click' | null;
+  abTestSizePct?: number | null;
+  abWinnerSubject?: string | null;
+  abDecidedAt?: string | null;
 }
 
 interface Send {
@@ -55,6 +62,7 @@ const statusColor: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
   scheduled: 'bg-blue-100 text-blue-700',
   sending: 'bg-yellow-100 text-yellow-700',
+  ab_testing: 'bg-purple-100 text-purple-700',
   sent: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 };
@@ -273,7 +281,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Link href="/portal/email/campaigns" className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-base">arrow_back</span>
@@ -364,7 +372,12 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
       </div>
 
       {tab === 'overview' && (
-        <div className="bg-card border border-border rounded-lg divide-y divide-border">
+        <>
+        <EmailAbConfig
+          campaign={campaign}
+          onChange={(patch) => setCampaign(prev => prev ? { ...prev, ...patch } as Campaign : prev)}
+        />
+        <div className="bg-card border border-border rounded-lg divide-y divide-border mt-4">
           {[
             { label: 'From', value: `${campaign.fromName} <${campaign.fromEmail}>` },
             { label: 'Reply-To', value: campaign.replyTo ?? '—' },
@@ -397,6 +410,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
             </div>
           )}
         </div>
+        </>
       )}
 
       {tab === 'content' && (
@@ -445,7 +459,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
               </div>
 
               {hasBlockContent ? (
-                <div className={showPreview ? 'flex gap-4 p-4' : 'p-4'}>
+                <div className={showPreview ? 'flex flex-col md:flex-row gap-4 p-4' : 'p-4'}>
                   <div className={`${showPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
                     <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-340px)]" style={{ minHeight: '500px' }}>
                       <VisualEditorShell
@@ -473,7 +487,7 @@ function PortalCampaignDetailPageInner({ id }: { id: string }) {
                     </div>
                   </div>
                   {showPreview && (
-                    <div className="w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
+                    <div className="w-full sm:w-[380px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 340px)' }}>
                       <EmailPreviewPane blocks={editBlocks} />
                     </div>
                   )}

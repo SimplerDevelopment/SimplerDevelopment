@@ -28,6 +28,7 @@ const EXPECTED_TOOL_REGISTRY: Record<string, { required: string[]; properties: s
 
   // Projects / Sprints / Files / Cards
   get_my_projects: { required: [], properties: [] },
+  pm_spawn_project_from_deal: { required: ['deal_id'], properties: ['deal_id', 'template_project_id', 'name_prefix'] },
   get_project_board: { required: ['project_id'], properties: ['project_id'] },
   get_project_cards: { required: ['project_id'], properties: ['project_id'] },
   get_sprint_progress: { required: ['project_id'], properties: ['project_id'] },

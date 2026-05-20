@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { drainQueue, getQueueStats } from '@/lib/brain/embedding-queue';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export const runtime = 'nodejs';
  * Tunable per request via ?batch=N (caps at 100 to keep a single tick
  * bounded — a deep queue gets drained over multiple cron firings).
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -48,3 +49,8 @@ export async function GET(req: Request) {
     },
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:process-embeddings', area: 'api-cron' },
+  _GET,
+);

@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/extension/node_modules
+/extension/dist
 /.pnp
 .pnp.*
 .yarn/*
@@ -35,6 +37,10 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# Sentry
+.sentryclirc
+.env.sentry-build-plugin
 
 # typescript
 *.tsbuildinfo
@@ -72,3 +78,8 @@ public/_cmp*
 public/_cmp/
 .planning/postcaptain-replication/_probe-*.mjs
 .planning/postcaptain-replication/probe-*.mjs
+backups/
+
+# sd-init writes per-project bootstrap snapshot here; project-local only.
+.sd/
+.mobile-audit/

@@ -81,14 +81,14 @@ export default function WorkflowsListPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Workflows</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Visual trigger to action automations. Build a graph, test it, then activate.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setShowTemplatePicker((v) => !v)}
@@ -111,7 +111,7 @@ export default function WorkflowsListPage() {
 
       {showTemplatePicker && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-foreground">Pick a template</h2>
             <button
               type="button"
@@ -165,7 +165,8 @@ export default function WorkflowsListPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-muted/50">
               <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -217,6 +218,7 @@ export default function WorkflowsListPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

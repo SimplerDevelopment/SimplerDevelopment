@@ -39,6 +39,20 @@ interface LedgerEntry {
   createdAt: string;
 }
 
+interface ImageUsage {
+  todayCount: number;
+  monthCount: number;
+  dailyCap: number;
+  perDesignCap: number;
+  recentEvents: Array<{
+    id: number;
+    recordedAt: string;
+    amount: number;
+    source: 'platform' | 'byok' | string;
+    period: string;
+  }>;
+}
+
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -100,6 +114,7 @@ export default function AISettingsPage() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [monthlyUsage, setMonthlyUsage] = useState(0);
+  const [imageUsage, setImageUsage] = useState<ImageUsage | null>(null);
   const [showAllReceipts, setShowAllReceipts] = useState(false);
 
   const [emailPrefix, setEmailPrefix] = useState('');
@@ -108,10 +123,11 @@ export default function AISettingsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [convRes, creditRes, profileRes] = await Promise.all([
+    const [convRes, creditRes, profileRes, imageUsageRes] = await Promise.all([
       fetch('/api/portal/ai/conversations').then(r => r.json()),
       fetch('/api/portal/credits?limit=100').then(r => r.json()).catch(() => null),
       fetch('/api/portal/settings/profile').then(r => r.json()).catch(() => null),
+      fetch('/api/portal/ai/image-usage').then(r => r.json()).catch(() => null),
     ]);
     setConversations(convRes.data ?? []);
     if (creditRes) {
@@ -120,6 +136,9 @@ export default function AISettingsPage() {
       setMonthlyUsage(creditRes.monthlyUsage ?? 0);
     }
     if (profileRes?.success) setEmailPrefix(profileRes.data?.emailPrefix ?? '');
+    if (imageUsageRes && typeof imageUsageRes.todayCount === 'number') {
+      setImageUsage(imageUsageRes as ImageUsage);
+    }
     setLoading(false);
   }, []);
 
@@ -150,7 +169,7 @@ export default function AISettingsPage() {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-4">
           <span className="material-icons text-lg text-blue-500">mail</span>
           <p className="mt-2 text-xl font-bold text-foreground">{emailCount}</p>
@@ -167,15 +186,102 @@ export default function AISettingsPage() {
           <p className="text-xs text-muted-foreground">Credits Remaining</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <span className="material-icons text-lg text-orange-500">analytics</span>
-          <p className="mt-2 text-xl font-bold text-foreground">{Math.round(totalTokens / 1000).toLocaleString()}k</p>
-          <p className="text-xs text-muted-foreground">Total Tokens Used</p>
+          <span className="material-icons text-lg text-pink-500">auto_awesome</span>
+          <p className="mt-2 text-xl font-bold text-foreground">
+            {imageUsage
+              ? `${imageUsage.todayCount}/${imageUsage.dailyCap}`
+              : '---'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            AI Images today
+            {imageUsage && (
+              <span className="ml-1 text-foreground/60">
+                · {imageUsage.monthCount.toLocaleString()} this month
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
+      {/* AI Image Activity — only renders when the merchant has at least
+          one image event in the current month. Keeps the page calm for
+          merchants who haven't enabled the product designer yet. */}
+      {imageUsage && imageUsage.recentEvents.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <span className="material-icons text-base text-pink-500">
+                auto_awesome
+              </span>
+              <h2 className="text-sm font-semibold text-foreground">
+                AI Image Generations
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                Today:{' '}
+                <span className="font-medium text-foreground">
+                  {imageUsage.todayCount}
+                </span>
+                <span className="text-foreground/50">
+                  {' '}
+                  / {imageUsage.dailyCap}
+                </span>
+              </span>
+              <span>
+                Per design cap:{' '}
+                <span className="font-medium text-foreground">
+                  {imageUsage.perDesignCap}
+                </span>
+              </span>
+              <span>
+                This month:{' '}
+                <span className="font-medium text-foreground">
+                  {imageUsage.monthCount}
+                </span>
+              </span>
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {imageUsage.recentEvents.slice(0, 8).map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-center justify-between px-5 py-2 text-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-icons text-sm text-muted-foreground">
+                    image
+                  </span>
+                  <span className="text-foreground">
+                    {ev.amount} image{ev.amount === 1 ? '' : 's'} generated
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                      ev.source === 'byok'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                    }`}
+                    title={
+                      ev.source === 'byok'
+                        ? 'Billed to your own OpenAI key'
+                        : 'Billed against the platform plan'
+                    }
+                  >
+                    {ev.source === 'byok' ? 'BYOK' : 'platform'}
+                  </span>
+                </div>
+                <span className="text-muted-foreground">
+                  {relativeTime(ev.recordedAt)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Token Receipts */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="material-icons text-base text-primary">receipt_long</span>
             <h2 className="text-sm font-semibold text-foreground">Token Receipts</h2>
@@ -288,7 +394,7 @@ export default function AISettingsPage() {
 
       {/* Request Log */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Request Log</h2>
           <div className="flex items-center gap-1 bg-accent rounded-lg p-0.5">
             {([

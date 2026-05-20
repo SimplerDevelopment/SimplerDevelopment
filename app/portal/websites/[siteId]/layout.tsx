@@ -1,9 +1,9 @@
 import { db } from '@/lib/db';
 import { clientWebsites } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
-import { getPortalClient } from '@/lib/portal-client';
+import { getPortalClients } from '@/lib/portal-client';
 import { WebsiteSubNav } from '@/components/portal/WebsiteSubNav';
 
 interface LayoutProps {
@@ -24,8 +24,8 @@ export default async function WebsiteLayout({ children, params }: LayoutProps) {
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
 
-  const client = await getPortalClient(parseInt(session.user.id, 10));
-  if (!client) redirect('/portal/dashboard');
+  const accessibleClients = await getPortalClients(parseInt(session.user.id, 10));
+  if (accessibleClients.length === 0) redirect('/portal/dashboard');
 
   const [site] = await db
     .select({
@@ -36,7 +36,15 @@ export default async function WebsiteLayout({ children, params }: LayoutProps) {
       vercelDomain: clientWebsites.vercelDomain,
     })
     .from(clientWebsites)
-    .where(and(eq(clientWebsites.id, id), eq(clientWebsites.clientId, client.id)))
+    .where(
+      and(
+        eq(clientWebsites.id, id),
+        inArray(
+          clientWebsites.clientId,
+          accessibleClients.map((client) => client.id),
+        ),
+      ),
+    )
     .limit(1);
   if (!site) notFound();
 

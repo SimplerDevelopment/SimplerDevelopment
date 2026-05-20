@@ -32,9 +32,13 @@ async function seedCardWithComment(client: TenantCtx, opts?: { authorId?: number
   const author = opts?.authorId ?? client.user.id;
 
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('CommentTest project', ${client.client.id}, 'active', true, ${client.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('CommentTest project', ${client.client.id}, 'active', ${client.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${client.user.id}, 'owner')
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")

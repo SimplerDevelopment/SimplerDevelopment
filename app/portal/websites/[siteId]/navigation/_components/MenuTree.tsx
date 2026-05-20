@@ -18,6 +18,9 @@ interface Props {
   onAddTopLevel: () => void;
   onAddChild: (parentId: number) => void;
   onAddMegaItem: (columnId: number) => void;
+  onPublishItem: (id: number) => void;
+  onPublishAll: () => void;
+  onCancelDelete: (id: number) => void;
 }
 
 export function MenuTree({
@@ -32,15 +35,49 @@ export function MenuTree({
   onAddTopLevel,
   onAddChild,
   onAddMegaItem,
+  onPublishItem,
+  onPublishAll,
+  onCancelDelete,
 }: Props) {
   const tops = topLevel(items);
+  const draftCount = items.filter((i) => i.draft != null).length;
 
   const toggleEdit = (id: number) => {
     onSetEditingId(editingId === id ? null : id);
   };
 
+  const handlePublishAll = () => {
+    if (draftCount === 0) return;
+    if (
+      !confirm(
+        `Publish ${draftCount} draft nav change${draftCount === 1 ? '' : 's'}? This will make them live on the public site.`,
+      )
+    ) {
+      return;
+    }
+    onPublishAll();
+  };
+
   return (
     <div className="p-4 space-y-2">
+      {draftCount > 0 && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+          <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+            <span className="material-icons text-base">edit_note</span>
+            <span>
+              {draftCount} unpublished change{draftCount === 1 ? '' : 's'}
+            </span>
+          </div>
+          <button
+            onClick={handlePublishAll}
+            className="px-3 py-1 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center gap-1"
+            title="Publish every nav draft for this site"
+          >
+            <span className="material-icons text-sm">publish</span>
+            Publish all drafts
+          </button>
+        </div>
+      )}
       {tops.map((item) => (
         <div key={item.id}>
           {/* Level 0: Nav Link */}
@@ -53,6 +90,8 @@ export function MenuTree({
             onMoveUp={() => onMove(item.id, -1)}
             onMoveDown={() => onMove(item.id, 1)}
             onAddChild={() => onAddChild(item.id)}
+            onPublish={() => onPublishItem(item.id)}
+            onCancelDelete={() => onCancelDelete(item.id)}
             depth={0}
             isMegaMenu={isMegaMenu}
             siteId={siteId}
@@ -69,6 +108,8 @@ export function MenuTree({
                 onMoveUp={() => onMove(child.id, -1)}
                 onMoveDown={() => onMove(child.id, 1)}
                 onAddChild={isMegaMenu ? () => onAddMegaItem(child.id) : undefined}
+                onPublish={() => onPublishItem(child.id)}
+                onCancelDelete={() => onCancelDelete(child.id)}
                 depth={1}
                 isMegaMenu={isMegaMenu}
                 siteId={siteId}
@@ -85,6 +126,8 @@ export function MenuTree({
                     onRemove={() => onRemove(megaItem.id)}
                     onMoveUp={() => onMove(megaItem.id, -1)}
                     onMoveDown={() => onMove(megaItem.id, 1)}
+                    onPublish={() => onPublishItem(megaItem.id)}
+                    onCancelDelete={() => onCancelDelete(megaItem.id)}
                     depth={2}
                     isMegaMenu={isMegaMenu}
                     siteId={siteId}

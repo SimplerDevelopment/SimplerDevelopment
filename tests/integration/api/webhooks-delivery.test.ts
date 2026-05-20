@@ -27,8 +27,12 @@ import { startWebhookSink, waitUntil, type WebhookSink } from '../../helpers/web
 async function createProject(clientId: number, userId: number): Promise<number> {
   const sql = getTestSql();
   const [p] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('Webhook test project', ${clientId}, 'active', true, ${userId}) RETURNING id
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('Webhook test project', ${clientId}, 'active', ${userId}) RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${p.id}, ${userId}, 'owner')
   `;
   return p.id;
 }

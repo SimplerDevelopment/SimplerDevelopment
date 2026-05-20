@@ -9,8 +9,8 @@ import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
 import { getBrandingByProfileId, getBrandingByClientId } from '@/lib/branding';
 import type { Metadata } from 'next';
-import PitchDeckPresentation from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
-import type { SurveyDataForDeck } from '@/app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation';
+import PitchDeckPresentation from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
+import type { SurveyDataForDeck } from '@/app/sites/[domain]/slides/[slug]/PitchDeckPresentation';
 
 /** Convert v1 slides on read if needed */
 function resolveSlides(raw: unknown, theme: PitchDeckTheme): PitchDeckSlideV2[] {

@@ -109,9 +109,13 @@ describe('Tenancy @tenancy @security', () => {
       const sql = getTestSql();
       // Seed B's project → column → card → file
       const [projB] = await sql<{ id: number }[]>`
-        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-        VALUES ('B project', ${B.client.id}, 'active', true, ${B.user.id})
+        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+        VALUES ('B project', ${B.client.id}, 'active', ${B.user.id})
         RETURNING id
+      `;
+      await sql`
+        INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+        VALUES (${projB.id}, ${B.user.id}, 'owner')
       `;
       const [colB] = await sql<{ id: number }[]>`
         INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
@@ -153,8 +157,12 @@ describe('Tenancy @tenancy @security', () => {
     it('tenant A cannot delete B\'s card file via cross-tenant IDs', async () => {
       const sql = getTestSql();
       const [projB] = await sql<{ id: number }[]>`
-        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-        VALUES ('B project', ${B.client.id}, 'active', true, ${B.user.id}) RETURNING id
+        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+        VALUES ('B project', ${B.client.id}, 'active', ${B.user.id}) RETURNING id
+      `;
+      await sql`
+        INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+        VALUES (${projB.id}, ${B.user.id}, 'owner')
       `;
       const [colB] = await sql<{ id: number }[]>`
         INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
@@ -191,8 +199,12 @@ describe('Tenancy @tenancy @security', () => {
     it('tenant A cannot delete B\'s card comment via cross-tenant IDs', async () => {
       const sql = getTestSql();
       const [projB] = await sql<{ id: number }[]>`
-        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-        VALUES ('B project', ${B.client.id}, 'active', true, ${B.user.id}) RETURNING id
+        INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+        VALUES ('B project', ${B.client.id}, 'active', ${B.user.id}) RETURNING id
+      `;
+      await sql`
+        INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+        VALUES (${projB.id}, ${B.user.id}, 'owner')
       `;
       const [colB] = await sql<{ id: number }[]>`
         INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")

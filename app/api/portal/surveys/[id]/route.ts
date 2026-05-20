@@ -64,6 +64,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.redirectUrl !== undefined) updates.redirectUrl = body.redirectUrl || null;
   if (body.allowMultiple !== undefined) updates.allowMultiple = body.allowMultiple;
   if (body.requireEmail !== undefined) updates.requireEmail = body.requireEmail;
+  if (body.publishResults !== undefined) updates.publishResults = !!body.publishResults;
+  if (body.certificateEnabled !== undefined) updates.certificateEnabled = !!body.certificateEnabled;
+  // DIST-02: opt-in gate field. Accepts null (no consent gate beyond email
+  // presence) or a string field id from the survey schema. The cron worker
+  // verifies the field actually exists at send time, so we don't reject
+  // unknown field ids here — they just result in no sends, which is the
+  // safer default.
+  if (body.consentField !== undefined) {
+    updates.consentField =
+      typeof body.consentField === 'string' && body.consentField.trim()
+        ? body.consentField.trim().slice(0, 64)
+        : null;
+  }
   if (body.notifyOnResponse !== undefined) updates.notifyOnResponse = body.notifyOnResponse;
   if (body.notifyDigest !== undefined) updates.notifyDigest = body.notifyDigest;
   if (body.closesAt !== undefined) updates.closesAt = body.closesAt ? new Date(body.closesAt) : null;
@@ -72,6 +85,44 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.linkedId !== undefined) updates.linkedId = body.linkedId || null;
   if (body.styling !== undefined) updates.styling = body.styling;
   if (body.recommendation !== undefined) updates.recommendation = body.recommendation;
+  // SCORE-02: survey-level scoring config (auto-route-to-CRM rules). Null is
+  // allowed (= clear the config). When `autoRouteToCrm.enabled` is true the
+  // pipeline/stage IDs and minScore must be numbers — reject otherwise so a
+  // misconfigured PATCH can't land an enabled-but-unroutable rule.
+  if (body.scoringConfig !== undefined) {
+    const sc = body.scoringConfig;
+    if (sc === null) {
+      updates.scoringConfig = null;
+    } else if (typeof sc !== 'object') {
+      return NextResponse.json({ success: false, message: 'scoringConfig must be an object or null' }, { status: 400 });
+    } else {
+      const route = (sc as { autoRouteToCrm?: unknown }).autoRouteToCrm;
+      if (route && typeof route === 'object') {
+        const r = route as { enabled?: unknown; minScore?: unknown; pipelineId?: unknown; stageId?: unknown };
+        if (r.enabled === true) {
+          if (typeof r.pipelineId !== 'number' || !Number.isFinite(r.pipelineId)) {
+            return NextResponse.json(
+              { success: false, message: 'autoRouteToCrm.pipelineId must be a number when enabled' },
+              { status: 400 },
+            );
+          }
+          if (typeof r.stageId !== 'number' || !Number.isFinite(r.stageId)) {
+            return NextResponse.json(
+              { success: false, message: 'autoRouteToCrm.stageId must be a number when enabled' },
+              { status: 400 },
+            );
+          }
+          if (typeof r.minScore !== 'number' || !Number.isFinite(r.minScore)) {
+            return NextResponse.json(
+              { success: false, message: 'autoRouteToCrm.minScore must be a number when enabled' },
+              { status: 400 },
+            );
+          }
+        }
+      }
+      updates.scoringConfig = sc;
+    }
+  }
 
   const [updated] = await db
     .update(surveys)

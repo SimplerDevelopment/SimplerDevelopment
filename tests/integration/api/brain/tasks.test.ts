@@ -43,9 +43,13 @@ async function seedTask(ctx: TenantCtx, overrides: { title?: string } = {}): Pro
 async function seedKanbanProject(ctx: TenantCtx): Promise<{ projectId: number; columnId: number }> {
   const sql = getTestSql();
   const [project] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES (${`pj-${Date.now()}`}, ${ctx.client.id}, 'active', true, ${ctx.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES (${`pj-${Date.now()}`}, ${ctx.client.id}, 'active', ${ctx.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${project.id}, ${ctx.user.id}, 'owner')
   `;
   const [column] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order", is_done)

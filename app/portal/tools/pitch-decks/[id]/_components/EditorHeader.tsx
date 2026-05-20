@@ -14,6 +14,13 @@ export interface EditorHeaderProps {
   editingSlug: boolean;
   slugDraft: string;
   slugError: string | null;
+  /**
+   * Count of slides on the deck that currently have a `draft` overlay. When
+   * > 0 the header shows a "Publish all drafts" button next to Save.
+   */
+  draftSlideCount?: number;
+  /** True while the publish-all request is in flight. */
+  publishingAllDrafts?: boolean;
   onStartEditTitle: () => void;
   onTitleDraftChange: (v: string) => void;
   onSaveTitle: () => void;
@@ -28,8 +35,10 @@ export interface EditorHeaderProps {
   onToggleSeo: () => void;
   onSave: () => void;
   onTogglePublish: () => void;
+  onPublishAllDrafts?: () => void;
   onPresent: () => void;
   onDelete: () => void;
+  onStartAbTest?: () => void;
   presenterUrl: string;
 }
 
@@ -37,22 +46,25 @@ export function EditorHeader(props: EditorHeaderProps) {
   const {
     deck, saving, publishing, hasUnsavedChanges,
     editingTitle, titleDraft, editingSlug, slugDraft, slugError,
+    draftSlideCount = 0, publishingAllDrafts = false,
     onStartEditTitle, onTitleDraftChange, onSaveTitle, onCancelEditTitle,
     onStartEditSlug, onSlugDraftChange, onSaveSlug, onCancelEditSlug,
     onToggleTheme, onToggleRegenerate, onToggleHistory, onToggleSeo, onSave, onTogglePublish,
-    onPresent, onDelete, presenterUrl,
+    onPublishAllDrafts,
+    onPresent, onDelete, onStartAbTest, presenterUrl,
   } = props;
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      {/* Title cluster: own row below md, shares row with actions on md+ */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 md:flex-1">
         <Link
           href="/portal/tools/pitch-decks"
-          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
         >
           <span className="material-icons">arrow_back</span>
         </Link>
-        <div>
+        <div className="min-w-0 flex-1">
           {editingTitle ? (
             <input
               autoFocus
@@ -60,11 +72,11 @@ export function EditorHeader(props: EditorHeaderProps) {
               onChange={(e) => onTitleDraftChange(e.target.value)}
               onBlur={onSaveTitle}
               onKeyDown={(e) => { if (e.key === 'Enter') onSaveTitle(); if (e.key === 'Escape') onCancelEditTitle(); }}
-              className="text-xl font-bold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
+              className="text-lg sm:text-xl font-bold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
             />
           ) : (
             <h1
-              className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+              className="text-lg sm:text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors truncate"
               onClick={onStartEditTitle}
               title="Click to edit title"
             >
@@ -132,36 +144,43 @@ export function EditorHeader(props: EditorHeaderProps) {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      {/* Action cluster.
+          Phone (<md): keep Save / Publish-drafts / Publish visible, push the rest into the overflow menu.
+          Tablet+ (md): everything visible inline; flex-wrap lets buttons reflow on narrower desktops.
+          `md:min-w-0 md:max-w-[70%]` keeps the action cluster from stealing all the row's width and squeezing the title to nothing on wide-but-not-huge desktops. */}
+      <div className="flex items-center gap-2 flex-wrap justify-end md:min-w-0 md:max-w-[70%]">
+        {/* Secondary toggles — hidden below md, surfaced via overflow menu instead */}
         <button
           onClick={onToggleTheme}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <span className="material-icons text-base">palette</span>
           Theme
         </button>
         <button
           onClick={onToggleRegenerate}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <span className="material-icons text-base">auto_awesome</span>
           Regenerate
         </button>
         <button
           onClick={onToggleHistory}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <span className="material-icons text-base">history</span>
           History
         </button>
         <button
           onClick={onToggleSeo}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           title="SEO settings (title, description, OG image, canonical, noindex)"
         >
           <span className="material-icons text-base">search</span>
           SEO
         </button>
+
+        {/* Save — always visible. Label hides on phone (icon-only). */}
         <button
           onClick={onSave}
           disabled={saving || !hasUnsavedChanges}
@@ -176,24 +195,73 @@ export function EditorHeader(props: EditorHeaderProps) {
           ) : (
             <span className="material-icons text-base">save</span>
           )}
-          {saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}
+          <span className="hidden sm:inline">{saving ? 'Saving...' : hasUnsavedChanges ? 'Update' : 'Saved'}</span>
         </button>
+
+        {/* Publish-all-drafts — always visible when there are drafts (high-signal action) */}
+        {onPublishAllDrafts && (
+          <button
+            onClick={onPublishAllDrafts}
+            disabled={publishingAllDrafts || draftSlideCount === 0}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-all disabled:opacity-40 ${
+              draftSlideCount > 0
+                ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-sm'
+                : 'border border-border text-muted-foreground hidden sm:inline-flex'
+            }`}
+            title={
+              draftSlideCount === 0
+                ? 'No draft slides to publish'
+                : `Publish ${draftSlideCount} draft slide${draftSlideCount === 1 ? '' : 's'} to make them live`
+            }
+          >
+            {publishingAllDrafts ? (
+              <span className="material-icons animate-spin text-base">autorenew</span>
+            ) : (
+              <span className="material-icons text-base">edit_note</span>
+            )}
+            <span className="hidden sm:inline">
+              {publishingAllDrafts
+                ? 'Publishing...'
+                : draftSlideCount > 0
+                  ? `Publish ${draftSlideCount} draft${draftSlideCount === 1 ? '' : 's'}`
+                  : 'No drafts'}
+            </span>
+            {/* Phone-only compact count */}
+            {!publishingAllDrafts && draftSlideCount > 0 && (
+              <span className="sm:hidden">{draftSlideCount}</span>
+            )}
+          </button>
+        )}
+
+        {/* Preview/Present/A-B — desktop only inline; phone reaches via overflow */}
         <Link
           href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
           target="_blank"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <span className="material-icons text-base">{deck.status === 'published' ? 'open_in_new' : 'visibility'}</span>
           {deck.status === 'published' ? 'View Live' : 'Preview'}
         </Link>
         <button
           onClick={onPresent}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           title={`Open presenter view (${presenterUrl})`}
         >
           <span className="material-icons text-base">co_present</span>
           Present
         </button>
+        {onStartAbTest && (
+          <button
+            onClick={onStartAbTest}
+            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="Start an A/B test for this deck"
+          >
+            <span className="material-icons text-base">science</span>
+            A/B test
+          </button>
+        )}
+
+        {/* Publish status toggle — always visible. Icon-only on phone. */}
         <button
           onClick={onTogglePublish}
           disabled={publishing || deck.slides.length === 0}
@@ -206,15 +274,59 @@ export function EditorHeader(props: EditorHeaderProps) {
           <span className="material-icons text-base">
             {deck.status === 'published' ? 'unpublished' : 'publish'}
           </span>
-          {deck.status === 'published' ? 'Unpublish' : 'Publish'}
+          <span className="hidden sm:inline">{deck.status === 'published' ? 'Unpublish' : 'Publish'}</span>
         </button>
+
+        {/* Delete — desktop inline; phone reaches via overflow */}
         <button
           onClick={onDelete}
-          className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
+          className="hidden md:inline-flex p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
           title="Delete deck"
         >
           <span className="material-icons text-base">delete</span>
         </button>
+
+        {/* Mobile-only overflow menu — kebab opens a small panel with everything that's md:hidden above. */}
+        <details className="md:hidden relative">
+          <summary className="list-none p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer [&::-webkit-details-marker]:hidden">
+            <span className="material-icons">more_vert</span>
+          </summary>
+          <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+            <button onClick={onToggleTheme} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+              <span className="material-icons text-base">palette</span>Theme
+            </button>
+            <button onClick={onToggleRegenerate} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+              <span className="material-icons text-base">auto_awesome</span>Regenerate
+            </button>
+            <button onClick={onToggleHistory} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+              <span className="material-icons text-base">history</span>History
+            </button>
+            <button onClick={onToggleSeo} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+              <span className="material-icons text-base">search</span>SEO
+            </button>
+            <div className="h-px bg-border" />
+            <Link
+              href={`/slides/${deck.slug}${deck.status !== 'published' ? '?preview=1' : ''}`}
+              target="_blank"
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2"
+            >
+              <span className="material-icons text-base">{deck.status === 'published' ? 'open_in_new' : 'visibility'}</span>
+              {deck.status === 'published' ? 'View Live' : 'Preview'}
+            </Link>
+            <button onClick={onPresent} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+              <span className="material-icons text-base">co_present</span>Present
+            </button>
+            {onStartAbTest && (
+              <button onClick={onStartAbTest} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2">
+                <span className="material-icons text-base">science</span>A/B test
+              </button>
+            )}
+            <div className="h-px bg-border" />
+            <button onClick={onDelete} className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent flex items-center gap-2 text-red-600 dark:text-red-400">
+              <span className="material-icons text-base">delete</span>Delete deck
+            </button>
+          </div>
+        </details>
       </div>
     </div>
   );

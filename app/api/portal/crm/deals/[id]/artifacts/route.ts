@@ -12,8 +12,9 @@ import {
   bookingPages,
   surveys,
   projects,
+  brainNotes,
 } from '@/lib/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { and, eq, desc, isNull } from 'drizzle-orm';
 
 const ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
   website: { table: clientWebsites, titleField: 'name' },
@@ -23,6 +24,7 @@ const ARTIFACT_TABLES: Record<string, { table: any; titleField: string }> = {
   booking: { table: bookingPages, titleField: 'title' },
   survey: { table: surveys, titleField: 'title' },
   project: { table: projects, titleField: 'name' },
+  brain_note: { table: brainNotes, titleField: 'title' },
 };
 
 async function getAuthedDeal(dealId: number) {
@@ -80,10 +82,14 @@ export async function POST(
   // Look up the display title from the source table; enforce tenant ownership
   // so a caller can't attach another client's artifact to their deal.
   const config = ARTIFACT_TABLES[artifactType];
+  const baseWhere = and(eq(config.table.id, artifactId), eq(config.table.clientId, result.client.id));
+  const finalWhere = artifactType === 'brain_note'
+    ? and(baseWhere, isNull(brainNotes.deletedAt))
+    : baseWhere;
   const [source] = await db
     .select({ title: config.table[config.titleField] })
     .from(config.table)
-    .where(and(eq(config.table.id, artifactId), eq(config.table.clientId, result.client.id)));
+    .where(finalWhere);
   if (!source) {
     return NextResponse.json({ success: false, message: 'Artifact not found' }, { status: 404 });
   }

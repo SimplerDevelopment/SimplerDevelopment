@@ -6,6 +6,8 @@ import { getPortalClient } from '@/lib/portal-client';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
+import { canUserEditProject } from '@/lib/portal/project-access';
+import { recordCardAddedToSprint, recordCardRemovedFromSprint } from '@/lib/portal/sprint-snapshots';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -30,7 +32,7 @@ async function authorizeCard(cardId: number, session: any): Promise<{ card: type
     .limit(1);
   if (!proj) return null;
 
-  return { card, canEdit: proj.isPrivate };
+  return { card, canEdit: await canUserEditProject(userId, proj.id) };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -201,6 +203,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.priority !== undefined) updates.priority = body.priority;
   if (body.dueDate !== undefined) updates.dueDate = body.dueDate ? new Date(body.dueDate) : null;
   if (body.sprintId !== undefined) updates.sprintId = body.sprintId ?? null;
+  if (body.storyPoints !== undefined) {
+    const v = body.storyPoints;
+    updates.storyPoints = (v === null || v === '') ? null : Number(v);
+  }
+  if (body.cardType !== undefined && ['task', 'story', 'epic', 'bug', 'spike'].includes(body.cardType)) {
+    updates.cardType = body.cardType;
+  }
+  if (body.parentCardId !== undefined) updates.parentCardId = body.parentCardId ?? null;
+  if (body.workflowState !== undefined && ['todo', 'in_progress', 'in_review', 'done', 'canceled'].includes(body.workflowState)) {
+    updates.workflowState = body.workflowState;
+  }
 
   const [card] = await db.update(kanbanCards).set(updates).where(eq(kanbanCards.id, cardId)).returning();
   if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
@@ -240,6 +253,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   if (body.sprintId !== undefined && (body.sprintId ?? null) !== before.sprintId) {
     await logCardActivity(cardId, actorId, 'card.sprint_changed', { from: before.sprintId, to: card.sprintId });
+    if (before.sprintId) await recordCardRemovedFromSprint(cardId, before.sprintId, actorId);
+    if (card.sprintId) await recordCardAddedToSprint(cardId, card.sprintId, actorId);
+  }
+  if (body.storyPoints !== undefined && (card.storyPoints ?? null) !== (before.storyPoints ?? null)) {
+    await logCardActivity(cardId, actorId, 'card.story_points_changed', { from: before.storyPoints ?? null, to: card.storyPoints ?? null });
+  }
+  if (body.cardType !== undefined && card.cardType !== before.cardType) {
+    await logCardActivity(cardId, actorId, 'card.type_changed', { from: before.cardType, to: card.cardType });
+  }
+  if (body.parentCardId !== undefined && (card.parentCardId ?? null) !== (before.parentCardId ?? null)) {
+    await logCardActivity(cardId, actorId, 'card.parent_changed', { from: before.parentCardId ?? null, to: card.parentCardId ?? null });
+  }
+  if (body.workflowState !== undefined && card.workflowState !== before.workflowState) {
+    await logCardActivity(cardId, actorId, 'card.workflow_state_changed', { from: before.workflowState, to: card.workflowState });
   }
 
   return NextResponse.json({ success: true, data: card });

@@ -138,12 +138,26 @@ export const clientWebsites = pgTable('client_websites', {
   logApiKey: varchar('log_api_key', { length: 64 }), // secret key for request log ingestion
   customLayout: boolean('custom_layout').default(false).notNull(), // true = site blocks handle nav/footer, skip default layout chrome
   publicAccess: boolean('public_access').default(false).notNull(), // false = gated (noindex, coming-soon wall); admin must enable
+  // Preview access code — a marketing/share code (e.g. "ACME-2026"). When a
+  // visitor enters this code on simplerdevelopment.com's home page they
+  // receive a signed cookie that lets them bypass the publicAccess gate on
+  // this specific site, even before the site is flagged public. NULL means
+  // no code is set and the site cannot be unlocked this way.
+  previewCode: varchar('preview_code', { length: 64 }).unique(),
   brandingProfileId: integer('branding_profile_id'), // FK to branding_profiles — resolved at runtime to avoid circular ref
   // Site-wide custom CSS/JS — applied to every page on this website. Cascades
   // before post-type custom code, which cascades before per-post custom code,
   // so a page can override a CPT-level rule which can override a site rule.
   customCss: text('custom_css'),
   customJs: text('custom_js'),
+  // Draft custom CSS/JS — staged but not yet live. MCP writes from
+  // `sites_update_custom_code` land here by default; the public renderer
+  // ignores these columns. `sites_publish_custom_code` copies draft → live.
+  draftCustomCss: text('draft_custom_css'),
+  draftCustomJs: text('draft_custom_js'),
+  // Timestamp of the most recent draft write; null when draft is in sync with live.
+  draftUpdatedAt: timestamp('draft_updated_at'),
+  draftUpdatedBy: integer('draft_updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -238,6 +252,46 @@ export const hostedSites = pgTable('hosted_sites', {
 
 // ─── PITCH DECKS (Tools) ─────────────────────────────────────────────────────
 
+// ─── PER-SITE TRACKING SCRIPTS ───────────────────────────────────────────────
+// Per-tenant tracking-script + verification config for a client website.
+// Exactly one row per `clientWebsites` row (1:1, unique websiteId). Column
+// names MUST match the `key` of an entry in `lib/site-tracking/providers.ts`
+// (PROVIDERS[*].key) — that file is the single source of truth for which
+// fields exist, how to label/validate them, and how to render them. Adding
+// a provider means: append to PROVIDERS, add a matching column here, regen
+// the migration, then teach `components/sites/TrackingScripts.tsx` how to
+// render it.
+//
+// `enabled` is a global kill switch for the whole row — when false the
+// public-site renderer emits nothing regardless of which IDs are filled in.
+// `customHeadHtml` / `customBodyHtml` are escape hatches for vendor tags we
+// don't have first-class support for yet; the API still strips
+// `javascript:` URLs in `normalizeTrackingValue`.
+
+export const siteTracking = pgTable('site_tracking', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
+  // Script tags (ID-style — short identifiers)
+  gaMeasurementId: varchar('ga_measurement_id', { length: 50 }),
+  gtmContainerId: varchar('gtm_container_id', { length: 50 }),
+  metaPixelId: varchar('meta_pixel_id', { length: 50 }),
+  clarityProjectId: varchar('clarity_project_id', { length: 50 }),
+  hotjarSiteId: varchar('hotjar_site_id', { length: 50 }),
+  linkedinPartnerId: varchar('linkedin_partner_id', { length: 50 }),
+  tiktokPixelId: varchar('tiktok_pixel_id', { length: 50 }),
+  // Search-engine verification meta-tag values
+  gscVerification: varchar('gsc_verification', { length: 255 }),
+  bingVerification: varchar('bing_verification', { length: 255 }),
+  pinterestVerification: varchar('pinterest_verification', { length: 255 }),
+  // Free-form HTML escape hatches (head + body injection)
+  customHeadHtml: text('custom_head_html'),
+  customBodyHtml: text('custom_body_html'),
+  // Global kill switch — when false, the renderer emits nothing for this site
+  enabled: boolean('enabled').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const googleWebsiteTokens = pgTable('google_website_tokens', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }).unique(),
@@ -257,6 +311,28 @@ export const googleWebsiteTokens = pgTable('google_website_tokens', {
 
 // Per-website store settings
 
+// Per-item draft overlay. When set, the visual editor reads `draft.*`;
+// the public renderer always ignores `draft` and reads the live columns.
+// `nav_publish` copies draft → live and clears draft.
+// `pendingDelete` is a tombstone — set when a delete is staged but not yet
+// published; the renderer still shows the item until publish.
+export interface SiteNavigationDraft {
+  label?: string;
+  href?: string;
+  parentId?: number | null;
+  sortOrder?: number;
+  openInNewTab?: boolean;
+  isButton?: boolean;
+  description?: string | null;
+  icon?: string | null;
+  featuredImage?: string | null;
+  columnGroup?: number | null;
+  pendingDelete?: boolean;
+  pendingCreate?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
+}
+
 export const siteNavigation = pgTable('site_navigation', {
   id: serial('id').primaryKey(),
   websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
@@ -271,6 +347,7 @@ export const siteNavigation = pgTable('site_navigation', {
   icon: varchar('icon', { length: 100 }),
   featuredImage: varchar('featured_image', { length: 500 }),
   columnGroup: integer('column_group'),
+  draft: json('draft').$type<SiteNavigationDraft | null>(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

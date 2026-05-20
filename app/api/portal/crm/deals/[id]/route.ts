@@ -134,6 +134,24 @@ export async function PUT(
 
   const body = await req.json();
 
+  // Reject negative deal value / recurringValue (allow 0 and null).
+  if (body.value !== undefined && body.value !== null && Number(body.value) < 0) {
+    return NextResponse.json(
+      { success: false, error: 'value must be >= 0' },
+      { status: 400 }
+    );
+  }
+  if (
+    body.recurringValue !== undefined &&
+    body.recurringValue !== null &&
+    Number(body.recurringValue) < 0
+  ) {
+    return NextResponse.json(
+      { success: false, error: 'recurringValue must be >= 0' },
+      { status: 400 }
+    );
+  }
+
   // Validate every foreign key supplied in the body belongs to this client.
   // Without these checks an attacker can point a deal at another tenant's
   // stage / pipeline / contact / company / owner via mass-assignment.

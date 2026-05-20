@@ -6,6 +6,7 @@ import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { renderBlocksToEmailHtml } from '@/lib/email';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
@@ -29,6 +30,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.blockContent?.blocks) {
       updates.htmlContent = renderBlocksToEmailHtml(body.blockContent.blocks);
     }
+  }
+  // Sanitize whichever htmlContent value will be persisted (raw user HTML
+  // or freshly rendered block HTML) — strip scripts/iframes/event handlers
+  // before it can be served back into a preview iframe or outbound email.
+  if (typeof updates.htmlContent === 'string' && updates.htmlContent) {
+    updates.htmlContent = sanitizeRichHtml(updates.htmlContent);
   }
 
   const [updated] = await db.update(emailTemplates)

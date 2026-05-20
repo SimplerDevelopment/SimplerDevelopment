@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { surveys, surveyResponses } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { surveys, surveyResponses, surveyVariants, surveyPartialResponses, crmDeals } from '@/lib/db/schema';
+import { and, eq, sql } from 'drizzle-orm';
 import { emitEvent } from '@/lib/automation';
 import { headers } from 'next/headers';
 import { getBrandingBySurveySlug, brandingToCssVars } from '@/lib/branding';
 import { dispatchSurveyResponseWebhooks } from '@/lib/survey-webhooks/dispatcher';
+import { ensureVisitorId } from '@/lib/ab/visitor';
+import { assignSurveyVariant } from '@/lib/surveys/variant-assign';
+import { computeSurveyScore } from '@/lib/surveys/score';
+import type { SurveyFieldDef } from '@/lib/db/schema/surveys';
+import { assertPipelineInClient, assertStageInClient } from '@/lib/security/assert-owned';
 
 // CORS — public survey submit needs to accept POST from sandboxed iframes
 // (their effective origin is `null`, so `*` matches). The endpoint is
@@ -44,6 +49,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       color: surveys.color,
       status: surveys.status,
       requireEmail: surveys.requireEmail,
+      // PDF-01: surfaced to the public form so it knows whether to render
+      // the "Download Certificate" CTA on the thank-you screen.
+      certificateEnabled: surveys.certificateEnabled,
       closesAt: surveys.closesAt,
       maxResponses: surveys.maxResponses,
       responseCount: surveys.responseCount,
@@ -64,10 +72,40 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const branding = await getBrandingBySurveySlug(slug);
   const cssVars = branding ? brandingToCssVars(branding) : undefined;
 
+  // Fork field set by enabled variant when present. The picker is deterministic
+  // on `surveyId:visitorId`, so a returning visitor always sees the same form.
+  // Falls back to `surveys.fields` when no variants exist or none are enabled.
+  const variants = await db
+    .select({
+      id: surveyVariants.id,
+      name: surveyVariants.name,
+      fields: surveyVariants.fields,
+      weight: surveyVariants.weight,
+      enabled: surveyVariants.enabled,
+    })
+    .from(surveyVariants)
+    .where(eq(surveyVariants.surveyId, survey.id));
+
+  let pickedFields = survey.fields;
+  let variantId: number | null = null;
+  let variantName: string | null = null;
+  if (variants.some((v) => v.enabled && v.weight > 0)) {
+    const visitor = await ensureVisitorId();
+    const picked = assignSurveyVariant(survey.id, visitor.id, variants);
+    if (picked) {
+      pickedFields = picked.fields;
+      variantId = picked.id;
+      variantName = picked.name;
+    }
+  }
+
   return corsJson({
     success: true,
     data: {
       ...survey,
+      fields: pickedFields,
+      variantId,
+      variantName,
       branding: branding ? {
         primaryColor: branding.primaryColor,
         secondaryColor: branding.secondaryColor,
@@ -95,8 +133,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   if (survey.closesAt && new Date(survey.closesAt) < new Date()) return corsJson({ success: false, message: 'Survey is closed' }, { status: 403 });
   if (survey.maxResponses && survey.responseCount >= survey.maxResponses) return corsJson({ success: false, message: 'Survey has reached maximum responses' }, { status: 403 });
 
-  const { answers, email, name, source, sourceId, formName } = await req.json();
+  const { answers, email, name, source, sourceId, formName, variantId, sessionId } = await req.json();
   if (!answers || typeof answers !== 'object') return corsJson({ success: false, message: 'Answers are required' }, { status: 400 });
+
+  // Optional RESP-02 partial-session handle. Length-bounded + charset-restricted
+  // here too because anything wider than 64 chars or off-whitelist would never
+  // match a real partial row (same validation as the /partial route).
+  const trimmedSessionId =
+    typeof sessionId === 'string' && sessionId.trim().length > 0 && sessionId.trim().length <= 64 && /^[A-Za-z0-9_.\-]+$/.test(sessionId.trim())
+      ? sessionId.trim()
+      : null;
+
+  // Validate variantId — must belong to this survey if provided. Reject
+  // mismatches so a tampered client can't spray responses across surveys via
+  // an unrelated variant id.
+  let resolvedVariantId: number | null = null;
+  if (variantId !== undefined && variantId !== null) {
+    const parsed = typeof variantId === 'number' ? variantId : parseInt(String(variantId), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return corsJson({ success: false, message: 'Invalid variantId' }, { status: 400 });
+    }
+    const [variant] = await db.select({ id: surveyVariants.id })
+      .from(surveyVariants)
+      .where(and(eq(surveyVariants.id, parsed), eq(surveyVariants.surveyId, survey.id)))
+      .limit(1);
+    if (variant) resolvedVariantId = variant.id;
+    // Silently drop unknown variantIds — the variant may have been deleted
+    // mid-session. Better to record the response with `variantId=null` than
+    // 400 the visitor.
+  }
 
   // formName is required so the dashboard can segment custom-form submissions
   // from structured-survey submissions on the same survey row.
@@ -112,10 +177,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     return corsJson({ success: false, message: 'Email is required' }, { status: 400 });
   }
 
-  // Validate required fields against the survey's structured schema. Custom-
-  // form submissions skip this — when the survey has no schema, the payload
-  // shape is opaque to us, so we trust the caller and store as-is.
-  const fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
+  // Validate required fields against the survey's structured schema. When a
+  // variant is in play, validate against the variant's field set instead so a
+  // visitor who saw variant B isn't rejected for missing variant A's fields.
+  // Custom-form submissions skip this — when the survey has no schema, the
+  // payload shape is opaque to us, so we trust the caller and store as-is.
+  let fields = (survey.fields || []) as { id: string; required: boolean; label: string; type: string }[];
+  if (resolvedVariantId !== null) {
+    const [variantRow] = await db.select({ fields: surveyVariants.fields })
+      .from(surveyVariants)
+      .where(eq(surveyVariants.id, resolvedVariantId))
+      .limit(1);
+    if (variantRow?.fields && Array.isArray(variantRow.fields) && variantRow.fields.length > 0) {
+      fields = variantRow.fields as typeof fields;
+    }
+  }
   if (fields.length > 0) {
     for (const field of fields) {
       if (field.required && field.type !== 'heading') {
@@ -130,6 +206,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const hdrs = await headers();
   const ip = hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() || hdrs.get('x-real-ip') || null;
   const ua = hdrs.get('user-agent') || null;
+
+  // SCORE-01: compute the response score against the served field set
+  // BEFORE the transaction so we can persist it alongside the insert.
+  // `computeSurveyScore` returns null when no field has a scoring rule —
+  // in that case we want to write NULL (not 0) so consumers can tell
+  // "unscorable survey" apart from "scored zero".
+  const computedScore = computeSurveyScore(
+    fields as unknown as SurveyFieldDef[],
+    answers as Record<string, unknown>,
+  );
 
   // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
   // the transaction. Under extreme concurrency at exactly max capacity, two requests could
@@ -147,12 +233,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       ipAddress: ip,
       userAgent: ua,
       completedAt: new Date(),
+      variantId: resolvedVariantId,
+      score: computedScore,
     }).returning();
 
     await tx
       .update(surveys)
       .set({ responseCount: sql`${surveys.responseCount} + 1`, updatedAt: new Date() })
       .where(eq(surveys.id, survey.id));
+
+    // RESP-02: close out the partial-response row so a returning visitor on
+    // the same browser sees a fresh form, not their already-submitted state.
+    // No-op when no partial was ever saved for this session.
+    if (trimmedSessionId) {
+      await tx
+        .update(surveyPartialResponses)
+        .set({ completed: true, updatedAt: new Date() })
+        .where(
+          and(
+            eq(surveyPartialResponses.surveyId, survey.id),
+            eq(surveyPartialResponses.sessionId, trimmedSessionId),
+          ),
+        );
+    }
 
     return [inserted];
   });
@@ -181,12 +284,58 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     }).catch((err) => console.error('[survey-webhooks] dispatch failed', err));
   });
 
+  // SCORE-02: evaluate the survey-level auto-route rule. Best-effort —
+  // a CRM hiccup must never fail the public survey submit, so the whole
+  // block is wrapped in try/catch and only logs on failure.
+  try {
+    const autoRoute = survey.scoringConfig?.autoRouteToCrm;
+    const respondentEmail = response.respondentEmail;
+    if (
+      autoRoute?.enabled &&
+      computedScore !== null &&
+      computedScore >= autoRoute.minScore &&
+      respondentEmail
+    ) {
+      // Verify pipeline + stage still belong to this tenant before insert —
+      // protects against stale config pointing at a deleted/moved pipeline.
+      await assertPipelineInClient(autoRoute.pipelineId, survey.clientId);
+      await assertStageInClient(autoRoute.stageId, survey.clientId);
+
+      const template =
+        autoRoute.dealTitleTemplate && autoRoute.dealTitleTemplate.trim().length > 0
+          ? autoRoute.dealTitleTemplate
+          : 'Survey lead: {surveyTitle}';
+      const title = template
+        .replace(/\{surveyTitle\}/g, survey.title || '')
+        .replace(/\{respondentName\}/g, response.respondentName || '')
+        .replace(/\{respondentEmail\}/g, respondentEmail)
+        .replace(/\{score\}/g, String(computedScore));
+
+      await db.insert(crmDeals).values({
+        clientId: survey.clientId,
+        pipelineId: autoRoute.pipelineId,
+        stageId: autoRoute.stageId,
+        title: title.slice(0, 255),
+        notes: `Auto-created from survey response #${response.id}`,
+        ownerId: null,
+      });
+    }
+  } catch (err) {
+    console.error('[surveys/submit] auto-route to CRM failed', err);
+  }
+
   return corsJson({
     success: true,
     data: {
       thankYouTitle: survey.thankYouTitle,
       thankYouMessage: survey.thankYouMessage,
       redirectUrl: survey.redirectUrl,
+      // PDF-01: the inserted row id is echoed back so the public form can
+      // build a /api/surveys/<slug>/certificate?responseId=<id> link on the
+      // thank-you screen. The id alone isn't sensitive — the certificate
+      // route still verifies it belongs to this survey before rendering.
+      responseId: response.id,
+      certificateEnabled: !!survey.certificateEnabled,
     },
   }, { status: 201 });
 }

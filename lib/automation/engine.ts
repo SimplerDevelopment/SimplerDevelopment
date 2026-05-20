@@ -13,6 +13,11 @@ import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
 import { executePortalTool } from '@/lib/ai/portal-tools';
 
+// AutomationRule type as returned by drizzle SELECT * (kept loose since
+// schedule + nextRunAt columns may or may not be present on read paths that
+// predate migration 0107). The runRule helper only reads id/clientId/conditions/actions.
+type AutomationRule = typeof automationRules.$inferSelect;
+
 // ─── TEMPLATE RESOLUTION ───────────────────────────────────────────────────
 
 /**
@@ -92,9 +97,11 @@ function matchesTrigger(
 
 async function executeAction(
   action: AutomationAction,
-  event: AutomationEvent,
+  clientId: number,
+  userId: number,
+  payload: Record<string, unknown>,
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
-  const resolvedParams = resolveTemplate(action.params, event.payload) as Record<string, unknown>;
+  const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
   // Handle delayed actions
   if (action.delay && action.delay > 0) {
@@ -102,7 +109,7 @@ async function executeAction(
   }
 
   try {
-    const result = await executePortalTool(action.tool, resolvedParams, event.clientId, event.userId);
+    const result = await executePortalTool(action.tool, resolvedParams, clientId, userId);
     return { tool: action.tool, params: resolvedParams, result };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -110,7 +117,81 @@ async function executeAction(
   }
 }
 
-// ─── MAIN ENGINE ───────────────────────────────────────────────────────────
+// ─── PER-RULE EXECUTION ────────────────────────────────────────────────────
+
+/**
+ * Execute a single rule: evaluate `conditions` against `payload`, run actions
+ * (with template var resolution), log the result, bump rule stats.
+ *
+ * Trigger-matching is a CALLER concern — both the event-driven path (which
+ * matches the rule's trigger.event against the emitted event) and the
+ * scheduler path (which short-circuits all event matching) end up calling
+ * `runRule`. Conditions ARE still evaluated here so the two paths share that
+ * logic; a scheduled rule with conditions that don't match `payload` will
+ * still log nothing (no run happened).
+ *
+ * `payload` for the event-driven path is the event payload that would have
+ * been passed to the action templates. For scheduled rules it's
+ * `{ ruleId, firedAt: <iso> }` — see process-scheduled-automations.
+ *
+ * `triggerLabel` is what gets written to `automation_logs.trigger_event` so
+ * the activity log can distinguish event firings from scheduled ones (e.g.
+ * `'automation.scheduled'`).
+ */
+export async function runRule(
+  rule: AutomationRule,
+  payload: Record<string, unknown>,
+  triggerLabel: string,
+): Promise<void> {
+  // Conditions are caller-shared: both event and scheduled paths gate on them.
+  const conditions = (rule.conditions || []) as AutomationCondition[];
+  if (conditions.length > 0) {
+    const allPass = conditions.every((c) => evaluateCondition(c, payload));
+    if (!allPass) return;
+  }
+
+  const startTime = Date.now();
+  const actions = rule.actions as AutomationAction[];
+  // Resolve userId for portal-tool calls. Scheduled rules don't have a
+  // user context, so we fall back to the rule's creator if present, else 0
+  // (executePortalTool treats 0/undefined as "system"). The event-driven
+  // path used to pass event.userId directly; scheduled paths can't.
+  const userId = (payload._userId as number | undefined) ?? rule.createdBy ?? 0;
+  const results: { tool: string; params: Record<string, unknown>; result: unknown; error?: string }[] = [];
+  let status: 'success' | 'partial' | 'failed' = 'success';
+  let errorMessage: string | undefined;
+
+  for (const action of actions) {
+    const result = await executeAction(action, rule.clientId, userId, payload);
+    results.push(result);
+    if (result.error) {
+      status = results.some((r) => !r.error) ? 'partial' : 'failed';
+      errorMessage = result.error;
+    }
+  }
+
+  const duration = Date.now() - startTime;
+
+  await db.insert(automationLogs).values({
+    clientId: rule.clientId,
+    ruleId: rule.id,
+    triggerEvent: triggerLabel,
+    triggerPayload: payload,
+    actionsExecuted: results,
+    status,
+    duration,
+    errorMessage,
+  });
+
+  await db.update(automationRules)
+    .set({
+      executionCount: sql`${automationRules.executionCount} + 1`,
+      lastExecutedAt: new Date(),
+    })
+    .where(eq(automationRules.id, rule.id));
+}
+
+// ─── MAIN ENGINE (EVENT PATH) ──────────────────────────────────────────────
 
 async function processEvent(event: AutomationEvent): Promise<void> {
   // Fetch all enabled rules for this client
@@ -122,53 +203,15 @@ async function processEvent(event: AutomationEvent): Promise<void> {
     ));
 
   for (const rule of rules) {
-    // Check trigger match
+    // Scheduled rules don't participate in the event-driven path.
+    if (rule.schedule != null) continue;
+
+    // Check trigger match (event-driven only)
     if (!matchesTrigger(rule.trigger, event)) continue;
 
-    // Check conditions (all must pass)
-    const conditions = (rule.conditions || []) as AutomationCondition[];
-    if (conditions.length > 0) {
-      const allPass = conditions.every((c) => evaluateCondition(c, event.payload));
-      if (!allPass) continue;
-    }
-
-    // Execute actions sequentially
-    const startTime = Date.now();
-    const actions = rule.actions as AutomationAction[];
-    const results: { tool: string; params: Record<string, unknown>; result: unknown; error?: string }[] = [];
-    let status: 'success' | 'partial' | 'failed' = 'success';
-    let errorMessage: string | undefined;
-
-    for (const action of actions) {
-      const result = await executeAction(action, event);
-      results.push(result);
-      if (result.error) {
-        status = results.some((r) => !r.error) ? 'partial' : 'failed';
-        errorMessage = result.error;
-      }
-    }
-
-    const duration = Date.now() - startTime;
-
-    // Log execution
-    await db.insert(automationLogs).values({
-      clientId: event.clientId,
-      ruleId: rule.id,
-      triggerEvent: event.event,
-      triggerPayload: event.payload,
-      actionsExecuted: results,
-      status,
-      duration,
-      errorMessage,
-    });
-
-    // Update rule stats
-    await db.update(automationRules)
-      .set({
-        executionCount: sql`${automationRules.executionCount} + 1`,
-        lastExecutedAt: new Date(),
-      })
-      .where(eq(automationRules.id, rule.id));
+    // Pass the event's userId through so action template resolution can use it.
+    const payload = { ...event.payload, _userId: event.userId };
+    await runRule(rule, payload, event.event);
   }
 }
 

@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { clientWebsites, websiteDomains, websiteEnvironments } from '@/lib/db/schema';
+import { clientWebsites, siteTracking, websiteDomains, websiteEnvironments } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
@@ -18,6 +18,7 @@ import EnvironmentPanel from '@/components/portal/EnvironmentPanel';
 import CopyableSiteId from '@/components/portal/CopyableSiteId';
 import DeveloperSetup from '@/components/portal/DeveloperSetup';
 import RepoConnectionManager from '@/components/portal/RepoConnectionManager';
+import TrackingSettingsCard from '@/components/portal/TrackingSettingsCard';
 
 export default async function WebsiteSettingsPage({
   params,
@@ -40,14 +41,38 @@ export default async function WebsiteSettingsPage({
 
   if (!site) notFound();
 
-  const [domains, environments] = await Promise.all([
+  const [domains, environments, trackingRows] = await Promise.all([
     db.select().from(websiteDomains)
       .where(eq(websiteDomains.websiteId, site.id))
       .orderBy(websiteDomains.createdAt),
     db.select().from(websiteEnvironments)
       .where(eq(websiteEnvironments.websiteId, site.id))
       .orderBy(websiteEnvironments.name),
+    db.select().from(siteTracking)
+      .where(eq(siteTracking.websiteId, site.id))
+      .limit(1),
   ]);
+  const trackingRow = trackingRows[0] ?? null;
+  // Project the row to the shape the client expects: string/null per provider
+  // key, plus the `enabled` flag mixed in. Excludes id/websiteId/timestamps
+  // which the form doesn't need.
+  const trackingInitial: import('@/lib/site-tracking/providers').TrackingConfigClient | null = trackingRow
+    ? {
+        gaMeasurementId: trackingRow.gaMeasurementId,
+        gtmContainerId: trackingRow.gtmContainerId,
+        metaPixelId: trackingRow.metaPixelId,
+        clarityProjectId: trackingRow.clarityProjectId,
+        hotjarSiteId: trackingRow.hotjarSiteId,
+        linkedinPartnerId: trackingRow.linkedinPartnerId,
+        tiktokPixelId: trackingRow.tiktokPixelId,
+        gscVerification: trackingRow.gscVerification,
+        bingVerification: trackingRow.bingVerification,
+        pinterestVerification: trackingRow.pinterestVerification,
+        customHeadHtml: trackingRow.customHeadHtml,
+        customBodyHtml: trackingRow.customBodyHtml,
+        enabled: trackingRow.enabled,
+      }
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -70,6 +95,7 @@ export default async function WebsiteSettingsPage({
         initialDescription={site.description || ''}
         subdomain={site.subdomain || undefined}
         initialPublicAccess={site.publicAccess}
+        initialPreviewCode={site.previewCode || null}
       />
 
       {/* Custom Domains */}
@@ -109,6 +135,7 @@ export default async function WebsiteSettingsPage({
             websiteDomain={site.domain || (site.subdomain ? `${site.subdomain}.simplerdevelopment.com` : null)}
             websiteName={site.name}
           />
+          <TrackingSettingsCard siteId={site.id} initialConfig={trackingInitial} />
         </>
       )}
 

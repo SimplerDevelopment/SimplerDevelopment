@@ -1,7 +1,7 @@
 'use client';
 
 import { resolvePiping } from '@/lib/survey-logic';
-import type { PitchDeckTheme } from '@/lib/db/schema';
+import type { PitchDeckTheme, ShowIfCondition } from '@/lib/db/schema';
 
 export interface SurveySlideField {
   id: string;
@@ -14,7 +14,7 @@ export interface SurveySlideField {
   min?: number;
   max?: number;
   step?: number;
-  showIf?: { fieldId: string; values: string[] } | { combinator: 'AND'; rules: { fieldId: string; operator: 'equals' | 'not_equals'; values: string[] }[] };
+  showIf?: { fieldId: string; values: string[] } | ShowIfCondition;
   goToPage?: Record<string, number>;
   order: number;
   page?: number;

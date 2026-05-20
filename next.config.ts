@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Baseline security headers — defense-in-depth alongside auth/CSRF/etc.
 // CSP ships in Report-Only mode first; promote to enforcing once reports are
@@ -36,6 +37,13 @@ const nextConfig: NextConfig = {
     workerThreads: false,
     cpus: 4,
   },
+  // `isomorphic-dompurify` (used by lib/security/sanitize-html, which several
+  // block renderers import) transitively pulls in jsdom → html-encoding-sniffer
+  // → @exodus/bytes — and @exodus/bytes is ESM-only. Turbopack's CJS bundle
+  // emits a `require()` against it and crashes every tenant SSR page with
+  // ERR_REQUIRE_ESM. Marking these external punts the resolution to Node's
+  // native module system, which handles the ESM/CJS interop correctly.
+  serverExternalPackages: ['isomorphic-dompurify', 'jsdom'],
 
   images: {
     remotePatterns: [
@@ -86,4 +94,23 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry: only wrap when an auth token + org/project are present so local builds
+// without Sentry credentials behave normally. Source-map upload and release
+// tracking happen at build time; runtime init lives in sentry.*.config.ts.
+const sentryEnabled =
+  Boolean(process.env.SENTRY_AUTH_TOKEN) &&
+  Boolean(process.env.SENTRY_ORG) &&
+  Boolean(process.env.SENTRY_PROJECT);
+
+export default sentryEnabled
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      disableLogger: true,
+      // Avoids shipping the larger tracing bundle to clients that won't use it.
+      reactComponentAnnotation: { enabled: false },
+    })
+  : nextConfig;

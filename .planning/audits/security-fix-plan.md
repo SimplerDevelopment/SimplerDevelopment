@@ -22,10 +22,10 @@ Each unit owns a non-overlapping set of files. Each agent: edits, runs `tsc --no
 - ✅ `lib/security/assert-owned.ts` created with `assertStageInClient`, `assertPipelineInClient`, `assertContactInClient`, `assertCompanyInClient`, `assertColumnInProject`, `assertProjectInClient`, `assertUserVisibleToClient`, `filterUserIdsVisibleToClient` + `OwnershipError`.
 - ✅ `app/api/portal/crm/deals/[id]/route.ts` PUT — FK validation wired for stageId/pipelineId/contactId/companyId/ownerId.
 - ✅ `lib/mcp/tools/kanban.ts` `kanban_card_attach_file_from_url` — SSRF guard wired.
-- ⏳ Deferred to W2.11: MCP `crm_deals_update`, `crm_deals_move_stage` FK validation in `lib/mcp/tools/crm.ts`.
-- ⏳ Deferred to W2.11: MCP `kanban_create_card`, `kanban_move_card` `columnId` validation in `lib/mcp/tools/kanban.ts`.
-- ⏳ Deferred to W2.11: `brain_create_task` ownerId validation in `lib/brain/mcp-sdk-adapter.ts`.
-- ⏳ Deferred to W2.11: `app/api/portal/cards/[id]/route.ts` `replaceCardAssignees` — filter assignedTo to `filterUserIdsVisibleToClient`.
+- ✅ MCP `crm_deals_update`, `crm_deals_move_stage`, `crm_deals_create` (2026-05-12) FK validation wired in `lib/mcp/tools/crm.ts`.
+- ✅ MCP `kanban_create_card`, `kanban_move_card` `columnId` validation wired via `assertColumnInProject` in `lib/mcp/tools/kanban.ts`.
+- ✅ `brain_create_task` ownerId validation wired via `assertUserVisibleToClient` in `lib/brain/mcp-sdk-adapter.ts`.
+- ✅ `app/api/portal/cards/[id]/route.ts` `replaceCardAssignees` — non-staff callers go through `filterUserIdsVisibleToClient`; staff bypass.
 | W1.10 | **XSS quick fixes** | `app/portal/crm/deals/_components/DealDetailDrawer.tsx`, `app/api/portal/surveys/[id]/export/route.ts`, `app/api/media/proxy/[...path]/route.ts` | C10, H19, C4 |
 | W1.11 | **Drizzle bump + audit report** | `package.json`, `bun.lock`, run `bun audit` | C11 |
 
@@ -42,12 +42,12 @@ These need user judgment because they could break consumers, require new env var
 - W2.3 **Stripe/email webhook generic error responses** — could mask debugging.
 - W2.4 **Domain-uniqueness migrations** — `clientWebsites.domain`, `websiteDomains.domain`, `pitchDecks.slug` partial-unique indexes; backfill collisions.
 - W2.5 **DOMPurify integration** — `bun add isomorphic-dompurify`; sanitize proposal/contract/email-preview/pitch-deck preview rendering.
-- W2.6 **`html-render` / `html-embed` admin gating** — requires capability decision.
+- W2.6 ✅ **CLOSED 2026-05-12** — `html-render` / `html-embed` admin gating. `lib/security/block-allowlist.ts` exports `assertBlocksAllowedForRole` (session-based) + new `assertBlocksAllowedForUserId` (MCP-context-based, looks up role via DB). Wired into: CMS posts REST routes (already), MCP `posts_create`/`posts_update`/`posts_upload_html`, MCP `block_templates_create`/`block_templates_update`, REST `/api/block-templates` POST + `/api/block-templates/[id]` PUT, and `/api/portal/tools/pitch-decks/[id]` PATCH. The `/api/block-templates` routes were also fully unauthenticated; now require admin/editor session (separate Critical not in original audit).
 - W2.7 **Tenant-rewrite Host validation** — middleware change, might break local dev hosts.
 - W2.8 **Drizzle/Next/Anthropic-SDK major bumps** — local-test required, not a config-only fix.
 - W2.9 **`.npmrc` + `.nixpacks.toml` switch to `bun install`** — Railway redeploy needed.
 - W2.10 **API-key middleware: `required` mode + Origin allow-list** — touches every consumer of `withApiKeyAndCors`.
-- W2.11 **Wire `assert-owned` helpers into remaining MCP tools** — `crm_deals_update`, `crm_deals_move_stage`, `kanban_create_card`/`move_card`, `brain_create_task`, `replaceCardAssignees`. (Helper exists; just needs sweep.)
+- W2.11 ✅ **CLOSED 2026-05-12** — `assert-owned` helpers wired into all remaining MCP tools (`crm_deals_create/update/move_stage`, `kanban_create_card/move_card`, `brain_create_task`, `replaceCardAssignees`).
 - W2.12 **fast-xml-parser override** — pinning `>=4.5.0` resolves to 5.2.5 which still has GHSA-m7jm-9gc2-mpf2. Investigate AWS SDK upgrade path or pin to a specific patched 4.x version.
 
 ## Wave 3 — Architectural / longer-term

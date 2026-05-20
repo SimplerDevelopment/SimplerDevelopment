@@ -6,26 +6,36 @@ import Link from 'next/link';
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
 import { SurveyRecommendationEditor } from '@/components/admin/SurveyRecommendationEditor';
 import EditTab from './_components/EditTab';
+import FlowDiagramTab from './_components/FlowDiagramTab';
 import ResponseAnalytics from './_components/ResponseAnalytics';
 import ResponsesTab from './_components/ResponsesTab';
 import ShareTab from './_components/ShareTab';
 import SurveyHeader from './_components/SurveyHeader';
 import SurveyOverviewTab from './_components/SurveyOverviewTab';
 import SurveySettings from './_components/SurveySettings';
+import VariantsPanel from './_components/VariantsPanel';
 import WebhooksPanel from './_components/WebhooksPanel';
+import EmailSequencesPanel from './_components/EmailSequencesPanel';
 import { useSurvey } from './_hooks/useSurvey';
 import { type ResponseFilters } from './_lib/api';
+import type { SurveyScoringConfig } from '@/lib/db/schema';
 
-type Tab = 'overview' | 'edit' | 'recommendation' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'settings';
+type Tab = 'overview' | 'edit' | 'flow' | 'recommendation' | 'variants' | 'responses' | 'analytics' | 'share' | 'webhooks' | 'email-followups' | 'settings';
 
 const TABS: { key: Tab; label: (responseCount: number) => string; icon: string }[] = [
   { key: 'overview', label: () => 'Overview', icon: 'dashboard' },
   { key: 'edit', label: () => 'Edit', icon: 'edit' },
+  { key: 'flow', label: () => 'Flow', icon: 'account_tree' },
   { key: 'recommendation', label: () => 'Recommendation', icon: 'recommend' },
+  { key: 'variants', label: () => 'Variants', icon: 'science' },
   { key: 'responses', label: (n) => `Responses (${n})`, icon: 'people' },
   { key: 'analytics', label: () => 'Analytics', icon: 'bar_chart' },
   { key: 'share', label: () => 'Share & Embed', icon: 'share' },
   { key: 'webhooks', label: () => 'Webhooks', icon: 'webhook' },
+  // DIST-01/02: per-survey follow-up email sequences with opt-in gate. Placed
+  // between webhooks and settings so the "outbound automation" controls are
+  // grouped together.
+  { key: 'email-followups', label: () => 'Email Follow-ups', icon: 'forward_to_inbox' },
   { key: 'settings', label: () => 'Settings', icon: 'settings' },
 ];
 
@@ -80,6 +90,8 @@ export default function SurveyDetailPage() {
   const [editBrandingProfileId, setEditBrandingProfileId] = useState<number | null>(null);
   const [editRequireEmail, setEditRequireEmail] = useState(false);
   const [editAllowMultiple, setEditAllowMultiple] = useState(true);
+  const [editPublishResults, setEditPublishResults] = useState(false);
+  const [editCertificateEnabled, setEditCertificateEnabled] = useState(false);
   const [editNotify, setEditNotify] = useState(true);
   const [editDigest, setEditDigest] = useState('off');
   const [editThankYouTitle, setEditThankYouTitle] = useState('');
@@ -88,6 +100,12 @@ export default function SurveyDetailPage() {
   const [editClosesAt, setEditClosesAt] = useState('');
   const [editMaxResponses, setEditMaxResponses] = useState('');
   const [editStyling, setEditStyling] = useState<Record<string, string | boolean | undefined>>({});
+  // SCORE-02: survey-level scoring config. State always threaded even when no
+  // field is scored so save() can clear stale configs.
+  const [editScoringConfig, setEditScoringConfig] = useState<SurveyScoringConfig | null>(null);
+  // DIST-02: opt-in gate field for follow-up email sequences. `null` = email
+  // presence is sufficient (back-compat).
+  const [editConsentField, setEditConsentField] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Hydrate editable fields whenever the survey reloads. The set-state-in-
@@ -103,6 +121,8 @@ export default function SurveyDetailPage() {
     setEditBrandingProfileId(survey.brandingProfileId ?? null);
     setEditRequireEmail(survey.requireEmail);
     setEditAllowMultiple(survey.allowMultiple);
+    setEditPublishResults(survey.publishResults ?? false);
+    setEditCertificateEnabled(survey.certificateEnabled ?? false);
     setEditNotify(survey.notifyOnResponse);
     setEditDigest(survey.notifyDigest || 'off');
     setEditThankYouTitle(survey.thankYouTitle || 'Thank you!');
@@ -111,6 +131,8 @@ export default function SurveyDetailPage() {
     setEditClosesAt(survey.closesAt ? survey.closesAt.slice(0, 16) : '');
     setEditMaxResponses(survey.maxResponses ? String(survey.maxResponses) : '');
     setEditStyling((survey.styling as Record<string, string | boolean | undefined>) || {});
+    setEditScoringConfig(survey.scoringConfig ?? null);
+    setEditConsentField(survey.consentField ?? null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [survey]);
 
@@ -235,6 +257,8 @@ export default function SurveyDetailPage() {
         />
       )}
 
+      {tab === 'flow' && <FlowDiagramTab fields={editFields} />}
+
       {tab === 'recommendation' && (
         <SurveyRecommendationEditor
           config={survey.recommendation ?? undefined}
@@ -242,6 +266,8 @@ export default function SurveyDetailPage() {
           onChange={(next) => save({ recommendation: next ?? null })}
         />
       )}
+
+      {tab === 'variants' && <VariantsPanel surveyId={id} />}
 
       {tab === 'responses' && (
         <ResponsesTab
@@ -268,6 +294,10 @@ export default function SurveyDetailPage() {
 
       {tab === 'webhooks' && <WebhooksPanel surveyId={id} />}
 
+      {tab === 'email-followups' && (
+        <EmailSequencesPanel surveyId={id} surveyFields={editFields} />
+      )}
+
       {tab === 'settings' && (
         <SurveySettings
           saving={saving}
@@ -287,6 +317,10 @@ export default function SurveyDetailPage() {
           setEditRequireEmail={setEditRequireEmail}
           editAllowMultiple={editAllowMultiple}
           setEditAllowMultiple={setEditAllowMultiple}
+          editPublishResults={editPublishResults}
+          setEditPublishResults={setEditPublishResults}
+          editCertificateEnabled={editCertificateEnabled}
+          setEditCertificateEnabled={setEditCertificateEnabled}
           editNotify={editNotify}
           setEditNotify={setEditNotify}
           editDigest={editDigest}
@@ -295,6 +329,11 @@ export default function SurveyDetailPage() {
           setEditClosesAt={setEditClosesAt}
           editMaxResponses={editMaxResponses}
           setEditMaxResponses={setEditMaxResponses}
+          editFields={editFields}
+          editScoringConfig={editScoringConfig}
+          setEditScoringConfig={setEditScoringConfig}
+          editConsentField={editConsentField}
+          setEditConsentField={setEditConsentField}
           onSave={() =>
             save({
               color: editColor,
@@ -305,10 +344,15 @@ export default function SurveyDetailPage() {
               redirectUrl: editRedirectUrl,
               requireEmail: editRequireEmail,
               allowMultiple: editAllowMultiple,
+              publishResults: editPublishResults,
+              certificateEnabled: editCertificateEnabled,
               notifyOnResponse: editNotify,
               notifyDigest: editDigest,
               closesAt: editClosesAt || null,
               maxResponses: editMaxResponses ? parseInt(editMaxResponses, 10) : null,
+              // SCORE-02: persist the survey-level scoring/auto-route config.
+              scoringConfig: editScoringConfig,
+              consentField: editConsentField,
             })
           }
           onDelete={handleDelete}

@@ -15,12 +15,25 @@
  * scope for the auto-loop CI gate.
  */
 import { test, expect } from './setup/fixtures';
-import { runCleanups } from './setup/helpers';
+import { runCleanups, resolveClientSiteId } from './setup/helpers';
 import { ApiClient } from './setup/api-client';
 
 test.describe.configure({ mode: 'serial' });
 
-const SITE_ID = 1;
+// SITE_ID was hard-coded to 1 (which belongs to a different client than
+// client@example.com in many local DB states), so every CMS request 404'd.
+// Resolve dynamically from the logged-in client's first website instead.
+let SITE_ID: number;
+
+test.beforeAll(async () => {
+  const bootstrap = new ApiClient('client@example.com', 'client123');
+  await bootstrap.ensure();
+  try {
+    SITE_ID = await resolveClientSiteId(bootstrap);
+  } finally {
+    await bootstrap.dispose();
+  }
+});
 
 function blockContent(blocks: unknown[]) {
   return JSON.stringify({ blocks, version: '1.0' });

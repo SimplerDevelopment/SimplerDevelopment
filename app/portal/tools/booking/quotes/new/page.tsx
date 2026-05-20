@@ -116,7 +116,7 @@ export default function NewQuotePage() {
         {/* Customer */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-foreground">Customer</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Name *</label>
               <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)}
@@ -178,7 +178,7 @@ export default function NewQuotePage() {
         {/* Optional scheduling */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-foreground">Scheduling (optional)</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Start</label>
               <input type="datetime-local" value={startTime} onChange={e => setStartTime(e.target.value)}

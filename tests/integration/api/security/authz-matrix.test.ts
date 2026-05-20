@@ -25,6 +25,7 @@ import {
   type TenantCtx,
 } from '../../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../../helpers/test-db';
+import type { ProjectRole } from '@/lib/portal/project-permissions';
 
 type Role = 'staff' | 'owner-private' | 'owner-agency' | 'foreign-client' | 'unauth';
 
@@ -38,16 +39,21 @@ interface Fixture {
   staff: TenantCtx;
 }
 
-async function seedProject(opts: { isPrivate: boolean; label: string }): Promise<Fixture> {
+async function seedProject(opts: { label: string; clientRole?: ProjectRole }): Promise<Fixture> {
   const owner = await sessionForNewClientUser(`owner-${opts.label}`);
   const foreign = await sessionForNewClientUser(`foreign-${opts.label}`);
   const staff = await sessionForStaff(`staff-${opts.label}`);
+  const clientRole: ProjectRole = opts.clientRole ?? 'owner';
 
   const sql = getTestSql();
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES (${`${opts.label} project`}, ${owner.client.id}, 'active', ${opts.isPrivate}, ${owner.user.id})
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES (${`${opts.label} project`}, ${owner.client.id}, 'active', ${owner.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${owner.user.id}, ${clientRole})
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")
@@ -78,8 +84,8 @@ describe('Authz matrix — card GET @authz @security', () => {
   let privFx: Fixture;
   let agencyFx: Fixture;
   beforeEach(async () => {
-    privFx = await seedProject({ isPrivate: true, label: 'get-priv' });
-    agencyFx = await seedProject({ isPrivate: false, label: 'get-agency' });
+    privFx = await seedProject({ label: 'get-priv' });
+    agencyFx = await seedProject({ label: 'get-agency', clientRole: 'viewer' });
   });
 
   const cases: { role: Role; priv: number; agency: number }[] = [
@@ -118,8 +124,8 @@ describe('Authz matrix — card PATCH @authz @security', () => {
   let privFx: Fixture;
   let agencyFx: Fixture;
   beforeEach(async () => {
-    privFx = await seedProject({ isPrivate: true, label: 'patch-priv' });
-    agencyFx = await seedProject({ isPrivate: false, label: 'patch-agency' });
+    privFx = await seedProject({ label: 'patch-priv' });
+    agencyFx = await seedProject({ label: 'patch-agency', clientRole: 'viewer' });
   });
 
   const cases: { role: Role; priv: number; agency: number }[] = [
@@ -183,8 +189,8 @@ describe('Authz matrix — card DELETE @authz @security', () => {
   let privFx: Fixture;
   let agencyFx: Fixture;
   beforeEach(async () => {
-    privFx = await seedProject({ isPrivate: true, label: 'del-priv' });
-    agencyFx = await seedProject({ isPrivate: false, label: 'del-agency' });
+    privFx = await seedProject({ label: 'del-priv' });
+    agencyFx = await seedProject({ label: 'del-agency', clientRole: 'viewer' });
   });
 
   const cases: { role: Role; priv: number; agency: number }[] = [
@@ -239,8 +245,12 @@ describe('Authz matrix — role precedence edge cases @authz @security', () => {
     mockedAuth.mockResolvedValue(sessionFor({ id: staffU.id, role: 'admin' }));
 
     const [proj] = await sql<{ id: number }[]>`
-      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-      VALUES ('precedence proj', ${owner.client.id}, 'active', true, ${owner.user.id}) RETURNING id
+      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+      VALUES ('precedence proj', ${owner.client.id}, 'active', ${owner.user.id}) RETURNING id
+    `;
+    await sql`
+      INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+      VALUES (${proj.id}, ${owner.user.id}, 'owner')
     `;
     const [col] = await sql<{ id: number }[]>`
       INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")

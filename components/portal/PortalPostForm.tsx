@@ -107,6 +107,14 @@ function PortalPostFormInner({
   const [useLocalhost, setUseLocalhost] = useState(false);
   const [localPort, setLocalPort] = useState('3003');
   const [hydrated, setHydrated] = useState(false);
+  const [abError, setAbError] = useState<string | null>(null);
+  // When the server-built siteUrl/publicUrl point at localhost (managed sites in
+  // dev), substitute the actual browser origin. NEXT_PUBLIC_SITE_URL defaults to
+  // http://localhost:3000, but the dev server may be running on another port
+  // (e.g. 3001 if 3000 is held by another worktree). Without this swap, the
+  // editor iframe loads nothing → blank canvas. window.location.origin is the
+  // source of truth at runtime.
+  const [originRewrite, setOriginRewrite] = useState<string | null>(null);
 
   const contentTypes = useContentTypes(siteId);
 
@@ -138,6 +146,10 @@ function PortalPostFormInner({
   useEffect(() => {
     setUseLocalhost(localStorage.getItem('editor-use-localhost') === 'true');
     setLocalPort(localStorage.getItem('editor-local-port') || '3003');
+    // Capture the browser's real origin once mounted. We only ever rewrite when
+    // the server-built URL is a localhost URL — production / preview deployments
+    // keep their canonical siteUrl untouched.
+    setOriginRewrite(window.location.origin);
     setHydrated(true);
   }, []);
 
@@ -161,7 +173,29 @@ function PortalPostFormInner({
 
   // On localhost, the starter site serves pages at the root (no /sites/[domain] prefix)
   const localhostBase = `http://localhost:${localPort}`;
-  const effectiveSiteUrl = useLocalhost ? localhostBase : siteUrl;
+  // Rewrite the server-built siteUrl/publicUrl when they point at a localhost
+  // host that doesn't match the actual dev-server origin (e.g. port 3000 in the
+  // env var vs. the browser actually being on 3001). Production URLs (with a
+  // real domain) are passed through unchanged.
+  const rewriteLocalOrigin = (url: string | null | undefined): string | null => {
+    if (!url || !originRewrite) return url ?? null;
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+        const browser = new URL(originRewrite);
+        if (parsed.origin === browser.origin) return url;
+        parsed.protocol = browser.protocol;
+        parsed.host = browser.host;
+        return parsed.toString().replace(/\/$/, '');
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+  const resolvedSiteUrl = rewriteLocalOrigin(siteUrl);
+  const resolvedPublicUrl = rewriteLocalOrigin(publicUrl);
+  const effectiveSiteUrl = useLocalhost ? localhostBase : resolvedSiteUrl;
 
   const liveUrl = (() => {
     if (!post?.slug) return null;
@@ -170,7 +204,7 @@ function PortalPostFormInner({
       const tokenParam = previewToken ? `&_token=${previewToken}` : '';
       return `${effectiveSiteUrl}${basePath}?_preview=true${tokenParam}`;
     }
-    if (publicUrl) return `${publicUrl}${basePath}`;
+    if (resolvedPublicUrl) return `${resolvedPublicUrl}${basePath}`;
     return null;
   })();
 
@@ -198,6 +232,21 @@ function PortalPostFormInner({
         />
       )}
 
+      {abError ? (
+        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+          <span className="material-icons text-base">error</span>
+          <span className="flex-1">{abError}</span>
+          <button
+            type="button"
+            onClick={() => setAbError(null)}
+            className="material-icons text-base text-destructive/70 hover:text-destructive"
+            aria-label="Dismiss error"
+          >
+            close
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex gap-4">
         <button
           type="submit"
@@ -210,6 +259,7 @@ function PortalPostFormInner({
           <button
             type="button"
             onClick={async () => {
+              setAbError(null);
               try {
                 const res = await fetch(`/api/portal/posts/${post.id}/experiments`, {
                   method: 'POST',
@@ -220,10 +270,10 @@ function PortalPostFormInner({
                 if (json.success && json.data?.id) {
                   router.push(`/portal/experiments/${json.data.id}`);
                 } else {
-                  alert(json.error || 'Failed to create experiment');
+                  setAbError(json.error || 'Failed to create experiment');
                 }
               } catch (err) {
-                alert(err instanceof Error ? err.message : 'Failed to create experiment');
+                setAbError(err instanceof Error ? err.message : 'Failed to create experiment');
               }
             }}
             className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-accent inline-flex items-center gap-1"

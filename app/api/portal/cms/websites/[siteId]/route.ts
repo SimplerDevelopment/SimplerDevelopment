@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { validateSubdomain, isSubdomainAvailable } from '@/lib/subdomain';
 import { changeSubdomain } from '@/lib/website-provisioner';
+import { parseSiteIdParam } from '@/lib/api/parse-params';
 
 export async function PUT(
   req: Request,
@@ -19,7 +20,9 @@ export async function PUT(
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const { siteId } = await params;
-  const siteIdNum = parseInt(siteId);
+  const parsed = parseSiteIdParam(siteId);
+  if (!parsed.ok) return parsed.response;
+  const siteIdNum = parsed.value;
   const [site] = await db
     .select()
     .from(clientWebsites)
@@ -29,7 +32,7 @@ export async function PUT(
   if (!site) return NextResponse.json({ success: false, message: 'Website not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, description, subdomain, githubRepoName, githubRepoUrl, deployBranch, publicAccess } = body;
+  const { name, description, subdomain, githubRepoName, githubRepoUrl, deployBranch, publicAccess, previewCode } = body;
 
   if (name !== undefined && !name.trim()) {
     return NextResponse.json({ success: false, message: 'Website name cannot be empty.' }, { status: 400 });
@@ -84,6 +87,32 @@ export async function PUT(
   if (githubRepoUrl !== undefined) updates.githubRepoUrl = githubRepoUrl?.trim() || null;
   if (publicAccess !== undefined) updates.publicAccess = !!publicAccess;
   if (deployBranch !== undefined) updates.deployBranch = deployBranch?.trim() || null;
+  if (previewCode !== undefined) {
+    if (previewCode === null || previewCode === '') {
+      updates.previewCode = null;
+    } else if (typeof previewCode === 'string') {
+      const normalized = previewCode.trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9-]{4,64}$/.test(normalized)) {
+        return NextResponse.json(
+          { success: false, message: 'Preview code must be 4-64 chars (letters, numbers, hyphens).' },
+          { status: 400 },
+        );
+      }
+      // Surface a friendly conflict if the code is already taken by another site.
+      const [clash] = await db
+        .select({ id: clientWebsites.id })
+        .from(clientWebsites)
+        .where(eq(clientWebsites.previewCode, normalized))
+        .limit(1);
+      if (clash && clash.id !== site.id) {
+        return NextResponse.json(
+          { success: false, message: 'That preview code is already in use on another site.' },
+          { status: 409 },
+        );
+      }
+      updates.previewCode = normalized;
+    }
+  }
 
   const [updated] = await db
     .update(clientWebsites)
@@ -106,7 +135,9 @@ export async function DELETE(
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
   const { siteId } = await params;
-  const siteIdNum = parseInt(siteId);
+  const parsed = parseSiteIdParam(siteId);
+  if (!parsed.ok) return parsed.response;
+  const siteIdNum = parsed.value;
   const [site] = await db
     .select()
     .from(clientWebsites)

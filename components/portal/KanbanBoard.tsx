@@ -21,6 +21,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { priorityColor, stripMarkdown } from '@/lib/portal-utils';
 import CardDetailModal from './CardDetailModal';
+import { CARD_TYPE_META } from './card-detail/_lib/agile';
 
 interface CardAttachment {
   url: string;
@@ -33,6 +34,10 @@ interface CardLabel {
   color: string;
 }
 
+// Note: cardType / workflowState are intentionally widened to `string` here
+// because the DB column is varchar and not all callers type-narrow before
+// passing the row in. Runtime fallbacks in the chip use CARD_TYPE_META[type]
+// only after narrowing through `keyof typeof CARD_TYPE_META`.
 interface Card {
   id: number;
   columnId: number;
@@ -48,6 +53,13 @@ interface Card {
   checklist?: { total: number; done: number } | null;
   assignees?: { id: number; name: string }[];
   blockedCount?: number;
+  commentCount?: number;
+  unreadAlerts?: number;
+  isWatching?: boolean;
+  storyPoints?: number | null;
+  cardType?: string;
+  parentCardId?: number | null;
+  workflowState?: string;
 }
 
 interface Column {
@@ -160,9 +172,22 @@ function KanbanCard({
           ))}
         </div>
       )}
-      {card.key && (
-        <p className="text-[10px] font-mono text-muted-foreground mb-0.5">{card.key}</p>
-      )}
+      <div className="flex items-center gap-1.5 mb-0.5 text-[10px]">
+        {card.cardType && card.cardType !== 'task' && card.cardType in CARD_TYPE_META && (
+          <span
+            className={`material-icons text-sm ${CARD_TYPE_META[card.cardType as keyof typeof CARD_TYPE_META].color}`}
+            title={CARD_TYPE_META[card.cardType as keyof typeof CARD_TYPE_META].label}
+          >
+            {CARD_TYPE_META[card.cardType as keyof typeof CARD_TYPE_META].icon}
+          </span>
+        )}
+        {card.key && <span className="font-mono text-muted-foreground">{card.key}</span>}
+        {card.storyPoints != null && (
+          <span className="px-1 rounded bg-primary/10 text-primary font-semibold" title={`${card.storyPoints} story points`}>
+            {card.storyPoints}
+          </span>
+        )}
+      </div>
       <p className="text-sm font-medium text-foreground pr-6">{card.title}</p>
       {card.description && (
         <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{stripMarkdown(card.description)}</p>
@@ -208,6 +233,18 @@ function KanbanCard({
           <span className={`text-xs flex items-center gap-0.5 ${card.checklist.done === card.checklist.total ? 'text-green-600' : 'text-muted-foreground'}`}>
             <span className="material-icons text-xs">check_box</span>
             {card.checklist.done}/{card.checklist.total}
+          </span>
+        )}
+        {card.commentCount !== undefined && card.commentCount > 0 && (
+          <span className="text-xs flex items-center gap-0.5 text-muted-foreground" title={`${card.commentCount} comment${card.commentCount === 1 ? '' : 's'}`}>
+            <span className="material-icons text-xs">chat_bubble</span>
+            {card.commentCount}
+          </span>
+        )}
+        {card.unreadAlerts !== undefined && card.unreadAlerts > 0 && (
+          <span className="text-xs flex items-center gap-0.5 text-primary font-medium" title={`${card.unreadAlerts} unread alert${card.unreadAlerts === 1 ? '' : 's'} on this card`}>
+            <span className="material-icons text-xs">notifications_active</span>
+            {card.unreadAlerts}
           </span>
         )}
         {card.blockedCount !== undefined && card.blockedCount > 0 && (
@@ -289,11 +326,19 @@ function KanbanColumn({
           )}
           <h3 className="text-sm font-semibold text-foreground truncate">{column.name}</h3>
           {(() => {
-            const over = column.wipLimit != null && column.wipLimit > 0 && column.cards.length > column.wipLimit;
+            const limit = column.wipLimit ?? 0;
+            const count = column.cards.length;
+            const atLimit = limit > 0 && count >= limit;
+            const over = limit > 0 && count > limit;
+            const tone = over
+              ? 'bg-red-100 text-red-700'
+              : atLimit
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-muted text-muted-foreground';
             return (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium ${over ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'}`}
-                title={column.wipLimit ? `WIP limit: ${column.wipLimit}${over ? ' (over limit)' : ''}` : undefined}>
-                {column.cards.length}{column.wipLimit ? `/${column.wipLimit}` : ''}
+              <span className={`text-xs rounded-full px-1.5 py-0.5 shrink-0 font-medium ${tone}`}
+                title={limit > 0 ? `WIP limit: ${limit}${over ? ' (over limit — drops will be rejected)' : atLimit ? ' (at limit — next add will be rejected)' : ''}` : undefined}>
+                {count}{limit > 0 ? `/${limit}` : ''}
               </span>
             );
           })()}

@@ -13,6 +13,28 @@ export interface NavItem {
   icon?: string;
   featuredImage?: string;
   columnGroup?: number;
+  // Draft overlay (server-managed). Null when row is in sync with live.
+  // Mirrors lib/db/schema/sites.ts SiteNavigationDraft. The editor reads it
+  // to render the draft / pendingDelete badges; client-side mutations only
+  // touch the live fields above — the server merges them into draft on PUT.
+  draft?: NavDraft | null;
+}
+
+export interface NavDraft {
+  label?: string;
+  href?: string;
+  parentId?: number | null;
+  sortOrder?: number;
+  openInNewTab?: boolean;
+  isButton?: boolean;
+  description?: string | null;
+  icon?: string | null;
+  featuredImage?: string | null;
+  columnGroup?: number | null;
+  pendingCreate?: boolean;
+  pendingDelete?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
 }
 
 export interface Branding {

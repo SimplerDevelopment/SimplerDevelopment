@@ -39,11 +39,15 @@ async function seedAssignedCard(opts: SeedOpts, assigneeId: number): Promise<{ c
   const rand = Math.floor(Math.random() * 1e9);
   const [proj] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.projects
-      (name, project_key, client_id, status, is_private, created_by)
+      (name, project_key, client_id, status, created_by)
     VALUES
       (${`Proj-${ts}-${rand}`}, ${opts.projectKey ?? null},
-       ${opts.client.client.id}, 'active', true, ${opts.client.user.id})
+       ${opts.client.client.id}, 'active', ${opts.client.user.id})
     RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${opts.client.user.id}, 'owner')
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order", is_done)
@@ -115,9 +119,13 @@ describe('GET /api/portal/my-tasks @my-tasks', () => {
     // The route's join (projects.client_id = caller's clientId) must filter it out.
     const sql = getTestSql();
     const [proj] = await sql<{ id: number }[]>`
-      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-      VALUES (${`Cross-${Date.now()}`}, ${B.client.id}, 'active', true, ${B.user.id})
+      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+      VALUES (${`Cross-${Date.now()}`}, ${B.client.id}, 'active', ${B.user.id})
       RETURNING id
+    `;
+    await sql`
+      INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+      VALUES (${proj.id}, ${B.user.id}, 'owner')
     `;
     const [col] = await sql<{ id: number }[]>`
       INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order", is_done)
@@ -168,9 +176,13 @@ describe('GET /api/portal/my-tasks @my-tasks', () => {
     // Staff user assigned to a card on B's tenant project
     const sql = getTestSql();
     const [proj] = await sql<{ id: number }[]>`
-      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-      VALUES (${`StaffSeen-${Date.now()}`}, ${B.client.id}, 'active', true, ${B.user.id})
+      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+      VALUES (${`StaffSeen-${Date.now()}`}, ${B.client.id}, 'active', ${B.user.id})
       RETURNING id
+    `;
+    await sql`
+      INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+      VALUES (${proj.id}, ${B.user.id}, 'owner')
     `;
     const [col] = await sql<{ id: number }[]>`
       INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order", is_done)
@@ -199,9 +211,13 @@ describe('GET /api/portal/my-tasks @my-tasks', () => {
     // Build three cards on the same project with mixed due dates
     const sql = getTestSql();
     const [proj] = await sql<{ id: number }[]>`
-      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, project_key, client_id, status, is_private, created_by)
-      VALUES (${`Sort-${Date.now()}`}, 'SRT', ${A.client.id}, 'active', true, ${A.user.id})
+      INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, project_key, client_id, status, created_by)
+      VALUES (${`Sort-${Date.now()}`}, 'SRT', ${A.client.id}, 'active', ${A.user.id})
       RETURNING id
+    `;
+    await sql`
+      INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+      VALUES (${proj.id}, ${A.user.id}, 'owner')
     `;
     const [col] = await sql<{ id: number }[]>`
       INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order", is_done)

@@ -63,6 +63,7 @@ These are reference docs. Don't read them speculatively; only when the task touc
 - `BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting (read when working in `lib/blocks/`)
 - `USER_MANAGEMENT.md` — auth and roles
 - `tests/TESTING_PLAN.md` — what each test layer is responsible for
+- `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
 - `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
 - `.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the hands-off / "code while I sleep" workflow
 

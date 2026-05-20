@@ -22,10 +22,27 @@ dotenv.config({ path: '.env.local' });
 const URL_STR = process.env.DATABASE_URL;
 if (!URL_STR) throw new Error('DATABASE_URL is not set');
 
-// Refuse on anything that smells like production
-const PROD_MARKERS = [/prod/i, /production/i, /railway\.app.*prod/i, /main\-db/i];
-if (PROD_MARKERS.some(re => re.test(URL_STR))) {
-  console.error('Refusing to reset: DATABASE_URL looks like production');
+// Use the same host-based check that `scripts/verify-db-target.ts` uses so the
+// two guards never disagree. Substring matching on substring-of-name (e.g. the
+// old `/prod/i` regex) false-positives on local DBs like
+// `simplerdev_realprod_dryrun` even though they're on 127.0.0.1.
+const PROD_INDICATORS = [
+  'tramway.proxy.rlwy.net:43167',
+  'metro.proxy.rlwy.net:25565',
+];
+const hitProd =
+  PROD_INDICATORS.some((p) => URL_STR.includes(p)) ||
+  process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
+const override = process.env.ALLOW_PROD === '1';
+if (hitProd && !override) {
+  const redacted = URL_STR.replace(/:\/\/[^@]*@/, '://[REDACTED]@');
+  console.error('');
+  console.error('  REFUSING to reset: DATABASE_URL points at production.');
+  console.error('');
+  console.error(`  DATABASE_URL → ${redacted}`);
+  console.error('');
+  console.error('  If this is truly intentional, re-run with ALLOW_PROD=1 in your env.');
+  console.error('');
   process.exit(1);
 }
 

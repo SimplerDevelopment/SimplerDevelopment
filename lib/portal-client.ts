@@ -1,16 +1,50 @@
 import { db } from '@/lib/db';
-import { clients, clientMembers, clientWebsites, clientServices, services } from '@/lib/db/schema';
+import { clients, clientMembers, clientWebsites, clientServices, services, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { cookies } from 'next/headers';
+import {
+  IMPERSONATE_COOKIE,
+  getImpersonatedClientIdFromToken,
+} from '@/lib/impersonation';
 
 const ACTIVE_CLIENT_COOKIE = 'sd-active-client';
 
 /**
  * Resolves the client account for a given user ID.
  * Automatically reads the sd-active-client cookie to determine the preferred company.
+ * If a valid `sd_impersonate_client_id` cookie is present AND the user is
+ * staff, that impersonation target takes priority over normal resolution.
  * All existing call sites work without changes.
  */
 export async function getPortalClient(userId: number, preferredClientId?: number) {
+  // Check for staff impersonation first — short-circuits the membership lookup.
+  // We re-fetch the role from the DB rather than trusting any JWT/session
+  // floating around, so this resolver is safe to call anywhere (server
+  // components, API routes, middleware-adjacent code) without needing a
+  // session handle.
+  try {
+    const store = await cookies();
+    const tokenVal = store.get(IMPERSONATE_COOKIE)?.value;
+    if (tokenVal) {
+      const [me] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      const targetId = getImpersonatedClientIdFromToken(tokenVal, me?.role);
+      if (targetId != null) {
+        const [target] = await db
+          .select()
+          .from(clients)
+          .where(eq(clients.id, targetId))
+          .limit(1);
+        if (target) return target;
+      }
+    }
+  } catch {
+    // cookies() may throw outside of request context (e.g. build time)
+  }
+
   const allClients = await getPortalClients(userId);
   if (allClients.length === 0) return null;
 

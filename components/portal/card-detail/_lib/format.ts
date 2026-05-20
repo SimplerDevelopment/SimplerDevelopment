@@ -14,6 +14,7 @@ export const ARTIFACT_ICONS: Record<string, string> = {
   booking: 'calendar_month',
   survey: 'poll',
   project: 'folder',
+  post: 'article',
 };
 
 export const ARTIFACT_LABELS: Record<string, string> = {
@@ -24,6 +25,7 @@ export const ARTIFACT_LABELS: Record<string, string> = {
   booking: 'Booking',
   survey: 'Survey',
   project: 'Project',
+  post: 'Doc / Post',
 };
 
 export function artifactUrl(type: string, id: number): string | null {
@@ -42,6 +44,8 @@ export function artifactUrl(type: string, id: number): string | null {
       return `/portal/surveys/${id}`;
     case 'project':
       return `/portal/projects/${id}`;
+    case 'post':
+      return `/portal/posts/${id}`;
     default:
       return null;
   }

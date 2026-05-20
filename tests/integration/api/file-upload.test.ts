@@ -32,11 +32,15 @@ import { NextRequest } from 'next/server';
 import { sessionForNewClientUser, type TenantCtx } from '../../helpers/session';
 import { getTestSql, TEST_SCHEMA } from '../../helpers/test-db';
 
-async function seedCard(ownerClientId: number, ownerUserId: number, isPrivate = true): Promise<{ cardId: number; projectId: number }> {
+async function seedCard(ownerClientId: number, ownerUserId: number): Promise<{ cardId: number; projectId: number }> {
   const sql = getTestSql();
   const [proj] = await sql<{ id: number }[]>`
-    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, is_private, created_by)
-    VALUES ('Upload proj', ${ownerClientId}, 'active', ${isPrivate}, ${ownerUserId}) RETURNING id
+    INSERT INTO ${sql(TEST_SCHEMA)}.projects (name, client_id, status, created_by)
+    VALUES ('Upload proj', ${ownerClientId}, 'active', ${ownerUserId}) RETURNING id
+  `;
+  await sql`
+    INSERT INTO ${sql(TEST_SCHEMA)}.project_members (project_id, user_id, role)
+    VALUES (${proj.id}, ${ownerUserId}, 'owner')
   `;
   const [col] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.kanban_columns (project_id, name, "order")

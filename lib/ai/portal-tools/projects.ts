@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import {
   projects, kanbanColumns, kanbanCards, sprints,
   kanbanCardFiles, kanbanCardComments, kanbanCardAssignees, users,
+  kanbanLabels, cardTemplates, projectMembers, crmDeals, crmCompanies,
 } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
@@ -14,6 +15,19 @@ export const projectTools: Anthropic.Tool[] = [
     name: 'get_my_projects',
     description: 'Get all projects for this client with status, due dates, and sprint/card progress summary.',
     input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'pm_spawn_project_from_deal',
+    description: 'Create a new project for a CRM deal\'s company, optionally cloning the structure (columns + labels + card templates) of an existing template project. Use this as the "deal won → onboarding kanban" automation action. Returns the new project id so subsequent actions can chain off it.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        deal_id: { type: 'number', description: 'The CRM deal id; the new project name and description default from the deal.' },
+        template_project_id: { type: 'number', description: 'Optional source project to clone columns/labels/templates from.' },
+        name_prefix: { type: 'string', description: 'Optional prefix prepended to the deal name (e.g. "Onboarding · "). Defaults to none.' },
+      },
+      required: ['deal_id'],
+    },
   },
   {
     name: 'get_project_board',
@@ -306,6 +320,102 @@ export const projectHandlers: Record<string, ProjectHandler> = {
     if (input.due_date !== undefined) updates.dueDate = input.due_date ? new Date(input.due_date as string) : null;
     await db.update(kanbanCards).set(updates).where(eq(kanbanCards.id, cardId));
     return { success: true, message: 'Card updated.' };
+  },
+
+  pm_spawn_project_from_deal: async (input, clientId, userId) => {
+    // CRM-PM bridge: deal closes → spawn an onboarding project. Designed for
+    // the automation engine to call from a `crm.deal.won` rule.
+    const dealId = input.deal_id as number;
+    const templateProjectId = typeof input.template_project_id === 'number' ? input.template_project_id : null;
+    const namePrefix = typeof input.name_prefix === 'string' ? input.name_prefix : '';
+
+    const [deal] = await db.select({
+      id: crmDeals.id,
+      title: crmDeals.title,
+      companyId: crmDeals.companyId,
+      clientId: crmDeals.clientId,
+    }).from(crmDeals).where(and(eq(crmDeals.id, dealId), eq(crmDeals.clientId, clientId))).limit(1);
+    if (!deal) return { error: 'Deal not found in this account' };
+
+    let companyName: string | null = null;
+    if (deal.companyId) {
+      const [co] = await db.select({ name: crmCompanies.name }).from(crmCompanies).where(eq(crmCompanies.id, deal.companyId)).limit(1);
+      companyName = co?.name ?? null;
+    }
+
+    // Verify template ownership if supplied.
+    let template: typeof projects.$inferSelect | null = null;
+    if (templateProjectId != null) {
+      const [src] = await db.select().from(projects)
+        .where(and(eq(projects.id, templateProjectId), eq(projects.clientId, clientId))).limit(1);
+      if (!src) return { error: 'Template project not found in this account' };
+      template = src;
+    }
+
+    const baseName = `${namePrefix}${companyName ?? deal.title ?? 'New project'}`.slice(0, 240).trim();
+    const basePrefix = baseName.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'PRJ';
+
+    const [project] = await db.insert(projects).values({
+      name: baseName,
+      description: `Auto-created from CRM deal #${deal.id}${companyName ? ` for ${companyName}` : ''}.`,
+      clientId,
+      status: 'active',
+      createdBy: userId,
+    }).returning();
+
+    await db.update(projects).set({ projectKey: `${basePrefix}${project.id}` }).where(eq(projects.id, project.id));
+
+    if (userId) {
+      await db.insert(projectMembers).values({
+        projectId: project.id,
+        userId,
+        role: 'owner',
+        addedBy: userId,
+      }).onConflictDoNothing();
+    }
+
+    if (template) {
+      const srcCols = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, template.id));
+      if (srcCols.length > 0) {
+        await db.insert(kanbanColumns).values(srcCols.map(c => ({
+          projectId: project.id,
+          name: c.name,
+          order: c.order,
+          color: c.color,
+          isDone: c.isDone,
+          wipLimit: c.wipLimit,
+        })));
+      }
+      const srcLabels = await db.select().from(kanbanLabels).where(eq(kanbanLabels.projectId, template.id));
+      if (srcLabels.length > 0) {
+        await db.insert(kanbanLabels).values(srcLabels.map(l => ({
+          projectId: project.id,
+          name: l.name,
+          color: l.color,
+        })));
+      }
+      const srcTemplates = await db.select().from(cardTemplates).where(eq(cardTemplates.projectId, template.id));
+      if (srcTemplates.length > 0) {
+        await db.insert(cardTemplates).values(srcTemplates.map(t => ({
+          clientId,
+          projectId: project.id,
+          name: t.name,
+          description: t.description,
+          payload: t.payload,
+          createdBy: userId,
+        })));
+      }
+    }
+
+    return {
+      success: true,
+      message: `Project "${baseName}" created${template ? ` from template "${template.name}"` : ''}.`,
+      projectId: project.id,
+      projectKey: `${basePrefix}${project.id}`,
+      clonedFromProjectId: template?.id ?? null,
+      dealId: deal.id,
+      companyName,
+    };
   },
 
   move_project_card: async (input, clientId, _userId) => {

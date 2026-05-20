@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { eq, and, isNull, lt, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { microsoftTeamsUserConnections } from '@/lib/db/schema';
@@ -36,7 +37,7 @@ export const runtime = 'nodejs';
  *
  * Response: per-connection summary so we can see what happened in cron logs.
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -183,3 +184,8 @@ async function persistRenewal(
     .set(update)
     .where(eq(microsoftTeamsUserConnections.id, connectionId));
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:renew-microsoft-subscriptions', area: 'api-cron' },
+  _GET,
+);

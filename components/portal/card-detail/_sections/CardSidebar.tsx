@@ -5,7 +5,8 @@
 'use client';
 
 import { priorityColor } from '@/lib/portal-utils';
-import type { Assignee, CardDetail, MentionUser } from '../_lib/types';
+import type { Assignee, CardDetail, MentionUser, CardType, WorkflowState } from '../_lib/types';
+import { CARD_TYPE_OPTIONS, CARD_TYPE_META, WORKFLOW_STATE_OPTIONS, WORKFLOW_STATE_META, POINTS_OPTIONS } from '../_lib/agile';
 import { CardWatchers } from './CardWatchers';
 
 interface Props {
@@ -112,6 +113,86 @@ export function CardSidebar({
             </div>
           )}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          Type
+        </label>
+        {canEdit ? (
+          <select
+            value={card.cardType ?? 'task'}
+            onChange={e => saveField('cardType', e.target.value as CardType)}
+            disabled={savingField === 'cardType'}
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {CARD_TYPE_OPTIONS.map(t => <option key={t} value={t}>{CARD_TYPE_META[t].label}</option>)}
+          </select>
+        ) : (
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <span className={`material-icons text-base ${CARD_TYPE_META[card.cardType ?? 'task'].color}`}>
+              {CARD_TYPE_META[card.cardType ?? 'task'].icon}
+            </span>
+            {CARD_TYPE_META[card.cardType ?? 'task'].label}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          Story points
+        </label>
+        {canEdit ? (
+          <div className="flex flex-wrap gap-1">
+            {POINTS_OPTIONS.map(p => (
+              <button
+                key={p}
+                onClick={() => saveField('storyPoints', card.storyPoints === p ? null : p)}
+                disabled={savingField === 'storyPoints'}
+                className={`min-w-[28px] h-7 px-1.5 rounded text-xs font-medium border transition-colors ${
+                  card.storyPoints === p
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-foreground border-border hover:border-primary/50'
+                }`}
+                aria-label={`${p} points${card.storyPoints === p ? ' (selected, click to clear)' : ''}`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => saveField('storyPoints', null)}
+              disabled={savingField === 'storyPoints' || card.storyPoints == null}
+              className="min-w-[28px] h-7 px-1.5 rounded text-xs font-medium border border-border bg-background text-muted-foreground hover:text-destructive hover:border-destructive disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Clear points"
+            >
+              —
+            </button>
+          </div>
+        ) : (
+          <span className="text-sm text-foreground">
+            {card.storyPoints == null ? <span className="text-muted-foreground">—</span> : card.storyPoints}
+          </span>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+          Workflow state
+        </label>
+        {canEdit ? (
+          <select
+            value={card.workflowState ?? 'todo'}
+            onChange={e => saveField('workflowState', e.target.value as WorkflowState)}
+            disabled={savingField === 'workflowState'}
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {WORKFLOW_STATE_OPTIONS.map(s => <option key={s} value={s}>{WORKFLOW_STATE_META[s].label}</option>)}
+          </select>
+        ) : (
+          <span className={`text-xs px-2 py-1 rounded font-medium ${WORKFLOW_STATE_META[card.workflowState ?? 'todo'].color}`}>
+            {WORKFLOW_STATE_META[card.workflowState ?? 'todo'].label}
+          </span>
+        )}
       </div>
 
       <div>

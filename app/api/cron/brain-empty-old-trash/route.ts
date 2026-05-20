@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { db } from '@/lib/db';
 import { clients } from '@/lib/db/schema';
 import { purgeOldTrash } from '@/lib/brain/notes';
@@ -25,7 +26,7 @@ export const runtime = 'nodejs';
 
 const RETENTION_DAYS = 90;
 
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization');
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
@@ -69,6 +70,11 @@ export async function GET(req: Request) {
     },
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:brain-empty-old-trash', area: 'api-cron' },
+  _GET,
+);
 
 // Accept POST for manual triggers from scripts (matches brain-daily-notes).
 export const POST = GET;

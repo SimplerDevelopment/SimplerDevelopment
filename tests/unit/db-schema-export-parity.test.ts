@@ -64,11 +64,13 @@ function collectSchemaExportNames(): string[] {
 //   grep -oE "^export (const|interface|type) [A-Za-z0-9_]+" lib/db/schema.ts \
 //     | awk '{print $3}' | sort
 const EXPECTED_EXPORTS: readonly string[] = [
+  'AB_TARGET_TYPES',
   'AbAssignment',
   'AbEvent',
   'AbExperiment',
   'AbExperimentStatus',
   'AbGoalMetric',
+  'AbTargetType',
   'AbVariant',
   'AbVariantSplit',
   'AutomationAction',
@@ -187,6 +189,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'brandingMessaging',
   'brandingProfiles',
   'bulkPricingRules',
+  'cardCustomFieldValues',
+  'cardRecurrences',
+  'cardTemplates',
   'cartItems',
   'carts',
   'categories',
@@ -198,6 +203,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'clientServices',
   'clientWebsites',
   'clients',
+  'columnDailySnapshots',
   'crmActivities',
   'crmCompanies',
   'crmContactTags',
@@ -265,6 +271,7 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'meteredSubscriptionItems',
   'microsoftTeamsUserConnections',
   'notificationPreferences',
+  'notifications',
   'oauthAccessTokens',
   'oauthAuthorizationCodes',
   'oauthClients',
@@ -288,6 +295,10 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'productOptions',
   'productVariants',
   'products',
+  'projectCustomFields',
+  'projectGoals',
+  'projectMembers',
+  'projectSavedViews',
   'projectWebhookDeliveries',
   'projectWebhooks',
   'projects',
@@ -298,6 +309,9 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'siteBranding',
   'siteNavigation',
   'siteSnapshots',
+  'sprintRetroItems',
+  'sprintRetros',
+  'sprintScopeHistory',
   'sprints',
   'storeCustomerMessageReplies',
   'storeCustomerMessages',
@@ -385,6 +399,9 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   brandingMessaging: 'branding_messaging',
   brandingProfiles: 'branding_profiles',
   bulkPricingRules: 'bulk_pricing_rules',
+  cardCustomFieldValues: 'card_custom_field_values',
+  cardRecurrences: 'card_recurrences',
+  cardTemplates: 'card_templates',
   cartItems: 'cart_items',
   carts: 'carts',
   categories: 'categories',
@@ -396,6 +413,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   clients: 'clients',
   clientServices: 'client_services',
   clientWebsites: 'client_websites',
+  columnDailySnapshots: 'column_daily_snapshots',
   crmActivities: 'crm_activities',
   crmCompanies: 'crm_companies',
   crmContacts: 'crm_contacts',
@@ -463,6 +481,7 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   meteredSubscriptionItems: 'metered_subscription_items',
   microsoftTeamsUserConnections: 'microsoft_teams_user_connections',
   notificationPreferences: 'notification_preferences',
+  notifications: 'notifications',
   oauthAccessTokens: 'oauth_access_tokens',
   oauthAuthorizationCodes: 'oauth_authorization_codes',
   oauthClients: 'oauth_clients',
@@ -487,6 +506,10 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   products: 'products',
   productVariants: 'product_variants',
   projects: 'projects',
+  projectCustomFields: 'project_custom_fields',
+  projectGoals: 'project_goals',
+  projectMembers: 'project_members',
+  projectSavedViews: 'project_saved_views',
   projectWebhookDeliveries: 'project_webhook_deliveries',
   projectWebhooks: 'project_webhooks',
   serviceRequests: 'service_requests',
@@ -496,7 +519,10 @@ const EXPECTED_TABLE_NAMES: Readonly<Record<string, string>> = {
   siteBranding: 'site_branding',
   siteNavigation: 'site_navigation',
   siteSnapshots: 'site_snapshots',
+  sprintRetroItems: 'sprint_retro_items',
+  sprintRetros: 'sprint_retros',
   sprints: 'sprints',
+  sprintScopeHistory: 'sprint_scope_history',
   storeCustomerMessageReplies: 'store_customer_message_replies',
   storeCustomerMessages: 'store_customer_messages',
   storeCustomers: 'store_customers',
@@ -571,13 +597,13 @@ describe('lib/db/schema export parity', () => {
     expect(actualTables).toEqual(EXPECTED_TABLE_NAMES);
   });
 
-  it('reports the recorded number of tables (192)', () => {
+  it('reports the recorded number of tables (204)', () => {
     const schemaMap = Schema as unknown as Record<string, unknown>;
     let count = 0;
     for (const value of Object.values(schemaMap)) {
       if (value && typeof value === 'object' && isTable(value)) count += 1;
     }
     expect(count).toBe(Object.keys(EXPECTED_TABLE_NAMES).length);
-    expect(count).toBe(192);
+    expect(count).toBe(204);
   });
 });

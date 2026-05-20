@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { abExperiments, abVariants } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { authorizePostForUser } from '@/lib/ab/access';
 import { normalizeSplit } from '@/lib/ab/assign';
 
@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const experiments = await db
     .select()
     .from(abExperiments)
-    .where(eq(abExperiments.postId, postId))
+    .where(and(eq(abExperiments.targetType, 'post'), eq(abExperiments.targetId, postId)))
     .orderBy(desc(abExperiments.createdAt));
 
   return NextResponse.json({ success: true, data: experiments });
@@ -65,6 +65,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     : { a: 50, b: 50 };
 
   const [experiment] = await db.insert(abExperiments).values({
+    targetType: 'post',
+    targetId: postId,
     postId,
     name,
     hypothesis: body.hypothesis || null,

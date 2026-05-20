@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { posts, categories, postCategories } from '@/lib/db/schema';
-import { and, gte, lte, eq, sql } from 'drizzle-orm';
+import { posts } from '@/lib/db/schema';
+import { and, eq, sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,11 +20,27 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(start);
     const endDate = new Date(end);
 
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return NextResponse.json(
+        { success: false, error: 'start and end must be valid ISO dates' },
+        { status: 400 },
+      );
+    }
+
     // Fetch posts that fall within the date range.
     // A post appears on its publishedAt date if set, otherwise createdAt.
+    //
+    // Pass ISO strings rather than Date objects to the `sql` template — the
+    // pg driver (via node-postgres' postgres-array path) throws
+    // `TypeError: The "string" argument must be of type string … Received an
+    // instance of Date` when a bare Date is interpolated into a raw fragment.
+    // Casting to ::timestamptz makes the comparison explicit.
+    const startIso = startDate.toISOString();
+    const endIso = endDate.toISOString();
+
     const conditions = [
-      sql`COALESCE(${posts.publishedAt}, ${posts.createdAt}) >= ${startDate}`,
-      sql`COALESCE(${posts.publishedAt}, ${posts.createdAt}) <= ${endDate}`,
+      sql`COALESCE(${posts.publishedAt}, ${posts.createdAt}) >= ${startIso}::timestamptz`,
+      sql`COALESCE(${posts.publishedAt}, ${posts.createdAt}) <= ${endIso}::timestamptz`,
     ];
 
     if (websiteId) {

@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-05-07T03:06:28.428Z",
+  "generatedAt": "2026-05-15T23:35:12.679Z",
   "totalBlocks": 48,
-  "blocksWithMissingFields": 1,
+  "blocksWithMissingFields": 0,
   "blocksWithDeadElementKeys": 0,
   "blocksWithoutE2E": 0,
   "totals": {
-    "missingFieldsFromBoth": 6,
-    "missingFieldsFromPanelsOnly": 6,
-    "missingFieldsFromContentEditorOnly": 12,
+    "missingFieldsFromBoth": 0,
+    "missingFieldsFromPanelsOnly": 0,
+    "missingFieldsFromContentEditorOnly": 0,
     "deadElementKeys": 0
   },
   "reports": [
@@ -303,12 +303,11 @@
       "fieldsInContentEditor": [
         "gap",
         "stackOnMobile",
+        "stackOnTablet",
         "reverseOnStack"
       ],
       "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
-        "stackOnTablet"
-      ],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
@@ -373,23 +372,13 @@
       "type": "section",
       "interfaceFields": [
         "blocks",
-        "backgroundColor",
         "backgroundImage",
-        "backgroundSize",
-        "backgroundPosition",
         "maxWidth",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight",
-        "color",
-        "fontFamily",
         "htmlTag",
         "splitColor",
         "splitClipPath"
       ],
       "fieldsInPanels": [
-        "backgroundColor",
         "backgroundImage",
         "maxWidth",
         "htmlTag",
@@ -397,41 +386,15 @@
         "splitClipPath"
       ],
       "fieldsInContentEditor": [
-        "backgroundColor",
         "backgroundImage",
         "maxWidth",
-        "color",
-        "fontFamily",
         "htmlTag",
         "splitColor",
         "splitClipPath"
       ],
-      "fieldsMissingFromPanels": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight",
-        "color",
-        "fontFamily"
-      ],
-      "fieldsMissingFromContentEditor": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight"
-      ],
-      "fieldsMissingFromBoth": [
-        "backgroundSize",
-        "backgroundPosition",
-        "paddingTop",
-        "paddingBottom",
-        "paddingLeft",
-        "paddingRight"
-      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
+      "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
       "deadElementKeys": [],
@@ -524,8 +487,11 @@
         "interval",
         "transition",
         "transitionDuration",
+        "showDots",
+        "showArrows",
         "pauseOnHover",
         "height",
+        "kenBurns",
         "backgroundVideo",
         "backgroundVideoOpacity",
         "arrowColor",
@@ -541,12 +507,14 @@
         "autoplay",
         "interval",
         "transition",
+        "transitionDuration",
         "showDots",
         "showArrows",
         "pauseOnHover",
         "height",
         "kenBurns",
         "backgroundVideo",
+        "backgroundVideoOpacity",
         "arrowColor",
         "arrowBackground",
         "arrowBorderColor",
@@ -555,15 +523,8 @@
         "progressBarColor",
         "stats"
       ],
-      "fieldsMissingFromPanels": [
-        "showDots",
-        "showArrows",
-        "kenBurns"
-      ],
-      "fieldsMissingFromContentEditor": [
-        "transitionDuration",
-        "backgroundVideoOpacity"
-      ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [
         "title",
@@ -654,6 +615,7 @@
         "overline",
         "title",
         "description",
+        "services",
         "columns",
         "accentColor"
       ],
@@ -665,9 +627,7 @@
         "columns",
         "accentColor"
       ],
-      "fieldsMissingFromPanels": [
-        "services"
-      ],
+      "fieldsMissingFromPanels": [],
       "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [
@@ -2119,13 +2079,12 @@
         "loop"
       ],
       "fieldsInContentEditor": [
+        "html",
         "width",
         "loop"
       ],
       "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
-        "html"
-      ],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],
@@ -2158,10 +2117,6 @@
         "dismissable"
       ],
       "fieldsInContentEditor": [
-        "ctaUrl"
-      ],
-      "fieldsMissingFromPanels": [],
-      "fieldsMissingFromContentEditor": [
         "trigger",
         "delaySeconds",
         "scrollPercent",
@@ -2169,8 +2124,11 @@
         "headline",
         "body",
         "ctaLabel",
+        "ctaUrl",
         "dismissable"
       ],
+      "fieldsMissingFromPanels": [],
+      "fieldsMissingFromContentEditor": [],
       "fieldsMissingFromBoth": [],
       "elementDefinitionKeys": [],
       "elementKeysWithRendererCallSite": [],

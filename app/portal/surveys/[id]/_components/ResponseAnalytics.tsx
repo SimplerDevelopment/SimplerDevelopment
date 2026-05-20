@@ -12,6 +12,9 @@
 
 import type { SurveyField } from '@/components/admin/SurveyBuilder';
 import type { Survey, SurveyResponse, SurveyResponseStats } from '../_lib/api';
+import AiSummaryPanel from './AiSummaryPanel';
+
+const SUMMARIZABLE_TYPES = new Set(['text', 'textarea']);
 
 interface Props {
   survey: Survey;
@@ -35,8 +38,25 @@ export default function ResponseAnalytics({ survey, responses, stats }: Props) {
     (f) => f.type !== 'heading' && f.type !== 'page_break',
   );
 
+  // AI summary only makes sense when there's free-text content to summarize.
+  const summarizableFieldIds = new Set(
+    fields.filter((f) => SUMMARIZABLE_TYPES.has(f.type)).map((f) => f.id),
+  );
+  const hasSummarizableContent =
+    summarizableFieldIds.size > 0 &&
+    responses.some((r) => {
+      for (const id of summarizableFieldIds) {
+        const v = r.answers[id];
+        if (typeof v === 'string' && v.trim()) return true;
+      }
+      return false;
+    });
+
   return (
     <div className="space-y-6">
+      {/* AI summary (AI-01 / AI-02) — only when there's text content */}
+      {hasSummarizableContent && <AiSummaryPanel surveyId={survey.id} />}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-4 text-center">

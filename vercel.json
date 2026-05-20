@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "next build",
-  "installCommand": "npm install",
+  "installCommand": "bun install --frozen-lockfile",
   "regions": ["iad1"],
   "crons": [
     {
@@ -46,12 +46,60 @@
       "schedule": "0 11 * * 1"
     },
     {
+      "path": "/api/cron/ticket-sla-breaches",
+      "schedule": "7 * * * *"
+    },
+    {
       "path": "/api/cron/stuck-booking-holds",
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/renew-microsoft-subscriptions",
       "schedule": "*/25 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-recurrences",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/pm-column-snapshots",
+      "schedule": "55 23 * * *"
+    },
+    {
+      "path": "/api/cron/process-survey-email-followups",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/brain-12",
+      "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/resend-usage-sync",
+      "schedule": "15 4 * * *"
+    },
+    {
+      "path": "/api/cron/usage-rollup",
+      "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/process-scheduled-automations",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-runs-drain",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-jobs-tick",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/magamommy-weekly-drop",
+      "schedule": "0 14 * * 1"
     }
   ]
 }

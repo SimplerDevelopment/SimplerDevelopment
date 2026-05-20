@@ -42,8 +42,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!client) return NextResponse.json({ success: false }, { status: 404 });
 
   const { id } = await params;
-  await db.delete(emailSegments)
-    .where(and(eq(emailSegments.id, parseInt(id, 10)), eq(emailSegments.clientId, client.id)));
+  const deleted = await db.delete(emailSegments)
+    .where(and(eq(emailSegments.id, parseInt(id, 10)), eq(emailSegments.clientId, client.id)))
+    .returning({ id: emailSegments.id });
 
+  if (deleted.length === 0) {
+    return NextResponse.json({ success: false, message: 'Segment not found' }, { status: 404 });
+  }
   return NextResponse.json({ success: true });
 }

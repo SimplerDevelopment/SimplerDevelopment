@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { crmCompanies, crmContacts, crmDeals, crmPipelineStages, crmCustomFields, crmCustomFieldValues } from '@/lib/db/schema';
 import { and, eq, desc, sql } from 'drizzle-orm';
 import { geocodeAddress } from '@/lib/geocode';
+import { validateCrmName } from '@/lib/crm/parse';
 
 function parseCoordinate(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') return null;
@@ -176,10 +177,32 @@ export async function PUT(
 
   const body = await req.json();
 
+  // Validate free-text inputs (see contacts/route.ts POST for rationale).
+  for (const field of ['name', 'notes'] as const) {
+    if (body[field] !== undefined) {
+      const v = validateCrmName(body[field], field);
+      if (!v.ok) {
+        return NextResponse.json(
+          { success: false, error: v.error, field },
+          { status: 400 }
+        );
+      }
+      body[field] = v.value;
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
   let nextAddress: string | null = existing.address;
   let addressChanged = false;
-  if (body.name !== undefined) updateData.name = body.name.trim();
+  if (body.name !== undefined) {
+    if (!body.name) {
+      return NextResponse.json(
+        { success: false, message: 'Company name is required' },
+        { status: 400 }
+      );
+    }
+    updateData.name = body.name;
+  }
   if (body.domain !== undefined) updateData.domain = body.domain?.trim() || null;
   if (body.industry !== undefined) updateData.industry = body.industry?.trim() || null;
   if (body.size !== undefined) updateData.size = body.size || null;
@@ -191,7 +214,7 @@ export async function PUT(
   }
   if (body.website !== undefined) updateData.website = body.website?.trim() || null;
   if (body.logoUrl !== undefined) updateData.logoUrl = body.logoUrl?.trim() || null;
-  if (body.notes !== undefined) updateData.notes = body.notes?.trim() || null;
+  if (body.notes !== undefined) updateData.notes = body.notes ?? null;
 
   const explicitLatProvided = body.latitude !== undefined;
   const explicitLngProvided = body.longitude !== undefined;

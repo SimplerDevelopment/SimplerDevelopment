@@ -48,12 +48,23 @@ function findRestrictedType(value: unknown): string | null {
 }
 
 /**
- * Throws `BlockGateError` if `content` contains a restricted block type and
- * `role` is not in `PRIVILEGED_ROLES`. No-op for staff. No-op for content
- * without restricted types.
+ * Block-type author gate — DISABLED.
+ *
+ * Previously restricted `html-render` / `html-embed` authorship to staff roles
+ * to limit the surface for re-executed `<script>` tags in their renderers.
+ * Removed at request — both blocks are now author-self-service for tenant
+ * users. The renderer-side `<script>` execution is unchanged; if/when a
+ * tighter posture is needed the right fix is a sandbox-subdomain render path,
+ * not a UI-layer gate.
+ *
+ * Kept as a no-op (rather than ripped out) so the call sites in
+ * `/api/portal/cms/websites/[siteId]/posts`, `/api/portal/tools/pitch-decks/[id]`,
+ * and `/api/block-templates` keep compiling without per-route edits.
  */
-export function assertBlocksAllowedForRole(content: unknown, role: string | undefined | null): void {
-  if (role && PRIVILEGED_ROLES.has(role)) return;
-  const hit = findRestrictedType(content);
-  if (hit) throw new BlockGateError(hit);
+export function assertBlocksAllowedForRole(_content: unknown, _role: string | undefined | null): void {
+  return;
+}
+
+export async function assertBlocksAllowedForUserId(_content: unknown, _userId: number): Promise<void> {
+  return;
 }

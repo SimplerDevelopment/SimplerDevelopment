@@ -5,6 +5,7 @@ import { automationRules } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { eq, and } from 'drizzle-orm';
+import { computeNextRunAt, validateSchedule } from '@/lib/automation/schedule';
 
 // PATCH /api/portal/automations/[id] — update a rule (toggle, edit, etc.)
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +32,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.actions !== undefined) updates.actions = body.actions;
   if (body.enabled !== undefined) updates.enabled = body.enabled;
   if (body.productScope !== undefined) updates.productScope = body.productScope;
+
+  // Schedule: explicit null clears both schedule and nextRunAt (rule reverts
+  // to event-driven). Non-null is validated, then nextRunAt is recomputed
+  // from `now` so the scheduler picks it up on the next minute.
+  if (body.schedule !== undefined) {
+    if (body.schedule === null) {
+      updates.schedule = null;
+      updates.nextRunAt = null;
+    } else {
+      const result = validateSchedule(body.schedule);
+      if (!result.ok) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      updates.schedule = result.schedule;
+      updates.nextRunAt = computeNextRunAt(result.schedule, new Date());
+    }
+  }
 
   const [updated] = await db.update(automationRules)
     .set(updates)

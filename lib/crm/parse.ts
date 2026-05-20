@@ -70,3 +70,41 @@ const PERSONAL_DOMAINS = new Set([
 export function isPersonalDomain(domain: string): boolean {
   return PERSONAL_DOMAINS.has(domain.toLowerCase());
 }
+
+/**
+ * Validate a free-text CRM string (contact/company name, notes, etc.) before
+ * we persist it. React JSX escapes on render, but the *same* values flow into
+ * CSV exports, email merge, and PDF generation where escaping is not
+ * automatic — so we reject obvious injection attempts here.
+ *
+ * We deliberately do *not* try to sanitize HTML (that's a sanitizer's job and
+ * goes wrong easily). Instead we:
+ *   - strip control characters (\x00–\x1F except \t \n \r)
+ *   - reject inputs that contain `<script` or `javascript:` (case-insensitive)
+ *   - trim and cap at 500 chars
+ *
+ * Returns `{ ok: true, value }` on success, `{ ok: false, error }` on reject.
+ * `null` / `undefined` / empty-after-trim inputs return `{ ok: true, value: null }`.
+ */
+export function validateCrmName(
+  raw: unknown,
+  field: string
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (raw === null || raw === undefined) return { ok: true, value: null };
+  if (typeof raw !== 'string') {
+    return { ok: false, error: `${field} must be a string` };
+  }
+
+  // Strip control chars (keep \t, \n, \r so legit notes survive).
+  const stripped = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  const trimmed = stripped.trim();
+
+  if (!trimmed) return { ok: true, value: null };
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('<script') || lower.includes('javascript:')) {
+    return { ok: false, error: `${field} contains disallowed content` };
+  }
+
+  return { ok: true, value: trimmed.slice(0, 500) };
+}

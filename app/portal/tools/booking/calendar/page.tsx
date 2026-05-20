@@ -149,7 +149,7 @@ export default function CombinedCalendarPage() {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl p-3">
+      <div className="flex items-center justify-between bg-card border border-border rounded-xl p-3 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
             <span className="material-icons">chevron_left</span>
@@ -237,9 +237,10 @@ export default function CombinedCalendarPage() {
           <span className="material-icons animate-spin text-3xl text-muted-foreground">autorenew</span>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden -mx-4 sm:mx-0">
+          <div className="overflow-x-auto">
           {/* Day headers */}
-          <div className="grid border-b border-border" style={{ gridTemplateColumns: `60px repeat(${displayDays.length}, 1fr)` }}>
+          <div className="grid border-b border-border min-w-[640px]" style={{ gridTemplateColumns: `60px repeat(${displayDays.length}, 1fr)` }}>
             <div className="border-r border-border" />
             {displayDays.map((day, i) => {
               const isToday = isSameDay(day, today);
@@ -267,7 +268,7 @@ export default function CombinedCalendarPage() {
 
           {/* Time grid */}
           <div className="relative overflow-y-auto" style={{ maxHeight: 'calc(100vh - 340px)' }}>
-            <div className="grid" style={{ gridTemplateColumns: `60px repeat(${displayDays.length}, 1fr)` }}>
+            <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `60px repeat(${displayDays.length}, 1fr)` }}>
               {/* Time labels */}
               <div className="border-r border-border">
                 {HOURS.map(hour => (
@@ -330,12 +331,13 @@ export default function CombinedCalendarPage() {
               })}
             </div>
           </div>
+          </div>
         </div>
       )}
 
       {/* Booking detail panel */}
       {selectedBooking && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-xl z-50 overflow-y-auto">
+        <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-card border-l border-border shadow-xl z-50 overflow-y-auto">
           <div className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Booking Details</h2>

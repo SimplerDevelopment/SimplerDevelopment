@@ -13,9 +13,10 @@ test.describe('Portal Projects @projects @critical', () => {
     const res = await clientApi.get('/api/portal/projects');
     expect(res.status).toBe(200);
     expect(res.data.success).toBe(true);
-    expect(res.data.data).toHaveProperty('agency');
-    expect(res.data.data).toHaveProperty('private');
-    expect(Array.isArray(res.data.data.agency)).toBe(true);
+    // Wave 1 (2026-05) collapsed the legacy { agency, private } envelope into
+    // a flat array of projects with a per-row myRole. Each row should at
+    // minimum carry id + myRole when present.
+    expect(Array.isArray(res.data.data)).toBe(true);
   });
 
   test('GET /projects rejects unauthenticated', async ({ unauthApi }) => {

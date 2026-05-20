@@ -5,6 +5,7 @@ import { emailLists, emailSubscribers } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { generateUnsubscribeToken } from '@/lib/email';
 import { getPortalClient } from '@/lib/portal-client';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
 async function requireClient() {
   const session = await auth();
@@ -22,6 +23,10 @@ async function ownsList(clientId: number, listId: number) {
 }
 
 export async function POST(req: Request) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -50,6 +55,10 @@ export async function POST(req: Request) {
 
 // Bulk import
 export async function PUT(req: Request) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -69,6 +78,10 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 

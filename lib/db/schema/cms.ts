@@ -25,6 +25,10 @@ export const posts = pgTable('posts', {
   customJs: text('custom_js'),
   // null = agency website; non-null = client website
   websiteId: integer('website_id'),
+  // Lightweight fork pointer — set by posts_fork. Points to posts.id of the
+  // post this row was forked from. No FK constraint (self-reference + nullable
+  // makes drizzle's typegen unhappy); the column is informational only.
+  parentPostId: integer('parent_post_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -158,6 +162,21 @@ export const postCustomFieldValues = pgTable('post_custom_field_values', {
 
 // Block Templates - saved reusable block configurations
 
+export interface BlockTemplateDraft {
+  name?: string;
+  description?: string | null;
+  category?: string;
+  scope?: string;
+  blocks?: unknown;
+  thumbnail?: string | null;
+  tags?: string[];
+  lockedFields?: string[];
+  pendingCreate?: boolean;
+  pendingDelete?: boolean;
+  updatedAt?: string;
+  updatedBy?: number;
+}
+
 export const blockTemplates = pgTable('block_templates', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -170,6 +189,13 @@ export const blockTemplates = pgTable('block_templates', {
   tags: json('tags').$type<string[]>().default([]), // searchable tags
   lockedFields: json('locked_fields').$type<string[]>().default([]), // field paths that can't be edited (e.g., "0.type", "0.style.backgroundColor")
   version: integer('version').default(1).notNull(),
+  // Draft overlay — MCP writes land here by default. Public block-template
+  // pickers and the "use this template" insertion path read live fields only.
+  // `block_templates_publish` copies draft → live and clears draft.
+  draft: json('draft').$type<BlockTemplateDraft | null>(),
+  // Lightweight fork pointer — set by block_templates_fork. Points to
+  // block_templates.id of the template this row was duplicated from.
+  parentTemplateId: integer('parent_template_id'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

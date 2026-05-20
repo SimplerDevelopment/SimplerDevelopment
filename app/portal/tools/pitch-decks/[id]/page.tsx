@@ -26,10 +26,21 @@ import {
   saveVersionCheckpoint,
   restoreVersion,
   uploadHtmlSlide,
+  publishSlideDraft,
+  publishAllSlideDrafts,
   type VersionMeta,
   type AiHistoryTurn,
 } from './_lib/api';
-import { normalizeDeckBlockIds } from './_lib/helpers';
+import {
+  normalizeDeckBlockIds,
+  getSlideView,
+  mergeSlideDraft,
+  markSlidePendingDelete,
+  clearSlideDraft,
+  slideHasDraft,
+  slideIsPendingDelete,
+  slideIsPendingCreate,
+} from './_lib/helpers';
 
 import { EditorHeader } from './_components/EditorHeader';
 import { ThemePanel } from './_components/ThemePanel';
@@ -99,10 +110,21 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('edit');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
-  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  // Default both VisualEditorShell side panels (240px left / 320px right) to
+  // collapsed below md — at 375px they'd squeeze the iframe canvas to negative
+  // width. Users can expand either side via the existing chevron toggle.
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
   const [boardView, setBoardView] = useState(false);
   const [boardColumns, setBoardColumns] = useState(4);
+  // Mobile-only: SlideList becomes a slide-out drawer overlay below md. Closed by default.
+  const [mobileSlideDrawerOpen, setMobileSlideDrawerOpen] = useState(false);
 
   const [aiHistory, setAiHistory] = useState<Record<number, AiHistoryTurn[]>>({});
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
@@ -118,6 +140,10 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   // Brand defaults
   const [brandDefaults, setBrandDefaults] = useState<BrandDefaultsContext | null>(null);
+
+  // Draft-publish state — independent of the deck-status "publishing" flag.
+  const [publishingSlideId, setPublishingSlideId] = useState<string | null>(null);
+  const [publishingAll, setPublishingAll] = useState(false);
 
   /** Hidden file input shared by every "Upload HTML Slide" trigger. */
   const htmlSlideFileInputRef = useRef<HTMLInputElement>(null);
@@ -260,13 +286,19 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     if (!name?.trim() || !deck) return;
     const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     if (!slug) return;
+    const initialBlocks: Block[] = [
+      { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
+    ];
     const newSlide: PitchDeckSlideV2 = {
       id: `slide-${Date.now()}`,
       label: 'New Slide',
-      blocks: [
-        { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
-      ],
+      blocks: [],
       pathGroup: slug,
+      draft: {
+        pendingCreate: true,
+        blocks: initialBlocks,
+        updatedAt: new Date().toISOString(),
+      },
     };
     const newSlides = [...deck.slides, newSlide];
     setDeck({ ...deck, slides: newSlides });
@@ -276,13 +308,19 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   function addSlideToPathGroup(pathGroup: string) {
     if (!deck) return;
+    const initialBlocks: Block[] = [
+      { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
+    ];
     const newSlide: PitchDeckSlideV2 = {
       id: `slide-${Date.now()}`,
       label: 'New Slide',
-      blocks: [
-        { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
-      ],
+      blocks: [],
       pathGroup,
+      draft: {
+        pendingCreate: true,
+        blocks: initialBlocks,
+        updatedAt: new Date().toISOString(),
+      },
     };
     const lastIdx = deck.slides.reduce((acc, s, i) => s.pathGroup === pathGroup ? i : acc, -1);
     const newSlides = [...deck.slides];
@@ -458,7 +496,9 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   function handleSlideBlocksChange(slideIdx: number, newBlocks: Block[]) {
     if (!deck) return;
     const newSlides = [...deck.slides];
-    newSlides[slideIdx] = { ...newSlides[slideIdx], blocks: newBlocks };
+    // Writes land in the slide's draft overlay — live fields are only
+    // touched when the user explicitly publishes the slide.
+    newSlides[slideIdx] = mergeSlideDraft(newSlides[slideIdx], { blocks: newBlocks });
     setDeck({ ...deck, slides: newSlides });
     setHasUnsavedChanges(true);
   }
@@ -508,6 +548,73 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     if (data.success) setHasUnsavedChanges(false);
   }
 
+  /**
+   * Flush local draft state to the server, then publish a single slide's
+   * draft. We flush first because in non-collab mode the slides blob lives
+   * in React state until `saveDeck` runs — without a flush the server would
+   * publish an outdated draft (or none at all for slides added in this
+   * session). In collab mode the persister already keeps the server in
+   * sync, but the flush is still cheap and idempotent.
+   */
+  async function handlePublishSlide(slideId: string) {
+    if (!deck) return;
+    setPublishingSlideId(slideId);
+    setError('');
+    try {
+      // Flush slides to the server first.
+      if (!collab.enabled) {
+        const flush = await apiSaveDeck(id, deck.slides, deck.theme);
+        if (!flush.success) {
+          setError(flush.message || 'Failed to save draft before publish');
+          return;
+        }
+      } else {
+        // Even in collab, theme/etc. patches should land — and we want to
+        // give the server persister a moment. Patching theme is cheap.
+        await patchDeck(id, { theme: deck.theme });
+      }
+      const res = await publishSlideDraft(id, slideId);
+      if (res.success && res.data) {
+        setDeck(normalizeDeckBlockIds(res.data));
+        setHasUnsavedChanges(false);
+      } else {
+        setError(res.message || 'Failed to publish slide');
+      }
+    } finally {
+      setPublishingSlideId(null);
+    }
+  }
+
+  /** Same as handlePublishSlide but for the whole deck. */
+  async function handlePublishAll() {
+    if (!deck) return;
+    const draftCount = deck.slides.filter((s) => slideHasDraft(s)).length;
+    if (draftCount === 0) return;
+    if (!confirm(`Publish ${draftCount} draft slide${draftCount === 1 ? '' : 's'}? This will make all queued changes visible in the public deck.`)) return;
+    setPublishingAll(true);
+    setError('');
+    try {
+      if (!collab.enabled) {
+        const flush = await apiSaveDeck(id, deck.slides, deck.theme);
+        if (!flush.success) {
+          setError(flush.message || 'Failed to save drafts before publish');
+          return;
+        }
+      } else {
+        await patchDeck(id, { theme: deck.theme });
+      }
+      const res = await publishAllSlideDrafts(id);
+      if (res.success && res.data) {
+        setDeck(normalizeDeckBlockIds(res.data));
+        setHasUnsavedChanges(false);
+      } else {
+        setError(res.message || 'Failed to publish drafts');
+      }
+    } finally {
+      setPublishingAll(false);
+    }
+  }
+
   function handleThemeUpdate(updates: Partial<PitchDeckTheme>) {
     if (!deck) return;
     setDeck({ ...deck, theme: { ...deck.theme, ...updates } });
@@ -523,6 +630,29 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     setPublishing(false);
   }
 
+  async function handleStartAbTest() {
+    if (!deck) return;
+    try {
+      const res = await fetch('/api/portal/experiments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: 'deck',
+          targetId: deck.id,
+          name: `A/B test — ${deck.title || 'Untitled'}`,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data?.id) {
+        router.push(`/portal/experiments/${json.data.id}`);
+      } else {
+        setError(json.error || 'Failed to create experiment');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create experiment');
+    }
+  }
+
   async function handleDelete() {
     if (!confirm('Delete this pitch deck? This cannot be undone.')) return;
     await deleteDeck(id);
@@ -531,13 +661,21 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   function addSlide() {
     if (!deck) return;
+    // New slide is draft-only — live `blocks` empty, content lives in draft
+    // until the user publishes.
+    const initialBlocks: Block[] = [
+      { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
+      { id: `block-${Date.now()}-t`, type: 'text', order: 2, content: 'Add your content here...', alignment: 'center' as const, size: 'base' as const },
+    ];
     const newSlide: PitchDeckSlideV2 = {
       id: `slide-${Date.now()}`,
       label: 'New Slide',
-      blocks: [
-        { id: `block-${Date.now()}-h`, type: 'heading', order: 1, content: 'New Slide', level: 2 as const, alignment: 'center' as const },
-        { id: `block-${Date.now()}-t`, type: 'text', order: 2, content: 'Add your content here...', alignment: 'center' as const, size: 'base' as const },
-      ],
+      blocks: [],
+      draft: {
+        pendingCreate: true,
+        blocks: initialBlocks,
+        updatedAt: new Date().toISOString(),
+      },
     };
     const newSlides = [...deck.slides, newSlide];
     setDeck({ ...deck, slides: newSlides });
@@ -554,22 +692,28 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     }
     const ts = Date.now();
     const filenameNoExt = (result.data.filename || 'HTML Slide').replace(/\.[^.]+$/, '');
+    const htmlBlocks: Block[] = [
+      {
+        id: `block-${ts}-html`,
+        type: 'html-embed',
+        order: 1,
+        url: result.data.url,
+        filename: result.data.filename,
+        height: '100vh',
+        width: 'full',
+        sandbox: 'scripts',
+        iframeTitle: filenameNoExt || 'Embedded HTML slide',
+      },
+    ];
     const newSlide: PitchDeckSlideV2 = {
       id: `slide-${ts}`,
       label: filenameNoExt || 'HTML Slide',
-      blocks: [
-        {
-          id: `block-${ts}-html`,
-          type: 'html-embed',
-          order: 1,
-          url: result.data.url,
-          filename: result.data.filename,
-          height: '100vh',
-          width: 'full',
-          sandbox: 'scripts',
-          iframeTitle: filenameNoExt || 'Embedded HTML slide',
-        },
-      ],
+      blocks: [],
+      draft: {
+        pendingCreate: true,
+        blocks: htmlBlocks,
+        updatedAt: new Date().toISOString(),
+      },
     };
     const newSlides = [...deck.slides, newSlide];
     setDeck({ ...deck, slides: newSlides });
@@ -579,25 +723,70 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   function removeSlide(idx: number) {
     if (!deck || deck.slides.length <= 1) return;
-    if (!confirm('Remove this slide?')) return;
-    const newSlides = deck.slides.filter((_, i) => i !== idx);
+    const target = deck.slides[idx];
+    // Pending-create slides have no live state to preserve — drop immediately.
+    if (slideIsPendingCreate(target)) {
+      if (!confirm('Discard this draft slide?')) return;
+      const newSlides = deck.slides.filter((_, i) => i !== idx);
+      setDeck({ ...deck, slides: newSlides });
+      if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
+      setHasUnsavedChanges(true);
+      return;
+    }
+    if (!confirm('Mark this slide for deletion? It stays visible in the public deck until you publish.')) return;
+    const newSlides = [...deck.slides];
+    newSlides[idx] = markSlidePendingDelete(target);
     setDeck({ ...deck, slides: newSlides });
-    if (activeSlide >= newSlides.length) setActiveSlide(newSlides.length - 1);
+    setHasUnsavedChanges(true);
+  }
+
+  /** Clear a slide's draft (cancels a pending edit / pending delete). */
+  function cancelSlideDraft(idx: number) {
+    if (!deck) return;
+    const target = deck.slides[idx];
+    // pendingCreate has no live counterpart — clearing the draft means deleting
+    // the slide entirely.
+    if (slideIsPendingCreate(target)) {
+      if (!confirm('Discard this draft slide?')) return;
+      const newSlides = deck.slides.filter((_, i) => i !== idx);
+      setDeck({ ...deck, slides: newSlides });
+      if (activeSlide >= newSlides.length) setActiveSlide(Math.max(0, newSlides.length - 1));
+      setHasUnsavedChanges(true);
+      return;
+    }
+    const newSlides = [...deck.slides];
+    newSlides[idx] = clearSlideDraft(target);
+    setDeck({ ...deck, slides: newSlides });
     setHasUnsavedChanges(true);
   }
 
   function duplicateSlide(idx: number) {
     if (!deck) return;
     const source = deck.slides[idx];
+    // Duplicate from the draft view so unpublished edits carry over.
+    const sourceView: PitchDeckSlideV2 = JSON.parse(JSON.stringify(getSlideView(source)));
+    const ts = Date.now();
+    const reidBlocks = sourceView.blocks.map(
+      (b: PitchDeckSlideV2['blocks'][number], i: number) => ({ ...b, id: `block-${ts}-${i}` }),
+    );
     const dup: PitchDeckSlideV2 = {
-      ...JSON.parse(JSON.stringify(source)),
-      id: `slide-${Date.now()}`,
+      ...sourceView,
+      id: `slide-${ts}`,
       label: (source.label || source.id) + ' (copy)',
+      // Live fields empty — the copy is a brand-new draft.
+      blocks: [],
+      customCss: undefined,
+      pageSettings: undefined,
+      notes: undefined,
+      draft: {
+        pendingCreate: true,
+        blocks: reidBlocks,
+        customCss: sourceView.customCss,
+        pageSettings: sourceView.pageSettings,
+        notes: sourceView.notes,
+        updatedAt: new Date().toISOString(),
+      },
     };
-    dup.blocks = dup.blocks.map((b: PitchDeckSlideV2['blocks'][number], i: number) => ({
-      ...b,
-      id: `block-${Date.now()}-${i}`,
-    }));
     const newSlides = [...deck.slides];
     newSlides.splice(idx + 1, 0, dup);
     setDeck({ ...deck, slides: newSlides });
@@ -733,27 +922,56 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     );
   }
 
-  const currentSlide = deck.slides[activeSlide];
+  // `currentSlide` is undefined for a freshly-created deck with no slides yet
+  // (the create endpoint POSTs `slides: []`). Guard everything downstream so
+  // the editor renders the empty-state UI (defined below at `deck.slides.length === 0`)
+  // instead of crashing inside `getSlideView`.
+  const currentSlide: PitchDeckSlideV2 | undefined = deck.slides[activeSlide];
+  const draftSlideCount = deck.slides.filter((s) => slideHasDraft(s)).length;
   const pathGroups = getPathGroups();
   const pathGroupSlideCounts = pathGroups.reduce<Record<string, number>>((acc, pg) => {
     acc[pg] = deck.slides.filter(s => s.pathGroup === pg).length;
     return acc;
   }, {});
 
+  // The slide as the editor should display it — draft overlay wins over live.
+  // SlideSettingsPanel + SlideContentEditor both read from `currentSlideView`.
+  // Null when the deck has no slides yet.
+  const currentSlideView = currentSlide ? getSlideView(currentSlide) : null;
+
   // Slide-level settings JSX — used as the noSelectionPanel inside VisualEditorShell
   // and appended to survey-slide previews so tenants can theme any slide identically.
-  const slideSettingsPanel = (
+  // `pageSettings` / `customCss` updates route into `draft.*`; `label` is sidebar-
+  // only and stays on the live field so reorder/duplicate UIs reflect it instantly.
+  // Null when there's no active slide — consumers below are gated by the same check.
+  const slideSettingsPanel = currentSlideView ? (
     <SlideSettingsPanel
-      slide={currentSlide}
+      slide={currentSlideView}
       theme={deck.theme}
       onChange={(updates) => {
         const newSlides = [...deck.slides];
-        newSlides[activeSlide] = { ...newSlides[activeSlide], ...updates };
+        const target = newSlides[activeSlide];
+        const draftPatch: Parameters<typeof mergeSlideDraft>[1] = {};
+        if (updates.pageSettings !== undefined) draftPatch.pageSettings = updates.pageSettings;
+        if (updates.customCss !== undefined) draftPatch.customCss = updates.customCss;
+        let nextSlide = target;
+        if (Object.keys(draftPatch).length > 0) {
+          nextSlide = mergeSlideDraft(nextSlide, draftPatch);
+        }
+        // Non-draftable fields (e.g. label) merge onto the live slide.
+        const liveOnly: Partial<PitchDeckSlideV2> = { ...updates };
+        delete liveOnly.pageSettings;
+        delete liveOnly.customCss;
+        // Note: `notes` is draftable but SlideSettingsPanel never emits it.
+        if (Object.keys(liveOnly).length > 0) {
+          nextSlide = { ...nextSlide, ...liveOnly };
+        }
+        newSlides[activeSlide] = nextSlide;
         setDeck({ ...deck, slides: newSlides });
         setHasUnsavedChanges(true);
       }}
     />
-  );
+  ) : null;
 
   return (
     <div className="w-full space-y-4 px-2">
@@ -784,6 +1002,9 @@ function PitchDeckEditorContent({ id }: { id: string }) {
         onToggleSeo={() => setShowSeo(!showSeo)}
         onSave={saveDeck}
         onTogglePublish={togglePublish}
+        draftSlideCount={draftSlideCount}
+        publishingAllDrafts={publishingAll}
+        onPublishAllDrafts={handlePublishAll}
         onPresent={() => {
           window.open(
             `/portal/tools/pitch-decks/${id}/presenter`,
@@ -792,6 +1013,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           );
         }}
         onDelete={handleDelete}
+        onStartAbTest={handleStartAbTest}
         presenterUrl={`/portal/tools/pitch-decks/${id}/presenter`}
       />
 
@@ -889,8 +1111,51 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           </div>
         </div>
       ) : (
-        <div className="flex gap-4">
-          <div className="flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+          {/* Phone-only "Slides" trigger + active-slide breadcrumb */}
+          <div className="md:hidden flex items-center gap-2 -mb-1">
+            <button
+              onClick={() => setMobileSlideDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground hover:bg-accent transition-colors min-h-[40px]"
+            >
+              <span className="material-icons text-base">view_carousel</span>
+              Slides ({deck.slides.length})
+            </button>
+            <span className="text-xs text-muted-foreground truncate">
+              {activeSlide + 1}. {currentSlide.label || 'Untitled'}
+            </span>
+          </div>
+
+          {/* Backdrop — phone-only, shown when drawer is open */}
+          {mobileSlideDrawerOpen && (
+            <div
+              onClick={() => setMobileSlideDrawerOpen(false)}
+              className="md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+          )}
+
+          {/* SlideList wrapper:
+              - <md: fixed slide-over drawer from left edge, toggled by mobileSlideDrawerOpen
+              - ≥md: inline left rail (existing behavior) */}
+          <div
+            className={`
+              flex flex-col gap-2 overflow-y-auto
+              md:static md:translate-x-0 md:z-auto md:w-auto md:max-w-none md:bg-transparent md:shadow-none md:p-0 md:h-auto md:overflow-visible
+              fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-background shadow-xl p-3 transition-transform duration-200
+              ${mobileSlideDrawerOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}
+          >
+            <div className="md:hidden flex items-center justify-between pb-2 border-b border-border">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Slides</span>
+              <button
+                onClick={() => setMobileSlideDrawerOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                aria-label="Close slides panel"
+              >
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
             <SlideList
               slides={deck.slides}
               activeSlide={activeSlide}
@@ -902,7 +1167,13 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               surveyListLoaded={surveyListLoaded}
               surveyList={surveyList}
               getSurveyFieldCount={getSurveyFieldCount}
-              onSetActive={setActiveSlide}
+              onSetActive={(idx) => {
+                setActiveSlide(idx);
+                // Auto-close mobile drawer after picking a slide
+                if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+                  setMobileSlideDrawerOpen(false);
+                }
+              }}
               onSetCollapsed={setSlidePanelCollapsed}
               onOpenBoardView={() => setBoardView(true)}
               onAddSlide={addSlide}
@@ -916,6 +1187,9 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               onDuplicateSlide={duplicateSlide}
               onRemoveSlide={removeSlide}
               onToggleSelect={toggleSlideSelection}
+              onPublishSlide={(idx) => handlePublishSlide(deck.slides[idx].id)}
+              onCancelSlideDraft={cancelSlideDraft}
+              publishingSlideId={publishingSlideId}
               onAddDecisionSlide={addDecisionSlide}
               onAddPathGroup={addPathGroup}
               onAddSlideToPathGroup={addSlideToPathGroup}
@@ -951,10 +1225,55 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               activeSlideIndex={activeSlide}
               trackedRef={slideCanvasRef}
             />
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground min-w-0 truncate max-w-full">
                 Slide {activeSlide + 1} of {deck.slides.length} · {currentSlide.label || 'Untitled'}
               </span>
+              {slideIsPendingCreate(currentSlide) && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold">
+                  <span className="material-icons text-[12px]">fiber_new</span>
+                  New (draft)
+                </span>
+              )}
+              {slideIsPendingDelete(currentSlide) && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 font-semibold">
+                  <span className="material-icons text-[12px]">delete_sweep</span>
+                  Pending delete
+                </span>
+              )}
+              {slideHasDraft(currentSlide) && !slideIsPendingCreate(currentSlide) && !slideIsPendingDelete(currentSlide) && (
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                  <span className="material-icons text-[12px]">edit_note</span>
+                  Draft
+                </span>
+              )}
+              {slideHasDraft(currentSlide) && (
+                <>
+                  <button
+                    onClick={() => handlePublishSlide(currentSlide.id)}
+                    disabled={publishingSlideId === currentSlide.id}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                    title={
+                      slideIsPendingDelete(currentSlide)
+                        ? 'Publish — removes this slide from the live deck'
+                        : 'Publish this slide\'s draft to the live deck'
+                    }
+                  >
+                    <span className={`material-icons text-sm ${publishingSlideId === currentSlide.id ? 'animate-spin' : ''}`}>
+                      {publishingSlideId === currentSlide.id ? 'autorenew' : 'publish'}
+                    </span>
+                    {publishingSlideId === currentSlide.id ? 'Publishing...' : 'Publish slide'}
+                  </button>
+                  <button
+                    onClick={() => cancelSlideDraft(activeSlide)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    title={slideIsPendingDelete(currentSlide) ? 'Cancel deletion' : 'Discard draft changes'}
+                  >
+                    <span className="material-icons text-sm">undo</span>
+                    {slideIsPendingDelete(currentSlide) ? 'Cancel deletion' : 'Discard draft'}
+                  </button>
+                </>
+              )}
               <div className="ml-auto flex items-center gap-2">
                 <div className="inline-flex rounded-lg border border-border overflow-hidden">
                   {(['desktop', 'tablet', 'mobile'] as const).map((vp) => (
@@ -998,7 +1317,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             {currentSlide.surveySlide ? (
               editingSurveyFieldId ? (
                 <SurveyFieldEditorView
-                  slide={currentSlide}
+                  slide={currentSlideView!}
                   theme={deck.theme}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   editingFieldId={editingSurveyFieldId}
@@ -1010,7 +1329,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
                 />
               ) : (
                 <SurveySlideQuestionList
-                  slide={currentSlide}
+                  slide={currentSlideView!}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   onSelectField={setEditingSurveyFieldId}
                   onRemoveSlide={() => removeSlide(activeSlide)}
@@ -1018,7 +1337,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               )
             ) : currentSlide.decisionSlide ? (
               <DecisionSlideEditor
-                slide={currentSlide}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 pathGroupSlideCounts={pathGroupSlideCounts}
                 onUpdateLabel={(label) => {
@@ -1036,7 +1355,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             ) : (
               <SlideContentEditor
                 deckId={id}
-                slide={currentSlide}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 theme={deck.theme}
                 brandingProfileId={deck.brandingProfileId}
@@ -1052,7 +1371,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
                 onSubmitSlidePrompt={handleSlideEdit}
                 onChangeNotes={(notes) => {
                   const newSlides = [...deck.slides];
-                  newSlides[activeSlide] = { ...newSlides[activeSlide], notes };
+                  newSlides[activeSlide] = mergeSlideDraft(newSlides[activeSlide], { notes });
                   setDeck({ ...deck, slides: newSlides });
                   setHasUnsavedChanges(true);
                 }}

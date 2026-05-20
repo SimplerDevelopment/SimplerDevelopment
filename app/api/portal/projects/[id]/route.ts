@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -28,7 +29,21 @@ async function authorizeProject(projectId: number, session: any): Promise<{ proj
     .limit(1);
   if (!owned) return null;
 
-  return { project: owned, canEdit: owned.isPrivate };
+  return { project: owned, canEdit: await canUserEditProject(userId, projectId) };
+}
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  const projectId = parseInt(id, 10);
+  if (!Number.isFinite(projectId)) return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 });
+
+  const result = await authorizeProject(projectId, session);
+  if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+  return NextResponse.json({ success: true, data: result.project });
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

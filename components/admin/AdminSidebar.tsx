@@ -24,6 +24,7 @@ export default function AdminSidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [approvalsCount, setApprovalsCount] = useState<number>(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('adminSidebarCollapsed');
@@ -33,6 +34,25 @@ export default function AdminSidebar() {
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
+
+  // Poll the unified approvals inbox every 60s so the badge stays fresh.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    let cancelled = false;
+    async function tick() {
+      try {
+        const res = await fetch('/api/admin/approvals');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.success) setApprovalsCount(Array.isArray(data.data) ? data.data.length : 0);
+      } catch {
+        /* ignore — badge is best-effort */
+      }
+    }
+    void tick();
+    const id = setInterval(() => void tick(), 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [status, pathname]);
 
   if (status !== 'authenticated') return null;
 
@@ -101,6 +121,7 @@ export default function AdminSidebar() {
     {
       label: 'Operations',
       items: [
+        { href: '/admin/approvals', label: 'Approvals', icon: 'inbox', badge: approvalsCount },
         {
           href: '/admin/portal-projects',
           label: 'Projects',
@@ -112,6 +133,13 @@ export default function AdminSidebar() {
         },
         { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
         { href: '/admin/automations', label: 'Automations', icon: 'bolt' },
+        { href: '/admin/system-health', label: 'System Health', icon: 'monitor_heart' },
+        // Agentic OS is a developer-only feature. NODE_ENV is statically
+        // inlined by Next.js at build time, so the entry is stripped from
+        // production bundles entirely (matches the server-side route gate).
+        ...(process.env.NODE_ENV === 'development'
+          ? [{ href: '/admin/agentic-os', label: 'Agentic OS', icon: 'auto_awesome' }]
+          : []),
         { href: '/admin/portal-ai', label: 'AI Chat', icon: 'smart_toy' },
       ],
     },
@@ -233,11 +261,25 @@ export default function AdminSidebar() {
                         title={isCollapsed ? item.label : ''}
                       >
                         <span className="material-icons text-lg">{item.icon}</span>
-                        {!isCollapsed && <span className="truncate">{item.label}</span>}
+                        {!isCollapsed && <span className="truncate flex-1">{item.label}</span>}
+                        {!isCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
+                          <span className={`text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full ${
+                            isActive(item.href) ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground'
+                          }`}>
+                            {item.badge}
+                          </span>
+                        )}
                         {isCollapsed && (
-                          <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
-                            {item.label}
-                          </div>
+                          <>
+                            {typeof item.badge === 'number' && item.badge > 0 && (
+                              <span className="absolute -top-0.5 -right-0.5 text-[9px] font-semibold leading-none px-1 py-0.5 rounded-full bg-primary text-primary-foreground">
+                                {item.badge}
+                              </span>
+                            )}
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity z-50">
+                              {item.label}
+                            </div>
+                          </>
                         )}
                       </Link>
 

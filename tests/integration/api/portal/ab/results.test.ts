@@ -61,9 +61,9 @@ async function seedExperimentForTenant(ctx: TenantCtx, status: string = 'running
   `;
   const [exp] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.ab_experiments (
-      post_id, name, status, variant_split, goal_metric, created_by
+      post_id, target_type, target_id, name, status, variant_split, goal_metric, created_by
     ) VALUES (
-      ${p.id}, 'Results test', ${status},
+      ${p.id}, 'post', ${p.id}, 'Results test', ${status},
       ${JSON.stringify({ a: 50, b: 50 })}::jsonb,
       'page_view', ${ctx.user.id}
     ) RETURNING id

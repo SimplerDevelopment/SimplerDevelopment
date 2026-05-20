@@ -26,24 +26,26 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map(tab => {
-          const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                isActive
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-              }`}
-            >
-              <span className="material-icons text-base">{tab.icon}</span>
-              {tab.label}
-            </Link>
-          );
-        })}
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-thin">
+        <div className="flex items-center gap-1 border-b border-border whitespace-nowrap">
+          {tabs.map(tab => {
+            const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                }`}
+              >
+                <span className="material-icons text-base">{tab.icon}</span>
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <div>{children}</div>

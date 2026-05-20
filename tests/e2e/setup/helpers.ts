@@ -150,6 +150,29 @@ export async function createTestWebsite(api: ApiClient) {
   return { website, cleanup };
 }
 
+/**
+ * Resolve the first website id owned by the logged-in portal client.
+ *
+ * Replaces hard-coded `const SITE_ID = 1` constants that were silently testing
+ * against whichever client happens to own site id 1 in the local DB — which
+ * isn't necessarily the `client@example.com` seed account, so every request
+ * 404'd or 403'd. This helper:
+ *
+ *   1. Lists the current client's websites via the portal API.
+ *   2. Returns the first id if any exist.
+ *   3. Otherwise provisions a fresh test website and returns its id.
+ *
+ * Always succeeds in a fixturable way — callers can use it as the very first
+ * line of a spec without coordinating with seed scripts.
+ */
+export async function resolveClientSiteId(api: ApiClient): Promise<number> {
+  const res = await api.get('/api/portal/cms/websites');
+  const list = (res.data?.data ?? []) as Array<{ id: number }>;
+  if (list.length > 0) return list[0].id;
+  const { website } = await createTestWebsite(api);
+  return (website as { id: number }).id;
+}
+
 /** Create a test category scoped to a website */
 export async function createTestCategory(api: ApiClient, siteId: number, overrides?: Record<string, string>) {
   const slug = `test-cat-${Date.now()}`;

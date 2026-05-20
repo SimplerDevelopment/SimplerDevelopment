@@ -3,6 +3,11 @@
 // ContentPanel: dispatcher for related block types' settings panels.
 import type { Block, TextBlock, HeadingBlock, QuoteBlock, CodeBlock, HtmlRenderBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
+// Reuse the iframe-mode rich editor so admin/email/popup paths get the same
+// schema-aware experience (tabbed values form, loop config, schema clipboard,
+// validation, conditional logic, full block JSON export/import). Post picker +
+// URL autocomplete degrade gracefully when siteId is unavailable in this path.
+import { HtmlRenderEditor } from '@/components/portal/visual-editor/HtmlRenderEditor';
 
 interface PanelProps {
   block: Block;
@@ -168,34 +173,15 @@ function CodeBlockSettings({ block, onChange, currentViewport }: { block: CodeBl
 }
 
 function HtmlRenderBlockSettings({ block, onChange }: { block: HtmlRenderBlock; onChange: (updates: Partial<HtmlRenderBlock>) => void }) {
+  // Delegate to the canonical HtmlRenderEditor (same component the iframe
+  // posts editor uses). Admin/email/popup contexts don't have siteId in scope
+  // here, so post picker + URL autocomplete + tenant-scoped media will fall
+  // back to the global `/api/portal/media` endpoint and unscoped post lookups.
+  // This is a substantial upgrade over the previous "raw HTML textarea + width"
+  // shell — see HTML-render deep dive (cms-blocks-audit.md) for context.
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">HTML Markup</label>
-        <textarea
-          value={block.html || ''}
-          onChange={(e) => onChange({ html: e.target.value })}
-          rows={18}
-          spellCheck={false}
-          className="w-full text-xs font-mono rounded border border-border bg-background px-3 py-2 text-foreground"
-          placeholder="<section>...</section>"
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Rendered directly into the page DOM. <code>&lt;script&gt;</code> tags execute on mount;
-          page-level styles &amp; JS go in the Custom CSS &amp; JavaScript modal.
-        </p>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">Width</label>
-        <select
-          value={block.width || 'full'}
-          onChange={(e) => onChange({ width: e.target.value as 'full' | 'contained' })}
-          className="w-full text-sm rounded border border-border bg-background px-3 py-2 text-foreground"
-        >
-          <option value="full">Full width</option>
-          <option value="contained">Contained (centered)</option>
-        </select>
-      </div>
+    <div className="space-y-3">
+      <HtmlRenderEditor block={block} onUpdate={onChange as (u: Partial<Block>) => void} />
     </div>
   );
 }

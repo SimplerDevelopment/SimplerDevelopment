@@ -60,9 +60,9 @@ async function seedRunning(opts: {
   const split = { a: 100 - (opts.splitB ?? 50), b: opts.splitB ?? 50 };
   const [exp] = await sql<{ id: number }[]>`
     INSERT INTO ${sql(TEST_SCHEMA)}.ab_experiments (
-      post_id, name, status, variant_split, goal_metric, started_at, created_by
+      post_id, target_type, target_id, name, status, variant_split, goal_metric, started_at, created_by
     ) VALUES (
-      ${p.id}, 'Render exp', ${opts.status ?? 'running'},
+      ${p.id}, 'post', ${p.id}, 'Render exp', ${opts.status ?? 'running'},
       ${JSON.stringify(split)}::jsonb,
       'page_view', NOW(), ${u.id}
     ) RETURNING id

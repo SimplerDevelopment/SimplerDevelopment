@@ -6,6 +6,7 @@ import type { PitchDeckSlide } from '@/lib/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { convertAllSlidesToV2, isV2Slides } from '@/lib/pitch-deck-migration';
+import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
 
 /** Normalize a user-entered slug to a URL-safe form. */
 function slugify(input: string): string {
@@ -61,7 +62,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.title !== undefined) updates.title = body.title.trim();
   if (body.description !== undefined) updates.description = body.description?.trim() || null;
   if (body.status !== undefined) updates.status = body.status;
-  if (body.slides !== undefined) { updates.slides = body.slides; updates.formatVersion = 2; }
+  if (body.slides !== undefined) {
+    try {
+      assertBlocksAllowedForRole(body.slides, (session.user as { role?: string }).role);
+    } catch (e) {
+      if (e instanceof BlockGateError) {
+        return NextResponse.json({ success: false, message: e.message }, { status: 403 });
+      }
+      throw e;
+    }
+    updates.slides = body.slides; updates.formatVersion = 2;
+  }
   if (body.theme !== undefined) updates.theme = body.theme;
   if (body.sourceUrl !== undefined) updates.sourceUrl = body.sourceUrl?.trim() || null;
 

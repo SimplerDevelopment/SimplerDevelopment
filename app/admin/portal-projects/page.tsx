@@ -10,13 +10,14 @@ interface Project {
   name: string;
   description: string | null;
   status: string;
-  isPrivate: boolean;
   startDate: string | null;
   dueDate: string | null;
   createdAt: string;
   clientId: number;
   company: string | null;
   clientName: string;
+  memberCount: number;
+  ownerName: string | null;
 }
 
 interface Client {
@@ -87,7 +88,7 @@ function ProjectsContent() {
     setSaving(false);
     if (data.success) {
       const client = clients.find(c => c.id === data.data.clientId);
-      setProjects(prev => [...prev, { ...data.data, company: client?.company ?? null, clientName: client?.userName ?? '' }]);
+      setProjects(prev => [...prev, { ...data.data, company: client?.company ?? null, clientName: client?.userName ?? '', memberCount: 0, ownerName: null }]);
       setShowForm(false);
     }
   }
@@ -226,7 +227,8 @@ function ProjectsContent() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Project</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Members</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Owner</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Start</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Due</th>
@@ -246,12 +248,12 @@ function ProjectsContent() {
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{p.company ?? p.clientName}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          p.isPrivate ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {p.isPrivate ? 'Private' : 'Agency'}
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="material-icons text-sm">people</span>
+                          {p.memberCount}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.ownerName ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[p.status] ?? 'bg-muted text-muted-foreground'}`}>
                           {p.status}

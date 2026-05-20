@@ -5,8 +5,12 @@ import { db } from '@/lib/db';
 import { crmProposals } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
+// Basic RFC-5322-lite check — good enough to reject obvious junk
+// (e.g. empty strings, missing `@`, spaces). Not a full validator.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -22,6 +26,29 @@ export async function POST(
   const proposalId = parseInt(id, 10);
   if (isNaN(proposalId))
     return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
+
+  // Parse body defensively — empty body should still surface as a clean 400
+  // (not a 500 from JSON.parse).
+  let body: { recipientEmail?: unknown } = {};
+  try {
+    const text = await req.text();
+    body = text ? JSON.parse(text) : {};
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'invalid recipient email' },
+      { status: 400 }
+    );
+  }
+
+  const recipientEmail =
+    typeof body.recipientEmail === 'string' ? body.recipientEmail.trim() : '';
+
+  if (!recipientEmail || !EMAIL_RE.test(recipientEmail)) {
+    return NextResponse.json(
+      { success: false, error: 'invalid recipient email' },
+      { status: 400 }
+    );
+  }
 
   const [existing] = await db
     .select({ id: crmProposals.id, clientToken: crmProposals.clientToken, status: crmProposals.status })

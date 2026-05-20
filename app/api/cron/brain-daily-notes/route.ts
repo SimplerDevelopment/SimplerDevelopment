@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brainNoteTemplates } from '@/lib/db/schema';
 import { applyTemplate } from '@/lib/brain/template';
 import { createNote, getNoteBySourceUrl } from '@/lib/brain/notes';
+import { isBrainEntitled } from '@/lib/brain/entitlement';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,7 +24,7 @@ export const runtime = 'nodejs';
  *
  * Suggested schedule: 6:05 UTC daily (`5 6 * * *`).
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
   if (!isVercelCron) {
     const cronSecret = process.env.CRON_SECRET;
@@ -48,12 +50,34 @@ export async function GET(req: Request) {
 
   let created = 0;
   let skipped = 0;
+  let skippedUnentitled = 0;
   let failed = 0;
   const failures: { templateId: number; clientId: number; reason: string }[] = [];
+
+  // Tiny per-run cache so we only hit the entitlement query once per client,
+  // even if a tenant has multiple daily templates configured.
+  const entitlementCache = new Map<number, boolean>();
+  async function tenantEntitled(clientId: number): Promise<boolean> {
+    const cached = entitlementCache.get(clientId);
+    if (cached !== undefined) return cached;
+    const ok = await isBrainEntitled(clientId);
+    entitlementCache.set(clientId, ok);
+    return ok;
+  }
 
   for (const tpl of templates) {
     const sourceUrl = `daily://${tpl.id}/${dateKey}`;
     try {
+      // Per-tenant entitlement gate — this cron is unauthenticated (Vercel
+      // cron header / shared secret) so we cannot use the request-scoped
+      // `requireBrainEntitlement`. Defense-in-depth: if a tenant churned but
+      // still has `enabled=true` daily templates lying around, do not write
+      // new notes on their behalf. Use the explicit-clientId helper.
+      if (!(await tenantEntitled(tpl.clientId))) {
+        skippedUnentitled++;
+        continue;
+      }
+
       const existing = await getNoteBySourceUrl(tpl.clientId, sourceUrl);
       if (existing) { skipped++; continue; }
 
@@ -90,10 +114,16 @@ export async function GET(req: Request) {
     examined: templates.length,
     created,
     skipped,
+    skippedUnentitled,
     failed,
     failures: failures.slice(0, 20),
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:brain-daily-notes', area: 'api-cron' },
+  _GET,
+);
 
 // Accept POST for manual triggers from scripts.
 export const POST = GET;

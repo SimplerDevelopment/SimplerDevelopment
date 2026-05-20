@@ -105,6 +105,7 @@ import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
+import { createApprovalLink, approvalEnvelope } from '../approval-links';
 import {
   json,
   serializePostContent,
@@ -233,8 +234,18 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
         allowMultiple: args.allowMultiple ?? true,
         createdBy: ctx.userId,
       }).returning();
+      // Mint an approval URL — survey starts in `draft` and approving flips
+      // status to `active` so the public /s/<slug> route accepts responses.
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'survey',
+          entityId: row.id,
+          summary: `Survey "${row.title}"`,
+        }),
+      );
       revalidateForWrite('portal');
-      return json(row);
+      return json({ ...row, approval });
     }
   );
 
@@ -242,17 +253,47 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
     'surveys_update',
     {
       title: 'Update survey',
-      description: 'Update title, description, status (draft/active/closed), or fields of a survey.',
+      description:
+        'Update any combination of: title, description, status (draft/active/closed), fields, thank-you copy, close date, max responses, brandingProfileId, styling, pages (titled page-break sections), publishResults, certificateEnabled, scoringConfig (autoRouteToCrm), and recommendation (offerings/questions/overrides/narrative). Passing only a subset is fine — unspecified fields stay as-is. Mints a fresh approval URL on every update.',
       inputSchema: {
-        id: z.number(),
+        id: z.number().int().positive(),
         title: z.string().min(1).optional(),
         description: z.string().nullable().optional(),
         status: z.enum(['draft', 'active', 'closed']).optional(),
-        fields: z.array(z.any()).optional(),
+        fields: z.array(z.any()).optional().describe('SurveyFieldDef[]'),
         thankYouTitle: z.string().optional(),
         thankYouMessage: z.string().optional(),
         closesAt: z.string().nullable().optional(),
-        maxResponses: z.number().nullable().optional(),
+        maxResponses: z.number().int().positive().nullable().optional(),
+        // ─ branding / styling ─
+        brandingProfileId: z.number().int().positive().nullable().optional(),
+        styling: z.record(z.string(), z.any()).optional()
+          .describe('SurveyStyling — { primaryColor?, backgroundColor?, textColor?, headingFont?, bodyFont?, borderRadius?, showLogo?, hideTitle?, buttonPrimary*? }'),
+        color: z.string().optional().describe('Legacy single-color override (hex). Prefer styling.primaryColor.'),
+        // ─ pages ─
+        pages: z.array(z.object({
+          title: z.string().optional(),
+          description: z.string().optional(),
+        })).optional().describe('Per-page metadata. Page boundaries inferred from fields with type=page_break.'),
+        // ─ public results / certificate ─
+        publishResults: z.boolean().optional(),
+        certificateEnabled: z.boolean().optional(),
+        consentField: z.string().nullable().optional()
+          .describe('Field id that gates response submission via explicit consent checkbox.'),
+        // ─ notifications ─
+        notifyOnResponse: z.boolean().optional(),
+        notifyDigest: z.enum(['off', 'daily', 'weekly']).optional(),
+        // ─ scoring + CRM auto-route ─
+        scoringConfig: z.any().optional()
+          .describe('SurveyScoringConfig — { autoRouteToCrm?: { enabled, minScore, pipelineId, stageId, dealTitleTemplate? } }'),
+        // ─ recommendation engine ─
+        recommendation: z.any().optional()
+          .describe('SurveyRecommendationConfig — { offerings[], questions[], overrides[], hybrid?, alwaysAlsoOfferingKey?, bookUrl?, narrativeTemplate? }'),
+        // ─ linking (to another artifact) ─
+        linkedType: z.enum(['email_campaign', 'crm_deal', 'crm_proposal', 'booking_page', 'website', 'pitch_deck']).nullable().optional(),
+        linkedId: z.number().int().positive().nullable().optional(),
+        redirectUrl: z.string().nullable().optional()
+          .describe('Send respondents here after submit. Overrides the thank-you screen.'),
       },
     },
     async ({ id, closesAt, fields, ...rest }) => {
@@ -267,8 +308,85 @@ export function registerSurveysTools(server: McpServer, ctx: PortalMcpContext): 
       if (closesAt !== undefined) patch.closesAt = closesAt ? new Date(closesAt) : null;
       const [row] = await db.update(surveys).set(patch)
         .where(eq(surveys.id, id)).returning();
+      // Re-mint approval URL on every update — author may have edited fields
+      // / scoring / etc. between the previous mint and this update. The old
+      // URL stays valid in whatever state it was already in.
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'survey',
+          entityId: row.id,
+          summary: `Survey "${row.title}" (rev)`,
+        }),
+      );
       revalidateForWrite('portal');
-      return json(row);
+      return json({ ...row, approval });
+    }
+  );
+
+  // Clone an existing survey into a new draft row with `parent_survey_id`
+  // pointing at the source. Use for variant tests, A/B subject lines, or
+  // "remix this published intake for next quarter without disturbing the
+  // running one." The fork starts in draft so the public /s/<slug> route
+  // refuses responses until approved.
+  hasScope(ctx.scopes, 'surveys:write') && server.registerTool(
+    'surveys_fork',
+    {
+      title: 'Fork a survey into a draft',
+      description:
+        'Duplicate a survey into a new draft row tied to the original via parent_survey_id. Copies fields, branding, styling, recommendation/scoring config, thank-you copy. Status resets to draft + responseCount=0; the fork has its own slug and approval URL. The parent stays untouched on approve or reject. Use for A/B tests or revising a live survey without taking it down.',
+      inputSchema: {
+        id: z.number().int().positive().describe('Source survey id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional().describe('Appended to the cloned title.'),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'surveys:write')) return denied('surveys:write');
+      if (!(await requireService(clientId, 'surveys'))) return serviceDenied('surveys');
+      const [source] = await db.select().from(surveys)
+        .where(and(eq(surveys.id, id), eq(surveys.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source survey not found' });
+
+      const baseSlug = source.slug.replace(/-fork-[a-z0-9]+$/i, '');
+      const forkSlug = `${baseSlug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(surveys).values({
+        clientId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        fields: source.fields,
+        pages: source.pages,
+        thankYouTitle: source.thankYouTitle,
+        thankYouMessage: source.thankYouMessage,
+        requireEmail: source.requireEmail,
+        allowMultiple: source.allowMultiple,
+        redirectUrl: source.redirectUrl,
+        color: source.color,
+        brandingProfileId: source.brandingProfileId,
+        styling: source.styling,
+        publishResults: source.publishResults,
+        certificateEnabled: source.certificateEnabled,
+        consentField: source.consentField,
+        notifyOnResponse: source.notifyOnResponse,
+        notifyDigest: source.notifyDigest,
+        recommendation: source.recommendation,
+        scoringConfig: source.scoringConfig,
+        // Always start drafts — even if source was 'active'.
+        status: 'draft',
+        // Response counters reset on a fork — it's a brand-new survey.
+        responseCount: 0,
+        createdBy: ctx.userId,
+        parentSurveyId: source.id,
+      }).returning();
+
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'survey',
+        entityId: forkRow.id,
+        summary: `Fork of survey #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentSurveyId: source.id, approval: approvalEnvelope(link) });
     }
   );
 }

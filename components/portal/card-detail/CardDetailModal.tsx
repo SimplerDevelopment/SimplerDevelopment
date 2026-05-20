@@ -11,12 +11,15 @@
  */
 'use client';
 
+import { useState } from 'react';
 import type { CardDetailModalProps, FileAttachment } from './_lib/types';
 import { useCardDetail } from './_hooks/useCardDetail';
 import { CardActivity } from './_sections/CardActivity';
 import { CardArtifacts } from './_sections/CardArtifacts';
 import { CardChecklist } from './_sections/CardChecklist';
+import { CardChildren } from './_sections/CardChildren';
 import { CardComments } from './_sections/CardComments';
+import { CardCustomFields } from './_sections/CardCustomFields';
 import { CardDependencies } from './_sections/CardDependencies';
 import { CardDescription } from './_sections/CardDescription';
 import { CardFiles } from './_sections/CardFiles';
@@ -31,6 +34,13 @@ export default function CardDetailModal({
   const s = useCardDetail({ cardId, onClose, onDeleted, onUpdated });
   const totalMinutes = s.timeLogs.reduce((sum, t) => sum + t.minutes, 0);
   const canDeleteFile = (f: FileAttachment) => canEdit || f.userId === currentUserId;
+
+  const [showParentPicker, setShowParentPicker] = useState(false);
+  const parent = s.card?.parentCardId
+    ? s.projectCards.find(c => c.id === s.card?.parentCardId) ?? null
+    : null;
+  const parentCandidates = s.projectCards.filter(c => c.id !== cardId && c.id !== s.card?.parentCardId);
+  const children = s.projectCards.filter(c => c.parentCardId === cardId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -49,7 +59,42 @@ export default function CardDetailModal({
               editingTitle={s.editingTitle} titleDraft={s.titleDraft}
               setTitleDraft={s.setTitleDraft} setEditingTitle={s.setEditingTitle}
               saveTitle={s.saveTitle}
+              parent={parent}
+              onClearParent={() => s.saveField('parentCardId', null)}
+              onPickParent={() => setShowParentPicker(true)}
+              watching={s.watching}
+              toggleWatch={s.toggleWatch}
             />
+
+            {showParentPicker && (
+              <div className="absolute inset-0 z-30 flex items-start justify-center pt-24 px-4" onClick={() => setShowParentPicker(false)}>
+                <div className="bg-popover border border-border rounded-xl shadow-2xl w-full max-w-md max-h-[60vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Pick a parent card</p>
+                    <button onClick={() => setShowParentPicker(false)} aria-label="Close">
+                      <span className="material-icons text-muted-foreground hover:text-foreground">close</span>
+                    </button>
+                  </div>
+                  {parentCandidates.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic p-4">No other cards in this project.</p>
+                  ) : (
+                    parentCandidates.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          s.saveField('parentCardId', c.id);
+                          setShowParentPicker(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-accent text-left border-b border-border last:border-b-0"
+                      >
+                        {c.key && <span className="font-mono text-muted-foreground">{c.key}</span>}
+                        <span className="text-foreground truncate">{c.title}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-1 overflow-hidden min-h-0">
               <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-card">
@@ -68,6 +113,10 @@ export default function CardDetailModal({
                   openDepMenu={s.openDepMenu}
                   addBlocker={s.addBlocker} removeBlocker={s.removeBlocker}
                 />
+
+                <CardChildren children={children} />
+
+                <CardCustomFields cardId={cardId} canEdit={canEdit} />
 
                 <CardChecklist
                   checklist={s.checklist} canEdit={canEdit}

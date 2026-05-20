@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+type ProjectRole = 'owner' | 'editor' | 'commenter' | 'viewer';
 
 interface Project {
   id: number;
@@ -12,6 +14,7 @@ interface Project {
   status: string;
   startDate: string | null;
   dueDate: string | null;
+  myRole?: ProjectRole;
 }
 
 const statusColor: Record<string, string> = {
@@ -28,18 +31,33 @@ const statusIcon: Record<string, string> = {
   archived: 'archive',
 };
 
-type Tab = 'agency' | 'private';
+const STATUS_TABS = ['all', 'active', 'paused', 'completed', 'archived'] as const;
+type StatusFilter = typeof STATUS_TABS[number];
+
+const roleLabel: Record<ProjectRole, string> = {
+  owner: 'Owner',
+  editor: 'Editor',
+  commenter: 'Commenter',
+  viewer: 'Viewer',
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function PortalProjectsPage() {
-  const [tab, setTab] = useState<Tab>('private');
-  const [agencyProjects, setAgencyProjects] = useState<Project[]>([]);
-  const [privateProjects, setPrivateProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: '', description: '' });
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    description: '',
+    status: 'active',
+    startDate: '',
+    dueDate: '',
+    cloneFromProjectId: '' as string,
+  });
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const load = () => {
     setLoading(true);
@@ -47,8 +65,13 @@ export default function PortalProjectsPage() {
       .then(r => r.json())
       .then(res => {
         if (res.success) {
-          setAgencyProjects(res.data.agency ?? res.data ?? []);
-          setPrivateProjects(res.data.private ?? []);
+          // Server returns a flat array of projects post-unification. The
+          // legacy { agency, private } shape is gone but keep a fallback for
+          // a single rolling deploy where the client may receive either shape.
+          if (Array.isArray(res.data)) setProjects(res.data);
+          else if (res.data?.agency || res.data?.private) {
+            setProjects([...(res.data.agency ?? []), ...(res.data.private ?? [])]);
+          }
         }
       })
       .finally(() => setLoading(false));
@@ -61,15 +84,25 @@ export default function PortalProjectsPage() {
     if (!createForm.name.trim()) return;
     setCreating(true);
     try {
+      const cloneId = createForm.cloneFromProjectId
+        ? parseInt(createForm.cloneFromProjectId, 10)
+        : null;
       const res = await fetch('/api/portal/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createForm),
+        body: JSON.stringify({
+          name: createForm.name,
+          description: createForm.description,
+          status: createForm.status,
+          startDate: createForm.startDate,
+          dueDate: createForm.dueDate,
+          cloneFromProjectId: cloneId,
+        }),
       });
       const data = await res.json();
       if (data.success) {
         setShowCreateForm(false);
-        setCreateForm({ name: '', description: '' });
+        setCreateForm({ name: '', description: '', status: 'active', startDate: '', dueDate: '', cloneFromProjectId: '' });
         load();
       }
     } finally {
@@ -77,10 +110,24 @@ export default function PortalProjectsPage() {
     }
   };
 
-  const tabs: { key: Tab; label: string; icon: string }[] = [
-    { key: 'private', label: 'Private Projects', icon: 'lock' },
-    { key: 'agency', label: 'Simpler Development Projects', icon: 'business' },
-  ];
+  const filtered = useMemo(() => {
+    return projects.filter(p => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return p.name.toLowerCase().includes(s)
+          || (p.description ?? '').toLowerCase().includes(s);
+      }
+      return true;
+    });
+  }, [projects, search, statusFilter]);
+
+  const counts = useMemo(() => ({
+    active: projects.filter(p => p.status === 'active').length,
+    paused: projects.filter(p => p.status === 'paused').length,
+    completed: projects.filter(p => p.status === 'completed').length,
+    total: projects.length,
+  }), [projects]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -88,9 +135,9 @@ export default function PortalProjectsPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-          <p className="text-muted-foreground mt-1">Manage and track all your projects.</p>
+          <p className="text-muted-foreground mt-1">All projects you have access to — agency-managed and your own.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link
             href="/portal/projects/automations"
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
@@ -105,43 +152,83 @@ export default function PortalProjectsPage() {
             <span className="material-icons text-base">rocket_launch</span>
             Suggested Projects
           </Link>
-          {tab === 'private' && (
-            <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
-              {showCreateForm ? 'Cancel' : 'New Project'}
-            </button>
-          )}
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-icons text-base">{showCreateForm ? 'close' : 'add'}</span>
+            {showCreateForm ? 'Cancel' : 'New Project'}
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t.key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-            }`}
-          >
-            <span className="material-icons text-base">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-green-600">play_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Active</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{counts.active}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-yellow-600">pause_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Paused</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{counts.paused}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-blue-600">check_circle</span>
+            <span className="text-xs text-muted-foreground font-medium">Completed</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{counts.completed}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-icons text-base text-muted-foreground">folder</span>
+            <span className="text-xs text-muted-foreground font-medium">Total</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{counts.total}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg flex-1 max-w-sm">
+          <span className="material-icons text-muted-foreground text-base">search</span>
+          <input
+            className="bg-transparent text-sm outline-none flex-1 text-foreground placeholder:text-muted-foreground"
+            placeholder="Search projects..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {STATUS_TABS.map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                statusFilter === s
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Create form */}
-      {showCreateForm && tab === 'private' && (
+      {showCreateForm && (
         <form onSubmit={handleCreate} className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">Create Private Project</h3>
+          <h3 className="text-sm font-semibold text-foreground">Create Project</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Project Name</label>
+              <label className="text-sm font-medium text-foreground">Project Name <span className="text-destructive">*</span></label>
               <input
                 value={createForm.name}
                 onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))}
@@ -151,14 +238,62 @@ export default function PortalProjectsPage() {
               />
             </div>
             <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Status</label>
+              <select
+                value={createForm.status}
+                onChange={e => setCreateForm(p => ({ ...p, status: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="active">Active</option>
+                <option value="paused">Paused</option>
+                <option value="completed">Completed</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <label className="text-sm font-medium text-foreground">Description</label>
-              <input
+              <textarea
+                rows={2}
                 value={createForm.description}
                 onChange={e => setCreateForm(p => ({ ...p, description: e.target.value }))}
                 placeholder="Optional"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Start Date</label>
+              <input
+                type="date"
+                value={createForm.startDate}
+                onChange={e => setCreateForm(p => ({ ...p, startDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Due Date</label>
+              <input
+                type="date"
+                value={createForm.dueDate}
+                onChange={e => setCreateForm(p => ({ ...p, dueDate: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            {projects.length > 0 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-sm font-medium text-foreground">Clone from existing project</label>
+                <select
+                  value={createForm.cloneFromProjectId}
+                  onChange={e => setCreateForm(p => ({ ...p, cloneFromProjectId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">— Start from scratch —</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">Copies columns, labels, and card templates. Cards are not copied.</p>
+              </div>
+            )}
           </div>
           <div className="flex justify-end">
             <button
@@ -178,10 +313,15 @@ export default function PortalProjectsPage() {
         <div className="flex items-center justify-center py-16">
           <span className="material-icons animate-spin text-primary text-2xl">refresh</span>
         </div>
-      ) : tab === 'agency' ? (
-        <ProjectGrid projects={agencyProjects} emptyMessage="No agency projects yet. Your projects will appear here once your team sets them up." emptyIcon="business" />
       ) : (
-        <ProjectGrid projects={privateProjects} emptyMessage="No private projects yet. Create your first project to get started with kanban boards, task tracking, and more." emptyIcon="lock" isPrivate />
+        <ProjectGrid
+          projects={filtered}
+          emptyMessage={
+            search || statusFilter !== 'all'
+              ? 'No projects match your filters.'
+              : 'No projects yet. Create your first project, or wait for your team to set one up.'
+          }
+        />
       )}
     </div>
   );
@@ -192,18 +332,14 @@ export default function PortalProjectsPage() {
 function ProjectGrid({
   projects,
   emptyMessage,
-  emptyIcon,
-  isPrivate = false,
 }: {
   projects: Project[];
   emptyMessage: string;
-  emptyIcon: string;
-  isPrivate?: boolean;
 }) {
   if (projects.length === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-12 text-center">
-        <span className="material-icons text-5xl text-muted-foreground">{emptyIcon}</span>
+        <span className="material-icons text-5xl text-muted-foreground">view_kanban</span>
         <h3 className="mt-4 font-semibold text-foreground">No projects yet</h3>
         <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{emptyMessage}</p>
       </div>
@@ -211,17 +347,15 @@ function ProjectGrid({
   }
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {projects.map((project) => (
         <Link
           key={project.id}
           href={`/portal/projects/${project.id}`}
-          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
+          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
         >
           <div className="flex items-start justify-between gap-2 mb-3">
-            <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">
-              {isPrivate ? 'lock' : 'view_kanban'}
-            </span>
+            <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">view_kanban</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${statusColor[project.status] ?? 'bg-muted text-muted-foreground'}`}>
               <span className="material-icons text-xs">{statusIcon[project.status] ?? 'circle'}</span>
               {project.status}
@@ -231,7 +365,13 @@ function ProjectGrid({
           {project.description && (
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
           )}
-          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            {project.myRole && (
+              <span className="flex items-center gap-1">
+                <span className="material-icons text-xs">person</span>
+                {roleLabel[project.myRole]}
+              </span>
+            )}
             {project.startDate && (
               <span className="flex items-center gap-1">
                 <span className="material-icons text-xs">calendar_today</span>

@@ -467,10 +467,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <Link href="/admin/clients" className="text-muted-foreground hover:text-foreground">
           <span className="material-icons text-base">arrow_back</span>
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">{client.company ?? client.userName}</h1>
           <p className="text-sm text-muted-foreground">{client.userEmail}</p>
         </div>
+        {/* Impersonate (server-side staff check is enforced on the route). */}
+        <form
+          action={`/api/admin/portal/clients/${clientId}/impersonate?redirect=1`}
+          method="POST"
+        >
+          <button
+            type="submit"
+            title="View the portal as this client"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border bg-background hover:bg-accent text-sm font-medium"
+          >
+            <span className="material-icons text-base">visibility</span>
+            Impersonate
+          </button>
+        </form>
       </div>
 
       {/* Tabs */}

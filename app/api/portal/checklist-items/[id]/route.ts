@@ -5,6 +5,7 @@ import { kanbanCards, kanbanCardChecklistItems, projects } from '@/lib/db/schema
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { logCardActivity } from '@/lib/pm-activity';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getRole(session: any): string {
@@ -28,7 +29,7 @@ async function authorizeItem(itemId: number, session: any): Promise<{ cardId: nu
   const [proj] = await db.select().from(projects)
     .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id))).limit(1);
   if (!proj) return null;
-  return { cardId: card.id, canEdit: proj.isPrivate, item };
+  return { cardId: card.id, canEdit: await canUserEditProject(userId, proj.id), item };
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

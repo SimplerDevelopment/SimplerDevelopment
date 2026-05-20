@@ -57,8 +57,11 @@ export const portalApiKeys = pgTable('portal_api_keys', {
   scopes: json('scopes').$type<string[]>().default([]).notNull(),
   active: boolean('active').default(true).notNull(),
   /** When true, CMS-write MCP tools stage to mcp_pending_changes instead of
-   * applying directly. Recommended for autonomous AI agent keys. */
-  requireCmsApproval: boolean('require_cms_approval').default(false).notNull(),
+   * applying directly. Defaults to TRUE so any newly issued client key is
+   * gated by default — admins can flip it off per key for trusted automation.
+   * (Reverted from a `false` default after a client-side incident; see
+   * 0110_draft_overlays.sql.) */
+  requireCmsApproval: boolean('require_cms_approval').default(true).notNull(),
   lastUsedAt: timestamp('last_used_at'),
   expiresAt: timestamp('expires_at'),
   revokedAt: timestamp('revoked_at'),

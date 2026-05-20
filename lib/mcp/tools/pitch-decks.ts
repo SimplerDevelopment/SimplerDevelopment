@@ -94,6 +94,11 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import {
+  unpackAndUploadZip,
+  isHttpError as isZipHttpError,
+  MAX_ZIP_TOTAL_BYTES,
+} from '@/lib/html-zip-upload';
+import {
   renderBlocksToEmailHtml,
   resend,
   buildCampaignHtml,
@@ -104,6 +109,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishSlidesUpdate } from '@/lib/realtime/internal-publisher';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
@@ -268,9 +274,12 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return deck;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'pitch_deck', summary: `Deck "${args.title}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -324,18 +333,79 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'pitch_deck',
+          summary: `Deck "${existing.title}" update`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
+    }
+  );
+
+  // ── decks_fork ─────────────────────────────────────────────────────
+  // Lightweight clone. Duplicates the source deck (slides + theme +
+  // metadata) into a new draft deck tied back via `parent_deck_id`. Use
+  // when you want to spin a variant deck off an existing template without
+  // mutating the original — share the approval URL on the fork for review.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_fork',
+    {
+      title: 'Fork a pitch deck into a draft',
+      description:
+        'Duplicate a deck into a new draft deck tied to the original via parent_deck_id. Use for "make me a variant of this deck for client X" or "let me try a different angle without touching the live deck." Returns the new deck id + an approval URL.',
+      inputSchema: {
+        id: z.number().describe('Source deck id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional(),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      const [source] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source deck not found' });
+      const baseSlug = source.slug.replace(/-fork-[a-z0-9]+$/, '');
+      const forkSlug = `${baseSlug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(pitchDecks).values({
+        clientId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        status: 'draft',
+        slides: source.slides as never,
+        formatVersion: source.formatVersion,
+        theme: source.theme as never,
+        sourceUrl: source.sourceUrl,
+        brandingProfileId: source.brandingProfileId,
+        seoTitle: source.seoTitle,
+        seoDescription: source.seoDescription,
+        ogImage: source.ogImage,
+        canonicalUrl: source.canonicalUrl,
+        noIndex: source.noIndex,
+        parentDeckId: source.id,
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'pitch_deck',
+        entityId: forkRow.id,
+        summary: `Fork of deck #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentDeckId: source.id, approval: approvalEnvelope(link) });
     }
   );
 
   hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_replace_slides',
     {
-      title: 'Replace all deck slides',
+      title: 'Replace all deck slides (writes to drafts)',
       description:
-        'Replace the entire slide array of a deck with a new V2 slide list. Each slide = { id, label, blocks[], notes?, pageSettings?, customCss? }. Blocks follow the visual-editor schema — you MUST read blocks://schema before calling this (it documents block `style`, `elementStyles`, and per-slide `customCss` used for polished slides). Rules: (1) use `heading` blocks with explicit `level` for titles — never a big `text` block; (2) pair every heading with a small uppercase eyebrow `text` block above it for branded feel; (3) if you use a hero block, populate title + subtitle + description + ctaText/ctaLink — a title-only hero looks broken; (4) apply `style` (color, fontSize, fontWeight, letterSpacing) to add visual hierarchy instead of relying on defaults. Returns the slim deck projection by default — pass `includeSlides: true` only if you need the slides echoed back (you just sent them, so usually you do not).',
+        'Replace the entire slide array of a deck with a new V2 slide list. Writes land in slide drafts — the public renderer keeps showing the previous live slides until you call `decks_publish_slide` or `decks_publish_all` to make them live. Existing slides that match by `id` get their `draft.{blocks,customCss,pageSettings,notes}` updated. New slide ids become slides with `draft.pendingCreate = true` and empty live fields. Existing slides missing from the incoming list become tombstones with `draft.pendingDelete = true` until publish. Each slide = { id, label, blocks[], notes?, pageSettings?, customCss? }. Blocks follow the visual-editor schema — you MUST read blocks://schema before calling this (it documents block `style`, `elementStyles`, and per-slide `customCss` used for polished slides). Rules: (1) use `heading` blocks with explicit `level` for titles — never a big `text` block; (2) pair every heading with a small uppercase eyebrow `text` block above it for branded feel; (3) if you use a hero block, populate title + subtitle + description + ctaText/ctaLink — a title-only hero looks broken; (4) apply `style` (color, fontSize, fontWeight, letterSpacing) to add visual hierarchy instead of relying on defaults. Returns the slim deck projection by default — pass `includeSlides: true` only if you need the slides echoed back (you just sent them, so usually you do not).',
       inputSchema: {
         id: z.number(),
         slides: z.array(z.object({
@@ -344,6 +414,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           blocks: z.array(z.any()),
           notes: z.string().optional(),
           pageSettings: z.any().optional(),
+          customCss: z.string().optional(),
         })),
         includeSlides: z.boolean().default(false).optional().describe('Echo back the full slides array. Default false — the caller just supplied them, so re-sending is normally pure waste.'),
       },
@@ -359,16 +430,85 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         entityType: 'pitch_deck_slides',
         operation: 'replace_slides',
         entityId: id,
-        summary: `Replace all slides on deck #${id} "${existing.title}" (${slides.length} slide${slides.length === 1 ? '' : 's'})`,
+        summary: `Replace all slides on deck #${id} "${existing.title}" (${slides.length} slide${slides.length === 1 ? '' : 's'}) → drafts`,
         payload: { id, slides },
         originalSnapshot: { slides: existing.slides, formatVersion: existing.formatVersion },
         apply: async () => {
-          const normalizedSlides = slides.map((s) => ({
-            ...s,
-            blocks: assignBlockIds(s.blocks as unknown[]),
-          })) as PitchDeckSlideV2[];
+          // Re-read inside apply so a long pending-window doesn't lose
+          // concurrent updates.
+          const [row0] = await db.select().from(pitchDecks)
+            .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
+          const liveSlides: PitchDeckSlideV2[] = Array.isArray(row0?.slides)
+            ? (row0!.slides as PitchDeckSlideV2[])
+            : [];
+          const liveById = new Map(liveSlides.map((s) => [s.id, s]));
+          const incomingIds = new Set(slides.map((s) => s.id));
+          const nowIso = new Date().toISOString();
+
+          const next: PitchDeckSlideV2[] = [];
+
+          // 1. Walk incoming list in order — update existing or stage create
+          for (const incoming of slides) {
+            const normalizedBlocks = assignBlockIds(incoming.blocks as unknown[]) as import('@/types/blocks').Block[];
+            const live = liveById.get(incoming.id);
+            if (live) {
+              // Update existing slide — write into draft, keep live fields untouched
+              next.push({
+                ...live,
+                label: incoming.label, // label is sidebar-only; safe to update live
+                draft: {
+                  ...(live.draft ?? {}),
+                  blocks: normalizedBlocks,
+                  customCss: (incoming as { customCss?: string }).customCss,
+                  pageSettings: (incoming as { pageSettings?: import('@/types/blocks').PageSettings }).pageSettings,
+                  notes: incoming.notes,
+                  updatedAt: nowIso,
+                  updatedBy: ctx.userId ?? undefined,
+                  // preserve a pendingCreate flag if the slide was still
+                  // pending-created from an earlier draft (not yet published)
+                  pendingCreate: live.draft?.pendingCreate ?? undefined,
+                  // dropping any prior pendingDelete since we're updating it
+                  pendingDelete: undefined,
+                },
+              });
+            } else {
+              // New slide — live fields empty, payload lands in draft.* with pendingCreate
+              next.push({
+                id: incoming.id,
+                label: incoming.label,
+                blocks: [],
+                draft: {
+                  pendingCreate: true,
+                  blocks: normalizedBlocks,
+                  customCss: (incoming as { customCss?: string }).customCss,
+                  pageSettings: (incoming as { pageSettings?: import('@/types/blocks').PageSettings }).pageSettings,
+                  notes: incoming.notes,
+                  updatedAt: nowIso,
+                  updatedBy: ctx.userId ?? undefined,
+                },
+              });
+            }
+          }
+
+          // 2. Append tombstones (in original position) for live slides missing
+          //    from incoming. We keep them in the slides array so the public
+          //    renderer continues to show them until publish.
+          for (const live of liveSlides) {
+            if (!incomingIds.has(live.id)) {
+              next.push({
+                ...live,
+                draft: {
+                  ...(live.draft ?? {}),
+                  pendingDelete: true,
+                  updatedAt: nowIso,
+                  updatedBy: ctx.userId ?? undefined,
+                },
+              });
+            }
+          }
+
           const [row] = await db.update(pitchDecks)
-            .set({ slides: normalizedSlides, formatVersion: 2, updatedAt: new Date() })
+            .set({ slides: next, formatVersion: 2, updatedAt: new Date() })
             .where(eq(pitchDecks.id, id)).returning(deckProjection(includeSlides));
           return row;
         },
@@ -382,19 +522,21 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
   hasScope(ctx.scopes, 'decks:write') && server.registerTool(
     'decks_add_slide',
     {
-      title: 'Append a slide to a deck',
+      title: 'Append a slide to a deck (writes to draft)',
       description:
-        'Append a single V2 slide to the end of a deck. Slide = { label, blocks[], notes?, pageSettings?, customCss? }. An id will be generated if omitted. Blocks follow the visual-editor schema — read blocks://schema for `style`/`elementStyles`/`customCss` docs and a styled-slide example. Same styling rules as decks_replace_slides: use `heading` blocks (not styled text) for titles, pair with uppercase eyebrows, populate all hero fields, apply `style` for hierarchy. Returns the slim deck projection by default; pass `includeSlides: true` to echo the full slides array back.',
+        'Append a single V2 slide to the end of a deck. Writes land in the slide draft — the appended slide has empty live fields and `draft.pendingCreate = true` until you call `decks_publish_slide` or `decks_publish_all` to make it live. Slide = { label, blocks[], notes?, pageSettings?, customCss? }. An id will be generated if omitted. Blocks follow the visual-editor schema — read blocks://schema for `style`/`elementStyles`/`customCss` docs and a styled-slide example. Same styling rules as decks_replace_slides: use `heading` blocks (not styled text) for titles, pair with uppercase eyebrows, populate all hero fields, apply `style` for hierarchy. Returns the slim deck projection by default; pass `includeSlides: true` to echo the full slides array back.',
       inputSchema: {
         deckId: z.number(),
         label: z.string().min(1).describe('Slide name shown in the sidebar (e.g. "Cover", "Problem", "Solution").'),
         blocks: z.array(z.any()).describe('Array of Block objects (hero, text, columns, card-grid, etc.)'),
         notes: z.string().optional().describe('Speaker notes.'),
+        pageSettings: z.any().optional().describe('Optional page-level settings (backgroundColor, padding, etc).'),
+        customCss: z.string().optional().describe('Optional per-slide custom CSS scoped to this slide.'),
         id: z.string().optional(),
         includeSlides: z.boolean().default(false).optional().describe('Echo back the full slides array (now including the new slide). Default false.'),
       },
     },
-    async ({ deckId, label, blocks, notes, id, includeSlides }) => {
+    async ({ deckId, label, blocks, notes, pageSettings, customCss, id, includeSlides }) => {
       if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
       if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
       const [existing] = await db.select().from(pitchDecks)
@@ -405,17 +547,30 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         entityType: 'pitch_deck_slides',
         operation: 'add_slide',
         entityId: deckId,
-        summary: `Add slide "${label}" to deck #${deckId} "${existing.title}"`,
-        payload: { deckId, label, blocks, notes, id },
+        summary: `Add slide "${label}" to deck #${deckId} "${existing.title}" → draft`,
+        payload: { deckId, label, blocks, notes, pageSettings, customCss, id },
         apply: async () => {
-          const currentSlides = Array.isArray(existing.slides) ? (existing.slides as unknown[]) : [];
-          const newSlide = {
+          const [row0] = await db.select().from(pitchDecks)
+            .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+          const currentSlides: PitchDeckSlideV2[] = Array.isArray(row0?.slides)
+            ? (row0!.slides as PitchDeckSlideV2[])
+            : [];
+          const nowIso = new Date().toISOString();
+          const newSlide: PitchDeckSlideV2 = {
             id: id ?? `slide-${Date.now().toString(36)}`,
             label,
-            blocks: assignBlockIds(blocks),
-            notes,
+            blocks: [],
+            draft: {
+              pendingCreate: true,
+              blocks: assignBlockIds(blocks) as import('@/types/blocks').Block[],
+              customCss,
+              pageSettings,
+              notes,
+              updatedAt: nowIso,
+              updatedBy: ctx.userId ?? undefined,
+            },
           };
-          const nextSlides = [...currentSlides, newSlide] as PitchDeckSlideV2[];
+          const nextSlides = [...currentSlides, newSlide];
           const [row] = await db.update(pitchDecks)
             .set({ slides: nextSlides, formatVersion: 2, updatedAt: new Date() })
             .where(eq(pitchDecks.id, deckId)).returning(deckProjection(includeSlides));
@@ -468,7 +623,7 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     'decks_upload_html',
     {
       title: 'Upload HTML as pitch deck',
-      description: 'Upload an HTML/XHTML file (base64-encoded) as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed so the embed can present full-bleed. Max 1 MB. Requires an active pitch-decks subscription.',
+      description: 'Upload an HTML/XHTML file (base64-encoded) as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed so the embed can present full-bleed. Max 1 MB. Requires an active pitch-decks subscription. Writes land in slide drafts (single slide, pendingCreate). Call `decks_publish_slide` or `decks_publish_all` to make them live.',
       inputSchema: {
         filename: z.string().min(1).regex(/\.(html?|xhtml)$/i, 'File must be .html, .htm, or .xhtml'),
         contentBase64: z.string().min(1).describe('Base64-encoded HTML body. Decoded size must be ≤ 1 MB.'),
@@ -491,55 +646,181 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         return json({ error: `File exceeds ${MAX_HTML_SIZE} bytes` });
       }
 
-      const uploadResult = await uploadToS3(buffer, filename, 'text/html');
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'pitch_deck',
+        operation: 'upload_html',
+        entityId: null,
+        summary: `Upload HTML "${filename}" as new pitch deck`,
+        // Retain the full base64 body so approval-time replay (in
+        // `applyPendingChange`) can re-run the S3 upload + DB insert.
+        // The wrapped tool's MAX_HTML_SIZE cap (1 MB raw → ~1.4 MB encoded)
+        // fits comfortably inside mcp_pending_changes.payload.
+        payload: { filename, title, contentBase64, byteLength: buffer.byteLength },
+        apply: async () => {
+          const uploadResult = await uploadToS3(buffer, filename, 'text/html');
 
-      await db.insert(media).values({
-        filename,
-        storedFilename: uploadResult.storedFilename,
-        mimeType: 'text/html',
-        fileSize: uploadResult.fileSize,
-        url: uploadResult.url,
+          await db.insert(media).values({
+            filename,
+            storedFilename: uploadResult.storedFilename,
+            mimeType: 'text/html',
+            fileSize: uploadResult.fileSize,
+            url: uploadResult.url,
+            uploadedBy: ctx.userId,
+            clientId,
+          });
+
+          const filenameNoExt = filename.replace(/\.[^.]+$/, '');
+          const deckTitle = title?.trim() || filenameNoExt || 'Uploaded HTML Deck';
+          const baseSlug = (filename.trim().toLowerCase()
+            .replace(/\.[^.]+$/, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '')
+            .slice(0, 80)) || 'deck';
+          const slug = `${baseSlug}-${Date.now().toString(36)}`;
+          const ts = Date.now();
+
+          const slide: PitchDeckSlideV2 = {
+            id: `slide-${ts}`,
+            label: filenameNoExt || 'HTML',
+            blocks: [
+              {
+                id: `block-${ts}-html`,
+                type: 'html-embed',
+                order: 1,
+                url: uploadResult.url,
+                filename,
+                height: '100vh',
+                width: 'full',
+                sandbox: 'scripts',
+                iframeTitle: filenameNoExt || 'Embedded HTML slide',
+              },
+            ],
+          };
+
+          const [deck] = await db.insert(pitchDecks).values({
+            clientId,
+            title: deckTitle,
+            slug,
+            description: null,
+            slides: [slide],
+            formatVersion: 2,
+            // Suppress slide-counter chrome — single uploaded HTML decks present
+            // full-bleed so the embed isn't visually overlapped.
+            theme: {
+              primaryColor: '#2563eb',
+              accentColor: '#60a5fa',
+              backgroundColor: '#0f172a',
+              textColor: '#f8fafc',
+              headingFont: 'Inter',
+              bodyFont: 'Inter',
+              showSlideNumber: false,
+            },
+            createdBy: ctx.userId,
+          }).returning(deckProjection(false));
+          // Fan out to any editor that already opened this deck id. Brand-new
+          // upload so the listener set is usually empty, but the publisher is
+          // cheap and idempotent. Fire-and-forget.
+          void publishSlidesUpdate({
+            entityId: deck.id,
+            slides: [slide],
+          }).catch((err) => {
+            console.warn('[mcp/decks_upload_html] realtime publish failed:', err);
+          });
+          return { ...deck, url: uploadResult.url };
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('portal');
+      return json(result.data);
+    }
+  );
+
+  // Multi-file (zipped) variant of decks_upload_html. Bundle must contain at
+  // least one .html file (preferred root `index.html`). All assets are uploaded
+  // to a shared media/<uuid>/ prefix; relative refs from the index resolve
+  // through the path-based media proxy. Caps mirror the portal REST route:
+  // 50 MB uncompressed, 200 files, 10 MB per file. Single full-bleed slide.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_upload_html_zip',
+    {
+      title: 'Upload HTML bundle (zip) as pitch deck',
+      description: 'Upload a zip (base64-encoded) containing index.html + supporting assets as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed for full-bleed presentation. Requires an active pitch-decks subscription. The slide lands in draft (pendingCreate); call `decks_publish_all` or approve via the returned approval URL to flip live.',
+      inputSchema: {
+        filename: z.string().min(1).regex(/\.zip$/i, 'File must be a .zip'),
+        contentBase64: z.string().min(1).describe('Base64-encoded zip body. Decoded size must be ≤ 50 MB.'),
+        title: z.string().optional().describe('Override the deck title; defaults to the zip filename without extension.'),
+      },
+    },
+    async ({ filename, contentBase64, title }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+
+      let zipBuffer: Buffer;
+      try {
+        zipBuffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      if (zipBuffer.byteLength === 0) return json({ error: 'Empty zip' });
+      if (zipBuffer.byteLength > MAX_ZIP_TOTAL_BYTES) {
+        return json({ error: `Zip exceeds ${MAX_ZIP_TOTAL_BYTES} bytes` });
+      }
+
+      let unpacked;
+      try {
+        unpacked = await unpackAndUploadZip(zipBuffer);
+      } catch (err) {
+        if (isZipHttpError(err)) return json({ error: err.message });
+        throw err;
+      }
+
+      // One media row per uploaded file, no websiteId (decks are tenant-scoped, not site-scoped).
+      const mediaRows = unpacked.entries.map((entry) => ({
+        filename: entry.relativePath,
+        storedFilename: entry.upload.storedFilename,
+        mimeType: entry.mimeType,
+        fileSize: entry.upload.fileSize,
+        url: entry.upload.url,
         uploadedBy: ctx.userId,
         clientId,
-      });
+      }));
+      await db.insert(media).values(mediaRows);
 
-      const filenameNoExt = filename.replace(/\.[^.]+$/, '');
-      const deckTitle = title?.trim() || filenameNoExt || 'Uploaded HTML Deck';
       const baseSlug = (filename.trim().toLowerCase()
-        .replace(/\.[^.]+$/, '')
+        .replace(/\.zip$/i, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '')
         .slice(0, 80)) || 'deck';
       const slug = `${baseSlug}-${Date.now().toString(36)}`;
-      const ts = Date.now();
+      const titleNorm = title?.trim() || baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded HTML Deck';
 
+      const ts = Date.now();
       const slide: PitchDeckSlideV2 = {
         id: `slide-${ts}`,
-        label: filenameNoExt || 'HTML',
+        label: titleNorm,
         blocks: [
           {
             id: `block-${ts}-html`,
             type: 'html-embed',
             order: 1,
-            url: uploadResult.url,
-            filename,
+            url: unpacked.index.upload.url,
+            filename: unpacked.index.relativePath,
             height: '100vh',
             width: 'full',
             sandbox: 'scripts',
-            iframeTitle: filenameNoExt || 'Embedded HTML slide',
+            iframeTitle: titleNorm,
           },
         ],
       };
 
       const [deck] = await db.insert(pitchDecks).values({
         clientId,
-        title: deckTitle,
+        title: titleNorm,
         slug,
         description: null,
         slides: [slide],
         formatVersion: 2,
-        // Suppress slide-counter chrome — single uploaded HTML decks present
-        // full-bleed so the embed isn't visually overlapped.
         theme: {
           primaryColor: '#2563eb',
           accentColor: '#60a5fa',
@@ -551,17 +832,135 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
         },
         createdBy: ctx.userId,
       }).returning(deckProjection(false));
-      revalidateForWrite('portal');
-      // Fan out to any editor that already opened this deck id. Brand-new
-      // upload so the listener set is usually empty, but the publisher is
-      // cheap and idempotent. Fire-and-forget.
+
       void publishSlidesUpdate({
         entityId: deck.id,
         slides: [slide],
       }).catch((err) => {
-        console.warn('[mcp/decks_upload_html] realtime publish failed:', err);
+        console.warn('[mcp/decks_upload_html_zip] realtime publish failed:', err);
       });
-      return json({ ...deck, url: uploadResult.url });
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'pitch_deck',
+          entityId: deck.id,
+          summary: `Bundle "${filename}" → deck "${titleNorm}"`,
+        }),
+      );
+
+      revalidateForWrite('portal');
+      return json({
+        ...deck,
+        bundleFileCount: unpacked.entries.length,
+        bundlePrefix: unpacked.prefix,
+        url: unpacked.index.upload.url,
+        approval,
+      });
+    }
+  );
+
+  // ── Per-slide draft publish ──────────────────────────────────────────────
+  // Promote `slide.draft.*` → live slide fields (and clear `draft`) for a
+  // single slide. Used after `decks_replace_slides` / `decks_add_slide` /
+  // `decks_upload_html` (which all stage into drafts now) to flip changes
+  // live for end-viewers.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_publish_slide',
+    {
+      title: 'Publish a single slide draft → live',
+      description: 'Promote one slide\'s draft to live. If the slide\'s draft has `pendingDelete: true` the slide is removed from the deck; if it has `pendingCreate: true` (or a regular update draft) the draft\'s `blocks/customCss/pageSettings/notes` are copied onto the live fields and `draft` is cleared. Use after `decks_replace_slides`, `decks_add_slide`, or `decks_upload_html` to make changes visible in the public renderer.',
+      inputSchema: {
+        deckId: z.number(),
+        slideId: z.string(),
+      },
+    },
+    async ({ deckId, slideId }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+      const [existing] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!existing) return json({ error: 'Deck not found' });
+      const liveSlides: PitchDeckSlideV2[] = Array.isArray(existing.slides)
+        ? (existing.slides as PitchDeckSlideV2[])
+        : [];
+      const targetSlide = liveSlides.find((s) => s.id === slideId);
+      if (!targetSlide) return json({ error: 'Slide not found' });
+
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'pitch_deck_slide_draft',
+        operation: 'publish',
+        entityId: deckId,
+        summary: `Publish slide "${targetSlide.label}" on deck "${existing.title}"`,
+        payload: { deckId, slideId },
+        apply: async () => {
+          const [row0] = await db.select().from(pitchDecks)
+            .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+          const current: PitchDeckSlideV2[] = Array.isArray(row0?.slides)
+            ? (row0!.slides as PitchDeckSlideV2[])
+            : [];
+          const next = applyPublishToSlides(current, slideId);
+          const [row] = await db.update(pitchDecks)
+            .set({ slides: next, formatVersion: 2, updatedAt: new Date() })
+            .where(eq(pitchDecks.id, deckId)).returning(deckProjection(false));
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('portal');
+      return json(result.data);
+    }
+  );
+
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_publish_all',
+    {
+      title: 'Publish all slide drafts on a deck',
+      description: 'Walks every slide on a deck and publishes any that have a non-null `draft`. Removes `pendingDelete` tombstones, materializes `pendingCreate` slides, and merges regular update drafts into live fields. Use after a batch of `decks_replace_slides` / `decks_add_slide` calls to flip the whole deck live in one shot.',
+      inputSchema: {
+        deckId: z.number(),
+      },
+    },
+    async ({ deckId }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+      const [existing] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!existing) return json({ error: 'Deck not found' });
+      const liveSlides: PitchDeckSlideV2[] = Array.isArray(existing.slides)
+        ? (existing.slides as PitchDeckSlideV2[])
+        : [];
+      const draftCount = liveSlides.filter((s) => s.draft != null).length;
+
+      const result = await stageOrApply({
+        ctx,
+        entityType: 'pitch_deck',
+        operation: 'publish_all',
+        entityId: deckId,
+        summary: `Publish all draft slides on deck "${existing.title}" (${draftCount} draft${draftCount === 1 ? '' : 's'})`,
+        payload: { deckId },
+        apply: async () => {
+          const [row0] = await db.select().from(pitchDecks)
+            .where(and(eq(pitchDecks.id, deckId), eq(pitchDecks.clientId, clientId))).limit(1);
+          const current: PitchDeckSlideV2[] = Array.isArray(row0?.slides)
+            ? (row0!.slides as PitchDeckSlideV2[])
+            : [];
+          const next = applyPublishAllToSlides(current);
+          const [row] = await db.update(pitchDecks)
+            .set({ slides: next, formatVersion: 2, updatedAt: new Date() })
+            .where(eq(pitchDecks.id, deckId)).returning(deckProjection(false));
+          return row;
+        },
+      });
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      revalidateForWrite('portal');
+      return json(result.data);
     }
   );
 }
+
+// ─── Slide-draft publish helpers ─────────────────────────────────────────────
+// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// route can reuse them without dragging in the whole MCP SDK.
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';

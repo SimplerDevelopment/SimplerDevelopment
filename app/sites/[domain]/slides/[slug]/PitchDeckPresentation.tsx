@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { sanitizeHtml } from '@/lib/security/sanitize-html';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   PitchDeckSlideV2,
   PitchDeckTheme,
@@ -126,7 +125,11 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
+  // Ref, not state — setting state on every tap triggered a re-render between
+  // `touchend` and the synthetic `click`, which on iOS Safari can drop the
+  // click event entirely. Symptom: anchors inside the deck required two taps
+  // to navigate. Refs avoid the re-render.
+  const touchStartRef = useRef<number | null>(null);
 
   // Survey state
   const [surveyAnswers, setSurveyAnswers] = useState<Record<number, Record<string, unknown>>>({});
@@ -383,12 +386,13 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
     return () => window.removeEventListener('keydown', handleKey);
   }, [next, prev]);
 
-  function handleTouchStart(e: React.TouchEvent) { setTouchStart(e.touches[0].clientX); }
+  function handleTouchStart(e: React.TouchEvent) { touchStartRef.current = e.touches[0].clientX; }
   function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStart === null) return;
-    const diff = touchStart - e.changedTouches[0].clientX;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (start === null) return;
+    const diff = start - e.changedTouches[0].clientX;
     if (Math.abs(diff) > 50) { if (diff > 0) next(); else prev(); }
-    setTouchStart(null);
   }
 
   function handleSurveyAnswer(surveyId: number, fieldId: string, value: unknown) {
@@ -420,7 +424,15 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       <link href={fontsUrl} rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
-      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeHtml(theme.customCss) }} />}
+      {/* Defensive: legacy decks (e.g. cystrategies) shipped a self-injected
+          mobile-nav overlay (`#cy-mob-nav`) inside their html-render content.
+          Now that the deck has its own footer + side chevrons, that overlay
+          duplicates the nav. Pre-set the script's idempotency flag so it
+          returns early and hide the element if it ever did get appended. */}
+      <script dangerouslySetInnerHTML={{ __html: 'window.__cyNavInit=true;' }} />
+      <style dangerouslySetInnerHTML={{ __html: '#cy-mob-nav{display:none!important}' }} />
+
+      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
 
       <div
         className="min-h-screen w-full overflow-hidden relative select-none deck-root"
@@ -436,66 +448,131 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
         )}
 
         {/* Slide counter — suppressed when the deck opts out via theme.showSlideNumber=false
-            or when the current slide is a single full-bleed html-embed (auto-stripped chrome). */}
+            or when the current slide is a single full-bleed html-embed (auto-stripped chrome).
+            Hidden on mobile — the bottom footer carries the indicator there instead. */}
         {theme.showSlideNumber !== false &&
           !(currentVS?.kind === 'block' && isFullBleedHtmlSlide(currentVS.slide)) && (
-          <div className="absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: theme.bodyFont }}>
+          <div className="hidden md:block absolute top-6 left-8 z-20 text-sm opacity-40 tracking-widest font-light" style={{ fontFamily: theme.bodyFont }}>
             {String(current + 1).padStart(2, '0')}/{String(visibleCount).padStart(2, '0')}
           </div>
         )}
 
-        {/* Navigation hint */}
+        {/* Navigation hint — desktop only (mobile users get the footer affordance). */}
         {current === 0 && currentVS?.kind === 'block' && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-xs opacity-20 tracking-wide" style={{ fontFamily: theme.bodyFont }}>
+          <div className="hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 z-20 text-xs opacity-20 tracking-wide" style={{ fontFamily: theme.bodyFont }}>
             Press arrow keys or spacebar &middot; Swipe on mobile
           </div>
         )}
 
-        {/* Prev/Next arrow buttons — hidden on decision slides.
-            Survey slides manage their own Back/Next UI inside SurveySlideRenderer,
-            so these side chevrons are only shown for non-survey slides.
-            Positioned `fixed` so they anchor to the viewport center regardless of
-            how tall the current slide is — otherwise they jump around on slide change. */}
+        {/* Prev/Next arrow buttons — desktop only (mobile uses the bottom footer).
+            Hidden on decision slides; survey slides manage their own Back/Next UI
+            inside SurveySlideRenderer. Positioned `fixed` so they anchor to the
+            viewport center regardless of how tall the current slide is. */}
         {current > 0 && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={prev}
-            className="fixed left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_left</span>
+            aria-label="Previous slide"
+            className="hidden md:inline-flex items-center justify-center fixed left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full transition-all opacity-80 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: '#ffffff', backgroundColor: '#374151' }}>
+            <span className="material-icons text-3xl leading-none">chevron_left</span>
           </button>
         )}
         {current < visibleCount - 1 && !submitting && !isOnDecisionSlide && currentVS?.kind !== 'survey-question' && (
           <button onClick={next}
-            className="fixed right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full transition-all opacity-60 hover:opacity-100 backdrop-blur-sm"
-            style={{ color: theme.textColor, backgroundColor: `${theme.textColor}15` }}>
-            <span className="material-icons text-3xl">chevron_right</span>
+            aria-label="Next slide"
+            className="hidden md:inline-flex items-center justify-center fixed right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full transition-all opacity-80 hover:opacity-100 backdrop-blur-sm"
+            style={{ color: '#ffffff', backgroundColor: '#374151' }}>
+            <span className="material-icons text-3xl leading-none">chevron_right</span>
           </button>
         )}
 
         {submitting && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3">
+          <div className="hidden md:block absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3">
             <span className="material-icons text-2xl animate-spin" style={{ color: theme.accentColor }}>autorenew</span>
           </div>
         )}
 
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] z-20" style={{ backgroundColor: theme.textColor + '10' }}>
+        {/* Progress bar — desktop only. The mobile footer has its own progress bar at its top edge. */}
+        <div className="hidden md:block absolute bottom-0 left-0 right-0 h-[2px] z-20" style={{ backgroundColor: theme.textColor + '10' }}>
           <div className="h-full transition-all duration-500 ease-out" style={{
             width: `${((current + 1) / visibleCount) * 100}%`,
             backgroundColor: theme.accentColor,
           }} />
         </div>
 
+        {/* Mobile-only footer nav: prev arrow / indicator / next arrow, with a
+            2px progress bar pinned to the top edge. Hidden on slide kinds that
+            manage their own Back/Next UI (decision, survey-question, survey-contact),
+            and on single-slide decks where the nav has nothing to do. */}
+        {visibleCount > 1
+          && !isOnDecisionSlide
+          && currentVS?.kind !== 'survey-question'
+          && currentVS?.kind !== 'survey-contact' && (
+          <div
+            className="md:hidden fixed bottom-0 left-0 right-0 z-30 backdrop-blur-md"
+            style={{
+              backgroundColor: `${theme.backgroundColor}E6`,
+              borderTop: `1px solid ${theme.textColor}15`,
+              paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)',
+            }}
+          >
+            {/* Inline progress bar at the top edge of the footer */}
+            <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: `${theme.textColor}10` }}>
+              <div className="h-full transition-all duration-500 ease-out" style={{
+                width: `${((current + 1) / visibleCount) * 100}%`,
+                backgroundColor: theme.accentColor,
+              }} />
+            </div>
+
+            <div className="flex items-center justify-between px-4 pt-3 pb-2">
+              <button
+                type="button"
+                onClick={prev}
+                disabled={current === 0}
+                aria-label="Previous slide"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
+                style={{ color: theme.textColor, backgroundColor: `${theme.textColor}10` }}
+              >
+                <span className="material-icons text-2xl leading-none">chevron_left</span>
+              </button>
+
+              <div
+                className="text-xs tracking-widest opacity-50 font-light tabular-nums"
+                style={{ fontFamily: theme.bodyFont, color: theme.textColor }}
+                aria-live="polite"
+              >
+                {String(current + 1).padStart(2, '0')} / {String(visibleCount).padStart(2, '0')}
+              </div>
+
+              <button
+                type="button"
+                onClick={next}
+                disabled={current >= visibleCount - 1 || submitting}
+                aria-label="Next slide"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full transition-opacity disabled:opacity-25 disabled:pointer-events-none"
+                style={{ color: theme.textColor, backgroundColor: `${theme.textColor}10` }}
+              >
+                {submitting ? (
+                  <span className="material-icons text-2xl leading-none animate-spin">autorenew</span>
+                ) : (
+                  <span className="material-icons text-2xl leading-none">chevron_right</span>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
 
         {/* Per-slide custom CSS — only active for the current block slide.
             Injected unscoped, so authors can write plain selectors that only
             take effect while their slide is in view. */}
         {currentVS?.kind === 'block' && currentVS.slide.customCss && (
-          <style dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentVS.slide.customCss) }} />
+          <style dangerouslySetInnerHTML={{ __html: currentVS.slide.customCss }} />
         )}
 
-        {/* Slide content */}
+        {/* Slide content. Reserve bottom padding on mobile equal to the footer
+            height so centered content isn't visually clipped behind the footer. */}
         <div
-          className="min-h-screen flex items-center justify-center slide-stage"
+          className={`min-h-screen flex items-center justify-center slide-stage md:pb-0 ${visibleCount > 1 ? 'pb-16' : ''}`}
           data-slide-id={currentVS?.kind === 'block' ? currentVS.slide.id : undefined}
           style={{
             animation: isAnimating

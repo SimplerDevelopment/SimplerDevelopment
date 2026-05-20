@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     .from(users)
     .where(
       and(
-        eq(users.passwordResetToken, token),
+        eq(users.passwordResetToken, hashToken(token)),
         gt(users.passwordResetExpires, new Date()),
       ),
     )

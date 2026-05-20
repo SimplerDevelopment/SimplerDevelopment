@@ -27,7 +27,7 @@ export interface BlockRegistryEntry {
 
 export const BUILT_IN_BLOCK_TYPES: BlockRegistryEntry[] = [
   { type: 'heading', label: 'Heading', icon: 'title', category: 'Basic', description: 'Add a title or heading' },
-  { type: 'text', label: 'Paragraph', icon: 'notes', category: 'Basic', description: 'Start with plain text' },
+  { type: 'text', label: 'Text', icon: 'notes', category: 'Basic', description: 'Plain paragraph text' },
   { type: 'button', label: 'Button', icon: 'smart_button', category: 'Basic', description: 'Call-to-action button' },
   { type: 'quote', label: 'Quote', icon: 'format_quote', category: 'Basic', description: 'Add a quotation' },
   { type: 'image', label: 'Image', icon: 'image', category: 'Media', description: 'Insert an image' },

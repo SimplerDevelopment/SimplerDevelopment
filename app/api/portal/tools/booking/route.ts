@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { bookingPages } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { bookingPages, brandingProfiles } from '@/lib/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 import { emitEvent } from '@/lib/automation';
@@ -40,12 +40,28 @@ export async function POST(req: Request) {
   const client = await getPortalClient(userId);
   if (!client) return NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 });
 
-  const { title, description, duration, timezone } = await req.json();
+  const body = await req.json();
+  const { title, description, duration, timezone } = body;
+  const requestedBrandingProfileId: number | null | undefined = body.brandingProfileId;
   if (!title?.trim()) return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
 
   // Generate slug from title + random suffix
   const baseSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   const slug = `${baseSlug}-${Date.now().toString(36)}`;
+
+  // Default brandingProfileId to the tenant's default brand profile when not
+  // explicitly supplied — otherwise public /book/<slug> renders in the platform
+  // default blue instead of the tenant's brand. If the tenant has no default
+  // profile, leave it NULL (the renderer falls back to per-page styling).
+  let brandingProfileId: number | null = requestedBrandingProfileId ?? null;
+  if (requestedBrandingProfileId === undefined) {
+    const [defaultProfile] = await db
+      .select({ id: brandingProfiles.id })
+      .from(brandingProfiles)
+      .where(and(eq(brandingProfiles.clientId, client.id), eq(brandingProfiles.isDefault, true)))
+      .limit(1);
+    if (defaultProfile) brandingProfileId = defaultProfile.id;
+  }
 
   const [page] = await db.insert(bookingPages).values({
     clientId: client.id,
@@ -54,6 +70,7 @@ export async function POST(req: Request) {
     description: description?.trim() || null,
     duration: duration || 30,
     timezone: timezone || 'America/New_York',
+    brandingProfileId,
     createdBy: userId,
   }).returning();
 

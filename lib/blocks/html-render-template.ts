@@ -123,12 +123,19 @@ export function substituteAllPlaceholders(html: string, values: FieldValues, sca
       const dflt = scalarDefaults[head];
       return dflt ? escapeHtml(dflt) : '';
     }
-    // Dotted — value must be a record-like object, not array, not string
+    // Dotted — walk the path one segment at a time so multi-level paths
+    // resolve. The classic shapes are still 2-deep (`{{cta.url}}`,
+    // `{{post.title}}`), but typed CMS fields surface as
+    // `{{post.fields.<slug>}}` (post-typed field nests `fields: Record<...>`)
+    // which is 3-deep. Walk-and-resolve handles both.
     if (!v || typeof v !== 'object' || Array.isArray(v)) return '';
-    const obj = v as Record<string, string>;
-    const key = path.slice(1).join('.');
-    const sub = obj[key];
-    return sub == null ? '' : escapeHtml(String(sub));
+    let cur: unknown = v;
+    for (let i = 1; i < path.length; i++) {
+      if (cur == null || typeof cur !== 'object' || Array.isArray(cur)) return '';
+      cur = (cur as Record<string, unknown>)[path[i]];
+    }
+    if (cur == null) return '';
+    return typeof cur === 'string' ? escapeHtml(cur) : escapeHtml(String(cur));
   });
 }
 
@@ -246,6 +253,52 @@ export function renameFieldInTemplate(template: string, oldName: string, newName
     out = out.replace(new RegExp(`\\b${attr}="${eo}"`, 'g'), () => { count++; return `${attr}="${newName}"`; });
   }
   return { template: out, replacements: count };
+}
+
+/**
+ * Find every template reference (`{{name}}`, `{{name.X}}`, `data-field="name"`,
+ * `data-repeat="name"`, `data-group="name"`) whose top-level name has no entry
+ * in the saved `fields[]` schema. Returns the unique list of orphan names.
+ *
+ * Powers the "undefined references" warning in the schema editor — until this
+ * lint exists, a typo in `{{name}}` silently expands to empty at render time
+ * with no editor signal that the field needs to be defined.
+ */
+export function findOrphanReferences(template: string, fields: HtmlRenderField[] | undefined): string[] {
+  const known = new Set((fields || []).map(f => f.name));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (name: string) => {
+    if (!name || known.has(name) || seen.has(name)) return;
+    seen.add(name);
+    out.push(name);
+  };
+  // {{name}} and {{name.x.y...}}
+  const phRx = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.[a-zA-Z0-9_.-]+)?\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = phRx.exec(template)) !== null) add(m[1]);
+  // data-field="name" / data-repeat="name" / data-group="name". Note this
+  // intentionally over-reports: a `data-field` inside a `data-repeat` body
+  // resolves to a sub-field, not a top-level. We dedupe against the
+  // sub-field names below.
+  const attrRx = /\b(?:data-field|data-repeat|data-group)="([a-zA-Z_][a-zA-Z0-9_-]*)"/g;
+  while ((m = attrRx.exec(template)) !== null) add(m[1]);
+  // Knock out anything that's actually a sub-field of a known array/group
+  // field (those resolve through their parent's itemFields, not the top
+  // level) so we don't false-positive on perfectly valid `data-field="title"`
+  // inside a `data-repeat="cards"` with `cards.itemFields[].name === 'title'`.
+  const subFieldNames = new Set<string>();
+  for (const f of fields || []) {
+    if ((f.type === 'array' || f.type === 'group') && f.itemFields) {
+      for (const sf of f.itemFields) subFieldNames.add(sf.name);
+    }
+  }
+  // Also knock out dynamic placeholders that are resolved server-side rather
+  // than against the block's `fields[]`: `{{post.X}}` (loop) and
+  // `{{post.values.X}}` / `{{post.fields.X}}` reach into the fetched post
+  // record. The author doesn't need a `post` schema entry for these.
+  const SERVER_NAMES = new Set(['post']);
+  return out.filter(n => !subFieldNames.has(n) && !SERVER_NAMES.has(n));
 }
 
 /**

@@ -81,7 +81,7 @@ export default function EmailAnalyticsPage() {
       </div>
 
       {/* Secondary stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon="campaign" label="Campaigns Sent" value={overview.totalCampaigns} />
         <StatCard icon="error_outline" label="Bounced" value={overview.totalBounced.toLocaleString()} color="text-red-500" />
         <StatCard icon="unsubscribe" label="Unsubscribed" value={overview.totalUnsubscribed.toLocaleString()} color="text-amber-500" />

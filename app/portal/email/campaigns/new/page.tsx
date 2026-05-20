@@ -34,8 +34,14 @@ export default function NewPortalCampaignPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
-  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
-  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  // Collapse both editor side panels on phone first-mount so the iframe gets
+  // the row; users tap the chevrons to expand either as a mobile overlay.
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
 
@@ -81,7 +87,7 @@ export default function NewPortalCampaignPage() {
   return (
     <div className="w-full space-y-4 px-2">
       {/* Header — modeled after pitch deck editor */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link
             href="/portal/email/campaigns"
@@ -105,7 +111,7 @@ export default function NewPortalCampaignPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Editor mode toggle */}
           <div className="inline-flex rounded-lg border border-border overflow-hidden">
             <button
@@ -270,7 +276,7 @@ export default function NewPortalCampaignPage() {
         {/* Editor area */}
         <div className="flex-1 min-w-0 space-y-4">
           {editorMode === 'visual' ? (
-            <div className={showEmailPreview ? 'flex gap-4' : ''}>
+            <div className={showEmailPreview ? 'flex flex-col md:flex-row gap-4' : ''}>
               <div className={`${showEmailPreview ? 'flex-1 min-w-0' : 'w-full'}`}>
                 {/* Visual Editor Shell — same as pitch deck */}
                 <div className="rounded-xl overflow-hidden [&>div]:!h-[calc(100vh-180px)]" style={{ minHeight: '600px' }}>
@@ -304,7 +310,7 @@ export default function NewPortalCampaignPage() {
               </div>
 
               {showEmailPreview && (
-                <div className="w-[400px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
+                <div className="w-full sm:w-[400px] shrink-0 bg-card border border-border rounded-xl overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
                   <EmailPreviewPane blocks={blocks} />
                 </div>
               )}

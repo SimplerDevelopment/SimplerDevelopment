@@ -655,13 +655,17 @@ div#identity-form {
 }
 .id-form-title { font-size: 15px; font-weight: 700; color: var(--dark-teal); }
 .id-form-sub   { font-size: 13px; color: #4a5c5a; line-height: 1.5; margin-bottom: 6px; }
-.id-form input {
+.id-form input,
+.id-form select,
+.id-form textarea {
   padding: 10px 14px; border-radius: 8px;
   border: 1px solid rgba(0,86,82,0.2);
-  background: white; font-size: 14px; font-family: inherit;
+  background: white; font-size: 16px; font-family: inherit;
   color: var(--dark-black);
 }
-.id-form input:focus { outline: none; border-color: var(--dark-teal); box-shadow: 0 0 0 3px rgba(0,86,82,0.12); }
+.id-form input:focus,
+.id-form select:focus,
+.id-form textarea:focus { outline: none; border-color: var(--dark-teal); box-shadow: 0 0 0 3px rgba(0,86,82,0.12); }
 .id-submit {
   padding: 10px 18px; border-radius: 8px;
   background: var(--dark-teal); color: var(--off-white);
@@ -731,7 +735,7 @@ div#identity-form {
     </div>
   </div>
 
-  <!-- ===== IDENTITY (slide 2 in both paths — captures contact info upfront) ===== -->
+  <!-- ===== IDENTITY (captured AFTER questions, immediately before results) ===== -->
   <div class="screen has-progress" id="screen-identity">
     <div class="screen-inner">
       <div class="s-eyebrow">First, a quick intro</div>
@@ -1045,6 +1049,12 @@ div#identity-form {
     scopeContext: 'route1',
     route2Selection: null,
     identity: null,  // { name, email, company } — captured on screen-identity
+    // pendingTerminal: queued action to run AFTER identity capture. One of:
+    //   { type: 'results' }                — go to screen-results (route 1)
+    //   { type: 'hybrid' }                 — go to screen-hybrid (route 1)
+    //   { type: 'offeringDetail', key }    — go to screen-offering-detail (route 2)
+    // Set by advance() / showOffering(); consumed by continueFromIdentity().
+    pendingTerminal: null,
     history: []
   };
 
@@ -1186,22 +1196,53 @@ div#identity-form {
   }
 
   // ---- Navigation ----
-  // Both route entry points now go to the identity slide first; the route is
-  // captured on state and continueFromIdentity() advances to the appropriate
-  // next screen (Q1 for route 1, the offering picker for route 2).
+  // Each route now starts directly in its questions; identity capture happens
+  // AFTER the questions, immediately before any terminal (results/hybrid/
+  // offering-detail) screen. requestTerminal() funnels every path through
+  // screen-identity, and continueFromIdentity() consumes state.pendingTerminal
+  // to fire the originally-requested terminal action.
   window.startRoute1 = function() {
     state.route = 1;
     state.q1 = null; state.q2 = null; state.q3 = null;
     state.scopeRoadmap = null; state.scopeBlueprint = null;
+    state.pendingTerminal = null;
     state.history = ['screen-welcome'];
-    showScreen('screen-identity');
+    showScreen('screen-q1');
   };
 
   window.startRoute2 = function() {
     state.route = 2;
+    state.pendingTerminal = null;
     state.history = ['screen-welcome'];
-    showScreen('screen-identity');
+    showScreen('screen-route2');
   };
+
+  // Funnel terminal-bound actions through the identity slide. If identity has
+  // already been captured this session, jump straight to the terminal action
+  // (no need to re-prompt). Otherwise stash the action on state and show
+  // screen-identity; continueFromIdentity() will pick it up.
+  function requestTerminal(pending) {
+    if (state.identity && state.identity.email) {
+      runPendingTerminal(pending);
+      return;
+    }
+    state.pendingTerminal = pending;
+    state.history.push(getCurrentScreen());
+    showScreen('screen-identity');
+  }
+
+  // Dispatch the queued terminal action. Pulled out so it's reusable by both
+  // continueFromIdentity (first time through) and requestTerminal (re-entries).
+  function runPendingTerminal(pending) {
+    if (!pending) return;
+    if (pending.type === 'results') {
+      buildResults();
+    } else if (pending.type === 'hybrid') {
+      showScreen('screen-hybrid');
+    } else if (pending.type === 'offeringDetail') {
+      buildOfferingDetail(pending.key);
+    }
+  }
 
   window.continueFromIdentity = function() {
     var formEl = document.getElementById('identity-form');
@@ -1219,9 +1260,12 @@ div#identity-form {
       return;
     }
     state.identity = { name: name, email: email, company: company };
-    state.history.push('screen-identity');
-    if (state.route === 2) showScreen('screen-route2');
-    else showScreen('screen-q1');
+    var pending = state.pendingTerminal;
+    state.pendingTerminal = null;
+    // history already has the user's prior screen (pushed by requestTerminal),
+    // so goBack from a terminal will skip identity and return to the last
+    // question / picker. Do not push screen-identity here.
+    runPendingTerminal(pending);
   };
 
   // Submit the identity form on Enter from any of its inputs.
@@ -1241,6 +1285,7 @@ div#identity-form {
     state.scopeContext = 'route1';
     state.route2Selection = null;
     state.identity = null;
+    state.pendingTerminal = null;
     state.history = [];
     __submitted = false;
     var idForm = document.getElementById('identity-form');
@@ -1273,7 +1318,11 @@ div#identity-form {
     else if (qKey === 'q2') {
       // Hybrid: Q1=C (active, unsure of focus) + Q2=A (want 90-day clarity)
       if (state.q1 === 'C' && state.q2 === 'A') {
-        showScreen('screen-hybrid');
+        // Terminal screen — gate behind identity capture.
+        // Pop the cur we just pushed so requestTerminal can re-push it
+        // (avoids screen-q2 appearing twice in history).
+        state.history.pop();
+        requestTerminal({ type: 'hybrid' });
       } else {
         showScreen('screen-q3');
       }
@@ -1286,14 +1335,18 @@ div#identity-form {
         state.scopeContext = 'route1';
         showScreen('screen-scope-blueprint');
       } else {
-        buildResults();
+        // Terminal — gate behind identity capture.
+        state.history.pop();
+        requestTerminal({ type: 'results' });
       }
     }
     else if (qKey === 'scopeRoadmap' || qKey === 'scopeBlueprint') {
+      // Terminal in both contexts — gate behind identity capture.
+      state.history.pop();
       if (state.scopeContext === 'route2') {
-        buildOfferingDetail(state.route2Selection);
+        requestTerminal({ type: 'offeringDetail', key: state.route2Selection });
       } else {
-        buildResults();
+        requestTerminal({ type: 'results' });
       }
     }
   }
@@ -1407,18 +1460,21 @@ div#identity-form {
 
   // ---- Route 2: Show offering (with scope routing for roadmap/blueprint) ----
   window.showOffering = function(key) {
-    state.history.push(getCurrentScreen());
     state.route2Selection = key;
     if (key === 'roadmap') {
+      state.history.push(getCurrentScreen());
       state.scopeContext = 'route2';
       state.scopeRoadmap = null;
       showScreen('screen-scope-roadmap');
     } else if (key === 'blueprint') {
+      state.history.push(getCurrentScreen());
       state.scopeContext = 'route2';
       state.scopeBlueprint = null;
       showScreen('screen-scope-blueprint');
     } else {
-      buildOfferingDetail(key);
+      // Terminal (no scope step) — gate behind identity capture.
+      // requestTerminal will push the current screen on history itself.
+      requestTerminal({ type: 'offeringDetail', key: key });
     }
   };
 

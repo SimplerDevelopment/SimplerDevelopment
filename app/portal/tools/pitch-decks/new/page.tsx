@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import BrandingProfileSelector from '@/components/portal/BrandingProfileSelector';
@@ -8,13 +8,45 @@ import UploadHtmlDeckButton from '@/components/portal/UploadHtmlDeckButton';
 
 export default function NewPitchDeckPage() {
   const router = useRouter();
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [brandingProfileId, setBrandingProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [creatingBlank, setCreatingBlank] = useState(false);
   const [step, setStep] = useState<'idle' | 'creating' | 'generating' | 'branding'>('idle');
   const [error, setError] = useState('');
+
+  async function handleStartBlank() {
+    if (!title.trim()) {
+      setError('Add a title above before starting a blank deck.');
+      titleInputRef.current?.focus();
+      return;
+    }
+    setCreatingBlank(true);
+    setError('');
+    try {
+      const res = await fetch('/api/portal/tools/pitch-decks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          brandingProfileId: brandingProfileId ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || 'Failed to create deck');
+        setCreatingBlank(false);
+        return;
+      }
+      router.push(`/portal/tools/pitch-decks/${data.data.id}`);
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setCreatingBlank(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,14 +123,50 @@ export default function NewPitchDeckPage() {
         </p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Already have an HTML deck?</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Upload a single .html file and we&apos;ll wrap it in a one-slide deck.
-          </p>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <span className="material-icons text-primary text-base">add_box</span>
+              Start blank
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Skip generation. Add a title, hit start, build slides yourself in the editor.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleStartBlank}
+            disabled={creatingBlank || loading}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-start"
+          >
+            {creatingBlank ? (
+              <>
+                <span className="material-icons animate-spin text-base">autorenew</span>
+                Creating...
+              </>
+            ) : (
+              <>
+                <span className="material-icons text-base">arrow_forward</span>
+                Start blank deck
+              </>
+            )}
+          </button>
         </div>
-        <UploadHtmlDeckButton />
+        <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <span className="material-icons text-primary text-base">upload_file</span>
+              Already have HTML?
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Upload a single .html file and we&apos;ll wrap it in a one-slide deck.
+            </p>
+          </div>
+          <div className="self-start">
+            <UploadHtmlDeckButton />
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -113,13 +181,14 @@ export default function NewPitchDeckPage() {
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Deck Title</label>
             <input
+              ref={titleInputRef}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Q1 2026 Investor Pitch"
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
               required
-              disabled={loading}
+              disabled={loading || creatingBlank}
             />
           </div>
 

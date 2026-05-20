@@ -160,7 +160,7 @@ export interface BlockTypeMetadata {
 export const BLOCK_TYPES: BlockTypeMetadata[] = [
   // Basic
   { type: 'heading', label: 'Heading', icon: Type, category: 'Basic' },
-  { type: 'text', label: 'Paragraph', icon: FileText, category: 'Basic' },
+  { type: 'text', label: 'Text', icon: FileText, category: 'Basic' },
   { type: 'image', label: 'Image', icon: Image, category: 'Basic' },
   { type: 'button', label: 'Button', icon: MousePointerClick, category: 'Basic' },
   { type: 'spacer', label: 'Spacer', icon: ArrowUpDown, category: 'Basic' },

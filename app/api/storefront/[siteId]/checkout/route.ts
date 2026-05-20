@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { db } from '@/lib/db';
 import {
-  storeSettings, carts, cartItems, products, productVariants,
+  carts, cartItems, products, productVariants,
   bulkPricingRules, shippingRates, shippingZones, discountCodes,
   orders, orderItems, orderStatusHistory,
   giftCertificates, giftCertificateRedemptions,
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
+import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -29,17 +31,37 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Invalid site ID' }, { status: 400 });
     }
 
-    // Load store settings
-    const [store] = await db.select().from(storeSettings)
-      .where(and(eq(storeSettings.websiteId, websiteId), eq(storeSettings.enabled, true)))
-      .limit(1);
+    // Resolve per-site Stripe context (Connect vs BYOK). Resolver throws
+    // SiteStripeError for resolver-fatal conditions (no_settings,
+    // byok_no_key, byok_decrypt_failed) — surface those as 400s.
+    let ctx: SiteStripeContext;
+    try {
+      ctx = await resolveSiteStripe(websiteId);
+    } catch (err) {
+      if (err instanceof SiteStripeError) {
+        const status = err.code === 'no_settings' ? 404 : 400;
+        return NextResponse.json(
+          { success: false, message: err.message, code: err.code },
+          { status },
+        );
+      }
+      throw err;
+    }
 
-    if (!store) {
+    const store = ctx.settings;
+    if (!store.enabled) {
       return NextResponse.json({ success: false, message: 'Store not found' }, { status: 404 });
     }
 
-    if (!store.stripeAccountId || !store.stripeOnboardingComplete) {
-      return NextResponse.json({ success: false, message: 'Store payments not configured' }, { status: 400 });
+    // Connect mode: still require completed onboarding + destination acct.
+    // BYOK mode: resolver already verified key presence; no extra gating here.
+    if (ctx.mode === 'connect') {
+      if (!ctx.stripeAccountId || !store.stripeOnboardingComplete) {
+        return NextResponse.json(
+          { success: false, message: 'Store has not completed Stripe Connect onboarding' },
+          { status: 400 },
+        );
+      }
     }
 
     const body = await req.json();
@@ -290,27 +312,34 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Order total must be greater than zero' }, { status: 400 });
     }
 
-    // 7. Create Stripe PaymentIntent via Connect
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    // 7. Create Stripe PaymentIntent. Connect mode adds platform fee +
+    // transfer destination; BYOK mode omits both (Stripe rejects them when
+    // the call is not against a Connect platform context).
+    const stripe = ctx.stripe;
 
-    const platformFeePercent = store.platformFeePercent
-      ? parseFloat(store.platformFeePercent)
-      : 5;
-    const applicationFee = Math.round(total * (platformFeePercent / 100));
+    // Connect: derive application fee from resolver bps (preserves current
+    // behavior — bps = platformFeePercent * 100, so `total * bps / 10000`
+    // ≡ `total * (platformFeePercent / 100)`). Null bps falls back to 500
+    // (5%) to match the pre-resolver default. BYOK: zero, never sent.
+    const applicationFee =
+      ctx.mode === 'connect'
+        ? Math.round(total * ((ctx.applicationFeeBps ?? 500) / 10000))
+        : 0;
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: total,
       currency: store.currency.toLowerCase(),
-      application_fee_amount: applicationFee,
-      transfer_data: {
-        destination: store.stripeAccountId,
-      },
       metadata: {
         websiteId: String(websiteId),
         storeId: String(store.id),
       },
-    });
+    };
+    if (ctx.mode === 'connect') {
+      paymentIntentParams.application_fee_amount = applicationFee;
+      paymentIntentParams.transfer_data = { destination: ctx.stripeAccountId! };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
     // 8. Generate order number
     const prefix = store.orderPrefix || 'ORD';

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects, kanbanColumns, kanbanCards } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { eq, and } from 'drizzle-orm';
+import { canUserEditProject } from '@/lib/portal/project-access';
 
 async function authorizeColumn(projectId: number, colId: number, session: { user?: { id?: string; role?: string } } | null) {
   const role = session?.user?.role;
@@ -23,7 +24,7 @@ async function authorizeColumn(projectId: number, colId: number, session: { user
   const [col] = await db.select().from(kanbanColumns)
     .where(and(eq(kanbanColumns.id, colId), eq(kanbanColumns.projectId, projectId))).limit(1);
   if (!col) return null;
-  return { canEdit: project.isPrivate, col };
+  return { canEdit: await canUserEditProject(userId, projectId), col };
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; columnId: string }> }) {

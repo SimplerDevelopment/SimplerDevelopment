@@ -5,6 +5,8 @@ import {
   fetchBranding,
   fetchNavigation,
   fetchSiteStatus,
+  publishAllNav,
+  publishNavItem,
   resolvePreviewBase,
   saveBranding,
   saveNavigation,
@@ -51,16 +53,53 @@ export function useNavigation(siteId: string) {
     };
   }, [siteId]);
 
-  // Save
+  // Save (stages changes as drafts server-side)
   const save = useCallback(async () => {
     setSaving(true);
     try {
       await Promise.all([saveNavigation(siteId, items), saveBranding(siteId, branding)]);
+      // Re-fetch so the editor sees the server-assigned ids + freshly-staged
+      // draft overlays. This keeps subsequent edits merging into the same
+      // draft rather than overwriting it.
+      const next = await fetchNavigation(siteId);
+      setItems(next);
       setDirty(false);
     } finally {
       setSaving(false);
     }
   }, [siteId, items, branding]);
+
+  // Publish a single nav item's draft → live, then refetch.
+  const publishItem = useCallback(
+    async (id: number) => {
+      await publishNavItem(siteId, id);
+      const next = await fetchNavigation(siteId);
+      setItems(next);
+      setDirty(false);
+    },
+    [siteId],
+  );
+
+  // Publish every draft on this site → live, then refetch.
+  const publishAll = useCallback(async () => {
+    await publishAllNav(siteId);
+    const next = await fetchNavigation(siteId);
+    setItems(next);
+    setDirty(false);
+  }, [siteId]);
+
+  // Local-state undo for a staged delete. The user can also Save Changes to
+  // persist the revival to the draft.
+  const cancelDelete = useCallback((id: number) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id && i.draft?.pendingDelete
+          ? { ...i, draft: { ...i.draft, pendingDelete: false } }
+          : i,
+      ),
+    );
+    setDirty(true);
+  }, []);
 
   // Item CRUD
   const addItem = useCallback(
@@ -103,7 +142,23 @@ export function useNavigation(siteId: string) {
   }, []);
 
   const removeItem = useCallback((id: number) => {
-    setItems((prev) => removeItemAndDescendants(prev, id));
+    setItems((prev) => {
+      const target = prev.find((i) => i.id === id);
+      // Brand-new items (negative temp id) or draft-only items have nothing
+      // live to tombstone — drop them entirely along with their descendants.
+      const isDraftOnly = !target || id < 0 || target.draft?.pendingCreate === true;
+      if (isDraftOnly) return removeItemAndDescendants(prev, id);
+      // Live row → flip the draft tombstone on this item + its descendants
+      // so the renderer keeps showing them until the user publishes.
+      return prev.map((i) =>
+        i.id === id || i.parentId === id
+          ? {
+              ...i,
+              draft: { ...(i.draft ?? {}), pendingDelete: true },
+            }
+          : i,
+      );
+    });
     setDirty(true);
   }, []);
 
@@ -137,5 +192,8 @@ export function useNavigation(siteId: string) {
     moveItem,
     updateBranding,
     save,
+    publishItem,
+    publishAll,
+    cancelDelete,
   };
 }

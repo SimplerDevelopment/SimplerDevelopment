@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withCronHealth } from '@/lib/cron-health';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { createCrmNotification } from '@/lib/crm/notifications';
@@ -28,7 +29,7 @@ export const runtime = 'nodejs';
  * Auth: Vercel cron header OR `Authorization: Bearer ${CRON_SECRET}` (matches
  * `app/api/cron/process-embeddings/route.ts`).
  */
-export async function GET(req: Request) {
+async function _GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const auth = req.headers.get('authorization');
   const isVercelCron = req.headers.get('x-vercel-cron') === '1';
@@ -136,3 +137,8 @@ export async function GET(req: Request) {
     data: { scanned, matched, notified, skippedDup, durationMs },
   });
 }
+
+export const GET = withCronHealth(
+  { name: 'api-cron:stale-crm-deals', area: 'api-cron' },
+  _GET,
+);

@@ -13,7 +13,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { services } from '@/lib/db/schema';
+import { clients, services } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { isBrainEntitled, BRAIN_SERVICE_CATEGORY } from '@/lib/brain/entitlement';
@@ -30,20 +30,57 @@ export default async function BrainLayout({ children }: { children: React.ReactN
   const entitled = await isBrainEntitled(client.id);
   if (entitled) return <>{children}</>;
 
-  // Find the brain service so the upsell CTA goes to the real checkout endpoint.
-  const [brainService] = await db
-    .select()
-    .from(services)
-    .where(and(
-      eq(services.category, BRAIN_SERVICE_CATEGORY),
-      eq(services.active, true),
-    ))
-    .limit(1);
+  // Look up brain service + trial state in parallel so the upsell card can
+  // (a) link to the real checkout and (b) tell the user whether their trial
+  // is still active or has just expired (drives a different CTA tone).
+  const [[brainService], [trialRow]] = await Promise.all([
+    db
+      .select()
+      .from(services)
+      .where(and(
+        eq(services.category, BRAIN_SERVICE_CATEGORY),
+        eq(services.active, true),
+      ))
+      .limit(1),
+    db
+      .select({ brainTrialUntil: clients.brainTrialUntil })
+      .from(clients)
+      .where(eq(clients.id, client.id))
+      .limit(1),
+  ]);
 
-  return <BrainUpsell brainService={brainService ?? null} />;
+  const trialUntil = trialRow?.brainTrialUntil ?? null;
+  const now = new Date();
+  const trialState: TrialState = !trialUntil
+    ? 'none'
+    : trialUntil > now
+      ? 'active'  // entitled check would have caught this — defensive fallback.
+      : 'expired';
+
+  return (
+    <BrainUpsell
+      brainService={brainService ?? null}
+      trialState={trialState}
+      trialUntil={trialUntil}
+    />
+  );
 }
 
-function BrainUpsell({ brainService }: { brainService: typeof services.$inferSelect | null }) {
+type TrialState = 'none' | 'active' | 'expired';
+
+function formatTrialDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function BrainUpsell({
+  brainService,
+  trialState,
+  trialUntil,
+}: {
+  brainService: typeof services.$inferSelect | null;
+  trialState: TrialState;
+  trialUntil: Date | null;
+}) {
   const price = brainService ? formatCents(brainService.price) : '$49';
   const cycle: string = brainService?.billingCycle ?? 'monthly';
   const description = brainService?.description
@@ -61,6 +98,18 @@ function BrainUpsell({ brainService }: { brainService: typeof services.$inferSel
         <span className="material-icons text-5xl text-primary mb-3 block">psychology</span>
         <h1 className="text-2xl font-bold text-foreground mb-2">Company Brain</h1>
         <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-6">{description}</p>
+
+        {trialState === 'expired' && trialUntil && (
+          <div className="mb-6 flex items-start gap-3 text-left bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 max-w-xl mx-auto">
+            <span className="material-icons text-amber-600 dark:text-amber-400 text-xl shrink-0">schedule</span>
+            <div className="text-sm">
+              <div className="font-semibold text-foreground">Your trial ended on {formatTrialDate(trialUntil)}.</div>
+              <p className="text-muted-foreground mt-0.5">
+                Your notes and history are preserved. Subscribe below to keep working with Brain.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid sm:grid-cols-2 gap-3 max-w-2xl mx-auto mb-6 text-left">
           {features.slice(0, 6).map((f, i) => (
