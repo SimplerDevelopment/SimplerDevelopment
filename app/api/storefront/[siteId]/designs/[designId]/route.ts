@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { storeSettings, designs, clients, clientMembers, clientWebsites } from '@/lib/db/schema';
-import { and, eq, or } from 'drizzle-orm';
+import {
+  storeSettings,
+  designs,
+  clients,
+  clientMembers,
+  clientWebsites,
+  productDesignSurfaces,
+  productImages,
+} from '@/lib/db/schema';
+import { and, asc, eq, or } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 import { auth } from '@/lib/auth';
 
@@ -188,11 +196,189 @@ export async function PUT(
       .where(eq(designs.id, res.design.id))
       .returning();
 
+    // Post-save mockup regen — fire-and-forget, fail-soft. When portal staff
+    // edits a store-mode template design (isTemplate=true, productId set,
+    // layersBySurface changed), re-run the sharp composite so the product
+    // detail page's hero image reflects the edit immediately. Without this,
+    // designs.renderedUrl + productImages.url stay pointed at the OLD render
+    // and customers see stale artwork after staff tweaks.
+    //
+    // Skip the regen if: it's not the staff path, the layers weren't touched,
+    // the design isn't template-flagged, or there's no productId to update.
+    // Errors are logged but never bubbled to the PUT response — the design
+    // save itself succeeded.
+    const isStaff = req.headers.get('x-portal-staff') === '1';
+    if (
+      isStaff &&
+      layersBySurface !== undefined &&
+      updated &&
+      updated.isTemplate &&
+      updated.productId !== null
+    ) {
+      void regenerateMockupForStaffSave(updated).catch((err) => {
+        console.error('[design-PUT] regen failed (non-fatal):', err);
+      });
+    }
+
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
     console.error('Storefront design PUT error:', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }
+}
+
+/**
+ * Re-render the flat composite mockup (artwork over blank shirt) for the
+ * just-saved design and roll the new URL into designs.renderedUrl +
+ * the product's order=0 productImages row.
+ *
+ * Best-effort: any failure here is logged and swallowed by the caller. The
+ * design data is already saved; this just refreshes the cosmetic artifacts.
+ *
+ * Why only the flat composite (no lifestyle photo): re-running gpt-image-1
+ * for the woman/baby model shot is expensive (~$0.08) and slow (~30s). The
+ * flat composite is cheap and instant. Staff can manually trigger a lifestyle
+ * regen via scripts/magamommy/regenerate-lifestyle-hero.ts when needed.
+ */
+async function regenerateMockupForStaffSave(
+  design: typeof designs.$inferSelect,
+): Promise<void> {
+  const productId = design.productId;
+  if (productId === null) return;
+
+  // Lazy-load the heavy deps so we don't pull sharp + S3 into every PUT
+  // request that doesn't need a regen.
+  const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+  const { getS3Client, getBucketName } = await import('@/lib/s3/client');
+  const { uploadToS3 } = await import('@/lib/s3/upload');
+  const { compositeArtworkOnShirt } = await import('@/lib/magamommy/composite');
+
+  type Layer = {
+    type?: string;
+    data?: {
+      url?: string;
+      printReadyUrl?: string;
+    };
+  };
+  const layersBySurface = (design.layersBySurface ?? {}) as Record<string, Layer[]>;
+
+  // Pick the first surface that has an image layer to composite. Most
+  // magamommy products are front-only; back-only is rare. The publisher
+  // creates a front-surface design row.
+  let surfaceSlug: string | null = null;
+  let artworkUrl: string | null = null;
+  for (const slug of Object.keys(layersBySurface)) {
+    const imageLayer = (layersBySurface[slug] ?? []).find((l) => l.type === 'image' && l.data?.url);
+    if (imageLayer?.data) {
+      surfaceSlug = slug;
+      // Prefer the 4x print-ready URL if it exists (better quality on the
+      // composite); fall back to the 1024 base URL.
+      artworkUrl = imageLayer.data.printReadyUrl ?? imageLayer.data.url ?? null;
+      break;
+    }
+  }
+  if (!surfaceSlug || !artworkUrl) {
+    console.log('[design-PUT] regen skipped — no image layer found');
+    return;
+  }
+
+  // Resolve the surface's print-area bounds + the blank mockup image.
+  const [surface] = await db
+    .select()
+    .from(productDesignSurfaces)
+    .where(
+      and(
+        eq(productDesignSurfaces.productId, productId),
+        eq(productDesignSurfaces.slug, surfaceSlug),
+      ),
+    )
+    .limit(1);
+  if (!surface) {
+    console.log(`[design-PUT] regen skipped — no surface ${surfaceSlug} on product ${productId}`);
+    return;
+  }
+
+  const s3 = getS3Client();
+  const bucket = getBucketName();
+
+  // Fetch the artwork. URLs are /api/media/proxy/<key> — we go direct to S3.
+  const artworkKeyMatch = artworkUrl.match(/\/api\/media\/proxy\/(.+)$/);
+  if (!artworkKeyMatch) {
+    console.log(`[design-PUT] regen skipped — unrecognized artwork URL: ${artworkUrl}`);
+    return;
+  }
+  const artworkObj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: decodeURIComponent(artworkKeyMatch[1]) }));
+  if (!artworkObj.Body) return;
+  // @ts-expect-error — Body has transformToByteArray() on the AWS SDK Node runtime
+  const artworkBytes = await artworkObj.Body.transformToByteArray();
+  const artworkBuf = Buffer.from(artworkBytes);
+
+  // Fetch the base mockup. Same /api/media/proxy/<key> shape, OR a relative
+  // /assets/... path (the magamommy seed uses /assets/magamommy/blank-tee-...)
+  // OR an absolute external URL. Handle each.
+  let baseMockupBuf: Buffer;
+  const mockupUrl = surface.mockupImage;
+  const mockupS3Match = mockupUrl.match(/\/api\/media\/proxy\/(.+)$/);
+  if (mockupS3Match) {
+    const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: decodeURIComponent(mockupS3Match[1]) }));
+    if (!obj.Body) return;
+    // @ts-expect-error
+    const bytes = await obj.Body.transformToByteArray();
+    baseMockupBuf = Buffer.from(bytes);
+  } else if (mockupUrl.startsWith('/')) {
+    // Relative file path served by public/ — read from disk.
+    const { promises: fs } = await import('node:fs');
+    const path = await import('node:path');
+    const filePath = path.join(process.cwd(), 'public', mockupUrl);
+    baseMockupBuf = await fs.readFile(filePath);
+  } else {
+    const fetched = await fetch(mockupUrl);
+    if (!fetched.ok) {
+      console.log(`[design-PUT] regen skipped — failed to fetch mockup ${mockupUrl}: ${fetched.status}`);
+      return;
+    }
+    baseMockupBuf = Buffer.from(await fetched.arrayBuffer());
+  }
+
+  // Run the composite.
+  const compositePng = await compositeArtworkOnShirt({
+    artworkPng: artworkBuf,
+    baseMockupPng: baseMockupBuf,
+    printArea: {
+      x: surface.printAreaX,
+      y: surface.printAreaY,
+      width: surface.printAreaWidth,
+      height: surface.printAreaHeight,
+    },
+  });
+
+  // Upload the new composite.
+  const ts = Date.now();
+  const outKey = `media/magamommy/mockups/regen-${design.id}-${surfaceSlug}-${ts}.png`;
+  const upload = await uploadToS3(compositePng, `mockup-${surfaceSlug}.png`, 'image/png', { key: outKey });
+
+  // Update designs.renderedUrl + thumbnailUrl so the next read sees the fresh
+  // composite. Also update the product's order=0 product_images row so the
+  // storefront product card / detail page swaps to the new render.
+  await db
+    .update(designs)
+    .set({ renderedUrl: upload.url, thumbnailUrl: upload.url, updatedAt: new Date() })
+    .where(eq(designs.id, design.id));
+
+  const [primaryImage] = await db
+    .select({ id: productImages.id })
+    .from(productImages)
+    .where(eq(productImages.productId, productId))
+    .orderBy(asc(productImages.order))
+    .limit(1);
+  if (primaryImage) {
+    await db
+      .update(productImages)
+      .set({ url: upload.url })
+      .where(eq(productImages.id, primaryImage.id));
+  }
+
+  console.log(`[design-PUT] regen ✓ design=${design.id} product=${productId} → ${upload.url}`);
 }
 
 export async function DELETE(
