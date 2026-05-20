@@ -20,6 +20,7 @@
     "smoke:skills": "bun scripts/smoke-sd-skills.ts run",
     "smoke:skills:seed-key": "bun scripts/smoke-sd-skills.ts seed-key",
     "smoke:skills:cleanup": "bun scripts/smoke-sd-skills.ts cleanup",
+    "skills:bundle": "bun scripts/build-client-skills-bundle.ts",
     "test:ui": "vitest --ui",
     "test:e2e:ui": "playwright test --ui",
     "test:vitest": "vitest",

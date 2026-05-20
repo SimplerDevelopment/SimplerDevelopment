@@ -94,6 +94,18 @@ Pass `blocks` (preferred — server renders to HTML using `renderBlocksToEmailHt
 
 `status` is forced to `draft` at create time — you cannot start a campaign in any other state.
 
+## MCP response handling — read errors first
+
+SimplerDevelopment's MCP wraps every response — successes AND errors — in a JSON-RPC success envelope shaped like:
+
+```
+{"result":{"content":[{"type":"text","text":"{...JSON...}"}]}}
+```
+
+Before reporting success to the user, parse `result.content[0].text` as JSON. If the parsed object contains an `error` key (e.g. `{"error":"Site not found"}` or `{"error":"Unauthorized"}`), the call FAILED — even though the JSON-RPC envelope said `result`. STOP immediately. Surface the error verbatim to the user. Do NOT invent a successful response with a made-up post id, approval URL, slug, or site name. Hallucinated success is worse than a visible failure — the user will publish content that doesn't exist or copy approval URLs to stakeholders that 404.
+
+Only treat the call as successful when the parsed text contains the expected entity shape (e.g. `{"id":..., "approval":{...}}` for `posts_create`).
+
 ## Output
 
 The MCP response includes an `approval` envelope. Return to the user:
@@ -119,6 +131,10 @@ The MCP response includes an `approval` envelope. Return to the user:
 
 ## Install
 
-```bash
-ln -s "$(pwd)/.claude/skills/sd-create-email" ~/.claude/skills/sd-create-email
-```
+This skill ships as part of the SimplerDevelopment client skills bundle. Install all 10 sibling skills in one step from the portal:
+
+**https://simplerdevelopment.com/install**
+
+macOS, Windows, and Linux installers download the bundle to `~/.claude/skills/`. Both Claude Desktop and Claude Code auto-discover skills from that path on next restart.
+
+See `CLIENT_QUICKSTART.md` (installed alongside this file) for the full setup walkthrough, including the MCP-server config Claude Desktop needs and the one-time `sd-init` bootstrap.

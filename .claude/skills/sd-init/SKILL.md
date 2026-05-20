@@ -125,8 +125,10 @@ A `.sd/config.json` file plus a 5-line summary printed to the user:
 
 ## Install
 
-Local install (per-machine, not committed):
+This skill ships as part of the SimplerDevelopment client skills bundle. Install all 10 sibling skills in one step from the portal:
 
-```bash
-ln -s "$(pwd)/.claude/skills/sd-init" ~/.claude/skills/sd-init
-```
+**https://simplerdevelopment.com/install**
+
+macOS, Windows, and Linux installers download the bundle to `~/.claude/skills/`. Both Claude Desktop and Claude Code auto-discover skills from that path on next restart.
+
+See `CLIENT_QUICKSTART.md` (installed alongside this file) for the full setup walkthrough, including the MCP-server config Claude Desktop needs and the one-time `sd-init` bootstrap.
