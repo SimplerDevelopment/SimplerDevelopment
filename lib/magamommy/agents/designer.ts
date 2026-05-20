@@ -94,9 +94,27 @@ export function buildLifestyleMockupPrompt(concept: {
   tagline: string;
   placement: string;
   garmentType?: 'tee' | 'onesie' | 'hoodie';
+  /** Garment colorway — affects the fabric color in the lifestyle photo. Default white. */
+  garmentColor?: string;
 }): string {
   const paletteHex = concept.palette.map((c) => c.hex).join(', ');
   const garmentType = concept.garmentType ?? 'tee';
+  const garmentColor = (concept.garmentColor ?? 'white').toLowerCase();
+  // Map free-form color names to descriptive phrasing the model will honor.
+  const fabricColor = (() => {
+    if (/white/.test(garmentColor)) return 'clean white';
+    if (/black/.test(garmentColor)) return 'true black';
+    if (/heather|grey|gray/.test(garmentColor)) return 'heather grey';
+    if (/red/.test(garmentColor)) return 'flag red';
+    if (/navy|blue/.test(garmentColor)) return 'deep navy';
+    return garmentColor;
+  })();
+  // Background pairing — keep contrast so the slogan reads regardless of garment color.
+  const backgroundDescription = (() => {
+    if (fabricColor === 'true black') return 'bright neutral studio with soft natural shadows; backdrop is light cream so the black garment pops';
+    if (fabricColor === 'heather grey') return 'bright neutral studio with soft natural shadows; backdrop is dusty cream / warm white';
+    return 'bright neutral studio with soft natural shadows';
+  })();
 
   if (garmentType === 'hoodie') {
     const printSide =
@@ -105,7 +123,7 @@ export function buildLifestyleMockupPrompt(concept: {
         : 'show the front of the hoodie clearly';
     return [
       'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
-      'An adult WOMAN model — the target Magamommy customer — wearing a clean white heavyweight pullover crew-neck hoodie / sweatshirt with a kangaroo pocket and ribbed cuffs, in a bright neutral studio with soft natural shadows.',
+      `An adult WOMAN model — the target Magamommy customer — wearing a ${fabricColor} heavyweight pullover crew-neck hoodie / sweatshirt with a kangaroo pocket and ribbed cuffs, in a ${backgroundDescription}.`,
       'Styling: relaxed, confident, classic Americana — natural hair (any color), light/minimal makeup, warm friendly approachable expression. Age range 26–38, young suburban mom energy but stylish.',
       printSide + '.',
       `The hoodie print must feature the exact slogan "${concept.slogan}" as the dominant readable text on the front chest area, above the kangaroo pocket.`,
@@ -131,7 +149,7 @@ export function buildLifestyleMockupPrompt(concept: {
         : 'show the front of the onesie clearly';
     return [
       'Photorealistic ecommerce lifestyle product photography for a baby-apparel storefront.',
-      'A baby (around 9–12 months old) wearing a clean white short-sleeve cotton baby onesie with a snap closure at the bottom, in a soft pastel nursery scene with natural daylight. The baby is photographed safely — sitting up on a soft white blanket, three-quarter angle, body fills the frame.',
+      `A baby (around 9–12 months old) wearing a ${fabricColor} short-sleeve cotton baby onesie with a snap closure at the bottom, in a soft pastel nursery scene with natural daylight. The baby is photographed safely — sitting up on a soft white blanket, three-quarter angle, body fills the frame.`,
       'Photo composition: waist-up framing, the onesie occupies the center of the frame, sleepy gentle mood. The baby may be looking down, looking at a toy, or with eyes partially closed — avoid sharp, direct face close-ups.',
       printSide + '.',
       `The onesie print must feature the exact slogan "${concept.slogan}" as the dominant readable text on the front.`,
@@ -157,7 +175,7 @@ export function buildLifestyleMockupPrompt(concept: {
 
   return [
     'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
-    'An adult WOMAN model — the target Magamommy customer — wearing a clean white heavyweight crew-neck t-shirt in a bright neutral studio with soft natural shadows.',
+    `An adult WOMAN model — the target Magamommy customer — wearing a ${fabricColor} heavyweight crew-neck t-shirt in a ${backgroundDescription}.`,
     'Styling: relaxed, confident, classic Americana — natural hair (any color), light/minimal makeup, warm friendly approachable expression. Age range 26–38, young suburban mom energy but stylish — think "millennial mom at a Memorial Day cookout" (school-age kids at home, not college-age). Should still read as a real adult, not a teenager.',
     printSide + '.',
     `The shirt print must feature the exact slogan "${concept.slogan}" as the dominant readable text.`,
