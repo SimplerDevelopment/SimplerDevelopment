@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { and, asc, eq } from 'drizzle-orm';
 import { getClientWebsiteByDomain } from '@/lib/actions/client-sites';
 import { getBrandingByWebsiteId } from '@/lib/branding';
@@ -32,6 +32,16 @@ export default async function DesignerPage({ params }: DesignerPageProps) {
     .limit(1);
 
   if (!product || !product.isDesignable) notFound();
+
+  // Store-designed products use the same canvas-designer data shape
+  // (isDesignable=true, productDesignSurfaces, designs.layersBySurface) so
+  // staff/admin can author them in the designer, but customers should never
+  // land on the editor — they only buy the pre-baked variant. Send them to
+  // the regular product page instead.
+  const productMetadata = (product.metadata ?? {}) as Record<string, unknown>;
+  if (productMetadata.productDesignMode === 'store') {
+    redirect(`/shop/${product.slug}`);
+  }
 
   const surfaces = await db
     .select()

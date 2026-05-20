@@ -270,7 +270,13 @@ export async function runPublisher(input: PublisherInput): Promise<PublisherOutp
       compareAtPrice: 3500,  // $35.00 — shown as a discount on the storefront
       status: 'active',
       featured: true,
-      isDesignable: false,   // pre-baked design; customer cannot edit
+      // isDesignable=true so the product carries the same canvas-designer
+      // data shape as a real customer-designable product (productDesignSurfaces
+      // + designs.layersBySurface). metadata.productDesignMode='store' below
+      // is the signal that gates customer access — the storefront designer
+      // route (app/sites/[domain]/designer/[productSlug]) redirects to the
+      // shop page for store-mode products instead of rendering the editor.
+      isDesignable: true,
       trackInventory: true,
       quantity: 100,
       weight: '200',         // numeric column → string-encoded by Drizzle
@@ -300,6 +306,48 @@ export async function runPublisher(input: PublisherInput): Promise<PublisherOutp
     order: 0,
   });
   console.log(`[publisher] inserted hero image url=${design.renderedUrl}`);
+
+  // ── 5b. Clone the template's productDesignSurfaces onto the new product.
+  // The storefront designer (app/sites/[domain]/designer/[productSlug]) and
+  // the portal staff designer both load surfaces by productId. We mirror the
+  // template's surfaces (front + back, same canvas + print-area dimensions)
+  // onto the published product so the designer data shape is consistent with
+  // a real customer-designable product. Customer access is gated separately
+  // by metadata.productDesignMode='store' (see the designer route).
+  const templateSurfaceRows = await db
+    .select({
+      name: productDesignSurfaces.name,
+      slug: productDesignSurfaces.slug,
+      displayOrder: productDesignSurfaces.displayOrder,
+      mockupImage: productDesignSurfaces.mockupImage,
+      canvasWidth: productDesignSurfaces.canvasWidth,
+      canvasHeight: productDesignSurfaces.canvasHeight,
+      printAreaX: productDesignSurfaces.printAreaX,
+      printAreaY: productDesignSurfaces.printAreaY,
+      printAreaWidth: productDesignSurfaces.printAreaWidth,
+      printAreaHeight: productDesignSurfaces.printAreaHeight,
+      printDpi: productDesignSurfaces.printDpi,
+      active: productDesignSurfaces.active,
+    })
+    .from(productDesignSurfaces)
+    .where(eq(productDesignSurfaces.productId, templateProductId));
+  if (templateSurfaceRows.length > 0) {
+    await db.insert(productDesignSurfaces).values(
+      templateSurfaceRows.map((s) => ({ ...s, productId })),
+    );
+    console.log(`[publisher] cloned ${templateSurfaceRows.length} design surface(s) onto product ${productId}`);
+  }
+
+  // ── 5c. Reassign the design row from the template to the new product so
+  // the storefront/portal designer's `SELECT * FROM designs WHERE productId=N`
+  // returns this design when loading the published product. The design was
+  // initially created against the template because the publisher hadn't
+  // minted the per-week product yet.
+  await db
+    .update(designs)
+    .set({ productId, updatedAt: new Date() })
+    .where(eq(designs.id, design.id));
+  console.log(`[publisher] reassigned design ${design.id} → product ${productId}`);
 
   // ── 6. Clone the template's options + values onto the new product ────
   // Build a map from (oldOptionId, oldValueId) → newValueId so we can build
