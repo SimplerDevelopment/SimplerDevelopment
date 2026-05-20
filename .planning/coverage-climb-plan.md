@@ -245,6 +245,46 @@ in batch 45, all hit ≥50% on target (range 50.0–98.2%, avg 80%+):
 Each big-file test pulls 3-10× more stmts than a route-batch test —
 the per-file approach is the answer for the next mile.
 
+## Stretch goal #2 CLEARED: 60% statements (batches 46-51, 2026-05-20)
+
+| Metric | Post-B45 (52.01%) | Post-B51 | Δ |
+|---|---|---|---|
+| **Statements** | 52.01% (37538/72171) | **60.55%** (43706/72171) | **+8.54pp** ✅ |
+| **Branches** | 47.71% | **55.59%** (34320/61728) | **+7.88pp** |
+| Functions | 33.09% | **43.27%** (7101/16408) | +10.18pp |
+| Lines | 52.45% | **61.10%** (37844/61937) | +8.65pp |
+
+**Test count:** 15,634 passing (up from 13,794 post-B45 — +1,840 tests
+in batches 46-51 across 27 new files).
+
+**Approach:** Continued per-file gap-analysis dispatch in 6-worker
+batches, ranking by uncovered-stmts from coverage-final.json. Workers
+got "drop flaky, don't try to fix" guidance to avoid the long-tail
+fix cycles from earlier batches.
+
+Highlights from batches 46-51 (27 commits):
+
+| File | Stmts | Coverage hit |
+|---|---|---|
+| `app/sites/[domain]/pitch-deck/[slug]/PitchDeckPresentation.tsx` | 510 | 90.6% |
+| `app/sites/[domain]/slides/[slug]/PitchDeckPresentation.tsx` (cloned) | 255 | ~90% |
+| `app/portal/crm/companies/[id]/page.tsx` | 231 | 87.0% |
+| `app/portal/crm/proposals/[id]/page.tsx` | 214 | 98.1% |
+| `app/portal/crm/proposals/page.tsx` | 233 | 98.3% |
+| `app/portal/media/page.tsx` | 206 | 95.6% |
+| `components/portal/VisualEditorShell.tsx` | 230 | 97.0% |
+| `components/portal/card-detail/_hooks/useCardDetail.ts` | 256 | 99.2% |
+| `components/visual-editor/SelectableBlock.tsx` | 236 | 95.3% |
+| `lib/ai/portal-tools/cms.ts` | 171 | 100% |
+| `lib/ai/style-variants/validate.ts` | 198 | 94.4% |
+| `lib/visual-editor/useEditorMode.ts` | 198 | 98.5% |
+| `components/brain/markdown-autocomplete.ts` | 183 | 98.4% |
+| ...19 more big files at 70-100% target coverage | | |
+
+**Total journey:** 4.89% baseline → 30.58% (batch 28, original goal)
+→ 52.01% (batch 45) → 60.55% (batch 51). +55.66pp on statements over
+the entire effort.
+
 ## Loop status: GOAL ACHIEVED at batch 28 (2026-05-19)
 
 **Final measurement** (`vitest run --project=unit --coverage` against
