@@ -105,6 +105,13 @@ interface DesignerShellProps {
    * the quantity picked from the toolbar.
    */
   onAddToCart: (designId: string, quantity: number) => Promise<void>;
+  /**
+   * When true, this shell is opened by portal staff editing a store-mode
+   * design (not a customer). Hides the quantity stepper, price label, and
+   * Add-to-cart button — staff isn't buying, they're authoring. The Save
+   * button stays so edits can be persisted back to the design row.
+   */
+  staffMode?: boolean;
   className?: string;
 }
 
@@ -127,6 +134,7 @@ export function DesignerShell({
   onGenerateAiImage,
   onGenerateAiText,
   onAddToCart,
+  staffMode = false,
   className = '',
 }: DesignerShellProps) {
   const setSurfaces = useCanvasStore((s) => s.setSurfaces);
@@ -537,45 +545,58 @@ export function DesignerShell({
           <span className="material-icons text-base">save</span>
           Save
         </button>
-        <div className="flex items-center rounded-md border border-border bg-background overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            disabled={quantity <= 1}
-            aria-label="Decrease quantity"
-            className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="material-icons text-base">remove</span>
-          </button>
-          <input
-            type="number"
-            min={1}
-            max={999}
-            value={quantity}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setQuantity(Number.isNaN(v) ? 1 : Math.max(1, Math.min(999, v)));
-            }}
-            aria-label="Quantity"
-            className="w-12 text-center text-sm bg-transparent border-x border-border focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-          <button
-            type="button"
-            onClick={() => setQuantity((q) => Math.min(999, q + 1))}
-            disabled={quantity >= 999}
-            aria-label="Increase quantity"
-            className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="material-icons text-base">add</span>
-          </button>
-        </div>
-        {typeof productPriceCents === 'number' && productPriceCents > 0 && (
+        {/* Quantity stepper + price + Add to cart are hidden in staff mode —
+            portal staff editing the store-authored design isn't buying. */}
+        {!staffMode && (
+          <div className="flex items-center rounded-md border border-border bg-background overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              disabled={quantity <= 1}
+              aria-label="Decrease quantity"
+              className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="material-icons text-base">remove</span>
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={quantity}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setQuantity(Number.isNaN(v) ? 1 : Math.max(1, Math.min(999, v)));
+              }}
+              aria-label="Quantity"
+              className="w-12 text-center text-sm bg-transparent border-x border-border focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.min(999, q + 1))}
+              disabled={quantity >= 999}
+              aria-label="Increase quantity"
+              className="px-2 py-1.5 text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="material-icons text-base">add</span>
+            </button>
+          </div>
+        )}
+        {!staffMode && typeof productPriceCents === 'number' && productPriceCents > 0 && (
           <div
             className="text-sm font-semibold text-foreground tabular-nums"
             aria-live="polite"
             aria-label={`Total ${formatMoney(productPriceCents * quantity, currency)}`}
           >
             {formatMoney(productPriceCents * quantity, currency)}
+          </div>
+        )}
+        {staffMode && (
+          <div
+            className="text-xs font-medium uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded"
+            title="You're editing the store-authored design. Saves write back to the product's design row."
+          >
+            <span className="material-icons text-sm align-middle mr-1">admin_panel_settings</span>
+            Staff edit
           </div>
         )}
         <button
@@ -587,6 +608,7 @@ export function DesignerShell({
           <span className="material-icons text-base">visibility</span>
           Preview
         </button>
+        {!staffMode && (
         <button
           type="button"
           onClick={() => void handleAddToCart()}
@@ -600,6 +622,7 @@ export function DesignerShell({
           )}
           Add to cart
         </button>
+        )}
       </div>
 
       {/* Status row */}

@@ -496,6 +496,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, 
         onGenerateAiImage={onGenerateAiImage}
         onGenerateAiText={onGenerateAiText}
         onAddToCart={onAddToCart}
+        staffMode={staffMode}
       />
       {/* Floating designer-utility mounts — siblings of DesignerShell so
           they don't conflict with the wave-2/3 panels living inside it. */}
