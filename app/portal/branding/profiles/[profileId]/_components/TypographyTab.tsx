@@ -43,7 +43,7 @@ export function TypographyTab({ profile, update, updateTypo }: Props) {
         Set default fonts for headings and body, then fine-tune each element.
       </p>
 
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
         <div>
           <label className={LABEL_CLASS}>Default Heading Font</label>
           <p className="text-[11px] text-muted-foreground mb-2">Applied to H1-H6 unless overridden below.</p>

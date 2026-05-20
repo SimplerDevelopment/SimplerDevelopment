@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { storeSettings, products, designs } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 import { validateSession } from '@/lib/storefront/customer-auth';
+import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
 
 async function verifyStore(websiteId: number) {
   const [store] = await db.select().from(storeSettings)
@@ -131,11 +132,18 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Product is not designable' }, { status: 400 });
     }
 
-    // Resolve ownership: prefer customerToken, fall back to sessionId
+    // Resolve ownership. Three paths:
+    //   - portal staff (header + auth() session + site access) — leaves
+    //     customerId + sessionId null; design is server-authored
+    //   - customerToken (logged-in storefront customer)
+    //   - sessionId (guest cart session)
     let customerId: number | null = null;
     let resolvedSessionId: string | null = null;
+    const isStaff = await isPortalStaffWithSiteAccess(req, websiteId);
 
-    if (customerToken && typeof customerToken === 'string') {
+    if (isStaff) {
+      // Staff-authored design — no customer or session linkage.
+    } else if (customerToken && typeof customerToken === 'string') {
       const customerSession = await validateSession(customerToken);
       if (!customerSession || customerSession.websiteId !== websiteId) {
         return NextResponse.json({ success: false, message: 'Invalid customer token' }, { status: 401 });

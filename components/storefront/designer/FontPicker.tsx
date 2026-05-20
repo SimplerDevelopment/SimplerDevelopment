@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useCanvasStore } from '@/lib/designer/canvasStore';
 import { loadGoogleFont } from '@/lib/designer/fontVirtualizer';
 
 type FontCategory = 'serif' | 'sans-serif' | 'display' | 'handwriting' | 'monospace';
@@ -73,13 +74,39 @@ export default function FontPicker({ value, onChange, className = '' }: FontPick
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Brand fonts come from the active site's branding profile (heading +
+  // body). De-dup, drop empties, and label each entry so the picker can
+  // render a pinned row above the curated categories. We trust the strings
+  // are Google Font names — fontVirtualizer is tolerant of unknown
+  // families and just leaves them as a CSS fallback rather than erroring.
+  const brandFontsRaw = useCanvasStore((s) => s.brandFonts);
+  const brandFontEntries = useMemo(() => {
+    const entries: Array<{ family: string; role: 'Heading' | 'Body' }> = [];
+    const seen = new Set<string>();
+    const push = (family: string | undefined, role: 'Heading' | 'Body') => {
+      const trimmed = (family ?? '').trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      entries.push({ family: trimmed, role });
+    };
+    push(brandFontsRaw.heading, 'Heading');
+    push(brandFontsRaw.body, 'Body');
+    return entries;
+  }, [brandFontsRaw]);
+
   // Pre-load every preview face so each option renders in its own font.
   useEffect(() => {
     if (!open) return;
     GOOGLE_FONTS.forEach((f) => {
       void loadGoogleFont({ family: f.family, category: f.category });
     });
-  }, [open]);
+    // Brand fonts often aren't in the curated 24 — make sure they load
+    // when the customer opens the picker so the preview row renders in
+    // the actual brand face instead of the fallback.
+    brandFontEntries.forEach((f) => {
+      void loadGoogleFont({ family: f.family, category: 'sans-serif' });
+    });
+  }, [open, brandFontEntries]);
 
   // Also make sure the currently selected font is loaded so the trigger
   // button renders correctly on mount.
@@ -131,6 +158,45 @@ export default function FontPicker({ value, onChange, className = '' }: FontPick
 
       {open && (
         <div className="absolute z-50 mt-1 w-72 max-h-80 overflow-y-auto p-2 rounded-md border border-border bg-background shadow-lg">
+          {brandFontEntries.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 pt-1 pb-1 flex items-center gap-1">
+                <span className="material-icons text-xs">palette</span>
+                Brand
+              </div>
+              <div className="flex flex-col">
+                {brandFontEntries.map((font) => {
+                  const isActive = value === font.family;
+                  return (
+                    <button
+                      key={`brand-${font.family}`}
+                      type="button"
+                      onClick={() =>
+                        void handleSelect({
+                          family: font.family,
+                          category: 'sans-serif',
+                        })
+                      }
+                      className={`text-left px-2 py-1.5 rounded text-sm transition-colors flex items-center gap-2 ${
+                        isActive
+                          ? 'bg-muted text-foreground'
+                          : 'text-foreground hover:bg-muted/60'
+                      }`}
+                      style={{ fontFamily: font.family }}
+                    >
+                      <span className="flex-1 truncate">{font.family}</span>
+                      <span
+                        className="text-[10px] uppercase tracking-wide text-muted-foreground"
+                        style={{ fontFamily: 'inherit' }}
+                      >
+                        {font.role}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {CATEGORY_ORDER.map((cat) => {
             const inCat = GOOGLE_FONTS.filter((f) => f.category === cat);
             if (inCat.length === 0) return null;

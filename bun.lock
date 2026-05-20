@@ -39,7 +39,7 @@
         "dotenv": "^17.2.3",
         "drizzle-orm": "^0.45.2",
         "expo": "~54.0.33",
-        "fabric": "^6.7.1",
+        "fabric": "^6",
         "framer-motion": "^12.26.2",
         "googleapis": "^171.4.0",
         "gsap": "^3.14.2",

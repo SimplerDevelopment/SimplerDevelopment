@@ -96,6 +96,10 @@
     {
       "path": "/api/cron/plugin-jobs-tick",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/magamommy-weekly-drop",
+      "schedule": "0 14 * * 1"
     }
   ]
 }

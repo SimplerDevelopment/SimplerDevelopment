@@ -46,7 +46,7 @@ export default function BookingQuotesPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Custom Quotes</h1>
           <p className="text-sm text-muted-foreground mt-1">Create payment links for custom bookings</p>
@@ -81,9 +81,9 @@ export default function BookingQuotesPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border overflow-x-auto">
             {quotes.map(q => (
-              <div key={q.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors">
+              <div key={q.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors min-w-[480px]">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                   <span className="material-icons text-primary">request_quote</span>
                 </div>

@@ -51,8 +51,8 @@ export async function GET(
   // Fetch images and variant counts for all returned products
   const productIds = rows.map((r) => r.product.id);
 
-  let imagesMap: Record<number, typeof productImages.$inferSelect[]> = {};
-  let variantCountMap: Record<number, number> = {};
+  const imagesMap: Record<number, typeof productImages.$inferSelect[]> = {};
+  const variantCountMap: Record<number, number> = {};
 
   if (productIds.length > 0) {
     const allImages = await db
@@ -111,7 +111,8 @@ export async function POST(
   const {
     name, slug, description, shortDescription, price, compareAtPrice, costPrice,
     sku, barcode, trackInventory, quantity, weight, weightUnit, status,
-    featured, categoryId, tags, seoTitle, seoDescription, images,
+    featured, categoryId, tags, seoTitle, seoDescription, images, isDesignable,
+    metadata,
   } = body;
 
   if (!name || !slug || price === undefined) {
@@ -169,8 +170,10 @@ export async function POST(
       weightUnit: weightUnit || 'g',
       status: status || 'draft',
       featured: featured ?? false,
+      isDesignable: isDesignable ?? false,
       categoryId: categoryId ? parseInt(String(categoryId)) : null,
       tags: tags || [],
+      metadata: metadata ?? null,
       seoTitle: seoTitle || null,
       seoDescription: seoDescription || null,
     })

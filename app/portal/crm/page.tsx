@@ -211,7 +211,7 @@ export default function CrmDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header with period selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">CRM Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Sales performance and pipeline health</p>
@@ -316,8 +316,8 @@ export default function CrmDashboardPage() {
       {analytics && analytics.topDeals.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="font-semibold text-foreground text-sm mb-3">Top Open Deals</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="pb-2 text-xs text-muted-foreground font-medium">Deal</th>

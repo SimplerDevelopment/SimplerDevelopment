@@ -15,6 +15,7 @@ import { resolveClientApiKey } from '@/lib/ai/resolve-client-key';
 import { checkAiImageRateLimit } from '@/lib/designer/aiRateLimit';
 import { uploadToS3 } from '@/lib/s3/upload';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
+import { isPortalStaffWithSiteAccess } from '@/lib/storefront/portal-staff-auth';
 import {
   buildAiImagePrompt,
   type AiImageStyle,
@@ -85,6 +86,13 @@ async function resolveDesign(
 
   if (!design) {
     return { kind: 'error', status: 404, message: 'Design not found' };
+  }
+
+  // Portal-staff path — header + auth() session + site access. Lets staff
+  // trigger AI image generation against publisher-authored designs that
+  // have no sessionId/customerId.
+  if (await isPortalStaffWithSiteAccess(req, websiteId)) {
+    return { kind: 'ok', design };
   }
 
   const token = extractToken(req);

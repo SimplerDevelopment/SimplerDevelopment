@@ -137,7 +137,7 @@ export default function PortalTriggerLinksPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <header className="flex items-center justify-between mb-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <span className="material-icons">link</span>
@@ -197,7 +197,8 @@ export default function PortalTriggerLinksPage() {
 
       {!loading && !error && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <table className="w-full text-sm" data-testid="trigger-links-table">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[640px]" data-testid="trigger-links-table">
             <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Slug</th>
@@ -255,12 +256,13 @@ export default function PortalTriggerLinksPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {selectedId !== null && (
         <section className="mt-6 rounded-lg border border-border bg-card p-4" data-testid="trigger-link-detail">
-          <header className="flex items-center justify-between mb-3">
+          <header className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <span className="material-icons text-base">analytics</span>
               Recent clicks

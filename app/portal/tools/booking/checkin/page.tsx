@@ -82,7 +82,7 @@ export default function BookingCheckinPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Check-in</h1>
           <p className="text-sm text-muted-foreground mt-1">Scan or enter a booking code</p>
@@ -137,7 +137,7 @@ export default function BookingCheckinPage() {
 
       {/* Today's summary */}
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-card border border-border rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-foreground">{summary.checkedIn}/{summary.total}</p>
             <p className="text-xs text-muted-foreground">Checked In</p>

@@ -137,7 +137,7 @@ export default function PortalProjectsPage() {
           <h1 className="text-2xl font-bold text-foreground">Projects</h1>
           <p className="text-muted-foreground mt-1">All projects you have access to — agency-managed and your own.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link
             href="/portal/projects/automations"
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-accent hover:text-foreground transition-colors"
@@ -163,7 +163,7 @@ export default function PortalProjectsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="material-icons text-base text-green-600">play_circle</span>
@@ -347,12 +347,12 @@ function ProjectGrid({
   }
 
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {projects.map((project) => (
         <Link
           key={project.id}
           href={`/portal/projects/${project.id}`}
-          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group"
+          className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
         >
           <div className="flex items-start justify-between gap-2 mb-3">
             <span className="material-icons text-2xl text-primary group-hover:scale-110 transition-transform">view_kanban</span>

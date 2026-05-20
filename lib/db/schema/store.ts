@@ -31,6 +31,12 @@ export const storeSettings = pgTable('store_settings', {
   // Stripe Connect for payouts to the website owner
   stripeAccountId: varchar('stripe_account_id', { length: 255 }),
   stripeOnboardingComplete: boolean('stripe_onboarding_complete').default(false).notNull(),
+  // ─── Stripe mode: 'connect' (platform-managed via Stripe Connect) vs. 'byok' (tenant's own Stripe account) ───
+  stripeMode: varchar('stripe_mode', { length: 20 }).default('connect').notNull(), // 'connect' | 'byok'
+  stripeByokAllowed: boolean('stripe_byok_allowed').default(false).notNull(), // admin-gated; tenant cannot configure BYOK until SD admin flips this on
+  stripeSecretKeyEncrypted: text('stripe_secret_key_encrypted'), // AES-256-GCM ciphertext from lib/crypto/api-key.ts (sk_test_… / sk_live_…)
+  stripePublishableKey: varchar('stripe_publishable_key', { length: 255 }), // public key (pk_test_… / pk_live_…), plaintext
+  stripeWebhookSecretEncrypted: text('stripe_webhook_secret_encrypted'), // AES-256-GCM ciphertext of whsec_… endpoint signing secret
   payoutSchedule: varchar('payout_schedule', { length: 20 }).default('weekly'), // daily, weekly, monthly
   platformFeePercent: numeric('platform_fee_percent', { precision: 5, scale: 2 }).default('5.00'), // agency platform fee %
   // General settings
@@ -48,6 +54,19 @@ export const storeSettings = pgTable('store_settings', {
   supportEmail: varchar('support_email', { length: 255 }),
   returnPolicyUrl: varchar('return_policy_url', { length: 500 }),
   shippingPolicyUrl: varchar('shipping_policy_url', { length: 500 }),
+  // ─── Shipping provider (manual vs. EasyPost-backed live rates + labels) ───
+  shippingProvider: varchar('shipping_provider', { length: 20 }).default('manual').notNull(), // 'manual' | 'easypost'
+  easypostApiKeyEncrypted: text('easypost_api_key_encrypted'), // ciphertext from lib/crypto/api-key.ts
+  easypostMode: varchar('easypost_mode', { length: 10 }).default('test'), // 'test' | 'production'
+  easypostWebhookSecret: varchar('easypost_webhook_secret', { length: 255 }), // HMAC secret from EasyPost
+  shipFromAddress: jsonb('ship_from_address').$type<{
+    name?: string; company?: string; line1: string; line2?: string; city: string; state: string; postalCode: string; country: string; phone?: string;
+  }>(),
+  defaultParcelLengthIn: numeric('default_parcel_length_in', { precision: 8, scale: 2 }),
+  defaultParcelWidthIn: numeric('default_parcel_width_in', { precision: 8, scale: 2 }),
+  defaultParcelHeightIn: numeric('default_parcel_height_in', { precision: 8, scale: 2 }),
+  defaultParcelWeightOz: numeric('default_parcel_weight_oz', { precision: 8, scale: 2 }),
+  liveRatesFallback: boolean('live_rates_fallback').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -89,6 +108,9 @@ export const products = pgTable('products', {
   quantity: integer('quantity').default(0).notNull(),
   weight: numeric('weight', { precision: 10, scale: 2 }),
   weightUnit: varchar('weight_unit', { length: 5 }).default('g'),
+  lengthIn: numeric('length_in', { precision: 8, scale: 2 }),
+  widthIn: numeric('width_in', { precision: 8, scale: 2 }),
+  heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
   featured: boolean('featured').default(false).notNull(),
   isDesignable: boolean('is_designable').default(false).notNull(),
@@ -163,6 +185,9 @@ export const productVariants = pgTable('product_variants', {
   costPrice: integer('cost_price'),
   quantity: integer('quantity').default(0).notNull(),
   weight: numeric('weight', { precision: 10, scale: 2 }),
+  lengthIn: numeric('length_in', { precision: 8, scale: 2 }),
+  widthIn: numeric('width_in', { precision: 8, scale: 2 }),
+  heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   image: varchar('image', { length: 500 }),
   optionValues: json('option_values').$type<{ optionId: number; valueId: number }[]>().default([]),
   active: boolean('active').default(true).notNull(),
@@ -202,6 +227,11 @@ export const shippingRates = pgTable('shipping_rates', {
   freeAbove: integer('free_above'),
   minDeliveryDays: integer('min_delivery_days'),
   maxDeliveryDays: integer('max_delivery_days'),
+  // Provider-aware columns — let a single zone mix manual fixed rates and EasyPost live-rate service filters.
+  provider: varchar('provider', { length: 20 }).default('manual').notNull(), // 'manual' | 'easypost'
+  carrierCode: varchar('carrier_code', { length: 30 }), // EasyPost carrier account code: 'USPS','UPSDAP','FedExDefault','DHLExpress'
+  serviceCode: varchar('service_code', { length: 60 }), // EasyPost service code: 'Priority','Ground','Express'
+  liveRateOnly: boolean('live_rate_only').default(false).notNull(), // true => row is a service filter, not a fixed rate
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -257,6 +287,14 @@ export const orders = pgTable('orders', {
   shippingMethod: varchar('shipping_method', { length: 255 }),
   trackingNumber: varchar('tracking_number', { length: 255 }),
   trackingUrl: varchar('tracking_url', { length: 500 }),
+  // ─── EasyPost label + tracking (nullable; populated when shippingProvider='easypost') ───
+  carrier: varchar('carrier', { length: 50 }),
+  easypostShipmentId: varchar('easypost_shipment_id', { length: 255 }),
+  labelUrl: varchar('label_url', { length: 500 }),
+  labelCostCents: integer('label_cost_cents'),
+  labelPurchasedAt: timestamp('label_purchased_at'),
+  latestTrackingStatus: varchar('latest_tracking_status', { length: 50 }), // pre_transit|in_transit|out_for_delivery|delivered|return_to_sender|failure|cancelled|error|unknown
+  latestTrackingEventAt: timestamp('latest_tracking_event_at'),
   shippedAt: timestamp('shipped_at'),
   deliveredAt: timestamp('delivered_at'),
   customerNote: text('customer_note'),
@@ -457,6 +495,25 @@ export const designAssets = pgTable('design_assets', {
   fileSize: integer('file_size'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── EASYPOST WEBHOOK INGESTION ─────────────────────────────────────────────
+
+// Raw EasyPost webhook events captured for idempotency + audit. eventId is the
+// EasyPost-issued event.id; duplicate deliveries hit the unique index and are no-op'd.
+export const easypostEvents = pgTable('easypost_events', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  eventId: varchar('event_id', { length: 255 }).notNull(),  // EasyPost event.id, for idempotency
+  eventType: varchar('event_type', { length: 100 }).notNull(),  // tracker.created, tracker.updated, etc.
+  shipmentId: varchar('shipment_id', { length: 255 }),
+  trackerId: varchar('tracker_id', { length: 255 }),
+  orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').notNull(),
+  processedAt: timestamp('processed_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('easypost_events_event_id_idx').on(t.eventId),
+  index('easypost_events_order_id_idx').on(t.orderId),
+]);
 
 // ─── NAVIGATION & BRANDING ──────────────────────────────────────────────────
 

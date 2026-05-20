@@ -15,8 +15,10 @@ const APP_HOSTNAMES = new Set([
   'localhost:3000',
   'localhost:3001',
   'localhost:3005',
+  'localhost:3100',
   '127.0.0.1',
   '127.0.0.1:3000',
+  '127.0.0.1:3100',
   'simplerdevelopment.com',
   'www.simplerdevelopment.com',
 ]);

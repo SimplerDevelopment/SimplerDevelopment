@@ -29,6 +29,35 @@ interface DesignerClientProps {
    * here when a cart page exists.
    */
   afterAddToCartPath?: string;
+  /**
+   * Brand palette resolved server-side from the site's branding profile.
+   * Surfaced by ColorPicker as a one-click "Brand" swatch row so customers
+   * pick on-brand colors without needing to know hex codes.
+   */
+  brandColors?: string[];
+  /**
+   * Public URL of the site's brand logo (square preferred, falls back to
+   * rectangular or generic logo). Surfaced by AddLayerPanel as a one-click
+   * "Use my logo" button. Empty string when nothing is configured.
+   */
+  brandLogoUrl?: string;
+  /**
+   * Brand-profile heading + body Google Font family names. Surfaced by
+   * FontPicker as a pinned "Brand" row at the top of the dropdown.
+   */
+  brandFonts?: { heading?: string; body?: string };
+  /**
+   * When true, this designer is opened by portal staff editing a store-mode
+   * design (not a customer designing their own). Effects:
+   *   - Skips the sessionId-keyed draft lookup; loads the explicit
+   *     `initialDesignId` instead.
+   *   - Sends `x-portal-staff: 1` on every save/upload/AI call so the API
+   *     authorizes via the portal NextAuth session (not customer auth).
+   *   - Suppresses the add-to-cart action (staff isn't buying).
+   */
+  staffMode?: boolean;
+  /** When `staffMode` is true, the specific design row to load. */
+  initialDesignId?: string;
 }
 
 function getOrCreateSessionId(): string {
@@ -41,7 +70,11 @@ function getOrCreateSessionId(): string {
   return sessionId;
 }
 
-export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }: DesignerClientProps) {
+export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath, brandColors, brandLogoUrl, brandFonts, staffMode, initialDesignId }: DesignerClientProps) {
+  // Helper: assemble request init with the staff header when applicable so we
+  // don't repeat the spread in every fetch call below. Object identity is
+  // stable per render — fine for fetch usage.
+  const staffHeaders: Record<string, string> = staffMode ? { 'x-portal-staff': '1' } : {};
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string>('');
   const [initialDesign, setInitialDesign] = useState<DesignDoc | undefined>(undefined);
@@ -49,9 +82,69 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
-  // Bootstrap sessionId + any existing draft design for this product/session.
+  // Push brand colors from the server-resolved branding profile into the
+  // canvas store on mount so ColorPicker can render the Brand swatch row.
+  // Empty array clears any previous tenant's colors when the customer
+  // switches stores in the same browser session.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandColors(brandColors ?? []);
+  }, [brandColors]);
+
+  // Same idea for the brand logo URL — AddLayerPanel reads from the store
+  // and renders a "Use my logo" button only when this is non-empty.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandLogoUrl(brandLogoUrl ?? '');
+  }, [brandLogoUrl]);
+
+  // Brand fonts feed the FontPicker's pinned "Brand" row.
+  useEffect(() => {
+    useCanvasStore.getState().setBrandFonts(brandFonts ?? {});
+  }, [brandFonts]);
+
+  // Bootstrap. Two paths:
+  //   Customer path: get-or-create a sessionId in localStorage, then look up
+  //   any existing draft keyed to that session.
+  //   Staff path: skip sessionId entirely, fetch the explicit initialDesignId
+  //   passed from the portal. The save/upload calls send x-portal-staff so
+  //   the API authorizes via the NextAuth session.
   useEffect(() => {
     let cancelled = false;
+
+    if (staffMode) {
+      setSessionId(''); // staff doesn't use a session
+      if (!initialDesignId) {
+        setLoading(false);
+        return;
+      }
+      (async () => {
+        try {
+          const res = await fetch(`/api/storefront/${siteId}/designs/${initialDesignId}`, {
+            headers: { ...staffHeaders },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (!cancelled && json.success && json.data) {
+              setInitialDesign({
+                id: json.data.id,
+                name: json.data.name,
+                productId: json.data.productId,
+                layersBySurface: json.data.layersBySurface || {},
+                canvasSize: json.data.canvasSize || { width: 800, height: 600, dpi: 72 },
+                status: json.data.status || 'draft',
+              } as DesignDoc);
+            }
+          } else if (!cancelled) {
+            setError(`Failed to load design ${initialDesignId} (HTTP ${res.status})`);
+          }
+        } catch (err) {
+          if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+
     const sid = getOrCreateSessionId();
     setSessionId(sid);
 
@@ -92,24 +185,25 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
     return () => {
       cancelled = true;
     };
-  }, [siteId, product.id]);
+  }, [siteId, product.id, staffMode, initialDesignId]);
 
   const onCreate = useCallback(
     async (doc: DesignDoc): Promise<{ id: string }> => {
       const res = await fetch(`/api/storefront/${siteId}/designs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...staffHeaders },
         body: JSON.stringify({
           productId: product.id,
           name: doc.name || `${product.name} design`,
-          sessionId,
+          sessionId: staffMode ? null : sessionId,
         }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message || 'Failed to create design');
       return { id: json.data.id };
     },
-    [siteId, product.id, product.name, sessionId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, product.id, product.name, sessionId, staffMode],
   );
 
   const onSave = useCallback(
@@ -117,19 +211,20 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       if (!doc.id) return;
       const res = await fetch(`/api/storefront/${siteId}/designs/${doc.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...staffHeaders },
         body: JSON.stringify({
           name: doc.name,
           layersBySurface: doc.layersBySurface,
           canvasSize: doc.canvasSize,
           status: doc.status || 'draft',
-          sessionId,
+          sessionId: staffMode ? null : sessionId,
         }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message || 'Save failed');
     },
-    [siteId, sessionId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, sessionId, staffMode],
   );
 
   const onUploadImage = useCallback(
@@ -144,11 +239,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       if (!designId) {
         const res = await fetch(`/api/storefront/${siteId}/designs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             productId: product.id,
             name: `${product.name} design`,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         });
         const json = await res.json();
@@ -161,9 +256,12 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       }
       const form = new FormData();
       form.append('file', file);
-      form.append('sessionId', sessionId);
+      // sessionId only matters for the customer auth path. Staff mode authes
+      // via x-portal-staff + NextAuth session below.
+      if (!staffMode) form.append('sessionId', sessionId);
       const res = await fetch(`/api/storefront/${siteId}/designs/${designId}/assets`, {
         method: 'POST',
+        headers: { ...staffHeaders },
         body: form,
       });
       const json = await res.json();
@@ -174,7 +272,8 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         height: json.data.height || 0,
       };
     },
-    [siteId, sessionId, product.id, product.name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, sessionId, product.id, product.name, staffMode],
   );
 
   const onGenerateAiImage = useCallback(
@@ -191,11 +290,11 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
       if (!designId) {
         const res = await fetch(`/api/storefront/${siteId}/designs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             productId: product.id,
             name: `${product.name} design`,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         });
         const json = await res.json();
@@ -210,13 +309,13 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         `/api/storefront/${siteId}/designs/${designId}/ai-image`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...staffHeaders },
           body: JSON.stringify({
             prompt: req.prompt,
             style: req.style,
             transparent: req.transparent,
             n: req.n ?? 1,
-            sessionId,
+            sessionId: staffMode ? null : sessionId,
           }),
         },
       );
@@ -243,7 +342,8 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
             ];
       return { variants };
     },
-    [siteId, sessionId, product.id, product.name],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteId, sessionId, product.id, product.name, staffMode],
   );
 
   const onGenerateAiText = useCallback(
@@ -402,6 +502,7 @@ export function DesignerClient({ siteId, product, surfaces, afterAddToCartPath }
         onGenerateAiImage={onGenerateAiImage}
         onGenerateAiText={onGenerateAiText}
         onAddToCart={onAddToCart}
+        staffMode={staffMode}
       />
       {/* Floating designer-utility mounts — siblings of DesignerShell so
           they don't conflict with the wave-2/3 panels living inside it. */}

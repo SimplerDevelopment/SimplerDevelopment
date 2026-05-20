@@ -3,6 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface StoreSettingsSummary {
+  stripeByokAllowed: boolean;
+  stripeMode: string; // 'connect' | 'byok'
+  stripeSecretKeyConfigured: boolean;
+  hasStoreSettingsRow: boolean;
+}
+
 interface ClientWebsite {
   id: number;
   clientId: number;
@@ -14,6 +21,7 @@ interface ClientWebsite {
   clientCompany: string | null;
   clientUserName: string;
   clientUserEmail: string;
+  storeSettings?: StoreSettingsSummary;
 }
 
 interface ClientOption {
@@ -108,6 +116,27 @@ export default function AdminPortalWebsitesPage() {
     if (data.success) setWebsites(prev => prev.map(w => w.id === site.id ? { ...w, active: !site.active } : w));
   };
 
+  const handleToggleByokAllowed = async (site: ClientWebsite) => {
+    const current = site.storeSettings?.stripeByokAllowed ?? false;
+    const next = !current;
+    // Confirm only when DISABLING — defensive cascade will flip the store back to Connect mode.
+    if (!next) {
+      const ok = window.confirm(
+        'This will force the site back to Stripe Connect mode and the tenant\'s BYOK keys will be ignored. Continue?',
+      );
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/admin/portal/websites/${site.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stripeByokAllowed: next }),
+    });
+    const data = await res.json();
+    if (data.success && data.data?.storeSettings) {
+      setWebsites(prev => prev.map(w => w.id === site.id ? { ...w, storeSettings: data.data.storeSettings } : w));
+    }
+  };
+
   const clientLabel = (c: ClientOption) => c.company ? `${c.company} (${c.userName})` : c.userName;
 
   if (loading) {
@@ -160,6 +189,7 @@ export default function AdminPortalWebsitesPage() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Client</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Domain</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Stripe BYOK</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Created</th>
                 <th className="px-4 py-3" />
               </tr>
@@ -187,6 +217,37 @@ export default function AdminPortalWebsitesPage() {
                       <span className="material-icons text-xs">{site.active ? 'check_circle' : 'cancel'}</span>
                       {site.active ? 'Active' : 'Inactive'}
                     </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const ss = site.storeSettings;
+                      const allowed = ss?.stripeByokAllowed ?? false;
+                      const active = ss?.stripeMode === 'byok';
+                      const pillClass = active
+                        ? 'bg-green-100 text-green-700'
+                        : allowed
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-600';
+                      const pillIcon = active ? 'verified' : allowed ? 'lock_open' : 'lock';
+                      const pillLabel = active ? 'BYOK Active' : allowed ? 'BYOK Allowed' : 'Connect';
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${pillClass}`}>
+                            <span className="material-icons text-xs">{pillIcon}</span>
+                            {pillLabel}
+                          </span>
+                          <label className="inline-flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Allow this tenant to configure their own Stripe API keys (BYOK)">
+                            <input
+                              type="checkbox"
+                              checked={allowed}
+                              onChange={() => handleToggleByokAllowed(site)}
+                              className="cursor-pointer"
+                            />
+                            Allow BYOK
+                          </label>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(site.createdAt).toLocaleDateString()}

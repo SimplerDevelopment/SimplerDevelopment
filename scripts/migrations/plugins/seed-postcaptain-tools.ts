@@ -34,7 +34,11 @@ import { randomBytes, createHash } from 'node:crypto';
 
 dotenv.config({ path: '.env' });
 
-const POSTCAPTAIN_CLIENT_ID = 103;
+// Post Captain Consulting — clients.id=100 in prod (verified
+// 2026-05-19). The earlier value 103 was wrong (that's Crossover
+// Capital Advisors); a seed run with the old constant would have
+// granted the plugin entitlement to the wrong tenant.
+const POSTCAPTAIN_CLIENT_ID = 100;
 const SERVICE_SLUG = 'plugin-postcaptain-tools';
 const APP_SLUG = 'postcaptain-tools';
 
@@ -130,6 +134,13 @@ async function run() {
   const DEFAULT_SCOPES = [
     'postcaptain:research:read',
     'postcaptain:research:write',
+    // Internal scopes added in the Wave 2 dispatch refactor. SD mints
+    // ':execute' on dispatch to the worker; the worker mints ':complete'
+    // on the result callback. Both must be in defaultScopes so the
+    // manifest cross-check (requiredScopes ⊆ defaultScopes) passes once
+    // the manifest is bumped to advertise ':complete'.
+    'postcaptain:internal:execute',
+    'postcaptain:internal:complete',
   ];
 
   const [existingApp] = await db

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory } from '@/lib/db/schema';
+import { orders, orderItems, orderStatusHistory, easypostEvents } from '@/lib/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import { requireCustomer } from '@/lib/storefront/customer-auth';
 
 /**
- * GET /api/storefront/[siteId]/account/orders/[orderNumber] — Order detail with items and history
+ * GET /api/storefront/[siteId]/account/orders/[orderNumber] — Order detail with items, history, and EasyPost tracking events
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ siteId: string; orderNumber: string }> }) {
   const { siteId, orderNumber } = await params;
@@ -24,13 +24,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ site
 
   if (!order) return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
 
-  const [items, history] = await Promise.all([
+  const [items, history, trackingEvents] = await Promise.all([
     db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(desc(orderStatusHistory.createdAt)),
+    db.select({
+      processedAt: easypostEvents.processedAt,
+      eventType: easypostEvents.eventType,
+      payload: easypostEvents.payload,
+    })
+      .from(easypostEvents)
+      .where(eq(easypostEvents.orderId, order.id))
+      .orderBy(desc(easypostEvents.processedAt))
+      .limit(10),
   ]);
 
   return NextResponse.json({
     success: true,
-    data: { order, items, history },
+    data: { order, items, history, trackingEvents },
   });
 }
