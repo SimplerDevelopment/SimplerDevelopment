@@ -862,7 +862,12 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
     .limit(1);
   if (!category) return {};
 
-  const [latest] = await db
+  // Prefer the most-recent product that ACTUALLY has a productImages row —
+  // featuring a brand-new product whose photo hasn't been generated yet
+  // forces the hero into its wordmark fallback (empty right column),
+  // which looks broken. We fall back to the most-recent any-product if
+  // nothing has photos at all (pre-launch).
+  const candidates = await db
     .select({
       id: products.id,
       slug: products.slug,
@@ -877,21 +882,30 @@ async function fetchLatestDrop(websiteId: number): Promise<LatestDropSummary> {
       eq(products.status, 'active'),
     ))
     .orderBy(desc(products.createdAt))
-    .limit(1);
-  if (!latest) return {};
+    .limit(20);
+  if (candidates.length === 0) return {};
 
-  const [image] = await db
-    .select({ url: productImages.url })
-    .from(productImages)
-    .where(eq(productImages.productId, latest.id))
-    .orderBy(productImages.order)
-    .limit(1);
+  let latest = candidates[0];
+  let heroImageUrl: string | undefined;
+  for (const c of candidates) {
+    const [image] = await db
+      .select({ url: productImages.url })
+      .from(productImages)
+      .where(eq(productImages.productId, c.id))
+      .orderBy(productImages.order)
+      .limit(1);
+    if (image?.url) {
+      latest = c;
+      heroImageUrl = image.url;
+      break;
+    }
+  }
 
   return {
     productUrl: `/shop/${latest.slug}`,
     slogan: latest.name,
     tagline: latest.shortDescription ?? undefined,
-    heroImageUrl: image?.url ?? undefined,
+    heroImageUrl,
     priceCents: latest.price,
   };
 }
