@@ -1,7 +1,10 @@
 import * as dotenv from 'dotenv';
 
-dotenv.config({ path: '.env' });
-dotenv.config({ path: '.env.local' });
+// `.env.local` is the per-developer override and MUST win over `.env`.
+// Without override:true the second call is a no-op when bun/Next have
+// already injected `.env`, and staging URLs in `.env` silently win.
+dotenv.config({ path: '.env', override: true });
+dotenv.config({ path: '.env.local', override: true });
 
 const url = process.env.DATABASE_URL ?? '';
 if (!url) {

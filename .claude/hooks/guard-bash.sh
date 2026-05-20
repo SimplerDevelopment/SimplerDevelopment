@@ -23,8 +23,15 @@ if echo "$cmd" | grep -qE 'git push.*(main|master|staging).*(--force|-f\b)'; the
   block "force-push to a protected branch"
 fi
 
-# 2. Schema push to anything that smells like prod
-if echo "$cmd" | grep -qE 'db:push|drizzle-kit push' && echo "$cmd" | grep -qiE '(prod|production|@.*\.simplerdevelopment\.com)'; then
+# 2. Schema push to anything that smells like prod.
+# Match the actual Railway proxy hosts (matches scripts/verify-db-target.ts
+# and scripts/reset-e2e-db.ts), not arbitrary substrings — the old name-based
+# pattern false-positived on local DBs whose names contained "prod"
+# (e.g. simplerdev_realprod_dryrun on 127.0.0.1).
+# Anchor the host match to a postgres URL so prose mentioning tramway/metro
+# (commit messages, comments, docs) doesn't trip the guard.
+if echo "$cmd" | grep -qE '(\bdb:push\b|\bdrizzle-kit push\b)' \
+   && echo "$cmd" | grep -qiE '(postgres(ql)?://[^[:space:]]*(tramway\.proxy\.rlwy\.net|metro\.proxy\.rlwy\.net)|@[^[:space:]]*\.simplerdevelopment\.com|RAILWAY_ENVIRONMENT_NAME=production)'; then
   block "drizzle db:push against production-looking URL — use db:generate + db:migrate"
 fi
 
