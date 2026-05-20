@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import {
   brainAiReviewItems,
   brainAuditLogs,
+  brainDecisions,
   brainMeetings,
   brainNotes,
   brainTasks,
@@ -22,6 +23,8 @@ import {
   type BrainReviewItemStatus,
   type BrainReviewItemPayload,
   type BrainReviewItemTaskPayload,
+  type BrainReviewItemDecisionPayload,
+  type BrainReviewItemTopicAssignPayload,
   type BrainReviewItemCrmContactClassifyPayload,
   type BrainReviewItemCrmDealLinkPayload,
   type BrainReviewItemCrmDealCreatePayload,
@@ -331,12 +334,57 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
         resultEntityId = inserted.id;
         break;
       }
-      // Phase 2 limits the approve sink to tasks. Approving other proposed types
-      // marks them approved without creating a target record — useful for marking
-      // decisions/commitments/warnings as "acknowledged" without a downstream
-      // table. Phase 3+ will add brain_notes, brain_relationship_overlays, etc.
+      case 'decision': {
+        // Phase 1 brain-restructure: promote an approved 'decision' review-item
+        // into a first-class brain_decisions row (no longer a no-op / note).
+        // See .planning/brain-restructure/PLAN.md.
+        const dp = payload as BrainReviewItemDecisionPayload;
+        if (!dp.title) throw new Error('decision: missing title');
+        if (!dp.decision) throw new Error('decision: missing decision');
+        if (!dp.rationale) throw new Error('decision: missing rationale');
+        const [decisionRow] = await tx.insert(brainDecisions).values({
+          clientId: args.clientId,
+          title: dp.title.slice(0, 255),
+          context: dp.context ?? null,
+          decision: dp.decision,
+          rationale: dp.rationale,
+          alternativesConsidered: dp.alternativesConsidered ?? null,
+          reversibility: dp.reversibility ?? 'two_way',
+          status: 'accepted',
+          decisionMakerId: args.actorId,
+          decidedAt: dp.decidedAt ? new Date(dp.decidedAt) : new Date(),
+          meetingId: item.sourceType === 'meeting' ? item.sourceId : null,
+          source: 'ai_review',
+          reviewItemId: item.id,
+          createdBy: args.actorId,
+        }).returning({ id: brainDecisions.id });
+        resultEntityType = 'brain_decision';
+        resultEntityId = decisionRow.id;
+        break;
+      }
+      case 'topic_assign': {
+        // Phase 1 brain-restructure: attach one or more brain_topics to an
+        // entity. The real implementation lives in lib/brain/topics.ts
+        // (created by Wave 2b); until then we keep the dispatcher honest by
+        // throwing — the review queue UI surfaces the message verbatim.
+        // TODO(wave-2b): replace this branch with a call to
+        //   import { attachTopics } from './topics';
+        //   const inserted = await attachTopics(tx, { clientId: args.clientId, actorId: args.actorId, ...(payload as BrainReviewItemTopicAssignPayload) });
+        //   resultEntityType = 'brain_entity_topics';
+        //   resultEntityId = inserted[0]?.id ?? null;
+        // The `_payload` reference below keeps the type import live so
+        // tsc --noEmit verifies the payload shape today even though we don't
+        // execute the attach yet.
+        const _payload = payload as BrainReviewItemTopicAssignPayload;
+        void _payload;
+        throw new Error('topics module not yet wired (Wave 2b creates lib/brain/topics.ts → attachTopics)');
+      }
+      // Phase 2 limits the approve sink to tasks (+ Phase 1 decisions). Other
+      // proposed types are marked approved without creating a target record —
+      // useful for marking commitments/warnings as "acknowledged" without a
+      // downstream table. Phase 3+ will add brain_notes,
+      // brain_relationship_overlays, etc.
       case 'note':
-      case 'decision':
       case 'commitment':
       case 'relationship_update':
       case 'follow_up':
