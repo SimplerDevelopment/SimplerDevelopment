@@ -5,9 +5,12 @@
  * FILE boundary, so each test file gets a fresh DB cloned from the template
  * built once in globalSetup.
  *
- * Each vitest worker gets its own DB named `test_e2e_w<VITEST_POOL_ID>` so
- * parallel files never collide. The DB is dropped+recreated from the
- * template in beforeAll (single-digit seconds), then dropped in afterAll.
+ * Each vitest worker gets its own DB named
+ * `test_e2e_<worktreeId>_w<VITEST_POOL_ID>` (the worktreeId prefix lets
+ * two checkouts of the same repo run integration tests in parallel
+ * without racing on the same names; see test-bootstrap.ts). The DB is
+ * dropped+recreated from the template in beforeAll (single-digit
+ * seconds), then dropped in afterAll.
  */
 // MUST be first — rewrites DATABASE_URL before any @/lib/db import runs.
 import './helpers/test-bootstrap';
