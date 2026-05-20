@@ -118,7 +118,12 @@ async function main(): Promise<void> {
     productTags.includes('onesie') ||
     productTags.includes('baby') ||
     /onesie/i.test(product.name ?? '');
-  const garmentType: 'tee' | 'onesie' = isOnesie ? 'onesie' : 'tee';
+  const isHoodie =
+    productTags.includes('hoodie') ||
+    productTags.includes('sweatshirt') ||
+    /hoodie/i.test(product.name ?? '');
+  const garmentType: 'tee' | 'onesie' | 'hoodie' =
+    isOnesie ? 'onesie' : isHoodie ? 'hoodie' : 'tee';
   console.log(`[lifestyle-hero] garmentType=${garmentType}`);
 
   const resolved = await resolveClientApiKey({ clientId: site.clientId, provider: 'openai' });

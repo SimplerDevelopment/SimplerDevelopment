@@ -93,10 +93,36 @@ export function buildLifestyleMockupPrompt(concept: {
   slogan: string;
   tagline: string;
   placement: string;
-  garmentType?: 'tee' | 'onesie';
+  garmentType?: 'tee' | 'onesie' | 'hoodie';
 }): string {
   const paletteHex = concept.palette.map((c) => c.hex).join(', ');
   const garmentType = concept.garmentType ?? 'tee';
+
+  if (garmentType === 'hoodie') {
+    const printSide =
+      concept.placement === 'back'
+        ? 'show the model turned slightly so the back print is clearly visible'
+        : 'show the front of the hoodie clearly';
+    return [
+      'Photorealistic ecommerce lifestyle product photography for an apparel storefront.',
+      'An adult WOMAN model — the target Magamommy customer — wearing a clean white heavyweight pullover crew-neck hoodie / sweatshirt with a kangaroo pocket and ribbed cuffs, in a bright neutral studio with soft natural shadows.',
+      'Styling: relaxed, confident, classic Americana — natural hair (any color), light/minimal makeup, warm friendly approachable expression. Age range 26–38, young suburban mom energy but stylish.',
+      printSide + '.',
+      `The hoodie print must feature the exact slogan "${concept.slogan}" as the dominant readable text on the front chest area, above the kangaroo pocket.`,
+      `The printed graphic should follow this concept: ${concept.visualPrompt}`,
+      `Use these print colors where possible: ${paletteHex}.`,
+      `Brand mood: ${concept.tagline}`,
+      '',
+      'STRICT REQUIREMENTS:',
+      '- The model must be an adult WOMAN; no men, no children.',
+      '- The model must be a fictional person, not a celebrity, public figure, politician, or real named person.',
+      '- The hoodie must be a pullover (no zip), with a clearly visible kangaroo front pocket.',
+      '- The hoodie must be worn by the model, not flat-lay, not on a mannequin.',
+      '- The print must appear naturally integrated on the fleece fabric with realistic folds, lighting, and perspective. Slightly more fabric texture than a t-shirt.',
+      '- No real-world brands, logos, campaign marks, flags as brand logos, watermarks, captions, price tags, or extra text.',
+      '- Clean product photo, waist-up framing, enough negative space for a storefront crop.',
+    ].join('\n');
+  }
 
   if (garmentType === 'onesie') {
     const printSide =
