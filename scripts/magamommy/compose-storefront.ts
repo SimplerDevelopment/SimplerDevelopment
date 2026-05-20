@@ -70,8 +70,12 @@ const CONTACT_EMAIL = 'contact@magamommy.com';
 // clientWebsites is the source of truth for global colors/fonts.
 const RED = '#BF0A30';   // bold flag-standard red
 const BLUE = '#002868';  // deep navy (cleaner than 3C3B6E for big fields)
+const NAVY_SOFT = '#1B2854';  // softened navy — used to replace pure black on dark sections so the page reads warmer/more feminine while staying patriotic
 const WHITE = '#FFFFFF';
 const CREAM = '#F7F4ED'; // off-white field for warm sections
+const GOLD = '#D9A21B';  // warm gold accent — alongside red/white/blue for a more feminine touch
+const ROSE = '#D87A8A';  // dusty rose pink accent — used VERY sparingly (one or two spots) so it doesn't drift away from the patriotic palette
+const SCRIPT_FONT = '"Caveat", "Allison", "Brush Script MT", cursive';  // handwritten script accent — script-tagged accents like "hey mama ♡" / "xoxo magamommy"
 
 function verifyDbTarget(): void {
   const url = process.env.DATABASE_URL ?? '';
@@ -147,6 +151,27 @@ interface LatestDropSummary {
 
 function buildHomeContent(latestDrop: LatestDropSummary): string {
   const id = makeIdFactory('mm-home');
+
+  // Load the Caveat handwritten script font alongside the brand fonts so
+  // the "hey mama ♡" / "xoxo, magamommy ♡" script accents render properly.
+  // Caveat isn't in the brandingProfile (only two font slots there), so we
+  // pull it via CSS @import inside a <style> tag. @import works reliably
+  // when the parent <style> is injected via innerHTML (unlike a bare <link>
+  // which may not trigger a fetch in some browsers under that path). Belt-
+  // and-suspenders: we also include the <link> for browsers that do honor
+  // the dynamic link. Zero-height block — only its declarations matter.
+  const fontLoader = {
+    id: id(),
+    type: 'html-render',
+    order: 0,
+    html: `
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap");
+  :root { --mm-script: ${SCRIPT_FONT}; }
+  .mm-script { font-family: ${SCRIPT_FONT} !important; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap" />`,
+  };
 
   // Section banner factory — a tilted "★ ★ ★ LABEL ★ ★ ★" stamp chip used
   // to give each section a fair-flyer header treatment. Returns an
@@ -283,12 +308,16 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
         padding: 'lg',
         backgroundColor: BLUE,
         blocks: [
-          // Drop stamp — bigger, more prominent than before.
+          // Script accent + drop stamp. Caveat script "hey mama ♡" reads as
+          // a personal greeting; the stamp underneath keeps the patriotic
+          // poster framing.
           {
             id: id(),
             type: 'html-render',
             order: 0,
-            html: `<div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 24px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${WHITE};box-shadow:8px 8px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ This Monday's Drop ★ ★ ★</div>`,
+            html: `
+<div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:56px;color:${GOLD};line-height:0.95;letter-spacing:0.02em;margin:0 0 18px 0;text-shadow:1px 1px 0 rgba(0,0,0,0.25);font-weight:700;">hey mama &#x2661;</div>
+<div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 24px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:14px;letter-spacing:0.24em;text-transform:uppercase;border:4px solid ${WHITE};border-radius:10px;box-shadow:8px 8px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ This Monday's Drop ★ ★ ★</div>`,
           },
 
           // Slogan-as-headline. ~Alfa Slab One when the font loads; falls
@@ -338,7 +367,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
             id: id(),
             type: 'html-render',
             order: 3,
-            html: `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;font-size:14px;letter-spacing:0.18em;"><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ $29</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ Free US shipping $50+</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;">★ Ships in 48h</span></div>`,
+            html: `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px;color:${WHITE};font-family:'Alfa Slab One',serif;text-transform:uppercase;font-size:14px;letter-spacing:0.18em;"><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ $29</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Free US shipping $50+</span><span style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.4);padding:8px 14px;border-radius:999px;">★ Ships in 48h</span></div>`,
           },
 
           // Single hero CTA — outsize, brand red, "buy now" intent.
@@ -550,18 +579,21 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     type: 'html-render',
     order: 5,
     html: `
-<div style="background:#0E0E0E;color:${WHITE};padding:64px 24px;text-align:center;border-top:6px solid ${RED};border-bottom:6px solid ${RED};position:relative;overflow:hidden;">
-  <!-- Subtle star pattern across the back -->
-  <div aria-hidden="true" style="position:absolute;inset:0;opacity:0.06;background-image:radial-gradient(circle at 25% 25%, ${WHITE} 1.5px, transparent 2px), radial-gradient(circle at 75% 75%, ${WHITE} 1.5px, transparent 2px);background-size:40px 40px;"></div>
+<div style="background:${NAVY_SOFT};color:${WHITE};padding:64px 24px;text-align:center;border-top:6px solid ${GOLD};border-bottom:6px solid ${GOLD};position:relative;overflow:hidden;">
+  <!-- Softer warm-toned star pattern across the back -->
+  <div aria-hidden="true" style="position:absolute;inset:0;opacity:0.09;background-image:radial-gradient(circle at 25% 25%, ${CREAM} 1.5px, transparent 2px), radial-gradient(circle at 75% 75%, ${GOLD} 1.5px, transparent 2px);background-size:40px 40px;"></div>
 
   <div style="position:relative;max-width:1100px;margin:0 auto;">
-    <!-- Banner header -->
-    <div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 rgba(255,255,255,0.18);margin-bottom:28px;">★ ★ ★ The Record Board ★ ★ ★</div>
+    <!-- Script accent -->
+    <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:32px;color:${GOLD};line-height:1;letter-spacing:0.02em;margin-bottom:10px;">by the numbers, mama</div>
 
-    <h2 style="font-family:'Alfa Slab One',serif;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 14px 0;color:${WHITE};">A shop that runs on a metronome.</h2>
-    <p style="font-family:'Inter',sans-serif;font-size:18px;color:rgba(255,255,255,0.72);max-width:640px;margin:0 auto 56px;">Every number is a constraint on purpose. Constraints are what make the drop feel like a drop.</p>
+    <!-- Banner header (rounded) -->
+    <div style="display:inline-block;background:${RED};color:${WHITE};padding:12px 28px;font-family:'Alfa Slab One',serif;font-weight:400;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${CREAM};border-radius:10px;box-shadow:6px 6px 0 rgba(217,162,27,0.6);margin-bottom:24px;">★ ★ ★ The Record Board ★ ★ ★</div>
 
-    <!-- 4 stats in a row, with star separators -->
+    <h2 style="font-family:'Alfa Slab One',serif;font-size:48px;line-height:1.05;letter-spacing:-0.01em;text-transform:uppercase;margin:0 0 14px 0;color:${CREAM};">A shop that runs on a metronome.</h2>
+    <p style="font-family:'Inter',sans-serif;font-size:18px;color:rgba(247,244,237,0.78);max-width:640px;margin:0 auto 56px;">Every number is a constraint on purpose. Constraints are what make the drop feel like a drop.</p>
+
+    <!-- 4 stats in a row, gold numbers, cream dashed dividers -->
     <div style="display:flex;align-items:stretch;justify-content:space-between;gap:0;flex-wrap:wrap;">
       ${[
         { v: '1',    l: 'New Shirt / Week',    s: 'Monday morning, no exceptions' },
@@ -569,10 +601,10 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
         { v: '48h',  l: 'Ship Time',            s: 'From order to porch' },
         { v: '0',    l: 'Restocks',             s: 'Never. Ever.' },
       ].map((m, i, arr) => `
-        <div style="flex:1 1 200px;min-width:200px;text-align:center;padding:12px 8px;${i < arr.length - 1 ? `border-right:2px dashed rgba(255,255,255,0.18);` : ''}">
-          <div style="font-family:'Alfa Slab One',serif;font-size:96px;line-height:0.9;letter-spacing:-0.03em;color:${RED};text-shadow:4px 4px 0 rgba(255,255,255,0.08);">${m.v}</div>
-          <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.2em;text-transform:uppercase;margin-top:14px;color:${WHITE};">${m.l}</div>
-          <div style="font-family:'Inter',sans-serif;font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;">${m.s}</div>
+        <div style="flex:1 1 200px;min-width:200px;text-align:center;padding:12px 8px;${i < arr.length - 1 ? `border-right:2px dashed rgba(247,244,237,0.22);` : ''}">
+          <div style="font-family:'Alfa Slab One',serif;font-size:96px;line-height:0.9;letter-spacing:-0.03em;color:${GOLD};text-shadow:4px 4px 0 rgba(0,0,0,0.18);">${m.v}</div>
+          <div style="font-family:'Alfa Slab One',serif;font-size:14px;letter-spacing:0.2em;text-transform:uppercase;margin-top:14px;color:${CREAM};">${m.l}</div>
+          <div style="font-family:'Inter',sans-serif;font-size:13px;color:rgba(247,244,237,0.62);margin-top:6px;">${m.s}</div>
         </div>
       `).join('')}
     </div>
@@ -666,19 +698,40 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
   </svg>
 
   <div style="position:relative;padding:80px 24px 24px;max-width:880px;margin:0 auto;">
-    <!-- Eyebrow chip -->
-    <div style="display:inline-block;background:${WHITE};color:${RED};padding:10px 24px;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};box-shadow:6px 6px 0 rgba(0,0,0,0.25);margin-bottom:36px;">★ Last Call ★</div>
+    <!-- Tiny floral wreath ornament above the eyebrow -->
+    <svg aria-hidden="true" viewBox="0 0 120 40" style="display:block;margin:0 auto 18px;width:140px;height:auto;">
+      <g fill="${GOLD}" opacity="0.85">
+        <path d="M10 20 q 6 -10 16 -6 q -2 8 -10 10 q -4 0 -6 -4 Z"/>
+        <path d="M110 20 q -6 -10 -16 -6 q 2 8 10 10 q 4 0 6 -4 Z"/>
+        <circle cx="28" cy="20" r="2.5"/>
+        <circle cx="92" cy="20" r="2.5"/>
+        <circle cx="44" cy="20" r="1.6" opacity="0.6"/>
+        <circle cx="76" cy="20" r="1.6" opacity="0.6"/>
+      </g>
+      <g fill="${WHITE}" opacity="0.7">
+        <circle cx="60" cy="20" r="4"/>
+        <circle cx="60" cy="20" r="2" fill="${GOLD}"/>
+      </g>
+    </svg>
+
+    <!-- Eyebrow chip (rounded, gold-tinted shadow) -->
+    <div style="display:inline-block;background:${WHITE};color:${RED};padding:10px 24px;font-family:'Alfa Slab One',serif;font-size:13px;letter-spacing:0.24em;text-transform:uppercase;border:3px solid ${WHITE};border-radius:10px;box-shadow:6px 6px 0 rgba(217,162,27,0.55);margin-bottom:30px;">★ Last Call ★</div>
+
+    <!-- Script accent above the big headline -->
+    <div class="mm-script" style="font-family:${SCRIPT_FONT};font-size:42px;color:${GOLD};line-height:1;margin-bottom:8px;">don&rsquo;t miss it, mama</div>
 
     <h2 style="font-family:'Alfa Slab One',serif;font-size:88px;line-height:0.95;letter-spacing:-0.015em;text-transform:uppercase;margin:0 0 18px 0;color:${WHITE};text-shadow:0 4px 16px rgba(0,0,0,0.25);">See this week's drop.</h2>
     <p style="font-family:'Inter',sans-serif;font-size:22px;color:rgba(255,255,255,0.94);max-width:640px;margin:0 auto 44px;line-height:1.4;">Sunday at midnight it's gone. Next Monday a new one takes its place. That's the whole bit.</p>
 
-    <!-- CTA pair -->
+    <!-- CTA pair — rounded -->
     <div style="display:inline-flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:center;">
-      <a href="${heroCtaLink}" style="display:inline-block;background:${WHITE};color:${BLUE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};box-shadow:6px 6px 0 rgba(0,0,0,0.35);">${closingShoutSlogan} →</a>
-      <a href="mailto:${CONTACT_EMAIL}?subject=Subscribe%20me%20to%20drop%20alerts" style="display:inline-block;background:transparent;color:${WHITE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};">Email me future drops</a>
+      <a href="${heroCtaLink}" style="display:inline-block;background:${WHITE};color:${BLUE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};border-radius:14px;box-shadow:6px 6px 0 rgba(0,0,0,0.35);">${closingShoutSlogan} →</a>
+      <a href="mailto:${CONTACT_EMAIL}?subject=Subscribe%20me%20to%20drop%20alerts" style="display:inline-block;background:transparent;color:${WHITE};font-family:'Alfa Slab One',serif;font-size:18px;letter-spacing:0.04em;text-transform:uppercase;text-decoration:none;padding:20px 36px;border:4px solid ${WHITE};border-radius:14px;">Email me future drops</a>
     </div>
 
-    <div style="margin-top:36px;font-family:'Inter',sans-serif;font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.16em;text-transform:uppercase;">★ ★ ★ &nbsp;Printed in Pennsylvania &nbsp;·&nbsp; Made for the suburban mom &nbsp; ★ ★ ★</div>
+    <!-- Script signature -->
+    <div class="mm-script" style="margin-top:40px;font-family:${SCRIPT_FONT};font-size:36px;color:${GOLD};line-height:1;">xoxo, <span style="color:${WHITE};">magamommy</span> &#x2661;</div>
+    <div style="margin-top:14px;font-family:'Inter',sans-serif;font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.16em;text-transform:uppercase;">★ Printed in Pennsylvania &nbsp;·&nbsp; Made for the suburban mom ★</div>
   </div>
 </div>`,
   };
@@ -790,6 +843,7 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
   };
 
   return wrap([
+    fontLoader,     // loads Caveat handwritten script for accent text
     marquee,
     bunting,
     hero,
@@ -797,12 +851,12 @@ function buildHomeContent(latestDrop: LatestDropSummary): string {
     bento,
     eagleDivider,
     timeline,
-    metrics,        // now a custom html-render "RECORD BOARD"
+    metrics,        // custom html-render "RECORD BOARD" — now warm navy + gold
     faqHeader,      // ★ STEP UP & ASK ★ banner
     faqTitle,       // big slab-serif "The fine print, but louder."
     faq,
     finaleBanner,
-    closing,        // custom html-render with bunting + eagle watermark
+    closing,        // custom html-render with bunting + eagle watermark + script signature
   ]);
 }
 
