@@ -52,13 +52,38 @@ function projectSettings(s: StoreSettingsRow) {
       easypostApiKeyLast4 = null;
     }
   }
-  // Strip the ciphertext from the response — never ship it to the client.
-  const { easypostApiKeyEncrypted: _ciphertext, ...rest } = s;
-  void _ciphertext;
+
+  // Stripe BYOK projection — never ship ciphertext or plaintext keys.
+  let stripeSecretKeyLast4: string | null = null;
+  if (s.stripeSecretKeyEncrypted) {
+    try {
+      const plaintext = decryptApiKey(s.stripeSecretKeyEncrypted);
+      stripeSecretKeyLast4 = plaintext.slice(-4);
+    } catch (err) {
+      console.warn('[store/settings] stripe secret key decrypt failed', err);
+      stripeSecretKeyLast4 = null;
+    }
+  }
+  const stripeSecretKeyConfigured = !!s.stripeSecretKeyEncrypted;
+  const stripeWebhookSecretConfigured = !!s.stripeWebhookSecretEncrypted;
+
+  // Strip ciphertext columns from the response — never ship them to the client.
+  const {
+    easypostApiKeyEncrypted: _easypostCt,
+    stripeSecretKeyEncrypted: _stripeSecretCt,
+    stripeWebhookSecretEncrypted: _stripeWebhookCt,
+    ...rest
+  } = s;
+  void _easypostCt;
+  void _stripeSecretCt;
+  void _stripeWebhookCt;
   return {
     ...rest,
     easypostApiKeyConfigured,
     easypostApiKeyLast4,
+    stripeSecretKeyConfigured,
+    stripeSecretKeyLast4,
+    stripeWebhookSecretConfigured,
   };
 }
 
@@ -121,6 +146,13 @@ export async function PUT(
     defaultParcelHeightIn,
     defaultParcelWeightOz,
     liveRatesFallback,
+    // Stripe BYOK fields
+    stripeMode,
+    stripeSecretKeyPlaintext,
+    stripeSecretKeyClear,
+    stripePublishableKey,
+    stripeWebhookSecretPlaintext,
+    stripeWebhookSecretClear,
   } = body;
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -221,12 +253,79 @@ export async function PUT(
     updateData.liveRatesFallback = liveRatesFallback;
   }
 
-  // Upsert: create if not exists, then update
+  // Stripe BYOK fields ──────────────────────────────────────────────────
+  // Load existing settings first — we need stripeByokAllowed to gate stripeMode='byok'.
   let [settings] = await db
     .select()
     .from(storeSettings)
     .where(eq(storeSettings.websiteId, site.id))
     .limit(1);
+
+  if (stripeMode !== undefined) {
+    if (stripeMode !== 'connect' && stripeMode !== 'byok') {
+      return NextResponse.json(
+        { success: false, message: "stripeMode must be 'connect' or 'byok'" },
+        { status: 400 },
+      );
+    }
+    if (stripeMode === 'byok' && settings?.stripeByokAllowed !== true) {
+      return NextResponse.json(
+        { success: false, message: 'BYOK not enabled for this site by SimplerDevelopment admin' },
+        { status: 403 },
+      );
+    }
+    updateData.stripeMode = stripeMode;
+  }
+
+  if (stripeSecretKeyClear === true) {
+    updateData.stripeSecretKeyEncrypted = null;
+    if (typeof stripeSecretKeyPlaintext === 'string' && stripeSecretKeyPlaintext.length > 0) {
+      warnings.push('stripeSecretKeyPlaintext was ignored because stripeSecretKeyClear=true was also set');
+    }
+  } else if (typeof stripeSecretKeyPlaintext === 'string' && stripeSecretKeyPlaintext.length > 0) {
+    if (!stripeSecretKeyPlaintext.startsWith('sk_test_') && !stripeSecretKeyPlaintext.startsWith('sk_live_')) {
+      return NextResponse.json(
+        { success: false, message: 'stripeSecretKeyPlaintext must start with sk_test_ or sk_live_' },
+        { status: 400 },
+      );
+    }
+    updateData.stripeSecretKeyEncrypted = encryptApiKey(stripeSecretKeyPlaintext);
+  }
+
+  if (stripePublishableKey !== undefined) {
+    if (stripePublishableKey === null || stripePublishableKey === '') {
+      updateData.stripePublishableKey = null;
+    } else if (typeof stripePublishableKey !== 'string') {
+      return NextResponse.json(
+        { success: false, message: 'stripePublishableKey must be a string or null' },
+        { status: 400 },
+      );
+    } else if (!stripePublishableKey.startsWith('pk_test_') && !stripePublishableKey.startsWith('pk_live_')) {
+      return NextResponse.json(
+        { success: false, message: 'stripePublishableKey must start with pk_test_ or pk_live_' },
+        { status: 400 },
+      );
+    } else {
+      updateData.stripePublishableKey = stripePublishableKey;
+    }
+  }
+
+  if (stripeWebhookSecretClear === true) {
+    updateData.stripeWebhookSecretEncrypted = null;
+    if (typeof stripeWebhookSecretPlaintext === 'string' && stripeWebhookSecretPlaintext.length > 0) {
+      warnings.push('stripeWebhookSecretPlaintext was ignored because stripeWebhookSecretClear=true was also set');
+    }
+  } else if (typeof stripeWebhookSecretPlaintext === 'string' && stripeWebhookSecretPlaintext.length > 0) {
+    if (!stripeWebhookSecretPlaintext.startsWith('whsec_')) {
+      return NextResponse.json(
+        { success: false, message: 'stripeWebhookSecretPlaintext must start with whsec_' },
+        { status: 400 },
+      );
+    }
+    updateData.stripeWebhookSecretEncrypted = encryptApiKey(stripeWebhookSecretPlaintext);
+  }
+
+  // Upsert: create if not exists, then update
 
   if (!settings) {
     [settings] = await db

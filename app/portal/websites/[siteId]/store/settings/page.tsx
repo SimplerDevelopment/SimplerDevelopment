@@ -51,7 +51,32 @@ interface StoreSettings {
   defaultParcelHeightIn: string | number | null;
   defaultParcelWeightOz: string | number | null;
   liveRatesFallback: boolean;
+  // Stripe BYOK
+  stripeMode: 'connect' | 'byok';
+  stripeByokAllowed: boolean;
+  stripeSecretKeyConfigured: boolean;
+  stripeSecretKeyLast4: string | null;
+  stripePublishableKey: string | null;
+  stripeWebhookSecretConfigured: boolean;
 }
+
+interface StripeTestResultOk {
+  account: {
+    id: string;
+    business_name?: string | null;
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+  };
+}
+
+interface StripeTestResultErr {
+  message: string;
+  code?: string;
+}
+
+type StripeTestResult =
+  | { ok: true; data: StripeTestResultOk }
+  | { ok: false; error: StripeTestResultErr };
 
 interface TestResultOk {
   ok: true;
@@ -90,6 +115,15 @@ export default function StoreSettingsPage() {
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
 
+  // Stripe BYOK state
+  const [stripeSecretInput, setStripeSecretInput] = useState('');
+  const [savingStripeSecret, setSavingStripeSecret] = useState(false);
+  const [stripeWebhookInput, setStripeWebhookInput] = useState('');
+  const [savingStripeWebhook, setSavingStripeWebhook] = useState(false);
+  const [testingStripe, setTestingStripe] = useState(false);
+  const [stripeTestResult, setStripeTestResult] = useState<StripeTestResult | null>(null);
+  const [webhookUrlCopied, setWebhookUrlCopied] = useState(false);
+
   const load = async () => {
     setLoading(true);
     try {
@@ -121,9 +155,15 @@ export default function StoreSettingsPage() {
         stripeAccountId: _ro4,
         payoutSchedule: _ro5,
         platformFeePercent: _ro6,
+        // Stripe BYOK read-only fields (server-derived or admin-controlled)
+        stripeByokAllowed: _ro7,
+        stripeSecretKeyConfigured: _ro8,
+        stripeSecretKeyLast4: _ro9,
+        stripeWebhookSecretConfigured: _ro10,
         ...mutable
       } = settings;
       void _ro1; void _ro2; void _ro3; void _ro4; void _ro5; void _ro6;
+      void _ro7; void _ro8; void _ro9; void _ro10;
       const payload = {
         ...mutable,
         taxRate: settings.taxRate / 100, // Convert percentage to decimal for API
@@ -275,6 +315,144 @@ export default function StoreSettingsPage() {
   const parcelNumber = (v: string | number | null | undefined): string => {
     if (v === null || v === undefined) return '';
     return String(v);
+  };
+
+  // Stripe BYOK handlers ──────────────────────────────────────────────
+  const saveStripeSecret = async () => {
+    if (!stripeSecretInput) return;
+    setSavingStripeSecret(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeSecretKeyPlaintext: stripeSecretInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Stripe secret key saved.');
+        setStripeSecretInput('');
+        await load();
+      } else {
+        setError(data.message || 'Failed to save secret key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingStripeSecret(false);
+    }
+  };
+
+  const clearStripeSecret = async () => {
+    setSavingStripeSecret(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeSecretKeyClear: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Stripe secret key cleared.');
+        await load();
+      } else {
+        setError(data.message || 'Failed to clear secret key.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingStripeSecret(false);
+    }
+  };
+
+  const saveStripeWebhookSecret = async () => {
+    if (!stripeWebhookInput) return;
+    setSavingStripeWebhook(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeWebhookSecretPlaintext: stripeWebhookInput }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Stripe webhook secret saved.');
+        setStripeWebhookInput('');
+        await load();
+      } else {
+        setError(data.message || 'Failed to save webhook secret.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingStripeWebhook(false);
+    }
+  };
+
+  const clearStripeWebhookSecret = async () => {
+    setSavingStripeWebhook(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripeWebhookSecretClear: true }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Stripe webhook secret cleared.');
+        await load();
+      } else {
+        setError(data.message || 'Failed to clear webhook secret.');
+      }
+    } catch {
+      setError('Something went wrong.');
+    } finally {
+      setSavingStripeWebhook(false);
+    }
+  };
+
+  const testStripeConnection = async () => {
+    setTestingStripe(true);
+    setStripeTestResult(null);
+    try {
+      const res = await fetch(`${base}/stripe/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStripeTestResult({ ok: true, data: data.data });
+      } else {
+        setStripeTestResult({ ok: false, error: { message: data.message || 'Connection test failed', code: data.code } });
+      }
+    } catch {
+      setStripeTestResult({ ok: false, error: { message: 'Network error running test' } });
+    } finally {
+      setTestingStripe(false);
+    }
+  };
+
+  const stripeMode = settings?.stripeMode ?? 'connect';
+  const stripeByokAllowed = settings?.stripeByokAllowed ?? false;
+  const stripeWebhookUrl = `${
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_APP_URL) || 'https://app.simplerdevelopment.com'
+  }/api/stripe/webhook/ecommerce?siteId=${siteId}`;
+
+  const copyWebhookUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(stripeWebhookUrl);
+      setWebhookUrlCopied(true);
+      setTimeout(() => setWebhookUrlCopied(false), 1500);
+    } catch {
+      // ignore
+    }
   };
 
   if (loading) {
@@ -937,6 +1115,257 @@ export default function StoreSettingsPage() {
               ))}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Stripe Payment Provider (BYOK) */}
+      <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="material-icons text-lg text-muted-foreground">account_balance</span>
+          Stripe Payment Provider
+        </h2>
+
+        {!stripeByokAllowed ? (
+          <div className="flex items-start gap-3 p-4 bg-muted/30 border border-border rounded-lg text-sm">
+            <span className="material-icons text-base text-muted-foreground mt-0.5">info</span>
+            <div>
+              <p className="text-foreground font-medium">Stripe BYOK is not enabled for this site.</p>
+              <p className="text-muted-foreground mt-1">
+                Contact SimplerDevelopment to enable using your own Stripe account.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Choose whether payments route through SimplerDevelopment Connect or your own Stripe account (BYOK).
+            </p>
+
+            {/* Mode radio */}
+            <div className="flex flex-wrap gap-3">
+              {([
+                { value: 'connect' as const, label: 'Connect', icon: 'hub', desc: 'Default — SimplerDevelopment Connect' },
+                { value: 'byok' as const, label: 'BYOK', icon: 'vpn_key', desc: 'Your own Stripe account' },
+              ]).map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer text-sm ${
+                    stripeMode === opt.value
+                      ? 'border-primary bg-primary/5 text-foreground'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="stripeMode"
+                    className="sr-only"
+                    checked={stripeMode === opt.value}
+                    onChange={() => updateField('stripeMode', opt.value)}
+                  />
+                  <span className="material-icons text-base">{opt.icon}</span>
+                  {opt.label}
+                  <span className="text-xs text-muted-foreground hidden sm:inline">— {opt.desc}</span>
+                </label>
+              ))}
+            </div>
+
+            {stripeMode === 'byok' && (
+              <div className="space-y-5 pt-2 border-t border-border">
+                {/* Secret Key */}
+                <div className="space-y-2">
+                  <label className={labelClass}>Secret Key</label>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="material-icons text-base text-muted-foreground">
+                      {settings.stripeSecretKeyConfigured ? 'lock' : 'lock_open'}
+                    </span>
+                    <span className={settings.stripeSecretKeyConfigured ? 'text-foreground' : 'text-muted-foreground'}>
+                      {settings.stripeSecretKeyConfigured
+                        ? `Configured (ends in …${settings.stripeSecretKeyLast4 ?? '????'})`
+                        : 'No key configured'}
+                    </span>
+                    {settings.stripeSecretKeyConfigured && (
+                      <button
+                        type="button"
+                        onClick={clearStripeSecret}
+                        disabled={savingStripeSecret}
+                        className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted/40 transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-icons text-sm">delete</span>
+                        Clear key
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={stripeSecretInput}
+                      onChange={(e) => setStripeSecretInput(e.target.value)}
+                      placeholder="sk_test_… or sk_live_…"
+                      className={inputClass}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={saveStripeSecret}
+                      disabled={savingStripeSecret || !stripeSecretInput}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {savingStripeSecret && <span className="material-icons text-base animate-spin">refresh</span>}
+                      Save key
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Stored encrypted at rest (AES-256-GCM). The plaintext is never echoed back to the browser.
+                  </p>
+                </div>
+
+                {/* Publishable Key */}
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Publishable Key</label>
+                  <input
+                    type="text"
+                    value={settings.stripePublishableKey ?? ''}
+                    onChange={(e) => updateField('stripePublishableKey', e.target.value || null)}
+                    placeholder="pk_test_… or pk_live_…"
+                    className={inputClass}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Public key used by Stripe.js. Saved with the main &quot;Save Settings&quot; button.
+                  </p>
+                </div>
+
+                {/* Webhook Endpoint Secret */}
+                <div className="space-y-2">
+                  <label className={labelClass}>Webhook Endpoint Secret</label>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="material-icons text-base text-muted-foreground">
+                      {settings.stripeWebhookSecretConfigured ? 'lock' : 'lock_open'}
+                    </span>
+                    <span className={settings.stripeWebhookSecretConfigured ? 'text-foreground' : 'text-muted-foreground'}>
+                      {settings.stripeWebhookSecretConfigured ? 'Configured' : 'Not configured'}
+                    </span>
+                    {settings.stripeWebhookSecretConfigured && (
+                      <button
+                        type="button"
+                        onClick={clearStripeWebhookSecret}
+                        disabled={savingStripeWebhook}
+                        className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted/40 transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-icons text-sm">delete</span>
+                        Clear secret
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={stripeWebhookInput}
+                      onChange={(e) => setStripeWebhookInput(e.target.value)}
+                      placeholder="whsec_…"
+                      className={inputClass}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      onClick={saveStripeWebhookSecret}
+                      disabled={savingStripeWebhook || !stripeWebhookInput}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {savingStripeWebhook && <span className="material-icons text-base animate-spin">refresh</span>}
+                      Save secret
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Signing secret from Stripe Dashboard → Developers → Webhooks. Stored encrypted at rest.
+                  </p>
+                </div>
+
+                {/* Webhook URL (read-only / copyable) */}
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Webhook URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={stripeWebhookUrl}
+                      className={`${inputClass} font-mono text-xs bg-muted/30`}
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <button
+                      type="button"
+                      onClick={copyWebhookUrl}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors whitespace-nowrap"
+                    >
+                      <span className="material-icons text-base">
+                        {webhookUrlCopied ? 'check' : 'content_copy'}
+                      </span>
+                      {webhookUrlCopied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Paste this into your Stripe dashboard → Developers → Webhooks → Add endpoint. Listen for{' '}
+                    <code className="font-mono text-[11px] bg-muted/40 px-1 py-0.5 rounded">payment_intent.succeeded</code>,{' '}
+                    <code className="font-mono text-[11px] bg-muted/40 px-1 py-0.5 rounded">payment_intent.payment_failed</code>,{' '}
+                    <code className="font-mono text-[11px] bg-muted/40 px-1 py-0.5 rounded">charge.refunded</code>.
+                  </p>
+                </div>
+
+                {/* Test Connection */}
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground">Test Connection</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Verifies the secret key by retrieving your Stripe account.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={testStripeConnection}
+                      disabled={testingStripe || !settings.stripeSecretKeyConfigured}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted/40 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {testingStripe ? (
+                        <span className="material-icons text-base animate-spin">refresh</span>
+                      ) : (
+                        <span className="material-icons text-base">network_check</span>
+                      )}
+                      {testingStripe ? 'Testing...' : 'Test connection'}
+                    </button>
+                  </div>
+                  {stripeTestResult && (stripeTestResult.ok ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+                      <div className="flex items-center gap-2 font-medium">
+                        <span className="material-icons text-base">check_circle</span>
+                        Connected to Stripe
+                      </div>
+                      <ul className="mt-2 space-y-1 text-xs font-mono">
+                        <li>Account: {stripeTestResult.data.account.id}</li>
+                        {stripeTestResult.data.account.business_name && (
+                          <li>Business: {stripeTestResult.data.account.business_name}</li>
+                        )}
+                        <li>
+                          Charges: {stripeTestResult.data.account.charges_enabled ? 'enabled' : 'disabled'} · Payouts:{' '}
+                          {stripeTestResult.data.account.payouts_enabled ? 'enabled' : 'disabled'}
+                        </li>
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                      <div className="flex items-center gap-2 font-medium">
+                        <span className="material-icons text-base">error</span>
+                        {stripeTestResult.error.message}
+                      </div>
+                      {stripeTestResult.error.code && (
+                        <p className="mt-1 text-xs font-mono opacity-80">code: {stripeTestResult.error.code}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
