@@ -69,12 +69,16 @@ export async function POST(req: Request) {
 
   const secret = process.env.REALTIME_JWT_SECRET;
   if (!secret) {
+    // 503 (not 500): the service is intentionally disabled because an
+    // operator hasn't set REALTIME_JWT_SECRET. Clients should treat this as
+    // "collab feature off" and not retry/log-spam.
     return NextResponse.json(
       {
         success: false,
-        message: 'Realtime not configured (REALTIME_JWT_SECRET missing)',
+        message: 'Realtime collaboration not configured (REALTIME_JWT_SECRET missing)',
+        code: 'REALTIME_NOT_CONFIGURED',
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 

@@ -66,7 +66,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   pages: {
-    signIn: '/admin/login',
+    // Portal (client tenants) is the dominant audience and the codebase already
+    // routes ~40 explicit redirects there. Admin flows opt in to `/admin/login`
+    // via explicit `signOut({ callbackUrl: '/admin/login' })` calls and the
+    // `authorized` callback below skips `/admin/login` from the auth check.
+    signIn: '/portal/login',
   },
   cookies: {
     sessionToken: {

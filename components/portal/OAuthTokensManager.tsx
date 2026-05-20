@@ -63,8 +63,9 @@ export default function OAuthTokensManager({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="rounded-md border border-border overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-md border border-border">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-muted/50">
             <tr className="text-left">
               <th className="px-3 py-2 font-medium">Application</th>
@@ -142,6 +143,7 @@ export default function OAuthTokensManager({
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

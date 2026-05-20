@@ -94,6 +94,11 @@ import { uploadToS3 } from '@/lib/s3/upload';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import {
+  unpackAndUploadZip,
+  isHttpError as isZipHttpError,
+  MAX_ZIP_TOTAL_BYTES,
+} from '@/lib/html-zip-upload';
+import {
   renderBlocksToEmailHtml,
   resend,
   buildCampaignHtml,
@@ -104,6 +109,7 @@ import { executeCampaignSend } from '@/lib/email/campaign-send';
 import { revoke as revokeGoogleToken } from '@/lib/google/oauth';
 import { getTenantWorkspaceCredentialsByClientId } from '@/lib/google/tenant-credentials';
 import { stageOrApply } from '../pending-changes';
+import { mintLinkForResult, approvalEnvelope, createApprovalLink } from '../approval-links';
 import { publishSlidesUpdate } from '@/lib/realtime/internal-publisher';
 import { BLOCKS_SCHEMA_REFERENCE } from '../blocks-schema';
 import {
@@ -268,9 +274,12 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return deck;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({ ctx, entityType: 'pitch_deck', summary: `Deck "${args.title}"`, result }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
     }
   );
 
@@ -324,9 +333,70 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
           return row;
         },
       });
-      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending' });
+      const approval = approvalEnvelope(
+        await mintLinkForResult({
+          ctx,
+          entityType: 'pitch_deck',
+          summary: `Deck "${existing.title}" update`,
+          result,
+        }),
+      );
+      if (result.pending) return json({ pending: true, pendingId: result.pendingId, summary: result.summary, status: 'pending', approval });
       revalidateForWrite('portal');
-      return json(result.data);
+      return json({ ...result.data, approval });
+    }
+  );
+
+  // ── decks_fork ─────────────────────────────────────────────────────
+  // Lightweight clone. Duplicates the source deck (slides + theme +
+  // metadata) into a new draft deck tied back via `parent_deck_id`. Use
+  // when you want to spin a variant deck off an existing template without
+  // mutating the original — share the approval URL on the fork for review.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_fork',
+    {
+      title: 'Fork a pitch deck into a draft',
+      description:
+        'Duplicate a deck into a new draft deck tied to the original via parent_deck_id. Use for "make me a variant of this deck for client X" or "let me try a different angle without touching the live deck." Returns the new deck id + an approval URL.',
+      inputSchema: {
+        id: z.number().describe('Source deck id to fork.'),
+        titleSuffix: z.string().default(' (fork)').optional(),
+      },
+    },
+    async ({ id, titleSuffix = ' (fork)' }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      const [source] = await db.select().from(pitchDecks)
+        .where(and(eq(pitchDecks.id, id), eq(pitchDecks.clientId, clientId))).limit(1);
+      if (!source) return json({ error: 'Source deck not found' });
+      const baseSlug = source.slug.replace(/-fork-[a-z0-9]+$/, '');
+      const forkSlug = `${baseSlug}-fork-${Date.now().toString(36)}`;
+      const [forkRow] = await db.insert(pitchDecks).values({
+        clientId,
+        title: `${source.title}${titleSuffix}`,
+        slug: forkSlug,
+        description: source.description,
+        status: 'draft',
+        slides: source.slides as never,
+        formatVersion: source.formatVersion,
+        theme: source.theme as never,
+        sourceUrl: source.sourceUrl,
+        brandingProfileId: source.brandingProfileId,
+        seoTitle: source.seoTitle,
+        seoDescription: source.seoDescription,
+        ogImage: source.ogImage,
+        canonicalUrl: source.canonicalUrl,
+        noIndex: source.noIndex,
+        parentDeckId: source.id,
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+      const link = await createApprovalLink({
+        ctx,
+        entityType: 'pitch_deck',
+        entityId: forkRow.id,
+        summary: `Fork of deck #${source.id} "${source.title}"`,
+      });
+      revalidateForWrite('portal');
+      return json({ ...forkRow, parentDeckId: source.id, approval: approvalEnvelope(link) });
     }
   );
 
@@ -666,6 +736,130 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
     }
   );
 
+  // Multi-file (zipped) variant of decks_upload_html. Bundle must contain at
+  // least one .html file (preferred root `index.html`). All assets are uploaded
+  // to a shared media/<uuid>/ prefix; relative refs from the index resolve
+  // through the path-based media proxy. Caps mirror the portal REST route:
+  // 50 MB uncompressed, 200 files, 10 MB per file. Single full-bleed slide.
+  hasScope(ctx.scopes, 'decks:write') && server.registerTool(
+    'decks_upload_html_zip',
+    {
+      title: 'Upload HTML bundle (zip) as pitch deck',
+      description: 'Upload a zip (base64-encoded) containing index.html + supporting assets as a single-slide pitch deck wrapping an html-embed block. The slide-counter is suppressed for full-bleed presentation. Requires an active pitch-decks subscription. The slide lands in draft (pendingCreate); call `decks_publish_all` or approve via the returned approval URL to flip live.',
+      inputSchema: {
+        filename: z.string().min(1).regex(/\.zip$/i, 'File must be a .zip'),
+        contentBase64: z.string().min(1).describe('Base64-encoded zip body. Decoded size must be ≤ 50 MB.'),
+        title: z.string().optional().describe('Override the deck title; defaults to the zip filename without extension.'),
+      },
+    },
+    async ({ filename, contentBase64, title }) => {
+      if (!requireScope(ctx, 'decks:write')) return denied('decks:write');
+      if (!(await requireService(clientId, 'pitch-decks'))) return serviceDenied('pitch-decks');
+
+      let zipBuffer: Buffer;
+      try {
+        zipBuffer = Buffer.from(contentBase64, 'base64');
+      } catch {
+        return json({ error: 'Invalid base64 content' });
+      }
+      if (zipBuffer.byteLength === 0) return json({ error: 'Empty zip' });
+      if (zipBuffer.byteLength > MAX_ZIP_TOTAL_BYTES) {
+        return json({ error: `Zip exceeds ${MAX_ZIP_TOTAL_BYTES} bytes` });
+      }
+
+      let unpacked;
+      try {
+        unpacked = await unpackAndUploadZip(zipBuffer);
+      } catch (err) {
+        if (isZipHttpError(err)) return json({ error: err.message });
+        throw err;
+      }
+
+      // One media row per uploaded file, no websiteId (decks are tenant-scoped, not site-scoped).
+      const mediaRows = unpacked.entries.map((entry) => ({
+        filename: entry.relativePath,
+        storedFilename: entry.upload.storedFilename,
+        mimeType: entry.mimeType,
+        fileSize: entry.upload.fileSize,
+        url: entry.upload.url,
+        uploadedBy: ctx.userId,
+        clientId,
+      }));
+      await db.insert(media).values(mediaRows);
+
+      const baseSlug = (filename.trim().toLowerCase()
+        .replace(/\.zip$/i, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 80)) || 'deck';
+      const slug = `${baseSlug}-${Date.now().toString(36)}`;
+      const titleNorm = title?.trim() || baseSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Uploaded HTML Deck';
+
+      const ts = Date.now();
+      const slide: PitchDeckSlideV2 = {
+        id: `slide-${ts}`,
+        label: titleNorm,
+        blocks: [
+          {
+            id: `block-${ts}-html`,
+            type: 'html-embed',
+            order: 1,
+            url: unpacked.index.upload.url,
+            filename: unpacked.index.relativePath,
+            height: '100vh',
+            width: 'full',
+            sandbox: 'scripts',
+            iframeTitle: titleNorm,
+          },
+        ],
+      };
+
+      const [deck] = await db.insert(pitchDecks).values({
+        clientId,
+        title: titleNorm,
+        slug,
+        description: null,
+        slides: [slide],
+        formatVersion: 2,
+        theme: {
+          primaryColor: '#2563eb',
+          accentColor: '#60a5fa',
+          backgroundColor: '#0f172a',
+          textColor: '#f8fafc',
+          headingFont: 'Inter',
+          bodyFont: 'Inter',
+          showSlideNumber: false,
+        },
+        createdBy: ctx.userId,
+      }).returning(deckProjection(false));
+
+      void publishSlidesUpdate({
+        entityId: deck.id,
+        slides: [slide],
+      }).catch((err) => {
+        console.warn('[mcp/decks_upload_html_zip] realtime publish failed:', err);
+      });
+
+      const approval = approvalEnvelope(
+        await createApprovalLink({
+          ctx,
+          entityType: 'pitch_deck',
+          entityId: deck.id,
+          summary: `Bundle "${filename}" → deck "${titleNorm}"`,
+        }),
+      );
+
+      revalidateForWrite('portal');
+      return json({
+        ...deck,
+        bundleFileCount: unpacked.entries.length,
+        bundlePrefix: unpacked.prefix,
+        url: unpacked.index.upload.url,
+        approval,
+      });
+    }
+  );
+
   // ── Per-slide draft publish ──────────────────────────────────────────────
   // Promote `slide.draft.*` → live slide fields (and clear `draft`) for a
   // single slide. Used after `decks_replace_slides` / `decks_add_slide` /
@@ -767,52 +961,6 @@ export function registerPitchDecksTools(server: McpServer, ctx: PortalMcpContext
 }
 
 // ─── Slide-draft publish helpers ─────────────────────────────────────────────
-// Pure functions over the slides array. Centralized so `decks_publish_slide`
-// and `decks_publish_all` share identical logic.
-
-function publishOneSlide(slide: PitchDeckSlideV2): PitchDeckSlideV2 | null {
-  const draft = slide.draft;
-  if (!draft) return slide;
-  // Defensive: pendingCreate + pendingDelete simultaneously → drop the slide
-  // (it was created and deleted before publish — net no-op).
-  if (draft.pendingCreate && draft.pendingDelete) return null;
-  if (draft.pendingDelete) return null;
-  // pendingCreate or regular update — copy draft.* onto live fields.
-  // `draft.blocks ?? slide.blocks` keeps live values when the draft omitted
-  // that field (e.g. a notes-only edit).
-  const next: PitchDeckSlideV2 = {
-    ...slide,
-    blocks: draft.blocks ?? slide.blocks,
-    customCss: draft.customCss ?? slide.customCss,
-    pageSettings: draft.pageSettings ?? slide.pageSettings,
-    notes: draft.notes ?? slide.notes,
-  };
-  delete next.draft;
-  return next;
-}
-
-function applyPublishToSlides(slides: PitchDeckSlideV2[], slideId: string): PitchDeckSlideV2[] {
-  const out: PitchDeckSlideV2[] = [];
-  for (const s of slides) {
-    if (s.id !== slideId) {
-      out.push(s);
-      continue;
-    }
-    const published = publishOneSlide(s);
-    if (published) out.push(published);
-  }
-  return out;
-}
-
-function applyPublishAllToSlides(slides: PitchDeckSlideV2[]): PitchDeckSlideV2[] {
-  const out: PitchDeckSlideV2[] = [];
-  for (const s of slides) {
-    if (!s.draft) {
-      out.push(s);
-      continue;
-    }
-    const published = publishOneSlide(s);
-    if (published) out.push(published);
-  }
-  return out;
-}
+// Pure functions live in `lib/mcp/decks-publish.ts` so the public approval
+// route can reuse them without dragging in the whole MCP SDK.
+import { applyPublishToSlides, applyPublishAllToSlides } from '@/lib/mcp/decks-publish';

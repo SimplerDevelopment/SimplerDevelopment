@@ -162,10 +162,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
           <input type="hidden" name="state" value={state} />
           <input type="hidden" name="code_challenge" value={codeChallenge!} />
           <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />
-          <input type="hidden" name="active_client_id" value={String(activeClient.id)} />
           {resource && <input type="hidden" name="resource" value={resource} />}
 
-          {allClients.length > 1 && (
+          {/* Single-portal users: hidden input. Multi-portal users: dropdown.
+              CRITICAL: never render both at once — formData.get() returns the
+              FIRST match by document order, so a stray hidden input ahead of
+              the select would silently override the user's choice. */}
+          {allClients.length > 1 ? (
             <div>
               <label className="block text-sm font-medium mb-1">Which portal?</label>
               <select
@@ -178,6 +181,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
                 ))}
               </select>
             </div>
+          ) : (
+            <input type="hidden" name="active_client_id" value={String(activeClient.id)} />
           )}
 
           <fieldset className="space-y-2">

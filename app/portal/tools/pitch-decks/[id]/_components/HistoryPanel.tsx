@@ -69,7 +69,9 @@ export function HistoryPanel({ versions, savingVersion, restoring, slideCount, o
               <button
                 onClick={() => onRestore(v.id)}
                 disabled={restoring}
-                className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-all disabled:opacity-50"
+                // Always visible below md so touch users can reach Restore;
+                // hover-to-reveal preserved on md+ where pointer:fine is the norm.
+                className="md:opacity-0 md:group-hover:opacity-100 inline-flex items-center gap-1 px-2 py-1 text-xs border border-border rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-all disabled:opacity-50"
               >
                 <span className="material-icons text-xs">restore</span>
                 Restore

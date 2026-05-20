@@ -632,6 +632,29 @@ export function BlockContentEditor({ block, onUpdate, siteId }: { block: Block; 
           <CheckboxField label="Show Survey Title" checked={b.showPageTitle !== false} onChange={(v) => onUpdate({ showPageTitle: v } as Partial<Block>)} />
         </>
       )}
+
+      {/* ── Popup Block (modal triggered by load / time / scroll / exit-intent) ── */}
+      {block.type === 'popup' && (
+        <>
+          <RichTextField label="Headline" value={b.headline as string} onChange={(v) => onUpdate({ headline: v } as Partial<Block>)} singleLine />
+          <RichTextField label="Body" value={(b.body as string) || ''} onChange={(v) => onUpdate({ body: v || undefined } as Partial<Block>)} />
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="CTA Label" value={(b.ctaLabel as string) || ''} onChange={(v) => onUpdate({ ctaLabel: v || undefined } as Partial<Block>)} />
+            <Field label="CTA URL" value={(b.ctaUrl as string) || ''} onChange={(v) => onUpdate({ ctaUrl: v || undefined } as Partial<Block>)} />
+          </div>
+          <SelectField label="Trigger" value={(b.trigger as string) || 'time-delay'} options={['page-load','time-delay','scroll-percent','exit-intent']} onChange={(v) => onUpdate({ trigger: v } as Partial<Block>)} />
+          {(b.trigger as string) === 'time-delay' && (
+            <NumberField label="Delay (seconds)" value={(b.delaySeconds as number) ?? 5} min={0} onChange={(v) => onUpdate({ delaySeconds: v } as Partial<Block>)} />
+          )}
+          {(b.trigger as string) === 'scroll-percent' && (
+            <NumberField label="Scroll Percent (0-100)" value={(b.scrollPercent as number) ?? 50} min={0} max={100} onChange={(v) => onUpdate({ scrollPercent: Math.max(0, Math.min(100, v)) } as Partial<Block>)} />
+          )}
+          <SelectField label="Frequency" value={(b.frequency as string) || 'once-per-session'} options={['always','once-per-session','once-per-week']} onChange={(v) => onUpdate({ frequency: v } as Partial<Block>)} />
+          <CheckboxField label="Dismissable (close button + Esc + click backdrop)" checked={(b.dismissable as boolean) !== false} onChange={(v) => onUpdate({ dismissable: v } as Partial<Block>)} />
+          <p className="text-xs text-muted-foreground">Frequency is persisted in <code className="font-mono">localStorage</code> keyed by block id.</p>
+        </>
+      )}
+
       {block.type === 'deck-next-slide' && (
         <>
           <Field label="Button Text" value={(b.text as string) || 'Next Slide'} onChange={(v) => onUpdate({ text: v } as Partial<Block>)} />
@@ -1488,6 +1511,7 @@ function ColumnsEditor({ block, onUpdate }: { block: Block & { type: 'columns' }
       </div>
 
       <CheckboxField label="Stack on mobile" checked={block.stackOnMobile !== false} onChange={(v) => onUpdate({ stackOnMobile: v } as Partial<Block>)} />
+      <CheckboxField label="Stack on tablet" checked={block.stackOnTablet === true} onChange={(v) => onUpdate({ stackOnTablet: v } as Partial<Block>)} />
       <CheckboxField label="Reverse when stacked" checked={block.reverseOnStack === true} onChange={(v) => onUpdate({ reverseOnStack: v } as Partial<Block>)} />
 
       <p className="text-xs text-muted-foreground">{cols.reduce((sum, c) => sum + c.blocks.length, 0)} nested blocks total</p>
@@ -1955,11 +1979,28 @@ function HeroSlideshowEditor({ block, onUpdate, siteId }: { block: Block; onUpda
         <SelectField label="Transition" value={(b.transition as string) || 'fade'} options={['fade','slide','zoom']} onChange={(v) => onUpdate({ transition: v } as Partial<Block>)} />
         <Field label="Height" value={(b.height as string) || '90vh'} onChange={(v) => onUpdate({ height: v } as Partial<Block>)} />
         <Field label="Interval (ms)" value={String((b.interval as number) || 6000)} onChange={(v) => onUpdate({ interval: Number(v) || 6000 } as Partial<Block>)} />
+        <Field label="Transition Duration (ms)" value={String((b.transitionDuration as number) || 800)} onChange={(v) => onUpdate({ transitionDuration: Number(v) || 800 } as Partial<Block>)} />
         <CheckboxField label="Autoplay" checked={(b.autoplay as boolean) ?? true} onChange={(v) => onUpdate({ autoplay: v } as Partial<Block>)} />
         <CheckboxField label="Show Dots" checked={(b.showDots as boolean) ?? true} onChange={(v) => onUpdate({ showDots: v } as Partial<Block>)} />
         <CheckboxField label="Show Arrows" checked={(b.showArrows as boolean) ?? true} onChange={(v) => onUpdate({ showArrows: v } as Partial<Block>)} />
         <CheckboxField label="Ken Burns Effect" checked={(b.kenBurns as boolean) ?? true} onChange={(v) => onUpdate({ kenBurns: v } as Partial<Block>)} />
         <CheckboxField label="Pause on Hover" checked={(b.pauseOnHover as boolean) ?? true} onChange={(v) => onUpdate({ pauseOnHover: v } as Partial<Block>)} />
+        <Field label="Background Video URL (deck-level)" value={(b.backgroundVideo as string) || ''} onChange={(v) => onUpdate({ backgroundVideo: v || undefined } as Partial<Block>)} />
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-xs font-medium text-muted-foreground">Background Video Opacity</span>
+            <span className="text-[10px] text-muted-foreground font-mono">{Math.round(((b.backgroundVideoOpacity as number) ?? 1) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={(b.backgroundVideoOpacity as number) ?? 1}
+            onChange={(e) => onUpdate({ backgroundVideoOpacity: parseFloat(e.target.value) } as Partial<Block>)}
+            className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer accent-primary"
+          />
+        </div>
       </div>
 
       {/* Navigation Colors */}

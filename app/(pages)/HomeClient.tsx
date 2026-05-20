@@ -6,6 +6,7 @@ import { SlideIn } from '@/components/animations/SlideIn';
 import { Button } from '@/components/ui/Button';
 import { use3DScene } from '@/hooks/use3DScene';
 import { HeroVisual } from '@/components/sections/HeroVisual';
+import { AccessCodeForm } from '@/components/marketing/AccessCodeForm';
 import { getAllBlogPosts, getAllCategories } from '@/lib/data/blog';
 import Link from 'next/link';
 
@@ -91,9 +92,17 @@ export function HomeClient() {
                   </FadeIn>
                 </div>
 
-                {/* Right — visual mockup */}
-                <div className="hidden lg:block relative">
-                  <HeroVisual />
+                {/* Right — access-code centerpiece, layered over HeroVisual + particle network */}
+                <div className="relative mt-10 lg:mt-0">
+                  <div className="hidden lg:block absolute inset-0 opacity-60 pointer-events-none">
+                    <HeroVisual />
+                  </div>
+                  <div className="hidden lg:block absolute inset-0 bg-gradient-to-br from-background/40 via-transparent to-background/30 pointer-events-none" />
+                  <div className="relative z-10 flex items-center justify-center lg:min-h-[520px]">
+                    <FadeIn delay={0.5}>
+                      <AccessCodeForm variant="hero" />
+                    </FadeIn>
+                  </div>
                 </div>
               </div>
             </div>

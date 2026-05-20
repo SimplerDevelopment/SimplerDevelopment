@@ -100,7 +100,13 @@ export function LeftPanel({
     .filter((b) => !pickerSearch || b.label.toLowerCase().includes(pickerSearch.toLowerCase()) || b.type.toLowerCase().includes(pickerSearch.toLowerCase()) || b.description.toLowerCase().includes(pickerSearch.toLowerCase()));
 
   return (
-    <div className={`${leftCollapsed ? 'w-0' : 'w-60'} flex-shrink-0 transition-all duration-200 relative`}>
+    <div className={`flex-shrink-0 transition-all duration-200 ${
+      leftCollapsed
+        ? 'w-0 relative'
+        // Below md the expanded panel is a fixed overlay (doesn't squeeze the
+        // iframe to negative width on phones); at md+ it stays inline as before.
+        : 'fixed inset-y-0 left-0 z-30 w-60 md:relative md:inset-y-auto'
+    }`}>
       {/* Collapse/expand toggle – vertically centered on panel edge */}
       <button
         onClick={() => setLeftCollapsed((v) => !v)}

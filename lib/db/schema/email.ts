@@ -62,6 +62,9 @@ export const emailCampaigns = pgTable('email_campaigns', {
   abTestSizePct: integer('ab_test_size_pct').default(10), // % of list to split between A/B before promoting
   abWinnerSubject: varchar('ab_winner_subject', { length: 255 }), // populated when winner is decided
   abDecidedAt: timestamp('ab_decided_at'), // when winner was selected and remainder dispatched
+  // Lightweight fork pointer — set by email_campaigns_fork. Points to
+  // email_campaigns.id of the campaign this row was duplicated from.
+  parentCampaignId: integer('parent_campaign_id'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

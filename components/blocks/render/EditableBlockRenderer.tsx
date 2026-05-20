@@ -83,6 +83,13 @@ export function EditableBlockRenderer({ content }: BlockRendererProps) {
         outline: 2px solid rgb(99, 102, 241);
         outline-offset: 2px;
       }
+      /* SelectableBlock's content wrappers set pointer-events:none on the
+         unselected state, which blocks single-click into html-render fields.
+         Re-enable pointer events for any element flagged contenteditable so
+         click-to-edit works without first having to select the block. */
+      [contenteditable="true"], img.sd-image-editable {
+        pointer-events: auto !important;
+      }
     `;
     document.head.appendChild(style);
     return () => style.remove();

@@ -24,6 +24,7 @@ const categoryIcon: Record<string, string> = {
   hosting: 'cloud',
   development: 'code',
   maintenance: 'build',
+  plugins: 'extension',
 };
 
 const emptyForm = {
@@ -165,6 +166,7 @@ export default function AdminPortalServicesPage() {
           <option value="hosting">Hosting (Railway White Label)</option>
           <option value="development">Development</option>
           <option value="maintenance">Maintenance</option>
+          <option value="plugins">Plugins</option>
         </select>
       </div>
       <div className="sm:col-span-2">

@@ -2,16 +2,30 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
-  products, productImages, productOptions, productOptionValues,
+  clients, clientMembers, clientWebsites, products, productImages, productOptions, productOptionValues,
   productVariants, bulkPricingRules,
 } from '@/lib/db/schema';
-import { and, eq, asc } from 'drizzle-orm';
-import { resolveClientSite } from '@/lib/portal-client';
+import { and, eq, asc, or } from 'drizzle-orm';
 
 type Params = { params: Promise<{ siteId: string; productId: string }> };
 
 async function resolveProduct(userId: number, siteId: string, productId: string) {
-  const site = await resolveClientSite(userId, parseInt(siteId));
+  const [site] = await db
+    .select({ site: clientWebsites })
+    .from(clientWebsites)
+    .innerJoin(clients, eq(clients.id, clientWebsites.clientId))
+    .leftJoin(
+      clientMembers,
+      and(eq(clientMembers.clientId, clients.id), eq(clientMembers.userId, userId)),
+    )
+    .where(
+      and(
+        eq(clientWebsites.id, parseInt(siteId)),
+        or(eq(clients.userId, userId), eq(clientMembers.userId, userId)),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows.map((row) => row.site));
   if (!site) return { site: null, product: null };
 
   const [product] = await db
@@ -41,7 +55,7 @@ export async function GET(_req: Request, { params }: Params) {
 
   // Fetch option values for each option
   const optionIds = options.map((o) => o.id);
-  let optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
+  const optionValuesMap: Record<number, typeof productOptionValues.$inferSelect[]> = {};
   if (optionIds.length > 0) {
     const allValues = await db
       .select()
@@ -99,6 +113,20 @@ export async function PUT(req: Request, { params }: Params) {
   if (!product || !site) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
+
+  // Reject negative monetary values (allow 0 for free items, null to clear).
+  for (const f of ['price', 'compareAtPrice', 'costPrice'] as const) {
+    if (body[f] !== undefined && body[f] !== null) {
+      const n = Number(body[f]);
+      if (Number.isFinite(n) && n < 0) {
+        return NextResponse.json(
+          { success: false, error: `${f} must be >= 0` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   const fields = [
@@ -114,7 +142,7 @@ export async function PUT(req: Request, { params }: Params) {
     if (body[f] !== undefined) updateData[f] = body[f] != null ? parseInt(String(body[f])) : null;
   }
 
-  const boolFields = ['trackInventory', 'featured'];
+  const boolFields = ['trackInventory', 'featured', 'isDesignable'];
   for (const f of boolFields) {
     if (body[f] !== undefined) updateData[f] = body[f];
   }

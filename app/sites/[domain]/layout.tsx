@@ -4,7 +4,21 @@ import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/c
 import { getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { siteTracking } from '@/lib/db/schema';
 import { SiteNavClient } from './SiteNavClient';
+import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
+
+// 1:1 with clientWebsites — null means the row hasn't been initialised yet.
+async function getTrackingConfigForWebsite(websiteId: number) {
+  const rows = await db
+    .select()
+    .from(siteTracking)
+    .where(eq(siteTracking.websiteId, websiteId))
+    .limit(1);
+  return rows[0] ?? null;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +91,28 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
     metadata.icons = { icon: [{ url: faviconUrl, sizes: 'any' }] };
   }
 
+  // Search-engine verification meta tags. We already short-circuited above for
+  // gated sites, so reaching this branch implies the site is publicly indexed
+  // — only then do verification tags carry any value.
+  const trackingConfig = await getTrackingConfigForWebsite(site.id);
+  if (trackingConfig && trackingConfig.enabled !== false) {
+    const otherVerification: Record<string, string> = {};
+    if (trackingConfig.bingVerification) {
+      otherVerification['msvalidate.01'] = trackingConfig.bingVerification;
+    }
+    if (trackingConfig.pinterestVerification) {
+      otherVerification['p:domain_verify'] = trackingConfig.pinterestVerification;
+    }
+    const hasGoogle = !!trackingConfig.gscVerification;
+    const hasOther = Object.keys(otherVerification).length > 0;
+    if (hasGoogle || hasOther) {
+      metadata.verification = {
+        ...(hasGoogle ? { google: trackingConfig.gscVerification as string } : {}),
+        ...(hasOther ? { other: otherVerification } : {}),
+      };
+    }
+  }
+
   return metadata;
 }
 
@@ -96,7 +132,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   if (
     sitePathname.includes('/nav-preview') ||
     sitePathname.startsWith('/pitch-deck') ||
-    sitePathname.startsWith('/slides')
+    sitePathname.startsWith('/slides') ||
+    sitePathname.startsWith('/designer')
   ) {
     return <>{children}</>;
   }
@@ -109,24 +146,44 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   const branding = await getBrandingByWebsiteId(site.id);
 
-  // Build link + button brand styles
+  // Tracking is suppressed on gated/in-development sites so unfinished URLs
+  // never reach GA / Meta / etc. Preview-unlock logic lives in
+  // [[...slug]]/page.tsx; mirroring it here would duplicate state.
+  const trackingConfig = site.publicAccess ? await getTrackingConfigForWebsite(site.id) : null;
+
+  // Build link + button brand styles.
+  // The h1-h6 rule wires up `--brand-heading-font` (set by lib/branding/css-vars
+  // via the site stylesheet) — without it, headings inherit the body font
+  // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
+    branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: "${branding.headingFont}", system-ui, sans-serif; }`,
     branding.linkColor && `a { color: ${branding.linkColor}; }`,
     branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
     branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
     branding.buttonStyle?.secondaryHoverBg && `.brand-btn-secondary:hover { background-color: ${branding.buttonStyle.secondaryHoverBg} !important; }`,
   ].filter(Boolean).join('\n');
 
-  // Google Fonts for branding fonts
+  // Google Fonts for branding fonts.
+  //
+  // We deliberately request the family WITHOUT a weight specifier. The
+  // explicit `:ital,wght@0,300;0,400;...;1,700` syntax fails silently for
+  // single-weight display fonts (Alfa Slab One, Bungee, Anton, Ultra, etc.) —
+  // when the API can't fulfill every requested weight it returns nothing for
+  // that family, and the font never loads. Requesting just `family=Name`
+  // returns every weight that font actually has (variable fonts return the
+  // full axis; single-weight fonts return 400). Browsers faux-bold / faux-
+  // italic as needed for any weight CSS the page actually uses.
   const fonts = [branding.headingFont, branding.bodyFont].filter(Boolean);
   const googleFontsUrl = fonts.length > 0
-    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700`).join('&')}&display=swap`
+    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}`).join('&')}&display=swap`
     : null;
 
   // Custom layout mode: blocks handle their own nav/footer/styling
   if (site.customLayout) {
     return (
       <>
+        <TrackingNoscriptBody config={trackingConfig} />
+        <TrackingScripts config={trackingConfig} />
         {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -163,6 +220,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
 
   return (
     <>
+      <TrackingNoscriptBody config={trackingConfig} />
+      <TrackingScripts config={trackingConfig} />
       {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

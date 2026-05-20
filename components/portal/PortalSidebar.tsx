@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import CompanySwitcher from './CompanySwitcher';
 import { buildPortalNavItems, type PortalNavChild, type PortalNavItem } from '@/lib/portal-nav';
+import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import { useAgencyChrome } from './AgencyChromeProvider';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -80,7 +81,14 @@ function activeExpandChain(items: NavChild[], pathname: string): string[] {
   return [];
 }
 
-export default function PortalSidebar() {
+interface PortalSidebarProps {
+  /** Plugin apps the active client is entitled to see. Threaded down from
+   *  the server-component `PortalShell` wrapper so the sidebar can render
+   *  the "Apps" group without an extra round-trip. */
+  apps?: UserAppNavMeta[];
+}
+
+export default function PortalSidebar({ apps }: PortalSidebarProps = {}) {
   const pathname = usePathname();
   const { brandName, brandLogoUrl } = useAgencyChrome();
   const [isOpen, setIsOpen] = useState(false);
@@ -138,16 +146,16 @@ export default function PortalSidebar() {
   // Accordion auto-expand: on route change, expand only the active chain
   // and collapse every other branch. Manual toggles below stay accordion-y.
   useEffect(() => {
-    const items = buildPortalNavItems(activeSiteId, activeSiteName);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps);
     const chain = activeExpandChain(items, pathname);
     const next: Record<string, boolean> = {};
     for (const h of chain) next[h] = true;
     setExpandedSections(next);
-  }, [pathname, activeSiteId, activeSiteName]);
+  }, [pathname, activeSiteId, activeSiteName, apps]);
 
   // Build final nav items with injected services
   const navItems: NavItem[] = (() => {
-    const items = buildPortalNavItems(activeSiteId, activeSiteName);
+    const items = buildPortalNavItems(activeSiteId, activeSiteName, apps);
     const serviceItems: NavItem[] = navServices
       .filter(svc => !EXCLUDED_SERVICES.has(svc.name) && !svc.name.startsWith('__'))
       .map(svc => ({ href: svc.href, label: svc.name, icon: svc.icon }));

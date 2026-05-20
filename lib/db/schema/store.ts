@@ -1,6 +1,6 @@
 // E-commerce: products, options/variants, inventory, carts, orders, customers, and store messaging.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, jsonb, uniqueIndex, index, numeric, uuid } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
@@ -31,6 +31,12 @@ export const storeSettings = pgTable('store_settings', {
   // Stripe Connect for payouts to the website owner
   stripeAccountId: varchar('stripe_account_id', { length: 255 }),
   stripeOnboardingComplete: boolean('stripe_onboarding_complete').default(false).notNull(),
+  // ─── Stripe mode: 'connect' (platform-managed via Stripe Connect) vs. 'byok' (tenant's own Stripe account) ───
+  stripeMode: varchar('stripe_mode', { length: 20 }).default('connect').notNull(), // 'connect' | 'byok'
+  stripeByokAllowed: boolean('stripe_byok_allowed').default(false).notNull(), // admin-gated; tenant cannot configure BYOK until SD admin flips this on
+  stripeSecretKeyEncrypted: text('stripe_secret_key_encrypted'), // AES-256-GCM ciphertext from lib/crypto/api-key.ts (sk_test_… / sk_live_…)
+  stripePublishableKey: varchar('stripe_publishable_key', { length: 255 }), // public key (pk_test_… / pk_live_…), plaintext
+  stripeWebhookSecretEncrypted: text('stripe_webhook_secret_encrypted'), // AES-256-GCM ciphertext of whsec_… endpoint signing secret
   payoutSchedule: varchar('payout_schedule', { length: 20 }).default('weekly'), // daily, weekly, monthly
   platformFeePercent: numeric('platform_fee_percent', { precision: 5, scale: 2 }).default('5.00'), // agency platform fee %
   // General settings
@@ -48,6 +54,19 @@ export const storeSettings = pgTable('store_settings', {
   supportEmail: varchar('support_email', { length: 255 }),
   returnPolicyUrl: varchar('return_policy_url', { length: 500 }),
   shippingPolicyUrl: varchar('shipping_policy_url', { length: 500 }),
+  // ─── Shipping provider (manual vs. EasyPost-backed live rates + labels) ───
+  shippingProvider: varchar('shipping_provider', { length: 20 }).default('manual').notNull(), // 'manual' | 'easypost'
+  easypostApiKeyEncrypted: text('easypost_api_key_encrypted'), // ciphertext from lib/crypto/api-key.ts
+  easypostMode: varchar('easypost_mode', { length: 10 }).default('test'), // 'test' | 'production'
+  easypostWebhookSecret: varchar('easypost_webhook_secret', { length: 255 }), // HMAC secret from EasyPost
+  shipFromAddress: jsonb('ship_from_address').$type<{
+    name?: string; company?: string; line1: string; line2?: string; city: string; state: string; postalCode: string; country: string; phone?: string;
+  }>(),
+  defaultParcelLengthIn: numeric('default_parcel_length_in', { precision: 8, scale: 2 }),
+  defaultParcelWidthIn: numeric('default_parcel_width_in', { precision: 8, scale: 2 }),
+  defaultParcelHeightIn: numeric('default_parcel_height_in', { precision: 8, scale: 2 }),
+  defaultParcelWeightOz: numeric('default_parcel_weight_oz', { precision: 8, scale: 2 }),
+  liveRatesFallback: boolean('live_rates_fallback').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -89,8 +108,12 @@ export const products = pgTable('products', {
   quantity: integer('quantity').default(0).notNull(),
   weight: numeric('weight', { precision: 10, scale: 2 }),
   weightUnit: varchar('weight_unit', { length: 5 }).default('g'),
+  lengthIn: numeric('length_in', { precision: 8, scale: 2 }),
+  widthIn: numeric('width_in', { precision: 8, scale: 2 }),
+  heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, active, archived
   featured: boolean('featured').default(false).notNull(),
+  isDesignable: boolean('is_designable').default(false).notNull(),
   seoTitle: varchar('seo_title', { length: 255 }),
   seoDescription: text('seo_description'),
   tags: json('tags').$type<string[]>().default([]),
@@ -99,6 +122,30 @@ export const products = pgTable('products', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   uniqueIndex('products_slug_website_idx').on(t.slug, t.websiteId),
+]);
+
+// Per-product design surface configuration — front/back/sleeve/etc.
+// Each surface has its own mockup image and print-area bounds.
+export const productDesignSurfaces = pgTable('product_design_surfaces', {
+  id: serial('id').primaryKey(),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 80 }).notNull(),                  // "Front", "Back", "Left Sleeve"
+  slug: varchar('slug', { length: 80 }).notNull(),                  // "front", "back", "left-sleeve"
+  displayOrder: integer('display_order').default(0).notNull(),
+  mockupImage: varchar('mockup_image', { length: 500 }).notNull(),  // S3 url to base product image
+  canvasWidth: integer('canvas_width').default(800).notNull(),
+  canvasHeight: integer('canvas_height').default(600).notNull(),
+  // Print area in px relative to mockup image (the region a customer can place art into)
+  printAreaX: integer('print_area_x').default(100).notNull(),
+  printAreaY: integer('print_area_y').default(100).notNull(),
+  printAreaWidth: integer('print_area_width').default(600).notNull(),
+  printAreaHeight: integer('print_area_height').default(400).notNull(),
+  printDpi: integer('print_dpi').default(300).notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('product_design_surfaces_product_slug_idx').on(t.productId, t.slug),
 ]);
 
 export const productImages = pgTable('product_images', {
@@ -138,6 +185,9 @@ export const productVariants = pgTable('product_variants', {
   costPrice: integer('cost_price'),
   quantity: integer('quantity').default(0).notNull(),
   weight: numeric('weight', { precision: 10, scale: 2 }),
+  lengthIn: numeric('length_in', { precision: 8, scale: 2 }),
+  widthIn: numeric('width_in', { precision: 8, scale: 2 }),
+  heightIn: numeric('height_in', { precision: 8, scale: 2 }),
   image: varchar('image', { length: 500 }),
   optionValues: json('option_values').$type<{ optionId: number; valueId: number }[]>().default([]),
   active: boolean('active').default(true).notNull(),
@@ -177,6 +227,11 @@ export const shippingRates = pgTable('shipping_rates', {
   freeAbove: integer('free_above'),
   minDeliveryDays: integer('min_delivery_days'),
   maxDeliveryDays: integer('max_delivery_days'),
+  // Provider-aware columns — let a single zone mix manual fixed rates and EasyPost live-rate service filters.
+  provider: varchar('provider', { length: 20 }).default('manual').notNull(), // 'manual' | 'easypost'
+  carrierCode: varchar('carrier_code', { length: 30 }), // EasyPost carrier account code: 'USPS','UPSDAP','FedExDefault','DHLExpress'
+  serviceCode: varchar('service_code', { length: 60 }), // EasyPost service code: 'Priority','Ground','Express'
+  liveRateOnly: boolean('live_rate_only').default(false).notNull(), // true => row is a service filter, not a fixed rate
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -198,6 +253,7 @@ export const cartItems = pgTable('cart_items', {
   cartId: integer('cart_id').notNull().references(() => carts.id, { onDelete: 'cascade' }),
   productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
   variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  designId: uuid('design_id'), // FK added at runtime to avoid circular ref with designs table below
   quantity: integer('quantity').default(1).notNull(),
   unitPrice: integer('unit_price').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -231,6 +287,14 @@ export const orders = pgTable('orders', {
   shippingMethod: varchar('shipping_method', { length: 255 }),
   trackingNumber: varchar('tracking_number', { length: 255 }),
   trackingUrl: varchar('tracking_url', { length: 500 }),
+  // ─── EasyPost label + tracking (nullable; populated when shippingProvider='easypost') ───
+  carrier: varchar('carrier', { length: 50 }),
+  easypostShipmentId: varchar('easypost_shipment_id', { length: 255 }),
+  labelUrl: varchar('label_url', { length: 500 }),
+  labelCostCents: integer('label_cost_cents'),
+  labelPurchasedAt: timestamp('label_purchased_at'),
+  latestTrackingStatus: varchar('latest_tracking_status', { length: 50 }), // pre_transit|in_transit|out_for_delivery|delivered|return_to_sender|failure|cancelled|error|unknown
+  latestTrackingEventAt: timestamp('latest_tracking_event_at'),
   shippedAt: timestamp('shipped_at'),
   deliveredAt: timestamp('delivered_at'),
   customerNote: text('customer_note'),
@@ -247,6 +311,10 @@ export const orderItems = pgTable('order_items', {
   orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   productId: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
   variantId: integer('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+  designId: uuid('design_id'), // FK added at runtime to designs.id
+  // Frozen snapshot of layersBySurface + canvasSize at checkout, so deleting the design doesn't break fulfillment
+  designSnapshot: jsonb('design_snapshot'),
+  printReadyUrl: varchar('print_ready_url', { length: 500 }), // hi-res render, populated by Stripe webhook
   productName: varchar('product_name', { length: 255 }).notNull(),
   variantName: varchar('variant_name', { length: 255 }),
   sku: varchar('sku', { length: 100 }),
@@ -381,6 +449,71 @@ export const storeProductReviews = pgTable('store_product_reviews', {
   status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, approved, rejected
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+// ─── PRODUCT DESIGNER ───────────────────────────────────────────────────────
+
+// Saved customer designs — one per "customize this product" session.
+// Owned by either a logged-in storeCustomer (customerId) or a guest session (sessionId).
+export const designs = pgTable('designs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  websiteId: integer('website_id').notNull().references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  customerId: integer('customer_id'),                  // FK to storeCustomers, nullable for guests
+  sessionId: varchar('session_id', { length: 255 }),   // storefront guest session, nullable for logged-in
+  name: varchar('name', { length: 255 }).notNull().default('Untitled design'),
+  // layersBySurface is keyed by productDesignSurfaces.slug:
+  //   { "front": LayerData[], "back": LayerData[], ... }
+  // LayerData mirrors the productDesigner LayerData type (id, type, name, transform, data, zIndex)
+  layersBySurface: jsonb('layers_by_surface').$type<Record<string, unknown[]>>().default({}).notNull(),
+  canvasSize: jsonb('canvas_size').$type<{ width: number; height: number; dpi: number }>().default({ width: 800, height: 600, dpi: 72 }).notNull(),
+  thumbnailUrl: varchar('thumbnail_url', { length: 500 }),
+  renderedUrl: varchar('rendered_url', { length: 500 }),       // hi-res composite, populated by webhook
+  status: varchar('status', { length: 20 }).default('draft').notNull(), // draft, finalized, rendered
+  /** When true this row is a site-wide reusable template, not a customer design. */
+  isTemplate: boolean('is_template').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('designs_website_idx').on(t.websiteId),
+  index('designs_customer_idx').on(t.customerId),
+  index('designs_session_idx').on(t.sessionId),
+  index('designs_product_idx').on(t.productId),
+  index('designs_template_idx').on(t.isTemplate),
+]);
+
+// User-uploaded image assets used inside a design (separate from the rendered output).
+// Tracked so we can clean up S3 when a design is deleted.
+export const designAssets = pgTable('design_assets', {
+  id: serial('id').primaryKey(),
+  designId: uuid('design_id').notNull().references(() => designs.id, { onDelete: 'cascade' }),
+  url: varchar('url', { length: 500 }).notNull(),
+  storedFilename: varchar('stored_filename', { length: 255 }),
+  originalFilename: varchar('original_filename', { length: 255 }),
+  mimeType: varchar('mime_type', { length: 80 }),
+  width: integer('width'),
+  height: integer('height'),
+  fileSize: integer('file_size'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ─── EASYPOST WEBHOOK INGESTION ─────────────────────────────────────────────
+
+// Raw EasyPost webhook events captured for idempotency + audit. eventId is the
+// EasyPost-issued event.id; duplicate deliveries hit the unique index and are no-op'd.
+export const easypostEvents = pgTable('easypost_events', {
+  id: serial('id').primaryKey(),
+  websiteId: integer('website_id').references(() => clientWebsites.id, { onDelete: 'cascade' }),
+  eventId: varchar('event_id', { length: 255 }).notNull(),  // EasyPost event.id, for idempotency
+  eventType: varchar('event_type', { length: 100 }).notNull(),  // tracker.created, tracker.updated, etc.
+  shipmentId: varchar('shipment_id', { length: 255 }),
+  trackerId: varchar('tracker_id', { length: 255 }),
+  orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
+  payload: jsonb('payload').notNull(),
+  processedAt: timestamp('processed_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('easypost_events_event_id_idx').on(t.eventId),
+  index('easypost_events_order_id_idx').on(t.orderId),
+]);
 
 // ─── NAVIGATION & BRANDING ──────────────────────────────────────────────────
 

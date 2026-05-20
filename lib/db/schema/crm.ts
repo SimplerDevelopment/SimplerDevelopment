@@ -341,6 +341,8 @@ export const NOTIFICATION_TYPES = [
   'task_due_soon',
   'ticket_assigned',
   'ticket_status_changed',
+  'ticket_sla_first_response_breach',
+  'ticket_sla_resolution_breach',
   'automation_failing',
   'survey_zero_responses',
   'booking_hold_stuck',

@@ -43,7 +43,7 @@ export default function PortalCampaignsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Link href="/portal/email" className="text-muted-foreground hover:text-foreground">
             <span className="material-icons text-base">arrow_back</span>
@@ -72,7 +72,8 @@ export default function PortalCampaignsPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-muted/40">
                 <th className="text-left px-5 py-3 font-medium text-muted-foreground">Campaign</th>
@@ -120,6 +121,7 @@ export default function PortalCampaignsPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -33,6 +33,17 @@ interface HistoryEntry {
   createdAt: string;
 }
 
+type TrackingStatus =
+  | 'pre_transit'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'return_to_sender'
+  | 'failure'
+  | 'cancelled'
+  | 'error'
+  | 'unknown';
+
 interface Order {
   id: number;
   orderNumber: string;
@@ -42,10 +53,22 @@ interface Order {
   shipping: number;
   total: number;
   createdAt: string;
-  trackingNumber?: string;
-  trackingUrl?: string;
+  carrier?: string | null;
+  shippingMethod?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  latestTrackingStatus?: TrackingStatus | string | null;
+  latestTrackingEventAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
   shippingAddress?: Address;
   billingAddress?: Address;
+}
+
+interface TrackingEvent {
+  processedAt: string | Date;
+  eventType: string;
+  payload: unknown;
 }
 
 const statusColor: Record<string, string> = {
@@ -66,11 +89,62 @@ const timelineIcon: Record<string, string> = {
 
 const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+// Map EasyPost tracking status → { label, pill class }
+const trackingStatusMeta: Record<string, { label: string; pill: string }> = {
+  pre_transit: { label: 'Label created', pill: 'bg-gray-100 text-gray-700' },
+  in_transit: { label: 'In transit', pill: 'bg-blue-100 text-blue-800' },
+  out_for_delivery: { label: 'Out for delivery', pill: 'bg-blue-100 text-blue-800' },
+  delivered: { label: 'Delivered', pill: 'bg-green-100 text-green-800' },
+  return_to_sender: { label: 'Returned', pill: 'bg-orange-100 text-orange-800' },
+  failure: { label: 'Issue', pill: 'bg-red-100 text-red-800' },
+  error: { label: 'Issue', pill: 'bg-red-100 text-red-800' },
+  cancelled: { label: 'Cancelled', pill: 'bg-gray-100 text-gray-700' },
+  unknown: { label: 'Updating', pill: 'bg-gray-100 text-gray-700' },
+};
+
+function getTrackingStatusMeta(status: string | null | undefined, hasTracking: boolean) {
+  if (status && trackingStatusMeta[status]) return trackingStatusMeta[status];
+  // Fallback: if a label was purchased (we have a tracking number) but no scan yet, show pre_transit-ish state
+  if (hasTracking) return trackingStatusMeta.pre_transit;
+  return trackingStatusMeta.unknown;
+}
+
+function relativeTime(input: string | Date | null | undefined): string {
+  if (!input) return '';
+  const date = input instanceof Date ? input : new Date(input);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 0) return 'just now';
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months === 1 ? '' : 's'} ago`;
+  const years = Math.floor(months / 12);
+  return `${years} year${years === 1 ? '' : 's'} ago`;
+}
+
+// Pull a human-readable status from a webhook payload, falling back to "—".
+function eventStatusFromPayload(payload: unknown): string {
+  if (payload && typeof payload === 'object') {
+    const result = (payload as { result?: unknown }).result;
+    if (result && typeof result === 'object') {
+      const status = (result as { status?: unknown }).status;
+      if (typeof status === 'string' && status.length > 0) return status;
+    }
+  }
+  return '—';
+}
+
 export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: number; domain: string; orderNumber: string }) {
   const { token } = useCustomerAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,6 +158,7 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
           setOrder(res.data.order);
           setItems(res.data.items ?? []);
           setHistory(res.data.history ?? []);
+          setTrackingEvents(res.data.trackingEvents ?? []);
         }
       })
       .catch(() => {})
@@ -141,25 +216,102 @@ export function OrderDetailClient({ siteId, domain, orderNumber }: { siteId: num
                   </span>
                 </div>
 
-                {/* Tracking */}
-                {order.trackingNumber && (
-                  <div className="border border-gray-200 rounded-xl p-4 flex items-center gap-3">
-                    <span className="material-icons text-gray-400" style={{ fontSize: '20px' }}>local_shipping</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-500">Tracking Number</p>
-                      <p className="text-sm font-medium text-gray-900">{order.trackingNumber}</p>
+                {/* Shipment tracking */}
+                {(order.carrier || order.trackingNumber || order.latestTrackingStatus) && (() => {
+                  const hasTracking = Boolean(order.trackingNumber);
+                  const statusMeta = getTrackingStatusMeta(order.latestTrackingStatus, hasTracking);
+                  return (
+                    <div className="border border-gray-200 rounded-xl p-5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="material-icons text-gray-400" style={{ fontSize: '20px' }}>local_shipping</span>
+                        <h2 className="text-sm font-semibold text-gray-900">Shipment</h2>
+                        <span className={`ml-auto text-xs px-2.5 py-1 rounded-full font-medium ${statusMeta.pill}`}>
+                          {statusMeta.label}
+                        </span>
+                      </div>
+
+                      {(order.carrier || order.shippingMethod) && (
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
+                          {order.carrier && (
+                            <div>
+                              <span className="text-gray-500">Carrier: </span>
+                              <span className="font-medium">{order.carrier}</span>
+                            </div>
+                          )}
+                          {order.shippingMethod && (
+                            <div>
+                              <span className="text-gray-500">Service: </span>
+                              <span className="font-medium">{order.shippingMethod}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {order.trackingNumber && (
+                        <div className="text-sm">
+                          <span className="text-gray-500">Tracking #: </span>
+                          {order.trackingUrl ? (
+                            <a
+                              href={order.trackingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-gray-900 hover:underline inline-flex items-center gap-1"
+                            >
+                              {order.trackingNumber}
+                              <span className="material-icons" style={{ fontSize: '14px' }}>open_in_new</span>
+                            </a>
+                          ) : (
+                            <span className="font-medium text-gray-900">{order.trackingNumber}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {order.latestTrackingEventAt ? (
+                        <p className="text-xs text-gray-500">
+                          Last update: {relativeTime(order.latestTrackingEventAt)}
+                        </p>
+                      ) : (
+                        hasTracking && (
+                          <p className="text-xs text-gray-500">Awaiting carrier scan</p>
+                        )
+                      )}
+
+                      {order.trackingUrl && (
+                        <a
+                          href={order.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-gray-900 hover:underline inline-flex items-center gap-1"
+                        >
+                          View full tracking
+                          <span className="material-icons" style={{ fontSize: '16px' }}>open_in_new</span>
+                        </a>
+                      )}
                     </div>
-                    {order.trackingUrl && (
-                      <a
-                        href={order.trackingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-gray-900 hover:underline flex items-center gap-1"
-                      >
-                        Track Package
-                        <span className="material-icons" style={{ fontSize: '16px' }}>open_in_new</span>
-                      </a>
-                    )}
+                  );
+                })()}
+
+                {/* Tracking history */}
+                {trackingEvents.length > 0 && (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+                      <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>history</span>
+                      <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking history</h2>
+                    </div>
+                    <div className="divide-y divide-gray-200">
+                      {trackingEvents.map((ev, i) => {
+                        const status = eventStatusFromPayload(ev.payload);
+                        return (
+                          <div key={i} className="flex items-baseline gap-3 px-5 py-3 text-sm">
+                            <span className="text-xs text-gray-400 whitespace-nowrap min-w-[7.5rem]">
+                              {new Date(ev.processedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                            <span className="text-gray-900 font-medium">{ev.eventType}</span>
+                            <span className="text-gray-500">— {status}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

@@ -46,10 +46,56 @@ export async function POST(req: Request, { params }: Params) {
   if (!zone) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
   const body = await req.json();
-  const { name, rateType, price, weightTiers, freeAbove, minDeliveryDays, maxDeliveryDays, active } = body;
+  const {
+    name,
+    rateType,
+    price,
+    weightTiers,
+    freeAbove,
+    minDeliveryDays,
+    maxDeliveryDays,
+    active,
+    provider,
+    carrierCode,
+    serviceCode,
+    liveRateOnly,
+  } = body;
 
   if (!name) {
     return NextResponse.json({ success: false, message: 'name is required' }, { status: 400 });
+  }
+
+  const resolvedProvider: 'manual' | 'easypost' = provider == null ? 'manual' : provider;
+  if (resolvedProvider !== 'manual' && resolvedProvider !== 'easypost') {
+    return NextResponse.json(
+      { success: false, message: "provider must be 'manual' or 'easypost'" },
+      { status: 400 },
+    );
+  }
+
+  const isLive = liveRateOnly === true;
+
+  let resolvedRateType: string;
+  let resolvedPrice: number;
+
+  if (isLive) {
+    // Service-filter row for live provider — bypass manual rateType enum, force price=0.
+    resolvedRateType = rateType || 'live';
+    resolvedPrice = 0;
+  } else {
+    const allowed = ['flat', 'weight_based', 'price_based', 'free'];
+    resolvedRateType = rateType || 'flat';
+    if (!allowed.includes(resolvedRateType)) {
+      return NextResponse.json(
+        { success: false, message: `rateType must be one of ${allowed.join(', ')}` },
+        { status: 400 },
+      );
+    }
+    const priceNum = price != null ? parseInt(String(price)) : 0;
+    if (isNaN(priceNum) || priceNum < 0) {
+      return NextResponse.json({ success: false, message: 'price must be >= 0' }, { status: 400 });
+    }
+    resolvedPrice = priceNum;
   }
 
   const [rate] = await db
@@ -57,13 +103,17 @@ export async function POST(req: Request, { params }: Params) {
     .values({
       zoneId: zone.id,
       name,
-      rateType: rateType || 'flat',
-      price: price != null ? parseInt(String(price)) : 0,
+      rateType: resolvedRateType,
+      price: resolvedPrice,
       weightTiers: weightTiers || null,
-      freeAbove: freeAbove != null ? parseInt(String(freeAbove)) : null,
+      freeAbove: !isLive && freeAbove != null ? parseInt(String(freeAbove)) : null,
       minDeliveryDays: minDeliveryDays != null ? parseInt(String(minDeliveryDays)) : null,
       maxDeliveryDays: maxDeliveryDays != null ? parseInt(String(maxDeliveryDays)) : null,
       active: active ?? true,
+      provider: resolvedProvider,
+      carrierCode: carrierCode == null || carrierCode === '' ? null : String(carrierCode),
+      serviceCode: serviceCode == null || serviceCode === '' ? null : String(serviceCode),
+      liveRateOnly: isLive,
     })
     .returning();
 

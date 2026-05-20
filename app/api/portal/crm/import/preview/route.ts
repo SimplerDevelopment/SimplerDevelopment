@@ -51,7 +51,15 @@ export async function POST(req: Request) {
       { status: 404 }
     );
 
-  const formData = await req.formData() as unknown as globalThis.FormData;
+  let formData: globalThis.FormData;
+  try {
+    formData = await req.formData() as unknown as globalThis.FormData;
+  } catch {
+    return NextResponse.json(
+      { success: false, message: 'File is required' },
+      { status: 400 }
+    );
+  }
   const file = formData.get('file') as File | null;
 
   if (!file) {

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import MediaUploadModal from '@/components/admin/MediaUploadModal';
+import DesignSurfacesEditor from '@/components/portal/store/DesignSurfacesEditor';
 
 interface ProductImage {
   id?: number;
@@ -41,6 +42,8 @@ interface Category {
   name: string;
 }
 
+type ProductDesignMode = 'standard' | 'store' | 'customer';
+
 interface ProductForm {
   name: string;
   slug: string;
@@ -48,6 +51,9 @@ interface ProductForm {
   description: string;
   status: string;
   featured: boolean;
+  isDesignable: boolean;
+  designMode: ProductDesignMode;
+  metadata: Record<string, string>;
   priceCents: number;
   compareAtPriceCents: number;
   costPriceCents: number;
@@ -71,10 +77,6 @@ function generateSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-function formatMoney(cents: number) {
-  return '$' + (cents / 100).toFixed(2);
-}
-
 function centsToDollars(cents: number) {
   return cents ? (cents / 100).toFixed(2) : '';
 }
@@ -84,6 +86,109 @@ function dollarsToCents(dollars: string) {
   return isNaN(num) ? 0 : Math.round(num * 100);
 }
 
+function moneyToCents(value: unknown) {
+  if (value == null || value === '') return 0;
+  const num = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(num) ? Math.round(num) : 0;
+}
+
+function normalizeOptionValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const row = value as { value?: unknown; label?: unknown };
+    if (typeof row.value === 'string') return row.value;
+    if (typeof row.label === 'string') return row.label;
+  }
+  return String(value ?? '');
+}
+
+function normalizeProductImage(img: {
+  id?: number;
+  url: string;
+  alt?: string | null;
+  altText?: string | null;
+  order?: number;
+  position?: number;
+}, index: number): ProductImage {
+  return {
+    id: img.id,
+    url: img.url,
+    altText: img.altText ?? img.alt ?? '',
+    position: img.position ?? img.order ?? index,
+  };
+}
+
+function normalizeProductOption(opt: {
+  id?: number;
+  name?: string | null;
+  values?: unknown[];
+}): ProductOption {
+  return {
+    id: opt.id,
+    name: opt.name ?? '',
+    values: (opt.values ?? []).map(normalizeOptionValue).filter(Boolean),
+  };
+}
+
+function normalizeVariant(variant: {
+  id?: number;
+  name?: string | null;
+  sku?: string | null;
+  price?: unknown;
+  priceCents?: unknown;
+  quantity?: number | null;
+  active?: boolean | null;
+  options?: Record<string, string> | null;
+}): ProductVariant {
+  return {
+    id: variant.id,
+    name: variant.name ?? '',
+    sku: variant.sku ?? '',
+    priceCents: moneyToCents(variant.priceCents ?? variant.price),
+    quantity: variant.quantity ?? 0,
+    active: variant.active ?? true,
+    options: variant.options ?? {},
+  };
+}
+
+function normalizeBulkRule(rule: {
+  id?: number;
+  minQty?: number;
+  minQuantity?: number;
+  maxQty?: number | null;
+  maxQuantity?: number | null;
+  type?: 'fixed' | 'percent_off';
+  amount?: number | string | null;
+}): BulkPricingRule {
+  return {
+    id: rule.id,
+    minQty: rule.minQty ?? rule.minQuantity ?? 1,
+    maxQty: rule.maxQty ?? rule.maxQuantity ?? null,
+    type: rule.type ?? 'fixed',
+    amount: typeof rule.amount === 'string' ? parseFloat(rule.amount) || 0 : rule.amount ?? 0,
+  };
+}
+
+function normalizeMetadata(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (val != null) out[key] = String(val);
+  }
+  return out;
+}
+
+function resolveDesignMode(product: { isDesignable?: boolean; metadata?: unknown }): ProductDesignMode {
+  const metadata = normalizeMetadata(product.metadata);
+  const raw = metadata.productDesignMode;
+  if (raw === 'standard' || raw === 'store' || raw === 'customer') return raw;
+  if (product.isDesignable) return 'customer';
+  if (metadata.magamommyDesignId || metadata.magamommyLifestyleHeroUrl || metadata.storeDesignId) {
+    return 'store';
+  }
+  return 'standard';
+}
+
 const defaultForm: ProductForm = {
   name: '',
   slug: '',
@@ -91,6 +196,9 @@ const defaultForm: ProductForm = {
   description: '',
   status: 'draft',
   featured: false,
+  isDesignable: false,
+  designMode: 'standard',
+  metadata: {},
   priceCents: 0,
   compareAtPriceCents: 0,
   costPriceCents: 0,
@@ -125,6 +233,7 @@ export default function ProductEditPage() {
   const [showSeo, setShowSeo] = useState(false);
   const [showVariants, setShowVariants] = useState(false);
   const [showBulkPricing, setShowBulkPricing] = useState(false);
+  const [showCustomization, setShowCustomization] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showMediaUpload, setShowMediaUpload] = useState(false);
   const [mediaItems, setMediaItems] = useState<{ id: number; filename: string; url: string; mimeType: string; alt?: string | null }[]>([]);
@@ -143,12 +252,13 @@ export default function ProductEditPage() {
 
   useEffect(() => {
     if (isNew) return;
-    setLoading(true);
     fetch(`${base}/products/${productId}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.data) {
           const p = data.data;
+          const metadata = normalizeMetadata(p.metadata);
+          const designMode = resolveDesignMode(p);
           setForm({
             name: p.name || '',
             slug: p.slug || '',
@@ -156,9 +266,12 @@ export default function ProductEditPage() {
             description: p.description || '',
             status: p.status || 'draft',
             featured: p.featured || false,
-            priceCents: p.priceCents || 0,
-            compareAtPriceCents: p.compareAtPriceCents || 0,
-            costPriceCents: p.costPriceCents || 0,
+            isDesignable: designMode === 'customer',
+            designMode,
+            metadata,
+            priceCents: moneyToCents(p.priceCents ?? p.price),
+            compareAtPriceCents: moneyToCents(p.compareAtPriceCents ?? p.compareAtPrice),
+            costPriceCents: moneyToCents(p.costPriceCents ?? p.costPrice),
             sku: p.sku || '',
             barcode: p.barcode || '',
             trackInventory: p.trackInventory || false,
@@ -169,14 +282,15 @@ export default function ProductEditPage() {
             tags: (p.tags || []).join(', '),
             seoTitle: p.seoTitle || '',
             seoDescription: p.seoDescription || '',
-            images: p.images || [],
-            options: p.options || [],
-            variants: p.variants || [],
-            bulkPricing: p.bulkPricing || [],
+            images: (p.images || []).map(normalizeProductImage),
+            options: (p.options || []).map(normalizeProductOption),
+            variants: (p.variants || []).map(normalizeVariant),
+            bulkPricing: (p.bulkPricing || p.bulkPricingRules || []).map(normalizeBulkRule),
           });
           if (p.seoTitle || p.seoDescription) setShowSeo(true);
           if (p.options?.length || p.variants?.length) setShowVariants(true);
           if (p.bulkPricing?.length) setShowBulkPricing(true);
+          if (designMode !== 'standard') setShowCustomization(true);
         }
       })
       .catch(() => {})
@@ -189,6 +303,30 @@ export default function ProductEditPage() {
     setSuccess('');
   };
 
+  const setDesignMode = async (mode: ProductDesignMode) => {
+    const metadata = { ...form.metadata, productDesignMode: mode };
+    const isDesignable = mode === 'customer';
+    setForm((prev) => ({
+      ...prev,
+      designMode: mode,
+      isDesignable,
+      metadata,
+    }));
+    setError('');
+    setSuccess('');
+    if (!isNew) {
+      try {
+        await fetch(`${base}/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isDesignable, metadata }),
+        });
+      } catch {
+        // Non-fatal. A later full save will surface any persistent issue.
+      }
+    }
+  };
+
   const handleNameChange = (name: string) => {
     setForm((prev) => ({
       ...prev,
@@ -199,7 +337,7 @@ export default function ProductEditPage() {
     setSuccess('');
   };
 
-  const fetchMedia = async (searchTerm?: string) => {
+  const fetchMedia = useCallback(async (searchTerm?: string) => {
     setMediaLoading(true);
     const params = new URLSearchParams({ limit: '50', mimeType: 'image' });
     if (searchTerm) params.append('search', searchTerm);
@@ -209,11 +347,13 @@ export default function ProductEditPage() {
       if (data.success) setMediaItems(data.data || []);
     } catch { /* ignore */ }
     setMediaLoading(false);
-  };
+  }, [mediaEndpoint]);
 
   useEffect(() => {
-    if (showMediaPicker) fetchMedia(mediaSearch);
-  }, [showMediaPicker, mediaSearch]);
+    if (showMediaPicker) {
+      void Promise.resolve().then(() => fetchMedia(mediaSearch));
+    }
+  }, [showMediaPicker, mediaSearch, fetchMedia]);
 
   const addImageFromMedia = (url: string) => {
     const alreadyAdded = form.images.some(img => img.url === url);
@@ -311,15 +451,25 @@ export default function ProductEditPage() {
 
     const payload = {
       ...form,
-      priceCents: form.priceCents,
-      compareAtPriceCents: form.compareAtPriceCents || null,
-      costPriceCents: form.costPriceCents || null,
+      price: form.priceCents,
+      compareAtPrice: form.compareAtPriceCents || null,
+      costPrice: form.costPriceCents || null,
       categoryId: form.categoryId ? parseInt(form.categoryId) : null,
       tags: form.tags
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
       weight: form.weight ? parseFloat(form.weight) : null,
+      images: form.images.map((img, idx) => ({
+        url: img.url,
+        alt: img.altText || null,
+        order: idx,
+      })),
+      isDesignable: form.designMode === 'customer',
+      metadata: {
+        ...form.metadata,
+        productDesignMode: form.designMode,
+      },
     };
 
     try {
@@ -998,6 +1148,110 @@ export default function ProductEditPage() {
           </div>
         )}
       </div>
+
+      {/* Customization (collapsible) — store-authored vs customer-authored design modes */}
+      {!isNew && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCustomization(!showCustomization)}
+            className="w-full px-6 py-4 flex items-center justify-between text-foreground hover:bg-muted/20 transition-colors"
+          >
+            <span className="font-semibold flex items-center gap-2">
+              <span className="material-icons text-lg text-muted-foreground">brush</span>
+              Customization
+            </span>
+            <span className="material-icons text-muted-foreground">{showCustomization ? 'expand_less' : 'expand_more'}</span>
+          </button>
+          {showCustomization && (
+            <div className="px-6 pb-6 space-y-4">
+              <div className="space-y-3">
+                <label className={labelClass}>Product design type</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDesignMode('standard')}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      form.designMode === 'standard'
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
+                    }`}
+                  >
+                    <span className="material-icons text-lg block mb-1">inventory_2</span>
+                    <span className="block text-sm font-medium">Standard product</span>
+                    <span className="block text-xs mt-1">Sold as-is using product photos.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDesignMode('store')}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      form.designMode === 'store'
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
+                    }`}
+                  >
+                    <span className="material-icons text-lg block mb-1">brush</span>
+                    <span className="block text-sm font-medium">Store-designed</span>
+                    <span className="block text-xs mt-1">The store owns the artwork; customers buy the finished design.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDesignMode('customer')}
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      form.designMode === 'customer'
+                        ? 'border-primary bg-primary/10 text-foreground'
+                        : 'border-border bg-background hover:bg-muted/30 text-muted-foreground'
+                    }`}
+                  >
+                    <span className="material-icons text-lg block mb-1">edit</span>
+                    <span className="block text-sm font-medium">Customer-customizable</span>
+                    <span className="block text-xs mt-1">Customers see the public designer and create their own version.</span>
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Store-designed products can still use design/template records and rendered product images, but only customer-customizable products expose the storefront Customize button.
+                </p>
+              </div>
+              {form.designMode !== 'standard' && (
+                <div className="pt-2 border-t border-border space-y-4">
+                  {/* Open in Designer — store-designed products only. Customers
+                      can't reach the canvas (the public route redirects to
+                      /shop), but staff with site access can edit the saved
+                      design via /sites/<domain>/designer/<slug>?staff=1.
+                      Routed through the portal page so we don't expose the
+                      ?staff=1 link directly in customer-facing UI. */}
+                  {form.designMode === 'store' && (
+                    <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <span className="material-icons text-primary">design_services</span>
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">Edit this product's design</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Opens the same canvas editor customers use, in staff mode — load the saved layers, tweak them, save back to the same design row. Skips add-to-cart.
+                          </div>
+                        </div>
+                      </div>
+                      <a
+                        href={`/portal/websites/${siteId}/store/products/${productId}/designer`}
+                        target="_blank"
+                        rel="noopener"
+                        className="shrink-0 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <span className="material-icons text-base">open_in_new</span>
+                        Open in Designer
+                      </a>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Each surface (front/back/sleeve…) defines the printable area. Customer-customizable products use these in the public designer; store-designed products use them for store-authored templates and fulfillment.
+                  </p>
+                  <DesignSurfacesEditor productId={parseInt(productId)} siteId={siteId} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bulk Pricing (collapsible) */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">

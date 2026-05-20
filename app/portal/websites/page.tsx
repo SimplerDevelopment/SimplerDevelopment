@@ -100,14 +100,14 @@ export default async function PortalCmsPage({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {websites.map(site => {
               const total = countMap[site.id] || 0;
               return (
                 <Link
                   key={site.id}
                   href={`/portal/websites/${site.id}`}
-                  className="group bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all"
+                  className="group min-w-0 bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
@@ -156,7 +156,7 @@ export default async function PortalCmsPage({
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{site.description}</p>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground border-t border-border pt-3">
                     <div className="flex items-center gap-1">
                       <span className="material-icons text-sm">article</span>
                       <span>{total} {total === 1 ? 'page' : 'pages'}</span>

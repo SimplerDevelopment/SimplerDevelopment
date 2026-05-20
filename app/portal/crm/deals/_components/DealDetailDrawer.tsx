@@ -326,7 +326,7 @@ export default function DealDetailDrawer({
       <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-card border-l border-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between flex-wrap gap-3 shrink-0">
           <h2 className="text-lg font-semibold text-foreground truncate">{deal.title}</h2>
           <div className="flex items-center gap-2">
             <button

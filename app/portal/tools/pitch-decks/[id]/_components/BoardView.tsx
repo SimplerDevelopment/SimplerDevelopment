@@ -1,6 +1,7 @@
 /** Full-screen board view — slide thumbnails grouped by main sequence + path groups, with drag-to-reorder. */
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   DndContext, closestCenter, useSensor, useSensors,
   KeyboardSensor, MouseSensor, TouchSensor, type DragEndEvent,
@@ -43,18 +44,37 @@ export function BoardView(props: BoardViewProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Cap the rendered column count to what fits given viewport width. Cards are
+  // 16/9 aspect — below ~140px wide they become unreadable. boardColumns is the
+  // user's preference; we honor it on desktop but clamp on phone/tablet so the
+  // board stays usable when summoned at narrow widths.
+  const [effectiveColumns, setEffectiveColumns] = useState(boardColumns);
+  useEffect(() => {
+    function recompute() {
+      const w = window.innerWidth;
+      const cardMin = 140;
+      const padding = 48;
+      const maxCols = Math.max(1, Math.floor((w - padding) / cardMin));
+      setEffectiveColumns(Math.min(boardColumns, maxCols));
+    }
+    recompute();
+    window.addEventListener('resize', recompute);
+    return () => window.removeEventListener('resize', recompute);
+  }, [boardColumns]);
+
   const mainSlides = slides.map((s, i) => ({ slide: s, idx: i })).filter(({ slide }) => !slide.pathGroup);
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-auto">
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="material-icons text-muted-foreground">grid_view</span>
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className="material-icons text-muted-foreground shrink-0">grid_view</span>
           <h2 className="text-sm font-semibold text-foreground">All Slides</h2>
-          <span className="text-xs text-muted-foreground">{slides.length} slides</span>
+          <span className="text-xs text-muted-foreground shrink-0">{slides.length} slides</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-accent/50 rounded-lg p-1">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Column-count picker — hide the wider options on phone */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-accent/50 rounded-lg p-1">
             {[2, 3, 4, 5, 6].map(n => (
               <button
                 key={n}
@@ -79,7 +99,7 @@ export function BoardView(props: BoardViewProps) {
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={slides.map(s => s.id)} strategy={rectSortingStrategy}>
-          <div className="p-6 space-y-6">
+          <div className="p-3 sm:p-6 space-y-6">
             {mainSlides.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3 px-1">
@@ -87,7 +107,7 @@ export function BoardView(props: BoardViewProps) {
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Main</span>
                   <span className="text-[10px] text-muted-foreground">{mainSlides.length} slides</span>
                 </div>
-                <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
+                <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${effectiveColumns}, minmax(0, 1fr))` }}>
                   {mainSlides.map(({ slide, idx }) => (
                     <SortableBoardCard
                       key={slide.id}
@@ -111,7 +131,7 @@ export function BoardView(props: BoardViewProps) {
               return (
                 <div key={pg} className={`rounded-xl border p-5 ${c.bg} ${c.border}`}>
                   <BoardPathGroupHeader name={pg} color={c} slideCount={pgSlides.length} onRename={(newName) => onRenamePathGroup(pg, newName)} />
-                  <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
+                  <div className="grid gap-5" style={{ gridTemplateColumns: `repeat(${effectiveColumns}, minmax(0, 1fr))` }}>
                     {pgSlides.map(({ slide, idx }) => (
                       <SortableBoardCard
                         key={slide.id}

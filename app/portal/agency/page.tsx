@@ -110,7 +110,7 @@ export default function AgencyHubPage() {
         <div className="space-y-4">
           {/* White-label toggle card */}
           <section className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <span className="material-icons text-primary">campaign</span>

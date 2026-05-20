@@ -184,7 +184,7 @@ export default function CustomDomainPage() {
       ) : (
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">{state.customDomain}</h2>
                 {state.verifiedAt ? (

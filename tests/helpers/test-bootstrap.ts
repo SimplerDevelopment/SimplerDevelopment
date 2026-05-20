@@ -18,14 +18,27 @@
  *     `INSERT INTO ${sql(TEST_SCHEMA)}.users …` keep working unchanged.
  */
 import 'dotenv/config';
+import crypto from 'node:crypto';
+import path from 'node:path';
 
 const WORKER_ID = process.env.VITEST_POOL_ID ?? process.env.VITEST_WORKER_ID ?? '0';
 
+/**
+ * Stable per-worktree discriminator. Hash the absolute path of the repo
+ * root so two worktrees of the same repo (e.g. `staging` and a feature
+ * branch worktree) running `bun test:integration:local` simultaneously
+ * don't race on the same `test_e2e_w*` / template names. Truncated SHA1
+ * is pg-safe (lowercase hex, no special chars) and stays well under the
+ * 63-char identifier limit.
+ */
+const REPO_ROOT = path.resolve(__dirname, '../..');
+export const WORKTREE_ID = crypto.createHash('sha1').update(REPO_ROOT).digest('hex').slice(0, 8);
+
 /** Name of the immutable template DB built once in globalSetup. */
-export const TEMPLATE_DB = 'simplerdev_test_template';
+export const TEMPLATE_DB = `simplerdev_test_template_${WORKTREE_ID}`;
 
 /** Per-worker DB name. Stable for the lifetime of this worker process. */
-export const PER_WORKER_DB = `test_e2e_w${WORKER_ID}`;
+export const PER_WORKER_DB = `test_e2e_${WORKTREE_ID}_w${WORKER_ID}`;
 
 /**
  * Back-compat alias. Pre-template-DB versions of this file isolated tests

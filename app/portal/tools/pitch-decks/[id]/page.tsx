@@ -110,10 +110,21 @@ function PitchDeckEditorContent({ id }: { id: string }) {
   const [editorMode, setEditorMode] = useState<'preview' | 'edit'>('edit');
   const [slidePanelCollapsed, setSlidePanelCollapsed] = useState(false);
   const [iframeViewport, setIframeViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(false);
-  const [editorRightCollapsed, setEditorRightCollapsed] = useState(false);
+  // Default both VisualEditorShell side panels (240px left / 320px right) to
+  // collapsed below md — at 375px they'd squeeze the iframe canvas to negative
+  // width. Users can expand either side via the existing chevron toggle.
+  const [editorLeftCollapsed, setEditorLeftCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+  const [editorRightCollapsed, setEditorRightCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
   const [boardView, setBoardView] = useState(false);
   const [boardColumns, setBoardColumns] = useState(4);
+  // Mobile-only: SlideList becomes a slide-out drawer overlay below md. Closed by default.
+  const [mobileSlideDrawerOpen, setMobileSlideDrawerOpen] = useState(false);
 
   const [aiHistory, setAiHistory] = useState<Record<number, AiHistoryTurn[]>>({});
   const [selectedSlides, setSelectedSlides] = useState<Set<number>>(new Set());
@@ -911,7 +922,11 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     );
   }
 
-  const currentSlide = deck.slides[activeSlide];
+  // `currentSlide` is undefined for a freshly-created deck with no slides yet
+  // (the create endpoint POSTs `slides: []`). Guard everything downstream so
+  // the editor renders the empty-state UI (defined below at `deck.slides.length === 0`)
+  // instead of crashing inside `getSlideView`.
+  const currentSlide: PitchDeckSlideV2 | undefined = deck.slides[activeSlide];
   const draftSlideCount = deck.slides.filter((s) => slideHasDraft(s)).length;
   const pathGroups = getPathGroups();
   const pathGroupSlideCounts = pathGroups.reduce<Record<string, number>>((acc, pg) => {
@@ -921,13 +936,15 @@ function PitchDeckEditorContent({ id }: { id: string }) {
 
   // The slide as the editor should display it — draft overlay wins over live.
   // SlideSettingsPanel + SlideContentEditor both read from `currentSlideView`.
-  const currentSlideView = getSlideView(currentSlide);
+  // Null when the deck has no slides yet.
+  const currentSlideView = currentSlide ? getSlideView(currentSlide) : null;
 
   // Slide-level settings JSX — used as the noSelectionPanel inside VisualEditorShell
   // and appended to survey-slide previews so tenants can theme any slide identically.
   // `pageSettings` / `customCss` updates route into `draft.*`; `label` is sidebar-
   // only and stays on the live field so reorder/duplicate UIs reflect it instantly.
-  const slideSettingsPanel = (
+  // Null when there's no active slide — consumers below are gated by the same check.
+  const slideSettingsPanel = currentSlideView ? (
     <SlideSettingsPanel
       slide={currentSlideView}
       theme={deck.theme}
@@ -954,7 +971,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
         setHasUnsavedChanges(true);
       }}
     />
-  );
+  ) : null;
 
   return (
     <div className="w-full space-y-4 px-2">
@@ -1094,8 +1111,51 @@ function PitchDeckEditorContent({ id }: { id: string }) {
           </div>
         </div>
       ) : (
-        <div className="flex gap-4">
-          <div className="flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+          {/* Phone-only "Slides" trigger + active-slide breadcrumb */}
+          <div className="md:hidden flex items-center gap-2 -mb-1">
+            <button
+              onClick={() => setMobileSlideDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground hover:bg-accent transition-colors min-h-[40px]"
+            >
+              <span className="material-icons text-base">view_carousel</span>
+              Slides ({deck.slides.length})
+            </button>
+            <span className="text-xs text-muted-foreground truncate">
+              {activeSlide + 1}. {currentSlide.label || 'Untitled'}
+            </span>
+          </div>
+
+          {/* Backdrop — phone-only, shown when drawer is open */}
+          {mobileSlideDrawerOpen && (
+            <div
+              onClick={() => setMobileSlideDrawerOpen(false)}
+              className="md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+          )}
+
+          {/* SlideList wrapper:
+              - <md: fixed slide-over drawer from left edge, toggled by mobileSlideDrawerOpen
+              - ≥md: inline left rail (existing behavior) */}
+          <div
+            className={`
+              flex flex-col gap-2 overflow-y-auto
+              md:static md:translate-x-0 md:z-auto md:w-auto md:max-w-none md:bg-transparent md:shadow-none md:p-0 md:h-auto md:overflow-visible
+              fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-background shadow-xl p-3 transition-transform duration-200
+              ${mobileSlideDrawerOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}
+          >
+            <div className="md:hidden flex items-center justify-between pb-2 border-b border-border">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Slides</span>
+              <button
+                onClick={() => setMobileSlideDrawerOpen(false)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                aria-label="Close slides panel"
+              >
+                <span className="material-icons text-base">close</span>
+              </button>
+            </div>
             <SlideList
               slides={deck.slides}
               activeSlide={activeSlide}
@@ -1107,7 +1167,13 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               surveyListLoaded={surveyListLoaded}
               surveyList={surveyList}
               getSurveyFieldCount={getSurveyFieldCount}
-              onSetActive={setActiveSlide}
+              onSetActive={(idx) => {
+                setActiveSlide(idx);
+                // Auto-close mobile drawer after picking a slide
+                if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+                  setMobileSlideDrawerOpen(false);
+                }
+              }}
               onSetCollapsed={setSlidePanelCollapsed}
               onOpenBoardView={() => setBoardView(true)}
               onAddSlide={addSlide}
@@ -1159,8 +1225,8 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               activeSlideIndex={activeSlide}
               trackedRef={slideCanvasRef}
             />
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground min-w-0 truncate max-w-full">
                 Slide {activeSlide + 1} of {deck.slides.length} · {currentSlide.label || 'Untitled'}
               </span>
               {slideIsPendingCreate(currentSlide) && (
@@ -1251,7 +1317,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             {currentSlide.surveySlide ? (
               editingSurveyFieldId ? (
                 <SurveyFieldEditorView
-                  slide={currentSlideView}
+                  slide={currentSlideView!}
                   theme={deck.theme}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   editingFieldId={editingSurveyFieldId}
@@ -1263,7 +1329,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
                 />
               ) : (
                 <SurveySlideQuestionList
-                  slide={currentSlideView}
+                  slide={currentSlideView!}
                   fields={getSurveyFields(currentSlide.surveyId)}
                   onSelectField={setEditingSurveyFieldId}
                   onRemoveSlide={() => removeSlide(activeSlide)}
@@ -1271,7 +1337,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
               )
             ) : currentSlide.decisionSlide ? (
               <DecisionSlideEditor
-                slide={currentSlideView}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 pathGroupSlideCounts={pathGroupSlideCounts}
                 onUpdateLabel={(label) => {
@@ -1289,7 +1355,7 @@ function PitchDeckEditorContent({ id }: { id: string }) {
             ) : (
               <SlideContentEditor
                 deckId={id}
-                slide={currentSlideView}
+                slide={currentSlideView!}
                 slideIndex={activeSlide}
                 theme={deck.theme}
                 brandingProfileId={deck.brandingProfileId}

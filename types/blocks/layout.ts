@@ -111,7 +111,17 @@ export interface SectionBlock extends BaseBlock {
    */
   backgroundColor?: string;
   backgroundImage?: string;
+  /**
+   * @deprecated Use `block.style.backgroundSize` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   * The renderer treats `block.style.*` as the winning value.
+   */
   backgroundSize?: 'cover' | 'contain' | 'auto';
+  /**
+   * @deprecated Use `block.style.backgroundPosition` instead.
+   * Kept for backwards compatibility — existing pages on disk may still use this field.
+   * The renderer treats `block.style.*` as the winning value.
+   */
   backgroundPosition?: string;
   maxWidth?: string;
   /**

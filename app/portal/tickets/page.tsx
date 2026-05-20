@@ -102,7 +102,7 @@ export default async function TicketsIndexPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Support Tickets</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -144,8 +144,9 @@ export default async function TicketsIndexPage({
           </div>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-card border border-border rounded-xl">
+          <div className="overflow-x-auto rounded-xl">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">#</th>
@@ -204,6 +205,7 @@ export default async function TicketsIndexPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

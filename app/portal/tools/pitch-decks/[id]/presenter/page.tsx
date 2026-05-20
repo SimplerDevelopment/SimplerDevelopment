@@ -18,8 +18,13 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
   const [mainZoom, setMainZoom] = useState(50);
+  // Collapsible side panel for mobile/tablet (< lg breakpoint).
+  // Desktop always renders the side panel; this state controls the bottom-sheet drawer below.
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mainSlideRef = useRef<HTMLDivElement>(null);
+  // Swipe-to-navigate touch tracking
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     fetch(`/api/portal/tools/pitch-decks/${id}`)
@@ -59,6 +64,25 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
     return () => window.removeEventListener('keydown', handleKey);
   }, [next, prev]);
 
+  // Swipe gestures for touch devices. Threshold of 50px on the X axis and a
+  // 2:1 horizontal-to-vertical ratio so vertical scrolling inside the slide
+  // (e.g. long content) still works.
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    const start = touchStartRef.current;
+    if (!start) return;
+    touchStartRef.current = null;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 2) return;
+    if (dx < 0) next();
+    else prev();
+  }
+
   if (!deck) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#1a1a2e] text-white">
@@ -84,28 +108,28 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
       />
 
       <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#16162a] border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="material-icons text-lg text-white/50">co_present</span>
-            <span className="text-sm font-medium truncate max-w-[300px]">{deck.title}</span>
+        {/* Top bar — wraps on phone so the timer/counter don't overflow */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 sm:px-4 py-2 bg-[#16162a] border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="material-icons text-lg text-white/50 shrink-0">co_present</span>
+            <span className="text-sm font-medium truncate max-w-[160px] sm:max-w-[240px] md:max-w-[300px]">{deck.title}</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-white/60">
-              Slide {current + 1} of {deck.slides.length}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="text-xs sm:text-sm text-white/60 tabular-nums">
+              <span className="hidden sm:inline">Slide </span>{current + 1}<span className="hidden sm:inline"> of </span><span className="sm:hidden">/</span>{deck.slides.length}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => setRunning(r => !r)}
-                className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
                 title={running ? 'Pause timer' : 'Resume timer'}
               >
                 <span className="material-icons text-base">{running ? 'pause' : 'play_arrow'}</span>
               </button>
-              <span className="text-lg font-mono font-medium tabular-nums">{timeStr}</span>
+              <span className="text-base sm:text-lg font-mono font-medium tabular-nums">{timeStr}</span>
               <button
                 onClick={() => { setElapsed(0); setRunning(true); }}
-                className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
                 title="Reset timer"
               >
                 <span className="material-icons text-base">restart_alt</span>
@@ -114,10 +138,14 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 flex min-h-0">
+        {/* Main content — stacks below lg; side-by-side at ≥1024px */}
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* Left: Current slide + navigation */}
-          <div className="flex-1 flex flex-col p-4 min-w-0">
+          <div
+            className="flex-1 flex flex-col p-3 sm:p-4 min-w-0 min-h-0"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             {/* Current slide with zoom */}
             <div className="flex-1 rounded-lg overflow-hidden border border-white/10 relative min-h-0">
               <div className="absolute inset-0 overflow-auto flex items-center justify-center" ref={mainSlideRef}>
@@ -137,48 +165,61 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            {/* Zoom + Navigation controls */}
-            <div className="flex items-center justify-between mt-3 shrink-0">
+            {/* Zoom + Navigation controls — wraps on phone so nothing gets cut off */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3 shrink-0">
               {/* Zoom controls */}
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setMainZoom(z => Math.max(25, z - 10))}
-                  className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                  className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
                   title="Zoom out"
                 >
                   <span className="material-icons text-base">remove</span>
                 </button>
                 <button
                   onClick={() => setMainZoom(50)}
-                  className="px-2 py-0.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors text-xs font-mono tabular-nums min-w-[40px] text-center"
+                  className="px-2 py-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors text-xs font-mono tabular-nums min-w-[40px] text-center"
                   title="Reset zoom"
                 >
                   {mainZoom}%
                 </button>
                 <button
                   onClick={() => setMainZoom(z => Math.min(100, z + 10))}
-                  className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                  className="p-1.5 rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors"
                   title="Zoom in"
                 >
                   <span className="material-icons text-base">add</span>
                 </button>
+                {/* Mobile-only Notes toggle, lives next to zoom so the top of the
+                    drawer doesn't need its own row */}
+                <button
+                  onClick={() => setSidePanelOpen(o => !o)}
+                  className="lg:hidden ml-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-colors text-xs"
+                  title="Show speaker notes & up-next"
+                  aria-expanded={sidePanelOpen}
+                >
+                  <span className="material-icons text-sm">speaker_notes</span>
+                  Notes
+                </button>
               </div>
 
-              {/* Navigation */}
-              <div className="flex items-center gap-3">
+              {/* Navigation — touch-sized buttons (44px min height) */}
+              <div className="flex items-center gap-2 sm:gap-3 order-last sm:order-none w-full sm:w-auto justify-center">
                 <button
                   onClick={prev}
                   disabled={current === 0}
-                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
+                  className="px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm min-h-[44px]"
                 >
                   <span className="material-icons text-base">chevron_left</span>
-                  Prev
+                  <span className="hidden sm:inline">Prev</span>
                 </button>
-                <div className="flex items-center gap-1">
+                {/* Dot indicators — hide beyond ~20 slides on phone to avoid wrap chaos */}
+                <div className="flex items-center gap-1 flex-wrap justify-center max-w-[40vw] sm:max-w-none">
                   {deck.slides.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrent(i)}
+                      aria-label={`Go to slide ${i + 1}`}
                       className={`w-2 h-2 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/20 hover:bg-white/40'}`}
                     />
                   ))}
@@ -186,20 +227,29 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
                 <button
                   onClick={next}
                   disabled={current >= deck.slides.length - 1}
-                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm"
+                  className="px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1 text-sm min-h-[44px]"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <span className="material-icons text-base">chevron_right</span>
                 </button>
               </div>
 
-              {/* Spacer to balance the zoom controls */}
-              <div className="w-[120px]" />
+              {/* Desktop-only spacer to balance the zoom controls */}
+              <div className="hidden lg:block w-[120px]" />
             </div>
           </div>
 
-          {/* Right: Next slide preview + Notes */}
-          <div className="w-[380px] shrink-0 flex flex-col p-4 pl-0 gap-4 min-h-0">
+          {/* Side panel: Next slide + Notes.
+              - Desktop (≥lg): always-visible 380px right rail
+              - Mobile/tablet: bottom drawer toggled by the "Notes" button */}
+          <div
+            className={`shrink-0 flex flex-col gap-3 sm:gap-4 min-h-0
+              lg:w-[380px] lg:p-4 lg:pl-0
+              border-t lg:border-t-0 border-white/10 bg-[#1a1a2e]
+              transition-[max-height] duration-200 ease-out
+              ${sidePanelOpen ? 'max-h-[55vh] p-3 sm:p-4' : 'max-h-0 overflow-hidden lg:overflow-visible'}
+              lg:max-h-none lg:p-4 lg:pl-0`}
+          >
             {/* Next slide preview */}
             <div className="shrink-0">
               <div className="text-xs text-white/40 uppercase tracking-wide mb-2 flex items-center gap-1.5">
@@ -238,7 +288,7 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
                 <span className="material-icons text-sm">speaker_notes</span>
                 Speaker Notes
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4">
                 {slide.notes ? (
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/80">{slide.notes}</p>
                 ) : (

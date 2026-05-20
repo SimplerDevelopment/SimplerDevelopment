@@ -5,6 +5,8 @@ import { emailCampaigns, emailCampaignSends, emailSubscribers, emailLists } from
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { renderBlocksToEmailHtml } from '@/lib/email';
+import { authorizePortal, isAuthError } from '@/lib/portal-auth';
+import { sanitizeRichHtml } from '@/lib/security/sanitize-html';
 
 async function requireClient() {
   const session = await auth();
@@ -22,6 +24,10 @@ async function ownsCampaign(clientId: number, campaignId: number) {
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'read', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -89,6 +95,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -129,6 +139,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (Array.isArray(contentBlocks)) {
     finalHtml = renderBlocksToEmailHtml(contentBlocks);
   }
+  // Strip <script>/<iframe>/<object>/<embed>/event handlers from any
+  // user-supplied HTML before it's stored or rendered. sanitizeRichHtml
+  // keeps inline styles + classes — the email-safe surface — but drops
+  // executable payloads.
+  if (finalHtml) finalHtml = sanitizeRichHtml(finalHtml);
 
   const [updated] = await db
     .update(emailCampaigns)
@@ -158,6 +173,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Service access check
+  const authResult = await authorizePortal({ action: 'write', requireService: 'email' });
+  if (isAuthError(authResult)) return authResult.response;
+
   const client = await requireClient();
   if (!client) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 

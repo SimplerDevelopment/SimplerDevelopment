@@ -9,12 +9,16 @@
  * 5. Verify the client site renders the block
  */
 import { test, expect } from './setup/fixtures';
-import { runCleanups, createTestWebsite } from './setup/helpers';
+import { runCleanups, createTestWebsite, resolveClientSiteId } from './setup/helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-// Site ID 1 = dannydo (existing provisioned site)
-const SITE_ID = 1;
+// SITE_ID was hard-coded to 1 (dannydo, owned by a different client), so every
+// request from client@example.com 404'd. Resolved at test time from the
+// logged-in client's first website instead.
+// CLIENT_SITE_URL still hard-coded — leaving as TODO, the public-site assertions
+// that rely on it will need to derive the URL from the resolved website too.
+let SITE_ID: number;
 const CLIENT_SITE_URL = 'https://dannydo.simplerdevelopment.com';
 
 import { ApiClient } from './setup/api-client';
@@ -47,6 +51,18 @@ async function getPublicPost(api: ApiClient, slug: string) {
 async function deletePost(api: ApiClient, postId: number) {
   return api.delete(`/api/portal/cms/websites/${SITE_ID}/posts/${postId}`);
 }
+
+// beforeAll cannot inject the per-test `clientApi` fixture, so we stand up a
+// throwaway ApiClient just for the lookup.
+test.beforeAll(async () => {
+  const bootstrap = new ApiClient('client@example.com', 'client123');
+  await bootstrap.ensure();
+  try {
+    SITE_ID = await resolveClientSiteId(bootstrap);
+  } finally {
+    await bootstrap.dispose();
+  }
+});
 
 test.describe('Visual Editor — Block Type Editing @visual-editor @blocks', () => {
   let cleanups: Array<() => Promise<void>> = [];
@@ -1338,6 +1354,83 @@ test.describe('Visual Editor — Block Type Editing @visual-editor @blocks', () 
     expect(updatedContent.blocks[0].html).toContain('Updated');
     expect(updatedContent.blocks[0].values.title).toBe('Updated value');
     expect(updatedContent.blocks[0].width).toBe('contained');
+  });
+
+  test('html-render block: complex schema (loop, conditional, validation, group, array) round-trips', async ({ clientApi, unauthApi }) => {
+    // Exercises the full HtmlRenderField shape: array with itemFields, group,
+    // loop config, conditional logic, validation rules, defaults, help text.
+    // Proves the JSON contract survives create → fetch end-to-end so the
+    // dual editors (admin ContentPanel + iframe HtmlRenderEditor) can both
+    // read and write any shape declared in the type.
+    const slug = `ve-html-render-complex-${Date.now()}`;
+    const post = await createPost(clientApi, slug, [
+      {
+        id: 'hr-complex-1',
+        type: 'html-render',
+        order: 0,
+        width: 'contained',
+        html: '<section><h2 data-field="overline">Overline</h2><div data-group="cta"><a href="{{cta.url}}">{{cta.label}}</a></div><ul><li data-repeat="cards"><img src="{{cards.image}}" alt="{{cards.title}}"></li></ul><div data-loop="posts"><a href="{{post.url}}">{{post.title}}</a><img src="{{post.fields.client_logo}}"></div></section>',
+        fields: [
+          { name: 'overline', label: 'Overline', type: 'richtext', default: 'Featured' },
+          { name: 'cta', label: 'CTA', type: 'group', itemFields: [
+            { name: 'url', type: 'url' },
+            { name: 'label', type: 'text', required: true, errorMessage: 'CTA needs a label' },
+          ] },
+          { name: 'cards', label: 'Cards', type: 'array', itemFields: [
+            { name: 'image', type: 'image' },
+            { name: 'title', type: 'text', minLength: 2, maxLength: 80 },
+          ] },
+          { name: 'show_secondary', label: 'Show secondary', type: 'boolean', default: 'false' },
+          { name: 'secondary_url', label: 'Secondary URL', type: 'url', conditional: { field: 'show_secondary', operator: 'truthy' } },
+        ],
+        values: {
+          overline: '<em>Pinned</em>',
+          cta: { url: 'https://example.test/go', label: 'Go now' },
+          cards: [
+            { image: 'https://cdn.test/a.png', title: 'Card A' },
+            { image: 'https://cdn.test/b.png', title: 'Card B' },
+          ],
+          show_secondary: 'true',
+          secondary_url: 'https://example.test/more',
+        },
+        loop: { source: 'posts', postType: 'case-study', limit: 6, orderBy: 'recent' },
+      },
+    ]);
+    cleanups.push(async () => { await deletePost(clientApi, post.id); });
+
+    const pub = await getPublicPost(unauthApi, slug);
+    const content = JSON.parse(pub.data.data.content);
+    const block = content.blocks[0];
+    // Width survived
+    expect(block.width).toBe('contained');
+    // Loop config survived
+    expect(block.loop?.postType).toBe('case-study');
+    expect(block.loop?.limit).toBe(6);
+    // Group value survived
+    expect(block.values.cta.url).toBe('https://example.test/go');
+    expect(block.values.cta.label).toBe('Go now');
+    // Array values survived (both items, both keys per item)
+    expect(block.values.cards).toHaveLength(2);
+    expect(block.values.cards[0].title).toBe('Card A');
+    expect(block.values.cards[1].image).toBe('https://cdn.test/b.png');
+    // Conditional + validation rules round-trip on the schema
+    const showSecondary = block.fields.find((f: { name: string }) => f.name === 'show_secondary');
+    expect(showSecondary.default).toBe('false');
+    const secondaryUrl = block.fields.find((f: { name: string }) => f.name === 'secondary_url');
+    expect(secondaryUrl.conditional?.field).toBe('show_secondary');
+    expect(secondaryUrl.conditional?.operator).toBe('truthy');
+    const ctaSchema = block.fields.find((f: { name: string }) => f.name === 'cta');
+    const ctaLabelField = ctaSchema.itemFields.find((f: { name: string }) => f.name === 'label');
+    expect(ctaLabelField.required).toBe(true);
+    expect(ctaLabelField.errorMessage).toBe('CTA needs a label');
+    const cardsSchema = block.fields.find((f: { name: string }) => f.name === 'cards');
+    const cardsTitleField = cardsSchema.itemFields.find((f: { name: string }) => f.name === 'title');
+    expect(cardsTitleField.minLength).toBe(2);
+    expect(cardsTitleField.maxLength).toBe(80);
+    // The {{post.fields.client_logo}} placeholder must survive in the html
+    // even though loop expansion happens server-side at render time — the
+    // stored block still carries the literal template.
+    expect(block.html).toContain('{{post.fields.client_logo}}');
   });
 
   // ── HTML Embed Block ───────────────────────────────────────────────────────

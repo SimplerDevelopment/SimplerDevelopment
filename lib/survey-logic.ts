@@ -24,8 +24,18 @@ function isAnswerEmpty(val: unknown): boolean {
  * Semantics for an unanswered dependency field (undefined/null):
  *  - `not_equals` / `not_contains` / `is_empty`: TRUE (the answer satisfies the negative).
  *  - everything else: FALSE.
+ *
+ * Malformed rules (missing `values`, missing `operator`, etc.) MUST evaluate
+ * to `false` rather than throw — a bad showIf body should hide the
+ * conditional field, not crash the entire public survey page. This is the
+ * fix for surveys whose `values` field is omitted by a buggy authoring tool.
  */
 function evaluateRule(rule: ShowIfRule, answers: AnswerMap): boolean {
+  // Defensive: a malformed rule (e.g. missing `values` array) must not throw.
+  // Treat `null`/non-array as an empty list so operator branches that read
+  // `.includes` / `.some` / `.[0]` stay null-safe.
+  if (!rule || typeof rule !== 'object') return false;
+  const values: string[] = Array.isArray(rule.values) ? rule.values : [];
   const rawVal = answers[rule.fieldId];
 
   // Presence checks ignore `values`.
@@ -40,32 +50,33 @@ function evaluateRule(rule: ShowIfRule, answers: AnswerMap): boolean {
 
   switch (rule.operator) {
     case 'equals':
-      return rule.values.includes(strVal);
+      return values.includes(strVal);
     case 'not_equals':
-      return !rule.values.includes(strVal);
+      return !values.includes(strVal);
     case 'contains': {
       const hay = strVal.toLowerCase();
-      return rule.values.some((v) => v && hay.includes(v.toLowerCase()));
+      return values.some((v) => v && hay.includes(v.toLowerCase()));
     }
     case 'not_contains': {
       const hay = strVal.toLowerCase();
-      return !rule.values.some((v) => v && hay.includes(v.toLowerCase()));
+      return !values.some((v) => v && hay.includes(v.toLowerCase()));
     }
     case 'greater_than': {
       const lhs = Number(rawVal);
-      const rhs = Number(rule.values[0]);
+      const rhs = Number(values[0]);
       if (!Number.isFinite(lhs) || !Number.isFinite(rhs)) return false;
       return lhs > rhs;
     }
     case 'less_than': {
       const lhs = Number(rawVal);
-      const rhs = Number(rule.values[0]);
+      const rhs = Number(values[0]);
       if (!Number.isFinite(lhs) || !Number.isFinite(rhs)) return false;
       return lhs < rhs;
     }
     default:
       // Unknown operator — fall back to equals so legacy payloads behave predictably.
-      return rule.values.includes(strVal);
+      // Still null-safe via the normalised `values` array.
+      return values.includes(strVal);
   }
 }
 
@@ -82,14 +93,16 @@ export function isFieldVisible(
   const showIf = field.showIf;
 
   if (isLegacyRule(showIf)) {
-    // Backward-compatible: old single-rule shape (no operator field)
+    // Backward-compatible: old single-rule shape (no operator field).
+    // Defensive against malformed payloads: missing `values` → hide field.
     const depVal = answers[showIf.fieldId];
     if (depVal === undefined || depVal === null) return false;
-    return showIf.values.includes(String(depVal));
+    const values: string[] = Array.isArray(showIf.values) ? showIf.values : [];
+    return values.includes(String(depVal));
   }
 
   // Compound condition — per D-05, combinator is always 'AND'
-  const { rules } = showIf;
+  const rules = Array.isArray(showIf.rules) ? showIf.rules : [];
   if (rules.length === 0) return true;
   return rules.every(r => evaluateRule(r, answers));
 }

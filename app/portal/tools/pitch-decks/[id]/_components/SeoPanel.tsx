@@ -50,7 +50,7 @@ export function SeoPanel({ deck, onUpdateDeck, onClose }: SeoPanelProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
-      <div className="fixed top-0 right-0 z-50 h-full w-96 bg-card border-l border-border shadow-xl flex flex-col">
+      <div className="fixed top-0 right-0 z-50 h-full w-96 max-w-[100vw] bg-card border-l border-border shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-foreground">SEO</h3>

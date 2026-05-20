@@ -17,7 +17,7 @@
  */
 
 import { db } from '@/lib/db';
-import { posts } from '@/lib/db/schema';
+import { posts, postTypes, customFields, postCustomFieldValues } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, ne, notInArray } from 'drizzle-orm';
 import type { Block, HtmlRenderBlock, HtmlRenderLoop } from '@/types/blocks';
 
@@ -33,6 +33,13 @@ interface LoopItem {
   /** Per-field values from the post's first html-render block (if it exists),
    *  exposed as `{{post.values.X}}` so the loop can pull custom card text. */
   values: Record<string, string>;
+  /** Typed CMS custom-field values (slug → value). Sourced from the
+   *  `customFields` + `postCustomFieldValues` tables joined to the post's
+   *  postType. Exposed as `{{post.fields.X}}` so loop templates can read
+   *  the typed schema directly without re-authoring the values into
+   *  per-post html-render blocks. Empty when the post type has no fields
+   *  or the post has no values stored. */
+  fields: Record<string, string>;
 }
 
 /**
@@ -64,6 +71,60 @@ function collectPostValues(content: string): Record<string, string> {
 }
 
 /**
+ * Build a `postId → { fieldSlug → value }` map for the given post type +
+ * post ids. Joins `customFields` (the schema for this postType) with
+ * `postCustomFieldValues` (the per-post values), producing a flat
+ * lookup keyed by post id. Returns an empty map when the post type has
+ * no schema or no values are stored.
+ *
+ * Two-step: first resolve the postType slug → id (custom fields are keyed
+ * by id, but the loop config carries the slug), then run a single batch
+ * query for all values across the requested post ids. Site-scoped lookup
+ * mirrors how `/api/post-types?websiteId=X` resolves the type.
+ */
+async function fetchPostCustomFields(siteId: number, postTypeSlug: string, postIds: number[]): Promise<Map<number, Record<string, string>>> {
+  const out = new Map<number, Record<string, string>>();
+  if (postIds.length === 0) return out;
+  // Look up the postType row for this site + slug. The site-scoped lookup
+  // matches the create/list pattern used by /api/post-types and avoids
+  // accidentally pulling another tenant's matching slug.
+  const ptRows = await db.select({ id: postTypes.id })
+    .from(postTypes)
+    .where(and(eq(postTypes.websiteId, siteId), eq(postTypes.slug, postTypeSlug)))
+    .limit(1);
+  if (ptRows.length === 0) return out;
+  const postTypeId = ptRows[0].id;
+
+  // Pull the field schema for this post type (slug → id map).
+  const fieldRows = await db.select({ id: customFields.id, slug: customFields.slug })
+    .from(customFields)
+    .where(eq(customFields.postTypeId, postTypeId));
+  if (fieldRows.length === 0) return out;
+  const slugByFieldId = new Map(fieldRows.map(f => [f.id, f.slug]));
+
+  // Single batched lookup of all values for these posts × these fields.
+  const valueRows = await db.select({
+    postId: postCustomFieldValues.postId,
+    customFieldId: postCustomFieldValues.customFieldId,
+    value: postCustomFieldValues.value,
+  })
+    .from(postCustomFieldValues)
+    .where(and(
+      inArray(postCustomFieldValues.postId, postIds),
+      inArray(postCustomFieldValues.customFieldId, fieldRows.map(f => f.id)),
+    ));
+
+  for (const row of valueRows) {
+    const slug = slugByFieldId.get(row.customFieldId);
+    if (!slug) continue;
+    const bucket = out.get(row.postId) ?? {};
+    bucket[slug] = row.value ?? '';
+    out.set(row.postId, bucket);
+  }
+  return out;
+}
+
+/**
  * Fetch the items for one loop config + map them to the placeholder shape.
  */
 async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<LoopItem[]> {
@@ -91,6 +152,11 @@ async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<Loo
     content: posts.content,
   }).from(posts).where(and(...conditions)).orderBy(orderCol).limit(limit);
 
+  // Resolve typed custom-field values in a single batched lookup keyed by
+  // the post type slug. Empty map when the post type has no schema or the
+  // posts have no stored values — `{{post.fields.X}}` then resolves to ''.
+  const fieldsByPostId = await fetchPostCustomFields(siteId, loop.postType, rows.map(r => r.id));
+
   return rows.map(r => ({
     id: r.id,
     title: r.title || '',
@@ -101,6 +167,7 @@ async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<Loo
     publishedAt: r.publishedAt ? new Date(r.publishedAt).toISOString() : '',
     postType: r.postType,
     values: collectPostValues(r.content || ''),
+    fields: fieldsByPostId.get(r.id) ?? {},
   }));
 }
 
@@ -130,6 +197,17 @@ function substituteLoopItem(html: string, item: LoopItem): string {
     if (path.startsWith('values.')) {
       const key = path.slice('values.'.length);
       return item.values[key] ?? '';
+    }
+    // post.fields.X — typed CMS custom-field value (text/url/image/number/etc).
+    // Custom fields are stored as plain strings in the postCustomFieldValues
+    // table; escape for safe attribute/text landing (an `image` field's URL
+    // can land in `src="..."`, a `text` field can land in markup). If a future
+    // field type stores HTML deliberately we'd add a per-type pass-through,
+    // but today every field type round-trips as an attribute-safe string.
+    if (path.startsWith('fields.')) {
+      const key = path.slice('fields.'.length);
+      const v = item.fields[key];
+      return v == null ? '' : esc(String(v));
     }
     // post.X — single-level lookup, escape (these can land in attributes)
     const v = (item as unknown as Record<string, unknown>)[path];
@@ -302,6 +380,21 @@ async function resolvePostFields(siteId: number, block: HtmlRenderBlock): Promis
   }).from(posts).where(and(eq(posts.websiteId, siteId), inArray(posts.id, Array.from(new Set(ids)))));
   const byId = new Map(rows.map(r => [r.id, r]));
 
+  // Group post ids by post type so we can do one batched custom-field lookup
+  // per post type (mirrors the loop variant). For the single-post case there's
+  // usually only one or two post types in play, so this is at most 2–3 queries.
+  const idsByPostType = new Map<string, number[]>();
+  for (const row of rows) {
+    const bucket = idsByPostType.get(row.postType) ?? [];
+    bucket.push(row.id);
+    idsByPostType.set(row.postType, bucket);
+  }
+  const allCustomFields = new Map<number, Record<string, string>>();
+  for (const [pt, idsForType] of idsByPostType) {
+    const m = await fetchPostCustomFields(siteId, pt, idsForType);
+    for (const [postId, fieldsMap] of m) allCustomFields.set(postId, fieldsMap);
+  }
+
   const newValues: Record<string, unknown> = { ...oldValues };
   for (const name of postFieldNames) {
     const idStr = oldValues[name];
@@ -315,6 +408,11 @@ async function resolvePostFields(siteId: number, block: HtmlRenderBlock): Promis
       newValues[name] = {};
       continue;
     }
+    // Build the resolved record. Top-level scalar fields (title/slug/url/etc)
+    // are read by `{{name.title}}` etc.; the typed custom-field values are
+    // exposed as a nested `fields` object so authors can use
+    // `{{name.fields.<slug>}}` — same shape as the loop's
+    // `{{post.fields.<slug>}}`.
     newValues[name] = {
       id: String(row.id),
       title: row.title || '',
@@ -324,6 +422,7 @@ async function resolvePostFields(siteId: number, block: HtmlRenderBlock): Promis
       coverImage: row.coverImage || '',
       publishedAt: row.publishedAt ? new Date(row.publishedAt).toISOString() : '',
       postType: row.postType,
+      fields: allCustomFields.get(row.id) ?? {},
     };
   }
   return { ...block, values: newValues as HtmlRenderBlock['values'] };

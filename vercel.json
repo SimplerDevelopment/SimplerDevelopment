@@ -46,8 +46,16 @@
       "schedule": "0 11 * * 1"
     },
     {
+      "path": "/api/cron/ticket-sla-breaches",
+      "schedule": "7 * * * *"
+    },
+    {
       "path": "/api/cron/stuck-booking-holds",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/renew-microsoft-subscriptions",
@@ -80,6 +88,18 @@
     {
       "path": "/api/cron/process-scheduled-automations",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-runs-drain",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/plugin-jobs-tick",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/magamommy-weekly-drop",
+      "schedule": "0 14 * * 1"
     }
   ]
 }

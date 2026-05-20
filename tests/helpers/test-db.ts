@@ -22,6 +22,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execSync } from 'node:child_process';
 import postgres from 'postgres';
 import { ADMIN_URL, PER_WORKER_DB, TEMPLATE_DB, TEST_SCHEMA } from './test-bootstrap';
 
@@ -262,6 +263,38 @@ export async function buildTemplateDatabase(opts?: { quiet?: boolean }): Promise
     // CRITICAL: Postgres requires the source DB to have no active sessions
     // before it can be used as a TEMPLATE. Close cleanly.
     await tpl.end({ timeout: 5 });
+  }
+
+  // Heal schema drift: lib/db/schema/*.ts can drift ahead of drizzle/*.sql
+  // when a column is hand-applied in prod (via psql) but the corresponding
+  // migration is never numbered into the regular sequence. `drizzle-kit push`
+  // reads the TS schema and ALTERs the template to match — purely additive
+  // here in practice, since the migration replay above created the tables.
+  // Idempotent: a no-op when schema and migrations are already in sync.
+  //
+  // SOFT-FAILS by design: if drizzle-kit is unavailable or push errors, we
+  // warn but don't break the test run. NOTE the failure mode this enables —
+  // if push times out before adding a schema-only column (e.g. `preview_code`
+  // on client_websites), tests that SELECT that column will explode with
+  // `column "X" does not exist`. The 180s budget below covers a ~226-table
+  // schema pull + diff on a warm Postgres; the original 60s tripped routinely.
+  try {
+    const repoRoot = path.resolve(__dirname, '../..');
+    execSync('npx drizzle-kit push --force', {
+      cwd: repoRoot,
+      env: { ...process.env, DATABASE_URL: tplUrl.toString() },
+      stdio: quiet ? 'ignore' : ['ignore', 'pipe', 'pipe'],
+      timeout: 180_000,
+    });
+    if (!quiet) {
+      // eslint-disable-next-line no-console
+      console.log('[integration-api:globalSetup] drizzle-kit push healed any schema drift');
+    }
+  } catch (err) {
+    if (!quiet) {
+      // eslint-disable-next-line no-console
+      console.warn('[integration-api:globalSetup] drizzle-kit push failed (drift may persist):', (err as Error).message.slice(0, 200));
+    }
   }
 
   const elapsedMs = Date.now() - t0;

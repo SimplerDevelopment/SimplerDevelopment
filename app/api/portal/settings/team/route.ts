@@ -83,6 +83,13 @@ export async function POST(req: Request) {
   if (!name?.trim() || !email?.trim()) {
     return NextResponse.json({ success: false, message: 'Name and email are required' }, { status: 400 });
   }
+  if (name.trim().length > 255) {
+    return NextResponse.json({ success: false, message: 'Name must be 255 characters or fewer' }, { status: 400 });
+  }
+  // Basic email format check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return NextResponse.json({ success: false, message: 'A valid email address is required' }, { status: 400 });
+  }
 
   // Find or create user
   const [existing] = await db.select().from(users).where(eq(users.email, email.trim())).limit(1);

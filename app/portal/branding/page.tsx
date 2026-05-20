@@ -295,7 +295,7 @@ export default function PortalBrandingPage() {
           ) : (
             <div className="bg-card border border-border rounded-lg divide-y divide-border">
               {websites.map((site) => (
-                <div key={site.id} className="flex items-center justify-between px-4 py-3 gap-4">
+                <div key={site.id} className="flex flex-wrap items-center justify-between px-4 py-3 gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{site.name}</p>
                     {site.domain && <p className="text-xs text-muted-foreground truncate">{site.domain}</p>}

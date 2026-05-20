@@ -125,6 +125,7 @@ export async function GET() {
     'project-mgmt': { icon: 'view_kanban', color: 'indigo', href: '/portal/projects', description: 'Kanban boards, sprint planning, file sharing, and team collaboration for your projects.', cta: 'Manage projects' },
     ai: { icon: 'smart_toy', color: 'pink', href: '/portal/services', description: 'AI chatbot trained on your content for lead capture, customer support, and website engagement.', cta: 'Add AI chat' },
     hosting: { icon: 'cloud', color: 'slate', href: '/portal/hosting', description: 'Managed hosting with free SSL, CDN, daily backups, and 99.9% uptime SLA.', cta: 'Get hosting' },
+    plugins: { icon: 'extension', color: 'teal', href: '/portal/apps', description: 'Custom-built dashboards and automations plugged into your portal as first-class apps.', cta: 'Open app' },
   };
 
   const serviceCards = allServices.map(svc => {
