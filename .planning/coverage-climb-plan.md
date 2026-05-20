@@ -209,6 +209,42 @@ Better next move (when ready): pick targeted high-LOC files with a
 coverage-summary.json scan rather than directory-walks — measurable
 gain per test rather than blind exploration.
 
+## Stretch goal CLEARED: 50% statements (batch 45, 2026-05-20)
+
+| Metric | Pre-B45 (46.46%) | Post-B45 | Δ |
+|---|---|---|---|
+| **Statements** | 46.46% (33533/72171) | **52.01%** (37538/72171) | **+5.55pp** ✅ |
+| **Branches** | 41.56% | **47.71%** (29451/61728) | **+6.15pp** |
+| Functions | 24.34% | 33.09% (5430/16408) | +8.75pp |
+| Lines | 47.43% | 52.45% (32489/61937) | +5.02pp |
+
+**Test count:** 13,794 passing (up from ~11,600 pre-B45). 1 failed
+test in `lib-misc-batch-37f.test.ts` — pre-existing worker-crash on
+a sanitizer assertion, unrelated to batch 45.
+
+**Strategy that worked: per-file gap analysis from coverage-final.json.**
+Instead of directory-walk dispatches, ranked all 0%-covered files by
+uncovered-stmts and dispatched one big file per worker. 9 workers
+in batch 45, all hit ≥50% on target (range 50.0–98.2%, avg 80%+):
+
+| File | Stmts | Coverage hit |
+|---|---|---|
+| `app/portal/brain/tasks/page.tsx` | 441 | 84.8% |
+| `app/admin/clients/[id]/page.tsx` | 394 | 91.4% |
+| `app/admin/pitch-decks/[id]/page.tsx` | 551 | 75.7% |
+| `components/brain/NoteGraphView.tsx` | 282 | 98.2% |
+| `components/blocks/BlockContentEditor.tsx` | ~870 | 50.0% |
+| `components/blocks/visual/.../SectionsPanel.tsx` | 276 | 85.5% |
+| `components/blocks/VisualBlockEditorEnhanced.tsx` | 271 | 73.1% |
+| `components/blocks/HtmlRenderEditor.tsx` | 469 | 70.8% |
+| `components/blocks/render/BookingFormInline.tsx` | 283 | 89.8% |
+| `components/brain/NoteListPane.tsx` | ~648 | 61.2% |
+| `components/blocks/EditableBlockRenderer.tsx` | ~290 | 88.3% |
+| `components/admin/kanban/KanbanBoard.tsx` | ~340 | 93.2% |
+
+Each big-file test pulls 3-10× more stmts than a route-batch test —
+the per-file approach is the answer for the next mile.
+
 ## Loop status: GOAL ACHIEVED at batch 28 (2026-05-19)
 
 **Final measurement** (`vitest run --project=unit --coverage` against
