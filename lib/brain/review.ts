@@ -1,8 +1,8 @@
 import { db } from '@/lib/db';
+import { createDecisionFromReviewItem } from './decisions';
 import {
   brainAiReviewItems,
   brainAuditLogs,
-  brainDecisions,
   brainMeetings,
   brainNotes,
   brainTasks,
@@ -336,28 +336,21 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
       }
       case 'decision': {
         // Phase 1 brain-restructure: promote an approved 'decision' review-item
-        // into a first-class brain_decisions row (no longer a no-op / note).
+        // into a first-class brain_decisions row. The transactional insert +
+        // payload validation live in lib/brain/decisions.ts so the same code
+        // path is exercised by direct REST creates and AI-review approvals.
         // See .planning/brain-restructure/PLAN.md.
         const dp = payload as BrainReviewItemDecisionPayload;
-        if (!dp.title) throw new Error('decision: missing title');
-        if (!dp.decision) throw new Error('decision: missing decision');
-        if (!dp.rationale) throw new Error('decision: missing rationale');
-        const [decisionRow] = await tx.insert(brainDecisions).values({
-          clientId: args.clientId,
-          title: dp.title.slice(0, 255),
-          context: dp.context ?? null,
-          decision: dp.decision,
-          rationale: dp.rationale,
-          alternativesConsidered: dp.alternativesConsidered ?? null,
-          reversibility: dp.reversibility ?? 'two_way',
-          status: 'accepted',
-          decisionMakerId: args.actorId,
-          decidedAt: dp.decidedAt ? new Date(dp.decidedAt) : new Date(),
-          meetingId: item.sourceType === 'meeting' ? item.sourceId : null,
-          source: 'ai_review',
-          reviewItemId: item.id,
-          createdBy: args.actorId,
-        }).returning({ id: brainDecisions.id });
+        const decisionRow = await createDecisionFromReviewItem(
+          args.clientId,
+          args.actorId,
+          {
+            reviewItemId: item.id,
+            meetingId: item.sourceType === 'meeting' ? item.sourceId : null,
+            tx,
+          },
+          dp,
+        );
         resultEntityType = 'brain_decision';
         resultEntityId = decisionRow.id;
         break;
