@@ -31,6 +31,12 @@ export const storeSettings = pgTable('store_settings', {
   // Stripe Connect for payouts to the website owner
   stripeAccountId: varchar('stripe_account_id', { length: 255 }),
   stripeOnboardingComplete: boolean('stripe_onboarding_complete').default(false).notNull(),
+  // ─── Stripe mode: 'connect' (platform-managed via Stripe Connect) vs. 'byok' (tenant's own Stripe account) ───
+  stripeMode: varchar('stripe_mode', { length: 20 }).default('connect').notNull(), // 'connect' | 'byok'
+  stripeByokAllowed: boolean('stripe_byok_allowed').default(false).notNull(), // admin-gated; tenant cannot configure BYOK until SD admin flips this on
+  stripeSecretKeyEncrypted: text('stripe_secret_key_encrypted'), // AES-256-GCM ciphertext from lib/crypto/api-key.ts (sk_test_… / sk_live_…)
+  stripePublishableKey: varchar('stripe_publishable_key', { length: 255 }), // public key (pk_test_… / pk_live_…), plaintext
+  stripeWebhookSecretEncrypted: text('stripe_webhook_secret_encrypted'), // AES-256-GCM ciphertext of whsec_… endpoint signing secret
   payoutSchedule: varchar('payout_schedule', { length: 20 }).default('weekly'), // daily, weekly, monthly
   platformFeePercent: numeric('platform_fee_percent', { precision: 5, scale: 2 }).default('5.00'), // agency platform fee %
   // General settings
