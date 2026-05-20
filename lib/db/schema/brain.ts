@@ -1,6 +1,6 @@
 // Company Brain: meetings, AI-extracted review items, relationships, notes, and the automation engine.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index, vector } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { crmCompanies, crmContacts, crmDeals } from './crm';
@@ -544,6 +544,42 @@ export const brainEmbeddingJobs = pgTable('brain_embedding_jobs', {
   enqueuedAt: timestamp('enqueued_at').defaultNow().notNull(),
   startedAt: timestamp('started_at'),
 });
+
+// Embedding storage. One row per (entity, chunk). Vectors are written via raw
+// SQL in lib/brain/embeddings.ts (pgvector accepts a `[1,2,…]::vector` literal,
+// which is cheaper than round-tripping through the ORM mapper for 1536-dim
+// floats). The Drizzle declaration exists primarily so `drizzle-kit push` sees
+// the table and does not try to drop it as "extra" — we lost this table once
+// and had to recover from a prod dump.
+//
+// HNSW vector index brain_embeddings_vector_hnsw_idx (vector_cosine_ops,
+// m=16, ef_construction=64) is managed manually via drizzle/0061_brain_embeddings.sql
+// and NOT declared here. drizzle-kit push cannot reconcile pgvector HNSW
+// indexes against the introspected schema — declaring it triggers a duplicate
+// CREATE INDEX on every push, and omitting it lets push --force silently drop
+// the index. Solution: keep the index out of the schema, and DO NOT run
+// `drizzle-kit push --force` against any DB that contains real brain data.
+// Use `bun run db:migrate` for journaled migrations only. If push ever drops
+// it, rebuild with:
+//   CREATE INDEX brain_embeddings_vector_hnsw_idx ON brain_embeddings
+//     USING hnsw (vector vector_cosine_ops) WITH (m=16, ef_construction=64);
+export const brainEmbeddings = pgTable('brain_embeddings', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: integer('entity_id').notNull(),
+  chunkIndex: integer('chunk_index').default(0).notNull(),
+  content: text('content').notNull(),
+  vector: vector('vector', { dimensions: 1536 }).notNull(),
+  model: varchar('model', { length: 100 }).notNull(),
+  dim: integer('dim').notNull(),
+  tokens: integer('tokens'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_embeddings_client_idx').on(t.clientId),
+  index('brain_embeddings_entity_idx').on(t.entityType, t.entityId),
+  uniqueIndex('brain_embeddings_entity_chunk_idx').on(t.entityType, t.entityId, t.chunkIndex),
+]);
 
 // Obsidian-style link graph for KB-imported notes. Each row is one [[link]]
 // or ![[embed]] found in a source note; backlinks come for free by querying
