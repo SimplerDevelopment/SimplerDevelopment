@@ -134,6 +134,13 @@ async function run() {
   const DEFAULT_SCOPES = [
     'postcaptain:research:read',
     'postcaptain:research:write',
+    // Internal scopes added in the Wave 2 dispatch refactor. SD mints
+    // ':execute' on dispatch to the worker; the worker mints ':complete'
+    // on the result callback. Both must be in defaultScopes so the
+    // manifest cross-check (requiredScopes ⊆ defaultScopes) passes once
+    // the manifest is bumped to advertise ':complete'.
+    'postcaptain:internal:execute',
+    'postcaptain:internal:complete',
   ];
 
   const [existingApp] = await db
