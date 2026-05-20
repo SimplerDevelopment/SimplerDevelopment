@@ -1213,7 +1213,35 @@ export default function ProductEditPage() {
                 </p>
               </div>
               {form.designMode !== 'standard' && (
-                <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-4">
+                  {/* Open in Designer — store-designed products only. Customers
+                      can't reach the canvas (the public route redirects to
+                      /shop), but staff with site access can edit the saved
+                      design via /sites/<domain>/designer/<slug>?staff=1.
+                      Routed through the portal page so we don't expose the
+                      ?staff=1 link directly in customer-facing UI. */}
+                  {form.designMode === 'store' && (
+                    <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <span className="material-icons text-primary">design_services</span>
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">Edit this product's design</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Opens the same canvas editor customers use, in staff mode — load the saved layers, tweak them, save back to the same design row. Skips add-to-cart.
+                          </div>
+                        </div>
+                      </div>
+                      <a
+                        href={`/portal/websites/${siteId}/store/products/${productId}/designer`}
+                        target="_blank"
+                        rel="noopener"
+                        className="shrink-0 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <span className="material-icons text-base">open_in_new</span>
+                        Open in Designer
+                      </a>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mb-3">
                     Each surface (front/back/sleeve…) defines the printable area. Customer-customizable products use these in the public designer; store-designed products use them for store-authored templates and fulfillment.
                   </p>
