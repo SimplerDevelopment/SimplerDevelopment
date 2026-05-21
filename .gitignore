@@ -67,10 +67,14 @@ next-env.d.ts
 /.backups/
 
 # one-off debug scripts and editor snapshots
+# (CLAUDE.md "Don't-touch zones" — agents should not read these even if they exist locally)
 _tmp-*
 **/_tmp-*
 editor-snapshot.md
 audit-verify-*
+# Explicit (subsumed by *.png above but called out for symmetry with CLAUDE.md)
+/edit-*.png
+/editor-*.png
 
 # Probe / compare / inspect debug artifacts (per CLAUDE.md)
 scripts/_*
