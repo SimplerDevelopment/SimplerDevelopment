@@ -66,6 +66,20 @@ Pick the spine, list the slides, then author one slide at a time.
 
 7. **Embed related artifacts only when they fit the deck's job.** Decks are usually self-contained narratives — but a sales deck CAN end with a `booking` block on the close slide (so the prospect can book a call without leaving the deck), or a `survey` block on a section break (qualification mid-pitch). Use sparingly; most decks don't need embedded widgets.
 
+## Sourcing images (and other media) for slides
+
+Decks are media-heavy — slide background images, hero photos, block images, brand logos on the cover/closing slides. Pick the pattern by where the bytes live:
+
+1. **Local file path** (the user named a path, or you have a workspace file). Use the **presign + curl + register** flow — bytes never enter the conversation, ~150 tokens per upload regardless of size. See `sd-create-page`'s **Sourcing images** section for the full snippet. Use `media.url` in the slide block (e.g. `image.src`, `hero.backgroundImage`, `pageSettings.backgroundImage`).
+
+2. **Public http(s) URL** — use `media_upload_from_url`. SSRF guard rejects internal/private IPs and refuses redirects.
+
+3. **Already in the library** — call `media_list` once at the start of the deck authoring session and reuse URLs across slides. Cover-slide logo, recurring brand glyph, repeated case-study screenshots: list once, reference everywhere.
+
+**Do not** base64-encode files into tool inputs. There is no `media_upload_base64` tool. A multi-slide deck with five locally-sourced images would torch ~1M tokens through base64 — same operation through presign+register is ~750 tokens total.
+
+For slide backgrounds specifically, register the asset first, then set `pageSettings.backgroundImage: media.url` on the slide. The wide brand logo (`logoUrl`) and icon (`logoIconUrl`) from `.sd/config.json:brand.logos` are already hosted — no upload needed for those.
+
 ## MCP calls
 
 Two-step:
