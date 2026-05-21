@@ -21,6 +21,8 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TemplatesPickerButton from '@/components/brain/TemplatesPickerButton';
+import TopicTree from '@/components/brain/TopicTree';
+import type { BrainTopicTreeNode } from '@/lib/brain/topics';
 
 interface BrainNote {
   id: number;
@@ -136,6 +138,19 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
 
   const [internalRefresh, setInternalRefresh] = useState(0);
 
+  // Grouping mode: 'tags' (legacy, default) or 'topics' (new). When 'topics',
+  // the landing view becomes a topic-tree; selecting a topic intersects the
+  // note list with the IDs attached to that topic (client-side, since the
+  // notes endpoint doesn't filter by topic yet — see TODO in selectedTopicId
+  // effect below).
+  const [groupingMode, setGroupingMode] = useState<'tags' | 'topics'>('tags');
+  const [topicTree, setTopicTree] = useState<BrainTopicTreeNode[] | null>(null);
+  const [topicTreeLoading, setTopicTreeLoading] = useState(false);
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  // Set of note IDs attached to the selected topic (via /api/portal/brain/topics/[id]/entities).
+  // We filter the loaded notes client-side against this set.
+  const [topicNoteIds, setTopicNoteIds] = useState<Set<number> | null>(null);
+
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedFormOpen, setSavedFormOpen] = useState(false);
   const [savedFormName, setSavedFormName] = useState('');
@@ -183,8 +198,10 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     // Tag-index mode (no filters, no active tag, not trashed): skip the
     // notes fetch — the landing view shows tag counts only. Reset list
     // state so a stale fetch doesn't bleed into the next drill-in.
+    // EXCEPT when a topic is selected — in topics mode the topic acts as the
+    // filter and we still want to fetch + intersect.
     const noFilters =
-      !debouncedSearch.trim() && activeTags.length === 0 && !tagPrefix.trim() && !pinnedOnly && !untaggedOnly && !orphansOnly && !trashed;
+      !debouncedSearch.trim() && activeTags.length === 0 && !tagPrefix.trim() && !pinnedOnly && !untaggedOnly && !orphansOnly && !trashed && selectedTopicId == null;
     if (noFilters) {
       if (replace) {
         setNotes([]);
@@ -227,6 +244,13 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
         const extra = activeTags.slice(1);
         nextItems = nextItems.filter(n => extra.every(t => n.tags?.includes(t)));
       }
+      // Topic filter: intersect with note ids attached to the selected topic.
+      // `topicNoteIds === null` means we haven't loaded them yet — fall through
+      // and show everything; the next render after the fetch settles will
+      // filter correctly.
+      if (selectedTopicId != null && topicNoteIds) {
+        nextItems = nextItems.filter(n => topicNoteIds.has(n.id));
+      }
       setTotal(payload.total);
       setLoaded(replace ? nextItems.length : (offset + nextItems.length));
       setNotes(prev => (replace ? nextItems : [...prev, ...nextItems]));
@@ -236,7 +260,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     } finally {
       if (myReq === reqIdRef.current) setLoading(false);
     }
-  }, [debouncedSearch, pinnedOnly, untaggedOnly, orphansOnly, activeTags, tagPrefix, trashed, sortField, sortOrder]);
+  }, [debouncedSearch, pinnedOnly, untaggedOnly, orphansOnly, activeTags, tagPrefix, trashed, sortField, sortOrder, selectedTopicId, topicNoteIds]);
 
   // Initial + filter-change reload.
   useEffect(() => {
@@ -302,6 +326,51 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     return () => { cancelled = true; };
   }, [internalRefresh, refreshTick]);
 
+  // Topic tree: lazily fetched on first switch to 'topics' mode, then cached.
+  // Refreshes when the user navigates back to the topics view OR when a
+  // refresh tick fires (other panes can mint new topics via the picker).
+  useEffect(() => {
+    if (groupingMode !== 'topics') return;
+    let cancelled = false;
+    setTopicTreeLoading(true);
+    fetch('/api/portal/brain/topics?as=tree')
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        if (j?.success) setTopicTree(j.data?.tree ?? []);
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => { if (!cancelled) setTopicTreeLoading(false); });
+    return () => { cancelled = true; };
+  }, [groupingMode, refreshTick, internalRefresh]);
+
+  // When a topic is selected, fetch its attached note ids. We rely on
+  // client-side intersection with the loaded notes — the knowledge endpoint
+  // doesn't yet accept a topicId param (would be a one-line backend change,
+  // but the brief told us to client-side filter unless it's trivial; the
+  // endpoint's filter chain is more than a one-liner, so we stayed
+  // client-side).
+  // TODO(brain-restructure phase 2): add ?topicId= to /api/portal/brain/knowledge
+  //   and replace this fetch with a server-side filter.
+  useEffect(() => {
+    if (selectedTopicId == null) {
+      setTopicNoteIds(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/portal/brain/topics/${selectedTopicId}/entities?entityType=note`)
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        if (j?.success) {
+          const noteRows = (j.data?.items ?? []) as Array<{ entityType: string; entityId: number }>;
+          setTopicNoteIds(new Set(noteRows.filter(r => r.entityType === 'note').map(r => r.entityId)));
+        }
+      })
+      .catch(() => { /* non-fatal */ });
+    return () => { cancelled = true; };
+  }, [selectedTopicId, refreshTick, internalRefresh]);
+
   // URL-param drill-in: the parallel-built Tag Treemap navigates here with
   // ?tag=X / ?orphans=true / ?untagged=true to seed a filter on landing.
   // Strip the params after applying so back-button + refresh behave sanely
@@ -360,7 +429,7 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
     return s;
   }, [notes]);
 
-  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly);
+  const filtersActive = !!(debouncedSearch.trim() || activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly || selectedTopicId != null);
 
   const tree = useMemo(() => buildTagTree(notes, pinnedIdsSet, trashed), [notes, pinnedIdsSet, trashed]);
 
@@ -803,6 +872,53 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
         </div>
 
         {!trashed && (
+          <div
+            role="tablist"
+            aria-label="Group notes by"
+            className="inline-flex border border-border rounded-md overflow-hidden text-[11px] font-medium self-start"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={groupingMode === 'tags'}
+              onClick={() => {
+                setGroupingMode('tags');
+                setSelectedTopicId(null);
+              }}
+              className={`inline-flex items-center gap-1 px-2 py-1 transition-colors ${
+                groupingMode === 'tags'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+              title="Group by tags"
+            >
+              <span className="material-icons text-sm">sell</span>
+              Tags
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={groupingMode === 'topics'}
+              onClick={() => {
+                setGroupingMode('topics');
+                setActiveTags([]);
+                setUntaggedOnly(false);
+                setOrphansOnly(false);
+              }}
+              className={`inline-flex items-center gap-1 px-2 py-1 border-l border-border transition-colors ${
+                groupingMode === 'topics'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+              }`}
+              title="Group by topics"
+            >
+              <span className="material-icons text-sm">account_tree</span>
+              Topics
+            </button>
+          </div>
+        )}
+
+        {!trashed && (
           <div className="flex items-center gap-2 text-xs">
             <label className="inline-flex items-center gap-1 cursor-pointer text-muted-foreground hover:text-foreground">
               <input
@@ -846,15 +962,23 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
                 </button>
               </div>
             )}
-            {(activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly || debouncedSearch) && (
+            {(activeTags.length > 0 || tagPrefix.trim() || pinnedOnly || untaggedOnly || orphansOnly || debouncedSearch || selectedTopicId != null) && (
               <button
                 type="button"
-                onClick={() => { setActiveTags([]); setTagPrefix(''); setPinnedOnly(false); setUntaggedOnly(false); setOrphansOnly(false); setSearch(''); }}
+                onClick={() => {
+                  setActiveTags([]);
+                  setTagPrefix('');
+                  setPinnedOnly(false);
+                  setUntaggedOnly(false);
+                  setOrphansOnly(false);
+                  setSearch('');
+                  setSelectedTopicId(null);
+                }}
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                title="Back to all tags"
+                title={groupingMode === 'topics' ? 'Back to all topics' : 'Back to all tags'}
               >
                 <span className="material-icons text-sm">arrow_back</span>
-                all tags
+                {groupingMode === 'topics' ? 'all topics' : 'all tags'}
               </button>
             )}
           </div>
@@ -997,7 +1121,9 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             sectionLabel={
-              orphansOnly
+              selectedTopicId != null
+                ? `${findTopicName(topicTree ?? [], selectedTopicId) ?? `Topic #${selectedTopicId}`} (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
+                : orphansOnly
                 ? `Orphans (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
                 : untaggedOnly
                 ? `Untagged (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
@@ -1006,7 +1132,9 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
                 : `Results (${notes.length}${total > notes.length ? ` of ${total}` : ''})`
             }
             sectionIcon={
-              orphansOnly
+              selectedTopicId != null
+                ? 'account_tree'
+                : orphansOnly
                 ? 'link_off'
                 : untaggedOnly
                 ? 'label_off'
@@ -1015,6 +1143,12 @@ export default function NoteListPane({ selectedId, onSelect, onCreate, onTemplat
                 : 'search'
             }
             collapsed={false}
+          />
+        ) : groupingMode === 'topics' ? (
+          <TopicsLandingView
+            tree={topicTree}
+            loading={topicTreeLoading}
+            onSelect={(node) => setSelectedTopicId(node.id)}
           />
         ) : (
           <TagIndexView
@@ -1598,6 +1732,69 @@ function TagIndexView({
       </ul>
     </div>
   );
+}
+
+/**
+ * Topics-grouping landing view. Read-only TopicTree (no drag, no edit) with
+ * entity counts; clicking a node calls back to the parent to drill in. Loading
+ * + empty states match the rest of the brain UI.
+ */
+function TopicsLandingView({
+  tree,
+  loading,
+  onSelect,
+}: {
+  tree: BrainTopicTreeNode[] | null;
+  loading: boolean;
+  onSelect: (node: BrainTopicTreeNode) => void;
+}) {
+  if (loading && !tree) {
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground">
+        <span className="material-icons text-sm animate-spin align-middle mr-1">progress_activity</span>
+        Loading topics…
+      </div>
+    );
+  }
+  if (!tree || tree.length === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground">
+        <span className="material-icons text-3xl text-muted-foreground/50 block mb-2">account_tree</span>
+        <p>No topics yet.</p>
+        <p className="mt-1">
+          <Link href="/portal/brain/topics" className="underline text-primary hover:opacity-80">
+            Manage topics
+          </Link>
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="py-1">
+      <div className="px-3 py-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="material-icons text-sm">account_tree</span>
+        <span>Topics</span>
+        <Link
+          href="/portal/brain/topics"
+          className="ml-auto text-[10px] font-normal normal-case tracking-normal text-muted-foreground/70 hover:text-foreground underline"
+        >
+          Manage
+        </Link>
+      </div>
+      <TopicTree tree={tree} showEntityCounts onSelect={onSelect} />
+    </div>
+  );
+}
+
+/** Walk the topic tree to find the node with the given id; returns its name
+ *  or null. Used to label the FlatList section when a topic is selected. */
+function findTopicName(tree: BrainTopicTreeNode[], id: number): string | null {
+  for (const node of tree) {
+    if (node.id === id) return node.name;
+    const childHit = findTopicName(node.children, id);
+    if (childHit) return childHit;
+  }
+  return null;
 }
 
 function formatRelative(iso: string): string {

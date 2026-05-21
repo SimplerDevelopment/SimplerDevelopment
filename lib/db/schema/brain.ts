@@ -212,7 +212,11 @@ export type BrainReviewItemType =
   | 'crm_deal_create'
   | 'crm_company_link'
   | 'crm_company_create'
-  | 'project_artifact_link';
+  | 'project_artifact_link'
+  // Phase 1 brain-restructure: AI-proposed attachment of one or more
+  // brain_topics to an existing entity. Approval calls attachTopics from
+  // lib/brain/topics.ts.
+  | 'topic_assign';
 
 export type BrainReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
 
@@ -230,7 +234,21 @@ export interface BrainReviewItemTaskPayload {
   relatesToBrainHit?: string;
 }
 
-export interface BrainReviewItemDecisionPayload { title: string; details?: string; }
+/**
+ * Decision review-item payload. Approval promotes this into a `brain_decisions`
+ * row (see lib/brain/review.ts). The richer fields here mirror the columns on
+ * `brain_decisions`. Phase 1+ replaced the legacy `{ title, details }` shape —
+ * 0075's migration copies any in-flight `details` into `rationale`.
+ */
+export interface BrainReviewItemDecisionPayload {
+  title: string;
+  context?: string;
+  decision: string;
+  rationale: string;
+  alternativesConsidered?: string;
+  reversibility?: 'one_way' | 'two_way';
+  decidedAt?: string;  // ISO
+}
 
 export interface BrainReviewItemCommitmentPayload { who: string; what: string; when?: string; }
 
@@ -285,6 +303,26 @@ export interface BrainReviewItemCrmCompanyCreatePayload {
   rationale: string;
 }
 
+/**
+ * Entity types that can have brain_topics attached via the polymorphic
+ * `brain_entity_topics` join. Declared here (ahead of its table definition
+ * lower in the file) so the review-item payload can reference it.
+ */
+export type BrainTopicEntityType = 'note' | 'meeting' | 'task' | 'decision' | 'relationship_overlay';
+
+/**
+ * Topic-assignment proposal payload. Approval calls `attachTopics` from
+ * `lib/brain/topics.ts` to insert rows into `brain_entity_topics` for each
+ * `(targetEntityType, targetEntityId, topicId)`. The dispatcher rejects
+ * unknown topic ids or cross-tenant attachment attempts.
+ */
+export interface BrainReviewItemTopicAssignPayload {
+  targetEntityType: BrainTopicEntityType;
+  targetEntityId: number;
+  topicIds: number[];
+  rationale?: string;
+}
+
 export interface BrainReviewItemProjectArtifactLinkPayload {
   projectId: number;
   artifactType: 'website' | 'email_campaign' | 'pitch_deck' | 'proposal' | 'booking' | 'survey' | 'post' | 'brain_note';
@@ -309,6 +347,7 @@ export type BrainReviewItemPayload =
   | BrainReviewItemCrmCompanyLinkPayload
   | BrainReviewItemCrmCompanyCreatePayload
   | BrainReviewItemProjectArtifactLinkPayload
+  | BrainReviewItemTopicAssignPayload
   | Record<string, unknown>;
 
 export const brainAiReviewItems = pgTable('brain_ai_review_items', {
@@ -729,5 +768,100 @@ export const brainInitiativeLinks = pgTable('brain_initiative_links', {
 }, (t) => [
   uniqueIndex('brain_initiative_links_init_entity_idx').on(t.initiativeId, t.entityType, t.entityId),
   index('brain_initiative_links_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
+]);
+
+// ─── BRAIN DECISIONS ────────────────────────────────────────────────────────
+// First-class immutable-ish decision records. Mutations to rationale /
+// decision / context never edit-in-place — instead, create a successor and
+// link via `superseded_by_decision_id`. Title/links remain mutable for typo
+// fixes; lib/brain/decisions.ts enforces the rule and writes an audit row
+// for every change. Phase 1 brain-restructure (see
+// .planning/brain-restructure/PLAN.md).
+
+export type BrainDecisionReversibility = 'one_way' | 'two_way';
+export type BrainDecisionStatus = 'proposed' | 'accepted' | 'superseded' | 'rejected';
+
+export const brainDecisions = pgTable('brain_decisions', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  context: text('context'),                              // problem statement / situation
+  decision: text('decision').notNull(),                  // what was decided
+  rationale: text('rationale').notNull(),                // why
+  alternativesConsidered: text('alternatives_considered'),
+  reversibility: varchar('reversibility', { length: 20 }).$type<BrainDecisionReversibility>().default('two_way').notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainDecisionStatus>().default('accepted').notNull(),
+  decisionMakerId: integer('decision_maker_id').references(() => users.id, { onDelete: 'set null' }),
+  decidedAt: timestamp('decided_at').defaultNow().notNull(),
+  // Supersede chain (immutable replacement, never edit-in-place). Self-FK
+  // declared via the `(): any => brainDecisions.id` pattern to break the
+  // circular type inference Drizzle would otherwise hit.
+  supersededByDecisionId: integer('superseded_by_decision_id').references((): any => brainDecisions.id, { onDelete: 'set null' }),
+  // Optional anchors — usually one of these is set.
+  meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
+  noteId: integer('note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  // Provenance — 'manual' for user-authored, 'ai_review' when promoted from
+  // a brain_ai_review_items row of type 'decision'.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  reviewItemId: integer('review_item_id').references(() => brainAiReviewItems.id, { onDelete: 'set null' }),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_decisions_client_idx').on(t.clientId),
+  index('brain_decisions_decided_at_idx').on(t.decidedAt),
+  index('brain_decisions_status_idx').on(t.status),
+]);
+
+// ─── BRAIN TOPICS ──────────────────────────────────────────────────────────
+// Hierarchical taxonomy that cross-cuts every brain entity via the polymorphic
+// `brain_entity_topics` join below. `parentId` is a self-FK; `slug` is unique
+// per tenant for stable URLs; `path` is a materialized '/'-joined string of
+// ancestor slugs used for cheap subtree queries — lib/brain/topics.ts keeps
+// it in sync on insert/rename/move/merge.
+
+export const brainTopics = pgTable('brain_topics', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): any => brainTopics.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  slug: varchar('slug', { length: 150 }).notNull(),
+  path: varchar('path', { length: 1000 }).notNull(),    // '/ops/hiring/eng' — derived, kept in sync
+  description: text('description'),
+  color: varchar('color', { length: 20 }),              // optional UI hint, e.g. '#06b6d4'
+  icon: varchar('icon', { length: 50 }),                // optional Material Icons name
+  sortOrder: integer('sort_order').default(0).notNull(),
+  // Set when the topic was migrated from a flat tag string by
+  // `brain_topics_import_from_tags`.
+  derivedFromTag: varchar('derived_from_tag', { length: 100 }),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_topics_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_topics_client_parent_idx').on(t.clientId, t.parentId),
+  index('brain_topics_path_idx').on(t.path),
+]);
+
+// Polymorphic join — topics attach to notes, meetings, tasks, decisions, and
+// relationship overlays. `(entity_type, entity_id, topic_id)` is unique so
+// idempotent attach calls are safe. `clientId` is denormalized here for
+// tenant-scoped lookups without a join through `brain_topics`.
+
+export const brainEntityTopics = pgTable('brain_entity_topics', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  topicId: integer('topic_id').notNull().references(() => brainTopics.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 30 }).$type<BrainTopicEntityType>().notNull(),
+  entityId: integer('entity_id').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_entity_topics_entity_topic_idx').on(t.entityType, t.entityId, t.topicId),
+  index('brain_entity_topics_topic_idx').on(t.topicId),
+  index('brain_entity_topics_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
 ]);
 
