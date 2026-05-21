@@ -38,6 +38,10 @@ export interface DashboardSummary {
     orgUnitCount: number;
     expertiseTagsCount: number;
     glossaryTermsActive: number;
+    /** Playbook runs where status='active'. Added Wave 2c. */
+    playbookRunsActive: number;
+    /** Playbook runs where status='paused'. Added Wave 2c. */
+    playbookRunsPaused: number;
   };
 }
 
@@ -143,6 +147,8 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       org_unit_count: number;
       expertise_tags_count: number;
       glossary_terms_active: number;
+      playbook_runs_active: number;
+      playbook_runs_paused: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
@@ -155,7 +161,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
         (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
         (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
         (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
-        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active
+        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active,
+        (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'active') AS playbook_runs_active,
+        (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'paused') AS playbook_runs_paused
     `),
   ]);
 
@@ -301,6 +309,8 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     org_unit_count: 0,
     expertise_tags_count: 0,
     glossary_terms_active: 0,
+    playbook_runs_active: 0,
+    playbook_runs_paused: 0,
   };
 
   return {
@@ -334,6 +344,8 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       orgUnitCount: counts.org_unit_count ?? 0,
       expertiseTagsCount: counts.expertise_tags_count ?? 0,
       glossaryTermsActive: counts.glossary_terms_active ?? 0,
+      playbookRunsActive: counts.playbook_runs_active ?? 0,
+      playbookRunsPaused: counts.playbook_runs_paused ?? 0,
     },
   };
 }
