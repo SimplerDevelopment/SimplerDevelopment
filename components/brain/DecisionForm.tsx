@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type {
   BrainDecisionReversibility,
 } from '@/lib/db/schema';
+import EntityPicker, { type EntityPickerRow } from './EntityPicker';
 
 interface TeamMember {
   userId: number;
@@ -124,10 +125,11 @@ export default function DecisionForm({
   const [reversibility, setReversibility] = useState<BrainDecisionReversibility>(initial?.reversibility ?? 'two_way');
   const [decidedAt, setDecidedAt] = useState<string>(toIsoDateInputValue(initial?.decidedAt));
   const [decisionMakerId, setDecisionMakerId] = useState<number | null>(initial?.decisionMakerId ?? null);
-  const [meetingId, setMeetingId] = useState<string>(initial?.meetingId ? String(initial.meetingId) : '');
-  const [noteId, setNoteId] = useState<string>(initial?.noteId ? String(initial.noteId) : '');
-  const [companyId, setCompanyId] = useState<string>(initial?.companyId ? String(initial.companyId) : '');
-  const [dealId, setDealId] = useState<string>(initial?.dealId ? String(initial.dealId) : '');
+  // Anchor selection. Each picker holds at most one id; null means cleared.
+  const [meetingId, setMeetingId] = useState<number | null>(initial?.meetingId ?? null);
+  const [noteId, setNoteId] = useState<number | null>(initial?.noteId ?? null);
+  const [companyId, setCompanyId] = useState<number | null>(initial?.companyId ?? null);
+  const [dealId, setDealId] = useState<number | null>(initial?.dealId ?? null);
   const [confidentiality, setConfidentiality] = useState<'standard' | 'restricted' | 'confidential'>(
     initial?.confidentialityLevel ?? 'standard',
   );
@@ -185,12 +187,6 @@ export default function DecisionForm({
     setTopicIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const parseNumeric = (s: string): number | null => {
-    if (!s.trim()) return null;
-    const n = parseInt(s, 10);
-    return Number.isFinite(n) ? n : null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidation(null);
@@ -218,10 +214,10 @@ export default function DecisionForm({
       decidedAt: new Date(decidedAt).toISOString(),
       decisionMakerId,
       anchors: {
-        meetingId: parseNumeric(meetingId),
-        noteId: parseNumeric(noteId),
-        companyId: parseNumeric(companyId),
-        dealId: parseNumeric(dealId),
+        meetingId,
+        noteId,
+        companyId,
+        dealId,
       },
       confidentialityLevel: confidentiality,
       topicIds,
@@ -370,21 +366,56 @@ export default function DecisionForm({
         </Field>
       </div>
 
-      {/* Anchors — numeric IDs only for now */}
+      {/* Anchors — interactive entity pickers */}
       <fieldset>
         <legend className="text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
           <span className="material-icons text-base text-primary">anchor</span>
           Anchors
           <span className="text-xs font-normal text-muted-foreground">(optional — link this decision to a source record)</span>
         </legend>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <NumericAnchorField label="Meeting #" value={meetingId} onChange={setMeetingId} icon="event" />
-          <NumericAnchorField label="Note #" value={noteId} onChange={setNoteId} icon="description" />
-          <NumericAnchorField label="Company #" value={companyId} onChange={setCompanyId} icon="business" />
-          <NumericAnchorField label="Deal #" value={dealId} onChange={setDealId} icon="handshake" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <EntityPicker
+            label="Meeting"
+            icon="event"
+            value={meetingId}
+            onChange={setMeetingId}
+            endpoint="/api/portal/brain/meetings?limit=20"
+            displayRow={meetingDisplayRow}
+            searchPlaceholder="Search meetings…"
+            // listMeetings doesn't honour ?search yet — picker filters
+            // the returned page client-side. If we add fts later, drop this.
+            supportsServerSearch={false}
+          />
+          <EntityPicker
+            label="Note"
+            icon="description"
+            value={noteId}
+            onChange={setNoteId}
+            endpoint="/api/portal/brain/knowledge?limit=20"
+            displayRow={noteDisplayRow}
+            searchPlaceholder="Search notes…"
+          />
+          <EntityPicker
+            label="Company"
+            icon="business"
+            value={companyId}
+            onChange={setCompanyId}
+            endpoint="/api/portal/crm/companies?limit=20"
+            displayRow={companyDisplayRow}
+            searchPlaceholder="Search companies…"
+          />
+          <EntityPicker
+            label="Deal"
+            icon="handshake"
+            value={dealId}
+            onChange={setDealId}
+            endpoint="/api/portal/crm/deals"
+            displayRow={dealDisplayRow}
+            searchPlaceholder="Search deals…"
+            // crm/deals returns an unpaginated array — no `limit` honoured;
+            // it does support `?search=` server-side, so we keep that on.
+          />
         </div>
-        {/* TODO(wave-3a+): wire interactive pickers for meeting/note/company/deal
-            instead of numeric IDs once those reusable pickers exist. */}
       </fieldset>
 
       {/* Topic picker (create + supersede only) */}
@@ -510,31 +541,64 @@ function RadioPill({
   );
 }
 
-function NumericAnchorField({
-  label,
-  value,
-  onChange,
-  icon,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  icon: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-        <span className="material-icons text-[14px] leading-none">{icon}</span>
-        {label}
-      </span>
-      <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="—"
-        min="1"
-        className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-      />
-    </label>
-  );
+// ─── Anchor-row mappers ──────────────────────────────────────────────────
+// Each mapper turns the raw API row into the picker's `{id, primary, secondary}`
+// shape. Defined at module scope so they have stable identities — passing
+// inline functions would re-trigger EntityPicker's effects on every render.
+
+function meetingDisplayRow(raw: unknown): EntityPickerRow | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as { id?: unknown; title?: unknown; meetingDate?: unknown; createdAt?: unknown };
+  if (typeof r.id !== 'number') return null;
+  const date = r.meetingDate ?? r.createdAt;
+  const dateStr =
+    typeof date === 'string' || date instanceof Date
+      ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : null;
+  return {
+    id: r.id,
+    primary: typeof r.title === 'string' && r.title.trim() ? r.title : `Meeting #${r.id}`,
+    secondary: dateStr,
+  };
+}
+
+function noteDisplayRow(raw: unknown): EntityPickerRow | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as { id?: unknown; title?: unknown; updatedAt?: unknown };
+  if (typeof r.id !== 'number') return null;
+  const updated = r.updatedAt;
+  const dateStr =
+    typeof updated === 'string' || updated instanceof Date
+      ? new Date(updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : null;
+  return {
+    id: r.id,
+    primary: typeof r.title === 'string' && r.title.trim() ? r.title : `Note #${r.id}`,
+    secondary: dateStr,
+  };
+}
+
+function companyDisplayRow(raw: unknown): EntityPickerRow | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as { id?: unknown; name?: unknown; domain?: unknown };
+  if (typeof r.id !== 'number') return null;
+  return {
+    id: r.id,
+    primary: typeof r.name === 'string' && r.name.trim() ? r.name : `Company #${r.id}`,
+    secondary: typeof r.domain === 'string' && r.domain.trim() ? r.domain : null,
+  };
+}
+
+function dealDisplayRow(raw: unknown): EntityPickerRow | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as { id?: unknown; title?: unknown; companyName?: unknown; value?: unknown };
+  if (typeof r.id !== 'number') return null;
+  const sec: string[] = [];
+  if (typeof r.companyName === 'string' && r.companyName.trim()) sec.push(r.companyName);
+  if (typeof r.value === 'number') sec.push(`$${r.value.toLocaleString()}`);
+  return {
+    id: r.id,
+    primary: typeof r.title === 'string' && r.title.trim() ? r.title : `Deal #${r.id}`,
+    secondary: sec.length ? sec.join(' · ') : null,
+  };
 }
