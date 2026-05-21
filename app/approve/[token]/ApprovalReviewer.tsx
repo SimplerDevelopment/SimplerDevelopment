@@ -27,7 +27,13 @@ export type ApprovalEntityPreview =
       title: string;
       slug: string;
       status: string;
-      slides: Array<{ id: string; label: string | null; blocks: unknown }>;
+      slides: Array<{
+        id: string;
+        label: string | null;
+        blocks: unknown;
+        pageSettings?: unknown;
+        customCss?: string | null;
+      }>;
     }
   | {
       kind: 'email_campaign';
@@ -93,18 +99,20 @@ interface Props {
   reviewedAt: string | null;
   expiresAt: string | null;
   preview: ApprovalEntityPreview;
+  currentUser: { name: string; email: string } | null;
 }
 
 export function ApprovalReviewer(props: Props) {
   const [decision, setDecision] = useState<'approve' | 'reject' | null>(null);
-  const [reviewerName, setReviewerName] = useState('');
-  const [reviewerEmail, setReviewerEmail] = useState('');
+  const [reviewerName, setReviewerName] = useState(props.currentUser?.name ?? '');
+  const [reviewerEmail, setReviewerEmail] = useState(props.currentUser?.email ?? '');
   const [reviewNote, setReviewNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(props.status);
 
   const isPending = currentStatus === 'pending';
+  const isAuthed = !!props.currentUser;
 
   async function submit() {
     if (!decision) return;
@@ -173,6 +181,8 @@ export function ApprovalReviewer(props: Props) {
           reviewNote={reviewNote}
           submitting={submitting}
           error={error}
+          isAuthed={isAuthed}
+          currentUser={props.currentUser}
           onChangeName={setReviewerName}
           onChangeEmail={setReviewerEmail}
           onChangeNote={setReviewNote}
@@ -321,22 +331,53 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
               This deck has no slides yet.
             </div>
           ) : (
-            preview.slides.map((slide, idx) => (
-              <div key={slide.id} className="rounded-xl bg-white border border-gray-200 overflow-hidden">
-                <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Slide {idx + 1}
-                    {slide.label && <span className="text-gray-500"> — {slide.label}</span>}
-                  </span>
-                  <span className="text-xs text-gray-400">{slide.id}</span>
+            preview.slides.map((slide, idx) => {
+              // Ticket #19: mirror the published renderer — apply
+              // pageSettings.backgroundImage / backgroundColor / size /
+              // position / repeat as inline styles on the slide card so
+              // reviewers see what the author authored. customCss is
+              // injected scoped to this slide via [data-slide-id].
+              const ps = (slide.pageSettings ?? {}) as {
+                backgroundColor?: string;
+                backgroundImage?: string;
+                backgroundSize?: string;
+                backgroundPosition?: string;
+                backgroundRepeat?: string;
+              };
+              const bgStyle: React.CSSProperties = {};
+              if (ps.backgroundColor) bgStyle.backgroundColor = ps.backgroundColor;
+              if (ps.backgroundImage) {
+                const raw = ps.backgroundImage.trim();
+                bgStyle.backgroundImage = /^url\(/i.test(raw) ? raw : `url(${raw})`;
+                bgStyle.backgroundSize = ps.backgroundSize || 'cover';
+                bgStyle.backgroundPosition = ps.backgroundPosition || 'center';
+                bgStyle.backgroundRepeat = ps.backgroundRepeat || 'no-repeat';
+              }
+              return (
+                <div
+                  key={slide.id}
+                  data-slide-id={slide.id}
+                  className="rounded-xl bg-white border border-gray-200 overflow-hidden"
+                  style={bgStyle}
+                >
+                  {slide.customCss && (
+                    <style dangerouslySetInnerHTML={{ __html: slide.customCss }} />
+                  )}
+                  <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-700">
+                      Slide {idx + 1}
+                      {slide.label && <span className="text-gray-500"> — {slide.label}</span>}
+                    </span>
+                    <span className="text-xs text-gray-400">{slide.id}</span>
+                  </div>
+                  <div className="p-2 sm:p-4">
+                    <BlockRenderer
+                      content={JSON.stringify({ blocks: slide.blocks, version: '1.0' })}
+                    />
+                  </div>
                 </div>
-                <div className="p-2 sm:p-4">
-                  <BlockRenderer
-                    content={JSON.stringify({ blocks: slide.blocks, version: '1.0' })}
-                  />
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       );
@@ -495,6 +536,8 @@ function DecisionModal(props: {
   reviewNote: string;
   submitting: boolean;
   error: string | null;
+  isAuthed: boolean;
+  currentUser: { name: string; email: string } | null;
   onChangeName: (v: string) => void;
   onChangeEmail: (v: string) => void;
   onChangeNote: (v: string) => void;
@@ -509,7 +552,11 @@ function DecisionModal(props: {
           {isApprove ? 'Approve this draft?' : 'Reject this draft?'}
         </h2>
         <p className="text-sm text-gray-600">
-          {isApprove
+          {props.isAuthed && props.currentUser
+            ? isApprove
+              ? `Recording this approval as ${props.currentUser.name}. The change will go live as soon as you confirm.`
+              : `Recording this rejection as ${props.currentUser.name}. The author can revise and re-send for review.`
+            : isApprove
             ? 'Your name will be recorded with the approval. The change will go live as soon as you confirm.'
             : 'Your name will be recorded with the rejection. The author can revise and re-send for review.'}
         </p>
@@ -518,38 +565,43 @@ function DecisionModal(props: {
             {props.error}
           </div>
         )}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Your name</label>
-          <input
-            value={props.reviewerName}
-            onChange={(e) => props.onChangeName(e.target.value)}
-            placeholder="Full name"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            autoFocus
-          />
-        </div>
+        {!props.isAuthed && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Your name</label>
+              <input
+                value={props.reviewerName}
+                onChange={(e) => props.onChangeName(e.target.value)}
+                placeholder="Full name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-500"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email <span className="text-gray-500 font-normal">(optional)</span>
+              </label>
+              <input
+                type="email"
+                value={props.reviewerEmail}
+                onChange={(e) => props.onChangeEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-500"
+              />
+            </div>
+          </>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email <span className="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            type="email"
-            value={props.reviewerEmail}
-            onChange={(e) => props.onChangeEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Note <span className="text-gray-400 font-normal">(optional)</span>
+            Note <span className="text-gray-500 font-normal">(optional)</span>
           </label>
           <textarea
             value={props.reviewNote}
             onChange={(e) => props.onChangeNote(e.target.value)}
             placeholder={isApprove ? 'Anything to tell the author?' : 'What needs to change?'}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 resize-none"
+            autoFocus={props.isAuthed}
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">

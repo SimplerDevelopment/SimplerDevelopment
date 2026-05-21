@@ -33,6 +33,8 @@ import type {
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { lookupApprovalLink } from '@/lib/mcp/approval-links';
+import { auth } from '@/lib/auth';
+import { users } from '@/lib/db/schema';
 import { ApprovalReviewer, type ApprovalEntityPreview } from './ApprovalReviewer';
 
 interface PageProps {
@@ -44,7 +46,10 @@ export default async function ApprovalPage({ params }: PageProps) {
   const link = await lookupApprovalLink(token);
   if (!link) notFound();
 
-  const preview = await loadPreview(link.clientId, link.linkType, link.entityType, link.entityId, link.pendingChangeId);
+  const [preview, currentUser] = await Promise.all([
+    loadPreview(link.clientId, link.linkType, link.entityType, link.entityId, link.pendingChangeId),
+    loadCurrentUser(),
+  ]);
 
   return (
     <ApprovalReviewer
@@ -57,8 +62,24 @@ export default async function ApprovalPage({ params }: PageProps) {
       reviewedAt={link.reviewedAt?.toISOString() ?? null}
       expiresAt={link.expiresAt?.toISOString() ?? null}
       preview={preview}
+      currentUser={currentUser}
     />
   );
+}
+
+async function loadCurrentUser(): Promise<{ name: string; email: string } | null> {
+  const session = await auth();
+  const userIdRaw = session?.user?.id;
+  if (!userIdRaw) return null;
+  const userId = parseInt(String(userIdRaw), 10);
+  if (Number.isNaN(userId)) return null;
+  const [row] = await db
+    .select({ name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row) return null;
+  return { name: row.name, email: row.email };
 }
 
 async function loadPreview(
@@ -120,6 +141,12 @@ async function loadPreview(
           label: s.label ?? null,
           // V2 stores draft + live separately; show draft if present, else live.
           blocks: (s.draft?.blocks ?? s.blocks ?? []) as unknown,
+          // Ticket #19: forward pageSettings + customCss so the approval card
+          // mirrors the published renderer's slide-stage chrome (bg image /
+          // color / size / position / repeat + scoped custom CSS) instead of
+          // dropping them on the floor.
+          pageSettings: (s.draft?.pageSettings ?? s.pageSettings ?? null) as unknown,
+          customCss: (s.draft?.customCss ?? s.customCss ?? null) as string | null,
         })),
       };
     }
