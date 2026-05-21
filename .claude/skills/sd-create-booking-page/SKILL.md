@@ -1,6 +1,6 @@
 ---
 name: sd-create-booking-page
-description: Create, list, inspect, and embed booking pages from the SimplerDevelopment portal. Two flows — (A) embed an existing booking page into a CMS page, deck, or email via the `booking` block (or `booking-menu` for all-services), or (B) author a new booking page via `booking_pages_create` + `booking_pages_update`, which mints an approval URL whose approval flips `active=true` so `/book/<slug>` starts accepting reservations. Returns the public `/book/<slug>` URL. Use when the user says 'add a booking widget to this page', 'embed the discovery call booking', 'create a new booking page', 'set up consulting hours', 'add a calendar to the email'.
+description: Create, list, inspect, and embed booking pages from the SimplerDevelopment portal. Two flows — (A) embed an existing booking page into a CMS page, deck, or email via the `booking` block (or `booking-menu` for all-services), or (B) author a new booking page via `booking_pages_create` + `booking_pages_update`, which mints an approval URL whose approval flips `active=true` so `/book/[slug]` starts accepting reservations. Returns the public `/book/[slug]` URL. Use when the user says 'add a booking widget to this page', 'embed the discovery call booking', 'create a new booking page', 'set up consulting hours', 'add a calendar to the email'.
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
@@ -10,7 +10,7 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 This skill is split into two flows:
 
 - **Flow A: embed an existing booking page** — list, pick, embed.
-- **Flow B: author a new booking page from scratch via `booking_pages_create`** — fully wired in MCP. The new page is created with `active=false` and a fresh approval URL is minted; approving the URL flips `active=true` so `/book/<slug>` accepts reservations. Iterate via `booking_pages_update`.
+- **Flow B: author a new booking page from scratch via `booking_pages_create`** — fully wired in MCP. The new page is created with `active=false` and a fresh approval URL is minted; approving the URL flips `active=true` so `/book/[slug]` accepts reservations. Iterate via `booking_pages_update`.
 
 Both flows return the public URL, the portal edit URL, and the approval URL. The skill picks Flow A by default if `booking_pages_list` already has a matching page; otherwise it pivots to Flow B.
 
@@ -40,8 +40,8 @@ For embedding in a CMS page or deck slide, append a `booking` block:
 {
   "id": "booking-1",
   "type": "booking",
-  "order": <next>,
-  "slug": "<booking-page-slug>",
+  "order": [next],
+  "slug": "[booking-page-slug]",
   "title": "Book a 30-minute discovery call",
   "description": "Pick a time that works — we'll send a calendar invite + a 24h reminder.",
   "showPageTitle": false,
@@ -57,7 +57,7 @@ For embedding in a CMS page or deck slide, append a `booking` block:
 For an "all services" menu (e.g. a service-listings page), use `booking-menu`:
 
 ```json
-{ "id": "menu-1", "type": "booking-menu", "order": <next>,
+{ "id": "menu-1", "type": "booking-menu", "order": [next],
   "title": "Book a session", "columns": 3 }
 ```
 
@@ -68,10 +68,10 @@ This walks every active booking page on the site and renders them in a card grid
 Emails can't embed the booking widget (email clients don't run React), so use a button:
 
 ```json
-{ "id": "cta", "type": "button", "order": <next>,
+{ "id": "cta", "type": "button", "order": [next],
   "text": "Book a 30-min discovery call",
-  "url": "https://<site-domain>/book/<slug>",
-  "style": { "backgroundColor": "<brand.primaryColor>", ... } }
+  "url": "https://[site-domain]/book/[slug]",
+  "style": { "backgroundColor": "[brand.primaryColor]", ... } }
 ```
 
 **Always include the full URL** (not relative) — emails resolve links absolutely.
@@ -83,7 +83,7 @@ A survey's recommendation engine has a `bookUrl` field — set it to the public 
 ```json
 "recommendation": {
   ...,
-  "bookUrl": "https://<site-domain>/book/<slug>"
+  "bookUrl": "https://[site-domain]/book/[slug]"
 }
 ```
 
@@ -105,7 +105,7 @@ Call `mcp__simplerdevelopment-postcaptain__booking_pages_create` with the minimu
   "price": 0,
   "priceLabel": "Free",
   "timezone": "America/New_York",
-  "brandingProfileId": <from .sd/config.json>,
+  "brandingProfileId": [from .sd/config.json],
   "questions": [
     { "id": "q-company", "label": "Company", "type": "text", "required": true },
     { "id": "q-context", "label": "What hurts about your current stack?", "type": "textarea", "required": false }
@@ -115,11 +115,11 @@ Call `mcp__simplerdevelopment-postcaptain__booking_pages_create` with the minimu
 }
 ```
 
-The response includes `{ id, slug, ..., approval: { url, ... } }`. Hand the approval URL to the user; approving flips `active=true` so the public `/book/<slug>` route starts accepting reservations.
+The response includes `{ id, slug, ..., approval: { url, ... } }`. Hand the approval URL to the user; approving flips `active=true` so the public `/book/[slug]` route starts accepting reservations.
 
 For more complex needs, the tool accepts the full field set: `availability` (day-of-week + time-range matrix; defaults to Mon–Fri 09–17), `assignmentMode` (`fixed`/`round_robin`/`weighted_round_robin`) + `assignedMembers`, `bookingType` (`individual`/`group`/`multi-attendee`) + `groupCapacity`, add-ons / discount / waiver / gift-cert toggles, `styling` overrides, etc. Default Mon–Fri 09–17 in the chosen timezone is set server-side if `availability` is omitted.
 
-**For client-specific waivers:** pass `enableWaivers: true`, `waiverContent: "<your text>"`, `requireWaiverBeforeBooking: true`.
+**For client-specific waivers:** pass `enableWaivers: true`, `waiverContent: "[your text]"`, `requireWaiverBeforeBooking: true`.
 
 **For Google Meet conferencing:** the tenant needs a connected Google Workspace OAuth (`/portal/integrations/google`). Without that, `conferenceType: 'google_meet'` will still save but bookings won't get calendar invites.
 
@@ -147,14 +147,14 @@ Only treat the call as successful when the parsed text contains the expected ent
 
 Return to the user:
 - Booking page id + slug
-- Public URL: `<site-domain>/book/<slug>`
-- Portal edit URL: `/portal/tools/booking/<id>`
+- Public URL: `[site-domain]/book/[slug]`
+- Portal edit URL: `/portal/tools/booking/[id]`
 - The block JSON ready to splice into a page / deck / email
-- The approval URL (Flow B only) — approval flips `active=true` so `/book/<slug>` starts accepting reservations
+- The approval URL (Flow B only) — approval flips `active=true` so `/book/[slug]` starts accepting reservations
 
 ## Failure modes
 
-- **Booking page is `active=false`** → embedding still works but `/book/<slug>` returns 404. Either approve the page via its approval URL or flip `active=true` in the portal.
+- **Booking page is `active=false`** → embedding still works but `/book/[slug]` returns 404. Either approve the page via its approval URL or flip `active=true` in the portal.
 - **`assignedMembers` is empty + `assignmentMode='round_robin'`** → no one is on call. Public booking will surface "no availability." Flag.
 - **Conferencing set to `google_meet` but no Workspace credentials** → bookings will be created without a calendar invite. The user must connect Workspace via `/portal/integrations/google`.
 
