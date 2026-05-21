@@ -635,3 +635,99 @@ export const brainCalendarEvents = pgTable('brain_calendar_events', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── BRAIN INITIATIVES + GOALS ───────────────────────────────────────────────
+// Phase 3 — Initiatives are the multi-quarter umbrella every other brain entity
+// hangs from. Goals (OKR-shaped) belong to one initiative as the measurable
+// child. brain_initiative_links is a polymorphic join — entityType is a string
+// (not an FK to brain_decisions / brain_topics / kanban_cards / etc.) so this
+// schema lands cleanly whether the sibling brain-restructure branch has merged
+// or not. App-layer code resolves the linked entity from (entityType, entityId).
+
+export type BrainInitiativeStatus = 'planned' | 'active' | 'paused' | 'completed' | 'cancelled';
+export type BrainInitiativePriority = 'low' | 'medium' | 'high' | 'critical';
+
+export const brainInitiatives = pgTable('brain_initiatives', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 150 }).notNull(),         // unique per tenant
+  description: text('description'),
+  status: varchar('status', { length: 20 }).$type<BrainInitiativeStatus>().default('planned').notNull(),
+  priority: varchar('priority', { length: 20 }).$type<BrainInitiativePriority>().default('medium').notNull(),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  sponsorId: integer('sponsor_id').references(() => users.id, { onDelete: 'set null' }), // optional exec sponsor
+  startDate: timestamp('start_date'),
+  targetDate: timestamp('target_date'),
+  closedAt: timestamp('closed_at'),                          // set when status -> completed/cancelled
+  closeReason: text('close_reason'),                         // free text, captured on close
+  // Soft cancellation outcome — what we learned. Promoted to a brain_note on close.
+  lessonsLearned: text('lessons_learned'),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_initiatives_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_initiatives_client_status_idx').on(t.clientId, t.status),
+  index('brain_initiatives_target_idx').on(t.targetDate),
+]);
+
+export type BrainGoalStatus = 'open' | 'on_track' | 'at_risk' | 'off_track' | 'achieved' | 'missed';
+
+export const brainGoals = pgTable('brain_goals', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  initiativeId: integer('initiative_id').notNull().references(() => brainInitiatives.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  status: varchar('status', { length: 20 }).$type<BrainGoalStatus>().default('open').notNull(),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  // Free-form metric shape — kept loose intentionally. Examples:
+  //   { unit: 'percent', target: 30, current: 12 }
+  //   { unit: 'usd_cents', target: 500000000, current: 320000000 }
+  //   { unit: 'count', target: 50, current: 12 }
+  // UI renders progress as currentMetric / targetMetric, capped at 100%.
+  unit: varchar('unit', { length: 30 }),                     // 'percent' | 'usd_cents' | 'count' | 'boolean' | null
+  targetMetric: integer('target_metric'),
+  currentMetric: integer('current_metric'),
+  // Optional ad-hoc progress note. Latest-check-in only — for history use brain_goal_progress (future branch).
+  lastProgressNote: text('last_progress_note'),
+  lastCheckedInAt: timestamp('last_checked_in_at'),
+  targetDate: timestamp('target_date'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_goals_client_initiative_idx').on(t.clientId, t.initiativeId),
+  index('brain_goals_status_idx').on(t.status),
+]);
+
+// Polymorphic join — initiative ↔ (task | note | meeting | decision | topic |
+// crm_deal | crm_company). Mirrors the brain_entity_topics pattern. NO FK on
+// (entityType, entityId) — app-layer code resolves each link by type. Lets the
+// table coexist with whichever of brain_decisions / brain_topics has shipped.
+export type BrainInitiativeLinkType =
+  | 'task'
+  | 'note'
+  | 'meeting'
+  | 'decision'
+  | 'topic'
+  | 'crm_deal'
+  | 'crm_company';
+
+export const brainInitiativeLinks = pgTable('brain_initiative_links', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  initiativeId: integer('initiative_id').notNull().references(() => brainInitiatives.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 30 }).$type<BrainInitiativeLinkType>().notNull(),
+  entityId: integer('entity_id').notNull(),
+  pinned: boolean('pinned').default(false).notNull(),         // pin in the initiative detail UI
+  note: text('note'),                                         // optional reason for the link
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_initiative_links_init_entity_idx').on(t.initiativeId, t.entityType, t.entityId),
+  index('brain_initiative_links_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
+]);
+
