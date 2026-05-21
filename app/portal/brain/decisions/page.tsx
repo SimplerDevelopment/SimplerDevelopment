@@ -1,0 +1,344 @@
+'use client';
+
+/**
+ * Decisions — list view.
+ *
+ * Lists brain_decisions for the active tenant with filterable status pills,
+ * a reversibility chip, an owner dropdown, a decided-at date range, and a
+ * "superseded only" toggle. Rows render via <DecisionCard>. Pagination is
+ * 25/page with prev/next at the bottom.
+ *
+ * Filters live in component state (not the URL) for simplicity in v1 — deep
+ * linking is a follow-up. Status defaults to `accepted` to keep the noise
+ * down; switching to "All" or other statuses is one click away.
+ */
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DecisionCard, { type DecisionRow } from '@/components/brain/DecisionCard';
+import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
+
+interface ListResponse {
+  success: boolean;
+  data?: { items: DecisionRow[]; limit: number; offset: number };
+  message?: string;
+}
+
+interface TeamMember {
+  userId: number;
+  name: string | null;
+  email: string;
+}
+
+type StatusFilter = 'all' | BrainDecisionStatus;
+type ReversibilityFilter = 'all' | BrainDecisionReversibility;
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string; icon: string }> = [
+  { key: 'all', label: 'All', icon: 'inbox' },
+  { key: 'accepted', label: 'Accepted', icon: 'check_circle' },
+  { key: 'proposed', label: 'Proposed', icon: 'pending' },
+  { key: 'superseded', label: 'Superseded', icon: 'history' },
+  { key: 'rejected', label: 'Rejected', icon: 'cancel' },
+];
+
+const PAGE_SIZE = 25;
+
+export default function DecisionsListPage() {
+  const router = useRouter();
+  const [items, setItems] = useState<DecisionRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [status, setStatus] = useState<StatusFilter>('accepted');
+  const [reversibility, setReversibility] = useState<ReversibilityFilter>('all');
+  const [decisionMakerId, setDecisionMakerId] = useState<number | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [supersededOnly, setSupersededOnly] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const [team, setTeam] = useState<TeamMember[]>([]);
+
+  // Load team for the decision-maker filter.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/portal/team')
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.success && Array.isArray(res.data)) {
+          const rows: TeamMember[] = res.data
+            .map((m: { userId?: number; name?: string | null; email?: string }) => ({
+              userId: typeof m.userId === 'number' ? m.userId : 0,
+              name: m.name ?? null,
+              email: m.email ?? '',
+            }))
+            .filter((m: TeamMember) => m.userId > 0);
+          setTeam(rows);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (status !== 'all') params.set('status', status);
+    if (reversibility !== 'all') params.set('reversibility', reversibility);
+    if (decisionMakerId !== null) params.set('decisionMakerId', String(decisionMakerId));
+    if (dateFrom) params.set('dateFrom', new Date(dateFrom).toISOString());
+    if (dateTo) {
+      // Include the whole `dateTo` day by setting the time to end-of-day UTC.
+      const d = new Date(dateTo);
+      d.setUTCHours(23, 59, 59, 999);
+      params.set('dateTo', d.toISOString());
+    }
+    if (supersededOnly) params.set('supersededOnly', 'true');
+    params.set('limit', String(PAGE_SIZE));
+    params.set('offset', String(page * PAGE_SIZE));
+    return params.toString();
+  }, [status, reversibility, decisionMakerId, dateFrom, dateTo, supersededOnly, page]);
+
+  // Reset to page 0 whenever filters (other than page itself) change.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- filter change invalidates pagination; reset must be synchronous so the next fetch uses offset=0.
+    setPage(0);
+  }, [status, reversibility, decisionMakerId, dateFrom, dateTo, supersededOnly]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/portal/brain/decisions?${queryString}`);
+      const json: ListResponse = await r.json();
+      if (!r.ok || !json.success || !json.data) {
+        setError(json.message || `HTTP ${r.status}`);
+        setItems([]);
+      } else {
+        setItems(json.data.items);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [queryString]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-fetch pattern; setLoading/setItems run inside load(), gated by the queryString-keyed useCallback so this only fires when filters/page change.
+  useEffect(() => { load(); }, [load]);
+
+  const teamLookup = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const m of team) map.set(m.userId, m.name || m.email);
+    return map;
+  }, [team]);
+
+  const isFirstPage = page === 0;
+  const isLastPage = (items?.length ?? 0) < PAGE_SIZE;
+
+  return (
+    <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
+      {/* Sticky header */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <span className="material-icons text-primary">gavel</span>
+            Decisions
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            The rationale-bearing log of what your team has decided, why, and when.
+          </p>
+        </div>
+        <Link
+          href="/portal/brain/decisions/new"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          <span className="material-icons text-base">add</span>
+          Record decision
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div className="space-y-3">
+        {/* Status pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setStatus(s.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                status === s.key
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <span className="material-icons text-[14px] leading-none">{s.icon}</span>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Secondary filter row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex items-center gap-1 rounded-md border border-border bg-card p-0.5">
+            {(['all', 'one_way', 'two_way'] as ReversibilityFilter[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setReversibility(r)}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  reversibility === r
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {r === 'all' ? 'All' : r === 'one_way' ? 'One-way' : 'Two-way'}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={decisionMakerId ?? ''}
+            onChange={(e) =>
+              setDecisionMakerId(e.target.value ? parseInt(e.target.value, 10) : null)
+            }
+            className="px-2 py-1.5 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          >
+            <option value="">All decision makers</option>
+            {team.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.name || m.email}
+              </option>
+            ))}
+          </select>
+
+          <label className="inline-flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground">From</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </label>
+          <label className="inline-flex items-center gap-1 text-xs">
+            <span className="text-muted-foreground">To</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </label>
+
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={supersededOnly}
+              onChange={(e) => setSupersededOnly(e.target.checked)}
+              className="rounded border-border"
+            />
+            Superseded only
+          </label>
+
+          {(dateFrom || dateTo || decisionMakerId || supersededOnly || reversibility !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setReversibility('all');
+                setDecisionMakerId(null);
+                setDateFrom('');
+                setDateTo('');
+                setSupersededOnly(false);
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <span className="material-icons text-[14px]">clear</span>
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      {loading && items === null ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+          <span className="material-icons animate-spin mr-2">progress_activity</span>
+          Loading decisions…
+        </div>
+      ) : error ? (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive">
+          <div className="flex items-center gap-2 font-medium mb-1">
+            <span className="material-icons text-base">error_outline</span>
+            Couldn&apos;t load decisions
+          </div>
+          <p>{error}</p>
+        </div>
+      ) : items && items.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-2">
+          {items?.map((d) => (
+            <div key={d.id} className="relative">
+              <DecisionCard
+                decision={d}
+                onClick={() => router.push(`/portal/brain/decisions/${d.id}`)}
+              />
+              {d.decisionMakerId && teamLookup.has(d.decisionMakerId) && (
+                <div className="absolute top-3 right-12 text-[10px] text-muted-foreground pointer-events-none hidden sm:flex items-center gap-1">
+                  <span className="material-icons text-[12px] leading-none">person</span>
+                  {teamLookup.get(d.decisionMakerId)}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between pt-4 text-sm">
+            <button
+              type="button"
+              disabled={isFirstPage}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              <span className="material-icons text-base">chevron_left</span>
+              Previous
+            </button>
+            <span className="text-xs text-muted-foreground">Page {page + 1}</span>
+            <button
+              type="button"
+              disabled={isLastPage}
+              onClick={() => setPage((p) => p + 1)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              Next
+              <span className="material-icons text-base">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="bg-card border border-border rounded-lg p-10 text-center">
+      <span className="material-icons text-5xl text-primary mb-3 block">psychology_alt</span>
+      <h2 className="text-base font-semibold text-foreground mb-1">No decisions captured yet</h2>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
+        Record your first decision to start building your team&apos;s decision log. Capture the context,
+        what was decided, why, and what alternatives you considered.
+      </p>
+      <Link
+        href="/portal/brain/decisions/new"
+        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+      >
+        <span className="material-icons text-base">add</span>
+        Record decision
+      </Link>
+    </div>
+  );
+}
