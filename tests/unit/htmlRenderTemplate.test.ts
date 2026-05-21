@@ -80,6 +80,63 @@ describe('html-render template substitution', () => {
       );
       expect(out).toBe('');
     });
+
+    // Ticket #20 — `{{name}}` for a `richtext`-typed field used to be HTML-
+    // escaped, contradicting the documented contract (SKILL.md, html-render-
+    // block). Authors saw literal `&lt;em&gt;...&lt;/em&gt;` in their decks.
+    it('renders richtext-typed bare placeholders as sanitized HTML', () => {
+      const fields: HtmlRenderField[] = [{ name: 'cover_punchline', type: 'richtext' }];
+      const out = substituteAllPlaceholders(
+        '<p>{{cover_punchline}}</p>',
+        { cover_punchline: 'Stop <em>guessing</em>, start <strong>deciding</strong>.' },
+        {},
+        fields,
+      );
+      expect(out).toContain('<em>guessing</em>');
+      expect(out).toContain('<strong>deciding</strong>');
+      expect(out).not.toContain('&lt;em&gt;');
+    });
+
+    it('strips disallowed tags from richtext substitutions (XSS guard)', () => {
+      const fields: HtmlRenderField[] = [{ name: 'body', type: 'richtext' }];
+      const out = substituteAllPlaceholders(
+        '<div>{{body}}</div>',
+        { body: 'ok <script>alert(1)</script> <img src=x onerror=alert(1)> <em>fine</em>' },
+        {},
+        fields,
+      );
+      expect(out).not.toContain('<script>');
+      expect(out).not.toContain('onerror');
+      expect(out).not.toContain('<img');
+      expect(out).toContain('<em>fine</em>');
+    });
+
+    it('still escapes non-richtext fields with the same name semantics', () => {
+      const fields: HtmlRenderField[] = [{ name: 'headline', type: 'text' }];
+      const out = substituteAllPlaceholders(
+        '<h1>{{headline}}</h1>',
+        { headline: '<em>oops</em>' },
+        {},
+        fields,
+      );
+      expect(out).toBe('<h1>&lt;em&gt;oops&lt;/em&gt;</h1>');
+    });
+  });
+
+  describe('renderHtmlTemplate richtext placeholder (ticket #20)', () => {
+    it('renders {{name}} for a richtext field as HTML, not escaped text', () => {
+      // Repro: deck #358 cover slide — `{{cover_punchline}}` is a richtext
+      // field whose value contains `<em>...</em>`. The output must contain
+      // the literal `<em>` element, not its escaped form.
+      const tpl = '<section><p>{{cover_punchline}}</p></section>';
+      const out = renderHtmlTemplate(
+        tpl,
+        [{ name: 'cover_punchline', type: 'richtext' }],
+        { cover_punchline: '<em>foo</em>' },
+      );
+      expect(out).toContain('<em>foo</em>');
+      expect(out).not.toContain('&lt;em&gt;foo&lt;/em&gt;');
+    });
   });
 
   describe('substituteDataFields', () => {
