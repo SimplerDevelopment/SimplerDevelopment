@@ -173,7 +173,9 @@ function SlidePreviewInner() {
         <div
           className="relative"
           style={{
-            backgroundColor: theme.backgroundColor,
+            // Ticket #19: per-slide pageSettings.backgroundColor wins over the
+            // brand theme on the slide-stage wrapper.
+            backgroundColor: parsedPageSettings.backgroundColor || theme.backgroundColor,
             color: theme.textColor,
             fontFamily: `"${theme.bodyFont}", sans-serif`,
             width: '100%',
@@ -184,7 +186,10 @@ function SlidePreviewInner() {
             <div
               className="absolute inset-0 z-0"
               style={{
-                backgroundImage: `url(${parsedPageSettings.backgroundImage})`,
+                // Ticket #19: accept raw URL or pre-wrapped `url(...)` form.
+                backgroundImage: /^url\(/i.test(String(parsedPageSettings.backgroundImage).trim())
+                  ? String(parsedPageSettings.backgroundImage).trim()
+                  : `url(${parsedPageSettings.backgroundImage})`,
                 backgroundSize: parsedPageSettings.backgroundSize || 'cover',
                 backgroundPosition: parsedPageSettings.backgroundPosition || 'center',
                 backgroundRepeat: parsedPageSettings.backgroundRepeat || 'no-repeat',

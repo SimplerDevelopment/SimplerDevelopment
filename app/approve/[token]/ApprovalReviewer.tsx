@@ -27,7 +27,13 @@ export type ApprovalEntityPreview =
       title: string;
       slug: string;
       status: string;
-      slides: Array<{ id: string; label: string | null; blocks: unknown }>;
+      slides: Array<{
+        id: string;
+        label: string | null;
+        blocks: unknown;
+        pageSettings?: unknown;
+        customCss?: string | null;
+      }>;
     }
   | {
       kind: 'email_campaign';
@@ -321,22 +327,53 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
               This deck has no slides yet.
             </div>
           ) : (
-            preview.slides.map((slide, idx) => (
-              <div key={slide.id} className="rounded-xl bg-white border border-gray-200 overflow-hidden">
-                <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">
-                    Slide {idx + 1}
-                    {slide.label && <span className="text-gray-500"> — {slide.label}</span>}
-                  </span>
-                  <span className="text-xs text-gray-400">{slide.id}</span>
+            preview.slides.map((slide, idx) => {
+              // Ticket #19: mirror the published renderer — apply
+              // pageSettings.backgroundImage / backgroundColor / size /
+              // position / repeat as inline styles on the slide card so
+              // reviewers see what the author authored. customCss is
+              // injected scoped to this slide via [data-slide-id].
+              const ps = (slide.pageSettings ?? {}) as {
+                backgroundColor?: string;
+                backgroundImage?: string;
+                backgroundSize?: string;
+                backgroundPosition?: string;
+                backgroundRepeat?: string;
+              };
+              const bgStyle: React.CSSProperties = {};
+              if (ps.backgroundColor) bgStyle.backgroundColor = ps.backgroundColor;
+              if (ps.backgroundImage) {
+                const raw = ps.backgroundImage.trim();
+                bgStyle.backgroundImage = /^url\(/i.test(raw) ? raw : `url(${raw})`;
+                bgStyle.backgroundSize = ps.backgroundSize || 'cover';
+                bgStyle.backgroundPosition = ps.backgroundPosition || 'center';
+                bgStyle.backgroundRepeat = ps.backgroundRepeat || 'no-repeat';
+              }
+              return (
+                <div
+                  key={slide.id}
+                  data-slide-id={slide.id}
+                  className="rounded-xl bg-white border border-gray-200 overflow-hidden"
+                  style={bgStyle}
+                >
+                  {slide.customCss && (
+                    <style dangerouslySetInnerHTML={{ __html: slide.customCss }} />
+                  )}
+                  <div className="px-6 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-700">
+                      Slide {idx + 1}
+                      {slide.label && <span className="text-gray-500"> — {slide.label}</span>}
+                    </span>
+                    <span className="text-xs text-gray-400">{slide.id}</span>
+                  </div>
+                  <div className="p-2 sm:p-4">
+                    <BlockRenderer
+                      content={JSON.stringify({ blocks: slide.blocks, version: '1.0' })}
+                    />
+                  </div>
                 </div>
-                <div className="p-2 sm:p-4">
-                  <BlockRenderer
-                    content={JSON.stringify({ blocks: slide.blocks, version: '1.0' })}
-                  />
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       );
