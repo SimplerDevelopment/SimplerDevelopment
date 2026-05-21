@@ -34,6 +34,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { attachTopics } from './topics';
 
 export type BrainAiReviewItem = typeof brainAiReviewItems.$inferSelect;
 
@@ -357,20 +358,24 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
       }
       case 'topic_assign': {
         // Phase 1 brain-restructure: attach one or more brain_topics to an
-        // entity. The real implementation lives in lib/brain/topics.ts
-        // (created by Wave 2b); until then we keep the dispatcher honest by
-        // throwing — the review queue UI surfaces the message verbatim.
-        // TODO(wave-2b): replace this branch with a call to
-        //   import { attachTopics } from './topics';
-        //   const inserted = await attachTopics(tx, { clientId: args.clientId, actorId: args.actorId, ...(payload as BrainReviewItemTopicAssignPayload) });
-        //   resultEntityType = 'brain_entity_topics';
-        //   resultEntityId = inserted[0]?.id ?? null;
-        // The `_payload` reference below keeps the type import live so
-        // tsc --noEmit verifies the payload shape today even though we don't
-        // execute the attach yet.
-        const _payload = payload as BrainReviewItemTopicAssignPayload;
-        void _payload;
-        throw new Error('topics module not yet wired (Wave 2b creates lib/brain/topics.ts → attachTopics)');
+        // entity via lib/brain/topics.ts (Wave 2b). Insertion is idempotent —
+        // duplicates per the (entity_type, entity_id, topic_id) unique index
+        // are skipped and counted as `alreadyAttached`.
+        const tap = payload as BrainReviewItemTopicAssignPayload;
+        const attachResult = await attachTopics(tx, {
+          clientId: args.clientId,
+          actorId: args.actorId,
+          targetEntityType: tap.targetEntityType,
+          targetEntityId: tap.targetEntityId,
+          topicIds: tap.topicIds,
+        });
+        resultEntityType = 'brain_entity_topics';
+        // For multi-topic attaches, point at the first newly-inserted row.
+        // The UI uses the array in the review-item payload to render the
+        // full list of attached topics anyway. Null means every requested
+        // topic was already attached (no-op approval).
+        resultEntityId = attachResult.insertedRowIds[0] ?? null;
+        break;
       }
       // Phase 2 limits the approve sink to tasks (+ Phase 1 decisions). Other
       // proposed types are marked approved without creating a target record —
