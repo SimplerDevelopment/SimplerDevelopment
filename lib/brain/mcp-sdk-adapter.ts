@@ -379,11 +379,17 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
             ? { companyId: args.companyId ?? null, dealId: args.dealId ?? null }
             : undefined,
         });
-        // TODO(token-budget): echo the full BrainMeeting (incl. up-to-200k transcript)
-        // back to the caller round-trips the entire input prose. Should slim to
-        // { id, title, status, meetingDate, companyId, dealId } — caller can
-        // re-fetch via brain_get_meeting if they actually need the transcript.
-        return json(meeting);
+        // Slim echo — never round-trip the up-to-200k transcript back to the
+        // caller. They already sent it; re-emitting it burns tokens for zero
+        // value. Caller can re-fetch full body via brain_get_meeting.
+        return json({
+          id: meeting.id,
+          title: meeting.title,
+          status: meeting.status,
+          source: meeting.source,
+          sourceRef: meeting.sourceRef,
+          createdAt: meeting.createdAt,
+        });
       } catch (e) {
         return err(e instanceof Error ? e.message : 'Failed to create meeting.');
       }
