@@ -60,18 +60,51 @@ export interface SurveyBlock extends BaseBlock {
   /** Show the survey's logo above the form. Defaults to true. */
   showLogo?: boolean;
   height?: string;
-  // Style overrides — take precedence over the survey's own styling and the site branding.
+  // Style overrides — take precedence over the survey's own styling and the
+  // site branding. Anything left undefined falls back to the survey.styling
+  // values, then to the branding profile, then to baked-in defaults.
   styleOverrides?: {
+    // ── Colors ─────────────────────────────────────────────────────
     primaryColor?: string;
+    /** Drives the card border tint when no explicit formBorderColor is set. */
+    secondaryColor?: string;
+    /** Drives the input border tint when no explicit inputBorderColor is set. */
+    accentColor?: string;
     backgroundColor?: string;
     textColor?: string;
-    formBg?: string; // card/form body background color
-    inputBg?: string; // input field background color
+    /** Color for question labels + numbers. Falls back to textColor. */
+    labelColor?: string;
+    // ── Card / form chrome ────────────────────────────────────────
+    formBg?: string;
+    /** Explicit border color for the form card (overrides secondaryColor tint). */
+    formBorderColor?: string;
+    /** CSS border-width, e.g. "0" to remove the border or "1px"/"2px". */
+    formBorderWidth?: string;
+    /** Radius for the form card. Falls back to borderRadius. */
+    formBorderRadius?: string;
+    /** Inner padding for each card section, e.g. "1.5rem". */
+    formPadding?: string;
+    /** CSS box-shadow value; pass "none" to drop the default shadow. */
+    formShadow?: string;
+    /** Drop background + border + shadow on every card section. */
+    hideCardChrome?: boolean;
+    // ── Inputs ────────────────────────────────────────────────────
+    inputBg?: string;
+    inputTextColor?: string;
+    /** Explicit border color for inputs (overrides accentColor tint). */
+    inputBorderColor?: string;
+    inputBorderWidth?: string;
+    inputBorderRadius?: string;
+    /** Focus-ring color for inputs. Falls back to primaryColor. */
+    inputFocusRingColor?: string;
+    // ── Typography ────────────────────────────────────────────────
     headingFont?: string;
     bodyFont?: string;
+    // ── Buttons / global ──────────────────────────────────────────
     buttonBg?: string;
     buttonText?: string;
     buttonBorderRadius?: string;
+    /** Global radius fallback — used by buttons + form card when not set per-element. */
     borderRadius?: string;
   };
 }
