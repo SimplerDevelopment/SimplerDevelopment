@@ -81,6 +81,7 @@ import {
   deletePerson,
   attachExpertise,
   detachExpertise,
+  listExpertiseTags,
   createExpertiseTag,
   updateExpertiseTag,
   deleteExpertiseTag,
@@ -1937,6 +1938,45 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
       const detached = await detachExpertise(clientId, ctx.userId, args.personId, args.expertiseTagId);
       return json({ detached });
+    },
+  );
+
+  // ── EXPERTISE TAGS — reads ───────────────────────────────────────────────
+
+  const expertiseTagIncludeEnum = z.enum(['description']);
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_expertise_tags_list',
+    {
+      title: 'List Brain expertise tags',
+      description: 'List per-tenant expertise tags. Slim row by default — pass `include: ["description"]` to inline the description text. `peopleCount` is always populated. Filter by `search` (ILIKE on name + description) or `source` ("manual" | "ai_suggested").',
+      inputSchema: {
+        search: z.string().max(200).optional(),
+        source: z.enum(['manual', 'ai_suggested']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(expertiseTagIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const include = new Set(args.include ?? []);
+      const rows = await listExpertiseTags(clientId, {
+        search: args.search,
+        source: args.source,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const items = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        source: r.source,
+        createdAt: r.createdAt,
+        peopleCount: r.peopleCount,
+        ...(include.has('description') ? { description: r.description } : {}),
+      }));
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
     },
   );
 

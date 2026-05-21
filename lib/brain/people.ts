@@ -133,6 +133,7 @@ export interface ExpertiseTagListRow {
   slug: string;
   description: string | null;
   source: string;
+  createdAt: Date;
   peopleCount: number;
 }
 
@@ -657,6 +658,7 @@ export async function listExpertiseTags(
       slug: brainExpertiseTags.slug,
       description: brainExpertiseTags.description,
       source: brainExpertiseTags.source,
+      createdAt: brainExpertiseTags.createdAt,
       peopleCount: sql<number>`(
         SELECT count(*)::int FROM brain_person_expertise
         WHERE brain_person_expertise.expertise_tag_id = brain_expertise_tags.id
@@ -675,6 +677,7 @@ export async function listExpertiseTags(
     slug: r.slug,
     description: r.description,
     source: r.source,
+    createdAt: r.createdAt,
     peopleCount: Number(r.peopleCount ?? 0),
   }));
 }
