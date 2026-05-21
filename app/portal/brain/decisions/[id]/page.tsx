@@ -26,7 +26,22 @@ import DecisionForm, {
 import DecisionSupersedeChain, {
   type ChainNode,
 } from '@/components/brain/DecisionSupersedeChain';
+import TopicPicker from '@/components/brain/TopicPicker';
 import { relativeDate } from '@/components/brain/DecisionCard';
+
+interface TopicSummary {
+  id: number;
+  name: string;
+  path: string;
+  icon: string | null;
+  color: string | null;
+}
+
+interface ForEntityResponse {
+  success: boolean;
+  data?: { topicIds: number[]; topics: TopicSummary[] };
+  message?: string;
+}
 
 interface DecisionDetailRow {
   id: number;
@@ -102,6 +117,14 @@ export default function DecisionDetailPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editSubmitError, setEditSubmitError] = useState<string | null>(null);
 
+  // Topics — fetched alongside the decision detail; surfaced both as
+  // read-only chips on the detail view and as a controlled TopicPicker on
+  // the edit form. The edit save diffs `topicIdsDraft` against
+  // `originalTopicIds` and POST/DELETEs attach as needed.
+  const [originalTopicIds, setOriginalTopicIds] = useState<number[]>([]);
+  const [topicSummaries, setTopicSummaries] = useState<TopicSummary[]>([]);
+  const [topicIdsDraft, setTopicIdsDraft] = useState<number[]>([]);
+
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
@@ -119,13 +142,28 @@ export default function DecisionDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`/api/portal/brain/decisions/${id}`);
-      const json: DetailResponse = await r.json();
-      if (!r.ok || !json.success || !json.data) {
-        setError(json.message || `HTTP ${r.status}`);
+      const [detailRes, topicsRes] = await Promise.all([
+        fetch(`/api/portal/brain/decisions/${id}`),
+        fetch(`/api/portal/brain/topics/for-entity?entityType=decision&entityId=${id}`),
+      ]);
+      const detailJson: DetailResponse = await detailRes.json();
+      if (!detailRes.ok || !detailJson.success || !detailJson.data) {
+        setError(detailJson.message || `HTTP ${detailRes.status}`);
         setData(null);
-      } else {
-        setData(json.data);
+        return;
+      }
+      setData(detailJson.data);
+
+      // Topics — soft-fail. The for-entity route may not be reachable in
+      // edge cases (e.g. brain entitlement quirks); we render the rest of
+      // the page rather than blow up the detail view.
+      if (topicsRes.ok) {
+        const topicsJson: ForEntityResponse = await topicsRes.json().catch(() => ({ success: false }));
+        if (topicsJson.success && topicsJson.data) {
+          setOriginalTopicIds(topicsJson.data.topicIds);
+          setTopicIdsDraft(topicsJson.data.topicIds);
+          setTopicSummaries(topicsJson.data.topics);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
@@ -193,6 +231,37 @@ export default function DecisionDetailPage() {
           setEditSubmitting(false);
           return;
         }
+
+        // Diff topic attachments. Anything in `topicIdsDraft` that wasn't in
+        // `originalTopicIds` is a new attach; the reverse is a detach. Empty
+        // diffs short-circuit so we don't fire pointless requests.
+        const toAttach = topicIdsDraft.filter((tid) => !originalTopicIds.includes(tid));
+        const toDetach = originalTopicIds.filter((tid) => !topicIdsDraft.includes(tid));
+        const topicCalls: Promise<unknown>[] = [];
+        if (toAttach.length) {
+          topicCalls.push(
+            fetch('/api/portal/brain/topics/attach', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ entityType: 'decision', entityId: id, topicIds: toAttach }),
+            }),
+          );
+        }
+        if (toDetach.length) {
+          topicCalls.push(
+            fetch('/api/portal/brain/topics/attach', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ entityType: 'decision', entityId: id, topicIds: toDetach }),
+            }),
+          );
+        }
+        // Topic mutations are intentionally soft-fail — the decision PATCH
+        // already succeeded; we don't want to roll that back if attach
+        // bounces. The load() at the bottom will resync the chips with the
+        // actual server state.
+        if (topicCalls.length) await Promise.all(topicCalls).catch(() => {});
+
         setEditing(false);
         setEditSubmitting(false);
         await load();
@@ -201,7 +270,7 @@ export default function DecisionDetailPage() {
         setEditSubmitting(false);
       }
     },
-    [id, load],
+    [id, load, originalTopicIds, topicIdsDraft],
   );
 
   const handleReject = useCallback(async () => {
@@ -310,10 +379,33 @@ export default function DecisionDetailPage() {
           submitting={editSubmitting}
           submitError={editSubmitError}
         />
+
+        {/* Topic management is hidden inside DecisionForm's edit mode (the
+            form's topic field only renders for create/supersede). Surface
+            it here so editing a decision can attach / detach topics. The
+            diff is applied alongside the PATCH in handleEditSubmit. */}
+        <div className="border-t border-border pt-4">
+          <div className="text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
+            <span className="material-icons text-base text-primary">sell</span>
+            Topics
+          </div>
+          <TopicPicker
+            selectedTopicIds={topicIdsDraft}
+            onChange={setTopicIdsDraft}
+            allowCreate
+            placeholder="Search or create…"
+          />
+        </div>
+
         <div>
           <button
             type="button"
-            onClick={() => { setEditing(false); setEditSubmitError(null); }}
+            onClick={() => {
+              setEditing(false);
+              setEditSubmitError(null);
+              // Discard any unsaved topic edits when cancelling out.
+              setTopicIdsDraft(originalTopicIds);
+            }}
             className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
           >
             <span className="material-icons text-base">close</span>
@@ -441,6 +533,32 @@ export default function DecisionDetailPage() {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Topics — read-only chips on the detail view. Editing happens in the
+          edit-mode branch, which mounts TopicPicker. */}
+      {topicSummaries.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <span className="material-icons text-[14px] leading-none">sell</span>
+            Topics:
+          </span>
+          {topicSummaries.map((t) => (
+            <span
+              key={t.id}
+              title={t.path}
+              className="inline-flex items-center gap-1 pl-2 pr-2 py-0.5 rounded-full border border-border bg-muted/40 text-xs text-foreground"
+            >
+              <span
+                className="material-icons text-sm"
+                style={t.color ? { color: t.color } : undefined}
+              >
+                {t.icon || 'sell'}
+              </span>
+              <span className="truncate max-w-[12rem]">{t.name}</span>
+            </span>
+          ))}
         </div>
       )}
 
