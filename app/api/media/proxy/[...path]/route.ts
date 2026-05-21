@@ -64,10 +64,19 @@ export async function GET(
     // directly can't read the app's cookies/localStorage — same protection
     // that the iframe sandbox already gave us, now applied unconditionally.
     const IFRAME_SANDBOXED = new Set(['text/html', 'application/xhtml+xml']);
+    // SVGs render inline as `<img>` thumbnails in the media manager + as block
+    // icons across the editor — but unrestricted SVG also enables stored XSS
+    // (SVGs can embed <script> and on*= handlers). Serve them with a
+    // restrictive CSP that lets the browser paint the vector but blocks
+    // script execution and outbound subresource fetches. The browser still
+    // renders <img src=".svg"> tags normally; only navigating to the URL or
+    // inlining via <object>/<iframe> hits the CSP wall.
+    const SVG_INLINE = new Set(['image/svg+xml']);
     const storedCt = cached.contentType || 'application/octet-stream';
     const ct = storedCt.toLowerCase().split(';')[0].trim();
     const sandboxed = IFRAME_SANDBOXED.has(ct);
-    const inline = SAFE_INLINE.has(ct) || sandboxed;
+    const cspSvg = SVG_INLINE.has(ct);
+    const inline = SAFE_INLINE.has(ct) || sandboxed || cspSvg;
     // Tenant-uploaded HTML rarely declares <meta charset>. Without an explicit
     // charset in the response header, browsers fall back to Windows-1252 and
     // mangle UTF-8 (em-dash, smart quotes, etc.) into mojibake. Force utf-8
@@ -84,6 +93,13 @@ export async function GET(
     if (sandboxed) {
       headers['Content-Security-Policy'] =
         "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms";
+    } else if (cspSvg) {
+      // Block <script>, foreignObject scripts, and outbound fetches from the
+      // SVG. <img src=".svg"> ignores CSP (browsers paint the vector
+      // regardless), but if someone embeds the file via <object>/<iframe>
+      // or navigates to the URL directly, this stops it from running JS.
+      headers['Content-Security-Policy'] =
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox";
     } else if (!inline) {
       const filename = key.split('/').pop() || 'download';
       headers['Content-Disposition'] = `attachment; filename="${encodeURIComponent(filename)}"`;

@@ -416,6 +416,20 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
 
   const fontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600&display=swap`;
 
+  // Pull the underlying slide (if any) so we can apply its pageSettings to the
+  // outer slide-stage. Block + decision slides both author against a real
+  // PitchDeckSlideV2; the synthetic survey/thank-you/recommendation virtuals
+  // do not — those slides intentionally fall back to the deck theme.
+  // Ticket #19: pageSettings.backgroundImage / backgroundColor / etc. were
+  // accepted by the editor and round-tripped through the API but never
+  // applied as CSS. SlideBlockWrapper already paints the bg-image overlay for
+  // block-kind slides, but decision/survey/thanks slides skip that wrapper —
+  // and the outer slide-stage was rendering background:none either way.
+  // Painting pageSettings on the slide-stage itself fixes both cases.
+  const stageSlide: PitchDeckSlideV2 | undefined =
+    currentVS?.kind === 'block' || currentVS?.kind === 'decision' ? currentVS.slide : undefined;
+  const stageStyle: React.CSSProperties = stagePageSettingsStyle(stageSlide?.pageSettings, theme);
+
   const presentation = (
     <>
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
@@ -575,6 +589,7 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
           className={`min-h-screen flex items-center justify-center slide-stage md:pb-0 ${visibleCount > 1 ? 'pb-16' : ''}`}
           data-slide-id={currentVS?.kind === 'block' ? currentVS.slide.id : undefined}
           style={{
+            ...stageStyle,
             animation: isAnimating
               ? `slideIn${direction === 'next' ? 'Left' : 'Right'} 0.4s ease-out`
               : undefined,
@@ -685,6 +700,34 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
   return branding
     ? <BrandingProvider branding={branding}>{presentation}</BrandingProvider>
     : presentation;
+}
+
+/**
+ * Build the inline-style block applied to the slide-stage container from a
+ * slide's `pageSettings`. Robust to either a raw URL (`https://…`) or an
+ * already-wrapped CSS value (`url(https://…)`) — ticket #19 surfaced authors
+ * shipping both. When `backgroundColor` is authored on the slide, it wins
+ * over the brand theme; when only `backgroundImage` is set the theme color
+ * still shows underneath while the image loads / where it doesn't cover.
+ */
+function stagePageSettingsStyle(
+  pageSettings: import('@/types/blocks').PageSettings | undefined,
+  _theme: PitchDeckTheme,
+): React.CSSProperties {
+  if (!pageSettings) return {};
+  const style: React.CSSProperties = {};
+  if (pageSettings.backgroundColor) {
+    style.backgroundColor = pageSettings.backgroundColor;
+  }
+  if (pageSettings.backgroundImage) {
+    const raw = pageSettings.backgroundImage.trim();
+    // Accept either `url(...)` (already wrapped) or a bare URL/data-URI.
+    style.backgroundImage = /^url\(/i.test(raw) ? raw : `url(${raw})`;
+    style.backgroundSize = pageSettings.backgroundSize || 'cover';
+    style.backgroundPosition = pageSettings.backgroundPosition || 'center';
+    style.backgroundRepeat = pageSettings.backgroundRepeat || 'no-repeat';
+  }
+  return style;
 }
 
 /**

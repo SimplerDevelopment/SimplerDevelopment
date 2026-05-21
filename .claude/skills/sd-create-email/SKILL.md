@@ -73,6 +73,25 @@ Same options as `sd-create-page`:
 
    Don't try to embed the survey or booking widget directly in an email — email clients don't run React. Always link out.
 
+## Sourcing images (and other media) for emails
+
+Emails need hosted, absolute image URLs (Gmail/Outlook strip `data:` URIs and won't load images that 404). Pick the pattern by where the bytes live:
+
+1. **Local file path** (user dropped a path, or you have a workspace file). Use the **presign + curl + register** flow — bytes never enter the conversation, ~150 tokens per upload regardless of size. See `sd-create-page`'s **Sourcing images** section for the full snippet. Use `media.url` in `image.src` / `button.iconUrl` / etc.
+
+2. **Public http(s) URL** (image already on the open web). Use `media_upload_from_url`. SSRF guard rejects internal/private IPs and refuses redirects. **Reupload through this tool** — don't reference the source URL directly in the email; if the source 404s or hotlink-blocks, the email renders broken. The registered media URL is on our CDN.
+
+3. **Already in the library** — call `media_list` once and reference URLs from there.
+
+**Do not** base64-encode files into tool inputs. There is no `media_upload_base64` tool — and even if there were, base64 inline images are blocked by every major mail client. A 500 KB screenshot through base64-in-tool-input also costs ~180K conversation tokens.
+
+**Email-specific size discipline:**
+- **Header logo:** ≤ 40px display height → source asset ≤ 80px tall, target file size ≤ 30 KB.
+- **Hero image:** ≤ 600px wide (the email body cap) → target file size **< 1 MB ideally, < 500 KB preferred.** Gmail clips messages > 102 KB total (showing a "view entire message" link) — large hero images push you past that fast.
+- **Inline images:** 300–600px wide, < 150 KB each. Keep the whole message under ~600 KB rendered to stay under Gmail's clip threshold.
+
+If a user-supplied image is way oversized, flag it ("hero is 4.2 MB — Gmail will clip this email") and offer to skip the image or have them compress it before re-running.
+
 ## MCP call
 
 Call `mcp__simplerdevelopment-postcaptain__email_campaigns_create` with:

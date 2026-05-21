@@ -16,12 +16,12 @@
  * included — see scripts/build-client-skills-bundle.ts for the source list.
  */
 
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, existsSync, statSync, mkdtempSync, readdirSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { NextResponse } from 'next/server';
+import { create as tarCreate } from 'tar';
 
 export const runtime = 'nodejs';
 // Allow Next's response caching but key on the file-mtime hash so a deploy
@@ -68,7 +68,7 @@ function fingerprintSources(): string {
   return createHash('sha256').update(parts.join('\n')).digest('hex').slice(0, 16);
 }
 
-function buildBundle(): { tgz: Buffer; sha256: string } {
+async function buildBundle(): Promise<{ tgz: Buffer; sha256: string }> {
   const stage = mkdtempSync(join(tmpdir(), 'sd-skills-stage-'));
   try {
     for (const skill of CLIENT_SAFE_SKILLS) {
@@ -79,12 +79,12 @@ function buildBundle(): { tgz: Buffer; sha256: string } {
     }
 
     const tgzPath = join(stage, 'bundle.tgz');
-    // -C cd into stage, tar everything except the tgz we're about to create
+    // tar everything in stage except the tgz we're about to create.
+    // Using node-tar (pure JS) instead of spawnSync('tar'): Vercel's
+    // serverless runtime doesn't ship a `tar` binary on PATH, so the
+    // spawn approach returns `status null` and the bundle route 500s.
     const ls = readdirSync(stage).filter((e) => e !== 'bundle.tgz');
-    const result = spawnSync('tar', ['-czf', tgzPath, '-C', stage, ...ls]);
-    if (result.status !== 0) {
-      throw new Error(`tar exited with status ${result.status}: ${result.stderr?.toString() ?? ''}`);
-    }
+    await tarCreate({ gzip: true, file: tgzPath, cwd: stage }, ls);
     const tgz = readFileSync(tgzPath);
     const sha256 = createHash('sha256').update(tgz).digest('hex');
     return { tgz, sha256 };
@@ -97,12 +97,12 @@ function buildBundle(): { tgz: Buffer; sha256: string } {
   }
 }
 
-function getBundle(): { tgz: Buffer; sha256: string } {
+async function getBundle(): Promise<{ tgz: Buffer; sha256: string }> {
   const fp = fingerprintSources();
   if (cachedBundle?.sourceFingerprint === fp) {
     return { tgz: cachedBundle.tgz, sha256: cachedBundle.sha256 };
   }
-  const built = buildBundle();
+  const built = await buildBundle();
   cachedBundle = { sourceFingerprint: fp, ...built };
   return built;
 }
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
   let tgz: Buffer;
   let sha256: string;
   try {
-    ({ tgz, sha256 } = getBundle());
+    ({ tgz, sha256 } = await getBundle());
   } catch (err) {
     return NextResponse.json(
       { error: `Failed to build bundle: ${err instanceof Error ? err.message : String(err)}` },

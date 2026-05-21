@@ -97,6 +97,12 @@ Two cross-skill patterns:
   ```
   After approval the survey flips `active`; its `recommendation.bookUrl` should already point at the `/book/<slug>` page so the funnel closes the loop.
 
+## Sourcing images and other media
+
+Each delegated `sd-create-page` invocation handles its own media. Pass through whatever the user gave you (local paths or URLs); `sd-create-page` knows to use **presign + curl + register** for local files and `media_upload_from_url` for public URLs. See `sd-create-page`'s **Sourcing images** section for the canonical pattern.
+
+Whole-site optimization: before the authoring loop starts, call `media_list` once and pass the existing library down to each page invocation. Across a 5-page site that reuses the same brand logo, hero photo, and team headshots, this collapses dozens of redundant uploads into zero per-image overhead.
+
 ## MCP response handling — read errors first
 
 SimplerDevelopment's MCP wraps every response — successes AND errors — in a JSON-RPC success envelope shaped like:

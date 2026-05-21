@@ -63,6 +63,25 @@ If the source is `postcaptain-kb` but `.sd/config.json:client.id` is NOT the SD 
 
 8. **Run the 5-dimension self-review** from `SD_DESIGN_PRINCIPLES.md` before returning. Score 1–10 on Philosophy / Hierarchy / Craft / Functionality / Originality. Surface scores + quick-wins in the response.
 
+## Sourcing images (and other media)
+
+You have three patterns for getting media into the client's library. Pick by where the file is:
+
+1. **Local file path** (user dropped a path, or you have a workspace file via Read/Bash). Use the **presign + curl + register** flow — bytes never enter the conversation, ~150 tokens per upload regardless of size:
+   ```
+   const presign = await mcp.media_upload_presign({ filename, mimeType, fileSize });
+   // Bash: curl -X PUT -H "Content-Type: <mt>" -H "Content-Length: <sz>" --data-binary @<path> "<presign.uploadUrl>"
+   const media = await mcp.media_register({ mediaKey: presign.mediaKey, originalFilename: filename, mimeType, alt, websiteId });
+   // Use media.url in subsequent block payloads.
+   ```
+   Allowed types: png/jpeg/gif/webp/avif/svg+xml, pdf, mp4/webm/quicktime, mpeg/ogg/wav. 25 MB cap, 5-min TTL on the URL.
+
+2. **Public http(s) URL** (image already on the web — Imgur, the user's existing CDN, a Wikimedia/Unsplash link). Use `media_upload_from_url` with that URL. Server-side SSRF guard rejects internal/private IPs; redirects are refused.
+
+3. **Already in the library**. Call `media_list` once at the start of a complex authoring session and reference URLs from there — zero per-image cost after the initial list.
+
+**Do not** base64-encode files into tool inputs. There is no `media_upload_base64` tool, and synthesizing one via large string parameters would burn ~4 chars/token across the conversation history — a 500 KB screenshot = ~180K tokens.
+
 ## MCP call
 
 Call `mcp__simplerdevelopment-postcaptain__posts_create` with:

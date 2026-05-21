@@ -7,9 +7,13 @@ interface SaveAsTemplateModalProps {
   blocks: Block[];
   onClose: () => void;
   onSaved?: () => void;
+  /** Override the default `/api/block-templates` POST target. Portal callers
+   *  pass the tenant-scoped `/api/portal/cms/websites/[siteId]/block-templates`
+   *  endpoint so the new row gets stamped with their client_id. */
+  endpoint?: string;
 }
 
-export function SaveAsTemplateModal({ blocks, onClose, onSaved }: SaveAsTemplateModalProps) {
+export function SaveAsTemplateModal({ blocks, onClose, onSaved, endpoint = '/api/block-templates' }: SaveAsTemplateModalProps) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -38,7 +42,7 @@ export function SaveAsTemplateModal({ blocks, onClose, onSaved }: SaveAsTemplate
     });
 
     try {
-      const response = await fetch('/api/block-templates', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

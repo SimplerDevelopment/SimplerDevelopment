@@ -578,6 +578,7 @@ export function VisualEditorShell({
       {saveTemplateBlocks && (
         <SaveAsTemplateModal
           blocks={saveTemplateBlocks}
+          endpoint={siteId ? `/api/portal/cms/websites/${siteId}/block-templates` : undefined}
           onClose={() => setSaveTemplateBlocks(null)}
         />
       )}
@@ -625,6 +626,7 @@ export function VisualEditorShell({
       {/* Template library — browse + insert saved templates */}
       {templateLibraryOpen && (
         <TemplateLibrary
+          endpoint={siteId ? `/api/portal/cms/websites/${siteId}/block-templates` : undefined}
           onInsert={(newBlocks) => {
             // Insert after the currently selected top-level block; otherwise append
             const topLevelIndex = selectedBlockId
