@@ -635,3 +635,140 @@ export const brainCalendarEvents = pgTable('brain_calendar_events', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// ─── BRAIN PEOPLE + ORG GRAPH (Phase 4) ──────────────────────────────────────
+// Internal humans (employees, advisors, contractors) — distinct from
+// CRM contacts (external). People have a reports-to chain (self-FK
+// managerId), can belong to many org_units (many-to-many via
+// brain_person_org_units), and carry expertise tags used by review-item
+// routing ("send this to whoever knows kubernetes"). Optional FK to
+// users.id when the person is also a portal-user account; most rows
+// (board members, advisors) won't be.
+
+export type BrainPersonStatus = 'active' | 'inactive' | 'departed';
+
+export const brainPeople = pgTable('brain_people', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  // If this person is also a portal-user account.
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  fullName: varchar('full_name', { length: 200 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  // Reports-to chain (self-FK). Null = top of chain (CEO/founder/independent).
+  managerId: integer('manager_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 200 }),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  status: varchar('status', { length: 20 }).$type<BrainPersonStatus>().default('active').notNull(),
+  // Free-form notes for things that don't fit the structured expertise table.
+  notes: text('notes'),
+  // External profile URLs (LinkedIn, GitHub, internal directory, etc.)
+  profileUrls: json('profile_urls').$type<{ label: string; url: string }[]>().default([]).notNull(),
+  // Provenance — most rows are 'manual' (a human created them). 'import' for batch ingest.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_people_client_idx').on(t.clientId),
+  index('brain_people_client_status_idx').on(t.clientId, t.status),
+  index('brain_people_manager_idx').on(t.managerId),
+  index('brain_people_user_idx').on(t.userId),
+]);
+
+export type BrainPerson = typeof brainPeople.$inferSelect;
+export type NewBrainPerson = typeof brainPeople.$inferInsert;
+
+// Hierarchical org units — teams, departments, squads. Mirrors the
+// ltree-style pattern used elsewhere in brain (denormalized `path`
+// column for fast subtree reads). `leadPersonId` is an optional unit
+// head; must belong to the same client (enforced app-layer).
+
+export const brainOrgUnits = pgTable('brain_org_units', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): any => brainOrgUnits.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  slug: varchar('slug', { length: 150 }).notNull(),
+  path: varchar('path', { length: 1000 }).notNull(),
+  description: text('description'),
+  // Optional unit head — must belong to the same client.
+  leadPersonId: integer('lead_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  color: varchar('color', { length: 20 }),
+  icon: varchar('icon', { length: 50 }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_org_units_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_org_units_client_parent_idx').on(t.clientId, t.parentId),
+  index('brain_org_units_path_idx').on(t.path),
+]);
+
+export type BrainOrgUnit = typeof brainOrgUnits.$inferSelect;
+export type NewBrainOrgUnit = typeof brainOrgUnits.$inferInsert;
+
+// Many-to-many — a person can be in multiple units (rare but real:
+// a PM split between two teams). `primary` designates the one to
+// surface as the headline membership (app-layer invariant: at most
+// one primary per person).
+
+export const brainPersonOrgUnits = pgTable('brain_person_org_units', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  personId: integer('person_id').notNull().references(() => brainPeople.id, { onDelete: 'cascade' }),
+  orgUnitId: integer('org_unit_id').notNull().references(() => brainOrgUnits.id, { onDelete: 'cascade' }),
+  // If the person has multiple unit memberships, exactly one is primary (app-layer invariant).
+  primary: boolean('primary').default(false).notNull(),
+  // Optional role within this specific unit ("Tech lead", "Designer", "Stakeholder")
+  roleInUnit: varchar('role_in_unit', { length: 150 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_person_org_units_person_unit_idx').on(t.personId, t.orgUnitId),
+  index('brain_person_org_units_unit_idx').on(t.orgUnitId),
+]);
+
+export type BrainPersonOrgUnit = typeof brainPersonOrgUnits.$inferSelect;
+export type NewBrainPersonOrgUnit = typeof brainPersonOrgUnits.$inferInsert;
+
+// Per-tenant tag namespace for expertise — flat (no hierarchy,
+// intentionally — tags like "kubernetes" / "fundraising" / "ASC 606"
+// stay denormalized). `source` distinguishes user-created tags from
+// AI-suggested ones surfaced for tag-merging cleanup.
+
+export const brainExpertiseTags = pgTable('brain_expertise_tags', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
+  description: text('description'),
+  // Suggested by AI based on review-item content. UI can show these for tag-merging cleanup.
+  source: varchar('source', { length: 30 }).default('manual').notNull(), // 'manual' | 'ai_suggested'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_expertise_tags_client_slug_idx').on(t.clientId, t.slug),
+]);
+
+export type BrainExpertiseTag = typeof brainExpertiseTags.$inferSelect;
+export type NewBrainExpertiseTag = typeof brainExpertiseTags.$inferInsert;
+
+// Person ↔ expertise junction with optional skill level (1=novice,
+// 2=working, 3=advanced, 4=expert). Unique on (personId, expertiseTagId)
+// so a tag is attached at most once per person.
+
+export const brainPersonExpertise = pgTable('brain_person_expertise', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  personId: integer('person_id').notNull().references(() => brainPeople.id, { onDelete: 'cascade' }),
+  expertiseTagId: integer('expertise_tag_id').notNull().references(() => brainExpertiseTags.id, { onDelete: 'cascade' }),
+  // 1=novice, 2=working, 3=advanced, 4=expert. Optional.
+  level: integer('level'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_person_expertise_person_tag_idx').on(t.personId, t.expertiseTagId),
+  index('brain_person_expertise_tag_idx').on(t.expertiseTagId),
+]);
+
+export type BrainPersonExpertise = typeof brainPersonExpertise.$inferSelect;
+export type NewBrainPersonExpertise = typeof brainPersonExpertise.$inferInsert;
+
