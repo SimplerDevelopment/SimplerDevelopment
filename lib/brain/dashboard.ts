@@ -34,6 +34,9 @@ export interface DashboardSummary {
     goalsAtRisk: number;
     /** Goals where status='achieved' AND lastCheckedInAt > now() - interval '90 days'. Added Wave 2c. */
     goalsAchievedThisQuarter: number;
+    peopleActive: number;
+    orgUnitCount: number;
+    expertiseTagsCount: number;
   };
 }
 
@@ -125,7 +128,8 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     db.select().from(brainRelationshipOverlays)
       .where(and(eq(brainRelationshipOverlays.clientId, clientId), eq(brainRelationshipOverlays.status, 'active'))),
     // Counts: pending review items total, open tasks, ai-created tasks, relationships,
-    // initiatives active, goals at risk, goals achieved this quarter (last 90d).
+    // initiatives active, goals at risk, goals achieved this quarter (last 90d),
+    // plus people/org/expertise rollups.
     db.execute<{
       pending_review: number;
       open_tasks: number;
@@ -134,6 +138,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       initiatives_active: number;
       goals_at_risk: number;
       goals_achieved_q: number;
+      people_active: number;
+      org_unit_count: number;
+      expertise_tags_count: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
@@ -142,7 +149,10 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
         (SELECT COUNT(*)::int FROM brain_relationship_overlays WHERE client_id = ${clientId}) AS relationships,
         (SELECT COUNT(*)::int FROM brain_initiatives WHERE client_id = ${clientId} AND status = 'active') AS initiatives_active,
         (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status IN ('at_risk','off_track')) AS goals_at_risk,
-        (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status = 'achieved' AND last_checked_in_at IS NOT NULL AND last_checked_in_at > now() - interval '90 days') AS goals_achieved_q
+        (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status = 'achieved' AND last_checked_in_at IS NOT NULL AND last_checked_in_at > now() - interval '90 days') AS goals_achieved_q,
+        (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
+        (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
+        (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count
     `),
   ]);
 
@@ -284,6 +294,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     initiatives_active: 0,
     goals_at_risk: 0,
     goals_achieved_q: 0,
+    people_active: 0,
+    org_unit_count: 0,
+    expertise_tags_count: 0,
   };
 
   return {
@@ -313,6 +326,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       initiativesActive: counts.initiatives_active ?? 0,
       goalsAtRisk: counts.goals_at_risk ?? 0,
       goalsAchievedThisQuarter: counts.goals_achieved_q ?? 0,
+      peopleActive: counts.people_active ?? 0,
+      orgUnitCount: counts.org_unit_count ?? 0,
+      expertiseTagsCount: counts.expertise_tags_count ?? 0,
     },
   };
 }
