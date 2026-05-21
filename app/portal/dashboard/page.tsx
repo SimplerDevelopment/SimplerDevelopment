@@ -5,6 +5,7 @@ import {
   emailLists, emailSubscribers, emailCampaigns,
   bookingPages, bookings, pitchDecks,
   projects, supportTickets, invoices,
+  userOnboarding,
 } from '@/lib/db/schema';
 import { eq, and, ne, count, sum, sql, desc } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
@@ -32,6 +33,19 @@ export default async function PortalDashboardPage() {
   if (!session?.user?.id) redirect('/portal/login');
 
   const userId = parseInt(session.user.id, 10);
+
+  // First-run gate: send brand-new users into the onboarding wizard. We treat
+  // "no row" and "row with NULL completed_at" identically — both mean the
+  // user has never finished. Self-link from settings can `reopen` later.
+  const [ob] = await db
+    .select({ completedAt: userOnboarding.completedAt })
+    .from(userOnboarding)
+    .where(eq(userOnboarding.userId, userId))
+    .limit(1);
+  if (!ob || !ob.completedAt) {
+    redirect('/portal/onboarding');
+  }
+
   const client = await getPortalClient(userId);
 
   if (!client) {
