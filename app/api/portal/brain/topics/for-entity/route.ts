@@ -18,7 +18,7 @@ import { brainEntityTopics, brainTopics, type BrainTopicEntityType } from '@/lib
 import { and, eq, inArray } from 'drizzle-orm';
 
 const VALID_ENTITY_TYPES: BrainTopicEntityType[] = [
-  'note', 'meeting', 'task', 'decision', 'relationship_overlay',
+  'note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person',
 ];
 
 export async function GET(request: Request) {

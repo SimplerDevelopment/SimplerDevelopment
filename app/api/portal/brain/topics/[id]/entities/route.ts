@@ -18,7 +18,7 @@ import { listEntitiesForTopic } from '@/lib/brain/topics';
 import type { BrainTopicEntityType } from '@/lib/db/schema';
 
 const VALID_ENTITY_TYPES: BrainTopicEntityType[] = [
-  'note', 'meeting', 'task', 'decision', 'relationship_overlay',
+  'note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person',
 ];
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {

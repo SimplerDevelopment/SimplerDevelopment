@@ -17,7 +17,7 @@ import { db } from '@/lib/db';
 import { attachTopics, detachTopics } from '@/lib/brain/topics';
 import type { BrainTopicEntityType } from '@/lib/db/schema';
 
-const VALID_ENTITY_TYPES: BrainTopicEntityType[] = ['note', 'meeting', 'task', 'decision', 'relationship_overlay'];
+const VALID_ENTITY_TYPES: BrainTopicEntityType[] = ['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person'];
 
 function parseBody(body: unknown): { entityType: BrainTopicEntityType; entityId: number; topicIds: number[] } | string {
   if (!body || typeof body !== 'object') return 'Invalid body';
