@@ -13,11 +13,12 @@
 import { db } from '@/lib/db';
 import {
   brainDecisions,
+  brainEntityTopics,
   type BrainDecisionReversibility,
   type BrainDecisionStatus,
   type BrainReviewItemDecisionPayload,
 } from '@/lib/db/schema';
-import { and, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { logAudit } from './audit';
 
 export type BrainDecision = typeof brainDecisions.$inferSelect;
@@ -39,9 +40,10 @@ export interface ListDecisionsOpts {
   /** When true, only return rows whose status === 'superseded'. */
   supersededOnly?: boolean;
   /**
-   * TODO(wave-2b+): when topics lib is wired, JOIN brain_entity_topics on
-   * (entity_type='decision', entity_id=brain_decisions.id, topic_id=topicId)
-   * to filter by topic. Skipped here so this branch does not couple to topics.
+   * Restrict to decisions attached to a specific topic. Implemented via a
+   * tenant-scoped subquery against `brain_entity_topics` — the clientId guard
+   * on both tables prevents cross-tenant leakage even if the same numeric id
+   * were reused across clients.
    */
   topicId?: number;
   limit?: number;
@@ -74,7 +76,23 @@ export async function listDecisions(
   if (opts.dateFrom) conds.push(gte(brainDecisions.decidedAt, opts.dateFrom));
   if (opts.dateTo) conds.push(lte(brainDecisions.decidedAt, opts.dateTo));
   if (opts.supersededOnly) conds.push(eq(brainDecisions.status, 'superseded'));
-  // opts.topicId — see TODO above.
+  if (opts.topicId !== undefined) {
+    // Filter to decisions attached to the given topic via brain_entity_topics.
+    // Subquery returns the entity_ids; we IN-clause them on brainDecisions.id.
+    // Tenant guard on BOTH tables — defence-in-depth in case a stray topicId
+    // is passed from another tenant.
+    const entityIdQ = db
+      .select({ entityId: brainEntityTopics.entityId })
+      .from(brainEntityTopics)
+      .where(
+        and(
+          eq(brainEntityTopics.clientId, clientId),
+          eq(brainEntityTopics.topicId, opts.topicId),
+          eq(brainEntityTopics.entityType, 'decision'),
+        ),
+      );
+    conds.push(inArray(brainDecisions.id, entityIdQ));
+  }
 
   const limit = Math.max(1, Math.min(opts.limit ?? 50, 200));
   const offset = Math.max(0, opts.offset ?? 0);

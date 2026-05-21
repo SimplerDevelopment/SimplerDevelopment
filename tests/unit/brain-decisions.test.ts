@@ -31,6 +31,8 @@ const captured = {
   insertReturning: [] as Array<Record<string, unknown>>,
   updateReturning: [] as Array<Record<string, unknown>>,
   txCalls: 0,
+  /** Most recent `where()` argument from a SELECT chain (used to verify filters). */
+  lastSelectWhere: undefined as unknown,
 };
 
 function resetCaptured() {
@@ -40,15 +42,23 @@ function resetCaptured() {
   captured.insertReturning.length = 0;
   captured.updateReturning.length = 0;
   captured.txCalls = 0;
+  captured.lastSelectWhere = undefined;
 }
 
 vi.mock('@/lib/db', () => {
   function makeSelectChain() {
+    // The chain must be both thenable (so `.limit(...)` callers can `await`
+    // it without a trailing `.offset()`) AND keep .offset chainable for
+    // listDecisions, which calls `.limit(limit).offset(offset)`. We hand back
+    // the same object from every step; `then` makes it await-able anywhere.
     const chain: Record<string, unknown> = {};
     chain.from = () => chain;
-    chain.where = () => chain;
+    chain.where = (w: unknown) => { captured.lastSelectWhere = w; return chain; };
     chain.orderBy = () => chain;
-    chain.limit = () => Promise.resolve([...captured.selectRows]);
+    chain.limit = () => chain;
+    chain.offset = () => chain;
+    chain.then = (resolve: (rows: Record<string, unknown>[]) => unknown) =>
+      Promise.resolve([...captured.selectRows]).then(resolve);
     return chain;
   }
 
@@ -103,6 +113,12 @@ vi.mock('@/lib/db/schema', () => ({
     decisionMakerId: { __col: 'decision_maker_id' },
     reversibility: { __col: 'reversibility' },
   },
+  brainEntityTopics: {
+    entityId: { __col: 'entity_id' },
+    entityType: { __col: 'entity_type' },
+    topicId: { __col: 'topic_id' },
+    clientId: { __col: 'client_id' },
+  },
 }));
 
 vi.mock('@/lib/brain/audit', () => ({
@@ -115,15 +131,36 @@ vi.mock('drizzle-orm', () => ({
   desc: (col: { __col: string }) => ({ kind: 'desc', col: col.__col }),
   gte: (col: { __col: string }, val: unknown) => ({ kind: 'gte', col: col.__col, val }),
   lte: (col: { __col: string }, val: unknown) => ({ kind: 'lte', col: col.__col, val }),
+  inArray: (col: { __col: string }, val: unknown) => ({ kind: 'inArray', col: col.__col, val }),
 }));
 
 // Import the SUT only after all mocks are in place.
 const {
   createDecision,
+  listDecisions,
   softRejectDecision,
   supersedeDecision,
   updateDecision,
 } = await import('@/lib/brain/decisions');
+
+// Helper: recursively scan a serialized where-clause tree (produced by the
+// drizzle mocks above) for an entry matching a predicate. Used by the
+// listDecisions filter assertions so the test doesn't depend on the precise
+// order of pushed conditions.
+function findCondition(
+  tree: unknown,
+  predicate: (node: { kind: string; col?: string; val?: unknown }) => boolean,
+): boolean {
+  if (!tree || typeof tree !== 'object') return false;
+  const node = tree as { kind?: string; col?: string; val?: unknown; parts?: unknown[] };
+  if (typeof node.kind === 'string' && predicate(node as { kind: string; col?: string; val?: unknown })) {
+    return true;
+  }
+  if (Array.isArray(node.parts)) {
+    return node.parts.some((p) => findCondition(p, predicate));
+  }
+  return false;
+}
 
 beforeEach(resetCaptured);
 
@@ -285,5 +322,49 @@ describe('softRejectDecision', () => {
     expect(out?.status).toBe('rejected');
     expect(captured.updates).toHaveLength(1);
     expect(captured.updates[0].set!.status).toBe('rejected');
+  });
+});
+
+// --- listDecisions — filter wiring ----------------------------------------
+
+describe('listDecisions — filter conditions', () => {
+  it('always scopes by clientId', async () => {
+    await listDecisions(7);
+    expect(
+      findCondition(captured.lastSelectWhere, (n) => n.kind === 'eq' && n.col === 'client_id' && n.val === 7),
+    ).toBe(true);
+  });
+
+  it('does NOT add a topic-related condition when topicId is undefined', async () => {
+    await listDecisions(7);
+    expect(
+      findCondition(
+        captured.lastSelectWhere,
+        (n) => n.kind === 'inArray' || (n.kind === 'eq' && n.col === 'topic_id'),
+      ),
+    ).toBe(false);
+  });
+
+  it('wires an inArray(id, …) subquery when topicId is set', async () => {
+    await listDecisions(7, { topicId: 42 });
+    // The subquery itself is opaque to our mock — we just assert the outer
+    // condition is an inArray on decisions.id. The subquery's tenancy guard
+    // is exercised by tests/integration/api/brain/decisions.test.ts.
+    expect(
+      findCondition(captured.lastSelectWhere, (n) => n.kind === 'inArray' && n.col === 'id'),
+    ).toBe(true);
+  });
+
+  it('preserves the supersededOnly filter when set alongside topicId', async () => {
+    await listDecisions(7, { topicId: 42, supersededOnly: true });
+    expect(
+      findCondition(
+        captured.lastSelectWhere,
+        (n) => n.kind === 'eq' && n.col === 'status' && n.val === 'superseded',
+      ),
+    ).toBe(true);
+    expect(
+      findCondition(captured.lastSelectWhere, (n) => n.kind === 'inArray' && n.col === 'id'),
+    ).toBe(true);
   });
 });
