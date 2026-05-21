@@ -1002,3 +1002,57 @@ export const brainPersonExpertise = pgTable('brain_person_expertise', {
 export type BrainPersonExpertise = typeof brainPersonExpertise.$inferSelect;
 export type NewBrainPersonExpertise = typeof brainPersonExpertise.$inferInsert;
 
+// ─── BRAIN GLOSSARY ──────────────────────────────────────────────────────────
+// Tenant-specific terminology: acronyms, product codenames, customer segments,
+// internal jargon. Flat (no hierarchy) — instead, terms carry `aliases` (a
+// JSON string array, substring-matched on lookup) and `relatedTermIds` (a JSON
+// number array of "see also" pointers, NOT FK-enforced because the user may
+// reorder or delete; app-layer validates and prunes broken references).
+//
+// Surface today: humans look up "what does X mean here?" via /portal/brain/
+// glossary; future use: an embedder injects matched glossary entries into Ask
+// queries so acronyms resolve. The lookup endpoint that future logic will
+// consume ships in Wave 2 of this phase.
+
+export type BrainGlossaryStatus = 'active' | 'deprecated';
+
+export const brainGlossaryTerms = pgTable('brain_glossary_terms', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  term: varchar('term', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 200 }).notNull(),
+  definition: text('definition').notNull(),
+  // Short definition shown when the term is matched inline in another doc
+  // (e.g. Ask query expansion).
+  shortDefinition: varchar('short_definition', { length: 500 }),
+  // Alternate spellings, acronyms, related-but-not-canonical names.
+  // Substring-matched on lookup.
+  aliases: json('aliases').$type<string[]>().default([]).notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainGlossaryStatus>().default('active').notNull(),
+  // Optional categorization — free-form. UI groups by category in list view.
+  category: varchar('category', { length: 100 }),
+  // Who owns the canonical answer — the person to ask if the definition
+  // changes.
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  // "See also" — related term ids. NOT FK-enforced because the user may
+  // reorder or delete. Stored as JSON; app-layer validates and prunes broken
+  // references.
+  relatedTermIds: json('related_term_ids').$type<number[]>().default([]).notNull(),
+  // Provenance — most rows are 'manual'; 'ai_suggested' when AI proposes a
+  // missing term.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  // Set when the source is 'ai_suggested' — points at the
+  // brain_ai_review_items.id that proposed it. NOT FK-enforced so a deleted
+  // review item does not cascade-delete an accepted glossary entry.
+  reviewItemId: integer('review_item_id'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_glossary_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_glossary_client_status_idx').on(t.clientId, t.status),
+  index('brain_glossary_category_idx').on(t.category),
+]);
+
+export type BrainGlossaryTerm = typeof brainGlossaryTerms.$inferSelect;
+

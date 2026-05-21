@@ -37,6 +37,7 @@ export interface DashboardSummary {
     peopleActive: number;
     orgUnitCount: number;
     expertiseTagsCount: number;
+    glossaryTermsActive: number;
   };
 }
 
@@ -141,6 +142,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       people_active: number;
       org_unit_count: number;
       expertise_tags_count: number;
+      glossary_terms_active: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
@@ -152,7 +154,8 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
         (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status = 'achieved' AND last_checked_in_at IS NOT NULL AND last_checked_in_at > now() - interval '90 days') AS goals_achieved_q,
         (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
         (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
-        (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count
+        (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
+        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active
     `),
   ]);
 
@@ -297,6 +300,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     people_active: 0,
     org_unit_count: 0,
     expertise_tags_count: 0,
+    glossary_terms_active: 0,
   };
 
   return {
@@ -329,6 +333,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       peopleActive: counts.people_active ?? 0,
       orgUnitCount: counts.org_unit_count ?? 0,
       expertiseTagsCount: counts.expertise_tags_count ?? 0,
+      glossaryTermsActive: counts.glossary_terms_active ?? 0,
     },
   };
 }
