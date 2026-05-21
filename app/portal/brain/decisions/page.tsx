@@ -8,12 +8,14 @@
  * "superseded only" toggle. Rows render via <DecisionCard>. Pagination is
  * 25/page with prev/next at the bottom.
  *
- * Filters live in component state (not the URL) for simplicity in v1 — deep
- * linking is a follow-up. Status defaults to `accepted` to keep the noise
- * down; switching to "All" or other statuses is one click away.
+ * Filters live in the URL query string (?status=&reversibility=&
+ * decisionMakerId=&dateFrom=&dateTo=&supersededOnly=&topicId=&page=) so
+ * the view is shareable + survives refresh. Status defaults to `accepted`
+ * to keep the noise down; switching to "All" or other statuses is one
+ * click away.
  */
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DecisionCard, { type DecisionRow } from '@/components/brain/DecisionCard';
 import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
@@ -43,21 +45,68 @@ const STATUS_FILTERS: Array<{ key: StatusFilter; label: string; icon: string }> 
 
 const PAGE_SIZE = 25;
 
+// Allowed parse domains — we only honour values that pass these guards, so a
+// crafted URL can't sneak an invalid status into the API call.
+const STATUS_KEYS: StatusFilter[] = ['all', 'accepted', 'proposed', 'superseded', 'rejected'];
+const REVERSIBILITY_KEYS: ReversibilityFilter[] = ['all', 'one_way', 'two_way'];
+
+function parseStatus(raw: string | null): StatusFilter {
+  return raw && (STATUS_KEYS as string[]).includes(raw) ? (raw as StatusFilter) : 'accepted';
+}
+function parseReversibility(raw: string | null): ReversibilityFilter {
+  return raw && (REVERSIBILITY_KEYS as string[]).includes(raw) ? (raw as ReversibilityFilter) : 'all';
+}
+function parsePositiveInt(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+function parsePageIndex(raw: string | null): number {
+  if (!raw) return 0;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 export default function DecisionsListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [items, setItems] = useState<DecisionRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [status, setStatus] = useState<StatusFilter>('accepted');
-  const [reversibility, setReversibility] = useState<ReversibilityFilter>('all');
-  const [decisionMakerId, setDecisionMakerId] = useState<number | null>(null);
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
-  const [supersededOnly, setSupersededOnly] = useState(false);
-  const [page, setPage] = useState(0);
+  // Filters are derived from the URL on every render — the URL is the single
+  // source of truth. Handlers push a new querystring via `router.replace`,
+  // which re-renders this component with the new searchParams; we never store
+  // filter state in component state.
+  const status: StatusFilter = parseStatus(searchParams.get('status'));
+  const reversibility: ReversibilityFilter = parseReversibility(searchParams.get('reversibility'));
+  const decisionMakerId: number | null = parsePositiveInt(searchParams.get('decisionMakerId'));
+  const dateFrom: string = searchParams.get('dateFrom') ?? '';
+  const dateTo: string = searchParams.get('dateTo') ?? '';
+  const supersededOnly: boolean = searchParams.get('supersededOnly') === 'true';
+  const topicId: number | null = parsePositiveInt(searchParams.get('topicId'));
+  const page: number = parsePageIndex(searchParams.get('page'));
 
   const [team, setTeam] = useState<TeamMember[]>([]);
+
+  // Helper: replace a subset of search params and push as the new URL. Any
+  // explicit `undefined` value clears that key. When a non-page filter
+  // changes, we also reset `page` to 0 — refreshing or sharing a deep URL
+  // preserves both filter + page if the caller writes both explicitly.
+  const updateUrl = useCallback(
+    (patch: Record<string, string | number | null | undefined>, opts?: { resetPage?: boolean }) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === undefined || v === '') next.delete(k);
+        else next.set(k, String(v));
+      }
+      if (opts?.resetPage) next.delete('page');
+      const qs = next.toString();
+      router.replace(qs ? `?${qs}` : '?');
+    },
+    [router, searchParams],
+  );
 
   // Load team for the decision-maker filter.
   useEffect(() => {
@@ -94,16 +143,11 @@ export default function DecisionsListPage() {
       params.set('dateTo', d.toISOString());
     }
     if (supersededOnly) params.set('supersededOnly', 'true');
+    if (topicId !== null) params.set('topicId', String(topicId));
     params.set('limit', String(PAGE_SIZE));
     params.set('offset', String(page * PAGE_SIZE));
     return params.toString();
-  }, [status, reversibility, decisionMakerId, dateFrom, dateTo, supersededOnly, page]);
-
-  // Reset to page 0 whenever filters (other than page itself) change.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- filter change invalidates pagination; reset must be synchronous so the next fetch uses offset=0.
-    setPage(0);
-  }, [status, reversibility, decisionMakerId, dateFrom, dateTo, supersededOnly]);
+  }, [status, reversibility, decisionMakerId, dateFrom, dateTo, supersededOnly, topicId, page]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -167,7 +211,7 @@ export default function DecisionsListPage() {
             <button
               key={s.key}
               type="button"
-              onClick={() => setStatus(s.key)}
+              onClick={() => updateUrl({ status: s.key === 'accepted' ? null : s.key }, { resetPage: true })}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 status === s.key
                   ? 'bg-primary text-primary-foreground border-primary'
@@ -187,7 +231,7 @@ export default function DecisionsListPage() {
               <button
                 key={r}
                 type="button"
-                onClick={() => setReversibility(r)}
+                onClick={() => updateUrl({ reversibility: r === 'all' ? null : r }, { resetPage: true })}
                 className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                   reversibility === r
                     ? 'bg-primary text-primary-foreground'
@@ -202,7 +246,7 @@ export default function DecisionsListPage() {
           <select
             value={decisionMakerId ?? ''}
             onChange={(e) =>
-              setDecisionMakerId(e.target.value ? parseInt(e.target.value, 10) : null)
+              updateUrl({ decisionMakerId: e.target.value ? parseInt(e.target.value, 10) : null }, { resetPage: true })
             }
             className="px-2 py-1.5 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           >
@@ -219,7 +263,7 @@ export default function DecisionsListPage() {
             <input
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => updateUrl({ dateFrom: e.target.value || null }, { resetPage: true })}
               className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </label>
@@ -228,7 +272,7 @@ export default function DecisionsListPage() {
             <input
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => updateUrl({ dateTo: e.target.value || null }, { resetPage: true })}
               className="px-2 py-1 text-xs bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </label>
@@ -237,22 +281,28 @@ export default function DecisionsListPage() {
             <input
               type="checkbox"
               checked={supersededOnly}
-              onChange={(e) => setSupersededOnly(e.target.checked)}
+              onChange={(e) => updateUrl({ supersededOnly: e.target.checked ? 'true' : null }, { resetPage: true })}
               className="rounded border-border"
             />
             Superseded only
           </label>
 
-          {(dateFrom || dateTo || decisionMakerId || supersededOnly || reversibility !== 'all') && (
+          {(dateFrom || dateTo || decisionMakerId || supersededOnly || reversibility !== 'all' || topicId !== null) && (
             <button
               type="button"
-              onClick={() => {
-                setReversibility('all');
-                setDecisionMakerId(null);
-                setDateFrom('');
-                setDateTo('');
-                setSupersededOnly(false);
-              }}
+              onClick={() =>
+                updateUrl(
+                  {
+                    reversibility: null,
+                    decisionMakerId: null,
+                    dateFrom: null,
+                    dateTo: null,
+                    supersededOnly: null,
+                    topicId: null,
+                  },
+                  { resetPage: true },
+                )
+              }
               className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <span className="material-icons text-[14px]">clear</span>
@@ -300,7 +350,7 @@ export default function DecisionsListPage() {
             <button
               type="button"
               disabled={isFirstPage}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              onClick={() => updateUrl({ page: page > 1 ? page - 1 : null })}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
             >
               <span className="material-icons text-base">chevron_left</span>
@@ -310,7 +360,7 @@ export default function DecisionsListPage() {
             <button
               type="button"
               disabled={isLastPage}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => updateUrl({ page: page + 1 })}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
             >
               Next
