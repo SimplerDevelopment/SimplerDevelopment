@@ -153,6 +153,20 @@ Even though this is an edit, not a create, the authoring rules from `sd-create-p
 - **Block schema compliance.** If you add or modify a block, the result must satisfy the schema in `lib/blocks/registry.ts`.
 - **5-dimension self-review** if the edit is non-trivial (replace mode, multi-block patch, prose-mode whole-page). For a single-field tweak, the self-review is overkill — skip.
 
+## Sourcing new images (and other media) during edits
+
+A lot of edit requests boil down to "swap this image" — "use this screenshot as the new hero image", "replace the headshot on the team block with the one at `~/Downloads/jane.jpg`", "drop in the logo I just pasted." Pick the pattern by where the bytes live:
+
+1. **Local file path** (the user named a path, or you have a workspace file). Use the **presign + curl + register** flow — bytes never enter the conversation, ~150 tokens per upload regardless of size. See `sd-create-page`'s **Sourcing images** section for the full snippet. Then patch the target block's `image` / `src` / `logoUrl` field with the registered `media.url`.
+
+2. **Public http(s) URL** (the new image is on the open web). Use `media_upload_from_url`. SSRF guard rejects internal/private IPs and refuses redirects.
+
+3. **Already in the library** — call `media_list` once and reference URLs from there. Free after the first list.
+
+**Do not** base64-encode the file into tool inputs. There is no `media_upload_base64` tool, and synthesizing one via a giant string parameter would burn ~4 chars/token across history (a 500 KB screenshot = ~180K tokens).
+
+For a `patch` edit that swaps an image, the typical flow is: register the new media → JSON-pointer-replace `/blocks/<n>/image` (or whichever field) with the new URL → send the full updated blocks via `posts_update`. Leave alt text intact unless the user asked you to change it; if alt is missing, set it from context.
+
 ## Output
 
 Return to the user:

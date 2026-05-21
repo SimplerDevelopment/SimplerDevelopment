@@ -90,7 +90,9 @@ import type { SurveyFieldDef, ProposalSection, ProposalLineItem, ProposalFee, Co
 import type { PortalMcpContext } from '@/lib/mcp-auth';
 import { hasScope } from '@/lib/mcp-auth';
 import { logCardActivity } from '@/lib/pm-activity';
-import { uploadToS3 } from '@/lib/s3/upload';
+import { uploadToS3, presignPut, generateMediaKey } from '@/lib/s3/upload';
+import { getS3Client, getBucketName } from '@/lib/s3/client';
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { cleanEmbedHtml } from '@/lib/html-embed-clean';
 import { importHtmlAssets } from '@/lib/html-asset-import';
 import {
@@ -779,6 +781,144 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         mimeType: result.mimeType,
         fileSize: result.fileSize,
         url: result.url,
+        alt: alt ?? null,
+        caption: caption ?? null,
+        uploadedBy: ctx.userId,
+        clientId,
+        websiteId: websiteId ?? null,
+        brandingProfileId: brandingProfileId ?? null,
+      }).returning();
+      revalidateForWrite('portal');
+      return json(row);
+    }
+  );
+
+  // Allow-list mirrors the SAFE_INLINE set in app/api/media/proxy/[...path]/route.ts
+  // plus SVG (which the proxy serves under a restrictive CSP) and a few audio
+  // codecs the proxy already lists. Any mimeType not in this set is rejected
+  // up-front so we never even mint a presigned URL for, e.g., text/html.
+  const ALLOWED_UPLOAD_MIME_TYPES = new Set<string>([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/avif',
+    'image/svg+xml',
+    'application/pdf',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'audio/mpeg',
+    'audio/ogg',
+    'audio/wav',
+  ]);
+  const MAX_MEDIA_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+  hasScope(ctx.scopes, 'media:write') && server.registerTool(
+    'media_upload_presign',
+    {
+      title: 'Presign a direct-to-S3 media upload',
+      description:
+        'Mint a short-lived S3 PUT URL so the caller (e.g. Claude Code) can `curl --upload-file` a local file directly into our media bucket without piping bytes through the MCP conversation. After the PUT succeeds, call `media_register` with the returned `mediaKey` to create the media row. The presigned URL pins both Content-Type and Content-Length; size cap is 25 MB, mimeType must be in the allow-list (images, PDF, mp4/webm/quicktime, common audio).',
+      inputSchema: {
+        filename: z.string().min(1).describe('Original filename — used to derive the extension and stored as media.filename on register.'),
+        mimeType: z.string().min(1).describe('Content-Type the caller will send on PUT. Must be in the allow-list.'),
+        fileSize: z.number().int().positive().describe('Exact byte count the caller will send. Capped at 25 MB; signed into the URL so S3 rejects mismatches.'),
+      },
+    },
+    async ({ filename, mimeType, fileSize }) => {
+      if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      const normalizedMime = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
+      if (!ALLOWED_UPLOAD_MIME_TYPES.has(normalizedMime)) {
+        return json({
+          error: `mimeType "${mimeType}" is not allowed. Allowed: ${Array.from(ALLOWED_UPLOAD_MIME_TYPES).join(', ')}.`,
+        });
+      }
+      if (fileSize <= 0) return json({ error: 'fileSize must be > 0' });
+      if (fileSize > MAX_MEDIA_UPLOAD_BYTES) {
+        return json({ error: `File too large (${fileSize} bytes; max ${MAX_MEDIA_UPLOAD_BYTES}).` });
+      }
+      const { storedFilename, key } = generateMediaKey(filename);
+      try {
+        const presigned = await presignPut({
+          key,
+          contentType: normalizedMime,
+          contentLength: fileSize,
+          expiresInSeconds: 300,
+        });
+        return json({
+          mediaKey: key,
+          storedFilename,
+          uploadUrl: presigned.uploadUrl,
+          requiredHeaders: presigned.requiredHeaders,
+          expiresAt: presigned.expiresAt,
+        });
+      } catch (err) {
+        return json({ error: `Failed to presign upload: ${(err as Error).message}` });
+      }
+    }
+  );
+
+  hasScope(ctx.scopes, 'media:write') && server.registerTool(
+    'media_register',
+    {
+      title: 'Register an uploaded media object',
+      description:
+        'Finalize a presigned-upload flow: HEAD the S3 object the caller PUT to (via `media_upload_presign`), verify the size cap, and insert a `media` row pointing at it. Returns the new media row. Pairs with `media_upload_presign`.',
+      inputSchema: {
+        mediaKey: z.string().min(1).describe('S3 key returned by media_upload_presign (e.g. "media/<uuid>.<ext>").'),
+        originalFilename: z.string().min(1).describe('User-facing filename, stored as media.filename.'),
+        mimeType: z.string().min(1).describe('Expected mimeType. The server re-reads the S3-reported Content-Type and trusts that, not this value, but the field is required for parity with the URL-host path and to fail fast on obviously-wrong inputs.'),
+        alt: z.string().optional(),
+        caption: z.string().optional(),
+        websiteId: z.number().optional().describe('Scope the asset to a specific site.'),
+        brandingProfileId: z.number().optional(),
+      },
+    },
+    async ({ mediaKey, originalFilename, mimeType, alt, caption, websiteId, brandingProfileId }) => {
+      if (!requireScope(ctx, 'media:write')) return denied('media:write');
+      const normalizedDeclaredMime = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
+      if (!ALLOWED_UPLOAD_MIME_TYPES.has(normalizedDeclaredMime)) {
+        return json({ error: `mimeType "${mimeType}" is not in the allow-list.` });
+      }
+      // S3 key must live under the media/ prefix the proxy serves, otherwise
+      // the resulting media.url won't resolve. Block path traversal too.
+      if (!mediaKey.startsWith('media/') || mediaKey.includes('..')) {
+        return json({ error: 'mediaKey must start with "media/" and contain no path traversal.' });
+      }
+      const s3 = getS3Client();
+      const bucket = getBucketName();
+      let head;
+      try {
+        head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: mediaKey }));
+      } catch (err) {
+        const error = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+        if (error?.name === 'NotFound' || error?.$metadata?.httpStatusCode === 404) {
+          return json({ error: 'Object not found — did the curl PUT succeed?' });
+        }
+        return json({ error: `HEAD failed: ${(err as Error).message}` });
+      }
+      const actualSize = Number(head.ContentLength ?? 0);
+      if (!actualSize) return json({ error: 'S3 reported empty object.' });
+      if (actualSize > MAX_MEDIA_UPLOAD_BYTES) {
+        return json({
+          error: `Uploaded object exceeds 25 MB cap (${actualSize} bytes). Refusing to register.`,
+        });
+      }
+      const reportedMime = head.ContentType?.split(';')[0]?.trim().toLowerCase() || normalizedDeclaredMime;
+      // S3-reported Content-Type is what the proxy will hand to the browser,
+      // so re-check it against the allow-list rather than trusting the caller.
+      if (!ALLOWED_UPLOAD_MIME_TYPES.has(reportedMime)) {
+        return json({ error: `S3-reported mimeType "${reportedMime}" is not in the allow-list.` });
+      }
+      const storedFilename = mediaKey.replace(/^media\//, '');
+      const url = `/api/media/proxy/${mediaKey}`;
+      const [row] = await db.insert(media).values({
+        filename: originalFilename,
+        storedFilename,
+        mimeType: reportedMime,
+        fileSize: actualSize,
+        url,
         alt: alt ?? null,
         caption: caption ?? null,
         uploadedBy: ctx.userId,
@@ -1537,7 +1677,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ category, scope }) => {
       if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
-      const conds = [] as ReturnType<typeof eq>[];
+      // Tenant scope: own client rows + platform-global (NULL client_id).
+      const tenantScope = or(eq(blockTemplates.clientId, clientId), isNull(blockTemplates.clientId))!;
+      const conds: Parameters<typeof and> = [tenantScope];
       if (category) conds.push(eq(blockTemplates.category, category));
       if (scope) conds.push(eq(blockTemplates.scope, scope));
       const rows = await db.select({
@@ -1552,7 +1694,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         version: blockTemplates.version,
         updatedAt: blockTemplates.updatedAt,
       }).from(blockTemplates)
-        .where(conds.length ? and(...conds) : undefined)
+        .where(and(...conds))
         .orderBy(desc(blockTemplates.updatedAt));
       return json(rows);
     }
@@ -1569,6 +1711,10 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
       const [row] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!row) return json({ error: 'Template not found' });
+      // Tenant gate: hide other clients' templates; globals (NULL) are fine.
+      if (row.clientId != null && row.clientId !== clientId) {
+        return json({ error: 'Template not found' });
+      }
       return json(row);
     }
   );
@@ -1635,6 +1781,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
             thumbnail: args.thumbnail ?? null,
             tags: args.tags ?? [],
             lockedFields: args.lockedFields ?? [],
+            // Scope to caller's tenant. Admins promoting to platform-global use
+            // the admin /api/block-templates path (no clientId stamp).
+            clientId,
             createdBy: ctx.userId,
             draft,
           }).returning();
@@ -1671,6 +1820,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      // Tenant gate — own client only. Refuse mutation on globals (NULL
+      // client_id) so portal keys can't edit platform-curated templates.
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       if (rest.blocks !== undefined) {
         try {
           await assertBlocksAllowedForUserId(rest.blocks, ctx.userId);
@@ -1735,6 +1887,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       const usages = await db.select({ id: blockTemplateUsages.id }).from(blockTemplateUsages)
         .where(eq(blockTemplateUsages.templateId, id));
       if (usages.length > 0) {
@@ -1779,6 +1932,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       const result = await stageOrApply({
         ctx,
         entityType: 'block_template',
@@ -1844,6 +1998,11 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [source] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!source) return json({ error: 'Source template not found' });
+      // Source must be either this tenant's own template or a platform-global
+      // (NULL client_id). Forks always land in the calling tenant's scope.
+      if (source.clientId != null && source.clientId !== clientId) {
+        return json({ error: 'Source template not found' });
+      }
       const forkSlug = `${source.slug}${slugSuffix ? `-${slugSuffix}` : ''}-fork-${Date.now().toString(36)}`;
       const draft: import('@/lib/db/schema').BlockTemplateDraft = {
         pendingCreate: true,
@@ -1868,6 +2027,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         thumbnail: source.thumbnail,
         tags: source.tags ?? [],
         lockedFields: source.lockedFields ?? [],
+        clientId,
         createdBy: ctx.userId,
         parentTemplateId: source.id,
         draft,

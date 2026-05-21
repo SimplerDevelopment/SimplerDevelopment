@@ -31,7 +31,42 @@ Everything Claude creates is a **draft**. Nothing goes live until you (or a revi
 
 ---
 
-## 3. Connect Claude to your portal
+## 3. Install the skills bundle (one-time)
+
+The skills (`sd-init`, `sd-create-page`, `sd-create-deck`, …) are short Markdown
+prompt files that live under `~/.claude/skills/` on your machine. Claude
+Desktop and Claude Code read them automatically once they're in place.
+
+Open the installer page and click the button for your OS:
+
+**[https://simplerdevelopment.com/install](https://simplerdevelopment.com/install)**
+
+- **macOS:** downloads `install-sd-skills.command`. Double-click in Finder.
+  (First run only: right-click → Open to bypass Gatekeeper, since the
+  installer isn't code-signed yet.)
+- **Windows:** downloads `install-sd-skills.bat`. Double-click in Explorer.
+  (First run only: click "More info" → "Run anyway" if SmartScreen prompts.)
+- **Linux / manual:** one curl line —
+  ```bash
+  mkdir -p ~/.claude/skills && \
+    curl -fsSL https://simplerdevelopment.com/api/skills/bundle \
+    | tar -xz -C ~/.claude/skills
+  ```
+
+Each installer downloads the latest bundle (~45 KB), verifies the SHA-256
+checksum, and extracts to `~/.claude/skills/`. No admin rights needed; the
+installer never writes outside your home directory.
+
+After install you should see `~/.claude/skills/sd-init/`,
+`~/.claude/skills/sd-create-page/`, and the rest — plus
+`SD_DESIGN_PRINCIPLES.md` and a copy of this quickstart for offline reference.
+
+To upgrade later (when new skills ship), re-run the installer. It overwrites
+the bundle contents safely.
+
+---
+
+## 4. Connect Claude to your portal
 
 The portal exposes an MCP (Model Context Protocol) endpoint at `https://<your-tenant>.simplerdevelopment.com/api/mcp`. Connecting it to Claude is a one-time configuration.
 
@@ -70,7 +105,7 @@ Then in any Claude Code session, the SD tools are available as `mcp__simplerdeve
 
 ---
 
-## 4. One-time bootstrap
+## 5. One-time bootstrap
 
 In your first Claude session against the portal, run:
 
@@ -91,7 +126,7 @@ You only do this once per project folder. After that, every other skill picks up
 
 ---
 
-## 5. Common flows
+## 6. Common flows
 
 ### Draft a landing page
 
@@ -139,7 +174,7 @@ This writes a per-project rule into `.sd/learnings.md`. Every subsequent skill c
 
 ---
 
-## 6. The approval URL — what it is and how to use it
+## 7. The approval URL — what it is and how to use it
 
 Every create / update returns an approval URL shaped like:
 
@@ -154,7 +189,7 @@ https://<your-tenant>.simplerdevelopment.com/approve/<64-hex-token>
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 - **Auth fails after I pick a tenant.** Re-run the OAuth flow — sometimes the browser closes before the callback completes. Restart Claude Desktop, then trigger any SD tool.
 - **`whoami` returns the wrong tenant.** On the consent page, the dropdown picks the active tenant — make sure you've selected the right one before clicking **Authorize**.
@@ -165,7 +200,7 @@ https://<your-tenant>.simplerdevelopment.com/approve/<64-hex-token>
 
 ---
 
-## 8. What's available right now
+## 9. What's available right now
 
 | Skill | What it drafts |
 |---|---|
@@ -182,7 +217,7 @@ https://<your-tenant>.simplerdevelopment.com/approve/<64-hex-token>
 
 ---
 
-## 9. Questions or stuck?
+## 10. Questions or stuck?
 
 Email your SimplerDevelopment account manager with:
 - The approval URL or post / deck / campaign id you were working on.

@@ -267,7 +267,6 @@ async function regenerateMockupForStaffSave(
   }
   const artworkObj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: decodeURIComponent(artworkKeyMatch[1]) }));
   if (!artworkObj.Body) return;
-  // @ts-expect-error — Body has transformToByteArray() on the AWS SDK Node runtime
   const artworkBytes = await artworkObj.Body.transformToByteArray();
   const artworkBuf = Buffer.from(artworkBytes);
 
@@ -280,7 +279,6 @@ async function regenerateMockupForStaffSave(
   if (mockupS3Match) {
     const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: decodeURIComponent(mockupS3Match[1]) }));
     if (!obj.Body) return;
-    // @ts-expect-error
     const bytes = await obj.Body.transformToByteArray();
     baseMockupBuf = Buffer.from(bytes);
   } else if (mockupUrl.startsWith('/')) {

@@ -177,6 +177,12 @@ Ask one focused question — not a list. Examples:
 
 Then wait for the answer before producing JSON. A wrong guess wastes a round trip.
 
-## Installation (for the client)
+## Install
 
-Drop this file at `~/.claude/skills/html-render-block/SKILL.md` (create the directory if it doesn't exist). Restart Claude Code, or open a new chat at claude.ai with this skill enabled. The skill will trigger automatically when JSON containing `"type": "html-render"` is pasted, or when the user mentions editing the block JSON.
+This skill ships as part of the SimplerDevelopment client skills bundle. Install all 10 sibling skills in one step from the portal:
+
+**https://simplerdevelopment.com/install**
+
+macOS, Windows, and Linux installers download the bundle to `~/.claude/skills/`. Both Claude Desktop and Claude Code auto-discover skills from that path on next restart.
+
+See `CLIENT_QUICKSTART.md` (installed alongside this file) for the full setup walkthrough, including the MCP-server config Claude Desktop needs and the one-time `sd-init` bootstrap.

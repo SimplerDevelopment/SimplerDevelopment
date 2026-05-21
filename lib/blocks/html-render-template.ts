@@ -24,7 +24,31 @@
  * (anchor href -> 'url', img src -> 'image', etc.).
  */
 
+import sanitizeHtmlLib from 'sanitize-html';
 import type { HtmlRenderField } from '@/types/blocks';
+
+// Narrow allow-list for `richtext` field values substituted via `{{name}}`.
+// SKILL.md (html-render-block) documents: "If the field is `richtext`, the
+// substitution is treated as HTML; otherwise it's escaped." Until ticket #20
+// this branch was missing — every `{{name}}` value was HTML-escaped, so
+// authors saw literal `&lt;em&gt;...&lt;/em&gt;` in their decks. We now keep
+// the small set of inline formatting tags an editor would emit (matches the
+// in-iframe paste sanitizer's allow-list in HtmlRenderBlockRender.tsx) and
+// drop everything else. `data-field` swaps stay raw (separate code path).
+const RICHTEXT_PLACEHOLDER_OPTIONS: sanitizeHtmlLib.IOptions = {
+  allowedTags: ['b', 'strong', 'i', 'em', 'u', 'a', 'br', 'span', 'p', 'ul', 'ol', 'li', 'code', 'small', 'mark'],
+  allowedAttributes: {
+    a: ['href', 'rel', 'target'],
+    span: ['class'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  // Anchors only — every other tag listed above is structural/formatting.
+  allowedSchemesAppliedToAttributes: ['href'],
+};
+
+function sanitizeRichtextPlaceholder(html: string): string {
+  return sanitizeHtmlLib(html ?? '', RICHTEXT_PLACEHOLDER_OPTIONS);
+}
 
 type ScalarValue = string;
 type ArrayValue = Array<Record<string, string>>;
@@ -81,7 +105,9 @@ export function renderHtmlTemplate(
     return full.slice(0, openEnd) + value + full.slice(closeStart);
   });
   // 4. Top-level `{{name}}` (scalars) and `{{name.X}}` (object/group/post values).
-  const placeheld = substituteAllPlaceholders(withFields, v, scalarValues);
+  //    Pass `allFields` through so richtext-typed fields render as sanitized
+  //    HTML instead of escaped text (ticket #20).
+  const placeheld = substituteAllPlaceholders(withFields, v, scalarValues, allFields);
   // 5. Strip the resolution marker so it doesn't show up in output.
   return placeheld.replace(/\s+data-field-resolved=""/g, '');
 }
@@ -112,16 +138,31 @@ function annotateImageFields(html: string): string {
  * values. Dotted paths on string values resolve to empty (lets authors leave a
  * `link`/`post` field unset without leaving literal `{{x.y}}` in the output).
  */
-export function substituteAllPlaceholders(html: string, values: FieldValues, scalarDefaults: Record<string, string>): string {
+export function substituteAllPlaceholders(
+  html: string,
+  values: FieldValues,
+  scalarDefaults: Record<string, string>,
+  fields?: HtmlRenderField[],
+): string {
+  // Bare-placeholder fields whose schema declares `type: 'richtext'` render
+  // as sanitized HTML instead of escaped text (ticket #20). Dotted paths stay
+  // escaped — those reach into nested objects (groups, posts, custom fields)
+  // and have never been documented to honor richtext semantics.
+  const richtextNames = new Set(
+    (fields || []).filter(f => f.type === 'richtext').map(f => f.name),
+  );
   return html.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*)\s*\}\}/g, (_full, raw) => {
     const path = raw.split('.');
     const head = path[0];
     const v = values[head];
     if (path.length === 1) {
-      if (typeof v === 'string') return escapeHtml(v);
+      if (typeof v === 'string') {
+        return richtextNames.has(head) ? sanitizeRichtextPlaceholder(v) : escapeHtml(v);
+      }
       // bare placeholder against an object/array → fall back to default scalar
       const dflt = scalarDefaults[head];
-      return dflt ? escapeHtml(dflt) : '';
+      if (!dflt) return '';
+      return richtextNames.has(head) ? sanitizeRichtextPlaceholder(dflt) : escapeHtml(dflt);
     }
     // Dotted — walk the path one segment at a time so multi-level paths
     // resolve. The classic shapes are still 2-deep (`{{cta.url}}`,

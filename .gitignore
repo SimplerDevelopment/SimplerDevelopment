@@ -83,3 +83,9 @@ backups/
 # sd-init writes per-project bootstrap snapshot here; project-local only.
 .sd/
 .mobile-audit/
+
+# Graphify cache + output (large generated files, per-machine)
+graphify-out/
+
+# Skill test runs / dry-run logs (session-specific, not source)
+.planning/skill-test-runs/

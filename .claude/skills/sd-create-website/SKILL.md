@@ -97,6 +97,24 @@ Two cross-skill patterns:
   ```
   After approval the survey flips `active`; its `recommendation.bookUrl` should already point at the `/book/<slug>` page so the funnel closes the loop.
 
+## Sourcing images and other media
+
+Each delegated `sd-create-page` invocation handles its own media. Pass through whatever the user gave you (local paths or URLs); `sd-create-page` knows to use **presign + curl + register** for local files and `media_upload_from_url` for public URLs. See `sd-create-page`'s **Sourcing images** section for the canonical pattern.
+
+Whole-site optimization: before the authoring loop starts, call `media_list` once and pass the existing library down to each page invocation. Across a 5-page site that reuses the same brand logo, hero photo, and team headshots, this collapses dozens of redundant uploads into zero per-image overhead.
+
+## MCP response handling — read errors first
+
+SimplerDevelopment's MCP wraps every response — successes AND errors — in a JSON-RPC success envelope shaped like:
+
+```
+{"result":{"content":[{"type":"text","text":"{...JSON...}"}]}}
+```
+
+Before reporting success to the user, parse `result.content[0].text` as JSON. If the parsed object contains an `error` key (e.g. `{"error":"Site not found"}` or `{"error":"Unauthorized"}`), the call FAILED — even though the JSON-RPC envelope said `result`. STOP immediately. Surface the error verbatim to the user. Do NOT invent a successful response with a made-up post id, approval URL, slug, or site name. Hallucinated success is worse than a visible failure — the user will publish content that doesn't exist or copy approval URLs to stakeholders that 404.
+
+Only treat the call as successful when the parsed text contains the expected entity shape (e.g. `{"id":..., "approval":{...}}` for `posts_create`).
+
 ## Output
 
 After every step:
@@ -131,6 +149,10 @@ After every run, invoke `sd-learn` with the user's feedback as the artifact ref 
 
 ## Install
 
-```bash
-ln -s "$(pwd)/.claude/skills/sd-create-website" ~/.claude/skills/sd-create-website
-```
+This skill ships as part of the SimplerDevelopment client skills bundle. Install all 10 sibling skills in one step from the portal:
+
+**https://simplerdevelopment.com/install**
+
+macOS, Windows, and Linux installers download the bundle to `~/.claude/skills/`. Both Claude Desktop and Claude Code auto-discover skills from that path on next restart.
+
+See `CLIENT_QUICKSTART.md` (installed alongside this file) for the full setup walkthrough, including the MCP-server config Claude Desktop needs and the one-time `sd-init` bootstrap.

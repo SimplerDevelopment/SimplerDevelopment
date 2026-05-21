@@ -23,6 +23,7 @@ vi.mock('@/lib/email/booking-emails', () => ({
   sendGuestConfirmation: vi.fn().mockResolvedValue(undefined),
   sendHostNotification: vi.fn().mockResolvedValue(undefined),
   sendCancellationEmail: vi.fn().mockResolvedValue(undefined),
+  loadBookingBrand: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('@/lib/google-calendar', () => ({
   createCalendarEvent: vi.fn().mockResolvedValue(null),

@@ -68,12 +68,17 @@ export function SlideBlockWrapper({ slide, theme, className, presentation = fals
         minHeight: presentation ? '100vh' : '100%',
       }}
     >
-      {/* Background image overlay (separate div for opacity control) */}
+      {/* Background image overlay (separate div for opacity control).
+          Ticket #19: accept either a raw URL (`https://…` / `data:…`) or an
+          already-wrapped CSS value (`url(https://…)`) — older authoring tools
+          send the wrapped form, the editor sidebar sends the raw form. */}
       {slide.pageSettings?.backgroundImage && (
         <div
           className="absolute inset-0 z-0"
           style={{
-            backgroundImage: `url(${slide.pageSettings.backgroundImage})`,
+            backgroundImage: /^url\(/i.test(slide.pageSettings.backgroundImage.trim())
+              ? slide.pageSettings.backgroundImage.trim()
+              : `url(${slide.pageSettings.backgroundImage})`,
             backgroundSize: slide.pageSettings.backgroundSize || 'cover',
             backgroundPosition: slide.pageSettings.backgroundPosition || 'center',
             backgroundRepeat: slide.pageSettings.backgroundRepeat || 'no-repeat',

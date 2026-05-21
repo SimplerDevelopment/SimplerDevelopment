@@ -119,22 +119,26 @@ export async function getClientBlogPosts(websiteId: number) {
     .orderBy(posts.publishedAt);
 }
 
-export async function getPitchDeckByDomainAndSlug(domain: string, slug: string) {
+export async function getPitchDeckByDomainAndSlug(domain: string, slug: string, preview = false) {
   // Find client by domain or subdomain
   const website = await getClientWebsiteByDomain(domain);
   if (!website) return null;
   const site = { clientId: website.clientId };
 
+  const conditions = [
+    eq(pitchDecks.clientId, site.clientId),
+    eq(pitchDecks.slug, slug),
+  ];
+  // Without ?preview=1 the public route only serves published decks.
+  // With preview=1 the route also serves drafts — matching the posts
+  // route's behavior and the EditorHeader's Preview button (which
+  // appends ?preview=1 for non-published decks).
+  if (!preview) conditions.push(eq(pitchDecks.status, 'published'));
+
   const [deck] = await db
     .select()
     .from(pitchDecks)
-    .where(
-      and(
-        eq(pitchDecks.clientId, site.clientId),
-        eq(pitchDecks.slug, slug),
-        eq(pitchDecks.status, 'published'),
-      )
-    )
+    .where(and(...conditions))
     .limit(1);
 
   return deck ?? null;

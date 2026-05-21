@@ -120,6 +120,12 @@ async function loadPreview(
           label: s.label ?? null,
           // V2 stores draft + live separately; show draft if present, else live.
           blocks: (s.draft?.blocks ?? s.blocks ?? []) as unknown,
+          // Ticket #19: forward pageSettings + customCss so the approval card
+          // mirrors the published renderer's slide-stage chrome (bg image /
+          // color / size / position / repeat + scoped custom CSS) instead of
+          // dropping them on the floor.
+          pageSettings: (s.draft?.pageSettings ?? s.pageSettings ?? null) as unknown,
+          customCss: (s.draft?.customCss ?? s.customCss ?? null) as string | null,
         })),
       };
     }
