@@ -11,6 +11,7 @@ import PitchDeckPresentation, { type SurveyDataForDeck } from './PitchDeckPresen
 
 interface PageProps {
   params: Promise<{ domain: string; slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 function resolveSlides(raw: unknown): PitchDeckSlideV2[] {
@@ -58,10 +59,12 @@ async function fetchSurveyData(deckSlides: PitchDeckSlideV2[]): Promise<Record<n
   return result;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { domain, slug } = await params;
+  const sp = await searchParams;
+  const preview = sp.preview === '1' || sp.preview === 'true';
   const [deck, site] = await Promise.all([
-    getPitchDeckByDomainAndSlug(domain, slug),
+    getPitchDeckByDomainAndSlug(domain, slug, preview),
     getClientWebsiteByDomain(domain),
   ]);
   if (!deck) return { title: { absolute: 'Not Found' } };
@@ -123,9 +126,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return metadata;
 }
 
-export default async function PublicPitchDeckPage({ params }: PageProps) {
+export default async function PublicPitchDeckPage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
-  const deck = await getPitchDeckByDomainAndSlug(domain, slug);
+  const sp = await searchParams;
+  // `?preview=1` (set by EditorHeader for draft decks) lets the public route
+  // serve drafts in addition to published. Without it, only published decks
+  // resolve — matches the legacy behavior.
+  const preview = sp.preview === '1' || sp.preview === 'true';
+  const deck = await getPitchDeckByDomainAndSlug(domain, slug, preview);
 
   if (!deck) {
     notFound();
