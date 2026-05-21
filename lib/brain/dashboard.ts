@@ -28,6 +28,7 @@ export interface DashboardSummary {
     openTasks: number;
     aiCreatedTasks: number;
     relationships: number;
+    glossaryTermsActive: number;
   };
 }
 
@@ -124,12 +125,14 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       open_tasks: number;
       ai_tasks: number;
       relationships: number;
+      glossary_terms_active: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
         (SELECT COUNT(*)::int FROM brain_tasks WHERE client_id = ${clientId} AND status IN ('open','in_progress','blocked')) AS open_tasks,
         (SELECT COUNT(*)::int FROM brain_tasks WHERE client_id = ${clientId} AND created_by_ai = true) AS ai_tasks,
-        (SELECT COUNT(*)::int FROM brain_relationship_overlays WHERE client_id = ${clientId}) AS relationships
+        (SELECT COUNT(*)::int FROM brain_relationship_overlays WHERE client_id = ${clientId}) AS relationships,
+        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active
     `),
   ]);
 
@@ -263,7 +266,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     pendingByMeeting.set(r.source_id, r.cnt);
   }
 
-  const counts = countsRow[0] ?? { pending_review: 0, open_tasks: 0, ai_tasks: 0, relationships: 0 };
+  const counts = countsRow[0] ?? { pending_review: 0, open_tasks: 0, ai_tasks: 0, relationships: 0, glossary_terms_active: 0 };
 
   return {
     needsReviewMeetings: needsReviewMeetingRows.map((m) => ({
@@ -289,6 +292,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       openTasks: counts.open_tasks ?? 0,
       aiCreatedTasks: counts.ai_tasks ?? 0,
       relationships: counts.relationships ?? 0,
+      glossaryTermsActive: counts.glossary_terms_active ?? 0,
     },
   };
 }
