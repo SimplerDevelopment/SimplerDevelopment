@@ -1056,3 +1056,193 @@ export const brainGlossaryTerms = pgTable('brain_glossary_terms', {
 
 export type BrainGlossaryTerm = typeof brainGlossaryTerms.$inferSelect;
 
+// ─── BRAIN PLAYBOOKS ─────────────────────────────────────────────────────────
+// Ordered, branching sequences of templates + tasks triggered by an event
+// (new-hire, new-client, contract-renewal, incident). Different from
+// automation_rules (one-shot reactions): playbooks are human-paced, multi-step,
+// with state per run. Examples: new-hire onboarding (Day 1 / 3 / 7 / 30 / 90),
+// contract-renewal countdown (T-90 / T-60 / T-30 / T-7), incident response
+// (page on-call → notify customer → post-mortem → promote lesson to a
+// brain_decision).
+//
+// Tables in declaration order (FK deps): brainPlaybooks → brainPlaybookSteps →
+// brainPlaybookRuns → brainPlaybookRunSteps → brainPlaybookLinks.
+
+export type BrainPlaybookStatus = 'draft' | 'active' | 'archived';
+export type BrainPlaybookTriggerKind = 'manual' | 'event' | 'scheduled';
+
+export const brainPlaybooks = pgTable('brain_playbooks', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 200 }).notNull(),
+  description: text('description'),
+  status: varchar('status', { length: 20 }).$type<BrainPlaybookStatus>().default('draft').notNull(),
+  // What kicks this playbook off.
+  triggerKind: varchar('trigger_kind', { length: 20 }).$type<BrainPlaybookTriggerKind>().default('manual').notNull(),
+  // For triggerKind='event': event name (e.g. 'initiative.created'). For
+  // 'scheduled': cron expression. For 'manual': null.
+  triggerConfig: json('trigger_config').$type<{
+    event?: string;
+    filters?: Record<string, unknown>;
+    cron?: string;
+  }>(),
+  // Category for UI grouping — free-form ('hr', 'sales', 'ops', 'compliance').
+  category: varchar('category', { length: 100 }),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  // Suggested topic tags applied to all run-spawned entities.
+  defaultTopicIds: json('default_topic_ids').$type<number[]>().default([]).notNull(),
+  // 'manual' for user-authored, 'template' for built-in pack templates (none
+  // in v1).
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_playbooks_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_playbooks_client_status_idx').on(t.clientId, t.status),
+]);
+
+export type BrainPlaybook = typeof brainPlaybooks.$inferSelect;
+export type NewBrainPlaybook = typeof brainPlaybooks.$inferInsert;
+
+// Ordered steps within a playbook. `nextStepKeys` is a JSON string array
+// supporting branching (one step can fan out to multiple). `condition` is a
+// JSON expression evaluated against the run context.
+
+export type BrainPlaybookStepKind =
+  | 'task'           // creates a brain_task
+  | 'note'           // creates a brain_note from a template
+  | 'meeting'        // creates a brain_calendar_event
+  | 'decision'       // prompts for a decision record
+  | 'review_item'    // creates a brain_ai_review_item
+  | 'wait'           // pauses until a date / condition is met
+  | 'branch';        // pure routing — no side effect, just picks a path
+
+export const brainPlaybookSteps = pgTable('brain_playbook_steps', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  playbookId: integer('playbook_id').notNull().references(() => brainPlaybooks.id, { onDelete: 'cascade' }),
+  // Step key — stable identifier within a playbook; used by nextStepKeys + run
+  // state.
+  key: varchar('key', { length: 100 }).notNull(),
+  name: varchar('name', { length: 200 }).notNull(),
+  description: text('description'),
+  kind: varchar('kind', { length: 30 }).$type<BrainPlaybookStepKind>().notNull(),
+  // Step-kind-specific config (templated against run context). Examples:
+  //   task: { title: 'Send welcome packet to {{person.fullName}}', ownerHint: 'manager', dueOffsetDays: 1 }
+  //   meeting: { title: 'Manager 1:1', startOffsetDays: 3, durationMin: 30 }
+  //   wait: { untilOffsetDays: 7 }
+  //   branch: (no config — uses condition + nextStepKeys)
+  config: json('config').$type<Record<string, unknown>>().default({}).notNull(),
+  // Run-time condition expression. JSON shape parsed by
+  // lib/brain/playbook-condition.ts. null = unconditional.
+  condition: json('condition').$type<{
+    field: string;
+    op: 'eq' | 'neq' | 'in' | 'not_in' | 'exists' | 'not_exists' | 'gt' | 'lt';
+    value?: unknown;
+  } | null>(),
+  // Step keys this step can advance to. Multiple = branching. Empty =
+  // terminal.
+  nextStepKeys: json('next_step_keys').$type<string[]>().default([]).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_playbook_steps_playbook_key_idx').on(t.playbookId, t.key),
+  index('brain_playbook_steps_playbook_idx').on(t.playbookId),
+]);
+
+export type BrainPlaybookStep = typeof brainPlaybookSteps.$inferSelect;
+export type NewBrainPlaybookStep = typeof brainPlaybookSteps.$inferInsert;
+
+// A run instance. State is per-run; multiple runs of the same playbook
+// coexist.
+
+export type BrainPlaybookRunStatus = 'pending' | 'active' | 'paused' | 'completed' | 'aborted' | 'failed';
+
+export const brainPlaybookRuns = pgTable('brain_playbook_runs', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  playbookId: integer('playbook_id').notNull().references(() => brainPlaybooks.id, { onDelete: 'cascade' }),
+  // Human label for this run ("New hire: Jane Doe", "Contract renewal: Acme
+  // Corp").
+  label: varchar('label', { length: 255 }).notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainPlaybookRunStatus>().default('pending').notNull(),
+  // Context — variables that step configs template against. Examples:
+  //   { person: { id: 42, fullName: 'Jane Doe', email: '...' }, manager: { id: 9, ... } }
+  //   { company: { id: 12, name: 'Acme' }, renewalDate: '2026-08-01', csm: { id: 7, ... } }
+  context: json('context').$type<Record<string, unknown>>().default({}).notNull(),
+  // What started this run.
+  startedBy: integer('started_by').references(() => users.id, { onDelete: 'set null' }),
+  // For event-triggered runs: the event payload that fired it.
+  triggerPayload: json('trigger_payload').$type<Record<string, unknown>>(),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  abortedAt: timestamp('aborted_at'),
+  abortReason: text('abort_reason'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_playbook_runs_client_status_idx').on(t.clientId, t.status),
+  index('brain_playbook_runs_playbook_idx').on(t.playbookId),
+]);
+
+export type BrainPlaybookRun = typeof brainPlaybookRuns.$inferSelect;
+export type NewBrainPlaybookRun = typeof brainPlaybookRuns.$inferInsert;
+
+// Per-run step state. Tracks which steps are active, completed, or skipped.
+
+export type BrainPlaybookRunStepStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
+
+export const brainPlaybookRunSteps = pgTable('brain_playbook_run_steps', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  runId: integer('run_id').notNull().references(() => brainPlaybookRuns.id, { onDelete: 'cascade' }),
+  stepId: integer('step_id').notNull().references(() => brainPlaybookSteps.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).$type<BrainPlaybookRunStepStatus>().default('pending').notNull(),
+  // What this step produced — e.g. the brain_task id it created, the
+  // brain_note id, etc.
+  resultEntityType: varchar('result_entity_type', { length: 50 }),
+  resultEntityId: integer('result_entity_id'),
+  // For wait steps: when this step is eligible to advance.
+  waitUntil: timestamp('wait_until'),
+  // For failed steps: the error message.
+  failureReason: text('failure_reason'),
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_playbook_run_steps_run_step_idx').on(t.runId, t.stepId),
+  index('brain_playbook_run_steps_status_idx').on(t.status),
+  index('brain_playbook_run_steps_wait_until_idx').on(t.waitUntil),
+]);
+
+export type BrainPlaybookRunStep = typeof brainPlaybookRunSteps.$inferSelect;
+export type NewBrainPlaybookRunStep = typeof brainPlaybookRunSteps.$inferInsert;
+
+// Polymorphic links — a run can be anchored to an initiative, person,
+// company, deal, etc.
+
+export type BrainPlaybookLinkEntityType =
+  | 'initiative'
+  | 'person'
+  | 'crm_company'
+  | 'crm_deal'
+  | 'meeting'
+  | 'decision';
+
+export const brainPlaybookLinks = pgTable('brain_playbook_links', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  runId: integer('run_id').notNull().references(() => brainPlaybookRuns.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 30 }).$type<BrainPlaybookLinkEntityType>().notNull(),
+  entityId: integer('entity_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_playbook_links_run_entity_idx').on(t.runId, t.entityType, t.entityId),
+  index('brain_playbook_links_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
+]);
+
+export type BrainPlaybookLink = typeof brainPlaybookLinks.$inferSelect;
+export type NewBrainPlaybookLink = typeof brainPlaybookLinks.$inferInsert;
