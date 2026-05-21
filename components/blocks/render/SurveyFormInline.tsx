@@ -155,13 +155,29 @@ export interface SurveyFormInlineProps {
   showDescription?: boolean;
   /** Show the survey's logo above the form. Defaults to true. */
   showLogo?: boolean;
-  /** Block-level overrides — take precedence over survey.styling and branding. */
+  /** Block-level overrides — take precedence over survey.styling and branding.
+   *  See `types/blocks/form.ts` SurveyBlock.styleOverrides for the source of truth.
+   */
   styleOverrides?: {
     primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
     backgroundColor?: string;
     textColor?: string;
+    labelColor?: string;
     formBg?: string;
+    formBorderColor?: string;
+    formBorderWidth?: string;
+    formBorderRadius?: string;
+    formPadding?: string;
+    formShadow?: string;
+    hideCardChrome?: boolean;
     inputBg?: string;
+    inputTextColor?: string;
+    inputBorderColor?: string;
+    inputBorderWidth?: string;
+    inputBorderRadius?: string;
+    inputFocusRingColor?: string;
     headingFont?: string;
     bodyFont?: string;
     buttonBg?: string;
@@ -527,10 +543,11 @@ export function SurveyFormInline({
   const so = styleOverrides;
   // Cascade: block-level overrides → survey.styling → branding profile → defaults.
   const accent = so?.primaryColor || st.primaryColor || br?.primaryColor || survey.color || '#2563eb';
-  const secondaryColor = st.secondaryColor || br?.secondaryColor;
-  const accentColor = st.accentColor || br?.accentColor;
+  const secondaryColor = so?.secondaryColor || st.secondaryColor || br?.secondaryColor;
+  const accentColor = so?.accentColor || st.accentColor || br?.accentColor;
   const bgColor = so?.backgroundColor || st.backgroundColor || br?.backgroundColor;
   const txtColor = so?.textColor || st.textColor || br?.textColor;
+  const labelColor = so?.labelColor || txtColor;
   const logoUrl = showLogo ? br?.logoUrl : undefined;
   const headingFont = so?.headingFont || st.headingFont || br?.headingFont;
   const bodyFont = so?.bodyFont || st.bodyFont || br?.bodyFont;
@@ -538,17 +555,33 @@ export function SurveyFormInline({
   const btnBg = so?.buttonBg || st.buttonPrimaryBg || br?.buttonStyle?.primaryBg || accent;
   const btnText = so?.buttonText || st.buttonPrimaryText || br?.buttonStyle?.primaryText || '#ffffff';
   const inputOptionTextColor = st.inputOptionTextColor;
-  const inputTextColor = st.inputTextColor || txtColor;
+  const inputTextColor = so?.inputTextColor || st.inputTextColor || txtColor;
   const hasBranding = !!br || Object.keys(st).length > 0 || !!so;
+  const hideCardChrome = so?.hideCardChrome === true;
 
-  const cardBg = so?.formBg || st.formBg
-    || (hasBranding
-      ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
-      : undefined);
-  const cardBorder = secondaryColor ? `${secondaryColor}30` : undefined;
-  const inputBorder = accentColor ? `${accentColor}40` : undefined;
+  const cardBg = hideCardChrome
+    ? 'transparent'
+    : (so?.formBg || st.formBg
+      || (hasBranding
+        ? (bgColor && bgColor !== '#ffffff' ? lightenColor(bgColor, 0.05) : '#ffffff')
+        : undefined));
+  // Branding-tinted defaults: ${color}30 / ${color}40 append a hex alpha byte
+  // (≈19%/25% opacity) so the card/input borders pick up the brand without
+  // being aggressive. Explicit overrides skip the tint.
+  const cardBorder = so?.formBorderColor
+    ?? (secondaryColor ? `${secondaryColor}30` : undefined);
+  const inputBorder = so?.inputBorderColor
+    ?? (accentColor ? `${accentColor}40` : undefined);
   const inputBg = so?.inputBg || st.inputBg
     || (hasBranding ? (bgColor === '#ffffff' ? '#ffffff' : bgColor ? lightenColor(bgColor, 0.08) : undefined) : undefined);
+  const inputFocusRing = so?.inputFocusRingColor || accent;
+  const formRadius = so?.formBorderRadius || so?.borderRadius;
+  const formPadding = so?.formPadding;
+  const formShadow = hideCardChrome ? 'none' : so?.formShadow;
+  // When hiding chrome we also need to neutralise the always-on Tailwind
+  // `border border-gray-200 dark:border-gray-800` classes baked into the card
+  // sections — done by forcing borderWidth to 0 in the inline style.
+  const cardBorderWidth = hideCardChrome ? '0' : so?.formBorderWidth;
 
   const wrapperStyle: React.CSSProperties = {
     ...(txtColor ? { color: txtColor } : {}),
@@ -562,12 +595,24 @@ export function SurveyFormInline({
 
   const cardStyle: React.CSSProperties = {
     ...(cardBg ? { backgroundColor: cardBg } : {}),
-    ...(cardBorder ? { borderColor: cardBorder } : {}),
+    ...(cardBorder && !hideCardChrome ? { borderColor: cardBorder } : {}),
+    ...(cardBorderWidth !== undefined ? { borderWidth: cardBorderWidth } : {}),
+    ...(formRadius ? { borderRadius: formRadius } : {}),
+    ...(formPadding ? { padding: formPadding } : {}),
+    ...(formShadow !== undefined ? { boxShadow: formShadow } : {}),
   };
 
+  // Label color is exposed as a custom property so child labels can opt in
+  // without restructuring the JSX tree (kept here in case downstream needs).
+  const labelStyle: React.CSSProperties | undefined = labelColor
+    ? { color: labelColor }
+    : undefined;
+
   const inputStyle: React.CSSProperties = {
-    '--tw-ring-color': accent,
+    '--tw-ring-color': inputFocusRing,
     ...(inputBorder ? { borderColor: inputBorder } : {}),
+    ...(so?.inputBorderWidth ? { borderWidth: so.inputBorderWidth } : {}),
+    ...(so?.inputBorderRadius ? { borderRadius: so.inputBorderRadius } : {}),
     ...(inputBg ? { backgroundColor: inputBg } : {}),
     ...(inputTextColor ? { color: inputTextColor } : (inputBg ? { color: '#111827' } : {})),
   } as React.CSSProperties;
@@ -678,7 +723,7 @@ export function SurveyFormInline({
             {currentPage === 0 && survey.requireEmail && (
               <div className="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={txtColor ? { color: txtColor } : undefined}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>
                     Your Email <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -692,7 +737,7 @@ export function SurveyFormInline({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={txtColor ? { color: txtColor } : undefined}>Your Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" style={labelStyle}>Your Name</label>
                   <input
                     type="text"
                     value={name}
@@ -721,7 +766,7 @@ export function SurveyFormInline({
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white pt-2" style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}>{resolvePiping(field.label, answers)}</h3>
                   ) : (
                     <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={txtColor ? { color: txtColor } : undefined}>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300" style={labelStyle}>
                         <span className="text-gray-400 mr-1.5" style={secondaryColor ? { color: secondaryColor } : undefined}>{qNum}.</span>
                         {resolvePiping(field.label, answers)}
                         {field.required && <span className="text-red-500 ml-0.5">*</span>}

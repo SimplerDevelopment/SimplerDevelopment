@@ -1677,7 +1677,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
     },
     async ({ category, scope }) => {
       if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
-      const conds = [] as ReturnType<typeof eq>[];
+      // Tenant scope: own client rows + platform-global (NULL client_id).
+      const tenantScope = or(eq(blockTemplates.clientId, clientId), isNull(blockTemplates.clientId))!;
+      const conds: Parameters<typeof and> = [tenantScope];
       if (category) conds.push(eq(blockTemplates.category, category));
       if (scope) conds.push(eq(blockTemplates.scope, scope));
       const rows = await db.select({
@@ -1692,7 +1694,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         version: blockTemplates.version,
         updatedAt: blockTemplates.updatedAt,
       }).from(blockTemplates)
-        .where(conds.length ? and(...conds) : undefined)
+        .where(and(...conds))
         .orderBy(desc(blockTemplates.updatedAt));
       return json(rows);
     }
@@ -1709,6 +1711,10 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:read')) return denied('sites:read');
       const [row] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!row) return json({ error: 'Template not found' });
+      // Tenant gate: hide other clients' templates; globals (NULL) are fine.
+      if (row.clientId != null && row.clientId !== clientId) {
+        return json({ error: 'Template not found' });
+      }
       return json(row);
     }
   );
@@ -1775,6 +1781,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
             thumbnail: args.thumbnail ?? null,
             tags: args.tags ?? [],
             lockedFields: args.lockedFields ?? [],
+            // Scope to caller's tenant. Admins promoting to platform-global use
+            // the admin /api/block-templates path (no clientId stamp).
+            clientId,
             createdBy: ctx.userId,
             draft,
           }).returning();
@@ -1811,6 +1820,9 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      // Tenant gate — own client only. Refuse mutation on globals (NULL
+      // client_id) so portal keys can't edit platform-curated templates.
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       if (rest.blocks !== undefined) {
         try {
           await assertBlocksAllowedForUserId(rest.blocks, ctx.userId);
@@ -1875,6 +1887,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       const usages = await db.select({ id: blockTemplateUsages.id }).from(blockTemplateUsages)
         .where(eq(blockTemplateUsages.templateId, id));
       if (usages.length > 0) {
@@ -1919,6 +1932,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [existing] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!existing) return json({ error: 'Template not found' });
+      if (existing.clientId !== clientId) return json({ error: 'Template not found' });
       const result = await stageOrApply({
         ctx,
         entityType: 'block_template',
@@ -1984,6 +1998,11 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
       if (!requireScope(ctx, 'sites:write')) return denied('sites:write');
       const [source] = await db.select().from(blockTemplates).where(eq(blockTemplates.id, id)).limit(1);
       if (!source) return json({ error: 'Source template not found' });
+      // Source must be either this tenant's own template or a platform-global
+      // (NULL client_id). Forks always land in the calling tenant's scope.
+      if (source.clientId != null && source.clientId !== clientId) {
+        return json({ error: 'Source template not found' });
+      }
       const forkSlug = `${source.slug}${slugSuffix ? `-${slugSuffix}` : ''}-fork-${Date.now().toString(36)}`;
       const draft: import('@/lib/db/schema').BlockTemplateDraft = {
         pendingCreate: true,
@@ -2008,6 +2027,7 @@ export function registerCmsTools(server: McpServer, ctx: PortalMcpContext): void
         thumbnail: source.thumbnail,
         tags: source.tags ?? [],
         lockedFields: source.lockedFields ?? [],
+        clientId,
         createdBy: ctx.userId,
         parentTemplateId: source.id,
         draft,

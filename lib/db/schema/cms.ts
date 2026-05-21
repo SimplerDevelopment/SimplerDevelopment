@@ -188,6 +188,12 @@ export const blockTemplates = pgTable('block_templates', {
   thumbnail: varchar('thumbnail', { length: 500 }), // preview image URL
   tags: json('tags').$type<string[]>().default([]), // searchable tags
   lockedFields: json('locked_fields').$type<string[]>().default([]), // field paths that can't be edited (e.g., "0.type", "0.style.backgroundColor")
+  // Multi-tenant scope: NULL = platform-global template (admin-curated, visible
+  // to every tenant); non-NULL = scoped to that client's tenant. Portal
+  // SaveAsTemplate writes set this to the editing site's clientId so client A
+  // never sees client B's templates. Listing endpoints OR together client-scope
+  // and global rows.
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }),
   version: integer('version').default(1).notNull(),
   // Draft overlay — MCP writes land here by default. Public block-template
   // pickers and the "use this template" insertion path read live fields only.

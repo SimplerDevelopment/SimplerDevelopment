@@ -18,6 +18,10 @@ interface BlockTemplate {
 interface TemplateLibraryProps {
   onInsert: (blocks: Block[]) => void;
   onClose: () => void;
+  /** Override the default `/api/block-templates` listing target. Portal callers
+   *  pass the tenant-scoped endpoint so they only see their own + global
+   *  templates. */
+  endpoint?: string;
 }
 
 const SCOPE_COLORS: Record<string, string> = {
@@ -26,7 +30,7 @@ const SCOPE_COLORS: Record<string, string> = {
   global: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 };
 
-export function TemplateLibrary({ onInsert, onClose }: TemplateLibraryProps) {
+export function TemplateLibrary({ onInsert, onClose, endpoint = '/api/block-templates' }: TemplateLibraryProps) {
   const [templates, setTemplates] = useState<BlockTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -42,7 +46,7 @@ export function TemplateLibrary({ onInsert, onClose }: TemplateLibraryProps) {
     if (scopeFilter !== 'all') params.set('scope', scopeFilter);
 
     try {
-      const response = await fetch(`/api/block-templates?${params.toString()}`);
+      const response = await fetch(`${endpoint}?${params.toString()}`);
       const data = await response.json();
       if (data.success) {
         setTemplates(data.data);

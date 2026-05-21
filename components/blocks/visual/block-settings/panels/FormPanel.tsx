@@ -417,7 +417,7 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
         <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-foreground hover:bg-accent/40">
           Advanced styling overrides
         </summary>
-        <div className="px-3 pb-3 pt-2 space-y-3">
+        <div className="px-3 pb-3 pt-2 space-y-4">
           <p className="text-xs text-muted-foreground">
             These take precedence over the survey&apos;s own styling and the site branding. Leave blank to use defaults.
           </p>
@@ -426,43 +426,132 @@ function SurveyBlockSettings({ block, onChange }: { block: SurveyBlock; onChange
             const update = (patch: Partial<NonNullable<SurveyBlock['styleOverrides']>>) =>
               onChange({ styleOverrides: { ...so, ...patch } });
             const inputClass = 'w-full text-xs rounded border border-border bg-background px-2 py-1.5 text-foreground';
+            const groupLabel = 'text-[10px] uppercase tracking-wide font-semibold text-muted-foreground';
+            const fieldLabel = 'block text-xs text-muted-foreground mb-1';
             return (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <TokenColorPicker label="Primary Color" value={so.primaryColor || ''} onChange={(v) => update({ primaryColor: v || undefined })} />
-                  <TokenColorPicker label="Background" value={so.backgroundColor || ''} onChange={(v) => update({ backgroundColor: v || undefined })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <TokenColorPicker label="Text Color" value={so.textColor || ''} onChange={(v) => update({ textColor: v || undefined })} />
-                  <TokenColorPicker label="Form / Card Background" value={so.formBg || ''} onChange={(v) => update({ formBg: v || undefined })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <TokenColorPicker label="Input Background" value={so.inputBg || ''} onChange={(v) => update({ inputBg: v || undefined })} />
-                  <TokenColorPicker label="Button Background" value={so.buttonBg || ''} onChange={(v) => update({ buttonBg: v || undefined })} />
-                </div>
-                <TokenColorPicker label="Button Text" value={so.buttonText || ''} onChange={(v) => update({ buttonText: v || undefined })} />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Heading Font</label>
-                    <input type="text" value={so.headingFont || ''} onChange={(e) => update({ headingFont: e.target.value || undefined })}
-                      className={inputClass} placeholder="e.g. Inter, sans-serif" />
+                {/* ── Brand colors ─────────────────────────────────────── */}
+                <div className="space-y-2">
+                  <div className={groupLabel}>Brand colors</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Primary" value={so.primaryColor || ''} onChange={(v) => update({ primaryColor: v || undefined })} />
+                    <TokenColorPicker label="Secondary (card tint)" value={so.secondaryColor || ''} onChange={(v) => update({ secondaryColor: v || undefined })} />
                   </div>
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Body Font</label>
-                    <input type="text" value={so.bodyFont || ''} onChange={(e) => update({ bodyFont: e.target.value || undefined })}
-                      className={inputClass} placeholder="e.g. system-ui, sans-serif" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Accent (input tint)" value={so.accentColor || ''} onChange={(v) => update({ accentColor: v || undefined })} />
+                    <TokenColorPicker label="Background" value={so.backgroundColor || ''} onChange={(v) => update({ backgroundColor: v || undefined })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Text" value={so.textColor || ''} onChange={(v) => update({ textColor: v || undefined })} />
+                    <TokenColorPicker label="Label" value={so.labelColor || ''} onChange={(v) => update({ labelColor: v || undefined })} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Border Radius</label>
-                    <input type="text" value={so.borderRadius || ''} onChange={(e) => update({ borderRadius: e.target.value || undefined })}
-                      className={inputClass} placeholder="e.g. 8px" />
+
+                {/* ── Form / Card chrome ──────────────────────────────── */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <div className="flex items-center justify-between">
+                    <div className={groupLabel}>Form card</div>
+                    <label className="flex items-center gap-1.5 text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={so.hideCardChrome === true}
+                        onChange={(e) => update({ hideCardChrome: e.target.checked || undefined })}
+                        className="h-3.5 w-3.5 rounded border-border"
+                      />
+                      Hide card chrome
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground -mt-1">
+                    Hide chrome drops the card background, border, and shadow — useful when embedding inside an already-styled section.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Card Background" value={so.formBg || ''} onChange={(v) => update({ formBg: v || undefined })} />
+                    <TokenColorPicker label="Card Border" value={so.formBorderColor || ''} onChange={(v) => update({ formBorderColor: v || undefined })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={fieldLabel}>Card Border Width</label>
+                      <input type="text" value={so.formBorderWidth || ''} onChange={(e) => update({ formBorderWidth: e.target.value || undefined })}
+                        className={inputClass} placeholder='e.g. 0, 1px, 2px' />
+                    </div>
+                    <div>
+                      <label className={fieldLabel}>Card Radius</label>
+                      <input type="text" value={so.formBorderRadius || ''} onChange={(e) => update({ formBorderRadius: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. 16px" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={fieldLabel}>Card Padding</label>
+                      <input type="text" value={so.formPadding || ''} onChange={(e) => update({ formPadding: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. 1.5rem" />
+                    </div>
+                    <div>
+                      <label className={fieldLabel}>Card Shadow</label>
+                      <input type="text" value={so.formShadow || ''} onChange={(e) => update({ formShadow: e.target.value || undefined })}
+                        className={inputClass} placeholder='e.g. none' />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Inputs ──────────────────────────────────────────── */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <div className={groupLabel}>Inputs</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Input Background" value={so.inputBg || ''} onChange={(v) => update({ inputBg: v || undefined })} />
+                    <TokenColorPicker label="Input Text" value={so.inputTextColor || ''} onChange={(v) => update({ inputTextColor: v || undefined })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Input Border" value={so.inputBorderColor || ''} onChange={(v) => update({ inputBorderColor: v || undefined })} />
+                    <TokenColorPicker label="Focus Ring" value={so.inputFocusRingColor || ''} onChange={(v) => update({ inputFocusRingColor: v || undefined })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={fieldLabel}>Input Border Width</label>
+                      <input type="text" value={so.inputBorderWidth || ''} onChange={(e) => update({ inputBorderWidth: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. 1px" />
+                    </div>
+                    <div>
+                      <label className={fieldLabel}>Input Radius</label>
+                      <input type="text" value={so.inputBorderRadius || ''} onChange={(e) => update({ inputBorderRadius: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. 8px" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Buttons ─────────────────────────────────────────── */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <div className={groupLabel}>Buttons</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <TokenColorPicker label="Button Background" value={so.buttonBg || ''} onChange={(v) => update({ buttonBg: v || undefined })} />
+                    <TokenColorPicker label="Button Text" value={so.buttonText || ''} onChange={(v) => update({ buttonText: v || undefined })} />
                   </div>
                   <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Button Border Radius</label>
+                    <label className={fieldLabel}>Button Radius</label>
                     <input type="text" value={so.buttonBorderRadius || ''} onChange={(e) => update({ buttonBorderRadius: e.target.value || undefined })}
                       className={inputClass} placeholder="e.g. 6px" />
+                  </div>
+                </div>
+
+                {/* ── Typography / global ─────────────────────────────── */}
+                <div className="space-y-2 border-t border-border pt-3">
+                  <div className={groupLabel}>Typography &amp; global</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={fieldLabel}>Heading Font</label>
+                      <input type="text" value={so.headingFont || ''} onChange={(e) => update({ headingFont: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. Inter, sans-serif" />
+                    </div>
+                    <div>
+                      <label className={fieldLabel}>Body Font</label>
+                      <input type="text" value={so.bodyFont || ''} onChange={(e) => update({ bodyFont: e.target.value || undefined })}
+                        className={inputClass} placeholder="e.g. system-ui, sans-serif" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={fieldLabel}>Global Border Radius (fallback)</label>
+                    <input type="text" value={so.borderRadius || ''} onChange={(e) => update({ borderRadius: e.target.value || undefined })}
+                      className={inputClass} placeholder="e.g. 8px — used when per-element radius is unset" />
                   </div>
                 </div>
               </>
