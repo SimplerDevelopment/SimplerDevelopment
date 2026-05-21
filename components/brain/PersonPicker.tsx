@@ -15,15 +15,37 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * Public hit shape — what the picker resolves to. Mirrors the shape returned
+ * by GET /api/portal/brain/people, narrowed to the fields any caller actually
+ * needs to render inline (email is optional because the older inline-only call
+ * sites in `app/portal/brain/org-chart/page.tsx` lifted this shape verbatim).
+ */
+export interface PersonHit {
+  id: number;
+  fullName: string;
+  title: string | null;
+  email?: string | null;
+}
+
 interface PickerRow {
   id: number;
   fullName: string;
   title: string | null;
+  email?: string | null;
 }
 
 interface PersonPickerProps {
   value?: number | null;
   onChange: (id: number | null) => void;
+  /**
+   * Optional sibling of `onChange` that hands the full resolved hit
+   * (`{ id, fullName, title, email }`) — useful for dialog use cases that need
+   * to render the selection inline without a follow-up GET /people/<id>.
+   * Fires for both the select-from-results path and the clear path
+   * (with `null` on clear).
+   */
+  onChangeWithHit?: (hit: PersonHit | null) => void;
   placeholder?: string;
   /** People to hide from results — e.g. exclude self when picking a manager. */
   excludeIds?: number[];
@@ -34,6 +56,7 @@ interface PersonPickerProps {
 export function PersonPicker({
   value,
   onChange,
+  onChangeWithHit,
   placeholder = 'Search people…',
   excludeIds = [],
   disabled = false,
@@ -105,16 +128,23 @@ export function PersonPicker({
 
   const handleSelect = useCallback((row: PickerRow) => {
     onChange(row.id);
+    onChangeWithHit?.({
+      id: row.id,
+      fullName: row.fullName,
+      title: row.title,
+      email: row.email ?? null,
+    });
     setSelectedLabel(row.fullName);
     setOpen(false);
     setQuery('');
-  }, [onChange]);
+  }, [onChange, onChangeWithHit]);
 
   const handleClear = useCallback(() => {
     onChange(null);
+    onChangeWithHit?.(null);
     setSelectedLabel(null);
     setQuery('');
-  }, [onChange]);
+  }, [onChange, onChangeWithHit]);
 
   return (
     <div ref={wrapRef} className="relative">
