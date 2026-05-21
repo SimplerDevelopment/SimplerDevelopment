@@ -1,13 +1,13 @@
 ---
 name: sd-create-survey
-description: Draft a survey, form, intake questionnaire, or feedback poll in the SimplerDevelopment portal via the postcaptain MCP. Supports custom branching logic (showIf rules, page-jump branching, conditional options), per-field scoring (option_map / numeric / NPS), auto-route-to-CRM, recommendation engines, and brand-aware styling. Produces a `draft`-status survey, mints a shareable approval URL (approving flips status to `active` so the public /s/<slug> route accepts responses), and returns the survey id + public URL. Use when the user says 'create a survey about X', 'build an intake form for Y', 'set up a feedback poll', 'NPS survey', 'qualification questionnaire', 'lead-capture form', 'quiz-style assessment', 'multi-step form with branching'. Default mode publishes a DRAFT; requires a sd-init `.sd/config.json`.
+description: Draft a survey, form, intake questionnaire, or feedback poll in the SimplerDevelopment portal via the postcaptain MCP. Supports custom branching logic (showIf rules, page-jump branching, conditional options), per-field scoring (option_map / numeric / NPS), auto-route-to-CRM, recommendation engines, and brand-aware styling. Produces a `draft`-status survey, mints a shareable approval URL (approving flips status to `active` so the public /s/[slug] route accepts responses), and returns the survey id + public URL. Use when the user says 'create a survey about X', 'build an intake form for Y', 'set up a feedback poll', 'NPS survey', 'qualification questionnaire', 'lead-capture form', 'quiz-style assessment', 'multi-step form with branching'. Default mode publishes a DRAFT; requires a sd-init `.sd/config.json`.
 user-invocable: true
 allowed-tools: Read, Write, Bash, WebFetch, Glob, Grep
 ---
 
 # sd-create-survey
 
-Draft a survey in the portal. The survey is created with `status='draft'`, the approval link is minted, and the URL is handed back so the author can share it for stakeholder review BEFORE it goes live. **Approving the link flips status to `active`** — only then does the public `/s/<slug>` URL accept responses.
+Draft a survey in the portal. The survey is created with `status='draft'`, the approval link is minted, and the URL is handed back so the author can share it for stakeholder review BEFORE it goes live. **Approving the link flips status to `active`** — only then does the public `/s/[slug]` URL accept responses.
 
 ## Pre-flight
 
@@ -92,7 +92,7 @@ If the survey has a recommendation engine, set after creation via `surveys_updat
   "questions": [{ "fieldId": "q-need", "optionToOffering": { "lite": "starter", "pro": "growth" } }],
   "overrides": [{ "if": { "fieldId": "q-team", "values": ["50+"] }, "offeringKey": "enterprise" }],
   "narrativeTemplate": "Based on your answers, we'd recommend {{primary}}.",
-  "bookUrl": "/book/<your-booking-slug>"
+  "bookUrl": "/book/[your-booking-slug]"
 }
 ```
 
@@ -103,8 +103,8 @@ If the survey has a CRM auto-route:
   "autoRouteToCrm": {
     "enabled": true,
     "minScore": 50,
-    "pipelineId": <id>,
-    "stageId": <id>,
+    "pipelineId": [id],
+    "stageId": [id],
     "dealTitleTemplate": "Inbound: {{q-company}}"
   }
 }
@@ -115,17 +115,17 @@ If the survey has a CRM auto-route:
 Apply via `surveys_update`:
 
 ```json
-"brandingProfileId": <from .sd/config.json>,
+"brandingProfileId": [from .sd/config.json],
 "styling": {
   "showLogo": true,
-  "primaryColor": "<brand.primaryColor>",
-  "backgroundColor": "<brand.backgroundColor>",
-  "textColor": "<brand.textColor>",
-  "headingFont": "<brand.headingFont>"
+  "primaryColor": "[brand.primaryColor]",
+  "backgroundColor": "[brand.backgroundColor]",
+  "textColor": "[brand.textColor]",
+  "headingFont": "[brand.headingFont]"
 }
 ```
 
-**Run a contrast check** on `textColor` vs `backgroundColor` before returning — call `branding_check_contrast`. If the ratio is < 4.5, fall back to slate-900 on white.
+**Run a contrast check** on `textColor` vs `backgroundColor` before returning — call `branding_check_contrast`. If the ratio is [ 4.5, fall back to slate-900 on white.
 
 ## MCP calls
 
@@ -137,7 +137,7 @@ mcp__simplerdevelopment-postcaptain__surveys_create {
   description: "Pre-discovery qualification form. 4 pages, branching by role + headcount.",
   fields: [ ...SurveyFieldDef[] ],
   thankYouTitle: "Thanks — we'll be in touch in one business day.",
-  thankYouMessage: "Want to jump the queue? <a href='/book'>Book a slot directly</a>.",
+  thankYouMessage: "Want to jump the queue? [a href='/book']Book a slot directly[/a].",
   requireEmail: true,
   allowMultiple: false
 }
@@ -149,15 +149,15 @@ Returns `{ id, slug, ..., approval: { url, token, ... } }`.
 
 ```
 mcp__simplerdevelopment-postcaptain__surveys_update {
-  id: <from step 1>,
-  brandingProfileId: <from .sd/config.json>,
+  id: [from step 1],
+  brandingProfileId: [from .sd/config.json],
   styling: { ... },
   pages: [{ title: "About you" }, { title: "Your team" }, ...],
   publishResults: false
 }
 ```
 
-**Note:** the recommendation engine, scoring config, and CRM auto-route currently need direct DB writes — they're not exposed in the `surveys_update` MCP signature today. Flag this gap in the response: "scoring/recommendation/auto-route weren't set via MCP; please configure in the portal `/portal/tools/surveys/<id>/scoring` before going live."
+**Note:** the recommendation engine, scoring config, and CRM auto-route currently need direct DB writes — they're not exposed in the `surveys_update` MCP signature today. Flag this gap in the response: "scoring/recommendation/auto-route weren't set via MCP; please configure in the portal `/portal/tools/surveys/[id]/scoring` before going live."
 
 ## MCP response handling — read errors first
 
@@ -174,9 +174,9 @@ Only treat the call as successful when the parsed text contains the expected ent
 ## Output
 
 Return to the user:
-- Survey id + portal edit URL: `/portal/tools/surveys/<id>`
-- Public URL (draft is not yet accepting responses): `/s/<slug>`
-- Aggregated-results URL (only once publishResults=true): `/s/<slug>/results`
+- Survey id + portal edit URL: `/portal/tools/surveys/[id]`
+- Public URL (draft is not yet accepting responses): `/s/[slug]`
+- Aggregated-results URL (only once publishResults=true): `/s/[slug]/results`
 - **Approval URL** — share for review; approving flips status to `active`.
 - One-line summary of the survey spine (e.g. "4 pages, 12 fields, NPS scoring on q-7, CRM auto-route for score ≥ 50, recommendation engine off").
 - 5-dimension self-review (per `SD_DESIGN_PRINCIPLES.md`).
@@ -186,7 +186,7 @@ Return to the user:
 After publishing, the survey can be embedded in a page / deck via the `survey` block:
 
 ```json
-{ "id": "embed-1", "type": "survey", "slug": "<survey-slug>",
+{ "id": "embed-1", "type": "survey", "slug": "[survey-slug]",
   "showLogo": true, "showPageTitle": false }
 ```
 
