@@ -108,6 +108,26 @@ async function executeAction(
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
   }
 
+  // ── Plugin-registry bridge ────────────────────────────────────────────────
+  // `run_plugin_script` is a generic automation primitive: enqueue a run for
+  // a script declared in a registered plugin's manifest. Params:
+  //   { pluginSlug: string, scriptId: string, args?: Record<string, unknown> }
+  // The drain cron then dispatches the run to the plugin host via the
+  // existing system-JWT chain; the plugin's worker reports completion back
+  // through /api/plugin-callback/<slug>/scripts/runs/:id/complete.
+  //
+  // This branch lives here (vs. as a portal-tool) so we don't pollute the
+  // AI tool registry with a name that's only meant for automation glue.
+  if (action.tool === 'run_plugin_script') {
+    try {
+      const result = await runPluginScriptAction(clientId, resolvedParams);
+      return { tool: action.tool, params: resolvedParams, result };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      return { tool: action.tool, params: resolvedParams, result: null, error };
+    }
+  }
+
   try {
     const result = await executePortalTool(action.tool, resolvedParams, clientId, userId);
     return { tool: action.tool, params: resolvedParams, result };
@@ -115,6 +135,57 @@ async function executeAction(
     const error = err instanceof Error ? err.message : String(err);
     return { tool: action.tool, params: resolvedParams, result: null, error };
   }
+}
+
+/**
+ * Enqueue a registered_app_runs row for the given (pluginSlug, scriptId)
+ * pair. The plugin must be `status='active'` AND the client must be
+ * entitled (allowlist | entitled | global per visibility) — same checks
+ * the user-facing iframe path uses. The drain cron picks up the queued
+ * row within ~60s and dispatches it to the plugin host.
+ */
+async function runPluginScriptAction(
+  clientId: number,
+  params: Record<string, unknown>,
+): Promise<{ runId: number; pluginSlug: string; scriptId: string }> {
+  const pluginSlug = typeof params.pluginSlug === 'string' ? params.pluginSlug : '';
+  const scriptId = typeof params.scriptId === 'string' ? params.scriptId : '';
+  const args = (params.args && typeof params.args === 'object' && !Array.isArray(params.args))
+    ? (params.args as Record<string, unknown>)
+    : {};
+
+  if (!pluginSlug) {
+    throw new Error("run_plugin_script: missing 'pluginSlug' param");
+  }
+  if (!scriptId) {
+    throw new Error("run_plugin_script: missing 'scriptId' param");
+  }
+
+  // Dynamic import keeps the automation engine module-load surface narrow.
+  const { findActivePluginBySlug, isClientEntitledToApp } = await import('@/lib/plugins/entitlement');
+  const { enqueueRun } = await import('@/lib/plugins/handlers/postcaptain-tools/runner');
+
+  const app = await findActivePluginBySlug(pluginSlug);
+  if (!app) {
+    throw new Error(`run_plugin_script: no active plugin '${pluginSlug}'`);
+  }
+  const entitled = await isClientEntitledToApp(clientId, app);
+  if (!entitled) {
+    throw new Error(
+      `run_plugin_script: client ${clientId} not entitled to '${pluginSlug}'`,
+    );
+  }
+
+  const { runId } = await enqueueRun({
+    app,
+    client: { id: clientId },
+    // Cast through unknown so we don't drag the legacy `RunKind` union in
+    // here — the plugin's dispatch-router validates the script id against
+    // its own SCRIPTS registry on the worker side.
+    kind: scriptId as unknown as 'research-brief',
+    args,
+  });
+  return { runId, pluginSlug, scriptId };
 }
 
 // ─── PER-RULE EXECUTION ────────────────────────────────────────────────────

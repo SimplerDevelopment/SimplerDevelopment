@@ -78,12 +78,24 @@ const SuccessResultCompetitorResearch = z.object({
   }).optional(),
 });
 
+// Generic script result — used for any kind declared in the plugin's
+// SCRIPTS registry that doesn't have a dedicated result table (e.g.
+// hello-world). The JSON `output` is serialised into the run's log_tail
+// so it surfaces in the Runs detail view; no schema change needed for
+// new scripts.
+const SuccessResultScript = z.object({
+  kind: z.literal('script'),
+  scriptId: z.string().min(1).max(64),
+  output: z.unknown(),
+});
+
 const SuccessSchema = z.object({
   outcome: z.literal('succeeded'),
   result: z.discriminatedUnion('kind', [
     SuccessResultResearchBrief,
     SuccessResultDraftBlogPost,
     SuccessResultCompetitorResearch,
+    SuccessResultScript,
   ]),
   logTail: z.string().max(LOG_TAIL_MAX * 2).optional(), // server caps to LOG_TAIL_MAX
 });
@@ -150,9 +162,12 @@ const postComplete: CallbackHandler = {
     }
 
     const finishedAt = new Date();
-    const logTailRedacted = parsed.data.logTail
-      ? capLogTail(redactLog(parsed.data.logTail))
-      : null;
+    // We re-compute the redacted log tail just before the UPDATE because
+    // some result branches (competitor-research's brain-ingest trace,
+    // script's JSON output dump) mutate parsed.data.logTail mid-flight.
+    // Helper so both the success and failure paths agree on the cap.
+    const computeRedactedLogTail = (): string | null =>
+      parsed.data.logTail ? capLogTail(redactLog(parsed.data.logTail)) : null;
 
     if (parsed.data.outcome === 'succeeded') {
       // Insert the kind-specific result row first; runs.result_id is then
@@ -162,7 +177,7 @@ const postComplete: CallbackHandler = {
       // the worker can retry once we add the stuck-run reaper. Documented
       // gap: see Wave 2 TODO.
       const result = parsed.data.result;
-      let resultId: number;
+      let resultId: number | null = null;
       if (result.kind === 'research-brief') {
         if (run.kind !== 'research-brief') {
           return fail(
@@ -239,7 +254,7 @@ const postComplete: CallbackHandler = {
           const msg = err instanceof Error ? err.message : String(err);
           parsed.data.logTail = `${parsed.data.logTail ?? ''}\n[brain] ingestion failed: ${msg}`;
         }
-      } else {
+      } else if (result.kind === 'draft-blog-post') {
         if (run.kind !== 'draft-blog-post') {
           return fail(
             'validation_error',
@@ -257,6 +272,29 @@ const postComplete: CallbackHandler = {
         }).returning({ id: postcaptainDrafts.id });
         if (!row) throw new Error('complete: postcaptainDrafts insert returned no row');
         resultId = row.id;
+      } else {
+        // Generic 'script' result — no kind-specific result table. Cross-
+        // check that the run's recorded kind matches the script id the
+        // worker reported, then serialise the JSON output into the run's
+        // logTail so it shows up in the Runs detail view. resultId stays
+        // null (registered_app_runs.result_id is nullable).
+        if (run.kind !== result.scriptId) {
+          return fail(
+            'validation_error',
+            `Result scriptId '${result.scriptId}' does not match run kind '${run.kind}'.`,
+            400,
+          );
+        }
+        let serialisedOutput = '';
+        try {
+          serialisedOutput = JSON.stringify(result.output, null, 2);
+        } catch {
+          serialisedOutput = String(result.output);
+        }
+        const trace = `[script:${result.scriptId}] output:\n${serialisedOutput}`;
+        parsed.data.logTail = parsed.data.logTail
+          ? `${parsed.data.logTail}\n${trace}`
+          : trace;
       }
 
       // CAS-transition. If a competing call won the transition, this UPDATE
@@ -267,7 +305,7 @@ const postComplete: CallbackHandler = {
         updatedAt: finishedAt,
         exitCode: 0,
         resultId,
-        logTail: logTailRedacted,
+        logTail: computeRedactedLogTail(),
       }).where(and(
         eq(registeredAppRuns.id, runId),
         eq(registeredAppRuns.status, 'running'),
@@ -286,7 +324,7 @@ const postComplete: CallbackHandler = {
       updatedAt: finishedAt,
       exitCode: 1,
       errorSummary,
-      logTail: logTailRedacted,
+      logTail: computeRedactedLogTail(),
     }).where(and(
       eq(registeredAppRuns.id, runId),
       eq(registeredAppRuns.status, 'running'),
