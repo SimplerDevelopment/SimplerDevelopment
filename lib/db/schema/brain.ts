@@ -18,7 +18,18 @@ export interface AutomationCondition {
 }
 
 export interface AutomationAction {
-  tool: string; // maps to executePortalTool name, e.g. 'create_support_ticket'
+  /**
+   * Action dispatcher key. Two name spaces:
+   *   - executePortalTool name (e.g. 'create_support_ticket') — runs the
+   *     matching portal-tool handler with `params`.
+   *   - 'start_playbook' — special bridge into the Brain playbooks engine.
+   *     `params` must include `playbookId` (number) OR `playbookSlug`
+   *     (string) and may include `label`, `context`, `links`. Templated
+   *     against the event payload via `{{event.field}}` like every other
+   *     action. See lib/automation/engine.ts dispatcher branch + the
+   *     bridge mental-model doc in .planning/brain-automations-bridge.
+   */
+  tool: string;
   params: Record<string, unknown>; // static params + {{event.field}} template vars
   delay?: number; // delay in seconds before executing (0 = immediate)
 }
