@@ -16,15 +16,17 @@
  *   │                                    │   [Delete unit]       │
  *   └────────────────────────────────────┴──────────────────────┘
  *
- * Wave 3a owns `<PersonPicker>` — until it lands we inline a minimal
- * search-typeahead against `/api/portal/brain/people?search=`.
- *
- * TODO: replace inline PersonPicker fallback with shared
- *       `components/brain/PersonPicker.tsx` once Wave 3a merges.
+ * Person-picking flows (set-lead modal, add-member dialog, create-unit lead
+ * field) all drive the shared `<PersonPicker>` from
+ * `components/brain/PersonPicker.tsx` via its `onChangeWithHit` callback —
+ * which hands back the full PersonHit (`{ id, fullName, title, email }`) so
+ * the caller can render the selection inline without a follow-up
+ * `GET /people/<id>`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import OrgUnitTree from '@/components/brain/OrgUnitTree';
+import { PersonPicker, type PersonHit } from '@/components/brain/PersonPicker';
 import type {
   BrainOrgUnitTreeNode,
   BrainOrgUnitWithDetails,
@@ -32,13 +34,6 @@ import type {
 } from '@/lib/brain/org-units';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
-
-interface PersonHit {
-  id: number;
-  fullName: string;
-  email: string | null;
-  title: string | null;
-}
 
 const MEMBERS_PAGE_SIZE = 25;
 const COLOR_PRESETS = [
@@ -999,7 +994,10 @@ function AddMemberDialog({
               </button>
             </div>
           ) : (
-            <InlinePersonPicker onPick={setSelected} />
+            <PersonPicker
+              onChange={() => { /* id-only flow unused — dialog needs the full hit */ }}
+              onChangeWithHit={(hit) => { if (hit) setSelected(hit); }}
+            />
           )}
         </Field>
         <Field label="Role in unit (optional)">
@@ -1046,6 +1044,12 @@ function AddMemberDialog({
   );
 }
 
+/**
+ * Modal wrapper around the shared `<PersonPicker>`. Renders the picker inside
+ * a ModalShell and routes its `onChangeWithHit` to the caller's `onPick`. The
+ * `onChange` handler is required by PersonPicker for the id-only flow but is
+ * a no-op here — every consumer of this dialog needs the full PersonHit.
+ */
 function PersonPickerDialog({
   title,
   onClose,
@@ -1057,80 +1061,11 @@ function PersonPickerDialog({
 }) {
   return (
     <ModalShell title={title} onClose={onClose}>
-      <InlinePersonPicker onPick={onPick} />
-    </ModalShell>
-  );
-}
-
-// TODO: replace with shared <PersonPicker> once Wave 3a lands
-// (components/brain/PersonPicker.tsx).
-function InlinePersonPicker({ onPick }: { onPick: (p: PersonHit) => void }) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<PersonHit[]>([]);
-  const [loading, setLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const q = encodeURIComponent(query.trim());
-        const r = await fetch(`/api/portal/brain/people?search=${q}&limit=10`);
-        const json = await r.json().catch(() => ({}));
-        if (json?.success && Array.isArray(json.data?.items)) {
-          setResults(json.data.items as PersonHit[]);
-        } else {
-          setResults([]);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }, 200);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query]);
-
-  return (
-    <div>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search people…"
-        autoFocus
-        className="w-full bg-background border border-border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+      <PersonPicker
+        onChange={() => { /* id-only flow unused — dialog needs the full hit */ }}
+        onChangeWithHit={(hit) => { if (hit) onPick(hit); }}
       />
-      <div className="mt-2 max-h-60 overflow-y-auto border border-border rounded">
-        {loading ? (
-          <div className="p-3 text-xs text-muted-foreground inline-flex items-center gap-1">
-            <span className="material-icons animate-spin text-sm">progress_activity</span>
-            Searching…
-          </div>
-        ) : results.length === 0 ? (
-          <div className="p-3 text-xs text-muted-foreground italic">
-            {query ? 'No matching people.' : 'Start typing to search.'}
-          </div>
-        ) : (
-          <ul className="list-none divide-y divide-border">
-            {results.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => onPick(p)}
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-muted"
-                >
-                  <div className="text-sm">{p.fullName}</div>
-                  {(p.title || p.email) && (
-                    <div className="text-[11px] text-muted-foreground truncate">
-                      {[p.title, p.email].filter(Boolean).join(' · ')}
-                    </div>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 

@@ -16,6 +16,7 @@ import {
 
 const LINKABLE: BrainInitiativeLinkType[] = [
   'task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company',
+  'person', 'org_unit', 'glossary_term',
 ];
 
 function parseInitiativeId(s: string): number | null {
@@ -55,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 const linkSchema = z.object({
-  entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company']),
+  entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
   entityId: z.number().int().positive(),
   note: z.string().max(5000).optional().nullable(),
   pinned: z.boolean().optional(),
@@ -100,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 const unlinkSchema = z.object({
-  entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company']),
+  entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
   entityId: z.number().int().positive(),
 });
 

@@ -27,6 +27,8 @@ import {
   brainTasks,
   brainDecisions,
   brainRelationshipOverlays,
+  brainInitiatives,
+  brainPeople,
   type BrainTopicEntityType,
 } from '@/lib/db/schema';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -736,7 +738,7 @@ export async function listEntitiesForTopic(
   if (!t) {
     return {
       items: [],
-      byType: { note: [], meeting: [], task: [], decision: [], relationship_overlay: [] },
+      byType: emptyByType(),
     };
   }
 
@@ -749,19 +751,21 @@ export async function listEntitiesForTopic(
   if (joinRows.length === 0) {
     return {
       items: [],
-      byType: { note: [], meeting: [], task: [], decision: [], relationship_overlay: [] },
+      byType: emptyByType(),
     };
   }
 
-  // Group ids by entityType so we can fetch titles in 5 queries instead of N.
-  const byTypeIds: Record<BrainTopicEntityType, number[]> = {
-    note: [], meeting: [], task: [], decision: [], relationship_overlay: [],
-  };
+  // Group ids by entityType so we can fetch titles in N queries (one per known
+  // entity type that actually has hits). Initializer must list every variant
+  // of BrainTopicEntityType — keep `emptyByTypeIds`/`emptyByType` in sync with
+  // the union (`lib/db/schema/brain.ts`).
+  const byTypeIds: Record<BrainTopicEntityType, number[]> = emptyByTypeIds();
   for (const r of joinRows) byTypeIds[r.entityType].push(r.entityId);
 
   const titlesByEntity: Record<BrainTopicEntityType, Map<number, string>> = {
     note: new Map(), meeting: new Map(), task: new Map(),
     decision: new Map(), relationship_overlay: new Map(),
+    initiative: new Map(), person: new Map(),
   };
 
   if (byTypeIds.note.length) {
@@ -796,6 +800,16 @@ export async function listEntitiesForTopic(
       titlesByEntity.relationship_overlay.set(r.id, title);
     }
   }
+  if (byTypeIds.initiative.length) {
+    const rs = await db.select({ id: brainInitiatives.id, title: brainInitiatives.title }).from(brainInitiatives)
+      .where(and(eq(brainInitiatives.clientId, clientId), inArray(brainInitiatives.id, byTypeIds.initiative)));
+    for (const r of rs) titlesByEntity.initiative.set(r.id, r.title);
+  }
+  if (byTypeIds.person.length) {
+    const rs = await db.select({ id: brainPeople.id, fullName: brainPeople.fullName }).from(brainPeople)
+      .where(and(eq(brainPeople.clientId, clientId), inArray(brainPeople.id, byTypeIds.person)));
+    for (const r of rs) titlesByEntity.person.set(r.id, r.fullName);
+  }
 
   const items: ListEntitiesForTopicRow[] = [];
   for (const r of joinRows) {
@@ -808,12 +822,28 @@ export async function listEntitiesForTopic(
     return a.title.localeCompare(b.title);
   });
 
-  const byType: Record<BrainTopicEntityType, ListEntitiesForTopicRow[]> = {
-    note: [], meeting: [], task: [], decision: [], relationship_overlay: [],
-  };
+  const byType: Record<BrainTopicEntityType, ListEntitiesForTopicRow[]> = emptyByType();
   for (const row of items) byType[row.entityType].push(row);
 
   return { items, byType };
+}
+
+/**
+ * Helpers: keep these in sync with `BrainTopicEntityType` in `lib/db/schema/brain.ts`.
+ * Adding a new entity-type variant requires both the union and these initializers.
+ */
+function emptyByType(): Record<BrainTopicEntityType, ListEntitiesForTopicRow[]> {
+  return {
+    note: [], meeting: [], task: [], decision: [], relationship_overlay: [],
+    initiative: [], person: [],
+  };
+}
+
+function emptyByTypeIds(): Record<BrainTopicEntityType, number[]> {
+  return {
+    note: [], meeting: [], task: [], decision: [], relationship_overlay: [],
+    initiative: [], person: [],
+  };
 }
 
 // ─── import-from-tags ────────────────────────────────────────────────────────

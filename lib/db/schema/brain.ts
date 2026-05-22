@@ -308,7 +308,14 @@ export interface BrainReviewItemCrmCompanyCreatePayload {
  * `brain_entity_topics` join. Declared here (ahead of its table definition
  * lower in the file) so the review-item payload can reference it.
  */
-export type BrainTopicEntityType = 'note' | 'meeting' | 'task' | 'decision' | 'relationship_overlay';
+export type BrainTopicEntityType =
+  | 'note'
+  | 'meeting'
+  | 'task'
+  | 'decision'
+  | 'relationship_overlay'
+  | 'initiative'
+  | 'person';
 
 /**
  * Topic-assignment proposal payload. Approval calls `attachTopics` from
@@ -753,7 +760,10 @@ export type BrainInitiativeLinkType =
   | 'decision'
   | 'topic'
   | 'crm_deal'
-  | 'crm_company';
+  | 'crm_company'
+  | 'person'
+  | 'org_unit'
+  | 'glossary_term';
 
 export const brainInitiativeLinks = pgTable('brain_initiative_links', {
   id: serial('id').primaryKey(),

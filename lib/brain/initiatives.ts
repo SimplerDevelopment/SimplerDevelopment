@@ -36,6 +36,9 @@ import {
   brainMeetings,
   crmDeals,
   crmCompanies,
+  brainPeople,
+  brainOrgUnits,
+  brainGlossaryTerms,
   type BrainInitiativeStatus,
   type BrainInitiativePriority,
   type BrainInitiativeLinkType,
@@ -521,6 +524,7 @@ export async function reopenInitiative(
 
 const LINKABLE_TYPES: BrainInitiativeLinkType[] = [
   'task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company',
+  'person', 'org_unit', 'glossary_term',
 ];
 export function isLinkableEntityType(s: string): s is BrainInitiativeLinkType {
   return (LINKABLE_TYPES as readonly string[]).includes(s);
@@ -721,6 +725,27 @@ export async function listInitiativeLinks(
           .from(crmCompanies)
           .where(and(eq(crmCompanies.clientId, clientId), inArray(crmCompanies.id, ids))))
           .map((r) => ({ id: r.id, title: r.name }));
+        break;
+      case 'person':
+        resolved = (await db
+          .select({ id: brainPeople.id, name: brainPeople.fullName })
+          .from(brainPeople)
+          .where(and(eq(brainPeople.clientId, clientId), inArray(brainPeople.id, ids))))
+          .map((r) => ({ id: r.id, title: r.name }));
+        break;
+      case 'org_unit':
+        resolved = (await db
+          .select({ id: brainOrgUnits.id, name: brainOrgUnits.name })
+          .from(brainOrgUnits)
+          .where(and(eq(brainOrgUnits.clientId, clientId), inArray(brainOrgUnits.id, ids))))
+          .map((r) => ({ id: r.id, title: r.name }));
+        break;
+      case 'glossary_term':
+        resolved = (await db
+          .select({ id: brainGlossaryTerms.id, term: brainGlossaryTerms.term })
+          .from(brainGlossaryTerms)
+          .where(and(eq(brainGlossaryTerms.clientId, clientId), inArray(brainGlossaryTerms.id, ids))))
+          .map((r) => ({ id: r.id, title: r.term }));
         break;
       case 'decision':
       case 'topic':

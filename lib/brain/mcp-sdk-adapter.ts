@@ -2055,10 +2055,10 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_initiatives_link',
     {
       title: 'Link an entity to a Brain initiative',
-      description: 'Attach a polymorphic entity (task, note, meeting, decision, topic, crm_deal, crm_company) to an initiative. Idempotent — re-posting the same (initiativeId, entityType, entityId) returns alreadyLinked=true with linkId=null. Echo: { linkId, alreadyLinked }.',
+      description: 'Attach a polymorphic entity (task, note, meeting, decision, topic, crm_deal, crm_company, person, org_unit, glossary_term) to an initiative. Idempotent — re-posting the same (initiativeId, entityType, entityId) returns alreadyLinked=true with linkId=null. Echo: { linkId, alreadyLinked }.',
       inputSchema: {
         initiativeId: z.number().int().positive(),
-        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company']),
+        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
         entityId: z.number().int().positive(),
         note: z.string().nullable().optional(),
         pinned: z.boolean().optional(),
@@ -2088,7 +2088,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       description: 'Remove a polymorphic link from an initiative. Echo: { removed: boolean } — false if no matching link existed.',
       inputSchema: {
         initiativeId: z.number().int().positive(),
-        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company']),
+        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
         entityId: z.number().int().positive(),
       },
     },
@@ -2679,7 +2679,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       description: 'List the notes / meetings / tasks / decisions / relationship-overlays attached to a topic. Returns slim `{ entityType, entityId, title }` rows, a total, and a per-type tally (`byType`). Paginated; limit capped at 100.',
       inputSchema: {
         id: z.number().int().positive(),
-        entityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay']).optional(),
+        entityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']).optional(),
         limit: z.number().int().min(1).max(100).optional(),
         offset: z.number().int().min(0).optional(),
       },
@@ -2876,7 +2876,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       title: 'Attach topics to an entity',
       description: 'Bulk-attach one or more topics to a single (entityType, entityId) target. Idempotent — rows that already exist are reported as `alreadyAttached`. Cross-tenant topic ids are silently dropped. Echo: { attached, alreadyAttached }.',
       inputSchema: {
-        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay']),
+        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']),
         targetEntityId: z.number().int().positive(),
         topicIds: z.array(z.number().int().positive()).min(1).max(50),
       },
@@ -2900,7 +2900,7 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       title: 'Detach topics from an entity',
       description: 'Bulk-detach one or more topics from a single (entityType, entityId) target. Tenant-scoped; missing rows are a no-op. Echo: { detached }.',
       inputSchema: {
-        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay']),
+        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']),
         targetEntityId: z.number().int().positive(),
         topicIds: z.array(z.number().int().positive()).min(1).max(50),
       },
