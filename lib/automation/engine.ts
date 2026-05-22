@@ -6,12 +6,13 @@
  */
 
 import { db } from '@/lib/db';
-import { automationRules, automationLogs } from '@/lib/db/schema';
-import type { AutomationCondition, AutomationAction } from '@/lib/db/schema';
+import { automationRules, automationLogs, brainPlaybooks } from '@/lib/db/schema';
+import type { AutomationCondition, AutomationAction, BrainPlaybookLinkEntityType } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { onEvent, type AutomationEvent } from './event-bus';
 import { executePortalTool } from '@/lib/ai/portal-tools';
+import { startRun } from '@/lib/brain/playbook-runs';
 
 // AutomationRule type as returned by drizzle SELECT * (kept loose since
 // schedule + nextRunAt columns may or may not be present on read paths that
@@ -100,12 +101,80 @@ async function executeAction(
   clientId: number,
   userId: number,
   payload: Record<string, unknown>,
+  ruleCreatedBy: number | null,
 ): Promise<{ tool: string; params: Record<string, unknown>; result: unknown; error?: string }> {
   const resolvedParams = resolveTemplate(action.params, payload) as Record<string, unknown>;
 
   // Handle delayed actions
   if (action.delay && action.delay > 0) {
     await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
+  }
+
+  // ─── start_playbook bridge ───────────────────────────────────────────────
+  // Special action that crosses into the Brain playbook engine. Lets a
+  // one-shot automation kick off a multi-step playbook run, sharing the
+  // event payload as the run context (so step configs can template against
+  // `{{person.fullName}}` etc.).
+  if (action.tool === 'start_playbook') {
+    try {
+      // playbookId may be passed as a number or a numeric string (the NLP
+      // parser emits strings). Slug-based lookup is supported as a
+      // fallback so NLP-authored rules don't require a DB round-trip at
+      // parse time — we resolve at execution time instead.
+      let playbookId: number | undefined;
+      const idRaw = resolvedParams.playbookId;
+      if (typeof idRaw === 'number') {
+        playbookId = idRaw;
+      } else if (typeof idRaw === 'string' && idRaw.trim() !== '' && !Number.isNaN(Number(idRaw))) {
+        playbookId = Number(idRaw);
+      }
+      const slugRaw = resolvedParams.playbookSlug;
+      if (playbookId == null && typeof slugRaw === 'string' && slugRaw.trim() !== '') {
+        const [row] = await db.select({ id: brainPlaybooks.id }).from(brainPlaybooks)
+          .where(and(
+            eq(brainPlaybooks.clientId, clientId),
+            eq(brainPlaybooks.slug, slugRaw.trim()),
+          ))
+          .limit(1);
+        if (!row) {
+          throw new Error(`Playbook with slug "${slugRaw}" not found for clientId=${clientId}`);
+        }
+        playbookId = row.id;
+      }
+      if (playbookId == null) {
+        throw new Error('start_playbook: params.playbookId or params.playbookSlug is required');
+      }
+
+      const label = typeof resolvedParams.label === 'string' && resolvedParams.label.trim() !== ''
+        ? resolvedParams.label
+        : `Triggered by ${String(payload._event ?? 'automation')}`;
+      const context = (resolvedParams.context && typeof resolvedParams.context === 'object'
+        ? resolvedParams.context as Record<string, unknown>
+        : payload);
+      const links = Array.isArray(resolvedParams.links)
+        ? (resolvedParams.links as unknown[]).flatMap((l): { entityType: BrainPlaybookLinkEntityType; entityId: number }[] => {
+            if (!l || typeof l !== 'object') return [];
+            const entityType = (l as Record<string, unknown>).entityType;
+            const entityId = (l as Record<string, unknown>).entityId;
+            if (typeof entityType !== 'string') return [];
+            if (typeof entityId !== 'number') return [];
+            return [{ entityType: entityType as BrainPlaybookLinkEntityType, entityId }];
+          })
+        : [];
+
+      const actorId = ruleCreatedBy ?? (userId > 0 ? userId : null);
+      const res = await startRun(clientId, actorId, {
+        playbookId,
+        label: String(label),
+        context,
+        triggerPayload: payload,
+        links,
+      });
+      return { tool: action.tool, params: resolvedParams, result: res };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      return { tool: action.tool, params: resolvedParams, result: null, error };
+    }
   }
 
   try {
@@ -162,7 +231,7 @@ export async function runRule(
   let errorMessage: string | undefined;
 
   for (const action of actions) {
-    const result = await executeAction(action, rule.clientId, userId, payload);
+    const result = await executeAction(action, rule.clientId, userId, payload, rule.createdBy ?? null);
     results.push(result);
     if (result.error) {
       status = results.some((r) => !r.error) ? 'partial' : 'failed';
@@ -210,8 +279,108 @@ async function processEvent(event: AutomationEvent): Promise<void> {
     if (!matchesTrigger(rule.trigger, event)) continue;
 
     // Pass the event's userId through so action template resolution can use it.
-    const payload = { ...event.payload, _userId: event.userId };
+    // `_event` is also threaded through so start_playbook can synthesize a
+    // default label without re-plumbing the trigger event name.
+    const payload = { ...event.payload, _userId: event.userId, _event: event.event };
     await runRule(rule, payload, event.event);
+  }
+}
+
+// ─── EVENT-DRIVEN PLAYBOOK AUTO-START ──────────────────────────────────────
+
+/**
+ * In-process de-dup set for playbook auto-starts. Keyed by
+ * `playbookId:event:bucket` where bucket = floor(timestampMs / 5000). A
+ * webhook retry hitting the same event twice inside the same 5-second window
+ * therefore collapses to a single auto-start. The set is cleared lazily — we
+ * only keep at most ~1024 entries.
+ *
+ * Note: in-process means this is best-effort dedup — a multi-instance deploy
+ * will lose the guarantee across instances. The trade-off is "no extra
+ * infra"; if that ever bites, promote this to a Redis SET with PX expiration.
+ */
+const recentAutoStarts = new Set<string>();
+
+function rememberAutoStart(key: string): boolean {
+  if (recentAutoStarts.has(key)) return false;
+  recentAutoStarts.add(key);
+  if (recentAutoStarts.size > 1024) {
+    // Cheap eviction — drop the first 256 entries (iteration order = insertion order).
+    let dropped = 0;
+    for (const k of recentAutoStarts) {
+      if (dropped >= 256) break;
+      recentAutoStarts.delete(k);
+      dropped++;
+    }
+  }
+  return true;
+}
+
+// Exposed for tests; production callers should never need this.
+export function __resetPlaybookAutoStartDedup(): void {
+  recentAutoStarts.clear();
+}
+
+/**
+ * Event-bus handler that auto-starts any `triggerKind='event'` playbook whose
+ * `triggerConfig.event` matches the emitted event name. Tenancy-scoped on
+ * `clientId`; filters by `status='active'`. The `triggerConfig.filters`
+ * object, if present, is checked shallowly against the event payload — same
+ * semantics as `automation_rules.trigger.filters`.
+ *
+ * De-duplicates within a 5-second window per `(playbookId, event)` to absorb
+ * webhook retries.
+ *
+ * Opt-out: `triggerConfig.disableAutoStart === true` skips the auto-start —
+ * lets a playbook stay event-typed (so the UI shows the binding) while
+ * temporarily requiring manual trigger.
+ */
+async function processEventForPlaybookAutoStart(event: AutomationEvent): Promise<void> {
+  const matches = await db.select({
+    id: brainPlaybooks.id,
+    name: brainPlaybooks.name,
+    triggerConfig: brainPlaybooks.triggerConfig,
+    createdBy: brainPlaybooks.createdBy,
+  }).from(brainPlaybooks)
+    .where(and(
+      eq(brainPlaybooks.clientId, event.clientId),
+      eq(brainPlaybooks.status, 'active'),
+      eq(brainPlaybooks.triggerKind, 'event'),
+    ));
+
+  for (const pb of matches) {
+    const cfg = pb.triggerConfig ?? null;
+    if (!cfg || cfg.event !== event.event) continue;
+    if ((cfg as { disableAutoStart?: boolean }).disableAutoStart === true) continue;
+
+    // Shallow payload filter, same shape as automation_rules.trigger.filters.
+    if (cfg.filters && typeof cfg.filters === 'object') {
+      let allMatch = true;
+      for (const [key, expected] of Object.entries(cfg.filters)) {
+        if (event.payload[key] !== expected) { allMatch = false; break; }
+      }
+      if (!allMatch) continue;
+    }
+
+    const bucket = Math.floor(event.timestamp.getTime() / 5000);
+    const dedupKey = `${pb.id}:${event.event}:${bucket}`;
+    if (!rememberAutoStart(dedupKey)) continue;
+
+    try {
+      const actorId = pb.createdBy ?? (event.userId > 0 ? event.userId : null);
+      await startRun(event.clientId, actorId, {
+        playbookId: pb.id,
+        label: `Auto-started by ${event.event}`,
+        context: event.payload,
+        triggerPayload: event.payload,
+      });
+    } catch (err) {
+      console.error('[automation] auto-start playbook failed', {
+        playbookId: pb.id,
+        event: event.event,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 }
 
@@ -227,5 +396,10 @@ export function initAutomationEngine(): void {
   if (initialized) return;
   initialized = true;
   onEvent(processEvent);
+  onEvent(processEventForPlaybookAutoStart);
   console.log('[automation] Engine initialized');
 }
+
+// Exposed for tests so we can drive the handler directly without spinning up
+// the event-bus registration machinery.
+export const __processEventForPlaybookAutoStart = processEventForPlaybookAutoStart;
