@@ -12,7 +12,11 @@ const INDUSTRY_OPTIONS = [
 export function StepAboutCompany({ state, setAnswers, next }: StepProps) {
   const [size, setSize] = useState<string>(state.answers.companySize ?? '');
   const [industry, setIndustry] = useState<string>(state.answers.industry ?? '');
-  const [website, setWebsite] = useState<string>(state.answers.websiteUrl ?? state.prefill.website ?? '');
+  // Intentionally NOT prefilling from state.prefill.website. The wizard is
+  // asking the user to declare their site, not to confirm a stored value —
+  // and the stored value can be stale (e.g. legacy import data) which
+  // confuses users on first-run.
+  const [website, setWebsite] = useState<string>(state.answers.websiteUrl ?? '');
 
   const canContinue = !!size;
 
