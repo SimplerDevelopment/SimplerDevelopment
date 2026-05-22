@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX 4/5 source for the SimplerDevelopment Skills Windows MSI installer.
+
+  Built via scripts/installers/build-windows-msi.sh, which:
+    - Calls scripts/build-client-skills-bundle.ts to stage the skills under
+      dist/_stage-skills/.
+    - Invokes `wix build` with this file as input and substitutes the
+      version + staging path via `-d` preprocessor variables.
+
+  Per-user install (Scope="perUser"):
+    - No admin prompt, no UAC.
+    - Installs into the running user's %USERPROFILE%\.claude\skills\
+      (ProfileFolder is the MSI public property for %USERPROFILE%).
+    - Per-machine install would require admin and would also require us to
+      copy files between profiles; per-user keeps parity with the .pkg
+      flow on macOS.
+
+  UpgradeCode is FIXED forever — every future release uses the same value
+  so Windows recognizes the install as the same product and runs the
+  MajorUpgrade flow (uninstall old version, install new) instead of leaving
+  two copies side-by-side.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+      Name="SimplerDevelopment Skills"
+      Manufacturer="SimplerDevelopment"
+      Version="$(var.SD_VERSION)"
+      UpgradeCode="77FBE124-F560-441E-A43E-3DBBF5507C51"
+      Scope="perUser"
+      Compressed="yes"
+      InstallerVersion="500">
+
+    <SummaryInformation
+        Description="SimplerDevelopment Claude skills bundle (sd-init, sd-create-*, html-render-block, ...). Installs to %USERPROFILE%\.claude\skills."
+        Keywords="SimplerDevelopment, Claude, Skills, MCP" />
+
+    <!-- Refuse downgrade. Major upgrade runs the new installer's install
+         after uninstalling the old version's files. -->
+    <MajorUpgrade
+        DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <!-- Single CAB embedded in the MSI (skill bundle is tiny). -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ARP (Add/Remove Programs) metadata. -->
+    <Property Id="ARPCONTACT"     Value="support@simplerdevelopment.com" />
+    <Property Id="ARPURLINFOABOUT" Value="https://simplerdevelopment.com/install" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+
+    <!-- Target directory tree: %USERPROFILE%\.claude\skills\
+         WiX 4+ StandardDirectory IDs are MSI directory IDs. ProfileFolder
+         resolves to the user's profile dir (C:\Users\<name>\). -->
+    <StandardDirectory Id="ProfileFolder">
+      <Directory Id="DotClaudeFolder" Name=".claude">
+        <Directory Id="SkillsInstallFolder" Name="skills" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Harvest every file under the staged skills dir into the install
+         destination. WiX 4+ `<Files>` element does build-time globbing,
+         which means: no `heat` invocation, no separate fragment, no
+         hand-maintained file list. Just rebuild when the bundle changes. -->
+    <ComponentGroup Id="SkillsFiles" Directory="SkillsInstallFolder">
+      <Files Include="$(var.SD_STAGE_DIR)\**" />
+    </ComponentGroup>
+
+    <Feature Id="MainFeature"
+             Title="SimplerDevelopment Skills"
+             Description="The full SimplerDevelopment Claude skills bundle plus design-principles and quickstart docs."
+             Level="1"
+             AllowAdvertise="no"
+             AllowAbsent="no">
+      <ComponentGroupRef Id="SkillsFiles" />
+    </Feature>
+
+  </Package>
+
+</Wix>

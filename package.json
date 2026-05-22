@@ -22,6 +22,7 @@
     "smoke:skills:cleanup": "bun scripts/smoke-sd-skills.ts cleanup",
     "skills:bundle": "bun scripts/build-client-skills-bundle.ts",
     "build:installer:mac": "bash scripts/installers/build-mac-pkg.sh",
+    "build:installer:windows": "bash scripts/installers/build-windows-msi.sh",
     "test:ui": "vitest --ui",
     "test:e2e:ui": "playwright test --ui",
     "test:vitest": "vitest",
