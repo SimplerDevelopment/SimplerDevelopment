@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
 #
 # Build the (eventually signed) Windows .msi installer for the SimplerDevelopment
-# Claude skills bundle. Runs on macOS or Linux — no Windows machine required —
-# via cross-platform WiX 5+ (built on .NET) and osslsigncode.
+# Claude skills bundle.
+#
+# IMPORTANT: this script invokes WiX, which the WiX project officially
+# supports only on Windows. The recommended way to invoke this is via the
+# `.github/workflows/sd2026-windows-installer.yml` workflow on a
+# `windows-latest` runner. Local invocation on macOS / Linux is best-effort
+# only and may fail at WiX's directory-resolution stage (the .claude
+# dot-prefix path is validated differently outside Windows).
 #
 # Usage:
-#   bun run build:installer:windows
-#   # or directly:
-#   bash scripts/installers/build-windows-msi.sh
+#   # Preferred — trigger the CI workflow:
+#   gh workflow run sd2026-windows-installer.yml -f commit_back=true
 #
-# Required prerequisites (one-time, install via Homebrew or your system pkgmgr):
-#   - dotnet SDK 8.0+               brew install --cask dotnet-sdk
-#   - WiX tool                       dotnet tool install --global wix
-#   - osslsigncode                   brew install osslsigncode
+#   # Local (Windows only):
+#   bun run build:installer:windows
+#
+# Required prerequisites on Windows (the CI workflow installs these
+# automatically):
+#   - .NET SDK 8.0+
+#   - WiX 5 tool                     dotnet tool install --global wix --version 5.0.2
+#   - osslsigncode (or signtool)     for signing
 #
 # Optional env vars (only needed for a signed build):
 #   SD_PFX_PATH        — path to a .pfx code-signing cert (Windows equivalent of .p12)

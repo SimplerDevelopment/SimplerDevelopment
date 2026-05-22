@@ -1,9 +1,10 @@
 # Windows .msi Installer — Build + Signing Guide
 
-> Scaffolding is in place; the cross-platform build runs on macOS. A signed
-> .msi requires a Windows code-signing certificate ($200–700/year from a
-> CA, or ~$10/month via Azure Trusted Signing). Until you've bought one,
-> use the smoke-build flag to produce an unsigned .msi for testing.
+> Scaffolding is in place. The build runs on GitHub Actions
+> (`windows-latest`) because WiX 5+ is officially Windows-only.
+> A signed .msi additionally requires a Windows code-signing certificate
+> ($200–700/year from a CA, or ~$10/month via Azure Trusted Signing).
+> Until you've bought one, the workflow produces an unsigned .msi.
 
 ## What this installer is
 
@@ -13,36 +14,30 @@ Replaces the awkward `.bat` flow — no SmartScreen scariness (when signed),
 no terminal window, no `right-click → Run anyway` dance.
 
 - **Source layout:** `scripts/installers/wix/product.wxs` + `scripts/installers/build-windows-msi.sh`
-- **Output:** `public/installers/SimplerDevelopmentSkills.msi` — committed to repo + served as a Vercel static asset
+- **CI workflow:** `.github/workflows/sd2026-windows-installer.yml` (runs on `windows-latest`)
+- **Output:** `public/installers/SimplerDevelopmentSkills.msi` — committed to repo by the workflow when `commit_back=true` is passed
 - **Install location:** `%USERPROFILE%\.claude\skills\` — per-user, no UAC prompt
 - **The `.bat` script** stays around as the "Advanced" fallback on `/install`
 
-## Why this works without a Windows machine
+## Why the build runs on CI (not on your Mac)
 
-WiX 5+ runs on .NET. The MSI is a portable archive format. `osslsigncode`
-signs Windows binaries from any OS. The whole pipeline — `wix build`,
-`osslsigncode sign`, timestamp, verify — runs on macOS or Linux without a
-single Windows VM.
+WiX 4+ used to suggest cross-platform support, but WiX 5 explicitly states
+"WiX Toolset only supports Windows. All behavior after this point is
+undefined." In practice on macOS, the build trips on dot-prefix directory
+name validation (`.claude`) and a few other Windows-specific path rules.
+
+The .wxs source itself is portable. Only the `wix build` invocation needs
+a Windows environment. GitHub Actions' `windows-latest` runner is the
+cheapest and lowest-friction way to get one — no local VM required.
+
+`osslsigncode` IS cross-platform and could sign the .msi from a Mac, but
+since we're already on a Windows runner we just use `signtool.exe`
+(bundled with the runner's Windows SDK) and skip the third-party
+dependency.
 
 ## One-time setup
 
-### 1. Install build tools (one time, per Mac)
-
-```bash
-brew install dotnet osslsigncode
-dotnet tool install --global wix
-# wix lands in ~/.dotnet/tools/ — the build script adds that to PATH automatically.
-```
-
-Verify:
-
-```bash
-dotnet --version
-wix --version
-osslsigncode --version
-```
-
-### 2. Buy a code-signing certificate
+### 1. Buy a code-signing certificate
 
 | Option | Cost | Reputation behavior | Friction |
 |---|---|---|---|
@@ -52,57 +47,55 @@ osslsigncode --version
 
 Whatever you pick, the CA delivers either a `.pfx` file directly (standard
 certs) or a method to export from the hardware token (EV) into a usable
-form. Stash the `.pfx` outside the repo:
+form.
 
-```bash
-mkdir -p ~/.simplerdev
-mv ~/Downloads/your-code-signing.pfx ~/.simplerdev/code-signing.pfx
-chmod 600 ~/.simplerdev/code-signing.pfx
-```
+### 2. Add the cert + password to GitHub repo secrets
 
-### 3. Add credentials to `~/.simplerdev/signing.env`
+The build workflow runs on GitHub Actions and reads two repo secrets:
 
-Append (or create) `~/.simplerdev/signing.env`:
+- **`WINDOWS_PFX_BASE64`** — the `.pfx` file, base64-encoded:
+  ```bash
+  base64 -i ~/Downloads/your-code-signing.pfx | pbcopy
+  ```
+  Paste into Settings → Secrets and variables → Actions → New repository secret.
 
-```bash
-SD_PFX_PATH="${HOME}/.simplerdev/code-signing.pfx"
-SD_PFX_PASSWORD="the-password-you-chose-or-the-CA-gave-you"
-```
+- **`WINDOWS_PFX_PASSWORD`** — the password for the `.pfx`.
 
-The macOS .pkg build script auto-sources this same file — sharing it
-between both build scripts is intentional.
+When both secrets are set the workflow signs + timestamps the .msi.
+When either is missing the workflow still runs and produces an unsigned
+.msi as a workflow artifact — useful for verifying the bundle content
+during a cert-buying interim.
 
 ## Building the .msi
 
-### Smoke build (no cert needed, verifies the pipeline)
+### Via the workflow (preferred)
 
 ```bash
+# Trigger from your terminal:
+gh workflow run sd2026-windows-installer.yml -f commit_back=true
+
+# Or push to staging — the workflow auto-runs on changes to:
+#   - simplerdevelopment2026/scripts/installers/wix/**
+#   - simplerdevelopment2026/scripts/build-client-skills-bundle.ts
+#   - simplerdevelopment2026/.claude/skills/**
+```
+
+With `commit_back=true` AND the signing secrets configured, the workflow
+commits the rebuilt `.msi` back to the triggering branch. Otherwise the
+.msi is uploaded as a workflow artifact (downloadable from the run page)
+and you can manually commit + push it.
+
+### Local build (Windows only)
+
+If you're on a Windows machine and want to build locally:
+
+```bash
+# In a bash shell (Git Bash, WSL, etc.) on a Windows machine:
 SD_MSI_SKIP_SIGN=1 bun run build:installer:windows
 ```
 
-Produces `public/installers/SimplerDevelopmentSkills.msi` — unsigned. End
-users would hit SmartScreen, but the binary is a real, openable .msi that
-installs correctly when run on Windows.
-
-Useful when:
-- You're verifying the WiX file before buying a cert
-- You're testing a bundle-content change locally before re-signing
-- You want to confirm the file harvest picks up new skills
-
-### Signed build (production)
-
-```bash
-bun run build:installer:windows
-```
-
-With `SD_PFX_PATH` / `SD_PFX_PASSWORD` set in `~/.simplerdev/signing.env`,
-the script:
-
-1. Stages the skills bundle (`bun run scripts/build-client-skills-bundle.ts`)
-2. Runs `wix build` to produce an unsigned .msi
-3. Signs with `osslsigncode` using SHA-256 + a DigiCert RFC3161 timestamp
-4. Verifies the signature
-5. Writes the signed .msi to `public/installers/SimplerDevelopmentSkills.msi`
+The script handles the WiX install, bundles the skills, runs `wix build`,
+and optionally signs (when `SD_PFX_PATH` + `SD_PFX_PASSWORD` are set).
 
 ### Testing on Windows
 
