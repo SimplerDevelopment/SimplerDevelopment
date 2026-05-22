@@ -1056,3 +1056,205 @@ export const brainGlossaryTerms = pgTable('brain_glossary_terms', {
 
 export type BrainGlossaryTerm = typeof brainGlossaryTerms.$inferSelect;
 
+// ─── BRAIN DOCUMENTS ────────────────────────────────────────────────────────
+// Phase 7 — versioned, role-scoped SOPs / policies / required-reads with per-
+// version acknowledgments. The "unfinished half" of the strategic review's
+// Playbooks-vs-Documents split: Playbooks ship the *runnable* checklist;
+// Documents ship the *canonical written answer* (a markdown body that grows
+// version-by-version, can be required reading for People or whole org units,
+// and tracks who has acknowledged which version).
+//
+// Five tables:
+//   1) brain_documents               — top-level wrapper (title, slug, status,
+//                                      pointers to current draft + current
+//                                      published version).
+//   2) brain_document_versions       — immutable per-version body + metadata.
+//                                      Sequential versionNumber per document.
+//   3) brain_document_required_reads — assigns a document (optionally pinned
+//                                      to a specific version) as required
+//                                      reading for a person OR an org unit.
+//   4) brain_document_acknowledgments — one row per (document, version, person)
+//                                       once acknowledged.
+//   5) brain_document_links          — polymorphic "this document is about X"
+//                                      (topic / initiative / decision / meeting
+//                                      / glossary term / person).
+//
+// Circular-FK note: `brain_documents.currentPublishedVersionId` and
+// `currentDraftVersionId` point at `brain_document_versions.id`, but
+// `brain_document_versions.documentId` points back at `brain_documents.id`.
+// We mirror the `brain_initiative_links.entityId` precedent — the version-id
+// pointers on brain_documents are plain integer columns with NO FK constraint
+// (validated at the app layer in lib/brain/documents.ts). This keeps the
+// migration SQL linear (no deferred constraints, no ALTER TABLE round trip).
+
+export type BrainDocumentStatus = 'draft' | 'published' | 'archived';
+export type BrainDocumentCategory =
+  | 'sop'
+  | 'policy'
+  | 'guide'
+  | 'reference'
+  | 'announcement'
+  | 'other';
+
+export const brainDocuments = pgTable('brain_documents', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  // Body lives in brain_document_versions rows, NOT here, to keep this table
+  // light. Drafts edit currentDraftVersionId; publishing flips
+  // currentPublishedVersionId.
+  category: varchar('category', { length: 30 }).$type<BrainDocumentCategory>().default('reference').notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainDocumentStatus>().default('draft').notNull(),
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  // Soft pointers — NO FK constraint (see header note about the circular FK).
+  // App layer (lib/brain/documents.ts) validates both belong to the same doc.
+  currentPublishedVersionId: integer('current_published_version_id'),
+  currentDraftVersionId: integer('current_draft_version_id'),
+  publishedAt: timestamp('published_at'),
+  archivedAt: timestamp('archived_at'),
+  // Soft cancellation reason.
+  archiveReason: text('archive_reason'),
+  // If promoted from a brain_note, points back at the source. Set-null on
+  // delete so the document survives if the seed note is removed later.
+  sourceNoteId: integer('source_note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
+  // Confidentiality / access scope. Same vocabulary as brain_decisions /
+  // brain_playbooks — app layer enforces 'standard' | 'restricted' | 'secret'.
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  // Default topic ids — surfaced as topic chips on the document detail view.
+  // Stored as JSON so we can ship the chips without spawning a third
+  // brain_entity_topics row per document on every save. NOT FK-enforced; app
+  // layer prunes stale ids.
+  defaultTopicIds: json('default_topic_ids').$type<number[]>().default([]).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_documents_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_documents_client_status_idx').on(t.clientId, t.status),
+  index('brain_documents_category_idx').on(t.category),
+]);
+
+export type BrainDocument = typeof brainDocuments.$inferSelect;
+export type NewBrainDocument = typeof brainDocuments.$inferInsert;
+
+export const brainDocumentVersions = pgTable('brain_document_versions', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  documentId: integer('document_id').notNull().references(() => brainDocuments.id, { onDelete: 'cascade' }),
+  // Sequential version number within the document — 1, 2, 3, …
+  versionNumber: integer('version_number').notNull(),
+  // The document's body for this version. Markdown.
+  body: text('body').notNull(),
+  // Per-version metadata that may vary between versions. `title` is copied
+  // from the parent document at publish time and frozen — the parent doc's
+  // title can drift afterwards; this column preserves what was actually
+  // signed off on.
+  title: varchar('title', { length: 255 }).notNull(),
+  summary: text('summary'),                            // optional executive summary
+  // What changed since the previous version? Free-form. Surfaced in the
+  // version history view.
+  changeNotes: text('change_notes'),
+  // Lifecycle. A row starts as `isDraft = true`; publishing sets it false
+  // and stamps publishedAt + publishedBy.
+  isDraft: boolean('is_draft').default(true).notNull(),
+  publishedAt: timestamp('published_at'),
+  publishedBy: integer('published_by').references(() => users.id, { onDelete: 'set null' }),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_document_versions_doc_version_idx').on(t.documentId, t.versionNumber),
+  index('brain_document_versions_doc_idx').on(t.documentId),
+  index('brain_document_versions_draft_idx').on(t.isDraft),
+]);
+
+export type BrainDocumentVersion = typeof brainDocumentVersions.$inferSelect;
+export type NewBrainDocumentVersion = typeof brainDocumentVersions.$inferInsert;
+
+// Required-reads assign a document (optionally pinned to a specific version)
+// to a person OR an entire org unit. `pinnedVersionId = null` means "always
+// the current published version" — re-acknowledged on each new publish.
+
+export type BrainDocumentRequiredReadTarget = 'person' | 'org_unit';
+
+export const brainDocumentRequiredReads = pgTable('brain_document_required_reads', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  documentId: integer('document_id').notNull().references(() => brainDocuments.id, { onDelete: 'cascade' }),
+  // Which version is required? Usually the current published version, but
+  // can pin to a specific version. null = "always the current published
+  // version" (re-acknowledged on each new publish).
+  pinnedVersionId: integer('pinned_version_id').references(() => brainDocumentVersions.id, { onDelete: 'set null' }),
+  targetType: varchar('target_type', { length: 30 }).$type<BrainDocumentRequiredReadTarget>().notNull(),
+  // For 'person' target: a brain_people.id. For 'org_unit' target: a
+  // brain_org_units.id. NOT FK-enforced because the column is polymorphic;
+  // the app layer prunes broken references when a person/org-unit is hard
+  // deleted.
+  targetId: integer('target_id').notNull(),
+  dueAt: timestamp('due_at'),
+  assignedBy: integer('assigned_by').references(() => users.id, { onDelete: 'set null' }),
+  assignedAt: timestamp('assigned_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_document_required_reads_doc_target_idx').on(t.documentId, t.targetType, t.targetId),
+  index('brain_document_required_reads_target_idx').on(t.targetType, t.targetId),
+  index('brain_document_required_reads_due_idx').on(t.dueAt),
+]);
+
+export type BrainDocumentRequiredRead = typeof brainDocumentRequiredReads.$inferSelect;
+export type NewBrainDocumentRequiredRead = typeof brainDocumentRequiredReads.$inferInsert;
+
+// One row per (document, version, person) acknowledgment. Unique constraint
+// prevents double-acks; cascading deletes on documentId/versionId/personId
+// keep the table tidy if the upstream row goes away.
+
+export const brainDocumentAcknowledgments = pgTable('brain_document_acknowledgments', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  documentId: integer('document_id').notNull().references(() => brainDocuments.id, { onDelete: 'cascade' }),
+  versionId: integer('version_id').notNull().references(() => brainDocumentVersions.id, { onDelete: 'cascade' }),
+  personId: integer('person_id').notNull().references(() => brainPeople.id, { onDelete: 'cascade' }),
+  // Optional source: which required-read row prompted this acknowledgment.
+  // Set-null so the ack survives if the required-read assignment is removed.
+  requiredReadId: integer('required_read_id').references(() => brainDocumentRequiredReads.id, { onDelete: 'set null' }),
+  // Optional note from the acknowledger ("read but have follow-up questions").
+  acknowledgmentNote: text('acknowledgment_note'),
+  acknowledgedAt: timestamp('acknowledged_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_document_acks_doc_version_person_idx').on(t.documentId, t.versionId, t.personId),
+  index('brain_document_acks_person_idx').on(t.personId),
+  index('brain_document_acks_version_idx').on(t.versionId),
+]);
+
+export type BrainDocumentAcknowledgment = typeof brainDocumentAcknowledgments.$inferSelect;
+export type NewBrainDocumentAcknowledgment = typeof brainDocumentAcknowledgments.$inferInsert;
+
+// Polymorphic links — a document can be linked to topics, initiatives,
+// decisions, meetings, glossary terms, or people. Mirrors the
+// brain_initiative_links shape (entityType + entityId, NOT FK-enforced).
+
+export type BrainDocumentLinkEntityType =
+  | 'topic'
+  | 'initiative'
+  | 'decision'
+  | 'meeting'
+  | 'glossary_term'
+  | 'person';
+
+export const brainDocumentLinks = pgTable('brain_document_links', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  documentId: integer('document_id').notNull().references(() => brainDocuments.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 30 }).$type<BrainDocumentLinkEntityType>().notNull(),
+  entityId: integer('entity_id').notNull(),
+  note: text('note'),                                       // optional reason for the link
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_document_links_doc_entity_idx').on(t.documentId, t.entityType, t.entityId),
+  index('brain_document_links_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
+]);
+
+export type BrainDocumentLink = typeof brainDocumentLinks.$inferSelect;
+export type NewBrainDocumentLink = typeof brainDocumentLinks.$inferInsert;
+
