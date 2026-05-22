@@ -4,6 +4,15 @@ Multi-tenant SaaS platform: admin + client portal + per-tenant client websites +
 
 **Stack:** Next 16.1.1 App Router, React 19, TypeScript 5, Tailwind 4, Drizzle ORM + Postgres, NextAuth v5 (beta), Bun. Lock file is `bun.lock` — always use `bun`, never `npm`.
 
+## Agent operating rules (read first)
+
+This is a ~357k-line monorepo (app 157k / lib 81k / components 119k LOC). Context discipline is load-bearing:
+
+- **Start with the index, not with grep.** `@.claude/index.md` maps "I need to work on X" → the right nested `CLAUDE.md` / skill / guide. Nested `CLAUDE.md` files live in `app/portal/`, `lib/blocks/`, `lib/mcp/`, `lib/db/`, `components/portal/visual-editor/`, `tests/` — read the nearest one before opening files in that dir.
+- **Before reading a file >500 lines, spawn a subagent.** Use `Explore` for "where is X / how does Y work"; use `block-implementer`-style atomic workers for changes. The main thread should not hold 2000-line god files. See god-file lists inside each nested `CLAUDE.md`.
+- **For broad cross-cutting questions ("how does the auth flow work end-to-end"), prefer `graphify-out/` over grep** when it exists and is recent. Otherwise spawn an `Explore` subagent.
+- **Don't read documentation speculatively.** Pointers at the bottom of this file are read-on-demand; only follow when the task touches that area.
+
 ## Run / build / test (non-guessable commands only)
 
 - `bun dev` — dev server
@@ -59,13 +68,26 @@ Multi-tenant SaaS platform: admin + client portal + per-tenant client websites +
 
 These are reference docs. Don't read them speculatively; only when the task touches the area.
 
+- `.claude/index.md` — **agent navigation: by-area / by-task / by-question → the right nested CLAUDE.md / skill / guide**
 - `DATABASE.md` — Drizzle setup + posts/categories/tags REST API
 - `BLOCK_EDITOR_GUIDE.md` — block JSON schema, examples, troubleshooting (read when working in `lib/blocks/`)
 - `USER_MANAGEMENT.md` — auth and roles
 - `tests/TESTING_PLAN.md` — what each test layer is responsible for
 - `tests/CI-GATES.md` — coverage floors (60% project-wide / 70% on lib/billing,ai,agency,esign,chat / 90% on lib/crypto), tenancy + critical-e2e gates, local override flags, required-status-check setup
+- `docs/skills/` — SD-* skills reference (overview, authoring, developer, edit-skills proposal)
 - `.claude/learnings.md` — running retro of mistakes/patterns from autonomous (dev-block) runs; read at session start when running unattended
 - `.claude/HANDS_OFF_DEV_PLAN.md` — plan + state for the hands-off / "code while I sleep" workflow
+
+### Nested CLAUDE.md files
+
+Each holds invariants + pointers for one area. Loaded automatically by Claude Code when working in that subtree.
+
+- `app/portal/CLAUDE.md` — tenant routing, site-resolver, API envelope, god-file warnings
+- `lib/blocks/CLAUDE.md` — block registry + the "blocks are universal" invariant
+- `lib/mcp/CLAUDE.md` — tool registrar pattern, scope guards, token-budget rules, registry baseline test
+- `lib/db/CLAUDE.md` — Drizzle migration workflow, tenancy invariants, footguns
+- `components/portal/visual-editor/CLAUDE.md` — postMessage protocol, god-file warnings
+- `tests/CLAUDE.md` — layer responsibilities, gate commands, layer-picking rule
 
 ## Vendored skills
 
