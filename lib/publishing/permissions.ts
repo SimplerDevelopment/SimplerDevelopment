@@ -138,7 +138,7 @@ export async function revokePublishingPermission(
   key: string,
 ): Promise<boolean> {
   assertKnownKey(key);
-  const result = await db
+  const deleted = await db
     .delete(publishingPermissions)
     .where(
       and(
@@ -146,8 +146,9 @@ export async function revokePublishingPermission(
         eq(publishingPermissions.userId, userId),
         eq(publishingPermissions.permissionKey, key),
       ),
-    );
-  return (result.rowCount ?? 0) > 0;
+    )
+    .returning({ id: publishingPermissions.id });
+  return deleted.length > 0;
 }
 
 function assertKnownKey(key: string): asserts key is PublishingPermissionKey {

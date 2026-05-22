@@ -103,11 +103,11 @@ export default async function PublishingBoardPage() {
         .from(kanbanCardChecklistItems)
         .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
     : [];
-  const checklistByCard = checklistRows.reduce<Record<number, { total: number; completed: number }>>(
+  const checklistByCard = checklistRows.reduce<Record<number, { total: number; done: number }>>(
     (acc, r) => {
-      const c = (acc[r.cardId] ??= { total: 0, completed: 0 });
+      const c = (acc[r.cardId] ??= { total: 0, done: 0 });
       c.total += 1;
-      if (r.completed) c.completed += 1;
+      if (r.completed) c.done += 1;
       return acc;
     },
     {},
