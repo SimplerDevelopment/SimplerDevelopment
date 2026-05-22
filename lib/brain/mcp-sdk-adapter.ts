@@ -43,6 +43,10 @@ import {
   rejectReviewItem,
 } from './review';
 import {
+  applySuggestionToReviewItem,
+  suggestReviewerForItem,
+} from './review-routing';
+import {
   createDecision,
   getDecisionById,
   listDecisions,
@@ -709,6 +713,75 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       });
       if (!updated) return err('Review item not found.');
       return json(updated);
+    },
+  );
+
+  // ── Phase 6 — review-item routing by expertise ──────────────────────────
+  // Score candidate brain_people for who should approve this item and persist
+  // the result on the row. Idempotent — re-running recomputes against current
+  // expertise + workload.
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_review_items_suggest_reviewer',
+    {
+      title: 'Suggest a reviewer for an AI review item',
+      description: 'Score active brain_people for who should review this AI proposal — based on topic-expertise match, org-unit context, past approval history for this proposed_type, and current workload. Persists the top candidate (when score >= 3) on suggested_reviewer_person_id/score/reason. Returns the suggestion or null. AUDITED.',
+      inputSchema: {
+        reviewItemId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const item = await getReviewItem(clientId, args.reviewItemId);
+      if (!item) return err('Review item not found.');
+      try {
+        const suggestion = await suggestReviewerForItem(clientId, item);
+        await applySuggestionToReviewItem(clientId, item.id, suggestion);
+        return json(suggestion
+          ? {
+              reviewItemId: item.id,
+              suggestedPersonId: suggestion.personId,
+              score: suggestion.score,
+              reason: suggestion.reason,
+            }
+          : { reviewItemId: item.id, suggestion: null });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to suggest reviewer.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_review_items_list_for_reviewer',
+    {
+      title: 'List review items routed to a person',
+      description: 'List review items where suggested_reviewer_person_id matches the given brain_people.id. Useful for "show me items routed to me" queries. Capped at 50 rows; filter by status (default pending).',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        status: z.enum(['pending', 'approved', 'rejected', 'edited']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listReviewItems(clientId, {
+        suggestedReviewerPersonId: args.personId,
+        status: args.status ?? 'pending',
+        limit: 50,
+      });
+      // Slim — the full proposed_payload can be retrieved via getReviewItem.
+      return json({
+        items: items.map((i) => ({
+          id: i.id,
+          proposedType: i.proposedType,
+          sourceType: i.sourceType,
+          sourceId: i.sourceId,
+          status: i.status,
+          suggestedReviewerPersonId: i.suggestedReviewerPersonId,
+          suggestedReviewerScore: i.suggestedReviewerScore,
+          suggestedReviewerReason: i.suggestedReviewerReason,
+          createdAt: i.createdAt,
+        })),
+      });
     },
   );
 
