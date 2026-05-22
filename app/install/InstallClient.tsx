@@ -68,7 +68,7 @@ export function InstallClient() {
               className="group flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary"
               download
             >
-              <span className="material-symbols-outlined text-3xl text-primary">
+              <span className="material-icons text-3xl text-primary">
                 computer
               </span>
               <span className="text-lg font-semibold">macOS</span>
@@ -86,7 +86,7 @@ export function InstallClient() {
               className="group flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary"
               download
             >
-              <span className="material-symbols-outlined text-3xl text-primary">
+              <span className="material-icons text-3xl text-primary">
                 desktop_windows
               </span>
               <span className="text-lg font-semibold">Windows</span>
@@ -134,7 +134,7 @@ export function InstallClient() {
               className="mt-3 inline-flex items-center gap-2 rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
               type="button"
             >
-              <span className="material-symbols-outlined text-base">
+              <span className="material-icons text-base">
                 {copied === 'config' ? 'check' : 'content_copy'}
               </span>
               {copied === 'config' ? 'Copied' : 'Copy snippet'}
