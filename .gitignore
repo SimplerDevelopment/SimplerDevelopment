@@ -25,6 +25,11 @@
 # misc
 .DS_Store
 *.pem
+# Apple Developer signing material — must never land in git
+*.p12
+*.cer
+# Local signing env (lives under ~/.simplerdev/ by convention, never in repo)
+.simplerdev/
 
 # debug
 npm-debug.log*
