@@ -212,7 +212,11 @@ export type BrainReviewItemType =
   | 'crm_deal_create'
   | 'crm_company_link'
   | 'crm_company_create'
-  | 'project_artifact_link';
+  | 'project_artifact_link'
+  // Phase 1 brain-restructure: AI-proposed attachment of one or more
+  // brain_topics to an existing entity. Approval calls attachTopics from
+  // lib/brain/topics.ts.
+  | 'topic_assign';
 
 export type BrainReviewItemStatus = 'pending' | 'approved' | 'rejected' | 'edited';
 
@@ -230,7 +234,21 @@ export interface BrainReviewItemTaskPayload {
   relatesToBrainHit?: string;
 }
 
-export interface BrainReviewItemDecisionPayload { title: string; details?: string; }
+/**
+ * Decision review-item payload. Approval promotes this into a `brain_decisions`
+ * row (see lib/brain/review.ts). The richer fields here mirror the columns on
+ * `brain_decisions`. Phase 1+ replaced the legacy `{ title, details }` shape —
+ * 0075's migration copies any in-flight `details` into `rationale`.
+ */
+export interface BrainReviewItemDecisionPayload {
+  title: string;
+  context?: string;
+  decision: string;
+  rationale: string;
+  alternativesConsidered?: string;
+  reversibility?: 'one_way' | 'two_way';
+  decidedAt?: string;  // ISO
+}
 
 export interface BrainReviewItemCommitmentPayload { who: string; what: string; when?: string; }
 
@@ -285,6 +303,26 @@ export interface BrainReviewItemCrmCompanyCreatePayload {
   rationale: string;
 }
 
+/**
+ * Entity types that can have brain_topics attached via the polymorphic
+ * `brain_entity_topics` join. Declared here (ahead of its table definition
+ * lower in the file) so the review-item payload can reference it.
+ */
+export type BrainTopicEntityType = 'note' | 'meeting' | 'task' | 'decision' | 'relationship_overlay';
+
+/**
+ * Topic-assignment proposal payload. Approval calls `attachTopics` from
+ * `lib/brain/topics.ts` to insert rows into `brain_entity_topics` for each
+ * `(targetEntityType, targetEntityId, topicId)`. The dispatcher rejects
+ * unknown topic ids or cross-tenant attachment attempts.
+ */
+export interface BrainReviewItemTopicAssignPayload {
+  targetEntityType: BrainTopicEntityType;
+  targetEntityId: number;
+  topicIds: number[];
+  rationale?: string;
+}
+
 export interface BrainReviewItemProjectArtifactLinkPayload {
   projectId: number;
   artifactType: 'website' | 'email_campaign' | 'pitch_deck' | 'proposal' | 'booking' | 'survey' | 'post' | 'brain_note';
@@ -309,6 +347,7 @@ export type BrainReviewItemPayload =
   | BrainReviewItemCrmCompanyLinkPayload
   | BrainReviewItemCrmCompanyCreatePayload
   | BrainReviewItemProjectArtifactLinkPayload
+  | BrainReviewItemTopicAssignPayload
   | Record<string, unknown>;
 
 export const brainAiReviewItems = pgTable('brain_ai_review_items', {
@@ -730,4 +769,290 @@ export const brainInitiativeLinks = pgTable('brain_initiative_links', {
   uniqueIndex('brain_initiative_links_init_entity_idx').on(t.initiativeId, t.entityType, t.entityId),
   index('brain_initiative_links_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
 ]);
+
+// ─── BRAIN DECISIONS ────────────────────────────────────────────────────────
+// First-class immutable-ish decision records. Mutations to rationale /
+// decision / context never edit-in-place — instead, create a successor and
+// link via `superseded_by_decision_id`. Title/links remain mutable for typo
+// fixes; lib/brain/decisions.ts enforces the rule and writes an audit row
+// for every change. Phase 1 brain-restructure (see
+// .planning/brain-restructure/PLAN.md).
+
+export type BrainDecisionReversibility = 'one_way' | 'two_way';
+export type BrainDecisionStatus = 'proposed' | 'accepted' | 'superseded' | 'rejected';
+
+export const brainDecisions = pgTable('brain_decisions', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  context: text('context'),                              // problem statement / situation
+  decision: text('decision').notNull(),                  // what was decided
+  rationale: text('rationale').notNull(),                // why
+  alternativesConsidered: text('alternatives_considered'),
+  reversibility: varchar('reversibility', { length: 20 }).$type<BrainDecisionReversibility>().default('two_way').notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainDecisionStatus>().default('accepted').notNull(),
+  decisionMakerId: integer('decision_maker_id').references(() => users.id, { onDelete: 'set null' }),
+  decidedAt: timestamp('decided_at').defaultNow().notNull(),
+  // Supersede chain (immutable replacement, never edit-in-place). Self-FK
+  // declared via the `(): any => brainDecisions.id` pattern to break the
+  // circular type inference Drizzle would otherwise hit.
+  supersededByDecisionId: integer('superseded_by_decision_id').references((): any => brainDecisions.id, { onDelete: 'set null' }),
+  // Optional anchors — usually one of these is set.
+  meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
+  noteId: integer('note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
+  companyId: integer('company_id').references(() => crmCompanies.id, { onDelete: 'set null' }),
+  dealId: integer('deal_id').references(() => crmDeals.id, { onDelete: 'set null' }),
+  // Provenance — 'manual' for user-authored, 'ai_review' when promoted from
+  // a brain_ai_review_items row of type 'decision'.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  reviewItemId: integer('review_item_id').references(() => brainAiReviewItems.id, { onDelete: 'set null' }),
+  confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_decisions_client_idx').on(t.clientId),
+  index('brain_decisions_decided_at_idx').on(t.decidedAt),
+  index('brain_decisions_status_idx').on(t.status),
+]);
+
+// ─── BRAIN TOPICS ──────────────────────────────────────────────────────────
+// Hierarchical taxonomy that cross-cuts every brain entity via the polymorphic
+// `brain_entity_topics` join below. `parentId` is a self-FK; `slug` is unique
+// per tenant for stable URLs; `path` is a materialized '/'-joined string of
+// ancestor slugs used for cheap subtree queries — lib/brain/topics.ts keeps
+// it in sync on insert/rename/move/merge.
+
+export const brainTopics = pgTable('brain_topics', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): any => brainTopics.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  slug: varchar('slug', { length: 150 }).notNull(),
+  path: varchar('path', { length: 1000 }).notNull(),    // '/ops/hiring/eng' — derived, kept in sync
+  description: text('description'),
+  color: varchar('color', { length: 20 }),              // optional UI hint, e.g. '#06b6d4'
+  icon: varchar('icon', { length: 50 }),                // optional Material Icons name
+  sortOrder: integer('sort_order').default(0).notNull(),
+  // Set when the topic was migrated from a flat tag string by
+  // `brain_topics_import_from_tags`.
+  derivedFromTag: varchar('derived_from_tag', { length: 100 }),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_topics_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_topics_client_parent_idx').on(t.clientId, t.parentId),
+  index('brain_topics_path_idx').on(t.path),
+]);
+
+// Polymorphic join — topics attach to notes, meetings, tasks, decisions, and
+// relationship overlays. `(entity_type, entity_id, topic_id)` is unique so
+// idempotent attach calls are safe. `clientId` is denormalized here for
+// tenant-scoped lookups without a join through `brain_topics`.
+
+export const brainEntityTopics = pgTable('brain_entity_topics', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  topicId: integer('topic_id').notNull().references(() => brainTopics.id, { onDelete: 'cascade' }),
+  entityType: varchar('entity_type', { length: 30 }).$type<BrainTopicEntityType>().notNull(),
+  entityId: integer('entity_id').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_entity_topics_entity_topic_idx').on(t.entityType, t.entityId, t.topicId),
+  index('brain_entity_topics_topic_idx').on(t.topicId),
+  index('brain_entity_topics_client_entity_idx').on(t.clientId, t.entityType, t.entityId),
+]);
+
+// ─── BRAIN PEOPLE + ORG GRAPH (Phase 4) ──────────────────────────────────────
+// Internal humans (employees, advisors, contractors) — distinct from
+// CRM contacts (external). People have a reports-to chain (self-FK
+// managerId), can belong to many org_units (many-to-many via
+// brain_person_org_units), and carry expertise tags used by review-item
+// routing ("send this to whoever knows kubernetes"). Optional FK to
+// users.id when the person is also a portal-user account; most rows
+// (board members, advisors) won't be.
+
+export type BrainPersonStatus = 'active' | 'inactive' | 'departed';
+
+export const brainPeople = pgTable('brain_people', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  // If this person is also a portal-user account.
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  fullName: varchar('full_name', { length: 200 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  // Reports-to chain (self-FK). Null = top of chain (CEO/founder/independent).
+  managerId: integer('manager_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  title: varchar('title', { length: 200 }),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  status: varchar('status', { length: 20 }).$type<BrainPersonStatus>().default('active').notNull(),
+  // Free-form notes for things that don't fit the structured expertise table.
+  notes: text('notes'),
+  // External profile URLs (LinkedIn, GitHub, internal directory, etc.)
+  profileUrls: json('profile_urls').$type<{ label: string; url: string }[]>().default([]).notNull(),
+  // Provenance — most rows are 'manual' (a human created them). 'import' for batch ingest.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  index('brain_people_client_idx').on(t.clientId),
+  index('brain_people_client_status_idx').on(t.clientId, t.status),
+  index('brain_people_manager_idx').on(t.managerId),
+  index('brain_people_user_idx').on(t.userId),
+]);
+
+export type BrainPerson = typeof brainPeople.$inferSelect;
+export type NewBrainPerson = typeof brainPeople.$inferInsert;
+
+// Hierarchical org units — teams, departments, squads. Mirrors the
+// ltree-style pattern used elsewhere in brain (denormalized `path`
+// column for fast subtree reads). `leadPersonId` is an optional unit
+// head; must belong to the same client (enforced app-layer).
+
+export const brainOrgUnits = pgTable('brain_org_units', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): any => brainOrgUnits.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 150 }).notNull(),
+  slug: varchar('slug', { length: 150 }).notNull(),
+  path: varchar('path', { length: 1000 }).notNull(),
+  description: text('description'),
+  // Optional unit head — must belong to the same client.
+  leadPersonId: integer('lead_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  color: varchar('color', { length: 20 }),
+  icon: varchar('icon', { length: 50 }),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_org_units_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_org_units_client_parent_idx').on(t.clientId, t.parentId),
+  index('brain_org_units_path_idx').on(t.path),
+]);
+
+export type BrainOrgUnit = typeof brainOrgUnits.$inferSelect;
+export type NewBrainOrgUnit = typeof brainOrgUnits.$inferInsert;
+
+// Many-to-many — a person can be in multiple units (rare but real:
+// a PM split between two teams). `primary` designates the one to
+// surface as the headline membership (app-layer invariant: at most
+// one primary per person).
+
+export const brainPersonOrgUnits = pgTable('brain_person_org_units', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  personId: integer('person_id').notNull().references(() => brainPeople.id, { onDelete: 'cascade' }),
+  orgUnitId: integer('org_unit_id').notNull().references(() => brainOrgUnits.id, { onDelete: 'cascade' }),
+  // If the person has multiple unit memberships, exactly one is primary (app-layer invariant).
+  primary: boolean('primary').default(false).notNull(),
+  // Optional role within this specific unit ("Tech lead", "Designer", "Stakeholder")
+  roleInUnit: varchar('role_in_unit', { length: 150 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_person_org_units_person_unit_idx').on(t.personId, t.orgUnitId),
+  index('brain_person_org_units_unit_idx').on(t.orgUnitId),
+]);
+
+export type BrainPersonOrgUnit = typeof brainPersonOrgUnits.$inferSelect;
+export type NewBrainPersonOrgUnit = typeof brainPersonOrgUnits.$inferInsert;
+
+// Per-tenant tag namespace for expertise — flat (no hierarchy,
+// intentionally — tags like "kubernetes" / "fundraising" / "ASC 606"
+// stay denormalized). `source` distinguishes user-created tags from
+// AI-suggested ones surfaced for tag-merging cleanup.
+
+export const brainExpertiseTags = pgTable('brain_expertise_tags', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 100 }).notNull(),
+  slug: varchar('slug', { length: 100 }).notNull(),
+  description: text('description'),
+  // Suggested by AI based on review-item content. UI can show these for tag-merging cleanup.
+  source: varchar('source', { length: 30 }).default('manual').notNull(), // 'manual' | 'ai_suggested'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_expertise_tags_client_slug_idx').on(t.clientId, t.slug),
+]);
+
+export type BrainExpertiseTag = typeof brainExpertiseTags.$inferSelect;
+export type NewBrainExpertiseTag = typeof brainExpertiseTags.$inferInsert;
+
+// Person ↔ expertise junction with optional skill level (1=novice,
+// 2=working, 3=advanced, 4=expert). Unique on (personId, expertiseTagId)
+// so a tag is attached at most once per person.
+
+export const brainPersonExpertise = pgTable('brain_person_expertise', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  personId: integer('person_id').notNull().references(() => brainPeople.id, { onDelete: 'cascade' }),
+  expertiseTagId: integer('expertise_tag_id').notNull().references(() => brainExpertiseTags.id, { onDelete: 'cascade' }),
+  // 1=novice, 2=working, 3=advanced, 4=expert. Optional.
+  level: integer('level'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_person_expertise_person_tag_idx').on(t.personId, t.expertiseTagId),
+  index('brain_person_expertise_tag_idx').on(t.expertiseTagId),
+]);
+
+export type BrainPersonExpertise = typeof brainPersonExpertise.$inferSelect;
+export type NewBrainPersonExpertise = typeof brainPersonExpertise.$inferInsert;
+
+// ─── BRAIN GLOSSARY ──────────────────────────────────────────────────────────
+// Tenant-specific terminology: acronyms, product codenames, customer segments,
+// internal jargon. Flat (no hierarchy) — instead, terms carry `aliases` (a
+// JSON string array, substring-matched on lookup) and `relatedTermIds` (a JSON
+// number array of "see also" pointers, NOT FK-enforced because the user may
+// reorder or delete; app-layer validates and prunes broken references).
+//
+// Surface today: humans look up "what does X mean here?" via /portal/brain/
+// glossary; future use: an embedder injects matched glossary entries into Ask
+// queries so acronyms resolve. The lookup endpoint that future logic will
+// consume ships in Wave 2 of this phase.
+
+export type BrainGlossaryStatus = 'active' | 'deprecated';
+
+export const brainGlossaryTerms = pgTable('brain_glossary_terms', {
+  id: serial('id').primaryKey(),
+  clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  term: varchar('term', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 200 }).notNull(),
+  definition: text('definition').notNull(),
+  // Short definition shown when the term is matched inline in another doc
+  // (e.g. Ask query expansion).
+  shortDefinition: varchar('short_definition', { length: 500 }),
+  // Alternate spellings, acronyms, related-but-not-canonical names.
+  // Substring-matched on lookup.
+  aliases: json('aliases').$type<string[]>().default([]).notNull(),
+  status: varchar('status', { length: 20 }).$type<BrainGlossaryStatus>().default('active').notNull(),
+  // Optional categorization — free-form. UI groups by category in list view.
+  category: varchar('category', { length: 100 }),
+  // Who owns the canonical answer — the person to ask if the definition
+  // changes.
+  ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
+  // "See also" — related term ids. NOT FK-enforced because the user may
+  // reorder or delete. Stored as JSON; app-layer validates and prunes broken
+  // references.
+  relatedTermIds: json('related_term_ids').$type<number[]>().default([]).notNull(),
+  // Provenance — most rows are 'manual'; 'ai_suggested' when AI proposes a
+  // missing term.
+  source: varchar('source', { length: 50 }).default('manual').notNull(),
+  // Set when the source is 'ai_suggested' — points at the
+  // brain_ai_review_items.id that proposed it. NOT FK-enforced so a deleted
+  // review item does not cascade-delete an accepted glossary entry.
+  reviewItemId: integer('review_item_id'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('brain_glossary_client_slug_idx').on(t.clientId, t.slug),
+  index('brain_glossary_client_status_idx').on(t.clientId, t.status),
+  index('brain_glossary_category_idx').on(t.category),
+]);
+
+export type BrainGlossaryTerm = typeof brainGlossaryTerms.$inferSelect;
 

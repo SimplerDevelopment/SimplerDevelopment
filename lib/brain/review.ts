@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { createDecisionFromReviewItem } from './decisions';
 import {
   brainAiReviewItems,
   brainAuditLogs,
@@ -22,6 +23,8 @@ import {
   type BrainReviewItemStatus,
   type BrainReviewItemPayload,
   type BrainReviewItemTaskPayload,
+  type BrainReviewItemDecisionPayload,
+  type BrainReviewItemTopicAssignPayload,
   type BrainReviewItemCrmContactClassifyPayload,
   type BrainReviewItemCrmDealLinkPayload,
   type BrainReviewItemCrmDealCreatePayload,
@@ -31,6 +34,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { attachTopics } from './topics';
 
 export type BrainAiReviewItem = typeof brainAiReviewItems.$inferSelect;
 
@@ -331,12 +335,54 @@ export async function approveReviewItem(args: ApproveItemArgs): Promise<ApproveI
         resultEntityId = inserted.id;
         break;
       }
-      // Phase 2 limits the approve sink to tasks. Approving other proposed types
-      // marks them approved without creating a target record — useful for marking
-      // decisions/commitments/warnings as "acknowledged" without a downstream
-      // table. Phase 3+ will add brain_notes, brain_relationship_overlays, etc.
+      case 'decision': {
+        // Phase 1 brain-restructure: promote an approved 'decision' review-item
+        // into a first-class brain_decisions row. The transactional insert +
+        // payload validation live in lib/brain/decisions.ts so the same code
+        // path is exercised by direct REST creates and AI-review approvals.
+        // See .planning/brain-restructure/PLAN.md.
+        const dp = payload as BrainReviewItemDecisionPayload;
+        const decisionRow = await createDecisionFromReviewItem(
+          args.clientId,
+          args.actorId,
+          {
+            reviewItemId: item.id,
+            meetingId: item.sourceType === 'meeting' ? item.sourceId : null,
+            tx,
+          },
+          dp,
+        );
+        resultEntityType = 'brain_decision';
+        resultEntityId = decisionRow.id;
+        break;
+      }
+      case 'topic_assign': {
+        // Phase 1 brain-restructure: attach one or more brain_topics to an
+        // entity via lib/brain/topics.ts (Wave 2b). Insertion is idempotent —
+        // duplicates per the (entity_type, entity_id, topic_id) unique index
+        // are skipped and counted as `alreadyAttached`.
+        const tap = payload as BrainReviewItemTopicAssignPayload;
+        const attachResult = await attachTopics(tx, {
+          clientId: args.clientId,
+          actorId: args.actorId,
+          targetEntityType: tap.targetEntityType,
+          targetEntityId: tap.targetEntityId,
+          topicIds: tap.topicIds,
+        });
+        resultEntityType = 'brain_entity_topics';
+        // For multi-topic attaches, point at the first newly-inserted row.
+        // The UI uses the array in the review-item payload to render the
+        // full list of attached topics anyway. Null means every requested
+        // topic was already attached (no-op approval).
+        resultEntityId = attachResult.insertedRowIds[0] ?? null;
+        break;
+      }
+      // Phase 2 limits the approve sink to tasks (+ Phase 1 decisions). Other
+      // proposed types are marked approved without creating a target record —
+      // useful for marking commitments/warnings as "acknowledged" without a
+      // downstream table. Phase 3+ will add brain_notes,
+      // brain_relationship_overlays, etc.
       case 'note':
-      case 'decision':
       case 'commitment':
       case 'relationship_update':
       case 'follow_up':
