@@ -54,8 +54,7 @@ export function buildPortalNavItems(
         { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book', keywords: ['notes', 'wiki', 'docs'] },
         { href: '/portal/brain/templates', label: 'Templates', icon: 'auto_stories', keywords: ['note templates', 'forms', 'structured notes'] },
         { href: '/portal/branding', label: 'Branding & Messaging', icon: 'palette', keywords: ['brand', 'theme', 'colors', 'logo', 'voice', 'messaging'] },
-        // Automations is intentionally hidden from sidebar + cmd-k. The page
-        // at /portal/brain/automations still renders for direct URL access.
+        { href: '/portal/brain/automations', label: 'Automations', icon: 'bolt', keywords: ['rules', 'triggers', 'actions', 'schedule', 'scheduled', 'plugin scripts', 'workflows'] },
         { href: '/portal/brain/ask', label: 'Connect AI', icon: 'cable', keywords: ['mcp', 'ask brain', 'chat'] },
         { href: '/portal/brain/settings', label: 'Settings', icon: 'settings', keywords: ['brain settings'] },
       ],
