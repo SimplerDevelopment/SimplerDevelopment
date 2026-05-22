@@ -197,7 +197,13 @@ const postComplete: CallbackHandler = {
         if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
         resultId = row.id;
       } else if (result.kind === 'competitor-research') {
-        if (run.kind !== 'competitor-research') {
+        // Per-competitor scrape kinds (`scrape-<slug>` — declared in the
+        // plugin's lib/scripts.ts via lib/competitors.ts) all dispatch
+        // through runCompetitorResearch on the worker side and emit a
+        // `competitor-research` result. Accept both `competitor-research`
+        // and `scrape-*` run kinds here so each scrape script lands as a
+        // postcaptain_briefs row + brain ingestion the same way.
+        if (run.kind !== 'competitor-research' && !run.kind.startsWith('scrape-')) {
           return fail(
             'validation_error',
             `Result kind 'competitor-research' does not match run kind '${run.kind}'.`,
