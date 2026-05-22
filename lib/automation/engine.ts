@@ -179,10 +179,11 @@ async function runPluginScriptAction(
   const { runId } = await enqueueRun({
     app,
     client: { id: clientId },
-    // Cast through unknown so we don't drag the legacy `RunKind` union in
-    // here — the plugin's dispatch-router validates the script id against
-    // its own SCRIPTS registry on the worker side.
-    kind: scriptId as unknown as 'research-brief',
+    // `kind` is the plugin-declared script id. RunKind is intentionally
+    // widened with `(string & {})` so we don't need a cast — the plugin's
+    // worker-side dispatch-router validates the kind against its SCRIPTS
+    // registry on the way out.
+    kind: scriptId,
     args,
   });
   return { runId, pluginSlug, scriptId };
