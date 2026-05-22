@@ -83,6 +83,19 @@ export function buildPortalNavItems(
       ],
     },
     {
+      href: '/portal/publishing',
+      label: 'Publishing',
+      icon: 'rocket_launch',
+      keywords: ['content calendar', 'publishing command center', 'schedule', 'blog', 'social', 'email blast'],
+      children: [
+        { href: '/portal/publishing/board', label: 'Board', icon: 'view_kanban' },
+        { href: '/portal/publishing/calendar', label: 'Calendar', icon: 'calendar_month', keywords: ['content calendar', 'schedule'] },
+        { href: '/portal/publishing/campaigns', label: 'Campaigns', icon: 'campaign' },
+        { href: '/portal/publishing/tags', label: 'Tags', icon: 'sell' },
+        { href: '/portal/publishing/permissions', label: 'Permissions', icon: 'lock' },
+      ],
+    },
+    {
       href: '/portal/crm',
       label: 'CRM',
       icon: 'contacts',

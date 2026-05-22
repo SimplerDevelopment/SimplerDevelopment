@@ -12,6 +12,11 @@ export const projects = pgTable('projects', {
   projectKey: varchar('project_key', { length: 10 }),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).default('active').notNull(), // active, paused, completed, archived
+  // Marks system-managed projects that should be hidden from the regular
+  // /portal/projects listing and routed at a feature-specific URL. Examples:
+  // 'publishing' → the Publishing Command Center board for this client.
+  // null = a regular user-created project.
+  systemKind: varchar('system_kind', { length: 30 }),
   startDate: timestamp('start_date'),
   dueDate: timestamp('due_date'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
@@ -81,10 +86,22 @@ export const kanbanCards = pgTable('kanban_cards', {
   cardType: varchar('card_type', { length: 20 }).default('task').notNull(), // task, story, epic, bug, spike
   parentCardId: integer('parent_card_id'),
   workflowState: varchar('workflow_state', { length: 20 }).default('todo').notNull(), // todo, in_progress, in_review, done, canceled
+  // Publishing Command Center — when this card lives on a system_kind='publishing'
+  // project, campaign_id groups it with other cards in the same campaign across
+  // channels. Null = uncategorized. FK without `onDelete: 'cascade'` so deleting
+  // a campaign clears the reference but doesn't drop cards.
+  campaignId: integer('campaign_id'),
+  // Publishing schedule. Cards in stage 'Scheduled' should have this set; the
+  // per-channel adapter mirrors it onto the underlying artifact's scheduling
+  // field (posts.scheduledFor, email_campaigns.scheduledAt, etc.).
+  scheduledFor: timestamp('scheduled_for'),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_cards_campaign_idx').on(t.campaignId),
+  index('kanban_cards_scheduled_for_idx').on(t.scheduledFor),
+]);
 
 export const supportTickets = pgTable('support_tickets', {
   id: serial('id').primaryKey(),
