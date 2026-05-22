@@ -801,9 +801,9 @@ export async function listEntitiesForTopic(
     }
   }
   if (byTypeIds.initiative.length) {
-    const rs = await db.select({ id: brainInitiatives.id, title: brainInitiatives.title }).from(brainInitiatives)
+    const rs = await db.select({ id: brainInitiatives.id, name: brainInitiatives.name }).from(brainInitiatives)
       .where(and(eq(brainInitiatives.clientId, clientId), inArray(brainInitiatives.id, byTypeIds.initiative)));
-    for (const r of rs) titlesByEntity.initiative.set(r.id, r.title);
+    for (const r of rs) titlesByEntity.initiative.set(r.id, r.name);
   }
   if (byTypeIds.person.length) {
     const rs = await db.select({ id: brainPeople.id, fullName: brainPeople.fullName }).from(brainPeople)
