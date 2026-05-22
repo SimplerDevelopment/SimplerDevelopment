@@ -53,6 +53,8 @@ export function buildPortalNavItems(
         { href: '/portal/brain/tasks', label: 'Tasks', icon: 'checklist', alsoActiveOn: '/portal/brain/review', keywords: ['kanban', 'review queue', 'todo', 'communications'] },
         { href: '/portal/brain/initiatives', label: 'Initiatives', icon: 'flag', keywords: ['programs', 'projects', 'okr', 'objectives', 'cross-functional', 'multi-quarter'] },
         { href: '/portal/brain/goals', label: 'Goals', icon: 'track_changes', keywords: ['okr', 'objectives', 'kpi', 'metrics', 'progress'] },
+        { href: '/portal/brain/playbooks', label: 'Playbooks', icon: 'play_circle', keywords: ['runbooks', 'processes', 'workflows', 'onboarding', 'renewal', 'incident response', 'sop'] },
+        { href: '/portal/brain/playbook-runs', label: 'Playbook Runs', icon: 'playlist_play', keywords: ['runs', 'instances', 'in-flight', 'monitor'] },
         { href: '/portal/brain/knowledge', label: 'Knowledge', icon: 'menu_book', keywords: ['notes', 'wiki', 'docs'] },
         { href: '/portal/brain/decisions', label: 'Decisions', icon: 'gavel', keywords: ['decision log', 'rationale', 'supersede', 'adr'] },
         { href: '/portal/brain/topics', label: 'Topics', icon: 'account_tree', keywords: ['taxonomy', 'tags', 'categories', 'tree'] },
