@@ -5,7 +5,6 @@ import { getPortalClient } from '@/lib/portal-client';
 import {
   loadActiveAppBySlug,
   isClientEntitled,
-  buildProxyUrl,
 } from '@/lib/plugins/proxy';
 import { signPluginJwt } from '@/lib/plugins/jwt';
 
@@ -265,9 +264,18 @@ async function handlePluginRoute(
   const entitled = await isClientEntitled(client.id, app);
   if (!entitled) return null;
 
-  // 5. Mint the tenancy JWT. On failure (DB unreachable, missing signing
-  //    key, KMS error) we fall through so the error/upsell layout renders
-  //    a graceful message instead of bubbling a 500 from middleware.
+  // 5. Mint a user-context tenancy JWT for the iframe handoff. The
+  //    catch-all page renders an <iframe> pointing at the plugin host; the
+  //    plugin host needs the JWT to authenticate the user. We drop the JWT
+  //    into a cookie scoped to `.simplerdevelopment.com` so the browser
+  //    sends it on the iframe's cross-subdomain request. SameSite=Lax is
+  //    fine because the portal and the plugin host share an eTLD+1.
+  //
+  //    TTL is longer than the system-dispatch JWT's 60s because this token
+  //    lives for the duration of the user's iframe session, not a single
+  //    request. 10 minutes is the same window we'd accept for a normal
+  //    cookie-based admin action — replay risk is bounded by the next page
+  //    render refreshing it.
   let jwt: string;
   try {
     jwt = await signPluginJwt(
@@ -279,70 +287,39 @@ async function handlePluginRoute(
         siteId: null, // site-context is deferred to v2
         scopes: app.defaultScopes ?? [],
       },
-      { ttlSeconds: 60 },
+      { ttlSeconds: 600 },
     );
   } catch {
     return null;
   }
 
-  // 6. Build the proxy URL. Throws if the registered host_url isn't https://
-  //    (defence-in-depth — admin form should validate too).
-  let target: URL;
-  try {
-    target = buildProxyUrl(app.hostUrl, pathSuffix, req.nextUrl.search);
-  } catch {
-    return null;
-  }
-
-  // 7. Construct the rewrite headers. Start from a CLEAN Headers instance
-  //    so we don't accidentally leak anything from the inbound portal
-  //    request. We forward only what the plugin needs.
-  const requestId =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const proxyHeaders = new Headers();
-
-  // Forward a minimal set of safe request-side headers.
-  const inbound = req.headers;
-  const safeForward = [
-    'accept',
-    'accept-language',
-    'user-agent',
-    'content-type',
-    'content-length',
-  ];
-  for (const name of safeForward) {
-    const v = inbound.get(name);
-    if (v != null) proxyHeaders.set(name, v);
-  }
-
-  // Tenancy + provenance
-  proxyHeaders.set('x-sd-tenant', jwt);
-  proxyHeaders.set('x-sd-request-id', requestId);
-  proxyHeaders.set('x-sd-portal-origin', req.nextUrl.origin);
-  // Avoid double-compression on the proxied response — the portal edge will
-  // re-encode if appropriate.
-  proxyHeaders.set('accept-encoding', 'identity');
-
-  // CRITICAL: strip portal session cookies + ambient auth before crossing
-  // origins. NEVER let these reach the plugin.
-  proxyHeaders.set('cookie', '');
-  proxyHeaders.set('authorization', '');
-
-  // 8. Issue the rewrite. The new `request.headers` argument is what
-  //    NextResponse forwards downstream.
-  const response = NextResponse.rewrite(target, {
-    request: { headers: proxyHeaders },
+  // 6. Let the Next.js route tree render the page (catch-all renders the
+  //    iframe). Attach the JWT as a cookie scoped to the apex domain so the
+  //    plugin host (a sibling subdomain) sees it on the iframe request.
+  //
+  //    The previous architecture reverse-proxied the plugin's HTML into the
+  //    portal at this point; that broke the plugin's `/_next/static/*` asset
+  //    URLs (resolved against the portal origin) and stripped the portal
+  //    chrome (sidebar). The iframe approach keeps each side rendering its
+  //    own page tree, joined by this cookie handoff.
+  const response = NextResponse.next();
+  response.cookies.set('sd-plugin-tenant', jwt, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    domain: '.simplerdevelopment.com',
+    path: '/',
+    maxAge: 600,
   });
-
-  // 9. Defence-in-depth on the response surface: prevent the plugin's UI
-  //    from being framed by any other origin (incl. our own), tag the
-  //    response with the plugin slug + request id for log correlation.
-  response.headers.set('content-security-policy', "frame-ancestors 'none'");
+  response.cookies.set('sd-plugin-tenant-slug', app.slug, {
+    httpOnly: false, // page reads this client-side to render the iframe src
+    secure: true,
+    sameSite: 'lax',
+    domain: '.simplerdevelopment.com',
+    path: '/',
+    maxAge: 600,
+  });
   response.headers.set('x-plugin-app', app.slug);
-  response.headers.set('x-request-id', requestId);
-
   return response;
 }
 
