@@ -38,6 +38,17 @@ export interface DashboardSummary {
     orgUnitCount: number;
     expertiseTagsCount: number;
     glossaryTermsActive: number;
+    /** Documents where status='published'. Added Wave 2c (documents). */
+    documentsPublished: number;
+    /** Documents where status='draft'. Added Wave 2c (documents). */
+    documentsDraft: number;
+    /**
+     * Required-reads on the currently published version of each document
+     * where the assigned person has NOT yet acknowledged. Org-unit required-
+     * reads are intentionally NOT expanded here (cost) — that's what
+     * brain_document_compliance_report is for. Added Wave 2c (documents).
+     */
+    documentsRequiredReadsPending: number;
   };
 }
 
@@ -143,6 +154,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       org_unit_count: number;
       expertise_tags_count: number;
       glossary_terms_active: number;
+      documents_published: number;
+      documents_draft: number;
+      documents_required_reads_pending: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
@@ -155,7 +169,32 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
         (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
         (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
         (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
-        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active
+        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active,
+        (SELECT COUNT(*)::int FROM brain_documents WHERE client_id = ${clientId} AND status = 'published') AS documents_published,
+        (SELECT COUNT(*)::int FROM brain_documents WHERE client_id = ${clientId} AND status = 'draft') AS documents_draft,
+        -- Required-reads where the assigned person hasn't acked the doc's
+        -- current published version. Only person-target required-reads are
+        -- counted; org_unit-target rows would require membership expansion
+        -- and live behind brain_document_compliance_report instead. Two-step
+        -- (rr count − matching ack count) merged into one expression.
+        (
+          SELECT COUNT(*)::int
+          FROM brain_document_required_reads rr
+          INNER JOIN brain_documents d
+            ON d.id = rr.document_id
+           AND d.client_id = rr.client_id
+          WHERE rr.client_id = ${clientId}
+            AND rr.target_type = 'person'
+            AND d.current_published_version_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM brain_document_acknowledgments a
+              WHERE a.client_id = rr.client_id
+                AND a.document_id = rr.document_id
+                AND a.person_id = rr.target_id
+                AND a.version_id = COALESCE(rr.pinned_version_id, d.current_published_version_id)
+            )
+        ) AS documents_required_reads_pending
     `),
   ]);
 
@@ -301,6 +340,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     org_unit_count: 0,
     expertise_tags_count: 0,
     glossary_terms_active: 0,
+    documents_published: 0,
+    documents_draft: 0,
+    documents_required_reads_pending: 0,
   };
 
   return {
@@ -334,6 +376,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       orgUnitCount: counts.org_unit_count ?? 0,
       expertiseTagsCount: counts.expertise_tags_count ?? 0,
       glossaryTermsActive: counts.glossary_terms_active ?? 0,
+      documentsPublished: counts.documents_published ?? 0,
+      documentsDraft: counts.documents_draft ?? 0,
+      documentsRequiredReadsPending: counts.documents_required_reads_pending ?? 0,
     },
   };
 }
