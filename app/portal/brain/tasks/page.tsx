@@ -75,6 +75,11 @@ interface ReviewItem {
   resultEntityType: string | null;
   resultEntityId: number | null;
   createdAt: string;
+  // Phase 6 — suggested reviewer (populated by lib/brain/review-routing.ts).
+  // Null when no candidate crossed the confidence threshold.
+  suggestedReviewerPersonId?: number | null;
+  suggestedReviewerScore?: number | null;
+  suggestedReviewerReason?: string | null;
 }
 
 interface MeetingShape {
@@ -1046,6 +1051,7 @@ function ReviewCard({ item, busy, onApprove, onReject, meetingHref, selectable, 
           <span className="material-icons text-sm">{meta.icon}</span>
           {meta.label}
         </span>
+        <SuggestedReviewerChip item={item} />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground break-words">{summary}</p>
           <PayloadDetails payload={item.proposedPayload} type={item.proposedType} />
@@ -1183,4 +1189,33 @@ function formatCents(cents: number, currency: string): string {
   } catch {
     return `${(cents / 100).toFixed(2)} ${currency}`;
   }
+}
+
+/**
+ * Renders the "routed-to" chip on a review-item card. Pulls
+ * (suggestedReviewerPersonId, score, reason) from the row — populated by
+ * lib/brain/review-routing.ts. Renders nothing when no suggestion exists.
+ * The reason is a tooltip via `title` for keyboard + screen-reader users.
+ */
+function SuggestedReviewerChip({ item }: { item: ReviewItem }) {
+  const pid = item.suggestedReviewerPersonId;
+  const score = item.suggestedReviewerScore;
+  const reason = item.suggestedReviewerReason;
+  if (pid == null || score == null) return null;
+  // The reason string already includes the person's name when available, e.g.
+  // "Sarah Chen — expertise in kubernetes". We surface a compact "#<id> · <score>"
+  // here and put the full text in the tooltip so the row stays scannable.
+  const label = reason && reason.includes('—')
+    ? reason.split('—')[0].trim()
+    : `#${pid}`;
+  return (
+    <span
+      className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center gap-1 flex-shrink-0 cursor-help"
+      title={reason ?? `Suggested reviewer #${pid} (score ${score})`}
+    >
+      <span className="material-icons text-sm">person_pin</span>
+      <span className="truncate max-w-[8rem]">{label}</span>
+      <span className="opacity-70">· {score}</span>
+    </span>
+  );
 }

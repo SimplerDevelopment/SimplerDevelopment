@@ -42,6 +42,11 @@ interface ListReviewItemsOpts {
   status?: BrainReviewItemStatus | BrainReviewItemStatus[];
   sourceType?: string;
   sourceId?: number;
+  /** Phase 6 — filter to items already routed to this brain_people.id. */
+  suggestedReviewerPersonId?: number;
+  /** Soft cap, applied via Drizzle .limit(). Defaults to 200 to keep the queue
+   *  bounded; the existing tasks UI already paginates client-side. */
+  limit?: number;
 }
 
 export async function listReviewItems(clientId: number, opts: ListReviewItemsOpts = {}): Promise<BrainAiReviewItem[]> {
@@ -60,9 +65,13 @@ export async function listReviewItems(clientId: number, opts: ListReviewItemsOpt
   }
   if (opts.sourceType) conditions.push(eq(brainAiReviewItems.sourceType, opts.sourceType));
   if (opts.sourceId !== undefined) conditions.push(eq(brainAiReviewItems.sourceId, opts.sourceId));
-  return db.select().from(brainAiReviewItems)
+  if (opts.suggestedReviewerPersonId !== undefined) {
+    conditions.push(eq(brainAiReviewItems.suggestedReviewerPersonId, opts.suggestedReviewerPersonId));
+  }
+  const q = db.select().from(brainAiReviewItems)
     .where(and(...conditions))
     .orderBy(desc(brainAiReviewItems.createdAt));
+  return opts.limit ? q.limit(opts.limit) : q;
 }
 
 export async function getReviewItem(clientId: number, id: number): Promise<BrainAiReviewItem | null> {

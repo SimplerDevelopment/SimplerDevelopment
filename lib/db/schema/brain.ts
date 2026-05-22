@@ -362,8 +362,16 @@ export const brainAiReviewItems = pgTable('brain_ai_review_items', {
   reviewedAt: timestamp('reviewed_at'),
   resultEntityType: varchar('result_entity_type', { length: 50 }), // 'brain_task' | 'brain_note' | …  (set on approve)
   resultEntityId: integer('result_entity_id'),
+  // Routing-by-expertise — Phase 6. Populated by lib/brain/review-routing.ts.
+  // SUGGESTIONS, not assignments — the actual reviewer on approval is recorded
+  // in reviewedBy. A person can query "items routed to me" via the index below.
+  suggestedReviewerPersonId: integer('suggested_reviewer_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  suggestedReviewerScore: integer('suggested_reviewer_score'),
+  suggestedReviewerReason: text('suggested_reviewer_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('brain_ai_review_items_suggested_reviewer_idx').on(t.suggestedReviewerPersonId),
+]);
 
 export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc' | 'crm_classify';
 
