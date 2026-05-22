@@ -61,6 +61,8 @@ export function buildPortalNavItems(
         { href: '/portal/brain/people', label: 'People', icon: 'groups', keywords: ['team', 'employees', 'staff', 'expertise', 'who knows'] },
         { href: '/portal/brain/org-chart', label: 'Org Chart', icon: 'account_tree', keywords: ['org units', 'departments', 'hierarchy', 'reporting structure'] },
         { href: '/portal/brain/glossary', label: 'Glossary', icon: 'menu_book', keywords: ['terms', 'definitions', 'acronyms', 'vocabulary'] },
+        { href: '/portal/brain/documents', label: 'Documents', icon: 'description', keywords: ['sop', 'policy', 'guide', 'required reading', 'acknowledgments', 'versioned'] },
+        { href: '/portal/brain/documents/queue', label: 'My reading queue', icon: 'assignment_late', keywords: ['required reads', 'acknowledgments', 'overdue', 'due soon', 'unread documents'] },
         { href: '/portal/brain/templates', label: 'Templates', icon: 'auto_stories', keywords: ['note templates', 'forms', 'structured notes'] },
         { href: '/portal/branding', label: 'Branding & Messaging', icon: 'palette', keywords: ['brand', 'theme', 'colors', 'logo', 'voice', 'messaging'] },
         // Automations is intentionally hidden from sidebar + cmd-k. The page

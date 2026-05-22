@@ -185,6 +185,31 @@ import {
   skipStep,
   abortRun,
 } from './playbook-runs';
+import {
+  listDocuments,
+  getDocumentById,
+  createDocument,
+  updateDocument,
+  editDraftVersion,
+  publishDocument,
+  archiveDocument,
+  unarchiveDocument,
+  deleteDocument,
+  promoteFromNote,
+  linkEntity as linkDocumentEntity,
+  unlinkEntity as unlinkDocumentEntity,
+  listDocumentLinks,
+} from './documents';
+import {
+  assignRequiredRead,
+  listRequiredReadsForDocument,
+  listRequiredReadsForPerson,
+  removeRequiredRead,
+  acknowledge as acknowledgeDocument,
+  listAcknowledgmentsForDocument,
+  listAcknowledgmentsForPerson,
+  complianceReport,
+} from './document-acks';
 import { db } from '@/lib/db';
 import {
   brainAiReviewItems,
@@ -192,8 +217,13 @@ import {
   brainOrgUnits,
   brainPeople,
   brainPersonOrgUnits,
+  brainDocumentVersions,
   users,
   type BrainPersonStatus,
+  type BrainDocumentStatus,
+  type BrainDocumentCategory,
+  type BrainDocumentLinkEntityType,
+  type BrainDocumentRequiredReadTarget,
 } from '@/lib/db/schema';
 import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { assertUserVisibleToClient, OwnershipError } from '@/lib/security/assert-owned';
@@ -4720,6 +4750,721 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         return json({ runId: updated.id, status: updated.status });
       } catch (e) {
         return err(e instanceof Error ? e.message : 'Failed to abort run.');
+      }
+    },
+  );
+
+  // ── DOCUMENTS — merged from feat/brain-documents ─────────────────────────
+
+  const DOCUMENT_CATEGORIES = ['sop', 'policy', 'guide', 'reference', 'announcement', 'other'] as const;
+  const DOCUMENT_STATUSES = ['draft', 'published', 'archived'] as const;
+  const DOCUMENT_LINK_ENTITY_TYPES = [
+    'topic', 'initiative', 'decision', 'meeting', 'glossary_term', 'person',
+  ] as const;
+  const DOCUMENT_REQUIRED_READ_TARGETS = ['person', 'org_unit'] as const;
+  const CONFIDENTIALITY_LEVELS = ['standard', 'restricted', 'confidential'] as const;
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_documents_list',
+    {
+      title: 'List Brain documents',
+      description: 'List versioned SOPs / policies / required-reads. Slim by default — returns { id, title, slug, category, status, ownerId, currentPublishedVersionId, publishedAt, versionCount, requiredReadCount, ackCount } per row. Pass `include: ["body"]` to hydrate each row with the current published version\'s body (heavy, opt in). Filters: status, category, ownerId, search. Cap limit 100.',
+      inputSchema: {
+        status: z.enum(DOCUMENT_STATUSES).optional(),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+        ownerId: z.number().int().positive().optional(),
+        search: z.string().max(500).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['body'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listDocuments(clientId, {
+        status: args.status as BrainDocumentStatus | undefined,
+        category: args.category as BrainDocumentCategory | undefined,
+        ownerId: args.ownerId,
+        search: args.search,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      if (!include.has('body')) {
+        return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+      }
+      // Heavy include — batch fetch each row's current published version body.
+      const versionIds = items
+        .map((r) => r.currentPublishedVersionId)
+        .filter((v): v is number => v !== null);
+      const bodies = versionIds.length > 0
+        ? await db
+          .select({
+            id: brainDocumentVersions.id,
+            body: brainDocumentVersions.body,
+          })
+          .from(brainDocumentVersions)
+          .where(and(
+            eq(brainDocumentVersions.clientId, clientId),
+            inArray(brainDocumentVersions.id, versionIds),
+          ))
+        : [];
+      const bodyById = new Map(bodies.map((b) => [b.id, b.body]));
+      const hydrated = items.map((r) => ({
+        ...r,
+        body: r.currentPublishedVersionId !== null ? bodyById.get(r.currentPublishedVersionId) ?? null : null,
+      }));
+      return json({ items: hydrated, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_documents_get',
+    {
+      title: 'Get a Brain document',
+      description: 'Fetch a single document + its slim version list + resolved links. Heavy fields are opt-in: pass `includeBody=true` to attach `currentPublishedVersion` and `currentDraftVersion` full rows (each carries the markdown body); pass `includeAllVersions=true` to attach every version\'s full row in `versions` (can be very large). Without either, you get { document, versions (slim: id/versionNumber/isDraft/publishedAt/title), links }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        includeBody: z.boolean().optional(),
+        includeAllVersions: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getDocumentById(clientId, args.id, {
+        includeBody: args.includeBody,
+        includeAllVersions: args.includeAllVersions,
+      });
+      if (!detail) return err('Document not found.');
+      return json({
+        document: detail.document,
+        currentPublishedVersion: detail.currentPublishedVersion ?? null,
+        currentDraftVersion: detail.currentDraftVersion ?? null,
+        versions: detail.versions,
+        ...(detail.allVersions ? { allVersions: detail.allVersions } : {}),
+        links: detail.links,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_versions_list',
+    {
+      title: 'List versions of a Brain document',
+      description: 'List a document\'s versions (newest first). Slim by default — returns { id, versionNumber, isDraft, publishedAt, title }. Pass `include: ["body"]` to attach the full markdown body per row (heavy); `["changeNotes"]` to attach the per-version change log; `["summary"]` to attach the optional executive summary. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['body', 'changeNotes', 'summary'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      // Tenant-scope check via the lib helper.
+      const detail = await getDocumentById(clientId, args.documentId, {});
+      if (!detail) return err('Document not found.');
+      const limit = args.limit !== undefined ? Math.max(1, Math.min(args.limit, 100)) : 50;
+      const offset = args.offset !== undefined ? Math.max(0, args.offset) : 0;
+      const include = new Set(args.include ?? []);
+      const wantBody = include.has('body');
+      const wantNotes = include.has('changeNotes');
+      const wantSummary = include.has('summary');
+
+      const rows = await db
+        .select({
+          id: brainDocumentVersions.id,
+          versionNumber: brainDocumentVersions.versionNumber,
+          isDraft: brainDocumentVersions.isDraft,
+          publishedAt: brainDocumentVersions.publishedAt,
+          title: brainDocumentVersions.title,
+          body: brainDocumentVersions.body,
+          changeNotes: brainDocumentVersions.changeNotes,
+          summary: brainDocumentVersions.summary,
+        })
+        .from(brainDocumentVersions)
+        .where(and(
+          eq(brainDocumentVersions.documentId, args.documentId),
+          eq(brainDocumentVersions.clientId, clientId),
+        ))
+        .orderBy(desc(brainDocumentVersions.versionNumber))
+        .limit(limit)
+        .offset(offset);
+
+      const items = rows.map((r) => ({
+        id: r.id,
+        versionNumber: r.versionNumber,
+        isDraft: r.isDraft,
+        publishedAt: r.publishedAt,
+        title: r.title,
+        ...(wantBody ? { body: r.body } : {}),
+        ...(wantNotes ? { changeNotes: r.changeNotes } : {}),
+        ...(wantSummary ? { summary: r.summary } : {}),
+      }));
+      return json({ items, limit, offset });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_versions_get',
+    {
+      title: 'Get a Brain document version',
+      description: 'Fetch one specific version of a document — the caller asked for THIS version, so the full markdown `body` ships by default. Pass `include: ["changeNotes"]` or `["summary"]` to attach those extra fields too.',
+      inputSchema: {
+        versionId: z.number().int().positive(),
+        include: z.array(z.enum(['changeNotes', 'summary'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const [row] = await db
+        .select()
+        .from(brainDocumentVersions)
+        .where(and(
+          eq(brainDocumentVersions.id, args.versionId),
+          eq(brainDocumentVersions.clientId, clientId),
+        ))
+        .limit(1);
+      if (!row) return err('Document version not found.');
+      const include = new Set(args.include ?? []);
+      return json({
+        id: row.id,
+        documentId: row.documentId,
+        versionNumber: row.versionNumber,
+        isDraft: row.isDraft,
+        publishedAt: row.publishedAt,
+        publishedBy: row.publishedBy,
+        title: row.title,
+        body: row.body,
+        createdBy: row.createdBy,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        ...(include.has('changeNotes') ? { changeNotes: row.changeNotes } : {}),
+        ...(include.has('summary') ? { summary: row.summary } : {}),
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_required_reads_list_for_document',
+    {
+      title: 'List required-reads on a Brain document',
+      description: 'Who is REQUIRED to read this document? Returns rows { id, targetType, targetId, targetName (resolved from brain_people.fullName or brain_org_units.name), pinnedVersionId, dueAt, assignedAt }. Filter by targetType to view only person- or only org_unit-scoped assignments. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        targetType: z.enum(DOCUMENT_REQUIRED_READ_TARGETS).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listRequiredReadsForDocument(clientId, args.documentId, {
+        targetType: args.targetType as BrainDocumentRequiredReadTarget | undefined,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_required_reads_list_for_person',
+    {
+      title: 'List a person\'s required-read queue',
+      description: 'What does THIS person have to read? Returns the person\'s direct required-read assignments with each row\'s acknowledged status, the version they actually need to ack (pinned or the doc\'s currentPublishedVersionId), and an `ackId`/`acknowledgedAt` when present. `status` filters: `open` = unacknowledged, `acknowledged` = already done, `all` = both (default). Org-unit-scoped assignments NOT expanded — use brain_document_compliance_report for that view.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        status: z.enum(['open', 'acknowledged', 'all']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listRequiredReadsForPerson(clientId, args.personId, {
+        status: args.status,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_acknowledgments_list_for_document',
+    {
+      title: 'List acknowledgments for a Brain document',
+      description: 'Audit trail — every (version, person, acknowledgedAt) recorded against this document. Optional filters by versionId or personId. Returns slim rows { ackId, versionId, versionNumber, personId, personName, acknowledgedAt, acknowledgmentNote }. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        versionId: z.number().int().positive().optional(),
+        personId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listAcknowledgmentsForDocument(clientId, args.documentId, {
+        versionId: args.versionId,
+        personId: args.personId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_acknowledgments_list_for_person',
+    {
+      title: 'List acknowledgments by a person',
+      description: 'Every document this person has acknowledged, newest first. Returns { ackId, documentId, documentTitle, versionNumber, acknowledgedAt } per row. Cap limit 100.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listAcknowledgmentsForPerson(clientId, args.personId, {
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_compliance_report',
+    {
+      title: 'Compliance report for a Brain document',
+      description: 'The canonical "who has read this, who hasn\'t" view. Expands org-unit required-reads to active member person ids, partitions the assigned-person universe into acknowledged / pending / overdue against the document\'s currentPublishedVersionId, and returns full id arrays + a summary count rollup. A document with no current published version yields acknowledged=0 (nothing to ack against yet).',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const report = await complianceReport(clientId, args.documentId);
+      if (!report) return err('Document not found.');
+      return json(report);
+    },
+  );
+
+  // ── DOCUMENTS — write ────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_create',
+    {
+      title: 'Create a Brain document',
+      description: 'Create a new document seeded with an empty v1 draft. Slug is auto-derived from title (collisions per tenant suffix -2, -3, …). Echoes { id, slug, status, version1Id } — call brain_documents_get for the full row. To populate the body, follow up with brain_document_versions_edit_draft, then brain_documents_publish.',
+      inputSchema: {
+        title: z.string().min(1).max(255),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+        ownerId: z.number().int().positive().nullable().optional(),
+        confidentialityLevel: z.enum(CONFIDENTIALITY_LEVELS).optional(),
+        defaultTopicIds: z.array(z.number().int().positive()).optional(),
+        sourceNoteId: z.number().int().positive().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await createDocument(clientId, ctx.userId, {
+          title: args.title,
+          category: args.category as BrainDocumentCategory | undefined,
+          ownerId: args.ownerId ?? null,
+          confidentialityLevel: args.confidentialityLevel,
+          defaultTopicIds: args.defaultTopicIds,
+          sourceNoteId: args.sourceNoteId ?? null,
+        });
+        return json({
+          id: out.document.id,
+          slug: out.document.slug,
+          status: out.document.status,
+          version1Id: out.version.id,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_update',
+    {
+      title: 'Update a Brain document (metadata only)',
+      description: 'Patch document-level metadata (title, category, ownerId, confidentialityLevel, defaultTopicIds). Status changes are REJECTED here — use brain_documents_publish / brain_documents_archive / brain_documents_unarchive. Returns a structured { error: "use_publish_or_archive" } if the patch attempts a status change. Echoes { id, updatedFields }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          title: z.string().min(1).max(255).optional(),
+          category: z.enum(DOCUMENT_CATEGORIES).optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          confidentialityLevel: z.enum(CONFIDENTIALITY_LEVELS).optional(),
+          defaultTopicIds: z.array(z.number().int().positive()).optional(),
+          status: z.enum(DOCUMENT_STATUSES).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await updateDocument(clientId, ctx.userId, args.id, {
+          title: args.patch.title,
+          category: args.patch.category as BrainDocumentCategory | undefined,
+          ownerId: args.patch.ownerId,
+          confidentialityLevel: args.patch.confidentialityLevel,
+          defaultTopicIds: args.patch.defaultTopicIds,
+          status: args.patch.status as BrainDocumentStatus | undefined,
+        });
+        if (!updated) return err('Document not found.');
+        const updatedFields = Object.keys(args.patch).filter(
+          (k) => k !== 'status' && (args.patch as Record<string, unknown>)[k] !== undefined,
+        );
+        return json({ id: updated.id, updatedFields });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('publishDocument') || msg.includes('archiveDocument')) {
+          return json({
+            error: 'use_publish_or_archive',
+            message: 'Status changes go through brain_documents_publish, brain_documents_archive, or brain_documents_unarchive.',
+          });
+        }
+        return err(msg || 'Failed to update document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_versions_edit_draft',
+    {
+      title: 'Edit the current draft version of a Brain document',
+      description: 'Patch the document\'s draft body / summary / changeNotes. If no draft exists (last action was a publish), creates a new draft seeded from the latest version\'s body — so editors don\'t lose context. Refuses if the document is archived. Echo: { documentId, versionId, versionNumber, isDraft: true }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        patch: z.object({
+          body: z.string().optional(),
+          summary: z.string().nullable().optional(),
+          changeNotes: z.string().nullable().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await editDraftVersion(clientId, ctx.userId, args.documentId, {
+          body: args.patch.body,
+          summary: args.patch.summary,
+          changeNotes: args.patch.changeNotes,
+        });
+        if (!out) return err('Document not found.');
+        return json({
+          documentId: args.documentId,
+          versionId: out.version.id,
+          versionNumber: out.version.versionNumber,
+          isDraft: true,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to edit draft version.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_publish',
+    {
+      title: 'Publish the current draft of a Brain document',
+      description: 'Flip the current draft to a published version, atomically updating the document\'s currentPublishedVersionId + status="published" + publishedAt (first-publish only). Refuses if no draft exists OR if the draft body is empty — call brain_document_versions_edit_draft first. On empty body, returns structured { error: "empty_draft_body" }. Echo: { id, versionId, versionNumber, status: "published", publishedAt }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await publishDocument(clientId, ctx.userId, args.id);
+        if (!out) return err('Document not found.');
+        return json({
+          id: out.document.id,
+          versionId: out.version.id,
+          versionNumber: out.version.versionNumber,
+          status: out.document.status,
+          publishedAt: out.document.publishedAt,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('empty body')) {
+          return json({
+            error: 'empty_draft_body',
+            message: 'Cannot publish an empty draft. Call brain_document_versions_edit_draft to add content first.',
+          });
+        }
+        return err(msg || 'Failed to publish document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_archive',
+    {
+      title: 'Archive a Brain document',
+      description: 'Soft cancellation — sets status="archived", archivedAt=now(), archiveReason=reason. Document remains in the database (cascade-deletion happens only on brain_documents_delete). Echo: { id, status: "archived", archivedAt }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        reason: z.string().max(2000).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await archiveDocument(clientId, ctx.userId, args.id, {
+          reason: args.reason,
+        });
+        if (!out) return err('Document not found.');
+        return json({
+          id: out.id,
+          status: out.status,
+          archivedAt: out.archivedAt,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to archive document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_unarchive',
+    {
+      title: 'Unarchive a Brain document',
+      description: 'Reverse archive: clears archivedAt + archiveReason and restores status to "published" (if a published version exists) or "draft" otherwise. Echo: { id, status }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await unarchiveDocument(clientId, ctx.userId, args.id);
+        if (!out) return err('Document not found.');
+        return json({ id: out.id, status: out.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to unarchive document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_delete',
+    {
+      title: 'Delete a Brain document (hard)',
+      description: 'Hard delete the document and (via FK cascade) every version, required-read, link, and acknowledgment. Refuses by default if any acknowledgments exist — history preservation matters more than tidiness. Pass force=true to cascade. Returns structured { error: "document_has_acks", ackCount } on conflict. Echo on success: { id, deleted: true }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await deleteDocument(clientId, ctx.userId, args.id, { force: args.force });
+      if (!out.deleted) {
+        if (out.refused) {
+          return json({
+            error: 'document_has_acks',
+            ackCount: out.ackCount,
+            message: 'Document has acknowledgments. Pass force=true to cascade-delete the audit trail.',
+          });
+        }
+        return err('Document not found.');
+      }
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_promote_from_note',
+    {
+      title: 'Promote a Brain note into a Brain document',
+      description: 'Create a new document seeded from an existing brain_note — the note\'s body becomes the v1 draft\'s body. Title defaults to the note\'s title (or first non-empty line of the body). The document\'s sourceNoteId points back to the original. Echo: { documentId, slug, version1Id }.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+        title: z.string().min(1).max(255).optional(),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await promoteFromNote(clientId, ctx.userId, args.noteId, {
+          title: args.title,
+          category: args.category as BrainDocumentCategory | undefined,
+        });
+        if (!out) return err('Note not found.');
+        return json({
+          documentId: out.document.id,
+          slug: out.document.slug,
+          version1Id: out.version.id,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to promote note to document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_link',
+    {
+      title: 'Link an entity to a Brain document',
+      description: 'Attach a polymorphic entity (topic, initiative, decision, meeting, glossary_term, person) to a document. Idempotent — re-posting the same (documentId, entityType, entityId) returns alreadyLinked=true with linkId=null. Echo: { linkId, alreadyLinked }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        entityType: z.enum(DOCUMENT_LINK_ENTITY_TYPES),
+        entityId: z.number().int().positive(),
+        note: z.string().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await linkDocumentEntity(clientId, ctx.userId, {
+          documentId: args.documentId,
+          entityType: args.entityType as BrainDocumentLinkEntityType,
+          entityId: args.entityId,
+          note: args.note ?? null,
+        });
+        return json({ linkId: out.linkId, alreadyLinked: out.alreadyLinked });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to link entity to document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_unlink',
+    {
+      title: 'Unlink an entity from a Brain document',
+      description: 'Remove a polymorphic (documentId, entityType, entityId) link. Echo: { removed: boolean } — false if no matching link existed.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        entityType: z.enum(DOCUMENT_LINK_ENTITY_TYPES),
+        entityId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const removed = await unlinkDocumentEntity(clientId, ctx.userId, {
+          documentId: args.documentId,
+          entityType: args.entityType as BrainDocumentLinkEntityType,
+          entityId: args.entityId,
+        });
+        return json({ removed });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to unlink entity from document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_required_reads_assign',
+    {
+      title: 'Assign a required-read on a Brain document',
+      description: 'Make a person OR an org_unit required to read this document. Idempotent on (documentId, targetType, targetId) — re-assigning updates pinnedVersionId + dueAt. When targetType="org_unit" and expandOrgUnit=true, fans out to one row per ACTIVE member of the unit (current snapshot — new members later still need a re-assign). Echo: { assigned, alreadyAssigned, expandedTo? }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        targetType: z.enum(DOCUMENT_REQUIRED_READ_TARGETS),
+        targetId: z.number().int().positive(),
+        pinnedVersionId: z.number().int().positive().nullable().optional(),
+        dueAt: z.string().nullable().optional(),
+        expandOrgUnit: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await assignRequiredRead(clientId, ctx.userId, {
+          documentId: args.documentId,
+          targetType: args.targetType as BrainDocumentRequiredReadTarget,
+          targetId: args.targetId,
+          pinnedVersionId: args.pinnedVersionId ?? null,
+          dueAt: args.dueAt ? new Date(args.dueAt) : null,
+          expandOrgUnit: args.expandOrgUnit,
+        });
+        return json({
+          assigned: out.assigned,
+          alreadyAssigned: out.alreadyAssigned,
+          ...(out.expandedTo !== undefined ? { expandedTo: out.expandedTo } : {}),
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to assign required read.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_required_reads_remove',
+    {
+      title: 'Remove a required-read on a Brain document',
+      description: 'Delete a required-read row. Default refuses if any acknowledgments reference it (history-preservation) — returns structured { error: "has_acks" }. Pass force=true to unlink (the FK is set-null, so the acks survive but lose their requiredReadId pointer). Echo on success: { removed: true }.',
+      inputSchema: {
+        requiredReadId: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await removeRequiredRead(clientId, ctx.userId, args.requiredReadId, {
+        force: args.force,
+      });
+      if (!out.removed) {
+        if (out.reason === 'not_found') return err('Required-read not found.');
+        if (out.reason === 'has_acks') {
+          return json({
+            error: 'has_acks',
+            message: 'Required-read has acknowledgments. Pass force=true to detach (the acks will survive).',
+          });
+        }
+        return err('Failed to remove required read.');
+      }
+      return json({ removed: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_acknowledge',
+    {
+      title: 'Acknowledge a Brain document version',
+      description: 'Record a (documentId, versionId, personId) acknowledgment. Idempotent — re-acking the same tuple returns the existing row without a duplicate audit entry. If requiredReadId is omitted, auto-links to a matching person-target required-read for this (documentId, personId) when one exists. Echo: { ackId, documentId, versionId, personId, acknowledgedAt }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        versionId: z.number().int().positive(),
+        personId: z.number().int().positive(),
+        acknowledgmentNote: z.string().max(10_000).nullable().optional(),
+        requiredReadId: z.number().int().positive().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const ack = await acknowledgeDocument(clientId, ctx.userId, {
+          documentId: args.documentId,
+          versionId: args.versionId,
+          personId: args.personId,
+          acknowledgmentNote: args.acknowledgmentNote ?? null,
+          requiredReadId: args.requiredReadId ?? null,
+        });
+        return json({
+          ackId: ack.id,
+          documentId: ack.documentId,
+          versionId: ack.versionId,
+          personId: ack.personId,
+          acknowledgedAt: ack.acknowledgedAt,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to acknowledge document.');
       }
     },
   );
