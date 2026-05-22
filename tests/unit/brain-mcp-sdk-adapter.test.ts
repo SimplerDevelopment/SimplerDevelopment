@@ -234,6 +234,8 @@ vi.mock('@/lib/db/schema', () => {
     crmPipelineStages: { id: col('id') },
     posts: { id: col('id'), websiteId: col('websiteId'), title: col('title'), slug: col('slug'), postType: col('postType'), excerpt: col('excerpt'), published: col('published'), publishedAt: col('publishedAt'), updatedAt: col('updatedAt') },
     clientWebsites: { id: col('id'), clientId: col('clientId') },
+    brainDecisions: { id: col('id'), clientId: col('clientId'), status: col('status') },
+    brainTopics: { id: col('id'), clientId: col('clientId') },
   };
 });
 
@@ -415,10 +417,14 @@ describe('brain_search', () => {
 });
 
 describe('brain_dashboard_summary', () => {
-  it('returns the dashboard summary', async () => {
+  it('returns the dashboard summary (with brain-restructure decision + topic counts merged in)', async () => {
     const tools = registerAll();
     const res = await tools.get('brain_dashboard_summary')!.handler({});
-    expect(parseJson(res)).toEqual({ stats: { meetings: 3 } });
+    // The handler now spreads the underlying getDashboardSummary() result and
+    // appends decisionsCount + topicsCount derived from inline COUNT(*) queries.
+    // With the db.select mock returning [] by default, both counts resolve to 0.
+    expect(parseJson(res)).toMatchObject({ stats: { meetings: 3 } });
+    expect(parseJson(res)).toMatchObject({ counts: { decisionsCount: 0, topicsCount: 0 } });
   });
 });
 

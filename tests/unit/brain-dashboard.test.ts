@@ -265,6 +265,18 @@ describe('getDashboardSummary — empty state', () => {
         openTasks: 0,
         aiCreatedTasks: 0,
         relationships: 0,
+        initiativesActive: 0,
+        goalsAtRisk: 0,
+        goalsAchievedThisQuarter: 0,
+        peopleActive: 0,
+        orgUnitCount: 0,
+        expertiseTagsCount: 0,
+        glossaryTermsActive: 0,
+        playbookRunsActive: 0,
+        playbookRunsPaused: 0,
+        documentsPublished: 0,
+        documentsDraft: 0,
+        documentsRequiredReadsPending: 0,
       },
     });
   });
@@ -278,6 +290,18 @@ describe('getDashboardSummary — empty state', () => {
       openTasks: 0,
       aiCreatedTasks: 0,
       relationships: 0,
+      initiativesActive: 0,
+      goalsAtRisk: 0,
+      goalsAchievedThisQuarter: 0,
+      peopleActive: 0,
+      orgUnitCount: 0,
+      expertiseTagsCount: 0,
+      glossaryTermsActive: 0,
+      playbookRunsActive: 0,
+      playbookRunsPaused: 0,
+      documentsPublished: 0,
+      documentsDraft: 0,
+      documentsRequiredReadsPending: 0,
     });
   });
 
@@ -292,6 +316,18 @@ describe('getDashboardSummary — empty state', () => {
       openTasks: 7,
       aiCreatedTasks: 4,
       relationships: 5,
+      initiativesActive: 0,
+      goalsAtRisk: 0,
+      goalsAchievedThisQuarter: 0,
+      peopleActive: 0,
+      orgUnitCount: 0,
+      expertiseTagsCount: 0,
+      glossaryTermsActive: 0,
+      playbookRunsActive: 0,
+      playbookRunsPaused: 0,
+      documentsPublished: 0,
+      documentsDraft: 0,
+      documentsRequiredReadsPending: 0,
     });
   });
 });
