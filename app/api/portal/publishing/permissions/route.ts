@@ -1,27 +1,50 @@
-import { redirect } from 'next/navigation';
-import { getPublishingSession } from '@/lib/publishing/active-client';
+// Publishing Command Center — permissions matrix data feed.
+//
+// GET returns the set of member-role users for the active client (plus the
+// owner/admin list, surfaced separately so the UI can show implicit grants
+// for transparency) and every explicit publishing_permissions row for the
+// client. Gated to owners / admins / staff — the same audience that can see
+// the matrix page itself.
+
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users, clients, clientMembers, publishingPermissions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import PermissionMatrix, {
-  type PermissionMatrixMember,
-  type PermissionMatrixGrant,
-} from '@/components/portal/publishing/PermissionMatrix';
+import { getPublishingSession } from '@/lib/publishing/active-client';
 
 export const dynamic = 'force-dynamic';
 
-// PUB-10 — per-user publishing permissions matrix. Gated to owners + admins
-// + simplerdev staff; data loaded in the same render pass so the matrix
-// hydrates with state and the API endpoints handle subsequent toggles.
-export default async function PublishingPermissionsPage() {
-  const session = await getPublishingSession();
+type MatrixMember = {
+  userId: number;
+  name: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+};
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+
+  const publishing = await getPublishingSession();
   const canManage =
-    session.isStaff || session.role === 'owner' || session.role === 'admin';
-  if (!canManage) redirect('/portal/publishing/board');
+    publishing.isStaff ||
+    publishing.role === 'owner' ||
+    publishing.role === 'admin';
+  if (!canManage) {
+    return NextResponse.json(
+      { success: false, message: 'Forbidden' },
+      { status: 403 },
+    );
+  }
 
-  const clientId = session.clientId;
+  const clientId = publishing.clientId;
+  const callerUserId = publishing.userId;
 
-  // Pull every user with access to this client + the primary owner row.
+  // Pull every user with access to this client: anyone in client_members PLUS
+  // the primary owner on clients.userId (who may not have an explicit row).
   const [clientRow] = await db
     .select({ id: clients.id, userId: clients.userId })
     .from(clients)
@@ -39,7 +62,7 @@ export default async function PublishingPermissionsPage() {
     .innerJoin(users, eq(users.id, clientMembers.userId))
     .where(eq(clientMembers.clientId, clientId));
 
-  const collected = new Map<number, PermissionMatrixMember>();
+  const collected = new Map<number, MatrixMember>();
   for (const row of memberRows) {
     const role = normalizeRole(row.role);
     if (!role) continue;
@@ -51,7 +74,7 @@ export default async function PublishingPermissionsPage() {
     });
   }
 
-  // Surface the primary owner even without a client_members row.
+  // Make sure the primary owner shows up even without a client_members row.
   if (clientRow?.userId && !collected.has(clientRow.userId)) {
     const [primary] = await db
       .select({ id: users.id, name: users.name, email: users.email })
@@ -67,6 +90,9 @@ export default async function PublishingPermissionsPage() {
       });
     }
   }
+
+  // Promote the primary owner's role to 'owner' even if their client_members
+  // row says something else.
   if (clientRow?.userId && collected.has(clientRow.userId)) {
     const existing = collected.get(clientRow.userId)!;
     collected.set(clientRow.userId, { ...existing, role: 'owner' });
@@ -76,7 +102,8 @@ export default async function PublishingPermissionsPage() {
     (a.name || a.email).localeCompare(b.name || b.email),
   );
 
-  const callerUserId = session.userId;
+  // Matrix rows = member-role users (not the caller). Owners + admins get
+  // implicit everything and render in a separate "Owners & admins" section.
   const matrixMembers = everyone.filter(
     (m) => m.userId !== callerUserId && m.role !== 'owner' && m.role !== 'admin',
   );
@@ -84,6 +111,9 @@ export default async function PublishingPermissionsPage() {
     (m) => m.role === 'owner' || m.role === 'admin',
   );
 
+  // Explicit grants for this client. Keep it lean — the matrix only needs
+  // (userId, permissionKey) tuples; the page's existing list view can call
+  // listExplicitGrants() if it wants richer metadata.
   const grantRows = await db
     .select({
       userId: publishingPermissions.userId,
@@ -91,41 +121,21 @@ export default async function PublishingPermissionsPage() {
     })
     .from(publishingPermissions)
     .where(eq(publishingPermissions.clientId, clientId));
-  const initialGrants: PermissionMatrixGrant[] = grantRows.map((r) => ({
-    userId: r.userId,
-    permissionKey: r.permissionKey,
-  }));
 
-  // Only owners can grant manage_permissions. Staff sessions impersonating
-  // a client take the owner posture (they can do anything). Admins cannot
-  // propagate manage_permissions even if they hold it.
-  const canGrantManagePermissions =
-    session.isStaff || session.role === 'owner';
-
-  return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-medium">Publishing permissions</h2>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Grant member-role users granular control over stage transitions,
-          card actions, and admin operations on the Publishing board.
-        </p>
-      </header>
-      <PermissionMatrix
-        members={matrixMembers}
-        ownersAndAdmins={ownersAndAdmins}
-        initialGrants={initialGrants}
-        canGrantManagePermissions={canGrantManagePermissions}
-      />
-    </section>
-  );
+  return NextResponse.json({
+    success: true,
+    data: {
+      members: matrixMembers,
+      ownersAndAdmins,
+      grants: grantRows,
+    },
+  });
 }
 
-function normalizeRole(
-  role: string | null | undefined,
-): PermissionMatrixMember['role'] | null {
+function normalizeRole(role: string | null | undefined): MatrixMember['role'] | null {
   if (role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer') {
     return role;
   }
   return null;
 }
+
