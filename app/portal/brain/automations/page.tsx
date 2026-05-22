@@ -5,6 +5,40 @@ import Link from 'next/link';
 import ProductAutomationSettings from '@/components/portal/ProductAutomationSettings';
 import { PRODUCT_PRESET_GROUPS } from '@/lib/automation/product-presets';
 
+// Plugin-script item returned by /api/portal/plugins/scripts — one entry
+// per (plugin, script) pair the active client is entitled to run. The
+// schedule-rule template picker merges these in alongside the hard-coded
+// TEMPLATES so any registered script can be scheduled like a built-in.
+interface PluginScriptItem {
+  pluginSlug: string;
+  pluginName: string;
+  pluginIcon: string;
+  script: {
+    id: string;
+    name: string;
+    description: string;
+    icon?: string;
+    argsSchema?: { name: string; type: 'string' | 'number' | 'boolean'; default?: string | number | boolean }[];
+  };
+}
+
+// Build the synthetic templateId for a plugin script. We pack the plugin
+// slug + script id into a single string so the existing
+// `setSchedTemplateId(string)` flow keeps working. Format intentionally
+// distinct so the save handler can branch cleanly.
+function pluginTemplateId(slug: string, scriptId: string): string {
+  return `plugin:${slug}:${scriptId}`;
+}
+function parsePluginTemplateId(
+  id: string,
+): { pluginSlug: string; scriptId: string } | null {
+  if (!id.startsWith('plugin:')) return null;
+  const rest = id.slice('plugin:'.length);
+  const idx = rest.indexOf(':');
+  if (idx < 0) return null;
+  return { pluginSlug: rest.slice(0, idx), scriptId: rest.slice(idx + 1) };
+}
+
 interface AutomationSchedule {
   cadence: 'daily' | 'weekly' | 'monthly' | 'cron';
   time?: string;
@@ -302,6 +336,12 @@ export default function BrainAutomationsPage() {
   const [schedPreview, setSchedPreview] = useState<{ description: string; nextRunAt: string | null } | null>(null);
   const [schedPreviewError, setSchedPreviewError] = useState<string>('');
   const [schedSaving, setSchedSaving] = useState(false);
+  // Plugin scripts available to the active client. Populated from
+  // /api/portal/plugins/scripts on mount; merged into the template picker
+  // dropdown under a dedicated optgroup. When the user picks one and
+  // saves, the schedule rule's `actions` is built with the
+  // `run_plugin_script` action shape — see handleSaveScheduledRule.
+  const [pluginScripts, setPluginScripts] = useState<PluginScriptItem[]>([]);
 
   const buildScheduleFromForm = (): AutomationSchedule => {
     if (schedCadence === 'daily') return { cadence: 'daily', time: schedTime };
@@ -322,6 +362,20 @@ export default function BrainAutomationsPage() {
       if (rulesRes.success) setRules(rulesRes.rules);
       if (logsRes.success) setLogs(logsRes.logs);
     }).finally(() => setLoading(false));
+  }, []);
+
+  // Pull plugin scripts in parallel — they show up in the schedule-rule
+  // template picker. Failure is non-fatal: if the endpoint 5xxs the
+  // dropdown just falls back to the built-in TEMPLATES list.
+  useEffect(() => {
+    fetch('/api/portal/plugins/scripts')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.items)) {
+          setPluginScripts(res.items);
+        }
+      })
+      .catch(() => { /* non-fatal */ });
   }, []);
 
   const handleParse = async () => {
@@ -425,8 +479,42 @@ export default function BrainAutomationsPage() {
 
   const handleSaveScheduledRule = async () => {
     if (!schedName.trim() || !schedTemplateId) return;
-    const template = TEMPLATES.find((t) => t.id === schedTemplateId);
-    if (!template) return;
+
+    // Two flavours of schedTemplateId:
+    //   - a hard-coded TEMPLATES entry id ('booking-to-deal' etc.)
+    //   - a synthetic 'plugin:<slug>:<scriptId>' built from a plugin script
+    let actions: { tool: string; params: Record<string, unknown>; delay?: number }[];
+    let productScope: string | null;
+
+    const pluginRef = parsePluginTemplateId(schedTemplateId);
+    if (pluginRef) {
+      const item = pluginScripts.find(
+        (p) => p.pluginSlug === pluginRef.pluginSlug && p.script.id === pluginRef.scriptId,
+      );
+      if (!item) return;
+      // Seed args with each declared schema field's default value, when
+      // present. Users can edit the rule afterwards to template against
+      // event payloads ({{event.field}}).
+      const seededArgs: Record<string, unknown> = {};
+      for (const arg of item.script.argsSchema ?? []) {
+        if (arg.default !== undefined) seededArgs[arg.name] = arg.default;
+      }
+      actions = [{
+        tool: 'run_plugin_script',
+        params: {
+          pluginSlug: pluginRef.pluginSlug,
+          scriptId: pluginRef.scriptId,
+          args: seededArgs,
+        },
+      }];
+      productScope = null;
+    } else {
+      const template = TEMPLATES.find((t) => t.id === schedTemplateId);
+      if (!template) return;
+      actions = template.rule.actions;
+      productScope = template.rule.productScope ?? null;
+    }
+
     setSchedSaving(true);
     try {
       const res = await fetch('/api/portal/automations', {
@@ -437,9 +525,9 @@ export default function BrainAutomationsPage() {
           description: `Scheduled — ${schedName}`,
           trigger: { event: 'automation.scheduled' },
           conditions: [],
-          actions: template.rule.actions,
+          actions,
           source: 'manual',
-          productScope: template.rule.productScope,
+          productScope,
           schedule: buildScheduleFromForm(),
         }),
       });
@@ -1111,9 +1199,23 @@ export default function BrainAutomationsPage() {
                     className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="">— pick one —</option>
-                    {TEMPLATES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.title}</option>
-                    ))}
+                    <optgroup label="Built-in templates">
+                      {TEMPLATES.map((t) => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))}
+                    </optgroup>
+                    {pluginScripts.length > 0 && (
+                      <optgroup label="Plugin scripts">
+                        {pluginScripts.map((p) => (
+                          <option
+                            key={pluginTemplateId(p.pluginSlug, p.script.id)}
+                            value={pluginTemplateId(p.pluginSlug, p.script.id)}
+                          >
+                            {p.pluginName} — {p.script.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </label>
               </div>
