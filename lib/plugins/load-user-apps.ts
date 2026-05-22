@@ -48,7 +48,14 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
-const CACHE_TTL_MS = 30_000;
+// Cache disabled while we investigate a report of plugin nav items leaking
+// across active-client switches in production. The cache keys by clientId
+// so a leak shouldn't be possible in theory, but the per-instance Map plus
+// 30s TTL adds a class of confusion (warm-instance state outliving the
+// expected per-request render) that is easier to remove than to reason
+// about. A future PR can reintroduce a request-scoped React.cache() wrap
+// once the runtime behaviour is settled.
+const CACHE_TTL_MS = 0;
 const cache = new Map<number, CacheEntry>();
 
 /** Wipe the in-process cache. Pass a clientId to clear one entry; pass
