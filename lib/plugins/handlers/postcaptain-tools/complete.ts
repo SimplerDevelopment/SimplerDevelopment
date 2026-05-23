@@ -19,13 +19,15 @@
 // IDOR pattern in scripts.ts.
 
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   registeredAppRuns,
   postcaptainBriefs,
   postcaptainDrafts,
 } from '@/lib/db/schema/plugins';
+import { brainNotes } from '@/lib/db/schema/brain';
+import { users } from '@/lib/db/schema/auth';
 import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 import { redactLog, capLogTail } from './runner-redact';
@@ -78,12 +80,37 @@ const SuccessResultCompetitorResearch = z.object({
   }).optional(),
 });
 
+// Brain-notes batch — `scrape-<slug>` runs. Each entry becomes one
+// brain_notes row (deduped by clientId+sourceUrl). Caps on title/body
+// are defense-in-depth (the plugin already clamps but we don't trust
+// arbitrary worker output).
+const SuccessResultBrainNotesBatch = z.object({
+  kind: z.literal('brain-notes-batch'),
+  competitorSlug: z.string().min(1).max(64),
+  competitorName: z.string().min(1).max(255),
+  domain: z.string().min(1).max(253),
+  notes: z.array(z.object({
+    sourceUrl: z.string().min(1).max(1000),
+    title: z.string().min(1).max(255),
+    body: z.string().max(50_000).default(''),
+    category: z.string().min(1).max(64),
+    fetchedOk: z.boolean(),
+  })).max(100),
+  stats: z.object({
+    totalKeep: z.number().int().nonnegative(),
+    alreadyScrapedCount: z.number().int().nonnegative(),
+    attempted: z.number().int().nonnegative(),
+    succeeded: z.number().int().nonnegative(),
+  }),
+});
+
 const SuccessSchema = z.object({
   outcome: z.literal('succeeded'),
   result: z.discriminatedUnion('kind', [
     SuccessResultResearchBrief,
     SuccessResultDraftBlogPost,
     SuccessResultCompetitorResearch,
+    SuccessResultBrainNotesBatch,
   ]),
   logTail: z.string().max(LOG_TAIL_MAX * 2).optional(), // server caps to LOG_TAIL_MAX
 });
@@ -162,7 +189,7 @@ const postComplete: CallbackHandler = {
       // the worker can retry once we add the stuck-run reaper. Documented
       // gap: see Wave 2 TODO.
       const result = parsed.data.result;
-      let resultId: number;
+      let resultId: number | null = null;
       if (result.kind === 'research-brief') {
         if (run.kind !== 'research-brief') {
           return fail(
@@ -239,6 +266,38 @@ const postComplete: CallbackHandler = {
           const msg = err instanceof Error ? err.message : String(err);
           parsed.data.logTail = `${parsed.data.logTail ?? ''}\n[brain] ingestion failed: ${msg}`;
         }
+      } else if (result.kind === 'brain-notes-batch') {
+        // `scrape-<slug>` workflow: write one brain_notes row per
+        // discovered page, deduped on (clientId, sourceUrl). We don't
+        // need a per-run result table — the notes themselves are the
+        // artifact — so resultId stays null. Counts get serialised into
+        // the run's logTail so operators can see what the batch did
+        // from the Runs UI.
+        if (!run.kind.startsWith('scrape-')) {
+          return fail(
+            'validation_error',
+            `Result kind 'brain-notes-batch' does not match run kind '${run.kind}'.`,
+            400,
+          );
+        }
+        const summary = await ingestBrainNotesBatch({
+          clientId: run.clientId,
+          competitorSlug: result.competitorSlug,
+          competitorName: result.competitorName,
+          notes: result.notes,
+        });
+        const trace =
+          `[brain-notes-batch] competitor=${result.competitorSlug} ` +
+          `domain=${result.domain} stats=(keep=${result.stats.totalKeep}, ` +
+          `already=${result.stats.alreadyScrapedCount}, attempted=${result.stats.attempted}, ` +
+          `succeeded=${result.stats.succeeded}) inserted=${summary.inserted} ` +
+          `skippedDuplicate=${summary.skippedDuplicate} failed=${summary.failed}`;
+        parsed.data.logTail = parsed.data.logTail
+          ? `${parsed.data.logTail}\n${trace}`
+          : trace;
+        // resultId stays null — there is no per-run result row, the
+        // brain_notes inserts ARE the artifact. exit_code=0 below still
+        // signals success.
       } else {
         if (run.kind !== 'draft-blog-post') {
           return fail(
@@ -299,3 +358,106 @@ const postComplete: CallbackHandler = {
 };
 
 export const completeHandlers: CallbackHandler[] = [postComplete];
+
+// ─── brain-notes-batch ingestion helper ────────────────────────────────────
+//
+// One brain_notes row per scraped page, deduped on (clientId, sourceUrl).
+// We pre-load the set of already-existing source_urls in this batch so the
+// dedup is a single round trip instead of N. Insert failures are swallowed
+// (and counted) — a single bad URL shouldn't fail the whole run.
+
+const TOOLS_BOT_EMAIL = 'tools-bot@simplerdevelopment.com';
+const BRAIN_NOTE_SOURCE = 'plugin-postcaptain-tools';
+let toolsBotUserIdCache: number | null | undefined;
+
+async function getToolsBotUserId(): Promise<number | null> {
+  if (toolsBotUserIdCache !== undefined) return toolsBotUserIdCache;
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TOOLS_BOT_EMAIL))
+    .limit(1);
+  toolsBotUserIdCache = row ? row.id : null;
+  return toolsBotUserIdCache;
+}
+
+interface IngestBrainNotesBatchInput {
+  clientId: number;
+  competitorSlug: string;
+  competitorName: string;
+  notes: Array<{
+    sourceUrl: string;
+    title: string;
+    body: string;
+    category: string;
+    fetchedOk: boolean;
+  }>;
+}
+
+interface IngestBrainNotesBatchSummary {
+  inserted: number;
+  skippedDuplicate: number;
+  failed: number;
+}
+
+async function ingestBrainNotesBatch(
+  input: IngestBrainNotesBatchInput,
+): Promise<IngestBrainNotesBatchSummary> {
+  const summary: IngestBrainNotesBatchSummary = {
+    inserted: 0,
+    skippedDuplicate: 0,
+    failed: 0,
+  };
+  if (input.notes.length === 0) return summary;
+
+  const botUserId = await getToolsBotUserId();
+  const candidateUrls = input.notes.map((n) => n.sourceUrl);
+
+  // Pre-load existing source_urls so dedup is one query, not N.
+  const existingRows = await db
+    .select({ sourceUrl: brainNotes.sourceUrl })
+    .from(brainNotes)
+    .where(and(
+      eq(brainNotes.clientId, input.clientId),
+      inArray(brainNotes.sourceUrl, candidateUrls),
+    ));
+  const existing = new Set(
+    existingRows
+      .map((r) => r.sourceUrl)
+      .filter((u): u is string => typeof u === 'string'),
+  );
+
+  for (const note of input.notes) {
+    if (existing.has(note.sourceUrl)) {
+      summary.skippedDuplicate += 1;
+      continue;
+    }
+    const tags = [
+      `competitor:${input.competitorSlug}`,
+      `page-type:${note.category}`,
+      ...(note.fetchedOk ? [] : ['scrape-failed']),
+    ];
+    try {
+      await db.insert(brainNotes).values({
+        clientId: input.clientId,
+        title: note.title.slice(0, 255),
+        body: note.body,
+        tags,
+        source: BRAIN_NOTE_SOURCE,
+        sourceUrl: note.sourceUrl,
+        createdBy: botUserId,
+      });
+      summary.inserted += 1;
+    } catch {
+      summary.failed += 1;
+    }
+  }
+
+  return summary;
+}
+
+// Test-only reset (matches competitor-brain.ts). Vitest can clear caches
+// between cases.
+export function __resetToolsBotUserIdCache(): void {
+  toolsBotUserIdCache = undefined;
+}

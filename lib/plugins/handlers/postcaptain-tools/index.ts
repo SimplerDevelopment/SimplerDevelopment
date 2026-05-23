@@ -11,6 +11,7 @@ import { jobsHandlers } from './jobs';
 import { briefsHandlers } from './briefs';
 import { draftsHandlers } from './drafts';
 import { completeHandlers } from './complete';
+import { brainHandlers } from './brain';
 
 export const POSTCAPTAIN_TOOLS_SLUG = 'postcaptain-tools' as const;
 
@@ -20,4 +21,5 @@ registerAppHandlers(POSTCAPTAIN_TOOLS_SLUG, [
   ...briefsHandlers,
   ...draftsHandlers,
   ...completeHandlers,
+  ...brainHandlers,
 ]);
