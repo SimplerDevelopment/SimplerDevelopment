@@ -9,6 +9,14 @@ import { PRODUCT_PRESET_GROUPS } from '@/lib/automation/product-presets';
 // per (plugin, script) pair the active client is entitled to run. The
 // schedule-rule template picker merges these in alongside the hard-coded
 // TEMPLATES so any registered script can be scheduled like a built-in.
+interface PluginScriptArgField {
+  name: string;
+  type: 'string' | 'number' | 'boolean';
+  default?: string | number | boolean;
+  required?: boolean;
+  description?: string;
+}
+
 interface PluginScriptItem {
   pluginSlug: string;
   pluginName: string;
@@ -18,7 +26,7 @@ interface PluginScriptItem {
     name: string;
     description: string;
     icon?: string;
-    argsSchema?: { name: string; type: 'string' | 'number' | 'boolean'; default?: string | number | boolean }[];
+    argsSchema?: PluginScriptArgField[];
   };
 }
 
@@ -336,6 +344,11 @@ export default function BrainAutomationsPage() {
   const [schedPreview, setSchedPreview] = useState<{ description: string; nextRunAt: string | null } | null>(null);
   const [schedPreviewError, setSchedPreviewError] = useState<string>('');
   const [schedSaving, setSchedSaving] = useState(false);
+  // Per-arg input values for the selected plugin script's `argsSchema`. We
+  // hold everything as strings while editing (a single source of truth for
+  // form controls) and coerce to the declared type on save. Cleared /
+  // re-seeded whenever the user picks a different template.
+  const [schedPluginArgs, setSchedPluginArgs] = useState<Record<string, string>>({});
   // Plugin scripts available to the active client. Populated from
   // /api/portal/plugins/scripts on mount; merged into the template picker
   // dropdown under a dedicated optgroup. When the user picks one and
@@ -377,6 +390,27 @@ export default function BrainAutomationsPage() {
       })
       .catch(() => { /* non-fatal */ });
   }, []);
+
+  // When the user picks a different template, re-seed the plugin-args form
+  // from the script's declared `argsSchema` defaults (or clear it for a
+  // built-in template). Storing as strings — the save handler coerces back
+  // to the declared type. Keeps the input fields in sync with whichever
+  // script the user just selected.
+  useEffect(() => {
+    const pluginRef = parsePluginTemplateId(schedTemplateId);
+    if (!pluginRef) {
+      setSchedPluginArgs({});
+      return;
+    }
+    const item = pluginScripts.find(
+      (p) => p.pluginSlug === pluginRef.pluginSlug && p.script.id === pluginRef.scriptId,
+    );
+    const next: Record<string, string> = {};
+    for (const arg of item?.script.argsSchema ?? []) {
+      next[arg.name] = arg.default !== undefined ? String(arg.default) : '';
+    }
+    setSchedPluginArgs(next);
+  }, [schedTemplateId, pluginScripts]);
 
   const handleParse = async () => {
     if (!nlpInput.trim()) return;
@@ -492,12 +526,26 @@ export default function BrainAutomationsPage() {
         (p) => p.pluginSlug === pluginRef.pluginSlug && p.script.id === pluginRef.scriptId,
       );
       if (!item) return;
-      // Seed args with each declared schema field's default value, when
-      // present. Users can edit the rule afterwards to template against
-      // event payloads ({{event.field}}).
+      // Pull each declared schema field from the form state, coerce to the
+      // declared type, and fall back to the declared default if the field
+      // is empty. Users can later edit the rule to template against event
+      // payloads ({{event.field}}).
       const seededArgs: Record<string, unknown> = {};
       for (const arg of item.script.argsSchema ?? []) {
-        if (arg.default !== undefined) seededArgs[arg.name] = arg.default;
+        const raw = (schedPluginArgs[arg.name] ?? '').trim();
+        const fallback = arg.default;
+        if (raw === '') {
+          if (fallback !== undefined) seededArgs[arg.name] = fallback;
+          continue;
+        }
+        if (arg.type === 'number') {
+          const n = Number(raw);
+          seededArgs[arg.name] = Number.isFinite(n) ? n : fallback;
+        } else if (arg.type === 'boolean') {
+          seededArgs[arg.name] = raw === 'true';
+        } else {
+          seededArgs[arg.name] = raw;
+        }
       }
       actions = [{
         tool: 'run_plugin_script',
@@ -1220,6 +1268,13 @@ export default function BrainAutomationsPage() {
                 </label>
               </div>
 
+              <PluginScriptArgsEditor
+                templateId={schedTemplateId}
+                pluginScripts={pluginScripts}
+                values={schedPluginArgs}
+                onChange={setSchedPluginArgs}
+              />
+
               <div className="mt-4">
                 <ScheduleEditor
                   cadence={schedCadence}
@@ -1255,6 +1310,80 @@ export default function BrainAutomationsPage() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// Per-arg input form for a selected plugin script. Renders one row per
+// declared `argsSchema` field; values flow up through `onChange` so the
+// outer page handles seeding/coercion at save time. No-op when the
+// current template isn't a plugin script (or its argsSchema is empty),
+// so callers can mount it unconditionally below the picker.
+interface PluginScriptArgsEditorProps {
+  templateId: string;
+  pluginScripts: PluginScriptItem[];
+  values: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+}
+
+function PluginScriptArgsEditor(props: PluginScriptArgsEditorProps) {
+  const pluginRef = parsePluginTemplateId(props.templateId);
+  if (!pluginRef) return null;
+  const item = props.pluginScripts.find(
+    (p) => p.pluginSlug === pluginRef.pluginSlug && p.script.id === pluginRef.scriptId,
+  );
+  const fields = item?.script.argsSchema ?? [];
+  if (fields.length === 0) return null;
+
+  const setField = (name: string, value: string) => {
+    props.onChange({ ...props.values, [name]: value });
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-muted/30 border border-border rounded-lg">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="material-icons text-base text-muted-foreground">tune</span>
+        <h3 className="text-sm font-medium">Script inputs</h3>
+        <span className="text-xs text-muted-foreground">— {item?.script.name}</span>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {fields.map((arg) => {
+          const value = props.values[arg.name] ?? '';
+          const placeholder = arg.default !== undefined ? `default: ${String(arg.default)}` : '';
+          return (
+            <label key={arg.name} className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {arg.name}
+                {arg.required && <span className="text-rose-500 ml-1">*</span>}
+                <span className="ml-2 normal-case font-normal text-[10px] text-muted-foreground/70">
+                  {arg.type}
+                </span>
+              </span>
+              {arg.type === 'boolean' ? (
+                <select
+                  value={value || (arg.default !== undefined ? String(arg.default) : 'false')}
+                  onChange={(e) => setField(arg.name, e.target.value)}
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+              ) : (
+                <input
+                  type={arg.type === 'number' ? 'number' : 'text'}
+                  value={value}
+                  onChange={(e) => setField(arg.name, e.target.value)}
+                  placeholder={placeholder}
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              )}
+              {arg.description && (
+                <span className="text-xs text-muted-foreground">{arg.description}</span>
+              )}
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
