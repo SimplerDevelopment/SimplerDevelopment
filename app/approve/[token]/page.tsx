@@ -100,6 +100,8 @@ async function loadPreview(
         published: row.published,
         content: row.content,
         siteId: row.websiteId,
+        customCss: row.customCss ?? null,
+        customJs: row.customJs ?? null,
       };
     }
     case 'pitch_deck': {
