@@ -64,6 +64,26 @@ export async function saveDeck(id: string, slides: PitchDeckSlideV2[], theme: Pi
   return patchDeck(id, { slides, theme });
 }
 
+/**
+ * Per-slide PATCH — pushes only one slide's mutable fields instead of the full
+ * slides blob. Used by save paths that are scoped to the active slide (single-
+ * slide publish flush, future debounced autosave). Multi-slide ops (reorder,
+ * batch edit, slide add/remove) still go through {@link saveDeck} because they
+ * mutate the slide array layout. The slideId is the slide's stable string id.
+ */
+export async function saveSlide(
+  id: string,
+  slideId: string,
+  patch: Partial<Pick<PitchDeckSlideV2, 'blocks' | 'notes' | 'label' | 'pageSettings' | 'draft' | 'surveyFieldBlocks'>>,
+): Promise<ApiEnvelope<{ slide: PitchDeckSlideV2 }>> {
+  const res = await fetch(`/api/portal/tools/pitch-decks/${id}/slides/${encodeURIComponent(slideId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  return (await res.json()) as ApiEnvelope<{ slide: PitchDeckSlideV2 }>;
+}
+
 /** DELETE the deck. */
 export async function deleteDeck(id: string) {
   return fetch(`/api/portal/tools/pitch-decks/${id}`, { method: 'DELETE' });

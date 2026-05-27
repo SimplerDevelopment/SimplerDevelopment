@@ -18,6 +18,7 @@ import {
   patchSurveyFields,
   patchDeck,
   saveDeck as apiSaveDeck,
+  saveSlide as apiSaveSlide,
   deleteDeck,
   regenerateDeck,
   generateSlide,
@@ -561,9 +562,21 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     setPublishingSlideId(slideId);
     setError('');
     try {
-      // Flush slides to the server first.
+      // Flush slides to the server first. We're publishing a single slide,
+      // so push only that slide's payload via the per-slide PATCH endpoint
+      // instead of the full slides blob (often tens-of-KB on busy decks).
       if (!collab.enabled) {
-        const flush = await apiSaveDeck(id, deck.slides, deck.theme);
+        const target = deck.slides.find((s) => s.id === slideId);
+        const flush = target
+          ? await apiSaveSlide(id, slideId, {
+              blocks: target.blocks,
+              notes: target.notes,
+              label: target.label,
+              pageSettings: target.pageSettings,
+              draft: target.draft,
+              surveyFieldBlocks: target.surveyFieldBlocks,
+            })
+          : { success: false, message: 'Slide not found' } as const;
         if (!flush.success) {
           setError(flush.message || 'Failed to save draft before publish');
           return;
