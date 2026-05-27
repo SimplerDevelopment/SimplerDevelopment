@@ -165,7 +165,9 @@ export default function CrmContactDetailPage() {
     Promise.all([
       fetchContact(),
       fetchActivities(),
-      fetch('/api/portal/crm/companies?limit=5000').then(r => r.json()).then(d => setCompanies(d.data?.companies ?? d.data ?? [])),
+      // TODO(perf): convert this company-picker to typeahead (?q=<query>); for now
+      // it pulls the first 200 companies — the endpoint hard-caps at 200.
+      fetch('/api/portal/crm/companies?limit=200').then(r => r.json()).then(d => setCompanies(d.data?.companies ?? d.data ?? [])),
     ]).then(() => setLoading(false));
   }, [fetchContact, fetchActivities]);
 

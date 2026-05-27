@@ -1,6 +1,6 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { SurveyField } from './cms';
 
@@ -65,7 +65,10 @@ export const clientMembers = pgTable('client_members', {
   role: varchar('role', { length: 20 }).default('member').notNull(), // owner, admin, member, viewer
   invitedBy: integer('invited_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('client_members_user_idx').on(t.userId),
+  uniqueIndex('client_members_client_user_idx').on(t.clientId, t.userId),
+]);
 
 // GitHub OAuth connections for portal users (repo collaborator access)
 
@@ -169,7 +172,10 @@ export const clientWebsites = pgTable('client_websites', {
   draftUpdatedBy: integer('draft_updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('client_websites_client_idx').on(t.clientId),
+  index('client_websites_subdomain_idx').on(t.subdomain),
+]);
 
 // Multiple custom domains per website
 
