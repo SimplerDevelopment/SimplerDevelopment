@@ -165,9 +165,9 @@ export async function PUT(
       .select({ categoryId: postCategories.categoryId })
       .from(postCategories)
       .where(eq(postCategories.postId, pid));
-    const existing = new Set(existingRows.map((r) => r.categoryId));
-    const toAdd = [...incoming].filter((id) => !existing.has(id));
-    const toRemove = [...existing].filter((id) => !incoming.has(id));
+    const existing = new Set<number>(existingRows.map((r) => r.categoryId as number));
+    const toAdd: number[] = [...incoming].filter((id) => !existing.has(id));
+    const toRemove: number[] = [...existing].filter((id) => !incoming.has(id));
     if (toRemove.length) {
       await db
         .delete(postCategories)
@@ -187,9 +187,9 @@ export async function PUT(
       .select({ tagId: postTags.tagId })
       .from(postTags)
       .where(eq(postTags.postId, pid));
-    const existing = new Set(existingRows.map((r) => r.tagId));
-    const toAdd = [...incoming].filter((id) => !existing.has(id));
-    const toRemove = [...existing].filter((id) => !incoming.has(id));
+    const existing = new Set<number>(existingRows.map((r) => r.tagId as number));
+    const toAdd: number[] = [...incoming].filter((id) => !existing.has(id));
+    const toRemove: number[] = [...existing].filter((id) => !incoming.has(id));
     if (toRemove.length) {
       await db
         .delete(postTags)
