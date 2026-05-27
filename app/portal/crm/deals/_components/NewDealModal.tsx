@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Select from 'react-select';
 import MarkdownView from '@/components/portal/MarkdownView';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 import * as api from '../_lib/api';
 import { inputClass, rsClassNames } from '../_lib/ui';
 import type { Company, Contact, DealFormState, Pipeline } from '../_lib/types';
@@ -40,6 +41,14 @@ export default function NewDealModal({
   const [error, setError] = useState('');
   const [notesPreview, setNotesPreview] = useState(false);
 
+  // Display label for the currently-selected company in the typeahead picker.
+  // The form only carries `companyId`; we track the chosen name here so the
+  // closed-state of the dropdown reads correctly without re-fetching.
+  const [companyLabel, setCompanyLabel] = useState<string | null>(() => {
+    if (!initialForm.companyId) return null;
+    return companies.find((c) => c.id === Number(initialForm.companyId))?.name ?? null;
+  });
+
   // Inline company creation state
   const [newCompanyName, setNewCompanyName] = useState('');
   const [creatingCompany, setCreatingCompany] = useState(false);
@@ -67,6 +76,7 @@ export default function NewDealModal({
     if (!d.success || !d.data) return;
     onCompanyCreated(d.data);
     setForm((f) => ({ ...f, companyId: String(d.data!.id), contactId: '' }));
+    setCompanyLabel(d.data.name);
     setNewCompanyName('');
     setShowNewCompany(false);
   }
@@ -205,18 +215,15 @@ export default function NewDealModal({
               </button>
             </div>
           ) : (
-            <select
+            <CrmCompanyTypeaheadPicker
               value={form.companyId}
-              onChange={(e) => setForm((f) => ({ ...f, companyId: e.target.value, contactId: '' }))}
-              className={inputClass}
-            >
-              <option value="">None</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              selectedLabel={companyLabel}
+              onChange={(opt) => {
+                setForm((f) => ({ ...f, companyId: opt ? String(opt.id) : '', contactId: '' }));
+                setCompanyLabel(opt ? opt.name : null);
+              }}
+              placeholder="Select company…"
+            />
           )}
         </div>
         <div>
@@ -280,7 +287,7 @@ export default function NewDealModal({
               </div>
               {form.companyId && (
                 <p className="text-[10px] text-muted-foreground">
-                  Will be assigned to {companies.find((c) => c.id === Number(form.companyId))?.name}
+                  Will be assigned to {companyLabel ?? `company #${form.companyId}`}
                 </p>
               )}
             </div>

@@ -139,7 +139,6 @@ export default function CrmDealsPage() {
           deal={editingDeal}
           pipelines={pipelines}
           contacts={contacts}
-          companies={companies}
           onCompanyCreated={handleCompanyCreated}
           onContactCreated={handleContactCreated}
           onSaved={() => {
