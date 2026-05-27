@@ -36,6 +36,10 @@ interface ListOpts {
   priority?: BrainRelationshipPriority;
   status?: BrainRelationshipStatus;
   staleOnly?: boolean;
+  /** Hard cap of overlay rows fetched. Default 100, max 500. */
+  limit?: number;
+  /** Pagination offset; pairs with `limit`. Default 0. */
+  offset?: number;
 }
 
 export async function listRelationships(clientId: number, opts: ListOpts = {}): Promise<RelationshipListRow[]> {
@@ -45,9 +49,17 @@ export async function listRelationships(clientId: number, opts: ListOpts = {}): 
   if (opts.priority) overlayConditions.push(eq(brainRelationshipOverlays.priority, opts.priority));
   if (opts.status) overlayConditions.push(eq(brainRelationshipOverlays.status, opts.status));
 
+  // Clamp limit to [1, 500]; default 100. Offset >= 0. These bounds keep the
+  // unbounded historical behavior (returning everything) from surfacing in
+  // the portal UI while still letting callers page through large tenants.
+  const limit = Math.min(500, Math.max(1, opts.limit ?? 100));
+  const offset = Math.max(0, opts.offset ?? 0);
+
   const overlays = await db.select().from(brainRelationshipOverlays)
     .where(and(...overlayConditions))
-    .orderBy(desc(brainRelationshipOverlays.priority), desc(brainRelationshipOverlays.lastTouchAt));
+    .orderBy(desc(brainRelationshipOverlays.priority), desc(brainRelationshipOverlays.lastTouchAt))
+    .limit(limit)
+    .offset(offset);
 
   if (overlays.length === 0) return [];
 
@@ -135,6 +147,31 @@ export async function listRelationships(clientId: number, opts: ListOpts = {}): 
     })
     .filter((r): r is RelationshipListRow => r !== null)
     .filter((r) => !opts.staleOnly || r.isStale);
+}
+
+/**
+ * Count overlay rows matching the same overlay-level filters as
+ * {@link listRelationships}. Used by the paginated API route to surface a
+ * `total` alongside the page slice. Mirrors {@link countNotes}.
+ *
+ * Note: this counts BEFORE the post-fetch `staleOnly` filter (which is
+ * computed in JS from `lastTouchAt + staleAfterDays`). With pagination,
+ * surfacing a precise stale-only total would require either a materialized
+ * `is_stale` column or a SQL expression — out of scope for this slim pass.
+ */
+export async function countRelationships(
+  clientId: number,
+  opts: Omit<ListOpts, 'limit' | 'offset' | 'staleOnly'> = {},
+): Promise<number> {
+  const conds = [eq(brainRelationshipOverlays.clientId, clientId)];
+  if (opts.type) conds.push(eq(brainRelationshipOverlays.relationshipType, opts.type));
+  if (opts.ownerId !== undefined) conds.push(eq(brainRelationshipOverlays.ownerId, opts.ownerId));
+  if (opts.priority) conds.push(eq(brainRelationshipOverlays.priority, opts.priority));
+  if (opts.status) conds.push(eq(brainRelationshipOverlays.status, opts.status));
+  const [row] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(brainRelationshipOverlays)
+    .where(and(...conds));
+  return row?.count ?? 0;
 }
 
 export interface RelationshipDetail {
