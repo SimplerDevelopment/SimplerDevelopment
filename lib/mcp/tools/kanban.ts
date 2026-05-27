@@ -156,7 +156,31 @@ export function registerKanbanTools(server: McpServer, ctx: PortalMcpContext): v
       const cols = await db.select().from(kanbanColumns)
         .where(eq(kanbanColumns.projectId, projectId))
         .orderBy(kanbanColumns.order);
-      const cards = await db.select().from(kanbanCards)
+      // Slim projection: list/board views never render the long-text
+      // description; clients fetch it on demand when opening the card detail
+      // drawer. Saves a meaningful payload on boards with many cards.
+      const cards = await db.select({
+        id: kanbanCards.id,
+        columnId: kanbanCards.columnId,
+        projectId: kanbanCards.projectId,
+        number: kanbanCards.number,
+        title: kanbanCards.title,
+        dueDate: kanbanCards.dueDate,
+        priority: kanbanCards.priority,
+        order: kanbanCards.order,
+        sprintId: kanbanCards.sprintId,
+        sprintOrder: kanbanCards.sprintOrder,
+        storyPoints: kanbanCards.storyPoints,
+        cardType: kanbanCards.cardType,
+        parentCardId: kanbanCards.parentCardId,
+        workflowState: kanbanCards.workflowState,
+        campaignId: kanbanCards.campaignId,
+        scheduledFor: kanbanCards.scheduledFor,
+        createdBy: kanbanCards.createdBy,
+        createdAt: kanbanCards.createdAt,
+        updatedAt: kanbanCards.updatedAt,
+      })
+        .from(kanbanCards)
         .where(eq(kanbanCards.projectId, projectId))
         .orderBy(kanbanCards.order);
       return json({ columns: cols, cards });
