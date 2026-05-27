@@ -21,6 +21,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import type { Awareness } from 'y-protocols/awareness';
 import type {
   CommentAnchor,
@@ -190,25 +191,19 @@ export function useComments(opts: UseCommentsOptions): UseCommentsApi {
     rowsRef.current = rows;
   }, [rows]);
 
-  // Track our session userId for optimistic authorId. Loaded lazily on first
-  // mutation via /api/auth/session — most callers will already have a session
-  // cookie, but we don't want to require a prop.
-  const userIdRef = useRef<number | null>(null);
+  // Track our session userId for optimistic authorId. We pull from the
+  // SessionProvider via useSession() so this hook doesn't trigger an extra
+  // /api/auth/session network call — the root provider already has it cached.
+  const { data: sessionData } = useSession();
+  const sessionUserId = (() => {
+    const raw = sessionData?.user?.id;
+    if (raw == null) return null;
+    const parsed = typeof raw === 'string' ? parseInt(raw, 10) : typeof raw === 'number' ? raw : NaN;
+    return Number.isFinite(parsed) ? parsed : 0;
+  })();
   const ensureUserId = useCallback(async (): Promise<number> => {
-    if (userIdRef.current !== null) return userIdRef.current;
-    try {
-      const res = await fetch('/api/auth/session', { credentials: 'include' });
-      const json = (await res.json()) as { user?: { id?: string | number } };
-      const raw = json?.user?.id;
-      const parsed =
-        typeof raw === 'string' ? parseInt(raw, 10) : typeof raw === 'number' ? raw : 0;
-      userIdRef.current = Number.isFinite(parsed) ? parsed : 0;
-      return userIdRef.current;
-    } catch {
-      userIdRef.current = 0;
-      return 0;
-    }
-  }, []);
+    return sessionUserId ?? 0;
+  }, [sessionUserId]);
 
   const refresh = useCallback(async (): Promise<void> => {
     if (abortRef.current) abortRef.current.abort();
