@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import CrmCustomFieldsPanel from '@/components/portal/CrmCustomFieldsPanel';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 
 interface Tag {
   id: number;
@@ -46,11 +47,6 @@ interface Deal {
   value: number;
   stageName: string;
   status: string;
-}
-
-interface Company {
-  id: number;
-  name: string;
 }
 
 const activityTypes = [
@@ -113,10 +109,13 @@ export default function CrmContactDetailPage() {
   const [contact, setContact] = useState<Contact | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Display label for the currently-selected company in the edit form.
+  // Seeded from the contact's denormalised `companyName` when editing starts,
+  // updated when the user picks a different company from the typeahead.
+  const [editCompanyLabel, setEditCompanyLabel] = useState<string | null>(null);
 
   const [editForm, setEditForm] = useState({
     firstName: '',
@@ -162,13 +161,7 @@ export default function CrmContactDetailPage() {
   }, [contactId]);
 
   useEffect(() => {
-    Promise.all([
-      fetchContact(),
-      fetchActivities(),
-      // TODO(perf): convert this company-picker to typeahead (?q=<query>); for now
-      // it pulls the first 200 companies — the endpoint hard-caps at 200.
-      fetch('/api/portal/crm/companies?limit=200').then(r => r.json()).then(d => setCompanies(d.data?.companies ?? d.data ?? [])),
-    ]).then(() => setLoading(false));
+    Promise.all([fetchContact(), fetchActivities()]).then(() => setLoading(false));
   }, [fetchContact, fetchActivities]);
 
   function startEditing() {
@@ -185,6 +178,9 @@ export default function CrmContactDetailPage() {
       source: contact.source ?? '',
       address: contact.address ?? '',
     });
+    // Seed the typeahead's display label from the denormalised companyName on
+    // the contact payload — avoids round-tripping just to render the name.
+    setEditCompanyLabel(contact.companyName ?? null);
     setEditing(true);
   }
 
@@ -455,16 +451,15 @@ export default function CrmContactDetailPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Company</label>
-              <select
+              <CrmCompanyTypeaheadPicker
                 value={editForm.companyId}
-                onChange={e => setEditForm(f => ({ ...f, companyId: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="">None</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                selectedLabel={editCompanyLabel}
+                onChange={opt => {
+                  setEditForm(f => ({ ...f, companyId: opt ? String(opt.id) : '' }));
+                  setEditCompanyLabel(opt ? opt.name : null);
+                }}
+                placeholder="Select company…"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
