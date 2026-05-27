@@ -7,7 +7,7 @@ import {
   projects,
   type BrainTaskStatus,
 } from '@/lib/db/schema';
-import { eq, and, desc, inArray, max } from 'drizzle-orm';
+import { eq, and, desc, inArray, max, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 
 export type BrainTask = typeof brainTasks.$inferSelect;
@@ -17,10 +17,13 @@ interface ListOpts {
   ownerId?: number;
   meetingId?: number;
   needsReview?: boolean;
+  /** Hard cap of rows fetched. Default 200, max 200. */
   limit?: number;
+  /** Pagination offset; pairs with `limit`. Default 0. */
+  offset?: number;
 }
 
-export async function listTasks(clientId: number, opts: ListOpts = {}): Promise<BrainTask[]> {
+function buildTaskFilters(clientId: number, opts: ListOpts) {
   const conditions = [eq(brainTasks.clientId, clientId)];
   if (opts.status) {
     if (Array.isArray(opts.status)) {
@@ -32,10 +35,25 @@ export async function listTasks(clientId: number, opts: ListOpts = {}): Promise<
   if (opts.ownerId !== undefined) conditions.push(eq(brainTasks.ownerId, opts.ownerId));
   if (opts.meetingId !== undefined) conditions.push(eq(brainTasks.meetingId, opts.meetingId));
   if (opts.needsReview !== undefined) conditions.push(eq(brainTasks.needsReview, opts.needsReview));
+  return conditions;
+}
+
+export async function listTasks(clientId: number, opts: ListOpts = {}): Promise<BrainTask[]> {
+  const conditions = buildTaskFilters(clientId, opts);
   return db.select().from(brainTasks)
     .where(and(...conditions))
     .orderBy(desc(brainTasks.createdAt))
-    .limit(opts.limit ?? 200);
+    .limit(opts.limit ?? 200)
+    .offset(opts.offset ?? 0);
+}
+
+/** Count rows matching the same filter set as {@link listTasks}. */
+export async function countTasks(clientId: number, opts: Omit<ListOpts, 'limit' | 'offset'> = {}): Promise<number> {
+  const conditions = buildTaskFilters(clientId, opts);
+  const [row] = await db.select({ count: sql<number>`count(*)::int` })
+    .from(brainTasks)
+    .where(and(...conditions));
+  return row?.count ?? 0;
 }
 
 export async function getTask(clientId: number, taskId: number): Promise<BrainTask | null> {
