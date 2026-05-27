@@ -13,6 +13,7 @@ import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
 import { getMeetingAdapter, type AdapterContext, type NormalizedMeetingInput } from './meeting-sources';
 import { stripQuotedReply } from './strip-quoted';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainMeeting = typeof brainMeetings.$inferSelect;
 export type BrainMeetingParticipant = typeof brainMeetingParticipants.$inferSelect;
@@ -281,6 +282,8 @@ export async function createMeetingFromAdapter({ adapterId, input, ctx, link }: 
     metadata: { adapterId: adapter.id, sourceRef: normalized.sourceRef, byteCount: normalized.transcript.length },
   });
 
+  // Meetings feed the recentMeetings / needsReviewMeetings dashboard tiles.
+  revalidateBrainDashboard(ctx.clientId);
   return meeting;
 }
 
@@ -315,6 +318,8 @@ export async function updateMeetingStatus(
   const [updated] = await db.update(brainMeetings).set(update)
     .where(and(eq(brainMeetings.id, meetingId), eq(brainMeetings.clientId, clientId)))
     .returning();
+  // Status flips drive whether a meeting shows up in needsReviewMeetings.
+  if (updated) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
@@ -333,7 +338,7 @@ export async function setMeetingAiSummary(
 }
 
 export async function deleteMeeting(clientId: number, meetingId: number): Promise<boolean> {
-  return await db.transaction(async (tx) => {
+  const deleted = await db.transaction(async (tx) => {
     // brain_ai_review_items.sourceId has no FK, so we must clean up orphans
     // explicitly before deleting the meeting. Without this the review queue
     // keeps showing items pointing at a meeting that no longer exists.
@@ -348,4 +353,6 @@ export async function deleteMeeting(clientId: number, meetingId: number): Promis
       .returning({ id: brainMeetings.id });
     return result.length > 0;
   });
+  if (deleted) revalidateBrainDashboard(clientId);
+  return deleted;
 }

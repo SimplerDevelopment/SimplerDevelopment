@@ -9,6 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, desc, inArray, max } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainTask = typeof brainTasks.$inferSelect;
 
@@ -78,6 +79,9 @@ export async function createTask(input: CreateTaskInput, opts: { tx?: typeof db 
     complianceFlag: input.complianceFlag ?? false,
     createdBy: input.createdBy ?? null,
   }).returning();
+  // Tasks feed openTasks / aiCreatedTasks / overdue / blocked / upcoming tiles —
+  // bump the per-client dashboard cache so the next read recomputes.
+  revalidateBrainDashboard(input.clientId);
   return created;
 }
 
@@ -115,6 +119,9 @@ export async function updateTask(
       entityId: taskId,
       metadata: { changedFields: Object.keys(input) },
     });
+    // Status / due-date / priority / needsReview flips all change dashboard
+    // tile membership — always bump.
+    revalidateBrainDashboard(clientId);
   }
   return updated ?? null;
 }
@@ -131,6 +138,7 @@ export async function deleteTask(clientId: number, taskId: number, actorId: numb
       entityType: 'brain_task',
       entityId: taskId,
     });
+    revalidateBrainDashboard(clientId);
   }
   return result.length > 0;
 }

@@ -31,6 +31,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainGoal = typeof brainGoals.$inferSelect;
 
@@ -234,6 +235,10 @@ export async function createGoal(
     metadata: { initiativeId: created.initiativeId },
   });
 
+  // goalsAtRisk / goalsAchievedThisQuarter dashboard tiles.
+  if (created.status === 'at_risk' || created.status === 'off_track' || created.status === 'achieved') {
+    revalidateBrainDashboard(clientId);
+  }
   return created;
 }
 
@@ -293,6 +298,10 @@ export async function updateGoal(
       entityId: id,
       metadata: { changedFields: Object.keys(patch) },
     });
+    // Status field is the only one that drives dashboard counts, but other
+    // fields (targetMetric / targetDate) can flip the auto-classify outcome
+    // on the next checkin — bump on any update.
+    if (patch.status !== undefined) revalidateBrainDashboard(clientId);
   }
   return updated ?? null;
 }
@@ -342,6 +351,8 @@ export async function checkinGoal(
     .where(and(eq(brainGoals.id, id), eq(brainGoals.clientId, clientId)))
     .returning();
 
+  // Checkins routinely flip status via auto-classify — bump if status moved.
+  if (updated && before.status !== updated.status) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
@@ -373,6 +384,7 @@ export async function deleteGoal(
     .where(and(eq(brainGoals.id, id), eq(brainGoals.clientId, clientId)))
     .returning({ id: brainGoals.id });
 
+  if (res.length > 0) revalidateBrainDashboard(clientId);
   return res.length > 0;
 }
 

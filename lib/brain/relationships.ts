@@ -11,6 +11,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, or, desc, inArray, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainRelationshipOverlay = typeof brainRelationshipOverlays.$inferSelect;
 
@@ -320,6 +321,8 @@ export async function createOverlay(input: UpsertOverlayInput): Promise<BrainRel
     },
   });
 
+  // relationships count + staleProspects + priorityRelationships tiles.
+  revalidateBrainDashboard(input.clientId);
   return created;
 }
 
@@ -363,6 +366,8 @@ export async function updateOverlay(
     metadata: { changedFields: Object.keys(update).filter((k) => k !== 'updatedAt') },
   });
 
+  // Priority / status / lastTouchAt / staleAfterDays all feed dashboard tiles.
+  revalidateBrainDashboard(clientId);
   return updated;
 }
 
@@ -379,6 +384,7 @@ export async function deleteOverlay(clientId: number, overlayId: number, actorId
     entityType: 'brain_relationship_overlay',
     entityId: overlayId,
   });
+  revalidateBrainDashboard(clientId);
   return true;
 }
 
