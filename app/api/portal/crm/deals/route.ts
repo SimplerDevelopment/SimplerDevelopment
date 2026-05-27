@@ -28,6 +28,14 @@ export async function GET(req: NextRequest) {
   const stageId = url.searchParams.get('stageId') || '';
   const status = url.searchParams.get('status') || '';
   const search = url.searchParams.get('search') || '';
+  // Pagination — added in perf/phase1. Previously returned ALL deals, which
+  // grew unbounded as the pipeline filled. Default 50, hard cap 200.
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const limit = Math.min(
+    200,
+    Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10))
+  );
+  const offset = (page - 1) * limit;
 
   const conditions = [eq(crmDeals.clientId, client.id)];
 
@@ -88,7 +96,9 @@ export async function GET(req: NextRequest) {
     .leftJoin(crmPipelineStages, eq(crmDeals.stageId, crmPipelineStages.id))
     .leftJoin(users, eq(crmDeals.ownerId, users.id))
     .where(and(...conditions))
-    .orderBy(asc(crmDeals.sortOrder), desc(crmDeals.createdAt));
+    .orderBy(asc(crmDeals.sortOrder), desc(crmDeals.createdAt))
+    .limit(limit)
+    .offset(offset);
 
   const data = deals.map(d => ({
     ...d,

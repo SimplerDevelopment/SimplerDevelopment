@@ -124,7 +124,9 @@ export default function CrmContactsPage() {
   }, [fetchContacts]);
 
   useEffect(() => {
-    fetch('/api/portal/crm/companies?limit=5000')
+    // TODO(perf): convert this company-filter dropdown to typeahead (?q=<query>).
+    // For now it pulls the first 200 companies — the endpoint hard-caps at 200.
+    fetch('/api/portal/crm/companies?limit=200')
       .then(r => r.json())
       .then(d => setCompanies(d.data?.companies ?? d.data ?? []));
   }, []);

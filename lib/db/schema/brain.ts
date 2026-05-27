@@ -167,7 +167,10 @@ export const brainMeetings = pgTable('brain_meetings', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (t) => [uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef)]);
+}, (t) => [
+  uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef),
+  index('brain_meetings_client_meeting_date_idx').on(t.clientId, t.meetingDate),
+]);
 
 export const brainMeetingParticipants = pgTable('brain_meeting_participants', {
   id: serial('id').primaryKey(),
@@ -204,7 +207,10 @@ export const brainTasks = pgTable('brain_tasks', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('brain_tasks_client_status_due_idx').on(t.clientId, t.status, t.dueDate),
+  index('brain_tasks_client_owner_idx').on(t.clientId, t.ownerId),
+]);
 
 // What kind of record an AI proposal would become if approved.
 
@@ -458,7 +464,10 @@ export const brainRelationshipOverlays = pgTable('brain_relationship_overlays', 
   staleAfterDays: integer('stale_after_days'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('brain_relationship_overlays_client_company_idx').on(t.clientId, t.companyId),
+  index('brain_relationship_overlays_client_deal_idx').on(t.clientId, t.dealId),
+]);
 
 // ─── BRAIN KNOWLEDGE ─────────────────────────────────────────────────────────
 // Free-form notes/documents linked to relationships, deals, contacts, or
@@ -503,7 +512,12 @@ export const brainNotes = pgTable('brain_notes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
-});
+}, (t) => [
+  index('brain_notes_client_updated_idx').on(t.clientId, t.updatedAt),
+  index('brain_notes_client_company_idx').on(t.clientId, t.companyId),
+  index('brain_notes_client_deal_idx').on(t.clientId, t.dealId),
+  index('brain_notes_client_pinned_idx').on(t.clientId, t.pinned),
+]);
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via
 // slash command, on a daily cron, or auto-attached to a new meeting. Bodies

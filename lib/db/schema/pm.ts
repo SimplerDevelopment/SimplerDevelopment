@@ -101,6 +101,8 @@ export const kanbanCards = pgTable('kanban_cards', {
 }, (t) => [
   index('kanban_cards_campaign_idx').on(t.campaignId),
   index('kanban_cards_scheduled_for_idx').on(t.scheduledFor),
+  index('kanban_cards_project_idx').on(t.projectId),
+  index('kanban_cards_project_column_order_idx').on(t.projectId, t.columnId, t.order),
 ]);
 
 export const supportTickets = pgTable('support_tickets', {
