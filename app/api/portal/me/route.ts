@@ -13,10 +13,10 @@
  */
 
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { clientWebsites, users } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
 import { resolvePortalFromRequest } from '@/lib/mcp-auth';
 
@@ -26,6 +26,31 @@ export const dynamic = 'force-dynamic';
 interface MePayload {
   user: { id: number; email: string; name: string; role: string };
   client: { id: number; company: string; subdomain: string | null } | null;
+}
+
+// `clients.subdomain` doesn't exist — subdomain lives on `client_websites`.
+// Resolve the client's default website's subdomain (matching the helper in
+// /api/portal/my-subdomain), with a fallback to the first website that has one.
+async function resolveClientSubdomain(
+  clientId: number,
+  defaultWebsiteId: number | null,
+): Promise<string | null> {
+  if (defaultWebsiteId) {
+    const [site] = await db
+      .select({ subdomain: clientWebsites.subdomain })
+      .from(clientWebsites)
+      .where(
+        and(eq(clientWebsites.id, defaultWebsiteId), eq(clientWebsites.clientId, clientId)),
+      )
+      .limit(1);
+    if (site?.subdomain) return site.subdomain;
+  }
+  const [site] = await db
+    .select({ subdomain: clientWebsites.subdomain })
+    .from(clientWebsites)
+    .where(eq(clientWebsites.clientId, clientId))
+    .limit(1);
+  return site?.subdomain ?? null;
 }
 
 export async function GET(req: Request) {
@@ -42,12 +67,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
     }
 
+    const subdomain = await resolveClientSubdomain(
+      bearerCtx.client.id,
+      bearerCtx.client.defaultWebsiteId ?? null,
+    );
     const payload: MePayload = {
       user,
       client: {
         id: bearerCtx.client.id,
         company: bearerCtx.client.company ?? '',
-        subdomain: bearerCtx.client.subdomain ?? null,
+        subdomain,
       },
     };
     return NextResponse.json({ success: true, data: payload });
@@ -71,10 +100,13 @@ export async function GET(req: Request) {
   }
 
   const client = await getPortalClient(userId);
+  const subdomain = client
+    ? await resolveClientSubdomain(client.id, client.defaultWebsiteId ?? null)
+    : null;
   const payload: MePayload = {
     user,
     client: client
-      ? { id: client.id, company: client.company ?? '', subdomain: client.subdomain ?? null }
+      ? { id: client.id, company: client.company ?? '', subdomain }
       : null,
   };
   return NextResponse.json({ success: true, data: payload });
