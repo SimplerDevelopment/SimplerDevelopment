@@ -104,6 +104,17 @@ const SuccessResultBrainNotesBatch = z.object({
   }),
 });
 
+// Generic script result — used for any kind declared in the plugin's
+// SCRIPTS registry that doesn't have a dedicated result table (e.g.
+// hello-world). The JSON `output` is serialised into the run's log_tail
+// so it surfaces in the Runs detail view; no schema change needed for
+// new scripts.
+const SuccessResultScript = z.object({
+  kind: z.literal('script'),
+  scriptId: z.string().min(1).max(64),
+  output: z.unknown(),
+});
+
 const SuccessSchema = z.object({
   outcome: z.literal('succeeded'),
   result: z.discriminatedUnion('kind', [
@@ -111,6 +122,7 @@ const SuccessSchema = z.object({
     SuccessResultDraftBlogPost,
     SuccessResultCompetitorResearch,
     SuccessResultBrainNotesBatch,
+    SuccessResultScript,
   ]),
   logTail: z.string().max(LOG_TAIL_MAX * 2).optional(), // server caps to LOG_TAIL_MAX
 });
@@ -177,9 +189,12 @@ const postComplete: CallbackHandler = {
     }
 
     const finishedAt = new Date();
-    const logTailRedacted = parsed.data.logTail
-      ? capLogTail(redactLog(parsed.data.logTail))
-      : null;
+    // We re-compute the redacted log tail just before the UPDATE because
+    // some result branches (competitor-research's brain-ingest trace,
+    // script's JSON output dump) mutate parsed.data.logTail mid-flight.
+    // Helper so both the success and failure paths agree on the cap.
+    const computeRedactedLogTail = (): string | null =>
+      parsed.data.logTail ? capLogTail(redactLog(parsed.data.logTail)) : null;
 
     if (parsed.data.outcome === 'succeeded') {
       // Insert the kind-specific result row first; runs.result_id is then
@@ -209,7 +224,13 @@ const postComplete: CallbackHandler = {
         if (!row) throw new Error('complete: postcaptainBriefs insert returned no row');
         resultId = row.id;
       } else if (result.kind === 'competitor-research') {
-        if (run.kind !== 'competitor-research') {
+        // Per-competitor scrape kinds (`scrape-<slug>` — declared in the
+        // plugin's lib/scripts.ts via lib/competitors.ts) all dispatch
+        // through runCompetitorResearch on the worker side and emit a
+        // `competitor-research` result. Accept both `competitor-research`
+        // and `scrape-*` run kinds here so each scrape script lands as a
+        // postcaptain_briefs row + brain ingestion the same way.
+        if (run.kind !== 'competitor-research' && !run.kind.startsWith('scrape-')) {
           return fail(
             'validation_error',
             `Result kind 'competitor-research' does not match run kind '${run.kind}'.`,
@@ -298,7 +319,7 @@ const postComplete: CallbackHandler = {
         // resultId stays null — there is no per-run result row, the
         // brain_notes inserts ARE the artifact. exit_code=0 below still
         // signals success.
-      } else {
+      } else if (result.kind === 'draft-blog-post') {
         if (run.kind !== 'draft-blog-post') {
           return fail(
             'validation_error',
@@ -316,6 +337,29 @@ const postComplete: CallbackHandler = {
         }).returning({ id: postcaptainDrafts.id });
         if (!row) throw new Error('complete: postcaptainDrafts insert returned no row');
         resultId = row.id;
+      } else {
+        // Generic 'script' result — no kind-specific result table. Cross-
+        // check that the run's recorded kind matches the script id the
+        // worker reported, then serialise the JSON output into the run's
+        // logTail so it shows up in the Runs detail view. resultId stays
+        // null (registered_app_runs.result_id is nullable).
+        if (run.kind !== result.scriptId) {
+          return fail(
+            'validation_error',
+            `Result scriptId '${result.scriptId}' does not match run kind '${run.kind}'.`,
+            400,
+          );
+        }
+        let serialisedOutput = '';
+        try {
+          serialisedOutput = JSON.stringify(result.output, null, 2);
+        } catch {
+          serialisedOutput = String(result.output);
+        }
+        const trace = `[script:${result.scriptId}] output:\n${serialisedOutput}`;
+        parsed.data.logTail = parsed.data.logTail
+          ? `${parsed.data.logTail}\n${trace}`
+          : trace;
       }
 
       // CAS-transition. If a competing call won the transition, this UPDATE
@@ -326,7 +370,7 @@ const postComplete: CallbackHandler = {
         updatedAt: finishedAt,
         exitCode: 0,
         resultId,
-        logTail: logTailRedacted,
+        logTail: computeRedactedLogTail(),
       }).where(and(
         eq(registeredAppRuns.id, runId),
         eq(registeredAppRuns.status, 'running'),
@@ -345,7 +389,7 @@ const postComplete: CallbackHandler = {
       updatedAt: finishedAt,
       exitCode: 1,
       errorSummary,
-      logTail: logTailRedacted,
+      logTail: computeRedactedLogTail(),
     }).where(and(
       eq(registeredAppRuns.id, runId),
       eq(registeredAppRuns.status, 'running'),

@@ -44,7 +44,16 @@ export { redactLog, capLogTail };
 const DRAIN_PARALLELISM = 4; // dispatch is fast (~1s), so we can fan wider than Wave 1
 const ERROR_SUMMARY_MAX = 1_000;
 
-export type RunKind = 'research-brief' | 'draft-blog-post' | 'competitor-research';
+// Legacy kinds are kept as literal members for autocomplete + readability;
+// the `(string & {})` tail widens the type to accept arbitrary script ids
+// declared by a plugin's manifest (e.g. 'hello-world'). The DB column is
+// just varchar, and the plugin's worker-side dispatch-router does the real
+// per-kind validation, so we don't need a closed enum here.
+export type RunKind =
+  | 'research-brief'
+  | 'draft-blog-post'
+  | 'competitor-research'
+  | (string & {});
 
 // ─── enqueueRun ─────────────────────────────────────────────────────────────
 
