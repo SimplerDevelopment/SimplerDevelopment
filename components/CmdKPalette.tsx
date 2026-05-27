@@ -116,10 +116,30 @@ interface CmdKPaletteProps {
    *  `buildPortalNavItems` so the palette picks up the "Apps" group + each
    *  plugin's manifest nav items as searchable jump targets. */
   apps?: UserAppNavMeta[];
+  /** Controlled-mode open state. When provided alongside `onClose`, the
+   *  palette is fully controlled by the parent (typically `CmdKLauncher`,
+   *  which owns the Cmd-K hotkey listener and keeps this module lazy until
+   *  first open). When omitted, the palette falls back to uncontrolled mode
+   *  and registers its own hotkey listener — useful for stand-alone use and
+   *  the existing unit-test suite. */
+  open?: boolean;
+  onClose?: () => void;
 }
 
-export default function CmdKPalette({ apps }: CmdKPaletteProps = {}) {
-  const [open, setOpen] = useState(false);
+export default function CmdKPalette({ apps, open: controlledOpen, onClose }: CmdKPaletteProps = {}) {
+  // Uncontrolled fallback — only used when the palette is rendered without
+  // an explicit `open` prop (legacy callers + unit tests). In the production
+  // portal path the launcher passes `open` and we ignore this state.
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = isControlled
+    ? (next: boolean | ((prev: boolean) => boolean)) => {
+        const value = typeof next === 'function' ? next(open) : next;
+        if (!value) onClose?.();
+      }
+    : setUncontrolledOpen;
+
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<BrainSearchHit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -155,20 +175,21 @@ export default function CmdKPalette({ apps }: CmdKPaletteProps = {}) {
     return flattenPortalNav(buildPortalNavItems(activeSiteId, activeSiteName, apps));
   }, [activeSiteId, activeSiteName, apps]);
 
-  // Global Cmd+K / Ctrl+K listener — toggles open. Cmd+K is not a typing key
-  // so it is safe to capture even when an input/textarea is focused (matches
-  // Linear/Raycast behavior).
+  // Global Cmd+K / Ctrl+K listener — only registered when the palette is
+  // *uncontrolled*. In the production portal path the parent `CmdKLauncher`
+  // owns the hotkey so this module can stay lazy until first open.
   useEffect(() => {
+    if (isControlled) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         e.stopPropagation();
-        setOpen((prev) => !prev);
+        setUncontrolledOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [isControlled]);
 
   // Reset state when opening / closing.
   useEffect(() => {
@@ -267,7 +288,7 @@ export default function CmdKPalette({ apps }: CmdKPaletteProps = {}) {
     setSelectedIndex(0);
   }, [query]);
 
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => setOpen(false), [setOpen]);
 
   const activate = useCallback(
     (item: Item) => {
