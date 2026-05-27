@@ -108,14 +108,84 @@ interface MeetingWithParticipants extends BrainMeeting {
   };
 }
 
-export async function listMeetings(clientId: number, opts?: { status?: BrainMeetingStatus; limit?: number }): Promise<BrainMeeting[]> {
+/**
+ * Slim row shape returned by {@link listMeetings} by default. Omits the
+ * heavy text columns — `transcript` can be tens of KB per meeting and
+ * `aiSummary` / `humanSummary` add up fast across a tenant's history. The
+ * list pages (`/portal/brain/communications`, the dashboard recent-comms
+ * panel) only render id/title/date/status/source/createdAt + sourceMetadata.
+ * Detail loaders (`getMeeting`) and the MCP fetch path keep returning the
+ * full row including transcript.
+ *
+ * Defined as a structural shape rather than `Omit<BrainMeeting, ...>` so the
+ * type doesn't force TS to materialize `BrainMeeting`'s full key set, which
+ * cascades into "property missing" errors at consumer sites when
+ * `drizzle-orm` typings are unavailable in a partial typecheck.
+ */
+export interface BrainMeetingListItem {
+  id: number;
+  clientId: number;
+  companyId: number | null;
+  dealId: number | null;
+  title: string;
+  meetingDate: Date | null;
+  status: BrainMeetingStatus;
+  reviewedBy: number | null;
+  reviewedAt: Date | null;
+  confidentialityLevel: string;
+  source: string;
+  sourceRef: string;
+  sourceMetadata: Record<string, unknown> | null;
+  createdBy: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export async function listMeetings(
+  clientId: number,
+  opts?: { status?: BrainMeetingStatus; limit?: number; includeTranscript?: boolean },
+): Promise<BrainMeetingListItem[]> {
   const conditions = [eq(brainMeetings.clientId, clientId)];
   if (opts?.status) conditions.push(eq(brainMeetings.status, opts.status));
-  const rows = await db.select().from(brainMeetings)
+
+  if (opts?.includeTranscript) {
+    // Opt-in path — return rows including transcript/aiSummary/humanSummary.
+    // Returned as BrainMeetingListItem[] for a uniform signature; callers that
+    // need the full BrainMeeting shape can cast or use a sibling helper. The
+    // MCP path is the main caller; it forwards the rows verbatim to the model
+    // which doesn't care about TS narrowing.
+    const rows = await db.select().from(brainMeetings)
+      .where(and(...conditions))
+      .orderBy(desc(brainMeetings.createdAt))
+      .limit(opts.limit ?? 100);
+    return rows as BrainMeetingListItem[];
+  }
+
+  // Slim projection — drops transcript/aiSummary/humanSummary. Every other
+  // column is preserved so existing list-page renderers (which read
+  // sourceMetadata, source, status, etc.) keep working.
+  return db.select({
+    id: brainMeetings.id,
+    clientId: brainMeetings.clientId,
+    companyId: brainMeetings.companyId,
+    dealId: brainMeetings.dealId,
+    title: brainMeetings.title,
+    meetingDate: brainMeetings.meetingDate,
+    status: brainMeetings.status,
+    reviewedBy: brainMeetings.reviewedBy,
+    reviewedAt: brainMeetings.reviewedAt,
+    confidentialityLevel: brainMeetings.confidentialityLevel,
+    source: brainMeetings.source,
+    sourceRef: brainMeetings.sourceRef,
+    sourceMetadata: brainMeetings.sourceMetadata,
+    createdBy: brainMeetings.createdBy,
+    createdAt: brainMeetings.createdAt,
+    updatedAt: brainMeetings.updatedAt,
+  })
+    .from(brainMeetings)
     .where(and(...conditions))
     .orderBy(desc(brainMeetings.createdAt))
     .limit(opts?.limit ?? 100);
-  return rows;
 }
 
 export async function getMeeting(clientId: number, meetingId: number): Promise<MeetingWithParticipants | null> {
