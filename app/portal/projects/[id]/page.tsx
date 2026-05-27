@@ -4,17 +4,12 @@ import { projects, kanbanColumns, kanbanCards, kanbanCardFiles, kanbanCardLabels
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import KanbanBoard from '@/components/portal/KanbanBoard';
+import dynamic from 'next/dynamic';
 import ProjectFilesTab from '@/components/portal/ProjectFilesTab';
 import ProjectDescription from '@/components/portal/ProjectDescription';
 import ProjectStatusControl from '@/components/portal/ProjectStatusControl';
 import ProjectWebhooksPanel from '@/components/portal/ProjectWebhooksPanel';
-import SprintPlanning from '@/components/portal/SprintPlanning';
-import BacklogTab from '@/components/portal/BacklogTab';
-import ProjectReportsTab from '@/components/portal/ProjectReportsTab';
-import ProjectRoadmapTab from '@/components/portal/ProjectRoadmapTab';
 import ProjectMembersTab from '@/components/portal/ProjectMembersTab';
-import ProjectArtifactsTab from '@/components/portal/ProjectArtifactsTab';
 import ProjectRecurrencesPanel from '@/components/portal/ProjectRecurrencesPanel';
 import ProjectCustomFieldsPanel from '@/components/portal/ProjectCustomFieldsPanel';
 import ProjectGoalsPanel from '@/components/portal/ProjectGoalsPanel';
@@ -23,12 +18,37 @@ import { getPortalClient } from '@/lib/portal-client';
 import { getProjectRole } from '@/lib/portal/project-access';
 import { canEditProject, canManageProject } from '@/lib/portal/project-permissions';
 
+// Heavy tab components are code-split — only the bundle for the active tab
+// ships down to the client. KanbanBoard/SprintPlanning use dnd-kit + window
+// directly, so they must opt out of SSR. The others are pure React (useEffect
+// + fetch), so they can SSR fine and we just want the chunk split.
+const KanbanBoard = dynamic(() => import('@/components/portal/KanbanBoard'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading board…</div>,
+});
+const SprintPlanning = dynamic(() => import('@/components/portal/SprintPlanning'), {
+  ssr: false,
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading sprints…</div>,
+});
+const BacklogTab = dynamic(() => import('@/components/portal/BacklogTab'), {
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading backlog…</div>,
+});
+const ProjectRoadmapTab = dynamic(() => import('@/components/portal/ProjectRoadmapTab'), {
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading roadmap…</div>,
+});
+const ProjectReportsTab = dynamic(() => import('@/components/portal/ProjectReportsTab'), {
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading reports…</div>,
+});
+const ProjectArtifactsTab = dynamic(() => import('@/components/portal/ProjectArtifactsTab'), {
+  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading artifacts…</div>,
+});
+
 export default async function ProjectKanbanPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+  // Auth gate happens first — every query below depends on a logged-in user.
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
 
-  const { id } = await params;
-  const { tab } = await searchParams;
+  const [{ id }, { tab }] = await Promise.all([params, searchParams]);
   const activeTab = tab === 'files' ? 'files'
     : tab === 'sprints' ? 'sprints'
     : tab === 'backlog' ? 'backlog'
@@ -39,76 +59,198 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     : tab === 'settings' ? 'settings'
     : 'board';
   const projectId = parseInt(id, 10);
-  const [staff, userId] = [await isPortalStaff(), parseInt(session.user.id, 10)];
+  const userId = parseInt(session.user.id, 10);
 
-  // Get client (clients see only their projects; staff can see any).
-  // Use getPortalClient so team-membership users (clientMembers) resolve too,
-  // and the active-client cookie is respected for multi-client users.
+  // Wave 1: staff check + portal client run in parallel. The portal client
+  // result is only used when staff is false; running it speculatively for
+  // staff users is a cheap one-row lookup and saves a round-trip when not.
+  const [staff, portalClient] = await Promise.all([
+    isPortalStaff(),
+    getPortalClient(userId),
+  ]);
+
   let clientId: number | null = null;
   if (!staff) {
-    const client = await getPortalClient(userId);
-    if (!client) redirect('/portal/dashboard');
-    clientId = client.id;
+    if (!portalClient) redirect('/portal/dashboard');
+    clientId = portalClient.id;
   }
 
+  // Wave 2: project row + role lookup + everything else that only needs
+  // (clientId, projectId, userId) and not card IDs. These all run in parallel.
   const projectQuery = staff
     ? db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
     : db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.clientId, clientId!))).limit(1);
 
-  const [project] = await projectQuery;
+  const [
+    projectRows,
+    columns,
+    cards,
+    projectSprints,
+    rolePre,
+  ] = await Promise.all([
+    projectQuery,
+    db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId)).orderBy(kanbanColumns.order),
+    // Slim projection: omit kanbanCards.description from list/board views.
+    // The card detail drawer hydrates description on demand. Keeping every
+    // other column so downstream UI (priority, sprintId, workflowState, etc.)
+    // still works.
+    db
+      .select({
+        id: kanbanCards.id,
+        columnId: kanbanCards.columnId,
+        projectId: kanbanCards.projectId,
+        number: kanbanCards.number,
+        title: kanbanCards.title,
+        dueDate: kanbanCards.dueDate,
+        priority: kanbanCards.priority,
+        order: kanbanCards.order,
+        sprintId: kanbanCards.sprintId,
+        sprintOrder: kanbanCards.sprintOrder,
+        storyPoints: kanbanCards.storyPoints,
+        cardType: kanbanCards.cardType,
+        parentCardId: kanbanCards.parentCardId,
+        workflowState: kanbanCards.workflowState,
+        campaignId: kanbanCards.campaignId,
+        scheduledFor: kanbanCards.scheduledFor,
+        createdBy: kanbanCards.createdBy,
+        createdAt: kanbanCards.createdAt,
+        updatedAt: kanbanCards.updatedAt,
+      })
+      .from(kanbanCards)
+      .where(eq(kanbanCards.projectId, projectId))
+      .orderBy(kanbanCards.order),
+    db
+      .select({ id: sprints.id, name: sprints.name, status: sprints.status })
+      .from(sprints)
+      .where(eq(sprints.projectId, projectId))
+      .orderBy(sprints.order),
+    // Role lookup runs in parallel with everything else; staff short-circuits
+    // inside getProjectRole. React.cache dedupes if a nested server component
+    // later asks for the same role.
+    staff ? Promise.resolve('owner' as const) : getProjectRole(userId, projectId),
+  ]);
+
+  const [project] = projectRows;
   if (!project) notFound();
 
-  // Resolve the caller's role on this project. Staff resolve to 'owner' and skip
-  // the per-project members lookup; non-staff users with no membership row
-  // inherit 'viewer' so they can read the board but not mutate.
-  const role = staff ? 'owner' : (await getProjectRole(userId, projectId)) ?? 'viewer';
+  const role = staff ? 'owner' : (rolePre ?? 'viewer');
   const canEdit = canEditProject(role);
   const canManage = canManageProject(role);
 
-  const columns = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId)).orderBy(kanbanColumns.order);
-  const cards = await db.select().from(kanbanCards).where(eq(kanbanCards.projectId, projectId)).orderBy(kanbanCards.order);
-
-  const projectSprints = await db
-    .select({ id: sprints.id, name: sprints.name, status: sprints.status })
-    .from(sprints)
-    .where(eq(sprints.projectId, projectId))
-    .orderBy(sprints.order);
-
+  // Wave 3: per-card fan-out queries that all key off cardIds. Independent of
+  // each other, so a single Promise.all collapses what used to be ~7 sequential
+  // round trips down to one wave. Each entry returns an empty array when there
+  // are no cards (matches the original short-circuit), preserving inferred
+  // result types from drizzle.
   const cardIds = cards.map(c => c.id);
-  const files = cardIds.length > 0
-    ? await db.select({ cardId: kanbanCardFiles.cardId, url: kanbanCardFiles.url, mimeType: kanbanCardFiles.mimeType })
-        .from(kanbanCardFiles)
-        .where(inArray(kanbanCardFiles.cardId, cardIds))
-    : [];
+  const hasCards = cardIds.length > 0;
+
+  const [
+    files,
+    cardLabels,
+    checklistItems,
+    assigneeRows,
+    blockerRows,
+    commentCountRows,
+    unreadAlertRows,
+    watcherRows,
+  ] = await Promise.all([
+    hasCards
+      ? db
+          .select({ cardId: kanbanCardFiles.cardId, url: kanbanCardFiles.url, mimeType: kanbanCardFiles.mimeType })
+          .from(kanbanCardFiles)
+          .where(inArray(kanbanCardFiles.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; url: string; mimeType: string }[]),
+    hasCards
+      ? db
+          .select({
+            cardId: kanbanCardLabels.cardId,
+            id: kanbanLabels.id,
+            name: kanbanLabels.name,
+            color: kanbanLabels.color,
+          })
+          .from(kanbanCardLabels)
+          .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+          .where(inArray(kanbanCardLabels.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; id: number; name: string; color: string }[]),
+    hasCards
+      ? db
+          .select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
+          .from(kanbanCardChecklistItems)
+          .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; completed: boolean | null }[]),
+    hasCards
+      ? db
+          .select({
+            cardId: kanbanCardAssignees.cardId,
+            id: users.id,
+            name: users.name,
+          })
+          .from(kanbanCardAssignees)
+          .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+          .where(inArray(kanbanCardAssignees.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; id: number; name: string | null }[]),
+    // Active blockers (the blocker card is NOT in a "done" column)
+    hasCards
+      ? db
+          .select({
+            blockedCardId: kanbanCardDependencies.blockedCardId,
+            blockerIsDone: kanbanColumns.isDone,
+          })
+          .from(kanbanCardDependencies)
+          .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+          .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+          .where(inArray(kanbanCardDependencies.blockedCardId, cardIds))
+      : Promise.resolve([] as { blockedCardId: number; blockerIsDone: boolean | null }[]),
+    // Comment counts per card (project-scoped via cardIds filter).
+    hasCards
+      ? db
+          .select({
+            cardId: kanbanCardComments.cardId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(kanbanCardComments)
+          .where(inArray(kanbanCardComments.cardId, cardIds))
+          .groupBy(kanbanCardComments.cardId)
+      : Promise.resolve([] as { cardId: number; count: number }[]),
+    // Unread alerts per card for the current user. notifications.cardId scoped
+    // to this project's cardIds so notifications attached to cards in other
+    // projects can never inflate this count.
+    hasCards
+      ? db
+          .select({
+            cardId: notifications.cardId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(notifications)
+          .where(and(
+            eq(notifications.userId, userId),
+            isNull(notifications.readAt),
+            inArray(notifications.cardId, cardIds),
+          ))
+          .groupBy(notifications.cardId)
+      : Promise.resolve([] as { cardId: number | null; count: number }[]),
+    // Cards the current user is watching.
+    hasCards
+      ? db
+          .select({ cardId: kanbanCardWatchers.cardId })
+          .from(kanbanCardWatchers)
+          .where(and(
+            eq(kanbanCardWatchers.userId, userId),
+            inArray(kanbanCardWatchers.cardId, cardIds),
+          ))
+      : Promise.resolve([] as { cardId: number }[]),
+  ]);
 
   const filesByCard = files.reduce<Record<number, { url: string; mimeType: string }[]>>((acc, f) => {
     (acc[f.cardId] ??= []).push({ url: f.url, mimeType: f.mimeType });
     return acc;
   }, {});
 
-  const cardLabels = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardLabels.cardId,
-          id: kanbanLabels.id,
-          name: kanbanLabels.name,
-          color: kanbanLabels.color,
-        })
-        .from(kanbanCardLabels)
-        .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
-        .where(inArray(kanbanCardLabels.cardId, cardIds))
-    : [];
-
   const labelsByCard = cardLabels.reduce<Record<number, { id: number; name: string; color: string }[]>>((acc, l) => {
     (acc[l.cardId] ??= []).push({ id: l.id, name: l.name, color: l.color });
     return acc;
   }, {});
-
-  const checklistItems = cardIds.length > 0
-    ? await db.select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
-        .from(kanbanCardChecklistItems)
-        .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
-    : [];
 
   const checklistByCard = checklistItems.reduce<Record<number, { total: number; done: number }>>((acc, i) => {
     const r = (acc[i.cardId] ??= { total: 0, done: 0 });
@@ -117,92 +259,26 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     return acc;
   }, {});
 
-  const assigneeRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardAssignees.cardId,
-          id: users.id,
-          name: users.name,
-        })
-        .from(kanbanCardAssignees)
-        .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
-        .where(inArray(kanbanCardAssignees.cardId, cardIds))
-    : [];
-
   const assigneesByCard = assigneeRows.reduce<Record<number, { id: number; name: string }[]>>((acc, a) => {
-    (acc[a.cardId] ??= []).push({ id: a.id, name: a.name });
+    (acc[a.cardId] ??= []).push({ id: a.id, name: a.name ?? '' });
     return acc;
   }, {});
-
-  // Active blockers (the blocker card is NOT in a "done" column)
-  const blockerRows = cardIds.length > 0
-    ? await db
-        .select({
-          blockedCardId: kanbanCardDependencies.blockedCardId,
-          blockerIsDone: kanbanColumns.isDone,
-        })
-        .from(kanbanCardDependencies)
-        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
-        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-        .where(inArray(kanbanCardDependencies.blockedCardId, cardIds))
-    : [];
 
   const blockedCountByCard = blockerRows.reduce<Record<number, number>>((acc, r) => {
     if (!r.blockerIsDone) acc[r.blockedCardId] = (acc[r.blockedCardId] ?? 0) + 1;
     return acc;
   }, {});
 
-  // Comment counts per card (project-scoped via cardIds filter).
-  const commentCountRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardComments.cardId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(kanbanCardComments)
-        .where(inArray(kanbanCardComments.cardId, cardIds))
-        .groupBy(kanbanCardComments.cardId)
-    : [];
-
   const commentCountByCard = commentCountRows.reduce<Record<number, number>>((acc, r) => {
     acc[r.cardId] = Number(r.count) || 0;
     return acc;
   }, {});
-
-  // Unread alerts per card for the current user. notifications.cardId scoped to
-  // this project's cardIds so notifications attached to cards in other projects
-  // can never inflate this count.
-  const unreadAlertRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: notifications.cardId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(notifications)
-        .where(and(
-          eq(notifications.userId, userId),
-          isNull(notifications.readAt),
-          inArray(notifications.cardId, cardIds),
-        ))
-        .groupBy(notifications.cardId)
-    : [];
 
   const unreadAlertsByCard = unreadAlertRows.reduce<Record<number, number>>((acc, r) => {
     if (r.cardId == null) return acc;
     acc[r.cardId] = Number(r.count) || 0;
     return acc;
   }, {});
-
-  // Cards the current user is watching.
-  const watcherRows = cardIds.length > 0
-    ? await db
-        .select({ cardId: kanbanCardWatchers.cardId })
-        .from(kanbanCardWatchers)
-        .where(and(
-          eq(kanbanCardWatchers.userId, userId),
-          inArray(kanbanCardWatchers.cardId, cardIds),
-        ))
-    : [];
 
   const watchedCardIds = new Set<number>(watcherRows.map(r => r.cardId));
 
