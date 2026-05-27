@@ -23,16 +23,22 @@ interface CycleRow {
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-
   const { id } = await params;
   const projectId = parseInt(id, 10);
+  if (isNaN(projectId)) return NextResponse.json({ success: false, message: 'Invalid ID' }, { status: 400 });
 
-  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+  // Parallelize the three independent gate queries: auth(), staff check,
+  // and the project lookup. Previously these ran sequentially even though
+  // none depend on each other.
+  const [session, staff, projectRows] = await Promise.all([
+    auth(),
+    isPortalStaff(),
+    db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
+  ]);
+  if (!session?.user?.id) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  const project = projectRows[0];
   if (!project) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  const staff = await isPortalStaff();
   if (!staff) {
     const userId = parseInt(session.user.id, 10);
     const client = await getPortalClient(userId);
@@ -41,20 +47,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  // Cards currently in a done column.
-  const cards = await db
-    .select({
-      id: kanbanCards.id,
-      number: kanbanCards.number,
-      title: kanbanCards.title,
-      createdAt: kanbanCards.createdAt,
-      updatedAt: kanbanCards.updatedAt,
-      storyPoints: kanbanCards.storyPoints,
-      columnIsDone: kanbanColumns.isDone,
-    })
-    .from(kanbanCards)
-    .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-    .where(eq(kanbanCards.projectId, projectId));
+  // Cards currently in a done column. Run in parallel with the columns
+  // lookup since both are scoped to projectId and independent of each other.
+  const [cards, cols] = await Promise.all([
+    db
+      .select({
+        id: kanbanCards.id,
+        number: kanbanCards.number,
+        title: kanbanCards.title,
+        createdAt: kanbanCards.createdAt,
+        updatedAt: kanbanCards.updatedAt,
+        storyPoints: kanbanCards.storyPoints,
+        columnIsDone: kanbanColumns.isDone,
+      })
+      .from(kanbanCards)
+      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+      .where(eq(kanbanCards.projectId, projectId)),
+    db
+      .select({ id: kanbanColumns.id, isDone: kanbanColumns.isDone })
+      .from(kanbanColumns)
+      .where(eq(kanbanColumns.projectId, projectId)),
+  ]);
 
   const doneCards = cards.filter(c => c.columnIsDone);
   if (doneCards.length === 0) {
@@ -78,11 +91,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ))
     .orderBy(asc(kanbanCardActivities.createdAt));
 
-  // We need to know which target column ids are done. Pull all columns for the project.
-  const cols = await db
-    .select({ id: kanbanColumns.id, isDone: kanbanColumns.isDone })
-    .from(kanbanColumns)
-    .where(eq(kanbanColumns.projectId, projectId));
   const isDoneById = new Map(cols.map(c => [c.id, c.isDone]));
 
   type Move = { cardId: number; createdAt: Date; toIsDone: boolean };
