@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { use } from 'react';
 import type { PitchDeckSlideV2, PitchDeckTheme } from '@/lib/db/schema';
 import type { Block, BlockType } from '@/types/blocks';
@@ -44,13 +45,38 @@ import {
 } from './_lib/helpers';
 
 import { EditorHeader } from './_components/EditorHeader';
-import { ThemePanel } from './_components/ThemePanel';
-import { RegenerateModal } from './_components/RegenerateModal';
-import { HistoryPanel } from './_components/HistoryPanel';
-import { SeoPanel } from './_components/SeoPanel';
+// Modal/panel components are gated by toggle flags (showTheme/showRegenerate/
+// showHistory/showSeo/boardView/selectedSlides.size > 0) and only render when
+// the user opens them. Loading them statically meant their JS landed in the
+// editor entry chunk for everyone, on every page load, even though most
+// authoring sessions never touch History or SEO. next/dynamic with
+// `loading: () => null` defers each chunk fetch until first render of that
+// gate — the editor's first paint drops the cost of six panels.
+const ThemePanel = dynamic(() => import('./_components/ThemePanel').then(m => ({ default: m.ThemePanel })), {
+  ssr: false,
+  loading: () => null,
+});
+const RegenerateModal = dynamic(() => import('./_components/RegenerateModal').then(m => ({ default: m.RegenerateModal })), {
+  ssr: false,
+  loading: () => null,
+});
+const HistoryPanel = dynamic(() => import('./_components/HistoryPanel').then(m => ({ default: m.HistoryPanel })), {
+  ssr: false,
+  loading: () => null,
+});
+const SeoPanel = dynamic(() => import('./_components/SeoPanel').then(m => ({ default: m.SeoPanel })), {
+  ssr: false,
+  loading: () => null,
+});
 import { SlideList } from './_components/SlideList';
-import { BatchEditBar } from './_components/BatchEditBar';
-import { BoardView } from './_components/BoardView';
+const BatchEditBar = dynamic(() => import('./_components/BatchEditBar').then(m => ({ default: m.BatchEditBar })), {
+  ssr: false,
+  loading: () => null,
+});
+const BoardView = dynamic(() => import('./_components/BoardView').then(m => ({ default: m.BoardView })), {
+  ssr: false,
+  loading: () => null,
+});
 import { DecisionSlideEditor } from './_components/DecisionSlideEditor';
 import { SurveySlideQuestionList, SurveyFieldEditorView } from './_components/SurveySlideEditor';
 import { SlideSettingsPanel } from './_components/SlideSettingsPanel';
@@ -181,14 +207,20 @@ function PitchDeckEditorContent({ id }: { id: string }) {
     return () => { mounted = false; };
   }, []);
 
-  // Brand defaults — fetched once per deck so newly-added blocks pre-fill from
-  // the client's messaging (tagline, value prop, etc.) and tag colors with sentinels.
+  // Brand defaults — fetched when the deck's branding profile is known, and
+  // re-fetched only if the profile changes. Previously depended on `deck`
+  // itself, which meant every keystroke that produced a new deck object
+  // identity (every block edit) triggered a /api/portal/branding-defaults
+  // round-trip. Hot decks were hitting the endpoint thousands of times in
+  // a session for no good reason.
+  const brandingProfileId = deck?.brandingProfileId ?? null;
+  const deckLoaded = deck !== null;
   useEffect(() => {
-    if (!deck) return;
-    loadBrandDefaults(deck.brandingProfileId)
+    if (!deckLoaded) return;
+    loadBrandDefaults(brandingProfileId)
       .then(d => { if (d.success && d.data) setBrandDefaults(d.data as BrandDefaultsContext); })
       .catch(() => {});
-  }, [deck]);
+  }, [deckLoaded, brandingProfileId]);
 
   // Surface AI-generation errors via query string. Pre-refactor parity:
   // setError + setShowRegenerate are intentionally called synchronously in
