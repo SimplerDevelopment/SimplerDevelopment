@@ -63,8 +63,12 @@ export function useVisualEditorParent({
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
+  // Mirror iframeReady into a ref so the load-fallback setTimeout can read the
+  // latest value without re-creating itself when the iframe sends IFRAME_READY.
+  const iframeReadyRef = useRef(false);
   const [customComponents, setCustomComponents] = useState<ComponentManifestEntry[]>([]);
   const [undoRedoState, setUndoRedoState] = useState({ canUndo: false, canRedo: false });
+  iframeReadyRef.current = iframeReady;
 
   // Store latest values in refs so the message handler always has current data
   const blocksRef = useRef(blocks);
@@ -214,14 +218,20 @@ export function useVisualEditorParent({
     return () => window.removeEventListener('message', handleMessage);
   }, [sendInit]);
 
-  // When the iframe loads (or reloads), send EDITOR_INIT proactively
-  // This handles the race where IFRAME_READY fires before our listener is attached
+  // When the iframe loads (or reloads), send EDITOR_INIT proactively.
+  //
+  // The iframe normally posts IFRAME_READY after hydration and the message
+  // handler above calls sendInit() in response — that's the preferred path.
+  // We keep a setTimeout fallback (trimmed from 500ms to 100ms) for legacy
+  // iframes that never emit IFRAME_READY. Reading the latest iframeReady
+  // through a ref keeps the fallback from re-init-ing when IFRAME_READY
+  // already won the race.
   const handleIframeLoad = useCallback(() => {
-    // Give the iframe's React a moment to hydrate and attach its listener
     setTimeout(() => {
+      if (iframeReadyRef.current) return; // IFRAME_READY already won
       sendInit();
       setIframeReady(true);
-    }, 500);
+    }, 100);
   }, [sendInit]);
 
   // Send block updates when blocks change. Pass `coalesce: true` for updates
