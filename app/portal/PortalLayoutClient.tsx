@@ -1,17 +1,26 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
-import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PmNotificationBell from '@/components/portal/PmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
-import CmdKPalette from '@/components/CmdKPalette';
+import CmdKLauncher from '@/components/CmdKLauncher';
 import { AgencyChromeProvider } from '@/components/portal/AgencyChromeProvider';
 import ImpersonationBanner from '@/components/portal/ImpersonationBanner';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { UserAppNavMeta } from '@/lib/plugins/load-user-apps';
+
+// AI chat widget is purely on-demand — its FAB is the only first-paint
+// surface and a ~50ms shimmer before it appears is fine. Dynamic import keeps
+// `react-markdown` + the rest of the 441-LoC widget out of the initial
+// portal bundle. See perf phase 3.
+const AIChatWidget = dynamic(() => import('@/components/portal/AIChatWidget'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface PortalLayoutClientProps {
   children: React.ReactNode;
@@ -104,7 +113,7 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
           </div>
           {!previewMode && <AIChatWidget />}
         </div>
-        <CmdKPalette apps={apps} />
+        <CmdKLauncher apps={apps} />
       </AgencyChromeProvider>
     </SessionProvider>
   );
