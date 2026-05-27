@@ -63,6 +63,9 @@ export function useVisualEditorParent({
 }: UseVisualEditorParentOptions) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
+  // Mirrors iframeReady for use inside the load fallback — avoids reading
+  // state inside a setter callback and decouples it from re-renders.
+  const iframeReadyRef = useRef(false);
   const [customComponents, setCustomComponents] = useState<ComponentManifestEntry[]>([]);
   const [undoRedoState, setUndoRedoState] = useState({ canUndo: false, canRedo: false });
 
@@ -121,6 +124,7 @@ export function useVisualEditorParent({
 
       switch (event.data.type) {
         case IFRAME_MESSAGES.IFRAME_READY: {
+          iframeReadyRef.current = true;
           setIframeReady(true);
           const payload = event.data.payload as IframeReadyPayload;
           if (payload.registeredComponents?.length) {
@@ -214,14 +218,36 @@ export function useVisualEditorParent({
     return () => window.removeEventListener('message', handleMessage);
   }, [sendInit]);
 
-  // When the iframe loads (or reloads), send EDITOR_INIT proactively
-  // This handles the race where IFRAME_READY fires before our listener is attached
+  // When the iframe loads (or reloads), trust IFRAME_READY to drive the
+  // handshake. The iframe's React calls postMessage({type: IFRAME_READY}) as
+  // soon as its useEffect attaches, which the message listener above handles
+  // by calling sendInit() and setIframeReady(true).
+  //
+  // Previously this used setTimeout(500ms) as the source of truth, which
+  // capped per-slide TTI at half a second even when the iframe was ready
+  // in ~50ms. Now we just keep a short fallback for the rare race where
+  // the iframe loads but never fires IFRAME_READY (e.g. iframe HTML
+  // shipped without the editor harness because of a stale build). 800ms
+  // matches the longest hydration we've ever seen in dev profiling, and
+  // the work it does (a single postMessage + boolean set) is idempotent
+  // if IFRAME_READY also lands.
   const handleIframeLoad = useCallback(() => {
-    // Give the iframe's React a moment to hydrate and attach its listener
-    setTimeout(() => {
+    if (typeof window === 'undefined') return;
+    // A reload means the in-iframe React just remounted — wait for its
+    // fresh IFRAME_READY. If that never arrives (older bundle, hard
+    // error), the fallback below kicks in.
+    iframeReadyRef.current = false;
+    setIframeReady(false);
+    window.setTimeout(() => {
+      // If IFRAME_READY already fired we've nothing to do — the listener
+      // above already initialized us. Otherwise this is the safety net
+      // for the very rare case where the iframe loaded but never posted
+      // IFRAME_READY (e.g. an older bundle).
+      if (iframeReadyRef.current) return;
+      iframeReadyRef.current = true;
       sendInit();
       setIframeReady(true);
-    }, 500);
+    }, 800);
   }, [sendInit]);
 
   // Send block updates when blocks change. Pass `coalesce: true` for updates
