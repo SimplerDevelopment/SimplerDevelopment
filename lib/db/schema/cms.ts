@@ -1,6 +1,6 @@
 // Posts, post-types, taxonomies, media, branding profiles, and reusable block templates.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
@@ -238,7 +238,10 @@ export const media = pgTable('media', {
   brandingProfileId: integer('branding_profile_id').references(() => brandingProfiles.id, { onDelete: 'set null' }), // shared across services using same branding
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — portal/media list filters by clientId ordered by createdAt desc.
+  index('media_client_created_idx').on(t.clientId, t.createdAt),
+]);
 
 // Snapshots of prior media states — written on /replace + /restore so that
 // any version can be restored without losing the bytes. Restore copies the

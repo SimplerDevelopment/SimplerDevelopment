@@ -1,6 +1,6 @@
 // Per-tenant clients, services, hosted websites, and infrastructure metadata.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { SurveyField } from './cms';
 
@@ -100,7 +100,13 @@ export const clientServices = pgTable('client_services', {
   metadata: json('metadata'), // domain name, server details, etc.
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin clients list aggregates per-client active services and
+  // joins to services for MRR; the dashboard subscription stats query also
+  // groups by status.
+  index('client_services_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('client_services_client_status_idx').on(t.clientId, t.status),
+]);
 
 // ── AI Credit System ──────────────────────────────────────────────────────────
 
@@ -114,7 +120,12 @@ export const serviceRequests = pgTable('service_requests', {
   adminNotes: text('admin_notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin queue lists pending service requests per client sorted
+  // by createdAt; the dashboard scans by status only.
+  index('service_requests_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('service_requests_client_status_idx').on(t.clientId, t.status),
+]);
 
 export interface DnsInstruction {
   type: 'A' | 'CNAME' | 'TXT' | 'MX';
@@ -169,7 +180,12 @@ export const clientWebsites = pgTable('client_websites', {
   draftUpdatedBy: integer('draft_updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin/websites list orders by createdAt globally; the per-client
+  // dashboard count filters by clientId. Both fall back to seq-scan today.
+  index('client_websites_created_idx').on(t.createdAt),
+  index('client_websites_client_idx').on(t.clientId),
+]);
 
 // Multiple custom domains per website
 
