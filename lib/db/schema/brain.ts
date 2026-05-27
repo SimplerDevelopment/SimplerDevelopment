@@ -167,7 +167,14 @@ export const brainMeetings = pgTable('brain_meetings', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (t) => [uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef)]);
+}, (t) => [
+  uniqueIndex('brain_meetings_client_source_ref_idx').on(t.clientId, t.sourceRef),
+  // listMeetings default ORDER BY created_at DESC — paired with client filter.
+  // Drizzle doesn't expose .desc() inside index().on(), but the planner uses
+  // a plain btree forward+backward, so (client_id, created_at) covers the
+  // ORDER BY ... DESC case fine. See drizzle/0130_perf_brain_trigram_indexes.sql.
+  index('brain_meetings_client_created_idx').on(t.clientId, t.createdAt),
+]);
 
 export const brainMeetingParticipants = pgTable('brain_meeting_participants', {
   id: serial('id').primaryKey(),
@@ -644,6 +651,12 @@ export const brainEmbeddings = pgTable('brain_embeddings', {
   index('brain_embeddings_client_idx').on(t.clientId),
   index('brain_embeddings_entity_idx').on(t.entityType, t.entityId),
   uniqueIndex('brain_embeddings_entity_chunk_idx').on(t.entityType, t.entityId, t.chunkIndex),
+  // Pre-filter for the HNSW vector search in lib/brain/embeddings.ts:
+  //   WHERE client_id = $1 AND entity_type IN (...)
+  // The HNSW index alone handles the ORDER BY vector <=> q; this composite
+  // makes the predicate selective so the planner narrows the candidate set
+  // before the cosine scan. See drizzle/0130_perf_brain_trigram_indexes.sql.
+  index('brain_embeddings_client_entity_idx').on(t.clientId, t.entityType),
 ]);
 
 // Obsidian-style link graph for KB-imported notes. Each row is one [[link]]
