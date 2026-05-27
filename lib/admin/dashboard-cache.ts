@@ -175,7 +175,11 @@ export const getAdminDashboard = unstable_cache(
  * Invalidate the cached admin dashboard payload. Call from high-frequency
  * mutation paths only — ticket create/update/close, invoice paid, order
  * placed, project create. Everything else accepts the 90s TTL.
+ *
+ * Next 16 changed `revalidateTag` to require a profile arg — 'default'
+ * inherits the same revalidate/expire semantics already encoded in the
+ * unstable_cache `revalidate` option above.
  */
 export function revalidateAdminDashboard() {
-  revalidateTag(ADMIN_DASHBOARD_TAG);
+  revalidateTag(ADMIN_DASHBOARD_TAG, 'default');
 }

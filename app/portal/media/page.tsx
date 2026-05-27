@@ -6,6 +6,10 @@ interface MediaItem {
   id: number;
   filename: string;
   url: string;
+  // Smaller derivative used for grid renders. E2 perf — when present, the
+  // grid <img> prefers thumbnailUrl over the full url to avoid downloading
+  // multi-MB originals for h-40 tiles.
+  thumbnailUrl?: string | null;
   mimeType: string;
   fileSize: number;
   width?: number | null;

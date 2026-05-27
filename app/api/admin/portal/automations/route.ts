@@ -34,7 +34,7 @@ const getFailedAutomationCount = unstable_cache(
 );
 
 export function revalidateFailedAutomationCount() {
-  revalidateTag(FAILED_COUNT_TAG);
+  revalidateTag(FAILED_COUNT_TAG, 'default');
 }
 
 export async function GET(req: Request) {
