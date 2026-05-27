@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { emailCampaigns, emailLists, emailSubscribers } from '@/lib/db/schema';
-import { eq, and, count, sum, sql, desc } from 'drizzle-orm';
+import { eq, and, count, sum, sql, desc, inArray } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
 import { authorizePortal, isAuthError } from '@/lib/portal-auth';
 
@@ -36,17 +36,51 @@ export async function GET() {
     name: emailLists.name,
   }).from(emailLists).where(eq(emailLists.clientId, client.id));
 
+  // ── Single grouped count over all this client's lists ─────────────────────
+  // Replaces an O(2 * lists) N+1: was running two count() queries per list.
+  // One round trip returns (listId, status, count) rows; we assemble per-list
+  // totals + active/unsubscribed/bounced breakdowns in memory.
   let totalSubscribers = 0;
   let activeSubscribers = 0;
-  const listBreakdown = [];
+  const listIds = lists.map((l) => l.id);
 
-  for (const list of lists) {
-    const [total] = await db.select({ count: count() }).from(emailSubscribers).where(eq(emailSubscribers.listId, list.id));
-    const [active] = await db.select({ count: count() }).from(emailSubscribers).where(and(eq(emailSubscribers.listId, list.id), eq(emailSubscribers.status, 'active')));
-    totalSubscribers += total.count;
-    activeSubscribers += active.count;
-    listBreakdown.push({ id: list.id, name: list.name, total: total.count, active: active.count });
+  type StatusCount = { listId: number; status: string; count: number };
+  const counts: StatusCount[] = listIds.length === 0
+    ? []
+    : await db
+        .select({
+          listId: emailSubscribers.listId,
+          status: emailSubscribers.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(emailSubscribers)
+        .where(inArray(emailSubscribers.listId, listIds))
+        .groupBy(emailSubscribers.listId, emailSubscribers.status);
+
+  const perList = new Map<number, { total: number; active: number; unsubscribed: number; bounced: number }>();
+  for (const id of listIds) perList.set(id, { total: 0, active: 0, unsubscribed: 0, bounced: 0 });
+  for (const row of counts) {
+    const bucket = perList.get(row.listId);
+    if (!bucket) continue;
+    bucket.total += row.count;
+    if (row.status === 'active') bucket.active += row.count;
+    else if (row.status === 'unsubscribed') bucket.unsubscribed += row.count;
+    else if (row.status === 'bounced') bucket.bounced += row.count;
   }
+
+  const listBreakdown = lists.map((list) => {
+    const b = perList.get(list.id) ?? { total: 0, active: 0, unsubscribed: 0, bounced: 0 };
+    totalSubscribers += b.total;
+    activeSubscribers += b.active;
+    return {
+      id: list.id,
+      name: list.name,
+      total: b.total,
+      active: b.active,
+      unsubscribed: b.unsubscribed,
+      bounced: b.bounced,
+    };
+  });
 
   // Recent campaigns with performance
   const recentCampaigns = await db.select({
