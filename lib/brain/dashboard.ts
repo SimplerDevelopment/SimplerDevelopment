@@ -101,7 +101,7 @@ interface DashboardRelationship {
   openTaskCount: number;
 }
 
-interface StaticBrainCounts {
+interface StaticBrainCounts extends Record<string, unknown> {
   org_unit_count: number;
   expertise_tags_count: number;
   glossary_terms_active: number;
@@ -486,9 +486,11 @@ export function revalidateBrainDashboard(clientId: number): void {
   // tenant's args array (clientId) generates its own cache key under the hood
   // we still only fully recompute the one client that next requests it. We
   // also emit a per-client tag so future read-path wrappers can subscribe to
-  // exactly one tenant if needed.
-  revalidateTag(brainDashboardTag(clientId));
-  revalidateTag('brain-dashboard');
+  // exactly one tenant if needed. Next 16 requires a CacheLife profile arg;
+  // 'default' inherits the same revalidate/expire semantics already encoded
+  // in the unstable_cache `revalidate` option on each accessor.
+  revalidateTag(brainDashboardTag(clientId), 'default');
+  revalidateTag('brain-dashboard', 'default');
 }
 
 /**
@@ -499,7 +501,7 @@ export function revalidateBrainDashboard(clientId: number): void {
  * static counts feed into the dashboard payload.
  */
 export function revalidateBrainStaticCounts(clientId: number): void {
-  revalidateTag(brainStaticCountsTag(clientId));
-  revalidateTag('brain-static-counts');
+  revalidateTag(brainStaticCountsTag(clientId), 'default');
+  revalidateTag('brain-static-counts', 'default');
   revalidateBrainDashboard(clientId);
 }
