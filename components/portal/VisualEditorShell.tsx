@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import {
@@ -9,7 +10,13 @@ import {
 } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
-import { ImagePickerModal } from './visual-editor/HtmlRenderEditor';
+// Lazy-load ImagePickerModal — the modal lives in HtmlRenderEditor.tsx (~1700
+// LoC + @codemirror), only mounts when the iframe requests a swap, and would
+// otherwise re-anchor the entire HtmlRenderEditor chunk to this shell.
+const ImagePickerModal = dynamic(
+  () => import('./visual-editor/HtmlRenderEditor').then((m) => ({ default: m.ImagePickerModal })),
+  { ssr: false },
+);
 import { SaveAsTemplateModal } from '@/components/blocks/SaveAsTemplateModal';
 import { TemplateLibrary } from '@/components/blocks/TemplateLibrary';
 import { BUILT_IN_BLOCK_TYPES } from '@/lib/blocks/registry';
