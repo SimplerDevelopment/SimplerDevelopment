@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
@@ -54,6 +55,8 @@ export async function PATCH(
 
   if (!updated)
     return NextResponse.json({ success: false, message: 'Notification not found' }, { status: 404 });
+
+  try { revalidateTag(`notifications:${userId}`, 'max'); } catch { /* ignore */ }
 
   return NextResponse.json({ success: true, data: updated });
 }

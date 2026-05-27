@@ -1,6 +1,23 @@
 import { db } from '@/lib/db';
 import { aiCreditBalances, aiCreditLedger, aiCreditPackages, clientServices, services } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
+
+/**
+ * Invalidate the `credits:<clientId>` Next data-cache tag. Called from every
+ * mutation entry-point in this module so the cached snapshot used by
+ * `/api/portal/credits` (see app/api/portal/credits/route.ts) is refreshed
+ * immediately rather than waiting out the 30s revalidate. Wrapped in try/catch
+ * because `revalidateTag` throws if called outside a route/action context
+ * (e.g. from the `grantMonthlyCredits` cron worker).
+ */
+function invalidateCreditsCache(clientId: number): void {
+  try {
+    revalidateTag(`credits:${clientId}`, 'max');
+  } catch {
+    // Out-of-context (e.g. cron). The 30s TTL will catch up.
+  }
+}
 
 export interface CreditBalance {
   balance: number;
@@ -67,6 +84,7 @@ export async function deductCredits(
     referenceId,
   });
 
+  invalidateCreditsCache(clientId);
   return { success: true, newBalance };
 }
 
@@ -115,6 +133,7 @@ export async function grantMonthlyCredits(clientId: number): Promise<{ granted: 
   await db.update(clientServices).set({ creditsGrantedAt: new Date() })
     .where(and(eq(clientServices.clientId, clientId), eq(clientServices.status, 'active')));
 
+  invalidateCreditsCache(clientId);
   return { granted: totalGrant, newBalance };
 }
 
@@ -150,6 +169,7 @@ export async function addPurchasedCredits(
     referenceId: stripePaymentId,
   });
 
+  invalidateCreditsCache(clientId);
   return newBalance;
 }
 
@@ -163,6 +183,7 @@ export async function setPayAsYouGo(clientId: number, enabled: boolean): Promise
     target: aiCreditBalances.clientId,
     set: { payAsYouGo: enabled, updatedAt: new Date() },
   });
+  invalidateCreditsCache(clientId);
 }
 
 /**

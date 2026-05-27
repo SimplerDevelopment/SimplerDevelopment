@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges } from '@/lib/db/schema';
@@ -106,6 +106,8 @@ export async function POST(req: Request) {
   }
 
   try { revalidatePath('/portal', 'layout'); } catch { /* ignore */ }
+  // Invalidate the per-client approvals-count cache used by the layout bell.
+  try { revalidateTag(`approvals:${client.id}`, 'max'); } catch { /* ignore */ }
 
   const applied = results.filter((r) => r.status === 'applied').length;
   const failed = results.filter((r) => r.status === 'failed').length;
