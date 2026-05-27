@@ -91,6 +91,9 @@ export default async function SuggestedProjectsPage() {
                 <Link
                   key={item.id}
                   href={`/portal/suggested-projects/${item.id}`}
+                  // Disable viewport prefetch on high-cardinality lists — see
+                  // `app/portal/projects/page.tsx` for rationale.
+                  prefetch={false}
                   className="bg-card border border-border rounded-xl p-5 flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-start justify-between gap-2">

@@ -155,6 +155,9 @@ export default function NotificationsPage() {
               <Link
                 key={n.id}
                 href={href}
+                // Notification lists can run long and each item points at a
+                // heavy project route — defer prefetch to hover.
+                prefetch={false}
                 onClick={() => { if (!n.readAt) markRead(n.id); }}
                 className={`flex items-start gap-3 px-4 py-3 hover:bg-accent/40 transition-colors ${
                   n.readAt ? '' : 'bg-primary/5'
