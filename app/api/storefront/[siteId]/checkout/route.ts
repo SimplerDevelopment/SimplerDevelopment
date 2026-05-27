@@ -9,6 +9,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, asc, desc, sql } from 'drizzle-orm';
 import { resolveSiteStripe, SiteStripeError, type SiteStripeContext } from '@/lib/stripe/site-stripe';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
 function generateOrderNumber(prefix: string, lastNumber: string | null): string {
   if (!lastNumber) {
@@ -373,6 +374,9 @@ export async function POST(
       platformFee: applicationFee,
       discountCode: appliedDiscountCode,
     }).returning();
+
+    // E2 — new order shows up in the dashboard recent-orders panel.
+    revalidateAdminDashboard();
 
     // 10. Create order items
     await db.insert(orderItems).values(
