@@ -295,7 +295,17 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
           />
         )}
 
-        <main className="flex-1">{children}</main>
+        {/* Reserve space for the fixed nav so the first block (typically a hero)
+            isn't clipped underneath it. Only the opaque templates need this —
+            the 'transparent' template deliberately overlays a full-bleed hero,
+            and a hidden nav needs no offset. The 72px fallback matches the
+            desktop nav height before SiteNavClient measures the real value. */}
+        <main
+          className="flex-1"
+          style={!isTransparent && !hideNav ? { paddingTop: 'var(--site-nav-h, 72px)' } : undefined}
+        >
+          {children}
+        </main>
 
         {/* Footer is universal — renders nav-derived columns + brand contact
             info. Sites with customLayout=true take the earlier return branch
