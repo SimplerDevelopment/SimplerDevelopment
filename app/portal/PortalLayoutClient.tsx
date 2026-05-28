@@ -102,7 +102,8 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
             )}
             <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
           </div>
-          {!previewMode && <AIChatWidget />}
+          {/* AIChatWidget hidden in portal — re-enable when ready */}
+          {false && !previewMode && <AIChatWidget />}
         </div>
         <CmdKPalette apps={apps} />
       </AgencyChromeProvider>
