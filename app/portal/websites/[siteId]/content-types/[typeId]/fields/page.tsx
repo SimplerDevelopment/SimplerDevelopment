@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { clientWebsites, postTypes } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { getPortalClient } from '@/lib/portal-client';
+import { resolvePortalSite } from '@/lib/portal-client';
 import { CustomFieldsManager } from '@/components/portal/CustomFieldsManager';
 import { promoteBuiltInContentType } from '@/lib/portal/promote-content-type';
 
@@ -16,15 +16,9 @@ export default async function ContentTypeFieldsPage({ params }: PageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
 
-  const client = await getPortalClient(parseInt(session.user.id, 10));
-  if (!client) redirect('/portal/dashboard');
-
-  const [site] = await db
-    .select({ id: clientWebsites.id })
-    .from(clientWebsites)
-    .where(and(eq(clientWebsites.id, parseInt(siteId)), eq(clientWebsites.clientId, client.id)))
-    .limit(1);
-  if (!site) notFound();
+  const resolved = await resolvePortalSite(parseInt(session.user.id, 10), parseInt(siteId));
+  if (!resolved) notFound();
+  const { site } = resolved;
 
   // Built-in types (page, blog, event, …) are global; fork to a site-scoped
   // copy on first edit so customizations don't bleed across clients.
