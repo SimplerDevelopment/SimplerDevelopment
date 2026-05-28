@@ -1,14 +1,54 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getClientWebsiteByDomain, getClientSiteNavItems } from '@/lib/actions/client-sites';
-import { getBrandingByWebsiteId, resolveFaviconUrlForClient } from '@/lib/branding';
+import { resolveFaviconUrlForClient } from '@/lib/branding';
+import {
+  getClientWebsiteByDomainCached as getClientWebsiteByDomain,
+  getClientSiteNavItemsCached as getClientSiteNavItems,
+  getBrandingByWebsiteIdCached as getBrandingByWebsiteId,
+} from '@/lib/site-data-cache';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteTracking } from '@/lib/db/schema';
 import { SiteNavClient } from './SiteNavClient';
+import { SiteFooter } from './SiteFooter';
 import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
+
+// Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
+// because brandingProfile schema doesn't yet have contact fields. When the
+// branding schema gains those columns, drop this map and read from there.
+const SITE_CONTACT_OVERRIDES: Record<string, {
+  contactEmail?: string;
+  contactPhone?: string;
+  contactAddress?: string[];
+  legalLinks?: Array<{ label: string; href: string }>;
+  complianceNotes?: string[];
+  trustBadges?: Array<{ src: string; alt: string; href?: string; width?: number; height?: number }>;
+}> = {
+  'cardiff-main': {
+    contactEmail: 'info@cardiff.co',
+    contactPhone: '888-234-0166',
+    contactAddress: ['322 7th Street #2562', 'Del Mar, CA 92014'],
+    legalLinks: [
+      { label: 'Privacy Policy', href: '/privacy-policy' },
+      { label: 'Legal Notices', href: '/legal-notices' },
+      { label: 'Mobile Terms', href: '/mobile-terms-and-conditions' },
+    ],
+    complianceNotes: [
+      'Cardiff is a registered trademark of Cardiff, used under license.',
+      'California Lender License 60DBO-129171',
+    ],
+    trustBadges: [
+      { src: 'https://cardiff.b-cdn.net/img/Seals/BBB-Logo.png', alt: 'BBB Accredited Business', width: 100, height: 37 },
+      { src: 'https://cardiff.b-cdn.net/img/Seals/Secured-SSL-Logo.png', alt: 'Secured by SSL', width: 100, height: 37 },
+    ],
+  },
+};
+
+function getSiteContactInfo(subdomain: string | null) {
+  return (subdomain && SITE_CONTACT_OVERRIDES[subdomain]) || {};
+}
 
 // 1:1 with clientWebsites — null means the row hasn't been initialised yet.
 async function getTrackingConfigForWebsite(websiteId: number) {
@@ -256,6 +296,22 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         )}
 
         <main className="flex-1">{children}</main>
+
+        {/* Footer is universal — renders nav-derived columns + brand contact
+            info. Sites with customLayout=true take the earlier return branch
+            above and ship their own chrome (which is why this is only here). */}
+        <SiteFooter
+          siteName={site.name}
+          navItems={navItems}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
+          logoUrl={branding.logoUrl || undefined}
+          logoAlt={branding.logoAlt || site.name}
+          headingFont={branding.headingFont || undefined}
+          bodyFont={branding.bodyFont || undefined}
+          basePath={basePath}
+          {...getSiteContactInfo(site.subdomain)}
+        />
       </div>
     </>
   );

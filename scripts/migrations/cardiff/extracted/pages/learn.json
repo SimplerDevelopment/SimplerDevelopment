@@ -1,0 +1,51 @@
+{
+  "url": "https://cardiff.co/learn/",
+  "slug": "learn",
+  "title": "Small Business Loan Resources And Funding Options",
+  "h1": "Small Business Lending Resources",
+  "metaDescription": "Get insights on business loan types, merchant financing, and cash flow lending for businesses. Click now for smart business credit options.",
+  "ogImage": "https://cardiffcompany.wpenginepowered.com/wp-content/uploads/2025/06/Cardiff-SBA-Loans.jpg",
+  "canonical": "https://cardiff.co/learn/",
+  "blocks": [
+    {
+      "type": "p",
+      "text": "Changing Times and the Coronavirus Pandemic"
+    },
+    {
+      "type": "p",
+      "text": "The recent COVID-19 pandemic has had a significant worldwide impact on everyone from individuals, to small businesses, to entire industries, to national governments, and even to international organizations; no one is immune to the effects of this virus."
+    },
+    {
+      "type": "p",
+      "text": "How to Weather Coronavirus as a Small Business Owner"
+    },
+    {
+      "type": "p",
+      "text": "As a small-business owner, considering how to handle a crisis like Coronavirus probably hasn’t been the first thing on your to-do list up until now (unless you run a disaster preparation company, of course)."
+    }
+  ],
+  "images": [],
+  "links": [
+    {
+      "href": "https://cardiff.co/learn/faq/",
+      "text": "FAQ"
+    },
+    {
+      "href": "https://cardiff.co/learn/getting-ready/",
+      "text": "Getting Ready"
+    },
+    {
+      "href": "https://cardiff.co/learn/using-your-loan/",
+      "text": "Using Your Loan"
+    },
+    {
+      "href": "https://cardiff.co/changing-times-and-the-pandemic/",
+      "text": "Changing Times and the Coronavirus Pandemic"
+    },
+    {
+      "href": "https://cardiff.co/how-to-weather-covid19/",
+      "text": "How to Weather Coronavirus as a Small Business Owner"
+    }
+  ],
+  "template": "rich"
+}

@@ -1,12 +1,18 @@
 import { notFound } from 'next/navigation';
-import { getClientWebsiteByDomain, getClientPage, getClientHomePage, getClientBlogPosts, getPostTypeForPost } from '@/lib/actions/client-sites';
+import { getClientBlogPosts } from '@/lib/actions/client-sites';
+import {
+  getClientWebsiteByDomainCached as getClientWebsiteByDomain,
+  getClientPageCached as getClientPage,
+  getClientHomePageCached as getClientHomePage,
+  getPostTypeForPostCached as getPostTypeForPost,
+  getBrandingByWebsiteIdCached as getBrandingByWebsiteId,
+} from '@/lib/site-data-cache';
 import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
-import { expandLoopsInContent } from '@/lib/blocks/html-render-loops';
+import { expandLoopsInContent, type LoopPaginationContext } from '@/lib/blocks/html-render-loops';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
-import { getBrandingByWebsiteId } from '@/lib/branding';
 import { auth } from '@/lib/auth';
 import { verifyPreviewToken } from '@/lib/preview-token';
 import { unlockCookieName, verifyUnlockCookieValue } from '@/lib/preview-unlock';
@@ -101,12 +107,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ClientSitePage({ params, searchParams }: PageProps) {
   const { domain, slug } = await params;
-  const { _edit, _preview, _token } = await searchParams;
+  const sp = await searchParams;
+  const { _edit, _preview, _token } = sp;
   const site = await getClientWebsiteByDomain(domain);
 
   if (!site) {
     notFound();
   }
+
+  // Build the loop pagination context once — every page-render path below
+  // routes html-render `data-loop="posts"` regions through expandLoopsInContent,
+  // and a pagination UI on any of those blocks needs the current page +
+  // pathname to render numbered links / prev / next. Pages without a
+  // `?page=` param default to page 1. We strip framework / preview /
+  // edit-mode params from the link generator so they don't bleed into
+  // public pagination URLs.
+  const pageSlug = (slug?.join('/') ?? '');
+  const pathname = `/${pageSlug}`.replace(/\/+$/, '') || '/';
+  const rawPage = Array.isArray(sp.page) ? sp.page[0] : sp.page;
+  const parsedPage = typeof rawPage === 'string' ? parseInt(rawPage, 10) : 1;
+  const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const EXTRA_PARAM_DENYLIST = new Set(['page', '_edit', '_preview', '_token']);
+  const extraParams: Record<string, string> = {};
+  for (const [k, v] of Object.entries(sp)) {
+    if (EXTRA_PARAM_DENYLIST.has(k)) continue;
+    if (typeof v === 'string') extraParams[k] = v;
+    else if (Array.isArray(v) && typeof v[0] === 'string') extraParams[k] = v[0];
+  }
+  const pagination: LoopPaginationContext = { page: currentPage, pathname, extraParams };
 
   // Allow draft preview via auth session or signed preview token
   const isEditMode = _edit === 'true';
@@ -143,8 +171,6 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     }
   }
 
-  const pageSlug = slug?.join('/');
-
   // Load site branding once — shared by all BlockRenderer instances on this page
   const branding = await getBrandingByWebsiteId(site.id);
 
@@ -168,7 +194,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     const homeType = await getPostTypeForPost(site.id, homePage.postType);
     const ab = await applyAbToPostContent({ postId: homePage.id, content: homePage.content, skip: preview });
     const content = await prefetchHtmlEmbeds(
-      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id),
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, homeType?.template), homePage.id, pagination),
     );
     return (
       <>
@@ -277,7 +303,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
       <div>
         <SiteBlockRenderer
           content={await prefetchHtmlEmbeds(
-            await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id),
+            await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
           )}
           siteId={site.id}
           branding={branding}
@@ -313,7 +339,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     <div>
       <SiteBlockRenderer
         content={await prefetchHtmlEmbeds(
-          await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id),
+          await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
         )}
         siteId={site.id}
         branding={branding}

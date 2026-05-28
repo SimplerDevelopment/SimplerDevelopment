@@ -113,8 +113,11 @@ export function SiteNavClient({
         letterSpacing: '0.16px',
         textTransform: 'uppercase' as const,
       }
-    : { fontSize: '14px', letterSpacing: '0.04em' };
-  const linkColor = isBoldLayout ? currentText : `${currentText}b3`;
+    : { fontSize: '14px', fontWeight: 500, letterSpacing: '0.02em' };
+  // Classic template: bump muted link color from b3 (70%) → e6 (90%) so links
+  // stay legible against dark nav backgrounds (e.g. Cardiff's #1c3370). The
+  // previous 70% alpha was borderline-AA on dark blues. Hex `e6` ≈ 0.9 alpha.
+  const linkColor = isBoldLayout ? currentText : `${currentText}e6`;
   const containerClass = isBoldLayout
     ? 'mx-auto flex items-center'
     : 'mx-auto max-w-7xl px-6 py-4 flex items-center justify-between';
@@ -162,7 +165,7 @@ export function SiteNavClient({
   };
   const ctaClass = isBoldLayout
     ? 'inline-block uppercase transition-colors duration-300 shrink-0'
-    : 'ml-2 px-5 py-2 text-sm font-medium transition-colors duration-300';
+    : 'ml-2 inline-block transition-all duration-300 shrink-0 whitespace-nowrap';
   const ctaStyle = isBoldLayout
     ? {
         paddingLeft: '28px',
@@ -177,7 +180,21 @@ export function SiteNavClient({
         borderWidth: '2px',
         borderStyle: 'solid',
       }
-    : undefined;
+    : {
+        // Classic CTA: bump prominence so the button reads as a real call to
+        // action and not just another nav link. Matches Cardiff/Slate-style
+        // chunky pill buttons (~16px / 700 / 12-15px vertical padding).
+        paddingLeft: '26px',
+        paddingRight: '26px',
+        paddingTop: '12px',
+        paddingBottom: '12px',
+        fontFamily: headingFontStack,
+        fontSize: '15px',
+        fontWeight: 700,
+        letterSpacing: '0.02em',
+        lineHeight: 1,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+      };
 
   // The active mega panel is rendered ONCE outside the link group so it can
   // be horizontally centered relative to the nav, not the trigger link.
@@ -441,7 +458,24 @@ export function SiteNavClient({
                 color: buttonStyle?.primaryText || primaryColor,
                 ...(isBoldLayout
                   ? { borderColor: buttonStyle?.primaryBg || '#ffffff' }
-                  : { borderRadius: buttonStyle?.borderRadius || '2px' }),
+                  : { borderRadius: buttonStyle?.borderRadius || '6px' }),
+              }}
+              onMouseEnter={(e) => {
+                // Classic CTA: subtle hover lift to telegraph interactivity
+                // (bold/mega already has a fully styled outline-pill that
+                // doesn't need this).
+                if (!isBoldLayout) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.filter = 'brightness(1.05)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isBoldLayout) {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
+                  e.currentTarget.style.filter = 'none';
+                }
               }}
               {...(item.openInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
             >

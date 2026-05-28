@@ -1,0 +1,35 @@
+[
+  {
+    "tag": "div",
+    "id": "main-content",
+    "class": "",
+    "top": 55,
+    "height": 3747,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_1_tb_footer et_pb_with_background et_section_regular et_pb_section--with-menu",
+    "top": 3845,
+    "height": 428,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_2_tb_footer et_pb_with_background et_section_specialty et_pb_section--with-menu",
+    "top": 4273,
+    "height": 313,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  }
+]

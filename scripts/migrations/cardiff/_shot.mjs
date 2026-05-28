@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const [,, url, out] = process.argv;
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const p = await ctx.newPage();
+await p.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+await p.waitForTimeout(1500);
+await p.screenshot({ path: out, fullPage: false });
+await b.close();
+console.log('saved', out);

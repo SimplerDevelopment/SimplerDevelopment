@@ -1,0 +1,113 @@
+{
+  "url": "https://cardiff.co/about/",
+  "slug": "about",
+  "title": "About Cardiff: Small Business Loan & Financing Solutions",
+  "h1": "A trusted leader in small business lending",
+  "metaDescription": "Cardiff provides fast business loans and flexible merchant financing for your expansion needs. Explore your business credit options.",
+  "ogImage": "https://cardiffcompany.wpenginepowered.com/wp-content/uploads/2025/06/Cardiff-SBA-Loans.jpg",
+  "canonical": "https://cardiff.co/about/",
+  "blocks": [
+    {
+      "type": "h2",
+      "text": "About Cardiff"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff, a small business lender based in San Diego, offers fast, flexible financing solutions tailored to the needs of small businesses throughout the US. Since 2004, the company has funded over $12 billion, providing approval in minutes and same day funding in most cases."
+    },
+    {
+      "type": "p",
+      "text": "Backed by the latest technology and integrations with partners like Plaid®, Cardiff blends real-time financial analysis with personalized service, to deliver a reliable, transparent experience for business owners across industries like construction, restaurants, trucking, and more."
+    },
+    {
+      "type": "h2",
+      "text": "The Cardiff Difference"
+    },
+    {
+      "type": "p",
+      "text": "Real numbers. Real impact. Here’s why thousands of businesses choose Cardiff."
+    },
+    {
+      "type": "p",
+      "text": "More than two decades supporting Main Street"
+    },
+    {
+      "type": "h4",
+      "text": "12B +"
+    },
+    {
+      "type": "p",
+      "text": "Over $12 Billion funded to thousands of small businesses"
+    },
+    {
+      "type": "p",
+      "text": "Approvals in Minutes, Funding Same Day"
+    },
+    {
+      "type": "p",
+      "text": "Over 90% of applicants are approved for small business financing"
+    },
+    {
+      "type": "h2",
+      "text": "Leadership"
+    },
+    {
+      "type": "p",
+      "text": "Meet the team guiding our mission to make business funding simple and transparent."
+    },
+    {
+      "type": "h4",
+      "text": "William Stern"
+    },
+    {
+      "type": "p",
+      "text": "Founder and CEO"
+    },
+    {
+      "type": "h4",
+      "text": "Dean Lyulkin"
+    },
+    {
+      "type": "h4",
+      "text": "Ali Irani Tehrani"
+    },
+    {
+      "type": "p",
+      "text": "Managing Partner"
+    },
+    {
+      "type": "h4",
+      "text": "Mo Irani Tehrani"
+    },
+    {
+      "type": "p",
+      "text": "Managing Partner"
+    }
+  ],
+  "images": [
+    "https://cardiffcompany.wpenginepowered.com/wp-content/smush-webp/2025/08/Cardiff-at-youtube.jpg.webp",
+    "https://cardiffcompany.wpenginepowered.com/wp-content/smush-webp/2025/09/william-stern-cardiff-ceo-and-founder.jpg.webp",
+    "https://cardiffcompany.wpenginepowered.com/wp-content/smush-webp/2025/09/dean-lyulkin-cardiff-ceo-and-founder.jpg.webp",
+    "https://cardiffcompany.wpenginepowered.com/wp-content/smush-webp/2025/09/ali-irani-tehrani-cardiff-managing-founder.jpg.webp",
+    "https://cardiffcompany.wpenginepowered.com/wp-content/smush-webp/2025/09/mo-irani-tehrani-cardiff-managing-founder.jpg.webp"
+  ],
+  "links": [
+    {
+      "href": "https://cardiff.co/about/william-stern/",
+      "text": "About William"
+    },
+    {
+      "href": "https://cardiff.co/about/dean-lyulkin/",
+      "text": "About Dean"
+    },
+    {
+      "href": "https://cardiff.co/about/ali-irani-tehrani/",
+      "text": "About Ali"
+    },
+    {
+      "href": "https://cardiff.co/about/mo-irani-tehrani/",
+      "text": "About Mo"
+    }
+  ],
+  "template": "rich"
+}

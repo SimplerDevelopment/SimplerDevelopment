@@ -1,0 +1,47 @@
+{
+  "url": "https://cardiff.co/learn/faq/",
+  "slug": "learn-faq",
+  "title": "Business Loan & Unsecured Small Business Lending FAQs",
+  "h1": "Business Loan FAQs",
+  "metaDescription": "Understand common questions about business loans, unsecured financing, and cash flow lending. Learn how to get a business loan and find the right financing.",
+  "ogImage": "https://cardiffcompany.wpenginepowered.com/wp-content/uploads/2025/06/Cardiff-SBA-Loans.jpg",
+  "canonical": "https://cardiff.co/learn/faq/",
+  "blocks": [
+    {
+      "type": "p",
+      "text": "Find Answers to Frequently Asked Questions about Cardiff small business loans"
+    },
+    {
+      "type": "p",
+      "text": "Click here to begin your application."
+    },
+    {
+      "type": "p",
+      "text": "Plaid is a fintech service provider that allows Cardiff to securely access business bank statements for evaluation without sharing your login information with us. Learn more about Plaid here ."
+    },
+    {
+      "type": "p",
+      "text": "Once you’re approved for a loan, speak with your representative regarding early payoff options you may be eligible for."
+    },
+    {
+      "type": "p",
+      "text": "Yes! We are happy to add to or renew your loan once you’ve started the payback process. Reach out to your representative for help."
+    }
+  ],
+  "images": [],
+  "links": [
+    {
+      "href": "https://cardiff.co/business/apply",
+      "text": "here"
+    },
+    {
+      "href": "https://plaid.com/what-is-plaid/",
+      "text": "here"
+    },
+    {
+      "href": "https://cardiff.co/business/apply",
+      "text": "here"
+    }
+  ],
+  "template": "rich"
+}

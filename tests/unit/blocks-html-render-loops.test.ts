@@ -49,37 +49,47 @@ function nextRowSet(): Row[] {
 vi.mock('@/lib/db', () => ({
   db: {
     select: (selectArg?: unknown) => {
-      lastSelectCall = { selectArg };
+      // The count-subquery for pagination (`select({ c: sql\`count(*)\` })`)
+      // runs in parallel with the data select via Promise.all. Don't let it
+      // overwrite the test-observable `lastSelectCall` — tests assert on the
+      // data query's limit/orderBy, not the count query's.
+      const isCountSubquery =
+        selectArg !== null && typeof selectArg === 'object' &&
+        Object.keys(selectArg as Record<string, unknown>).length === 1 &&
+        'c' in (selectArg as Record<string, unknown>);
+      if (!isCountSubquery) {
+        lastSelectCall = { selectArg };
+      }
       return {
         from: () => {
           // Query shapes in the source:
-          //  - fetchLoopItems: select().from().where().orderBy().limit()
+          //  - fetchLoopItems: select().from().where().orderBy().limit().offset()
           //  - resolvePostFields: select().from().where()
           //  - fetchPostCustomFields (post-types lookup): select().from().where().limit(1)
           //  - fetchPostCustomFields (customFields, values): select().from().where()
           // `.where()` resolves directly to rows, or chains into
-          // `.orderBy().limit()` / `.limit()` that resolves to the same set.
+          // `.orderBy().limit().offset()` / `.limit()` that resolves to the same set.
+          type LimitChain = { offset: (n: number) => Promise<Row[]> } & PromiseLike<Row[]>;
           let whereResult: {
-            orderBy: (oc: unknown) => { limit: (n: number) => Promise<Row[]> };
-            limit: (n: number) => Promise<Row[]>;
+            orderBy: (oc: unknown) => { limit: (n: number) => LimitChain };
+            limit: (n: number) => LimitChain;
           } & PromiseLike<Row[]>;
           const where = (w: unknown) => {
             lastSelectCall.whereArg = w;
             const rowsPromise = Promise.resolve(nextRowSet());
+            const limitChain = (n: number): LimitChain => {
+              lastSelectCall.limitArg = n;
+              return {
+                offset: (_o: number) => rowsPromise,
+                then: (onF: (r: Row[]) => unknown, onR?: (e: unknown) => unknown) => rowsPromise.then(onF, onR),
+              } as LimitChain;
+            };
             whereResult = {
               orderBy: (oc: unknown) => {
                 lastSelectCall.orderByArg = oc;
-                return {
-                  limit: (n: number) => {
-                    lastSelectCall.limitArg = n;
-                    return rowsPromise;
-                  },
-                };
+                return { limit: limitChain };
               },
-              limit: (n: number) => {
-                lastSelectCall.limitArg = n;
-                return rowsPromise;
-              },
+              limit: limitChain,
               // Awaiting `.where()` directly should also resolve to rows.
               then: (onF: (r: Row[]) => unknown, onR?: (e: unknown) => unknown) => rowsPromise.then(onF, onR),
             } as typeof whereResult;
@@ -134,6 +144,14 @@ vi.mock('drizzle-orm', () => ({
   inArray: (col: unknown, vals: unknown[]) => ({ _kind: 'inArray', col, vals }),
   ne: (a: unknown, b: unknown) => ({ _kind: 'ne', a, b }),
   notInArray: (col: unknown, vals: unknown[]) => ({ _kind: 'notInArray', col, vals }),
+  // Tagged-template + value-coercing `sql` shim — used by the loops code for
+  // post-type-scoped count subqueries; the tests don't assert on its output.
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({ _kind: 'sql', strings, values }),
+    {
+      raw: (s: string) => ({ _kind: 'sql-raw', s }),
+    },
+  ),
 }));
 
 // ---------------------------------------------------------------------------
