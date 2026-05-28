@@ -24,7 +24,15 @@ export async function GET(request: Request) {
     VALID_STATUSES.has(statusParam) ? (statusParam as BrainReviewItemStatus) :
     'pending';
 
-  const items = await listReviewItems(result.client.id, { status });
+  // Phase 6 — optional "items routed to me" filter via suggested reviewer.
+  const reviewerParam = url.searchParams.get('suggestedReviewerPersonId');
+  let suggestedReviewerPersonId: number | undefined;
+  if (reviewerParam) {
+    const parsed = parseInt(reviewerParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) suggestedReviewerPersonId = parsed;
+  }
+
+  const items = await listReviewItems(result.client.id, { status, suggestedReviewerPersonId });
 
   // Enrich with source meeting titles so the UI can render conversation context
   // without a per-row API call. Only meetings owned by this tenant are returned

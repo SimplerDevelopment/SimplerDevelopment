@@ -19,7 +19,10 @@ export function GET(req: Request) {
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
-    token_endpoint_auth_methods_supported: ['none'],
+    // 'none' = PKCE-only public clients (default; the MCP web case).
+    // The two client_secret_* methods are for confidential clients minted via
+    // the admin path — server-to-server integrations (n8n, Zapier, etc.).
+    token_endpoint_auth_methods_supported: ['none', 'client_secret_basic', 'client_secret_post'],
     // RFC 8707 — Claude includes a `resource` parameter scoping tokens to the
     // MCP server URL. We persist and echo it but don't currently constrain
     // tokens by audience beyond that.

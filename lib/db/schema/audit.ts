@@ -16,8 +16,17 @@ export const oauthClients = pgTable('oauth_clients', {
   logoUri: varchar('logo_uri', { length: 500 }),
   tosUri: varchar('tos_uri', { length: 500 }),
   policyUri: varchar('policy_uri', { length: 500 }),
-  /** "none" for PKCE-only public clients (the MCP web case). */
+  /** "none" for PKCE-only public clients (default — the MCP web case),
+   *  "client_secret_basic" or "client_secret_post" for confidential clients
+   *  minted via the admin path. */
   tokenEndpointAuthMethod: varchar('token_endpoint_auth_method', { length: 32 }).default('none').notNull(),
+  /** SHA-256 of the issued client_secret. Null for public/PKCE clients. The
+   *  raw secret is shown to the admin exactly once at creation/rotation. */
+  clientSecretHash: varchar('client_secret_hash', { length: 128 }),
+  /** UI preview of the secret (`sd_cs_xxxx…yyyy`) for the admin list view. */
+  clientSecretPreview: varchar('client_secret_preview', { length: 32 }),
+  clientSecretCreatedAt: timestamp('client_secret_created_at'),
+  clientSecretRotatedAt: timestamp('client_secret_rotated_at'),
   /** Free-form software identifiers from the DCR request. */
   softwareId: varchar('software_id', { length: 200 }),
   softwareVersion: varchar('software_version', { length: 64 }),
@@ -37,9 +46,10 @@ export const oauthAuthorizationCodes = pgTable('oauth_authorization_codes', {
   scopes: json('scopes').$type<string[]>().notNull(),
   /** Must match the value sent to /oauth/token exactly. */
   redirectUri: varchar('redirect_uri', { length: 500 }).notNull(),
-  /** PKCE — RFC 7636. We require S256; plain is rejected. */
-  codeChallenge: varchar('code_challenge', { length: 256 }).notNull(),
-  codeChallengeMethod: varchar('code_challenge_method', { length: 16 }).default('S256').notNull(),
+  /** PKCE — RFC 7636. We require S256 for public clients; confidential
+   *  clients (Basic/Post auth) may omit PKCE entirely, so this is nullable. */
+  codeChallenge: varchar('code_challenge', { length: 256 }),
+  codeChallengeMethod: varchar('code_challenge_method', { length: 16 }),
   /** RFC 8707 resource indicator (the MCP server URL). */
   resource: varchar('resource', { length: 500 }),
   expiresAt: timestamp('expires_at').notNull(),

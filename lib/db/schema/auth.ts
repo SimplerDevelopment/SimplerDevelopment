@@ -71,3 +71,41 @@ export const portalApiKeys = pgTable('portal_api_keys', {
 /** Staging table for CMS writes originating from MCP keys flagged with
  * requireCmsApproval. Staff approve/reject via approvals_* tools or portal UI. */
 
+// ─── ONBOARDING STATE ────────────────────────────────────────────────────────
+
+/**
+ * Per-user onboarding wizard state. One row per user, created on first visit
+ * to `/portal/onboarding`. `completedAt` is the gate — if NULL, the dashboard
+ * redirects the user back into the wizard; if set, the user can re-launch
+ * the wizard from settings but isn't forced through it.
+ *
+ * `answers` stores the raw responses so we can re-render saved progress when
+ * the user resumes mid-flow. The wizard ALSO writes the structured outputs
+ * into the right downstream tables (brandingProfiles, brandingMessaging,
+ * clients.company) — `answers` is the source-of-truth for the wizard, not
+ * for the rest of the app.
+ */
+export const userOnboarding = pgTable('user_onboarding', {
+  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  clientId: integer('client_id').references(() => clients.id, { onDelete: 'cascade' }),
+  /** Last step the user landed on. Used to resume mid-flow. */
+  step: varchar('step', { length: 50 }).default('welcome').notNull(),
+  /** Raw wizard answers — see lib/onboarding/types.ts for shape. */
+  answers: json('answers').$type<{
+    role?: string;
+    timezone?: string;
+    companySize?: string;
+    industry?: string;
+    websiteUrl?: string;
+    brandTones?: string[];
+    primaryColor?: string;
+    mission?: string;
+    featuresInterested?: string[];
+    skillsDownloaded?: boolean;
+    mcpKeyCreatedId?: number;
+  }>().default({}).notNull(),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+

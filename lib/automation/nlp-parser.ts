@@ -55,6 +55,31 @@ ${AVAILABLE_TOOLS}
 ## Available Read Tools (for conditions/context)
 ${READ_TOOLS}
 
+## Brain Playbook Bridge
+In addition to portal tools, automations can kick off a multi-step Brain
+playbook via the special action tool name "start_playbook". Use this when
+the user says things like "start the X playbook", "kick off the X playbook",
+"run the X playbook", or "trigger the X onboarding/renewal/incident-response
+playbook". Prefer start_playbook over a chain of portal-tool actions when the
+described process has multiple steps, waits, branches, or human checkpoints.
+
+Shape:
+{
+  "tool": "start_playbook",
+  "params": {
+    "playbookSlug": "<kebab-case slug guessed from the playbook name>",
+    "label": "<human label, may include {{event.field}}>",
+    "context": { /* optional — defaults to the event payload */ }
+  }
+}
+
+Resolution: the engine resolves playbookSlug to a real playbookId at
+execution time by querying brain_playbooks for the current tenant. This
+means a parse-time DB lookup is NOT required — emit the slug verbatim and
+let the engine resolve it. If the user names the playbook explicitly (e.g.
+"the new-hire-onboarding playbook"), slugify it to lowercase-kebab-case.
+Never invent a numeric playbookId.
+
 ## Template Variables
 Action params can reference event payload fields using {{event.fieldName}} syntax.
 Common payload fields vary by event:

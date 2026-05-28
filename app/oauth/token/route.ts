@@ -1,23 +1,38 @@
 import { db } from '@/lib/db';
 import { oauthClients, oauthAuthorizationCodes, oauthAccessTokens } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
-import { generateAccessToken, sha256, verifyPkceS256 } from '@/lib/oauth/server';
+import {
+  generateAccessToken,
+  parseBasicAuthHeader,
+  sha256,
+  verifyClientSecret,
+  verifyPkceS256,
+} from '@/lib/oauth/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 365; // 1 year — public clients without refresh tokens.
 
-function err(status: number, error: string, description?: string) {
+function err(status: number, error: string, description?: string, headers?: Record<string, string>) {
   return Response.json({ error, error_description: description }, {
     status,
-    headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
+    headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache', ...(headers ?? {}) },
   });
 }
 
-/** RFC 6749 §4.1.3 — Access Token Request (authorization_code grant). Public
- *  client + PKCE: no client_secret. The code is single-use; consuming it
- *  marks `consumed_at` so a replay returns an error. */
+/** RFC 6749 §5.2 — `invalid_client` on the token endpoint requires a 401 plus
+ *  a `WWW-Authenticate: Basic` challenge when the client used Basic auth. */
+function invalidClient(usedBasic: boolean, description: string) {
+  return err(401, 'invalid_client', description, usedBasic ? { 'WWW-Authenticate': 'Basic realm="oauth"' } : undefined);
+}
+
+/** RFC 6749 §4.1.3 — Access Token Request (authorization_code grant).
+ *  - Public clients (`token_endpoint_auth_method = "none"`): PKCE only, no secret.
+ *  - Confidential clients (`client_secret_basic` / `client_secret_post`):
+ *    secret required; PKCE is accepted-but-not-required (still recommended).
+ *  The authorization code is single-use; consuming it sets `consumed_at` so a
+ *  replay returns invalid_grant. */
 export async function POST(req: Request) {
   // Token endpoint accepts application/x-www-form-urlencoded per spec.
   let form: URLSearchParams;
@@ -44,18 +59,56 @@ export async function POST(req: Request) {
   }
 
   const code = form.get('code');
-  const clientIdParam = form.get('client_id');
   const redirectUri = form.get('redirect_uri');
-  const codeVerifier = form.get('code_verifier');
   const resource = form.get('resource');
 
-  if (!code || !clientIdParam || !redirectUri || !codeVerifier) {
-    return err(400, 'invalid_request', 'code, client_id, redirect_uri, and code_verifier are required');
+  // Client authentication: Basic header takes precedence over body params.
+  const basic = parseBasicAuthHeader(req.headers.get('authorization'));
+  const usedBasic = basic !== null;
+  const clientIdParam = basic?.clientId ?? form.get('client_id');
+  const clientSecretParam = basic?.clientSecret ?? form.get('client_secret');
+
+  if (!code || !clientIdParam || !redirectUri) {
+    return err(400, 'invalid_request', 'code, client_id, and redirect_uri are required');
+  }
+  // RFC 6749 §2.3.1: a request MUST NOT include the client credentials in both
+  // the Authorization header and the request body.
+  if (basic && form.get('client_secret')) {
+    return err(400, 'invalid_request', 'Client credentials must not be sent twice');
   }
 
   const [oauthClient] = await db.select().from(oauthClients).where(eq(oauthClients.clientId, clientIdParam)).limit(1);
-  if (!oauthClient) return err(400, 'invalid_client', 'Unknown client_id');
+  if (!oauthClient) return invalidClient(usedBasic, 'Unknown client_id');
 
+  // --- Client authentication branch ---------------------------------------
+  const authMethod = oauthClient.tokenEndpointAuthMethod;
+  const isConfidential = authMethod === 'client_secret_basic' || authMethod === 'client_secret_post';
+
+  if (isConfidential) {
+    if (!oauthClient.clientSecretHash) {
+      // Schema invariant: confidential clients must have a stored hash. Hitting
+      // this means the row was tampered with — fail closed.
+      return invalidClient(usedBasic, 'Client is not configured for secret authentication');
+    }
+    if (!clientSecretParam) {
+      return invalidClient(usedBasic, 'client_secret is required for this client');
+    }
+    if (authMethod === 'client_secret_basic' && !usedBasic) {
+      return invalidClient(usedBasic, 'This client must authenticate via HTTP Basic');
+    }
+    if (authMethod === 'client_secret_post' && usedBasic) {
+      return invalidClient(usedBasic, 'This client must authenticate via request body');
+    }
+    if (!verifyClientSecret(clientSecretParam, oauthClient.clientSecretHash)) {
+      return invalidClient(usedBasic, 'client_secret is incorrect');
+    }
+  } else if (clientSecretParam) {
+    // A public/PKCE client sent a secret — reject loudly rather than silently
+    // accept, so misconfigured callers fail fast.
+    return invalidClient(usedBasic, 'This client is registered as public; do not send client_secret');
+  }
+
+  // --- Authorization code lookup ------------------------------------------
   const codeHash = sha256(code);
   const [stored] = await db
     .select()
@@ -73,8 +126,22 @@ export async function POST(req: Request) {
   if (stored.redirectUri !== redirectUri) {
     return err(400, 'invalid_grant', 'redirect_uri does not match the one used at /authorize');
   }
-  if (!verifyPkceS256(codeVerifier, stored.codeChallenge)) {
-    return err(400, 'invalid_grant', 'PKCE verification failed');
+
+  // --- PKCE: required for public, optional for confidential ---------------
+  const codeVerifier = form.get('code_verifier');
+  if (!isConfidential) {
+    if (!codeVerifier) return err(400, 'invalid_request', 'code_verifier is required (PKCE)');
+    if (!stored.codeChallenge) return err(400, 'invalid_grant', 'Code has no challenge to verify against');
+    if (!verifyPkceS256(codeVerifier, stored.codeChallenge)) {
+      return err(400, 'invalid_grant', 'PKCE verification failed');
+    }
+  } else if (codeVerifier) {
+    // Confidential client opted into PKCE at /authorize — honor it if the
+    // challenge was stored, otherwise reject the mismatch.
+    if (!stored.codeChallenge) return err(400, 'invalid_grant', 'No code_challenge was registered for this code');
+    if (!verifyPkceS256(codeVerifier, stored.codeChallenge)) {
+      return err(400, 'invalid_grant', 'PKCE verification failed');
+    }
   }
 
   // Mark the code consumed BEFORE issuing the token, so a concurrent replay

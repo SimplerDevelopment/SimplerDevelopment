@@ -134,6 +134,7 @@ export default function AdminSidebar() {
         { href: '/admin/portal-tickets', label: 'Support Tickets', icon: 'support_agent' },
         { href: '/admin/automations', label: 'Automations', icon: 'bolt' },
         { href: '/admin/system-health', label: 'System Health', icon: 'monitor_heart' },
+        { href: '/admin/oauth-clients', label: 'OAuth Clients', icon: 'key' },
         // Agentic OS is a developer-only feature. NODE_ENV is statically
         // inlined by Next.js at build time, so the entry is stripped from
         // production bundles entirely (matches the server-side route gate).
