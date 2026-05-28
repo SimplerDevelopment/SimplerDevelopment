@@ -60,8 +60,11 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   };
 
   if (responseType !== 'code') errorRedirect('unsupported_response_type', 'response_type must be "code"');
-  if (!codeChallenge) errorRedirect('invalid_request', 'code_challenge is required (PKCE)');
-  if (codeChallengeMethod !== 'S256') errorRedirect('invalid_request', 'code_challenge_method must be S256');
+  // PKCE is required for public clients (token_endpoint_auth_method = 'none')
+  // and optional-but-honored for confidential clients (Basic / Post).
+  const clientIsPublic = oauthClient.tokenEndpointAuthMethod === 'none';
+  if (clientIsPublic && !codeChallenge) errorRedirect('invalid_request', 'code_challenge is required (PKCE)');
+  if (codeChallenge && codeChallengeMethod !== 'S256') errorRedirect('invalid_request', 'code_challenge_method must be S256');
 
   // --- Auth gate: require portal session, bounce through /portal/login.
   const session = await auth();
@@ -160,8 +163,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
           <input type="hidden" name="client_id" value={clientId} />
           <input type="hidden" name="redirect_uri" value={redirectUri} />
           <input type="hidden" name="state" value={state} />
-          <input type="hidden" name="code_challenge" value={codeChallenge!} />
-          <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />
+          {codeChallenge && <input type="hidden" name="code_challenge" value={codeChallenge} />}
+          {codeChallenge && <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />}
           {resource && <input type="hidden" name="resource" value={resource} />}
 
           {/* Single-portal users: hidden input. Multi-portal users: dropdown.
