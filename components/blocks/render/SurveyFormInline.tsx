@@ -661,8 +661,20 @@ export function SurveyFormInline({
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white" style={headingStyle}>{thankYou.title}</h2>
-          {thankYou.message && <p className="text-gray-600 dark:text-gray-400 mt-2">{thankYou.message}</p>}
+          <h2
+            className="text-xl font-bold text-gray-900 dark:text-white"
+            style={{ ...headingStyle, ...(txtColor ? { color: txtColor } : {}) }}
+          >
+            {thankYou.title}
+          </h2>
+          {thankYou.message && (
+            <p
+              className="text-gray-600 dark:text-gray-400 mt-2"
+              style={txtColor ? { color: txtColor, opacity: 0.75 } : undefined}
+            >
+              {thankYou.message}
+            </p>
+          )}
           {certificate && (
             <a
               href={`/api/surveys/${slug}/certificate?responseId=${certificate.responseId}`}

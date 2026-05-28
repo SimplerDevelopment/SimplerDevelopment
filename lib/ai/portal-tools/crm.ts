@@ -356,7 +356,10 @@ export const crmHandlers: Record<string, CrmHandler> = {
       source: (source as string)?.trim() || null,
       status: (status as string) || 'lead',
       notes: (notes as string)?.trim() || null,
-      ownerId: userId,
+      // System-context calls (automation rules without a real signed-in
+      // user) pass userId=0 — that's not a valid users.id and would trip
+      // the FK. Coalesce to null so the row inserts with no owner.
+      ownerId: userId > 0 ? userId : null,
     }).returning();
     emitEvent('crm.contact.created', clientId, userId, { id: contact.id, name: `${contact.firstName} ${contact.lastName || ''}`.trim(), email: contact.email });
     return { success: true, contactId: contact.id, message: `Contact "${contact.firstName} ${contact.lastName || ''}" created.` };

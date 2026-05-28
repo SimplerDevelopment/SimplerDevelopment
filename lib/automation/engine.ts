@@ -294,10 +294,14 @@ export async function runRule(
   const startTime = Date.now();
   const actions = rule.actions as AutomationAction[];
   // Resolve userId for portal-tool calls. Scheduled rules don't have a
-  // user context, so we fall back to the rule's creator if present, else 0
-  // (executePortalTool treats 0/undefined as "system"). The event-driven
-  // path used to pass event.userId directly; scheduled paths can't.
-  const userId = (payload._userId as number | undefined) ?? rule.createdBy ?? 0;
+  // user context, and public events (e.g. anonymous survey submits) emit
+  // userId=0 — neither is a real user we want stamped on a created row,
+  // so we fall back to the rule's creator for attribution. Final fallback
+  // is 0 (executePortalTool / handlers may then choose to coalesce to null).
+  const explicitUid = payload._userId as number | undefined;
+  const userId = (typeof explicitUid === 'number' && explicitUid > 0)
+    ? explicitUid
+    : (rule.createdBy ?? 0);
   const results: { tool: string; params: Record<string, unknown>; result: unknown; error?: string }[] = [];
   let status: 'success' | 'partial' | 'failed' = 'success';
   let errorMessage: string | undefined;
