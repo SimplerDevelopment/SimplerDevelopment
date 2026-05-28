@@ -970,6 +970,31 @@ function renderField(
       );
 
     case 'checkbox':
+      // Empty `options` is a single-boolean consent checkbox — the field label
+      // is the prompt ("I agree to..."), no per-option label needed. We store
+      // the answer as a plain boolean so scoring / required-validation /
+      // `respondentEmail` extraction can read it the same way as `toggle`.
+      // Multi-option `options` is the original behavior (one checkbox per
+      // choice, answer stored as `string[]`).
+      if (!field.options || field.options.length === 0) {
+        const boolChecked = answers[field.id] === true;
+        return (
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={boolChecked}
+              // Unchecking clears the answer (sets to undefined) rather than
+              // storing `false`. Server-side required-validation treats
+              // undefined/null/'' as empty but not `false`, so this keeps the
+              // gate honest for required consent checkboxes.
+              onChange={(e) => setAnswer(field.id, e.target.checked ? true : undefined)}
+              className="w-4 h-4 rounded"
+              style={{ accentColor: color }}
+            />
+            <span className={optionLabelCls} style={optionLabelStyle}>I agree</span>
+          </label>
+        );
+      }
       return (
         <div className="space-y-2">
           {field.options.map((rawOpt, i) => {
