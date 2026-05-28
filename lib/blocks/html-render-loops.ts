@@ -18,8 +18,26 @@
 
 import { db } from '@/lib/db';
 import { posts, postTypes, customFields, postCustomFieldValues } from '@/lib/db/schema';
-import { and, asc, desc, eq, inArray, ne, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, notInArray, sql } from 'drizzle-orm';
 import type { Block, HtmlRenderBlock, HtmlRenderLoop } from '@/types/blocks';
+
+/**
+ * Per-request pagination context threaded down from the page route. Lets a
+ * `data-loop="posts"` block compute its offset from the URL's `?page=N` query
+ * param and emit a `data-pagination` UI whose prev/next/numbered links survive
+ * the rest of the page's query string. Stays optional — calls that don't pass
+ * a context fall back to page 1 with no offset, preserving the old behavior.
+ */
+export interface LoopPaginationContext {
+  /** Path the user is on (no query string). Used to build `?page=N` URLs that
+   *  preserve the current path. */
+  pathname: string;
+  /** 1-indexed current page. Caller is responsible for clamping to ≥1. */
+  page: number;
+  /** Other query params on the current URL. Re-serialized into each generated
+   *  pagination link so filters/search/etc. survive page navigation. */
+  extraParams?: Record<string, string>;
+}
 
 interface LoopItem {
   id: number;
@@ -28,7 +46,13 @@ interface LoopItem {
   url: string;
   excerpt: string;
   coverImage: string;
+  /** ISO-8601 string (e.g. `2026-05-19T00:00:00.000Z`). Useful when authors
+   *  want to feed it into a client-side date parser via `data-iso` or similar. */
   publishedAt: string;
+  /** Friendly long-form date (e.g. `May 19, 2026`) localized to en-US. Most
+   *  list templates want this for `{{post.publishedDate}}` — the ISO string
+   *  reads poorly in card copy. */
+  publishedDate: string;
   postType: string;
   /** Per-field values from the post's first html-render block (if it exists),
    *  exposed as `{{post.values.X}}` so the loop can pull custom card text. */
@@ -127,7 +151,11 @@ async function fetchPostCustomFields(siteId: number, postTypeSlug: string, postI
 /**
  * Fetch the items for one loop config + map them to the placeholder shape.
  */
-async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<LoopItem[]> {
+async function fetchLoopItems(
+  siteId: number,
+  loop: HtmlRenderLoop,
+  offset = 0,
+): Promise<{ items: LoopItem[]; total: number; limit: number }> {
   const limit = Math.max(1, Math.min(loop.limit ?? 3, 24));
   const conditions = [
     eq(posts.websiteId, siteId),
@@ -141,23 +169,35 @@ async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<Loo
     : loop.orderBy === 'oldest' ? asc(posts.publishedAt)
     : desc(posts.publishedAt);
 
-  const rows = await db.select({
-    id: posts.id,
-    title: posts.title,
-    slug: posts.slug,
-    excerpt: posts.excerpt,
-    coverImage: posts.coverImage,
-    publishedAt: posts.publishedAt,
-    postType: posts.postType,
-    content: posts.content,
-  }).from(posts).where(and(...conditions)).orderBy(orderCol).limit(limit);
+  // Run the page-of-rows fetch and the total-count in parallel. The count is
+  // unconstrained by limit/offset and used to compute totalPages for the
+  // `data-pagination` UI.
+  const safeOffset = Math.max(0, offset);
+  const [rows, countRows] = await Promise.all([
+    db.select({
+      id: posts.id,
+      title: posts.title,
+      slug: posts.slug,
+      excerpt: posts.excerpt,
+      coverImage: posts.coverImage,
+      publishedAt: posts.publishedAt,
+      postType: posts.postType,
+      content: posts.content,
+    }).from(posts).where(and(...conditions)).orderBy(orderCol).limit(limit).offset(safeOffset),
+    db.select({ c: sql<number>`count(*)::int` }).from(posts).where(and(...conditions)),
+  ]);
+  const total = countRows[0]?.c ?? 0;
 
   // Resolve typed custom-field values in a single batched lookup keyed by
   // the post type slug. Empty map when the post type has no schema or the
   // posts have no stored values — `{{post.fields.X}}` then resolves to ''.
   const fieldsByPostId = await fetchPostCustomFields(siteId, loop.postType, rows.map(r => r.id));
 
-  return rows.map(r => ({
+  // Pre-build a localized formatter once per fetch so we don't allocate a
+  // new Intl instance per row. en-US long form (`May 19, 2026`) is the
+  // shape every Cardiff card and most existing list templates expect.
+  const dateFmt = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const items = rows.map(r => ({
     id: r.id,
     title: r.title || '',
     slug: r.slug || '',
@@ -165,10 +205,13 @@ async function fetchLoopItems(siteId: number, loop: HtmlRenderLoop): Promise<Loo
     excerpt: r.excerpt || '',
     coverImage: r.coverImage || '',
     publishedAt: r.publishedAt ? new Date(r.publishedAt).toISOString() : '',
+    publishedDate: r.publishedAt ? dateFmt.format(new Date(r.publishedAt)) : '',
     postType: r.postType,
     values: collectPostValues(r.content || ''),
     fields: fieldsByPostId.get(r.id) ?? {},
   }));
+
+  return { items, total, limit };
 }
 
 /** HTML-escape values destined for attributes/text outside richtext fields. */
@@ -221,11 +264,21 @@ function substituteLoopItem(html: string, item: LoopItem): string {
  * loop body don't confuse the bounds.
  */
 function findLoopRegions(html: string): Array<{ start: number; end: number; tag: string; openLen: number }> {
+  return findRegionsByAttr(html, /\bdata-loop="posts"/);
+}
+
+/**
+ * Generic version of {@link findLoopRegions}: locate every element whose
+ * opening tag matches `attrTest`, returning each element's outer-HTML span.
+ * Used to share the depth-tracking walker between the posts loop, the
+ * pagination wrapper, and the pagination-pages numbered-link template.
+ */
+function findRegionsByAttr(html: string, attrTest: RegExp): Array<{ start: number; end: number; tag: string; openLen: number }> {
   const tagRx = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)([^>]*?)(\/?)>/g;
   const VOID = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'source', 'wbr', 'col', 'area', 'base', 'embed', 'param', 'track']);
   const regions: Array<{ start: number; end: number; tag: string; openLen: number }> = [];
   let m: RegExpExecArray | null;
-  // We track depth from the start of a loop element until its matching close.
+  // We track depth from the start of a matched element until its matching close.
   let activeStart = -1;
   let activeTag = '';
   let activeOpenLen = 0;
@@ -238,7 +291,7 @@ function findLoopRegions(html: string): Array<{ start: number; end: number; tag:
     if (selfClose || VOID.has(tag)) continue;
     if (!isClose) {
       if (activeStart === -1) {
-        if (/\bdata-loop="posts"/.test(attrs)) {
+        if (attrTest.test(attrs)) {
           activeStart = m.index;
           activeTag = tag;
           activeOpenLen = m[0].length;
@@ -263,21 +316,186 @@ function findLoopRegions(html: string): Array<{ start: number; end: number; tag:
 }
 
 /**
+ * Substitute `{{pagination.X}}` placeholders inside a slice of pagination
+ * markup (the outer `data-pagination` wrapper, NOT the inner numbered-link
+ * template). Boolean keys (`hasPrev`/`hasNext`) emit `"true"` or empty
+ * string so authors can write conditional CSS or use them as `data-*` flags.
+ * URL/text values are escaped — they may land inside `href="…"`.
+ */
+function substitutePaginationVars(html: string, ctx: {
+  currentPage: number;
+  totalPages: number;
+  prevUrl: string;
+  nextUrl: string;
+  hasPrev: boolean;
+  hasNext: boolean;
+  currentUrl: string;
+}): string {
+  return html.replace(/\{\{\s*pagination\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_full, key: string) => {
+    switch (key) {
+      case 'currentPage': return String(ctx.currentPage);
+      case 'totalPages': return String(ctx.totalPages);
+      case 'prevUrl': return esc(ctx.prevUrl);
+      case 'nextUrl': return esc(ctx.nextUrl);
+      case 'currentUrl': return esc(ctx.currentUrl);
+      case 'hasPrev': return ctx.hasPrev ? 'true' : '';
+      case 'hasNext': return ctx.hasNext ? 'true' : '';
+      default: return '';
+    }
+  });
+}
+
+/**
+ * Substitute the per-page placeholders inside a single iteration of the
+ * `data-pagination-pages` template: `{{page.number}}`, `{{page.url}}`,
+ * `{{page.isCurrent}}`. Each iteration also gets the `is-current` class
+ * appended to the outer tag when the iteration represents the active page.
+ */
+function substitutePageItem(html: string, item: { number: number; url: string; isCurrent: boolean }): string {
+  return html.replace(/\{\{\s*page\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_full, key: string) => {
+    switch (key) {
+      case 'number': return String(item.number);
+      case 'url': return esc(item.url);
+      case 'isCurrent': return item.isCurrent ? 'true' : '';
+      default: return '';
+    }
+  });
+}
+
+/**
+ * Build a `?page=N` URL on the current pathname, preserving any extra query
+ * params the page route surfaced. `page=1` is emitted as a bare pathname so
+ * the default landing URL doesn't sprout `?page=1` after navigation.
+ */
+function buildPageUrl(pathname: string, page: number, extraParams?: Record<string, string>): string {
+  const params: string[] = [];
+  if (extraParams) {
+    for (const [k, v] of Object.entries(extraParams)) {
+      if (k === 'page') continue; // never leak the inbound page param
+      params.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+  }
+  if (page > 1) params.push(`page=${page}`);
+  return params.length === 0 ? pathname : `${pathname}?${params.join('&')}`;
+}
+
+/**
+ * Expand every `data-pagination` region inside `html` into a fully-populated
+ * pagination UI. Each region:
+ *   - has `{{pagination.currentPage}}` / `{{pagination.totalPages}}` /
+ *     `{{pagination.prevUrl}}` / `{{pagination.nextUrl}}` /
+ *     `{{pagination.hasPrev}}` / `{{pagination.hasNext}}` substituted in-place
+ *   - has any `data-pagination-pages` descendant replaced by N copies of its
+ *     inner template, one per page (1..totalPages), with `{{page.number}}`,
+ *     `{{page.url}}`, `{{page.isCurrent}}` substituted, and an `is-current`
+ *     class added to the active iteration's outer tag
+ *   - has the `data-pagination` and `data-pagination-pages` attributes
+ *     stripped from the emitted markup so the edit-iframe doesn't try to
+ *     make the wrappers editable
+ * When `totalPages <= 1` the entire `data-pagination` element is removed —
+ * single-page lists don't need a pager.
+ */
+function expandPaginationRegions(
+  html: string,
+  pagination: { currentPage: number; totalPages: number; pathname: string; extraParams?: Record<string, string> },
+): string {
+  const regions = findRegionsByAttr(html, /\bdata-pagination(?!-)/);
+  if (regions.length === 0) return html;
+
+  const { currentPage, totalPages, pathname, extraParams } = pagination;
+  const hasPrev = currentPage > 1;
+  const hasNext = currentPage < totalPages;
+  const prevUrl = hasPrev ? buildPageUrl(pathname, currentPage - 1, extraParams) : '#';
+  const nextUrl = hasNext ? buildPageUrl(pathname, currentPage + 1, extraParams) : '#';
+  const currentUrl = buildPageUrl(pathname, currentPage, extraParams);
+
+  let out = html;
+  for (let i = regions.length - 1; i >= 0; i--) {
+    const r = regions[i];
+    const fullElement = out.slice(r.start, r.end);
+
+    // Drop the entire pagination element when there's nothing to page through.
+    if (totalPages <= 1) {
+      out = out.slice(0, r.start) + out.slice(r.end);
+      continue;
+    }
+
+    // Strip the data-pagination attribute itself so the iframe edit layer
+    // doesn't treat the wrapper as an editable static field.
+    let region = fullElement.replace(/\s+data-pagination(?!-)(="[^"]*")?/, '');
+
+    // 1) Expand inner data-pagination-pages template (back-to-front).
+    const pageRegions = findRegionsByAttr(region, /\bdata-pagination-pages\b/);
+    for (let j = pageRegions.length - 1; j >= 0; j--) {
+      const pr = pageRegions[j];
+      const pageWrapper = region.slice(pr.start, pr.end);
+      // Pull the inner template (between opening + closing tags) and use it
+      // as the per-page repeater. The wrapper element itself is preserved.
+      const innerStart = pr.openLen;
+      const closeTagLen = `</${pr.tag}>`.length;
+      const innerEnd = pageWrapper.length - closeTagLen;
+      const itemTemplate = pageWrapper.slice(innerStart, innerEnd);
+      const wrapperOpen = pageWrapper.slice(0, innerStart).replace(/\s+data-pagination-pages(="[^"]*")?/, '');
+      const wrapperClose = pageWrapper.slice(innerEnd);
+
+      const pagesHtml: string[] = [];
+      for (let p = 1; p <= totalPages; p++) {
+        const isCurrent = p === currentPage;
+        const pageUrl = buildPageUrl(pathname, p, extraParams);
+        let iter = substitutePageItem(itemTemplate, { number: p, url: pageUrl, isCurrent });
+        if (isCurrent) {
+          // Inject is-current onto the outer-most tag's class list. If there's
+          // no class attr yet, add one. Only the first tag inside the iteration
+          // template is touched — this matches how the post loop annotates
+          // its outer tag with `data-loop-item`.
+          iter = iter.replace(/^(\s*)<([a-zA-Z][a-zA-Z0-9-]*)([^>]*?)>/, (m, ws, tag, attrs) => {
+            if (/\bclass="[^"]*"/.test(attrs)) {
+              return `${ws}<${tag}${attrs.replace(/\bclass="([^"]*)"/, 'class="$1 is-current"')}>`;
+            }
+            return `${ws}<${tag}${attrs} class="is-current">`;
+          });
+        }
+        pagesHtml.push(iter);
+      }
+      region = region.slice(0, pr.start) + wrapperOpen + pagesHtml.join('') + wrapperClose + region.slice(pr.end);
+    }
+
+    // 2) Substitute the wrapper-level pagination placeholders.
+    region = substitutePaginationVars(region, { currentPage, totalPages, prevUrl, nextUrl, hasPrev, hasNext, currentUrl });
+
+    out = out.slice(0, r.start) + region + out.slice(r.end);
+  }
+  return out;
+}
+
+/**
  * Replace every `data-loop="posts"` region in the block's html with N copies
  * (one per fetched item). The container element is preserved; only its inner
  * HTML repeats. The data-loop attribute itself is dropped from the output so
  * the iframe edit layer doesn't try to make the wrapper editable.
  */
-export async function expandHtmlRenderLoops(siteId: number, block: HtmlRenderBlock, currentPostId?: number): Promise<HtmlRenderBlock> {
+export async function expandHtmlRenderLoops(siteId: number, block: HtmlRenderBlock, currentPostId?: number, pagination?: LoopPaginationContext): Promise<HtmlRenderBlock> {
   if (!block.loop || block.loop.source !== 'posts') return block;
   const html = block.html || '';
   const regions = findLoopRegions(html);
-  if (regions.length === 0) return block;
+  const paginationRegions = findRegionsByAttr(html, /\bdata-pagination(?!-)/);
+  // Bail when there's neither a loop region nor a pagination region — nothing
+  // for this block to do even if the author set a loop config.
+  if (regions.length === 0 && paginationRegions.length === 0) return block;
 
   // Auto-exclude the current post unless the author explicitly excluded it
   const exclude = new Set(block.loop.exclude || []);
   if (currentPostId) exclude.add(currentPostId);
-  const items = await fetchLoopItems(siteId, { ...block.loop, exclude: Array.from(exclude) });
+
+  // Compute the offset from the request's `?page=N`. Default page=1, offset=0
+  // matches the pre-pagination behavior when no context is passed.
+  const currentPage = Math.max(1, pagination?.page ?? 1);
+  const { items, total, limit: effectiveLimit } = await fetchLoopItems(
+    siteId,
+    { ...block.loop, exclude: Array.from(exclude) },
+    (currentPage - 1) * Math.max(1, Math.min(block.loop.limit ?? 3, 24)),
+  );
+  const totalPages = Math.max(1, Math.ceil(total / effectiveLimit));
 
   // Process regions back-to-front so earlier indices stay valid as we splice.
   // Each `data-loop` element is REPLACED by N copies of itself (the whole
@@ -310,6 +528,19 @@ export async function expandHtmlRenderLoops(siteId: number, block: HtmlRenderBlo
     out = out.slice(0, r.start) + repeated + out.slice(r.end);
   }
 
+  // Pagination UI expansion — needs pathname to build links. When the page
+  // route didn't supply a context (e.g. preview render outside a request) we
+  // fall back to the post's slug-less root so links are at least clickable.
+  if (paginationRegions.length > 0) {
+    const pathname = pagination?.pathname ?? '/';
+    out = expandPaginationRegions(out, {
+      currentPage,
+      totalPages,
+      pathname,
+      extraParams: pagination?.extraParams,
+    });
+  }
+
   return { ...block, html: out };
 }
 
@@ -318,14 +549,14 @@ export async function expandHtmlRenderLoops(siteId: number, block: HtmlRenderBlo
  * every html-render block. Mutates a shallow-copied tree; the caller can
  * safely pass the result through the normal renderer.
  */
-export async function expandLoopsInBlocks(siteId: number, blocks: Block[], currentPostId?: number): Promise<Block[]> {
+export async function expandLoopsInBlocks(siteId: number, blocks: Block[], currentPostId?: number, pagination?: LoopPaginationContext): Promise<Block[]> {
   const out: Block[] = [];
   for (const b of blocks) {
     if (b.type === 'html-render') {
       // Resolve post-field references first (turns ids → records), then loop expansion.
       let resolved = await resolvePostFields(siteId, b as HtmlRenderBlock);
       if ((resolved as HtmlRenderBlock).loop) {
-        resolved = await expandHtmlRenderLoops(siteId, resolved, currentPostId);
+        resolved = await expandHtmlRenderLoops(siteId, resolved, currentPostId, pagination);
       }
       out.push(resolved);
       continue;
@@ -333,19 +564,19 @@ export async function expandLoopsInBlocks(siteId: number, blocks: Block[], curre
     // Recurse into containers
     if (b.type === 'columns' && Array.isArray((b as { columns?: Array<{ blocks?: Block[] }> }).columns)) {
       const cols = (b as unknown as { columns: Array<{ blocks: Block[] }> }).columns;
-      const newCols = await Promise.all(cols.map(async c => ({ ...c, blocks: await expandLoopsInBlocks(siteId, c.blocks || [], currentPostId) })));
+      const newCols = await Promise.all(cols.map(async c => ({ ...c, blocks: await expandLoopsInBlocks(siteId, c.blocks || [], currentPostId, pagination) })));
       out.push({ ...b, columns: newCols } as Block);
       continue;
     }
     if (b.type === 'tabs' && Array.isArray((b as { tabs?: Array<{ blocks?: Block[] }> }).tabs)) {
       const tabs = (b as unknown as { tabs: Array<{ blocks: Block[] }> }).tabs;
-      const newTabs = await Promise.all(tabs.map(async t => ({ ...t, blocks: await expandLoopsInBlocks(siteId, t.blocks || [], currentPostId) })));
+      const newTabs = await Promise.all(tabs.map(async t => ({ ...t, blocks: await expandLoopsInBlocks(siteId, t.blocks || [], currentPostId, pagination) })));
       out.push({ ...b, tabs: newTabs } as Block);
       continue;
     }
     if (b.type === 'section' && Array.isArray((b as { blocks?: Block[] }).blocks)) {
       const inner = (b as unknown as { blocks: Block[] }).blocks;
-      out.push({ ...b, blocks: await expandLoopsInBlocks(siteId, inner, currentPostId) } as Block);
+      out.push({ ...b, blocks: await expandLoopsInBlocks(siteId, inner, currentPostId, pagination) } as Block);
       continue;
     }
     out.push(b);
@@ -433,10 +664,10 @@ async function resolvePostFields(siteId: number, block: HtmlRenderBlock): Promis
  * loops, and returns a serialized JSON. Lets the page route plug this into
  * the existing pipeline alongside `wrapWithTypeTemplate` / `prefetchHtmlEmbeds`.
  */
-export async function expandLoopsInContent(siteId: number, contentJson: string, currentPostId?: number): Promise<string> {
+export async function expandLoopsInContent(siteId: number, contentJson: string, currentPostId?: number, pagination?: LoopPaginationContext): Promise<string> {
   let parsed: { blocks?: Block[]; version?: string };
   try { parsed = JSON.parse(contentJson); } catch { return contentJson; }
   if (!parsed?.blocks?.length) return contentJson;
-  const expanded = await expandLoopsInBlocks(siteId, parsed.blocks, currentPostId);
+  const expanded = await expandLoopsInBlocks(siteId, parsed.blocks, currentPostId, pagination);
   return JSON.stringify({ blocks: expanded, version: parsed.version || '1.0' });
 }

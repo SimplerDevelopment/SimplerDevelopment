@@ -96,8 +96,58 @@ function isPlausibleTenantHost(host: string): boolean {
   return true;
 }
 
+/**
+ * Dev-only CORS prelude for `/api/portal/*` so the Expo web client at
+ * `localhost:8081` can call this server at `localhost:3000` during local
+ * development. Production runs both surfaces on the same origin, so we no-op
+ * outside dev. Handles the preflight OPTIONS request directly (204 + headers)
+ * and stamps the same headers on real responses on the way out.
+ */
+function isAllowedDevOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (process.env.NODE_ENV === 'production') return false;
+  try {
+    const u = new URL(origin);
+    // Mobile dev server (Expo web on 8081) and any localhost port — the mobile
+    // app is the only legitimate cross-origin caller here.
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function applyDevCors(response: NextResponse, origin: string) {
+  response.headers.set('Access-Control-Allow-Origin', origin);
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  );
+  response.headers.set(
+    'Access-Control-Allow-Headers',
+    'Authorization, Content-Type, Accept, Cache-Control, Last-Event-ID, X-Requested-With',
+  );
+  response.headers.set('Access-Control-Max-Age', '600');
+  response.headers.append('Vary', 'Origin');
+}
+
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
+
+  // ── Dev CORS for the mobile client ──────────────────────────────────────
+  // Mobile (Expo web on :8081) hits this server's /api/portal/* endpoints
+  // cross-origin during local dev. Stamp the Allow-Origin headers BEFORE any
+  // other logic so OPTIONS preflights short-circuit cleanly.
+  const reqOrigin = req.headers.get('origin');
+  const { pathname: prePath } = req.nextUrl;
+  if (prePath.startsWith('/api/') && isAllowedDevOrigin(reqOrigin)) {
+    if (req.method === 'OPTIONS') {
+      const preflight = new NextResponse(null, { status: 204 });
+      applyDevCors(preflight, reqOrigin as string);
+      return preflight;
+    }
+  }
 
   // If this is a custom domain (not the app itself), rewrite to the sites renderer
   if (host && !isAppHostname(host)) {
@@ -169,6 +219,9 @@ export async function middleware(req: NextRequest) {
     const response = NextResponse.rewrite(url);
     // Pass the resolved path so layouts can detect specific routes
     response.headers.set('x-site-pathname', slug || '/');
+    // Surface the tenant domain so deep components that don't get route params
+    // (e.g. not-found.tsx) can still resolve branding without re-parsing the URL.
+    response.headers.set('x-site-domain', domain);
     return response;
   }
 
@@ -176,9 +229,12 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (pathname.startsWith('/sites/')) {
     const sitePath = pathname.replace(/^\/sites\/[^/]+/, '') || '/';
-    const response = NextResponse.next({
-      headers: { 'x-site-pathname': sitePath },
-    });
+    // Extract the {domain} segment so not-found.tsx / error.tsx can recover it.
+    const domainMatch = pathname.match(/^\/sites\/([^/]+)/);
+    const siteDomain = domainMatch ? domainMatch[1] : '';
+    const headers: Record<string, string> = { 'x-site-pathname': sitePath };
+    if (siteDomain) headers['x-site-domain'] = siteDomain;
+    const response = NextResponse.next({ headers });
     return response;
   }
 
@@ -201,7 +257,15 @@ export async function middleware(req: NextRequest) {
   }
 
   // For the app's own hostname, run the standard NextAuth middleware
-  return (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
+  const response = await (auth as unknown as (req: NextRequest) => Promise<NextResponse>)(req);
+
+  // Stamp dev CORS headers on responses going back to the mobile client. The
+  // OPTIONS preflight already short-circuited above; this handles the real
+  // GET / POST / PATCH / DELETE responses.
+  if (prePath.startsWith('/api/') && reqOrigin && isAllowedDevOrigin(reqOrigin)) {
+    applyDevCors(response, reqOrigin);
+  }
+  return response;
 }
 
 // ─── Plugin proxy handler ──────────────────────────────────────────────────

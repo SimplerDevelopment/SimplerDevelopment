@@ -1,0 +1,75 @@
+{
+  "url": "https://cardiff.co/contact-us/",
+  "slug": "contact-us",
+  "title": "Contact Us for Business Loans and Equipment Financing",
+  "h1": "Contact Us for Business Loans and Financing Options",
+  "metaDescription": "Contact Cardiff for business credit options, including short term business funding. Get a business loan for your expansion needs now.",
+  "ogImage": "https://cardiffcompany.wpenginepowered.com/wp-content/uploads/2025/06/Cardiff-SBA-Loans.jpg",
+  "canonical": "https://cardiff.co/contact-us/",
+  "blocks": [
+    {
+      "type": "h2",
+      "text": "Questions? We’re here to help"
+    },
+    {
+      "type": "h3",
+      "text": "Call Us"
+    },
+    {
+      "type": "p",
+      "text": "Service (888)234-0166"
+    },
+    {
+      "type": "p",
+      "text": "Fax (888)234-0177"
+    },
+    {
+      "type": "h3",
+      "text": "Email Us"
+    },
+    {
+      "type": "p",
+      "text": "Account Details"
+    },
+    {
+      "type": "p",
+      "text": "Application Questions"
+    },
+    {
+      "type": "p",
+      "text": "Affiliate Relationship"
+    },
+    {
+      "type": "p",
+      "text": "ISOs Relationship"
+    },
+    {
+      "type": "p",
+      "text": "Careers"
+    },
+    {
+      "type": "p",
+      "text": "Partnership"
+    },
+    {
+      "type": "h3",
+      "text": "Hours of Operations"
+    },
+    {
+      "type": "h4",
+      "text": "Monday – Friday"
+    },
+    {
+      "type": "p",
+      "text": "8am – 5pm (pacific)"
+    }
+  ],
+  "images": [],
+  "links": [
+    {
+      "href": "https://cardiff.co/business/apply",
+      "text": "Apply Now"
+    }
+  ],
+  "template": "rich"
+}

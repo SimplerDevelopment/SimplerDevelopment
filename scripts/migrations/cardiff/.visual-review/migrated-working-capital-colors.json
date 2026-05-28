@@ -1,0 +1,134 @@
+[
+  {
+    "tag": "div",
+    "id": null,
+    "class": "min-h-screen flex flex-col",
+    "top": 0,
+    "height": 3211,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "  relative",
+    "top": 80,
+    "height": 278,
+    "bg": "rgb(37, 65, 139)",
+    "bgImage": null,
+    "color": "rgb(255, 255, 255)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "",
+    "top": 422,
+    "height": 738,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "  relative",
+    "top": 502,
+    "height": 560,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "",
+    "top": 1160,
+    "height": 457,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "  relative",
+    "top": 1240,
+    "height": 277,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "",
+    "top": 1617,
+    "height": 852,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "  relative",
+    "top": 1697,
+    "height": 674,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "",
+    "top": 2469,
+    "height": 366,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "  relative",
+    "top": 2549,
+    "height": 188,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(10, 10, 10)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "",
+    "top": 2835,
+    "height": 376,
+    "bg": "rgb(28, 51, 112)",
+    "bgImage": "linear-gradient(135deg, rgb(28, 51, 112) 0%, rgb(37, 65, 139) 100%)",
+    "color": "rgb(255, 255, 255)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  },
+  {
+    "tag": "section",
+    "id": null,
+    "class": "relative overflow-hidden bg-primary/10 ",
+    "top": 2923,
+    "height": 200,
+    "bg": "oklab(0.54613 -0.0266538 -0.213537 / 0.1)",
+    "bgImage": null,
+    "color": "rgb(255, 255, 255)",
+    "fontFamily": "\"Open Sans, -apple-system, BlinkMacSystemFont, sans-serif\", system-ui, sans-serif"
+  }
+]

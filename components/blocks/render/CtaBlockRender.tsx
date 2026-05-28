@@ -32,6 +32,37 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
     }
   }
 
+  // Authors can override the default gradient via the style sidebar — pass
+  // backgroundColor / customCSS / padding through to the wrapping section so
+  // a cta block can render as a full-bleed branded band (matches cardiff.co's
+  // "Ready to borrow better?" pattern). Without this, every cta block on the
+  // site would be locked to the tiny `bg-primary/10` strip.
+  const wrapperStyle: React.CSSProperties = { ...gradientStyle };
+  if (style.backgroundColor) wrapperStyle.backgroundColor = style.backgroundColor;
+  if (style.background) wrapperStyle.background = style.background as string;
+  if (style.paddingTop) wrapperStyle.paddingTop = style.paddingTop as string;
+  if (style.paddingBottom) wrapperStyle.paddingBottom = style.paddingBottom as string;
+  if (style.paddingLeft) wrapperStyle.paddingLeft = style.paddingLeft as string;
+  if (style.paddingRight) wrapperStyle.paddingRight = style.paddingRight as string;
+  if (style.color) wrapperStyle.color = style.color as string;
+  // customCSS is a string of `key: value; key2: value2;` — let the renderer
+  // splice it onto the element via a style tag attribute. The cleanest way to
+  // do this in React is via `data-` attribute + dangerouslySetInnerHTML for
+  // class-scoped styles, but for cta-level overrides we can parse the simple
+  // declarations into the styleObject directly.
+  if (typeof style.customCSS === 'string' && style.customCSS.trim()) {
+    for (const decl of style.customCSS.split(';')) {
+      const idx = decl.indexOf(':');
+      if (idx < 0) continue;
+      const prop = decl.slice(0, idx).trim();
+      const val = decl.slice(idx + 1).trim();
+      if (!prop || !val) continue;
+      // Convert kebab-case to camelCase for React style keys
+      const camel = prop.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      (wrapperStyle as Record<string, string>)[camel] = val;
+    }
+  }
+
   // Generate responsive classes from block settings
   const responsiveClasses = block.responsive
     ? combineResponsiveClasses(
@@ -49,7 +80,7 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
     : '';
 
   return (
-    <section className={`relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={gradientStyle}>
+    <section className={`relative overflow-hidden ${backgroundClass} ${responsiveClasses}`} style={wrapperStyle}>
       <div className="container mx-auto px-4 text-center relative z-10">
         <h2 data-editable-field="title" className={`font-display ${hasCustomFontSize ? '' : 'text-4xl md:text-6xl'} ${hasCustomFontWeight ? '' : 'font-bold'} mb-6 tracking-wide`} style={getElementCSS(block.elementStyles, 'title')} dangerouslySetInnerHTML={{ __html: block.title }} />
 

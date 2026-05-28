@@ -1,0 +1,79 @@
+[
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_4 hero-section et_pb_with_background et_section_regular",
+    "top": 55,
+    "height": 421,
+    "bg": "rgb(37, 65, 139)",
+    "bgImage": "linear-gradient(rgba(37, 65, 139, 0.25) 0%, rgba(37, 65, 139, 0.65) 100%), url(\"https://cardiffcompany.wpenginepowered.com/wp-content/uploads/2025/06/Cardiff-merchant-cash-advance.jpg\")",
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_5 et_section_regular",
+    "top": 476,
+    "height": 525,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_6 et_pb_with_background et_section_regular",
+    "top": 1001,
+    "height": 678,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_7 et_section_regular",
+    "top": 1679,
+    "height": 930,
+    "bg": "rgb(255, 255, 255)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_8 et_pb_with_background et_section_regular",
+    "top": 2610,
+    "height": 620,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_1_tb_footer et_pb_with_background et_section_regular et_pb_section--with-menu",
+    "top": 3273,
+    "height": 428,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  },
+  {
+    "tag": "div",
+    "id": null,
+    "class": "et_pb_section et_pb_section_2_tb_footer et_pb_with_background et_section_specialty et_pb_section--with-menu",
+    "top": 3701,
+    "height": 313,
+    "bg": "rgb(246, 249, 252)",
+    "bgImage": null,
+    "color": "rgb(82, 95, 127)",
+    "fontFamily": "-apple-system, \"system-ui\", \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Helvetica Neue\", sans-serif"
+  }
+]

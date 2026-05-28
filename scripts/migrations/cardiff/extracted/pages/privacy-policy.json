@@ -1,0 +1,417 @@
+{
+  "url": "https://cardiff.co/privacy-policy/",
+  "slug": "privacy-policy",
+  "title": "Cardiff Privacy Policy",
+  "h1": "Privacy Policy",
+  "metaDescription": "At Cardiff, your privacy is our priority. Read our privacy policy here.",
+  "ogImage": "https://cardiff.b-cdn.net/img/cardiff-logo-opengraph-meta.png",
+  "canonical": "https://cardiff.co/privacy-policy/",
+  "blocks": [
+    {
+      "type": "h2",
+      "text": "Cardiff Privacy Policy"
+    },
+    {
+      "type": "h4",
+      "text": "Last updated: May 13, 2026"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff, Inc. (\"Cardiff,\" \"we,\" \"us,\" or \"our\") respects your privacy. This Privacy Policy describes how we collect, use, share, and protect personal and business information in connection with our small-business financing products, our website at cardiff.co (the \"Site\"), our customer and merchant portal (the \"Portal\"), and the Cardiff iOS application (the \"App\"). Cardiff offers business-purpose financing only. It applies to business owners, principals, personal guarantors, authorized representatives of business applicants, ISOs and referral partners, website visitors, and App users — each of whom is or may be a natural person whose \"personal information\" is subject to applicable state privacy laws."
+    },
+    {
+      "type": "p",
+      "text": "This Policy is provided to you as required by applicable state law (including the California Consumer Privacy Act, as amended by the California Privacy Rights Act (\"CCPA/CPRA\"), and other state comprehensive privacy laws listed in Section 14) and as a description of Cardiff's information-handling practices generally. Cardiff offers business-purpose financing only and does not offer financial products or services primarily for personal, family, or household purposes. Certain consumer-privacy notice requirements may not apply to Cardiff's business-purpose financing activities; however, Cardiff maintains safeguards for covered information as required by applicable law, including the FTC Safeguards Rule where applicable."
+    },
+    {
+      "type": "h3",
+      "text": "1. Cardiff's Role — Lender and Broker"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff operates in two capacities, sometimes for the same merchant on different transactions, and how we handle your data depends on which capacity we are acting in."
+    },
+    {
+      "type": "p",
+      "text": "Cardiff will disclose its role as funder or broker as required by applicable law and transaction documents. For brokered transactions, Cardiff may submit your application and supporting information to selected funding partners to evaluate available financing options. Where required by law or where reasonably practicable in the submission workflow, Cardiff will identify the funder or categories of funders receiving your application before or in connection with transmission."
+    },
+    {
+      "type": "h3",
+      "text": "2. Information We Collect"
+    },
+    {
+      "type": "p",
+      "text": "We collect the following categories of information. Not every category applies to every relationship."
+    },
+    {
+      "type": "p",
+      "text": "A. Information you provide. Applicant and business information you submit through applications, in the App, in the Portal, by email, by SMS, or to our human or AI agents — such as your name, date of birth, Social Security number (where required for identity verification, KYC, or a personal guaranty of a business owner or principal), Employer Identification Number, business legal name and DBA, business and personal addresses, mobile and landline numbers, email, ownership percentage, photo identification, beneficiary information, bank-statement uploads, tax returns, financial statements, and similar records."
+    },
+    {
+      "type": "p",
+      "text": "B. Authentication information. When you sign in to the App or Portal, we collect a one-time passcode (OTP) delivered to your email or mobile number, and we generate session tokens. We do not store account passwords for the App."
+    },
+    {
+      "type": "p",
+      "text": "C. Transactions and experiences. Your transactions and experiences with us and our affiliates — including advance / loan balance, payment history, payment frequency, payment dates, ACH and debit-card information used for repayment, renewal eligibility, default and collection events, and communications history."
+    },
+    {
+      "type": "p",
+      "text": "D. Information from third parties. Information from non-affiliated third parties about you, including business and personal credit-bureau reports on the business and on owners or guarantors, bank-transaction data accessed through your authorized bank-data aggregator, bank-statement OCR output, public-records and identity-verification results, fraud-prevention signals, prior-funder repayment history shared by industry data exchanges among commercial-financing providers, and data appended by enrichment providers."
+    },
+    {
+      "type": "p",
+      "text": "E. App and Portal usage data. When you use the App or Portal, we collect information you submit through forms (profile updates, renewal requests, support messages) and server-side application logs (events such as which screens you view and which actions you take), used to operate, secure, troubleshoot, and improve our services. These logs are hosted in our cloud environment (Amazon Web Services). The App does not request access to your device location, camera, photos, contacts, microphone, calendar, or biometric data, and does not include third-party analytics, advertising, or attribution SDKs."
+    },
+    {
+      "type": "p",
+      "text": "F. Voice and message content. When you call Cardiff or are called by Cardiff (including by an AI voice agent), and when you exchange SMS or email with us (including with AI-assisted SMS and email), we record and retain the content of those communications and create transcripts and summaries. We use these for the purposes described in Section 4, including training Cardiff's own internal models and quality assurance. We do not permit our third-party LLM providers to use your content to train their foundation models (see Section 6)."
+    },
+    {
+      "type": "p",
+      "text": "G. Website and cookie data. When you visit the Site, we collect IP address, device and browser identifiers, pages viewed, referring URL, and cookie-based identifiers. See Section 11 (Cookies and Online Tracking)."
+    },
+    {
+      "type": "p",
+      "text": "H. Information from ISOs and referral partners. If you reach Cardiff through an Independent Sales Organization or other referral partner, we receive the application information that partner collected from you, together with the partner's own identifier(s) for tracking the referral."
+    },
+    {
+      "type": "h3",
+      "text": "3. Sources of Personal Information"
+    },
+    {
+      "type": "p",
+      "text": "We collect the categories described above from: (a) you directly, (b) your authorized representatives and the business you own or control, (c) ISOs and other referral partners, (d) funding partners (when they return decisioning data on brokered submissions), (e) consumer-reporting agencies and business credit bureaus, (f) identity-verification, fraud-prevention, and KYC/AML vendors, (g) bank-data aggregators you authorize, (h) public records, (i) our website analytics and App telemetry, and (j) our service providers acting on our behalf."
+    },
+    {
+      "type": "h3",
+      "text": "4. How We Use Your Information"
+    },
+    {
+      "type": "p",
+      "text": "We use the information we collect to:"
+    },
+    {
+      "type": "ul",
+      "text": "",
+      "items": [
+        "Verify your identity and authenticate you, including via OTP delivered by SMS or email.",
+        "Underwrite, price, fund, service, renew, and collect on financing products you apply for or hold with us, whether Cardiff is the lender / funder or the broker.",
+        "Communicate with you about your application, account, payments, renewals, and servicing — by phone (including AI voice agents), SMS (including AI-assisted SMS), email (including AI-assisted email), or in-App message.",
+        "Operate, secure, troubleshoot, and improve the Site, App, and Portal.",
+        "Train and improve Cardiff's own internal AI tools for document summarization, call transcription and summarization, customer-service routing, and similar internal purposes (see Section 5). Your data is not used to train third-party foundation models.",
+        "Detect, prevent, investigate, and respond to fraud, unauthorized access, money laundering, and other unlawful activity.",
+        "Comply with legal, regulatory, audit, examination, tax, accounting, and recordkeeping obligations applicable to a commercial-financing provider and (where applicable) a state-licensed lender.",
+        "Conduct internal research, business analytics, and reporting to investors and funding partners (in aggregate or de-identified form except where transaction-level reporting is required).",
+        "For the limited marketing purposes described in Section 8, subject to your opt-out rights."
+      ]
+    },
+    {
+      "type": "p",
+      "text": "We do not use information collected through the App to track you across other companies' apps or websites, and we do not share information collected through the App with third parties for their own advertising purposes."
+    },
+    {
+      "type": "h3",
+      "text": "5. AI and Automated Processing"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff uses artificial intelligence and other automated processing in limited, specifically scoped ways. Cardiff does not use AI as the sole or substantial basis of any credit, underwriting, pricing, renewal, or risk decision. Credit decisions are made by Cardiff personnel, not by an automated model. Where Cardiff expands its use of AI in the future, it will do so consistent with that commitment and will update this Policy if material new uses are introduced."
+    },
+    {
+      "type": "p",
+      "text": "Today, Cardiff uses AI in the following ways:"
+    },
+    {
+      "type": "ul",
+      "text": "",
+      "items": [
+        "AI-assisted SMS and email. Outbound SMS and email may be drafted, personalized, or auto-replied by AI under human or rules-based supervision.",
+        "AI document analysis. AI extracts, summarizes, and indexes data from uploaded bank statements, tax returns, financial statements, and other supporting documents.",
+        "AI transcription and summarization of recorded calls. Voice recordings are transcribed and summarized by AI for quality, training, compliance, and dispute-resolution purposes.",
+        "AI customer-support assistance. AI triages incoming requests and assists human agents with draft responses."
+      ]
+    },
+    {
+      "type": "p",
+      "text": "Future expansion. Cardiff anticipates expanding AI use over time, including broader AI voice-agent handling of inbound and outbound calls. If Cardiff deploys an AI voice agent that conducts a substantive call on Cardiff's behalf, the agent will identify itself as AI at the start of the call and you may ask to speak with a human at any time. You may opt out of receiving AI-handled outbound calls from Cardiff by emailing privacy@cardiff.co; this opt-out does not stop essential servicing communications."
+    },
+    {
+      "type": "p",
+      "text": "Adverse-action notices. Although Cardiff's credit decisions are not made by an automated model, ECOA / Regulation B and (where applicable) FCRA still apply to those decisions. See Section 7."
+    },
+    {
+      "type": "p",
+      "text": "AI providers. Cardiff is model-agnostic and may use one or more third-party large-language-model providers, locally-hosted (on-premises or private-cloud) models, and other AI service providers, and may change those providers from time to time. Where Cardiff uses a third-party AI provider, our agreement with that provider prohibits the provider from using Cardiff customer data — including your application, financial, transaction, voice, and message data — to train its foundation or general-purpose models. Where Cardiff uses a locally-hosted model, your data remains within Cardiff's controlled environment. In every case, AI processing is governed by data-handling, security, and confidentiality terms substantially equivalent to those applicable to our other service providers."
+    },
+    {
+      "type": "h3",
+      "text": "6. How We Share Your Information"
+    },
+    {
+      "type": "p",
+      "text": "We share the categories described in Section 2 as follows."
+    },
+    {
+      "type": "p",
+      "text": "A. Funding partners (brokered transactions). When Cardiff is acting as a broker, we transmit your application and supporting information to one or more third-party funders selected for that submission. We tell you which funder(s) will receive your file before transmission. Each funder uses your information under its own privacy policy and contract."
+    },
+    {
+      "type": "p",
+      "text": "B. ISOs and referral partners. When you reach Cardiff through an ISO or other referral partner — including affiliate marketers and publishers who direct traffic to Cardiff's website — we may share status and outcome information about your application or referral with that partner under contracts that restrict the partner's use of your information to the referral relationship and require confidentiality."
+    },
+    {
+      "type": "p",
+      "text": "C. Syndication partners and capital providers. Cardiff funds portions of its on-balance-sheet portfolio with syndication partners and warehouse / capital providers. We share transaction-level performance data with those parties under contracts that restrict use to the syndication, financing, or securitization relationship."
+    },
+    {
+      "type": "p",
+      "text": "D. Business credit bureaus and industry data exchanges. Cardiff may share account-performance information (originations, balances, payment history, defaults, and similar data) with business credit bureaus and with industry data exchanges that aggregate performance data among commercial-financing providers, in each case for purposes of credit-decisioning, fraud prevention, and industry risk management. Cardiff does not report consumer-credit information about you to consumer credit-reporting agencies."
+    },
+    {
+      "type": "p",
+      "text": "E. Service providers. We share information with service providers acting on our behalf, including: cloud hosting (Amazon Web Services); CRM, communications, and collaboration platforms; data analytics, identity verification, and fraud prevention; bank-data aggregation; payment processing, ACH, and card processors; document storage; SMS and email delivery; telephony and AI voice / IVR providers; AI model providers (including third-party LLM providers under enterprise terms and locally-hosted models — the specific providers may change from time to time); and professional advisors (accountants, attorneys, auditors). Service providers are bound by contract to use your information only for the services they provide to Cardiff."
+    },
+    {
+      "type": "p",
+      "text": "F. Legal and government. We share information when required by subpoena, court order, regulatory request, examination, or other legal process; in response to law-enforcement requests; to enforce our agreements and Terms of Service; and to detect, prevent, or respond to fraud, security, or technical issues."
+    },
+    {
+      "type": "p",
+      "text": "G. Corporate transactions. If Cardiff is involved in a merger, acquisition, financing, reorganization, sale of all or part of its business or assets, bankruptcy, or similar transaction, your information may be transferred as part of that transaction, subject to the protections of this Policy or successor protections at least as protective."
+    },
+    {
+      "type": "p",
+      "text": "H. With your consent. We share information for any other purpose disclosed to you at the time we collect it, or with your consent."
+    },
+    {
+      "type": "p",
+      "text": "Mobile information. No mobile telephone number or text-messaging originator opt-in data, and no consent to receive SMS or AI-voice communications, will be shared with any third party for that third party's own marketing or promotional purposes. This restriction applies to all categories above."
+    },
+    {
+      "type": "h3",
+      "text": "7. FCRA and ECOA Notices"
+    },
+    {
+      "type": "p",
+      "text": "Fair Credit Reporting Act (FCRA). With your authorization, Cardiff may obtain personal consumer-credit reports from consumer-reporting agencies on business owners, principals, and personal guarantors in connection with a business-financing application, account servicing, periodic review, or renewal. If we take adverse action against a business applicant based in whole or in part on information in a personal consumer report on you as owner, principal, or guarantor, we will provide the notice required by FCRA § 615, including the name, address, and toll-free telephone number of the consumer-reporting agency that supplied the report, and your right to obtain a free copy of that report and to dispute its accuracy. We do not report your personal consumer-credit information to consumer-reporting agencies."
+    },
+    {
+      "type": "p",
+      "text": "Equal Credit Opportunity Act (ECOA). Cardiff does not discriminate against applicants on any basis prohibited by ECOA (15 U.S.C. § 1691) or by Regulation B (12 C.F.R. Part 1002). For business-credit applications, Cardiff provides notice of action taken in accordance with the business-credit notice rules in Regulation B § 1002.9(a)(3). Credit decisions are made by Cardiff personnel, not by an automated model; nothing in this Policy waives any right you have to request a statement of specific reasons for an adverse action."
+    },
+    {
+      "type": "h3",
+      "text": "8. Communications, AI Voice Agents, and Mobile Messaging"
+    },
+    {
+      "type": "p",
+      "text": "By providing your phone number or email address to Cardiff, you authorize Cardiff and its service providers to contact you at those addresses for purposes of application processing, identity verification (including OTP delivery), account servicing, payment, renewal, collections, fraud prevention, and required legal and regulatory notices. We may use autodialed calls, prerecorded or artificial voice (including AI in our IVR today and AI voice agents in the future), SMS, and email for these purposes. Standard message and data rates may apply."
+    },
+    {
+      "type": "p",
+      "text": "Express written consent for marketing and renewal offers. Cardiff does not place autodialed or prerecorded marketing calls (including AI-voice marketing calls) or send marketing SMS to you without your prior express written consent specific to Cardiff. Renewal offers, new financing offers, and promotional messages may be treated as marketing where required by law. If in the future Cardiff acquires leads from third-party lead vendors, Cardiff will obtain seller-specific written consent and will not rely on bundled lead-generation consent."
+    },
+    {
+      "type": "p",
+      "text": "AI voice identification. Where AI handles a portion of a call (today, in the IVR; in the future, more broadly), the system will identify itself as automated at the start of the interaction. You may ask to speak with a human at any time, or end the call. You may opt out of receiving outbound AI-handled calls from Cardiff by emailing privacy@cardiff.co; this opt-out does not affect your right or our obligation to receive essential servicing communications."
+    },
+    {
+      "type": "p",
+      "text": "SMS opt-out. You may opt out of non-essential SMS at any time by replying STOP to any Cardiff text; reply HELP for help; reply START to re-subscribe. Cardiff's SMS short code is 227343 (keyword CARDIFF to subscribe). Opting out of essential security messages (including OTP delivery) may prevent you from signing in to the App or completing identity verification. Supported carriers include AT&T, Verizon, T-Mobile, and most regional carriers."
+    },
+    {
+      "type": "p",
+      "text": "Email opt-out. You may opt out of marketing email by clicking unsubscribe in any marketing email or by emailing privacy@cardiff.co."
+    },
+    {
+      "type": "p",
+      "text": "Servicing communications. Servicing, security, fraud-prevention, collections, account, and legally required communications may continue regardless of marketing-opt-out status, as permitted by applicable law. Marketing opt-outs do not prevent Cardiff from sending transactional or legally required messages, but Cardiff will honor opt-outs from marketing and promotional communications as required by law."
+    },
+    {
+      "type": "h3",
+      "text": "9. Recording of Calls and AI Capture of Communications"
+    },
+    {
+      "type": "p",
+      "text": "All calls between you and Cardiff are recorded by default , whether the call is handled by a human or by an AI-assisted system. Calls are recorded and transcribed for quality, training, compliance, and dispute-resolution purposes. You will be notified at the start of each call that the call is being recorded; by remaining on the call after that notice, you consent to the recording. SMS, email, and in-App message content may also be retained and analyzed by AI for the purposes described in Sections 4 and 5."
+    },
+    {
+      "type": "h3",
+      "text": "10. iOS App Privacy (App Store Disclosures)"
+    },
+    {
+      "type": "p",
+      "text": "The data types Cardiff collects through the App and links to your identity are:"
+    },
+    {
+      "type": "ul",
+      "text": "",
+      "items": [
+        "Contact Info: name, email address, phone number, physical address.",
+        "Financial Info: account balance, payment history, advance / loan amounts, payment dates, and other financial information related to your transaction with Cardiff.",
+        "Identifiers: a Cardiff-issued user ID and a business identifier (EIN).",
+        "Usage Data: product-interaction data (which screens you view and which actions you take in the App), captured in server-side application logs.",
+        "Diagnostics: crash logs and performance telemetry used to identify and fix App defects."
+      ]
+    },
+    {
+      "type": "p",
+      "text": "All of the above are collected for App Functionality and Analytics only — \"Analytics\" being Cardiff's own server-side application logs used to monitor errors, troubleshoot issues, and inform internal product and operational improvements. They are not used for tracking, as defined by Apple's App Tracking Transparency framework. The App does not display the App Tracking Transparency prompt because we do not engage in tracking. The App does not request access to your device location, camera, photos, contacts, microphone, calendar, or biometric data, and does not include third-party analytics, advertising, or attribution SDKs."
+    },
+    {
+      "type": "p",
+      "text": "The App does not offer Sign in with Apple. Authentication is by email or mobile-number OTP only."
+    },
+    {
+      "type": "p",
+      "text": "Future features. A future version of the App will support push notifications . If you enable push notifications, we will collect a push-notification device token and use it to deliver servicing, security, payment-reminder, and (where you have separately consented) marketing notifications; you will be able to disable push notifications at any time from iOS Settings. Before that version is released, we will update this Policy and update the App Privacy disclosures in App Store Connect to add \"Identifiers (push notification token).\" We will follow the same process for any other new data category that a future App version collects."
+    },
+    {
+      "type": "h3",
+      "text": "11. Cookies and Online Tracking"
+    },
+    {
+      "type": "p",
+      "text": "The Site uses cookies, pixels, UTM parameters, local storage, and similar technologies for authentication, security, functionality, analytics, and advertising on cardiff.co marketing pages. Where required by law, we display a cookie banner that allows you to manage non-essential cookies, and we honor Global Privacy Control (GPC) signals as an opt-out of \"sale\" and \"sharing\" for purposes of the CCPA and other state laws that treat GPC as a valid opt-out signal. We do not use cookies or pixels in the App or in the authenticated Portal experience."
+    },
+    {
+      "type": "h3",
+      "text": "12. Data Retention"
+    },
+    {
+      "type": "p",
+      "text": "We retain your information for as long as your account is active and for as long as needed to provide services, comply with legal and regulatory recordkeeping obligations applicable to commercial financing, resolve disputes, defend against claims, and enforce our agreements. Records related to closed accounts are retained for the period required by applicable law and our regulators (including federal tax, AML, BSA, and licensing recordkeeping schedules), after which they are securely deleted or anonymized. Specific retention periods are documented in Cardiff's internal records-retention schedule."
+    },
+    {
+      "type": "h3",
+      "text": "13. Data Security and Breach Notification"
+    },
+    {
+      "type": "p",
+      "text": "We maintain administrative, technical, and physical safeguards to protect your information against unauthorized access, alteration, disclosure, or destruction, including encryption of data in transit and at rest, role-based access controls, least-privilege provisioning, multi-factor authentication for employee systems, network and application logging within our cloud environment, vulnerability management, vendor due diligence, and a written information security program. Our core business platforms — including our cloud-hosting provider (Amazon Web Services), CRM (Salesforce), and collaboration / communications tools (including Zoom and Slack) — are operated by vendors that maintain independent third-party assurance reports or certifications, such as SOC 1, SOC 2, ISO 27001, or equivalent reports where available, which Cardiff reviews as part of its vendor-risk program."
+    },
+    {
+      "type": "p",
+      "text": "Cardiff is building out its cybersecurity audit and risk-assessment program in alignment with the FTC Safeguards Rule and with the CCPA cybersecurity-audit and risk-assessment regulations effective January 1, 2026 (risk-assessment attestation due to the California Privacy Protection Agency by April 1, 2028). The scope, schedule, and findings of those audits are governed by those regulations and Cardiff's internal program documentation."
+    },
+    {
+      "type": "p",
+      "text": "No system is perfectly secure. In the event of a security incident that affects your personal information, we will notify you and applicable regulators in accordance with the timing required by applicable state breach-notification laws and other applicable rules. We do not waive liability for our own breach obligations; however, as set forth in our Terms of Service, our liability for security events arising from third-party providers (including third-party AI vendors) is limited as described in those Terms."
+    },
+    {
+      "type": "h3",
+      "text": "14. Your State Privacy Rights"
+    },
+    {
+      "type": "p",
+      "text": "Depending on where you reside, you may have rights under your state's comprehensive privacy law with respect to the personal information Cardiff holds about you as a natural person (typically as a business owner, principal, guarantor, authorized representative, or website visitor). State comprehensive privacy laws in effect as of the date of this Policy include those of California (CCPA/CPRA), Virginia (VCDPA), Colorado (CPA), Connecticut (CTDPA), Utah (UCPA), Iowa (ICDPA), Tennessee (TIPA), Montana (MCDPA), Oregon (OCPA), Texas (TDPSA), Florida (FDBR), Delaware (DPDPA), New Hampshire (NHPA), New Jersey (NJDPA), Nebraska (NDPA), Minnesota (MCDPA), Maryland (MODPA), Indiana (INCDPA), Kentucky (KCDPA), and Rhode Island (RIDPA). Additional state laws may take effect later in 2026 and beyond; we will update this Policy as those laws come into force."
+    },
+    {
+      "type": "p",
+      "text": "Depending on your state, your rights may include:"
+    },
+    {
+      "type": "ul",
+      "text": "",
+      "items": [
+        "The right to know / access the personal information we have collected about you, the categories of sources, the categories of recipients, and the purposes;",
+        "The right to receive a portable copy of certain personal information;",
+        "The right to correct inaccurate personal information;",
+        "The right to delete personal information, subject to legal-retention exceptions;",
+        "The right to opt out of \"sale\" or \"sharing\" of personal information for cross-context behavioral advertising (we honor GPC for this purpose);",
+        "The right to opt out of profiling in furtherance of decisions that produce legal or similarly significant effects (where applicable). Cardiff does not currently use automated decision-making for any significant decision (see Section 5);",
+        "The right to limit our use and disclosure of \"sensitive personal information\" to purposes necessary to provide the service (CCPA/CPRA);",
+        "The right not to be retaliated against for exercising any of these rights."
+      ]
+    },
+    {
+      "type": "p",
+      "text": "Some state laws contain a business-to-business carve-out or financial-institution carve-out that may limit how those rights apply to information collected in the course of a business-financing relationship. Where carve-outs are limited or unclear, Cardiff applies the protection that is most favorable to you."
+    },
+    {
+      "type": "p",
+      "text": "To exercise any of these rights , contact us at privacy@cardiff.co or at the mailing address in Section 19. You may also designate an authorized agent. We will verify your identity using information already on file and respond within the time required by your state's law (generally 45 days from receipt, extendable once where allowed)."
+    },
+    {
+      "type": "p",
+      "text": "California — additional disclosures. In the 12 months preceding the date of this Policy, Cardiff has collected the categories of personal information described in Section 2 from the sources described in Section 3, used that information for the purposes described in Section 4, and disclosed it to the categories of recipients described in Section 6. Cardiff has not \"sold\" personal information for monetary consideration. Cardiff has \"shared\" personal information for cross-context behavioral advertising only on Site marketing pages; honoring GPC operates as an opt-out for this sharing. The \"Notice of Right to Limit Use of Sensitive Personal Information\" applies where Cardiff uses sensitive personal information (such as SSN, driver's license number, account credentials, or financial-account information) for purposes beyond those necessary to provide the requested service. Cardiff does not request or collect precise device geolocation through the App and does not use sensitive personal information for purposes beyond service provision."
+    },
+    {
+      "type": "p",
+      "text": "California Notice at Collection — summary. The table below summarizes the categories of personal information Cardiff collects, the main sources, purposes, and categories of recipients. The detailed descriptions in Sections 2, 3, 4, and 6 control if there is any inconsistency."
+    },
+    {
+      "type": "p",
+      "text": "Nevada. Nevada residents may direct us not to sell certain personal information; Cardiff does not engage in sales as defined under Nevada law."
+    },
+    {
+      "type": "h3",
+      "text": "15. International Users and GDPR"
+    },
+    {
+      "type": "p",
+      "text": "The Site, App, and Portal are offered to U.S. residents only and are not directed to individuals in the European Economic Area, the United Kingdom, or Switzerland. If you access Cardiff from outside the United States, your information will be transferred to and processed in the United States. Where the GDPR or UK GDPR applies to a particular processing activity (for example, a non-U.S. resident interacting with a Cardiff representative), our lawful bases are: performance of a contract (Art. 6(1)(b)), compliance with a legal obligation (Art. 6(1)(c)), and our legitimate interests in operating a regulated financial business and preventing fraud (Art. 6(1)(f)). Data-subject rights under those laws may be exercised at privacy@cardiff.co."
+    },
+    {
+      "type": "h3",
+      "text": "16. Children's Privacy"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff's services are intended for business owners and authorized representatives only. The Site, App, Portal, and Cardiff's services are not directed to children under 13, and we do not knowingly collect personal information from children under 13. If we learn we have collected such information, we will delete it."
+    },
+    {
+      "type": "h3",
+      "text": "17. Account Deletion"
+    },
+    {
+      "type": "p",
+      "text": "You may request deletion of your Cardiff App / Portal account and associated online access at any time. Account deletion closes your App / Portal access and deletes or anonymizes eligible online-account information, but it does not delete financing, identity, payment, tax, fraud-prevention, legal, or regulatory records that Cardiff is required or permitted to retain under applicable law. You may request deletion as follows:"
+    },
+    {
+      "type": "ul",
+      "text": "",
+      "items": [
+        "In the App: open Profile → tap Delete Account . On confirmation, a deletion request is sent to our team.",
+        "By email: send a deletion request to privacy@cardiff.co from the email address associated with your account.",
+        "By mail: Cardiff, Inc., Attn: Privacy, 122 15th Street #2562, Del Mar, California 92014."
+      ]
+    },
+    {
+      "type": "p",
+      "text": "When we receive a verified deletion request, we will, within 30 days (or such longer period as applicable state law permits), (a) close your account and revoke your App and Portal access; (b) delete or anonymize personal information that supports your Portal experience (profile contact information, authentication credentials, session tokens, and product-interaction logs), to the extent not subject to a retention requirement; and (c) confirm the outcome to you by email."
+    },
+    {
+      "type": "p",
+      "text": "Records we must retain. Because Cardiff is a financial-services provider, certain records must be retained after account closure to comply with federal and state legal, regulatory, audit, tax, accounting, anti-money-laundering, fraud-prevention, and recordkeeping obligations. These typically include records of your advance or loan (financing agreement, payment history, transaction records, identity-verification information, required tax records) for the period required by law. These records are retained in restricted-access systems, are not used to contact you for marketing purposes, and are deleted or anonymized at the end of the applicable retention period."
+    },
+    {
+      "type": "p",
+      "text": "If your state law gives you broader deletion rights, we will honor those rights to the extent required by that law."
+    },
+    {
+      "type": "h3",
+      "text": "18. Changes to This Privacy Policy"
+    },
+    {
+      "type": "p",
+      "text": "If we change this Policy, we will post the updated version at https://cardiff.co/privacy-policy/ and indicate the date of the changes at the top. Material changes affecting how we use information collected through the App will also be communicated through the App or by email before they take effect."
+    },
+    {
+      "type": "h3",
+      "text": "19. How to Contact Us"
+    },
+    {
+      "type": "p",
+      "text": "If you have a question or complaint about Cardiff's compliance with this Policy, contact us at:"
+    },
+    {
+      "type": "p",
+      "text": "Cardiff, Inc. Attn: Privacy 122 15th Street #2562 Del Mar, California 92014 Email: privacy@cardiff.co"
+    }
+  ],
+  "images": [],
+  "links": [],
+  "template": "simple"
+}
