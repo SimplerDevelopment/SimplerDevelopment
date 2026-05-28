@@ -20,8 +20,8 @@ export async function POST(req: Request) {
   const clientId = String(form.get('client_id') ?? '');
   const redirectUri = String(form.get('redirect_uri') ?? '');
   const state = String(form.get('state') ?? '');
-  const codeChallenge = String(form.get('code_challenge') ?? '');
-  const codeChallengeMethod = String(form.get('code_challenge_method') ?? 'S256');
+  const codeChallenge = form.get('code_challenge') ? String(form.get('code_challenge')) : '';
+  const codeChallengeMethod = form.get('code_challenge_method') ? String(form.get('code_challenge_method')) : '';
   const activeClientIdRaw = String(form.get('active_client_id') ?? '');
   const resource = form.get('resource') ? String(form.get('resource')) : null;
   const scopes = parseRequestedScopes((form.getAll('scopes') as string[]).join(' '));
@@ -43,8 +43,12 @@ export async function POST(req: Request) {
     return back({ error: 'access_denied' });
   }
 
-  if (!codeChallenge || codeChallengeMethod !== 'S256') {
+  const clientIsPublic = oauthClient.tokenEndpointAuthMethod === 'none';
+  if (clientIsPublic && !codeChallenge) {
     return back({ error: 'invalid_request', error_description: 'PKCE S256 required' });
+  }
+  if (codeChallenge && codeChallengeMethod !== 'S256') {
+    return back({ error: 'invalid_request', error_description: 'code_challenge_method must be S256' });
   }
   if (scopes.length === 0) {
     return back({ error: 'invalid_scope', error_description: 'At least one scope must be granted' });
@@ -87,8 +91,8 @@ export async function POST(req: Request) {
     clientId: activeClientId,
     scopes,
     redirectUri,
-    codeChallenge,
-    codeChallengeMethod: 'S256',
+    codeChallenge: codeChallenge || null,
+    codeChallengeMethod: codeChallenge ? 'S256' : null,
     resource,
     expiresAt: new Date(Date.now() + CODE_TTL_MS),
   });

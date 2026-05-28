@@ -64,7 +64,7 @@ export function InstallClient() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <a
-              href="/api/skills/install/mac"
+              href="/installers/SimplerDevelopmentSkills.pkg"
               className="group flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary"
               download
             >
@@ -73,11 +73,11 @@ export function InstallClient() {
               </span>
               <span className="text-lg font-semibold">macOS</span>
               <span className="text-sm text-muted-foreground">
-                Download <code className="rounded bg-muted px-1 py-0.5 text-xs">install-sd-skills.command</code>,
-                then double-click in Finder.
+                Download <code className="rounded bg-muted px-1 py-0.5 text-xs">SimplerDevelopmentSkills.pkg</code>,
+                then double-click in Finder to install.
               </span>
               <span className="mt-2 text-xs text-muted-foreground">
-                First run: right-click → Open to bypass Gatekeeper (unsigned).
+                Signed + notarized by Apple. No admin password needed.
               </span>
             </a>
 
@@ -102,17 +102,32 @@ export function InstallClient() {
 
           <details className="mt-6 rounded-lg border border-border bg-card p-4">
             <summary className="cursor-pointer text-sm font-medium">
-              Linux / manual install (curl one-liner)
+              Other options (advanced)
             </summary>
-            <div className="mt-3 rounded bg-muted p-3 font-mono text-xs">
-              <pre className="overflow-x-auto whitespace-pre">{MANUAL_CURL}</pre>
-              <button
-                onClick={() => copy(MANUAL_CURL, 'curl')}
-                className="mt-2 text-xs text-primary hover:underline"
-                type="button"
-              >
-                {copied === 'curl' ? 'Copied' : 'Copy'}
-              </button>
+            <div className="mt-3 space-y-4 text-sm">
+              <div>
+                <p className="font-medium">macOS shell-script installer</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Fallback if the .pkg doesn&apos;t work for you. Download{' '}
+                  <a className="underline" href="/api/skills/install/mac" download>
+                    install-sd-skills.command
+                  </a>
+                  , then right-click → Open in Finder (unsigned — Gatekeeper prompts).
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Linux / manual install (curl one-liner)</p>
+                <div className="mt-1 rounded bg-muted p-3 font-mono text-xs">
+                  <pre className="overflow-x-auto whitespace-pre">{MANUAL_CURL}</pre>
+                  <button
+                    onClick={() => copy(MANUAL_CURL, 'curl')}
+                    className="mt-2 text-xs text-primary hover:underline"
+                    type="button"
+                  >
+                    {copied === 'curl' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
             </div>
           </details>
         </section>

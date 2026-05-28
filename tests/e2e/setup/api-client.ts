@@ -79,9 +79,9 @@ export class ApiClient {
     };
   }
 
-  async delete(path: string) {
+  async delete(path: string, body?: Record<string, unknown>) {
     await this.ready;
-    const res = await this.ctx.delete(path);
+    const res = await this.ctx.delete(path, body !== undefined ? { data: body } : undefined);
     return {
       status: res.status(),
       data: await res.json().catch(() => null),

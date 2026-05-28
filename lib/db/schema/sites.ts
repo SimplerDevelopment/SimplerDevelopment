@@ -31,6 +31,15 @@ export const clients = pgTable('clients', {
   // helper grants brain access without requiring an explicit clientServices
   // row. Expired trials simply fall through to the paid-subscription check.
   brainTrialUntil: timestamp('brain_trial_until'),
+  // Publishing Command Center — the system-managed kanban project that holds
+  // every Publishing card for this client. Set on first visit to
+  // /portal/publishing by the bootstrap action. Null = not yet bootstrapped.
+  publishingProjectId: integer('publishing_project_id'),
+  // Default IANA timezone for scheduling (e.g. 'America/New_York'). Stored
+  // values everywhere are UTC; this is the timezone the Publishing UI renders
+  // dates in by default and the timezone the per-channel publish workers
+  // interpret human-entered times against.
+  defaultTimezone: varchar('default_timezone', { length: 60 }).default('UTC').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -29,6 +29,7 @@ import MarkdownEditor from '@/components/brain/MarkdownEditor';
 import { makeDataviewCodeOverride } from '@/components/brain/DataviewBlock';
 import NoteActionButtons from '@/components/brain/NoteActionButtons';
 import NoteMetaStrip from '@/components/brain/NoteMetaStrip';
+import TopicPicker from '@/components/brain/TopicPicker';
 import type { BrainNote } from '@/lib/brain/types';
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -61,6 +62,10 @@ export default function NoteEditorPane({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  // Topic ids attached to this note. Loaded from /topics/for-entity on note
+  // switch. Mutations call /topics/attach (POST add, DELETE remove) per-diff;
+  // local state is updated optimistically and reverted on error.
+  const [topicIds, setTopicIds] = useState<number[]>([]);
 
   const editorViewRef = useRef<EditorView | null>(null);
 
@@ -72,11 +77,13 @@ export default function NoteEditorPane({
       setBody('');
       setError(null);
       setLoading(false);
+      setTopicIds([]);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setTopicIds([]);
     fetch(`/api/portal/brain/knowledge/${noteId}`)
       .then(r => r.json().catch(() => ({})))
       .then(json => {
@@ -96,6 +103,18 @@ export default function NoteEditorPane({
         setError(err instanceof Error ? err.message : 'Network error');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
+    // Fetch attached topics in parallel via the for-entity endpoint —
+    // returns just the ids we need to seed the picker.
+    fetch(`/api/portal/brain/topics/for-entity?entityType=note&entityId=${noteId}`)
+      .then(r => r.json().catch(() => ({})))
+      .then(json => {
+        if (cancelled) return;
+        if (json?.success) {
+          const ids: number[] = json.data?.topicIds ?? [];
+          setTopicIds(ids);
+        }
+      })
+      .catch(() => { /* non-fatal */ });
     return () => { cancelled = true; };
   }, [noteId]);
 
@@ -180,6 +199,41 @@ export default function NoteEditorPane({
     }
   }
 
+  // Topic attach/detach diffing. Apply the change optimistically; if either
+  // call fails, roll back to the prior selection and surface an error.
+  const handleTopicsChange = useCallback(async (next: number[]) => {
+    if (noteId === null) return;
+    const prev = topicIds;
+    const prevSet = new Set(prev);
+    const nextSet = new Set(next);
+    const added = next.filter((id) => !prevSet.has(id));
+    const removed = prev.filter((id) => !nextSet.has(id));
+    setTopicIds(next);
+    try {
+      if (added.length > 0) {
+        const r = await fetch('/api/portal/brain/topics/attach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entityType: 'note', entityId: noteId, topicIds: added }),
+        });
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok || !json.success) throw new Error(json?.message || `Attach failed (${r.status})`);
+      }
+      if (removed.length > 0) {
+        const r = await fetch('/api/portal/brain/topics/attach', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entityType: 'note', entityId: noteId, topicIds: removed }),
+        });
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok || !json.success) throw new Error(json?.message || `Detach failed (${r.status})`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Topic update failed');
+      setTopicIds(prev); // revert
+    }
+  }, [noteId, topicIds]);
+
   async function handleDelete() {
     if (noteId === null || !note) return;
     if (!confirm(`Delete "${note.title}"? This can't be undone.`)) return;
@@ -254,6 +308,23 @@ export default function NoteEditorPane({
       </div>
 
       <NoteMetaStrip note={note} onPatch={patchMeta} />
+
+      {/* Topics — mirrors the "Tags" picker in NoteMetaStrip but lives on
+          the brain_entity_topics join, not on brain_notes.tags. Wave 3b. */}
+      <div className="border-b border-border px-3 py-2 flex items-start gap-2 flex-wrap bg-muted/10">
+        <div className="text-xs font-medium text-muted-foreground inline-flex items-center gap-1 pt-0.5 shrink-0">
+          <span className="material-icons text-sm">account_tree</span>
+          Topics
+        </div>
+        <div className="flex-1 min-w-0">
+          <TopicPicker
+            selectedTopicIds={topicIds}
+            onChange={handleTopicsChange}
+            allowCreate
+            placeholder="Search or add topic…"
+          />
+        </div>
+      </div>
 
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/30 px-3 py-1.5 text-xs text-destructive">

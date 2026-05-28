@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX 4/5 source for the SimplerDevelopment Skills Windows MSI installer.
+
+  Builds via scripts/installers/build-windows-msi.sh on a Windows runner
+  (GitHub Actions `windows-latest`). The build script substitutes the
+  version + staging path via `wix build -d` preprocessor variables.
+
+  Per-user install (Scope="perUser"):
+    - No admin prompt, no UAC.
+    - Installs into %USERPROFILE%\.claude\skills\.
+    - Per-machine install would require admin and would not match the
+      per-user .pkg flow on macOS.
+
+  UpgradeCode is FIXED forever — every future release uses the same value
+  so Windows recognizes the install as the same product and runs
+  MajorUpgrade in place instead of leaving multiple copies.
+
+  Why this is Windows-only:
+    WiX 5+ explicitly supports Windows-only ("All behavior after this
+    point is undefined" on macOS/Linux). Local cross-platform builds via
+    `dotnet tool install -g wix` parse the .wxs but fail at specific
+    directory-resolution rules (.claude dot-prefix path validation
+    differs by platform). The .wxs file itself is portable; only the
+    build environment is platform-locked.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+      Name="SimplerDevelopment Skills"
+      Manufacturer="SimplerDevelopment"
+      Version="$(var.SD_VERSION)"
+      UpgradeCode="77FBE124-F560-441E-A43E-3DBBF5507C51"
+      Scope="perUser"
+      Compressed="yes"
+      InstallerVersion="500">
+
+    <SummaryInformation
+        Description="SimplerDevelopment Claude skills bundle. Installs to %USERPROFILE%\.claude\skills."
+        Keywords="SimplerDevelopment, Claude, Skills, MCP" />
+
+    <MajorUpgrade
+        DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPCONTACT"     Value="support@simplerdevelopment.com" />
+    <Property Id="ARPURLINFOABOUT" Value="https://simplerdevelopment.com/install" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+
+    <ComponentGroup Id="SkillsFiles" Directory="SkillsInstallFolder">
+      <Files Include="$(var.SD_STAGE_DIR)\**" />
+    </ComponentGroup>
+
+    <Feature Id="MainFeature"
+             Title="SimplerDevelopment Skills"
+             Description="The full SimplerDevelopment Claude skills bundle plus design-principles and quickstart docs."
+             Level="1"
+             AllowAdvertise="no"
+             AllowAbsent="no">
+      <ComponentGroupRef Id="SkillsFiles" />
+    </Feature>
+
+  </Package>
+
+  <!-- Target directory tree: %USERPROFILE%\.claude\skills\
+       ProfileFolder is an MSI public property. We reference it via
+       DirectoryRef under TARGETDIR (the implicit MSI root) which the
+       Windows installer resolves to the running user's profile path. -->
+  <Fragment>
+    <DirectoryRef Id="TARGETDIR">
+      <Directory Id="ProfileFolder">
+        <Directory Id="DotClaudeFolder" ShortName="DOTCLAUD" Name=".claude">
+          <Directory Id="SkillsInstallFolder" Name="skills" />
+        </Directory>
+      </Directory>
+    </DirectoryRef>
+  </Fragment>
+
+</Wix>

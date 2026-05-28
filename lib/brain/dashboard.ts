@@ -28,6 +28,31 @@ export interface DashboardSummary {
     openTasks: number;
     aiCreatedTasks: number;
     relationships: number;
+    /** Initiatives where status='active'. Added Wave 2c. */
+    initiativesActive: number;
+    /** Goals where status IN ('at_risk', 'off_track'). Added Wave 2c. */
+    goalsAtRisk: number;
+    /** Goals where status='achieved' AND lastCheckedInAt > now() - interval '90 days'. Added Wave 2c. */
+    goalsAchievedThisQuarter: number;
+    peopleActive: number;
+    orgUnitCount: number;
+    expertiseTagsCount: number;
+    glossaryTermsActive: number;
+    /** Playbook runs where status='active'. Added Wave 2c. */
+    playbookRunsActive: number;
+    /** Playbook runs where status='paused'. Added Wave 2c. */
+    playbookRunsPaused: number;
+    /** Documents where status='published'. Added Wave 2c (documents). */
+    documentsPublished: number;
+    /** Documents where status='draft'. Added Wave 2c (documents). */
+    documentsDraft: number;
+    /**
+     * Required-reads on the currently published version of each document
+     * where the assigned person has NOT yet acknowledged. Org-unit required-
+     * reads are intentionally NOT expanded here (cost) — that's what
+     * brain_document_compliance_report is for. Added Wave 2c (documents).
+     */
+    documentsRequiredReadsPending: number;
   };
 }
 
@@ -118,18 +143,66 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       .limit(5),
     db.select().from(brainRelationshipOverlays)
       .where(and(eq(brainRelationshipOverlays.clientId, clientId), eq(brainRelationshipOverlays.status, 'active'))),
-    // Counts: pending review items total, open tasks, ai-created tasks, relationships.
+    // Counts: pending review items total, open tasks, ai-created tasks, relationships,
+    // initiatives active, goals at risk, goals achieved this quarter (last 90d),
+    // plus people/org/expertise rollups.
     db.execute<{
       pending_review: number;
       open_tasks: number;
       ai_tasks: number;
       relationships: number;
+      initiatives_active: number;
+      goals_at_risk: number;
+      goals_achieved_q: number;
+      people_active: number;
+      org_unit_count: number;
+      expertise_tags_count: number;
+      glossary_terms_active: number;
+      playbook_runs_active: number;
+      playbook_runs_paused: number;
+      documents_published: number;
+      documents_draft: number;
+      documents_required_reads_pending: number;
     }>(sql`
       SELECT
         (SELECT COUNT(*)::int FROM brain_ai_review_items WHERE client_id = ${clientId} AND status = 'pending') AS pending_review,
         (SELECT COUNT(*)::int FROM brain_tasks WHERE client_id = ${clientId} AND status IN ('open','in_progress','blocked')) AS open_tasks,
         (SELECT COUNT(*)::int FROM brain_tasks WHERE client_id = ${clientId} AND created_by_ai = true) AS ai_tasks,
-        (SELECT COUNT(*)::int FROM brain_relationship_overlays WHERE client_id = ${clientId}) AS relationships
+        (SELECT COUNT(*)::int FROM brain_relationship_overlays WHERE client_id = ${clientId}) AS relationships,
+        (SELECT COUNT(*)::int FROM brain_initiatives WHERE client_id = ${clientId} AND status = 'active') AS initiatives_active,
+        (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status IN ('at_risk','off_track')) AS goals_at_risk,
+        (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status = 'achieved' AND last_checked_in_at IS NOT NULL AND last_checked_in_at > now() - interval '90 days') AS goals_achieved_q,
+        (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
+        (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
+        (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
+        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active,
+        (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'active') AS playbook_runs_active,
+        (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'paused') AS playbook_runs_paused,
+        (SELECT COUNT(*)::int FROM brain_documents WHERE client_id = ${clientId} AND status = 'published') AS documents_published,
+        (SELECT COUNT(*)::int FROM brain_documents WHERE client_id = ${clientId} AND status = 'draft') AS documents_draft,
+        -- Required-reads where the assigned person hasn't acked the doc's
+        -- current published version. Only person-target required-reads are
+        -- counted; org_unit-target rows would require membership expansion
+        -- and live behind brain_document_compliance_report instead. Two-step
+        -- (rr count − matching ack count) merged into one expression.
+        (
+          SELECT COUNT(*)::int
+          FROM brain_document_required_reads rr
+          INNER JOIN brain_documents d
+            ON d.id = rr.document_id
+           AND d.client_id = rr.client_id
+          WHERE rr.client_id = ${clientId}
+            AND rr.target_type = 'person'
+            AND d.current_published_version_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+              FROM brain_document_acknowledgments a
+              WHERE a.client_id = rr.client_id
+                AND a.document_id = rr.document_id
+                AND a.person_id = rr.target_id
+                AND a.version_id = COALESCE(rr.pinned_version_id, d.current_published_version_id)
+            )
+        ) AS documents_required_reads_pending
     `),
   ]);
 
@@ -263,7 +336,24 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     pendingByMeeting.set(r.source_id, r.cnt);
   }
 
-  const counts = countsRow[0] ?? { pending_review: 0, open_tasks: 0, ai_tasks: 0, relationships: 0 };
+  const counts = countsRow[0] ?? {
+    pending_review: 0,
+    open_tasks: 0,
+    ai_tasks: 0,
+    relationships: 0,
+    initiatives_active: 0,
+    goals_at_risk: 0,
+    goals_achieved_q: 0,
+    people_active: 0,
+    org_unit_count: 0,
+    expertise_tags_count: 0,
+    glossary_terms_active: 0,
+    playbook_runs_active: 0,
+    playbook_runs_paused: 0,
+    documents_published: 0,
+    documents_draft: 0,
+    documents_required_reads_pending: 0,
+  };
 
   return {
     needsReviewMeetings: needsReviewMeetingRows.map((m) => ({
@@ -289,6 +379,18 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       openTasks: counts.open_tasks ?? 0,
       aiCreatedTasks: counts.ai_tasks ?? 0,
       relationships: counts.relationships ?? 0,
+      initiativesActive: counts.initiatives_active ?? 0,
+      goalsAtRisk: counts.goals_at_risk ?? 0,
+      goalsAchievedThisQuarter: counts.goals_achieved_q ?? 0,
+      peopleActive: counts.people_active ?? 0,
+      orgUnitCount: counts.org_unit_count ?? 0,
+      expertiseTagsCount: counts.expertise_tags_count ?? 0,
+      glossaryTermsActive: counts.glossary_terms_active ?? 0,
+      playbookRunsActive: counts.playbook_runs_active ?? 0,
+      playbookRunsPaused: counts.playbook_runs_paused ?? 0,
+      documentsPublished: counts.documents_published ?? 0,
+      documentsDraft: counts.documents_draft ?? 0,
+      documentsRequiredReadsPending: counts.documents_required_reads_pending ?? 0,
     },
   };
 }

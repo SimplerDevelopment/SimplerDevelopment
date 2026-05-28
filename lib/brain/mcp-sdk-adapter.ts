@@ -43,6 +43,35 @@ import {
   rejectReviewItem,
 } from './review';
 import {
+  applySuggestionToReviewItem,
+  suggestReviewerForItem,
+} from './review-routing';
+import {
+  createDecision,
+  getDecisionById,
+  listDecisions,
+  softRejectDecision,
+  supersedeDecision,
+  updateDecision,
+  type CreateDecisionInput,
+  type ListDecisionsOpts,
+} from './decisions';
+import {
+  attachTopics,
+  createTopic,
+  deleteTopic,
+  detachTopics,
+  getTopicById,
+  getTopicTree,
+  importTopicsFromTags,
+  listEntitiesForTopic,
+  listTopics,
+  mergeTopic,
+  moveTopic,
+  updateTopic,
+} from './topics';
+import type { BrainDecisionReversibility, BrainDecisionStatus } from '@/lib/db/schema';
+import {
   bulkUpdateNotes,
   createNote,
   countNotes,
@@ -54,6 +83,25 @@ import {
   updateNote,
   type BulkOp,
 } from './notes';
+import {
+  listInitiatives,
+  getInitiativeById,
+  createInitiative,
+  updateInitiative,
+  closeInitiative,
+  reopenInitiative,
+  linkEntity,
+  unlinkEntity,
+  listInitiativeLinks,
+} from './initiatives';
+import {
+  listGoals,
+  getGoalById,
+  createGoal,
+  updateGoal,
+  checkinGoal,
+  deleteGoal,
+} from './goals';
 import {
   createSavedSearch,
   deleteSavedSearch,
@@ -73,9 +121,111 @@ import {
 } from './templates';
 import { applyTemplate } from './template';
 import { getDashboardSummary } from './dashboard';
+import {
+  listPeople,
+  getPersonById,
+  createPerson,
+  updatePerson,
+  deletePerson,
+  attachExpertise,
+  detachExpertise,
+  listExpertiseTags,
+  createExpertiseTag,
+  updateExpertiseTag,
+  deleteExpertiseTag,
+  mergeExpertiseTags,
+  whoKnows,
+} from './people';
+import {
+  listOrgUnits,
+  getOrgUnitTree,
+  getOrgUnitById,
+  createOrgUnit,
+  updateOrgUnit,
+  moveOrgUnit,
+  mergeOrgUnits,
+  deleteOrgUnit,
+  addMember,
+  removeMember,
+  setPrimaryUnit,
+  type BrainOrgUnitTreeNode,
+} from './org-units';
+import {
+  bulkImportGlossary,
+  createGlossaryTerm,
+  deleteGlossaryTerm,
+  getGlossaryTermById,
+  listGlossaryTerms,
+  lookupGlossary,
+  updateGlossaryTerm,
+} from './glossary';
+import {
+  listPlaybooks,
+  getPlaybookById,
+  createPlaybook,
+  updatePlaybook,
+  activatePlaybook,
+  archivePlaybook,
+  deletePlaybook,
+  addStep,
+  updateStep,
+  removeStep,
+  reorderSteps,
+  type AddStepInput,
+  type UpdateStepInput,
+  type BrainPlaybookCondition,
+} from './playbooks';
+import {
+  listRuns,
+  getRunById,
+  listActiveRunsForEntity,
+  startRun,
+  advanceRun,
+  completeStep,
+  skipStep,
+  abortRun,
+} from './playbook-runs';
+import {
+  listDocuments,
+  getDocumentById,
+  createDocument,
+  updateDocument,
+  editDraftVersion,
+  publishDocument,
+  archiveDocument,
+  unarchiveDocument,
+  deleteDocument,
+  promoteFromNote,
+  linkEntity as linkDocumentEntity,
+  unlinkEntity as unlinkDocumentEntity,
+  listDocumentLinks,
+} from './documents';
+import {
+  assignRequiredRead,
+  listRequiredReadsForDocument,
+  listRequiredReadsForPerson,
+  removeRequiredRead,
+  acknowledge as acknowledgeDocument,
+  listAcknowledgmentsForDocument,
+  listAcknowledgmentsForPerson,
+  complianceReport,
+} from './document-acks';
 import { db } from '@/lib/db';
-import { brainAiReviewItems, brainAuditLogs, users } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import {
+  brainAiReviewItems,
+  brainAuditLogs,
+  brainOrgUnits,
+  brainPeople,
+  brainPersonOrgUnits,
+  brainDocumentVersions,
+  users,
+  type BrainPersonStatus,
+  type BrainDocumentStatus,
+  type BrainDocumentCategory,
+  type BrainDocumentLinkEntityType,
+  type BrainDocumentRequiredReadTarget,
+} from '@/lib/db/schema';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { assertUserVisibleToClient, OwnershipError } from '@/lib/security/assert-owned';
 
 function json(payload: unknown) {
@@ -139,12 +289,29 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     'brain_dashboard_summary',
     {
       title: 'Get Brain dashboard summary',
-      description: 'Return the command-center snapshot: needs-review meetings, overdue/blocked/upcoming tasks, stale prospects, priority relationships, recent meetings, and high-level counts.',
+      description: 'Return the command-center snapshot: needs-review meetings, overdue/blocked/upcoming tasks, stale prospects, priority relationships, recent meetings, and high-level counts (including decisionsCount + topicsCount from the brain-restructure entities).',
       inputSchema: {},
     },
     async () => {
       if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
-      return json(await getDashboardSummary(clientId));
+      // Slim addition only — compute the two new counts inline so we don't
+      // refactor the typed DashboardSummary shape in lib/brain/dashboard.ts.
+      const { brainDecisions, brainTopics } = await import('@/lib/db/schema');
+      const [summary, decisionsCountRows, topicsCountRows] = await Promise.all([
+        getDashboardSummary(clientId),
+        db.select({ count: sql<number>`count(*)::int` }).from(brainDecisions)
+          .where(and(eq(brainDecisions.clientId, clientId), eq(brainDecisions.status, 'accepted'))),
+        db.select({ count: sql<number>`count(*)::int` }).from(brainTopics)
+          .where(eq(brainTopics.clientId, clientId)),
+      ]);
+      return json({
+        ...summary,
+        counts: {
+          ...summary.counts,
+          decisionsCount: Number(decisionsCountRows[0]?.count ?? 0),
+          topicsCount: Number(topicsCountRows[0]?.count ?? 0),
+        },
+      });
     },
   );
 
@@ -337,7 +504,17 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
             ? { companyId: args.companyId ?? null, dealId: args.dealId ?? null }
             : undefined,
         });
-        return json(meeting);
+        // Slim echo — never round-trip the up-to-200k transcript back to the
+        // caller. They already sent it; re-emitting it burns tokens for zero
+        // value. Caller can re-fetch full body via brain_get_meeting.
+        return json({
+          id: meeting.id,
+          title: meeting.title,
+          status: meeting.status,
+          source: meeting.source,
+          sourceRef: meeting.sourceRef,
+          createdAt: meeting.createdAt,
+        });
       } catch (e) {
         return err(e instanceof Error ? e.message : 'Failed to create meeting.');
       }
@@ -566,6 +743,75 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
       });
       if (!updated) return err('Review item not found.');
       return json(updated);
+    },
+  );
+
+  // ── Phase 6 — review-item routing by expertise ──────────────────────────
+  // Score candidate brain_people for who should approve this item and persist
+  // the result on the row. Idempotent — re-running recomputes against current
+  // expertise + workload.
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_review_items_suggest_reviewer',
+    {
+      title: 'Suggest a reviewer for an AI review item',
+      description: 'Score active brain_people for who should review this AI proposal — based on topic-expertise match, org-unit context, past approval history for this proposed_type, and current workload. Persists the top candidate (when score >= 3) on suggested_reviewer_person_id/score/reason. Returns the suggestion or null. AUDITED.',
+      inputSchema: {
+        reviewItemId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const item = await getReviewItem(clientId, args.reviewItemId);
+      if (!item) return err('Review item not found.');
+      try {
+        const suggestion = await suggestReviewerForItem(clientId, item);
+        await applySuggestionToReviewItem(clientId, item.id, suggestion);
+        return json(suggestion
+          ? {
+              reviewItemId: item.id,
+              suggestedPersonId: suggestion.personId,
+              score: suggestion.score,
+              reason: suggestion.reason,
+            }
+          : { reviewItemId: item.id, suggestion: null });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to suggest reviewer.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_review_items_list_for_reviewer',
+    {
+      title: 'List review items routed to a person',
+      description: 'List review items where suggested_reviewer_person_id matches the given brain_people.id. Useful for "show me items routed to me" queries. Capped at 50 rows; filter by status (default pending).',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        status: z.enum(['pending', 'approved', 'rejected', 'edited']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listReviewItems(clientId, {
+        suggestedReviewerPersonId: args.personId,
+        status: args.status ?? 'pending',
+        limit: 50,
+      });
+      // Slim — the full proposed_payload can be retrieved via getReviewItem.
+      return json({
+        items: items.map((i) => ({
+          id: i.id,
+          proposedType: i.proposedType,
+          sourceType: i.sourceType,
+          sourceId: i.sourceId,
+          status: i.status,
+          suggestedReviewerPersonId: i.suggestedReviewerPersonId,
+          suggestedReviewerScore: i.suggestedReviewerScore,
+          suggestedReviewerReason: i.suggestedReviewerReason,
+          createdAt: i.createdAt,
+        })),
+      });
     },
   );
 
@@ -1539,6 +1785,3687 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         .from(clientWebsites).where(eq(clientWebsites.id, post.websiteId)).limit(1);
       if (!w || w.clientId !== clientId) return err('Post not found.');
       return json(post);
+    },
+  );
+
+  // ── READ — initiatives ──────────────────────────────────────────────────
+  //
+  // Initiatives are the multi-quarter umbrella under which goals, tasks,
+  // notes, meetings, decisions, topics, and CRM links hang. Token-budget
+  // rules: list/tree responses default slim (no description / lessonsLearned);
+  // heavy fields are opt-in via the `include` flag.
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_initiatives_list',
+    {
+      title: 'List Brain initiatives',
+      description: 'List initiatives for this tenant. Slim by default — returns { id, name, slug, status, priority, ownerId, targetDate, goalCount } per row. Pass `include: ["description"]` or `["lessonsLearned"]` to opt into heavier text fields. Filters: status, ownerId, priority, hasOpenGoals, targetDateBefore (ISO).',
+      inputSchema: {
+        status: z.enum(['planned', 'active', 'paused', 'completed', 'cancelled']).optional(),
+        ownerId: z.number().int().positive().optional(),
+        priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        hasOpenGoals: z.boolean().optional(),
+        targetDateBefore: z.string().optional().describe('ISO date — return only initiatives whose targetDate is before this.'),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['description', 'lessonsLearned'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listInitiatives(clientId, {
+        status: args.status,
+        ownerId: args.ownerId,
+        priority: args.priority,
+        hasOpenGoals: args.hasOpenGoals,
+        targetDateBefore: args.targetDateBefore ? new Date(args.targetDateBefore) : undefined,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      const items = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        status: r.status,
+        priority: r.priority,
+        ownerId: r.ownerId,
+        targetDate: r.targetDate ? r.targetDate.toISOString() : null,
+        goalCount: r.goalCount,
+        ...(include.has('description') ? { description: r.description } : {}),
+        ...(include.has('lessonsLearned') ? { lessonsLearned: r.lessonsLearned } : {}),
+      }));
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_initiatives_get',
+    {
+      title: 'Get a Brain initiative',
+      description: 'Get one initiative by id. Pass `includeGoals=true` to inline ordered goals, `includeLinks=true` to inline resolved linked-entity rows (also returns byType counts when present). Heavy text fields (description, lessonsLearned) are opt-in via `include`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        includeGoals: z.boolean().optional(),
+        includeLinks: z.boolean().optional(),
+        include: z.array(z.enum(['description', 'lessonsLearned'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getInitiativeById(clientId, args.id, {
+        includeGoals: args.includeGoals,
+        includeLinks: args.includeLinks,
+      });
+      if (!detail) return err('Initiative not found.');
+      const include = new Set(args.include ?? []);
+      const i = detail.initiative;
+      const initiative: Record<string, unknown> = {
+        id: i.id,
+        name: i.name,
+        slug: i.slug,
+        status: i.status,
+        priority: i.priority,
+        ownerId: i.ownerId,
+        sponsorId: i.sponsorId,
+        startDate: i.startDate ? i.startDate.toISOString() : null,
+        targetDate: i.targetDate ? i.targetDate.toISOString() : null,
+        closedAt: i.closedAt ? i.closedAt.toISOString() : null,
+        closeReason: i.closeReason,
+        confidentialityLevel: i.confidentialityLevel,
+        createdBy: i.createdBy,
+        createdAt: i.createdAt.toISOString(),
+        updatedAt: i.updatedAt.toISOString(),
+      };
+      if (include.has('description')) initiative.description = i.description;
+      if (include.has('lessonsLearned')) initiative.lessonsLearned = i.lessonsLearned;
+
+      const out: Record<string, unknown> = { initiative };
+      if (detail.goals) {
+        // Slim goal projection for embedded list; full goal via brain_goals_get.
+        out.goals = detail.goals.map((g) => ({
+          id: g.id,
+          title: g.title,
+          status: g.status,
+          ownerId: g.ownerId,
+          targetDate: g.targetDate ? g.targetDate.toISOString() : null,
+          sortOrder: g.sortOrder,
+          currentMetric: g.currentMetric,
+          targetMetric: g.targetMetric,
+          unit: g.unit,
+        }));
+      }
+      if (detail.links) {
+        out.links = {
+          byType: detail.links.byType,
+          ...(detail.links.items ? {
+            items: detail.links.items.map((l) => ({
+              entityType: l.entityType,
+              entityId: l.entityId,
+              title: l.title,
+              pinned: l.pinned,
+              note: l.note,
+            })),
+          } : {}),
+        };
+      }
+      return json(out);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_initiatives_links',
+    {
+      title: 'List entities linked to a Brain initiative',
+      description: 'List the polymorphic entities (tasks, notes, meetings, decisions, topics, CRM deals, CRM companies) linked to an initiative. Returns resolved display rows + { total, byType counts }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listInitiativeLinks(clientId, args.id, {
+        entityType: args.entityType,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const items = rows.map((r) => ({
+        entityType: r.entityType,
+        entityId: r.entityId,
+        title: r.title,
+        pinned: r.pinned,
+        note: r.note,
+      }));
+      const byType: Record<string, number> = {};
+      for (const it of items) byType[it.entityType] = (byType[it.entityType] ?? 0) + 1;
+      return json({ items, total: items.length, byType });
+    },
+  );
+
+  // ── READ — goals ────────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_goals_list',
+    {
+      title: 'List Brain goals',
+      description: 'List goals for this tenant. Slim by default — returns { id, initiativeId, title, status, ownerId, targetDate, sortOrder, currentMetric, targetMetric, unit } per row. Pass `include: ["description"]` or `["lastProgressNote"]` to opt into heavier text fields.',
+      inputSchema: {
+        initiativeId: z.number().int().positive().optional(),
+        status: z.enum(['open', 'on_track', 'at_risk', 'off_track', 'achieved', 'missed']).optional(),
+        ownerId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['description', 'lastProgressNote'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listGoals(clientId, {
+        initiativeId: args.initiativeId,
+        status: args.status,
+        ownerId: args.ownerId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      const items = rows.map((g) => ({
+        id: g.id,
+        initiativeId: g.initiativeId,
+        title: g.title,
+        status: g.status,
+        ownerId: g.ownerId,
+        targetDate: g.targetDate ? g.targetDate.toISOString() : null,
+        sortOrder: g.sortOrder,
+        currentMetric: g.currentMetric,
+        targetMetric: g.targetMetric,
+        unit: g.unit,
+        ...(include.has('description') ? { description: g.description } : {}),
+        ...(include.has('lastProgressNote') ? { lastProgressNote: g.lastProgressNote } : {}),
+      }));
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_goals_get',
+    {
+      title: 'Get a Brain goal',
+      description: 'Get one goal by id with a slim parent-initiative reference ({ id, name, slug, status }). Heavy text fields (description, lastProgressNote) are opt-in via `include`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(z.enum(['description', 'lastProgressNote'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getGoalById(clientId, args.id);
+      if (!detail) return err('Goal not found.');
+      const include = new Set(args.include ?? []);
+      const g = detail.goal;
+      const goal: Record<string, unknown> = {
+        id: g.id,
+        initiativeId: g.initiativeId,
+        title: g.title,
+        status: g.status,
+        ownerId: g.ownerId,
+        unit: g.unit,
+        targetMetric: g.targetMetric,
+        currentMetric: g.currentMetric,
+        targetDate: g.targetDate ? g.targetDate.toISOString() : null,
+        sortOrder: g.sortOrder,
+        lastCheckedInAt: g.lastCheckedInAt ? g.lastCheckedInAt.toISOString() : null,
+        createdBy: g.createdBy,
+        createdAt: g.createdAt.toISOString(),
+        updatedAt: g.updatedAt.toISOString(),
+      };
+      if (include.has('description')) goal.description = g.description;
+      if (include.has('lastProgressNote')) goal.lastProgressNote = g.lastProgressNote;
+      return json({
+        goal,
+        initiative: detail.initiative
+          ? {
+              id: detail.initiative.initiativeId,
+              name: detail.initiative.name,
+              slug: detail.initiative.slug,
+              status: detail.initiative.status,
+            }
+          : null,
+      });
+    },
+  );
+
+  // ── WRITE — initiatives ────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_create',
+    {
+      title: 'Create a Brain initiative',
+      description: 'Create a multi-quarter initiative. Echo: { id, slug, status } — re-fetch via brain_initiatives_get for the full row.',
+      inputSchema: {
+        name: z.string().min(1).max(255),
+        description: z.string().nullable().optional(),
+        status: z.enum(['planned', 'active', 'paused', 'completed', 'cancelled']).optional(),
+        priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+        ownerId: z.number().int().positive().nullable().optional(),
+        sponsorId: z.number().int().positive().nullable().optional(),
+        startDate: z.string().nullable().optional(),
+        targetDate: z.string().nullable().optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createInitiative(clientId, ctx.userId, {
+          name: args.name,
+          description: args.description ?? null,
+          status: args.status,
+          priority: args.priority,
+          ownerId: args.ownerId ?? null,
+          sponsorId: args.sponsorId ?? null,
+          startDate: args.startDate ? new Date(args.startDate) : args.startDate === null ? null : undefined,
+          targetDate: args.targetDate ? new Date(args.targetDate) : args.targetDate === null ? null : undefined,
+          confidentialityLevel: args.confidentialityLevel,
+        });
+        return json({ id: created.id, slug: created.slug, status: created.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create initiative.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_update',
+    {
+      title: 'Update a Brain initiative',
+      description: 'Patch fields on an initiative. Status changes are NOT allowed here — use brain_initiatives_close or brain_initiatives_reopen. Echo: { id, updatedFields }. Returns a structured error { error: "use_close_or_reopen" } if a status change is attempted.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          name: z.string().min(1).max(255).optional(),
+          description: z.string().nullable().optional(),
+          priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          sponsorId: z.number().int().positive().nullable().optional(),
+          startDate: z.string().nullable().optional(),
+          targetDate: z.string().nullable().optional(),
+          confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const p = args.patch;
+      try {
+        const updated = await updateInitiative(clientId, ctx.userId, args.id, {
+          name: p.name,
+          description: p.description,
+          priority: p.priority,
+          ownerId: p.ownerId,
+          sponsorId: p.sponsorId,
+          startDate: p.startDate ? new Date(p.startDate) : p.startDate === null ? null : undefined,
+          targetDate: p.targetDate ? new Date(p.targetDate) : p.targetDate === null ? null : undefined,
+          confidentialityLevel: p.confidentialityLevel,
+        });
+        if (!updated) return err('Initiative not found.');
+        return json({ id: updated.id, updatedFields: Object.keys(p).filter((k) => (p as Record<string, unknown>)[k] !== undefined) });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('use closeInitiative or reopenInitiative')) {
+          return json({ error: 'use_close_or_reopen', message });
+        }
+        return err(message || 'Failed to update initiative.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_close',
+    {
+      title: 'Close a Brain initiative',
+      description: 'Terminal status transition — outcome must be "completed" or "cancelled". Requires at least one of `reason` / `lessonsLearned`. If lessonsLearned is provided, a brain_note is auto-created with the text and pinned-linked back. Echo: { id, status, closedAt, noteId? }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        outcome: z.enum(['completed', 'cancelled']),
+        reason: z.string().max(2000).optional(),
+        lessonsLearned: z.string().max(50_000).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await closeInitiative(clientId, ctx.userId, args.id, {
+          outcome: args.outcome,
+          reason: args.reason,
+          lessonsLearned: args.lessonsLearned,
+        });
+        if (!out) return err('Initiative not found.');
+        return json({
+          id: out.initiative.id,
+          status: out.initiative.status,
+          closedAt: out.initiative.closedAt ? out.initiative.closedAt.toISOString() : null,
+          ...(out.lessonsLearnedNoteId !== null ? { noteId: out.lessonsLearnedNoteId } : {}),
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to close initiative.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_reopen',
+    {
+      title: 'Reopen a Brain initiative',
+      description: 'Reopen a previously closed initiative — only allowed from `completed` or `cancelled`. Sets status="active" and clears closedAt. Echo: { id, status }. Returns a structured error { error: "non_terminal_status" } if the current status is not terminal.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await reopenInitiative(clientId, ctx.userId, args.id);
+        if (!updated) return err('Initiative not found.');
+        return json({ id: updated.id, status: updated.status });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('cannot reopen from non-terminal status')) {
+          return json({ error: 'non_terminal_status', message });
+        }
+        return err(message || 'Failed to reopen initiative.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_link',
+    {
+      title: 'Link an entity to a Brain initiative',
+      description: 'Attach a polymorphic entity (task, note, meeting, decision, topic, crm_deal, crm_company, person, org_unit, glossary_term) to an initiative. Idempotent — re-posting the same (initiativeId, entityType, entityId) returns alreadyLinked=true with linkId=null. Echo: { linkId, alreadyLinked }.',
+      inputSchema: {
+        initiativeId: z.number().int().positive(),
+        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
+        entityId: z.number().int().positive(),
+        note: z.string().nullable().optional(),
+        pinned: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await linkEntity(clientId, ctx.userId, {
+          initiativeId: args.initiativeId,
+          entityType: args.entityType,
+          entityId: args.entityId,
+          note: args.note ?? null,
+          pinned: args.pinned,
+        });
+        return json({ linkId: out.linkId, alreadyLinked: out.alreadyLinked });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to link entity.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_initiatives_unlink',
+    {
+      title: 'Unlink an entity from a Brain initiative',
+      description: 'Remove a polymorphic link from an initiative. Echo: { removed: boolean } — false if no matching link existed.',
+      inputSchema: {
+        initiativeId: z.number().int().positive(),
+        entityType: z.enum(['task', 'note', 'meeting', 'decision', 'topic', 'crm_deal', 'crm_company', 'person', 'org_unit', 'glossary_term']),
+        entityId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const removed = await unlinkEntity(clientId, ctx.userId, {
+          initiativeId: args.initiativeId,
+          entityType: args.entityType,
+          entityId: args.entityId,
+        });
+        return json({ removed });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to unlink entity.');
+      }
+    },
+  );
+
+  // ── WRITE — goals ───────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_goals_create',
+    {
+      title: 'Create a Brain goal',
+      description: 'Create a goal under an existing initiative (must be in the same tenant). Echo: { id, status, initiativeId } — re-fetch via brain_goals_get for the full row.',
+      inputSchema: {
+        initiativeId: z.number().int().positive(),
+        title: z.string().min(1).max(255),
+        description: z.string().nullable().optional(),
+        ownerId: z.number().int().positive().nullable().optional(),
+        unit: z.string().max(30).nullable().optional(),
+        targetMetric: z.number().int().nullable().optional(),
+        currentMetric: z.number().int().nullable().optional(),
+        targetDate: z.string().nullable().optional(),
+        sortOrder: z.number().int().optional(),
+        status: z.enum(['open', 'on_track', 'at_risk', 'off_track', 'achieved', 'missed']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createGoal(clientId, ctx.userId, {
+          initiativeId: args.initiativeId,
+          title: args.title,
+          description: args.description ?? null,
+          ownerId: args.ownerId ?? null,
+          unit: args.unit ?? null,
+          targetMetric: args.targetMetric ?? null,
+          currentMetric: args.currentMetric ?? null,
+          targetDate: args.targetDate ? new Date(args.targetDate) : args.targetDate === null ? null : undefined,
+          sortOrder: args.sortOrder,
+          status: args.status,
+        });
+        return json({ id: created.id, status: created.status, initiativeId: created.initiativeId });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create goal.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_goals_update',
+    {
+      title: 'Update a Brain goal',
+      description: 'Patch fields on a goal. Status changes are allowed here (unlike initiatives). Echo: { id, updatedFields }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          title: z.string().min(1).max(255).optional(),
+          description: z.string().nullable().optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          unit: z.string().max(30).nullable().optional(),
+          targetMetric: z.number().int().nullable().optional(),
+          currentMetric: z.number().int().nullable().optional(),
+          targetDate: z.string().nullable().optional(),
+          sortOrder: z.number().int().optional(),
+          status: z.enum(['open', 'on_track', 'at_risk', 'off_track', 'achieved', 'missed']).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const p = args.patch;
+      try {
+        const updated = await updateGoal(clientId, ctx.userId, args.id, {
+          title: p.title,
+          description: p.description,
+          ownerId: p.ownerId,
+          unit: p.unit,
+          targetMetric: p.targetMetric,
+          currentMetric: p.currentMetric,
+          targetDate: p.targetDate ? new Date(p.targetDate) : p.targetDate === null ? null : undefined,
+          sortOrder: p.sortOrder,
+          status: p.status,
+        });
+        if (!updated) return err('Goal not found.');
+        return json({ id: updated.id, updatedFields: Object.keys(p).filter((k) => (p as Record<string, unknown>)[k] !== undefined) });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to update goal.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_goals_checkin',
+    {
+      title: 'Check in on a Brain goal',
+      description: 'Drop a progress check-in — updates currentMetric / lastProgressNote / lastCheckedInAt. When status is omitted but currentMetric is provided, the auto-classifier picks the new status. Not audit-logged (lastCheckedInAt is the breadcrumb). Echo: { id, status, currentMetric, lastCheckedInAt }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        currentMetric: z.number().int().optional(),
+        note: z.string().max(10_000).nullable().optional(),
+        status: z.enum(['open', 'on_track', 'at_risk', 'off_track', 'achieved', 'missed']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await checkinGoal(clientId, ctx.userId, args.id, {
+          currentMetric: args.currentMetric,
+          note: args.note,
+          status: args.status,
+        });
+        if (!updated) return err('Goal not found.');
+        return json({
+          id: updated.id,
+          status: updated.status,
+          currentMetric: updated.currentMetric,
+          lastCheckedInAt: updated.lastCheckedInAt ? updated.lastCheckedInAt.toISOString() : null,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to check in.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_goals_delete',
+    {
+      title: 'Delete a Brain goal',
+      description: 'Hard-delete a goal (leaf row — no cascade impact). Echo: { id, deleted: true }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const ok = await deleteGoal(clientId, ctx.userId, args.id);
+        if (!ok) return err('Goal not found.');
+        return json({ id: args.id, deleted: true });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to delete goal.');
+      }
+    },
+  );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BRAIN — DECISIONS (Phase 1 brain-restructure, Wave 2c)
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Token-budget conventions enforced here:
+  //   - List rows omit the heavy text fields (context / rationale / decision /
+  //     alternativesConsidered) by default. Each is opt-in via `include`.
+  //   - get-by-id keeps the same heavy-text gating (the helper returns the row
+  //     in full but we project it down before serializing). Chain summary rows
+  //     are always slim.
+  //   - Write echoes return just identity + changed-field metadata.
+  //   - `limit` is capped at 100 on every paginated tool.
+
+  type DecisionRow = Awaited<ReturnType<typeof listDecisions>>[number];
+  const slimDecisionRow = (
+    d: DecisionRow,
+    include: ReadonlyArray<'context' | 'rationale' | 'decision' | 'alternatives'> | undefined,
+  ) => {
+    const inc = new Set(include ?? []);
+    const base = {
+      id: d.id,
+      title: d.title,
+      status: d.status as BrainDecisionStatus,
+      reversibility: d.reversibility as BrainDecisionReversibility,
+      decidedAt: d.decidedAt,
+      supersededByDecisionId: d.supersededByDecisionId,
+      anchors: {
+        meetingId: d.meetingId,
+        noteId: d.noteId,
+        companyId: d.companyId,
+        dealId: d.dealId,
+      },
+      decisionMakerId: d.decisionMakerId,
+    };
+    return {
+      ...base,
+      ...(inc.has('context') ? { context: d.context } : {}),
+      ...(inc.has('rationale') ? { rationale: d.rationale } : {}),
+      ...(inc.has('decision') ? { decision: d.decision } : {}),
+      ...(inc.has('alternatives') ? { alternativesConsidered: d.alternativesConsidered } : {}),
+    };
+  };
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_decisions_list',
+    {
+      title: 'List Brain decisions',
+      description: 'List decisions with optional filters (status, reversibility, decision-maker, date range, supersededOnly, topicId). Slim by default — heavy text fields (context, rationale, decision text, alternatives) are opt-in via `include`. Paginated via { items, total, limit, offset }; limit capped at 100.',
+      inputSchema: {
+        status: z.enum(['proposed', 'accepted', 'superseded', 'rejected']).optional(),
+        reversibility: z.enum(['one_way', 'two_way']).optional(),
+        decisionMakerId: z.number().int().positive().optional(),
+        dateFrom: z.string().optional().describe('ISO date — decidedAt >= this.'),
+        dateTo: z.string().optional().describe('ISO date — decidedAt <= this.'),
+        supersededOnly: z.boolean().optional(),
+        topicId: z.number().int().positive().optional().describe('Currently a no-op pass-through; helper has a TODO to JOIN brain_entity_topics. Accepted without erroring so callers can future-proof.'),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['context', 'rationale', 'decision', 'alternatives'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const limit = args.limit ?? 50;
+      const offset = args.offset ?? 0;
+      const opts: ListDecisionsOpts = {
+        status: args.status,
+        reversibility: args.reversibility,
+        decisionMakerId: args.decisionMakerId,
+        dateFrom: args.dateFrom ? new Date(args.dateFrom) : undefined,
+        dateTo: args.dateTo ? new Date(args.dateTo) : undefined,
+        supersededOnly: args.supersededOnly,
+        topicId: args.topicId,
+        limit,
+        offset,
+      };
+      const [rows, totalRows] = await Promise.all([
+        listDecisions(clientId, opts),
+        // Count is a cheap parallel query — keep it slim so list responses
+        // can drive pagination UIs without a second round-trip.
+        (async () => {
+          const { brainDecisions } = await import('@/lib/db/schema');
+          const conds = [eq(brainDecisions.clientId, clientId)];
+          if (args.status) conds.push(eq(brainDecisions.status, args.status));
+          if (args.reversibility) conds.push(eq(brainDecisions.reversibility, args.reversibility));
+          if (args.decisionMakerId !== undefined) conds.push(eq(brainDecisions.decisionMakerId, args.decisionMakerId));
+          if (args.supersededOnly) conds.push(eq(brainDecisions.status, 'superseded'));
+          const [r] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(brainDecisions).where(and(...conds));
+          return Number(r?.count ?? 0);
+        })(),
+      ]);
+      return json({
+        items: rows.map((d) => slimDecisionRow(d, args.include)),
+        total: totalRows,
+        limit,
+        offset,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_decisions_get',
+    {
+      title: 'Get a Brain decision',
+      description: 'Fetch a decision by id with its supersedes chain (ancestors + descendants). Heavy text fields (context, rationale, decision, alternatives) are opt-in via `include` to stay token-light; chain summary rows are always slim ({ id, title, decidedAt, status }).',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(z.enum(['context', 'rationale', 'decision', 'alternatives'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const out = await getDecisionById(clientId, args.id);
+      if (!out) return err('Decision not found.');
+      return json({
+        decision: slimDecisionRow(out.decision, args.include),
+        ancestors: out.ancestors,
+        descendants: out.descendants,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_decisions_create',
+    {
+      title: 'Create a Brain decision',
+      description: 'Create a new accepted decision. Heavy text fields (decision, rationale, context, alternativesConsidered) live in the input; the echo is slim ({ id, status, decidedAt }) so the caller does not round-trip the prose it just authored. AUDITED.',
+      inputSchema: {
+        title: z.string().min(1).max(255),
+        context: z.string().nullable().optional(),
+        decision: z.string().min(1),
+        rationale: z.string().min(1),
+        alternativesConsidered: z.string().nullable().optional(),
+        reversibility: z.enum(['one_way', 'two_way']).optional(),
+        decidedAt: z.string().optional().describe('ISO timestamp; defaults to now.'),
+        decisionMakerId: z.number().int().positive().nullable().optional(),
+        anchors: z.object({
+          meetingId: z.number().int().positive().nullable().optional(),
+          noteId: z.number().int().positive().nullable().optional(),
+          companyId: z.number().int().positive().nullable().optional(),
+          dealId: z.number().int().positive().nullable().optional(),
+        }).optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const input: CreateDecisionInput = {
+          title: args.title,
+          context: args.context ?? null,
+          decision: args.decision,
+          rationale: args.rationale,
+          alternativesConsidered: args.alternativesConsidered ?? null,
+          reversibility: args.reversibility,
+          decidedAt: args.decidedAt,
+          decisionMakerId: args.decisionMakerId ?? null,
+          anchors: args.anchors,
+          confidentialityLevel: args.confidentialityLevel,
+        };
+        const created = await createDecision(clientId, ctx.userId, input);
+        return json({ id: created.id, status: created.status, decidedAt: created.decidedAt });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create decision.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_decisions_update',
+    {
+      title: 'Update a Brain decision (metadata only)',
+      description: 'Patch mutable fields (title, context, decisionMakerId, anchors, confidentialityLevel, alternativesConsidered) on an existing decision. Attempts to mutate `decision`, `rationale`, or `reversibility` are REJECTED — those changes require `brain_decisions_supersede` (immutable history). Echo is { id, updatedFields }. AUDITED.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          title: z.string().min(1).max(255).optional(),
+          context: z.string().nullable().optional(),
+          decisionMakerId: z.number().int().positive().nullable().optional(),
+          anchors: z.object({
+            meetingId: z.number().int().positive().nullable().optional(),
+            noteId: z.number().int().positive().nullable().optional(),
+            companyId: z.number().int().positive().nullable().optional(),
+            dealId: z.number().int().positive().nullable().optional(),
+          }).optional(),
+          confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+          alternativesConsidered: z.string().nullable().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const before = await getDecisionById(clientId, args.id);
+        if (!before) return err('Decision not found.');
+        const updated = await updateDecision(clientId, ctx.userId, args.id, args.patch);
+        if (!updated) return err('Decision not found.');
+        const changed: string[] = [];
+        if (args.patch.title !== undefined && updated.title !== before.decision.title) changed.push('title');
+        if (args.patch.context !== undefined && updated.context !== before.decision.context) changed.push('context');
+        if (args.patch.decisionMakerId !== undefined && updated.decisionMakerId !== before.decision.decisionMakerId) changed.push('decisionMakerId');
+        if (args.patch.confidentialityLevel !== undefined && updated.confidentialityLevel !== before.decision.confidentialityLevel) changed.push('confidentialityLevel');
+        if (args.patch.alternativesConsidered !== undefined && updated.alternativesConsidered !== before.decision.alternativesConsidered) changed.push('alternativesConsidered');
+        if (args.patch.anchors) {
+          const a = args.patch.anchors;
+          if (a.meetingId !== undefined && updated.meetingId !== before.decision.meetingId) changed.push('meetingId');
+          if (a.noteId !== undefined && updated.noteId !== before.decision.noteId) changed.push('noteId');
+          if (a.companyId !== undefined && updated.companyId !== before.decision.companyId) changed.push('companyId');
+          if (a.dealId !== undefined && updated.dealId !== before.decision.dealId) changed.push('dealId');
+        }
+        return json({ id: updated.id, updatedFields: changed });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to update decision.';
+        if (msg.includes('supersedeDecision')) {
+          return json({
+            error: 'use_supersede',
+            message: 'Cannot mutate rationale, decision text, or reversibility in place. Call brain_decisions_supersede to create a successor decision linked to this one.',
+          });
+        }
+        return err(msg);
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_decisions_supersede',
+    {
+      title: 'Supersede a Brain decision',
+      description: 'Atomically create a successor decision and link it back to the old one (old.status → "superseded", old.supersededByDecisionId → new.id). Use this whenever you need to change rationale, decision text, or reversibility. Echo: { previous, current }. AUDITED.',
+      inputSchema: {
+        oldId: z.number().int().positive(),
+        title: z.string().min(1).max(255),
+        context: z.string().nullable().optional(),
+        decision: z.string().min(1),
+        rationale: z.string().min(1),
+        alternativesConsidered: z.string().nullable().optional(),
+        reversibility: z.enum(['one_way', 'two_way']).optional(),
+        decidedAt: z.string().optional(),
+        decisionMakerId: z.number().int().positive().nullable().optional(),
+        anchors: z.object({
+          meetingId: z.number().int().positive().nullable().optional(),
+          noteId: z.number().int().positive().nullable().optional(),
+          companyId: z.number().int().positive().nullable().optional(),
+          dealId: z.number().int().positive().nullable().optional(),
+        }).optional(),
+        confidentialityLevel: z.enum(['standard', 'restricted', 'confidential']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await supersedeDecision(clientId, ctx.userId, args.oldId, {
+          title: args.title,
+          context: args.context ?? null,
+          decision: args.decision,
+          rationale: args.rationale,
+          alternativesConsidered: args.alternativesConsidered ?? null,
+          reversibility: args.reversibility,
+          decidedAt: args.decidedAt,
+          decisionMakerId: args.decisionMakerId ?? null,
+          anchors: args.anchors,
+          confidentialityLevel: args.confidentialityLevel,
+        });
+        return json({
+          previous: { id: args.oldId, status: 'superseded' as const },
+          current: { id: created.id, status: created.status, decidedAt: created.decidedAt },
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to supersede decision.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_decisions_reject',
+    {
+      title: 'Soft-reject a Brain decision',
+      description: 'Soft-delete by transitioning status → "rejected". Decisions are immutable history — no row is ever DELETEd. Idempotent. AUDITED.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        reason: z.string().max(500).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const updated = await softRejectDecision(clientId, ctx.userId, args.id, args.reason);
+      if (!updated) return err('Decision not found.');
+      return json({ id: updated.id, status: 'rejected' as const });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BRAIN — TOPICS (Phase 1 brain-restructure, Wave 2c)
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Token-budget conventions:
+  //   - List/tree responses omit `description` (a free-form text field) by
+  //     default — opt in via `includeDescriptions` / `includeDescription`.
+  //   - Tree nodes carry `childCount` + `entityCount` for badge UIs without
+  //     forcing the caller to fetch entities or descendants separately.
+  //   - Write echoes return just the identity + the field(s) the helper
+  //     touched (path, parentId, deleted flag, etc.).
+  //   - `topics_entities` returns slim `{ entityType, entityId, title }` rows
+  //     and supports limit/offset pagination (cap 100).
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_topics_list',
+    {
+      title: 'List Brain topics (flat)',
+      description: 'List every topic for this tenant in path order (children sort under their parents). Slim by default — no `description`. Pass `includeEntityCounts=true` to add per-row `entityCount` (one extra group-by query).',
+      inputSchema: {
+        tagPrefix: z.string().optional().describe('Filter to topics whose path starts with `/<tagPrefix>` — useful after an import-from-tags run.'),
+        includeEntityCounts: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listTopics(clientId);
+      let filtered = rows;
+      if (args.tagPrefix?.trim()) {
+        const pref = `/${args.tagPrefix.trim().replace(/^\/+/, '')}`;
+        filtered = rows.filter((r) => r.path === pref || r.path.startsWith(`${pref}/`));
+      }
+      let countByTopic: Map<number, number> | null = null;
+      if (args.includeEntityCounts) {
+        const { brainEntityTopics } = await import('@/lib/db/schema');
+        const counts = await db.select({
+          topicId: brainEntityTopics.topicId,
+          count: sql<number>`count(*)::int`,
+        }).from(brainEntityTopics)
+          .where(eq(brainEntityTopics.clientId, clientId))
+          .groupBy(brainEntityTopics.topicId);
+        countByTopic = new Map<number, number>(counts.map((r) => [r.topicId, Number(r.count)]));
+      }
+      const items = filtered.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        path: t.path,
+        parentId: t.parentId,
+        sortOrder: t.sortOrder,
+        ...(t.color ? { color: t.color } : {}),
+        ...(t.icon ? { icon: t.icon } : {}),
+        ...(countByTopic ? { entityCount: countByTopic.get(t.id) ?? 0 } : {}),
+      }));
+      return json(items);
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_topics_tree',
+    {
+      title: 'Get Brain topics as a nested tree',
+      description: 'Return the topic taxonomy as a nested tree with per-node `childCount` + `entityCount`. Descriptions are omitted by default; pass `includeDescriptions=true` to inline them (potentially multi-KB per node).',
+      inputSchema: {
+        includeDescriptions: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const tree = await getTopicTree(clientId);
+      type SlimNode = {
+        id: number;
+        name: string;
+        slug: string;
+        path: string;
+        parentId: number | null;
+        sortOrder: number;
+        color?: string;
+        icon?: string;
+        childCount: number;
+        entityCount: number;
+        description?: string | null;
+        children: SlimNode[];
+      };
+      const slim = (nodes: Awaited<ReturnType<typeof getTopicTree>>): SlimNode[] =>
+        nodes.map((n) => ({
+          id: n.id,
+          name: n.name,
+          slug: n.slug,
+          path: n.path,
+          parentId: n.parentId,
+          sortOrder: n.sortOrder,
+          ...(n.color ? { color: n.color } : {}),
+          ...(n.icon ? { icon: n.icon } : {}),
+          childCount: n.childCount,
+          entityCount: n.entityCount,
+          ...(args.includeDescriptions ? { description: n.description } : {}),
+          children: slim(n.children),
+        }));
+      return json(slim(tree));
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_topics_get',
+    {
+      title: 'Get a Brain topic',
+      description: 'Fetch a topic by id with its breadcrumb (root → immediate parent, NOT including the topic itself). `description` is opt-in.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        includeDescription: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const out = await getTopicById(clientId, args.id);
+      if (!out) return err('Topic not found.');
+      const slim = {
+        id: out.id,
+        name: out.name,
+        slug: out.slug,
+        path: out.path,
+        parentId: out.parentId,
+        sortOrder: out.sortOrder,
+        ...(out.color ? { color: out.color } : {}),
+        ...(out.icon ? { icon: out.icon } : {}),
+        ...(args.includeDescription ? { description: out.description } : {}),
+      };
+      return json({
+        topic: slim,
+        breadcrumb: out.breadcrumb.map((b) => ({ id: b.id, name: b.name, slug: b.slug })),
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_topics_entities',
+    {
+      title: 'List entities attached to a topic',
+      description: 'List the notes / meetings / tasks / decisions / relationship-overlays attached to a topic. Returns slim `{ entityType, entityId, title }` rows, a total, and a per-type tally (`byType`). Paginated; limit capped at 100.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        entityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const out = await listEntitiesForTopic(clientId, args.id);
+      const filtered = args.entityType
+        ? out.items.filter((r) => r.entityType === args.entityType)
+        : out.items;
+      const limit = args.limit ?? 50;
+      const offset = args.offset ?? 0;
+      const page = filtered.slice(offset, offset + limit);
+      return json({
+        items: page,
+        total: filtered.length,
+        byType: {
+          note: out.byType.note.length,
+          meeting: out.byType.meeting.length,
+          task: out.byType.task.length,
+          decision: out.byType.decision.length,
+          relationship_overlay: out.byType.relationship_overlay.length,
+        },
+        limit,
+        offset,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_create',
+    {
+      title: 'Create a Brain topic',
+      description: 'Create a topic. Slug + path auto-derive from name; slug collisions get a `-2`, `-3`, … suffix. Echo: { id, slug, path, parentId }. AUDITED.',
+      inputSchema: {
+        name: z.string().min(1).max(150),
+        parentId: z.number().int().positive().nullable().optional(),
+        description: z.string().nullable().optional(),
+        color: z.string().max(20).nullable().optional(),
+        icon: z.string().max(50).nullable().optional(),
+        sortOrder: z.number().int().optional(),
+        derivedFromTag: z.string().max(100).nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createTopic(clientId, ctx.userId, {
+          name: args.name,
+          parentId: args.parentId ?? null,
+          description: args.description ?? null,
+          color: args.color ?? null,
+          icon: args.icon ?? null,
+          sortOrder: args.sortOrder,
+          derivedFromTag: args.derivedFromTag ?? null,
+        });
+        return json({
+          id: created.id,
+          slug: created.slug,
+          path: created.path,
+          parentId: created.parentId,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create topic.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_update',
+    {
+      title: 'Update a Brain topic',
+      description: 'Patch a topic. Rename DOES NOT change slug (stable URLs); use brain_topics_move for reparenting. Echo: { id, updatedFields }. AUDITED.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          name: z.string().min(1).max(150).optional(),
+          description: z.string().nullable().optional(),
+          color: z.string().max(20).nullable().optional(),
+          icon: z.string().max(50).nullable().optional(),
+          sortOrder: z.number().int().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const before = await getTopicById(clientId, args.id);
+      if (!before) return err('Topic not found.');
+      const updated = await updateTopic(clientId, ctx.userId, args.id, args.patch);
+      if (!updated) return err('Topic not found.');
+      const changed: string[] = [];
+      if (args.patch.name !== undefined && updated.name !== before.name) changed.push('name');
+      if (args.patch.description !== undefined && updated.description !== before.description) changed.push('description');
+      if (args.patch.color !== undefined && updated.color !== before.color) changed.push('color');
+      if (args.patch.icon !== undefined && updated.icon !== before.icon) changed.push('icon');
+      if (args.patch.sortOrder !== undefined && updated.sortOrder !== before.sortOrder) changed.push('sortOrder');
+      return json({ id: updated.id, updatedFields: changed });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_move',
+    {
+      title: 'Reparent a Brain topic',
+      description: 'Move a topic under a new parent (pass `newParentId: null` to promote to root). Recomputes the affected subtree\'s materialized `path` atomically. Echo: { id, path, descendantsRepathed }. AUDITED.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        newParentId: z.number().int().positive().nullable(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const before = await getTopicById(clientId, args.id);
+        if (!before) return err('Topic not found.');
+        // Count descendants pre-move so we can echo how many were repathed.
+        const { brainTopics } = await import('@/lib/db/schema');
+        const likePattern = `${before.path}/%`;
+        const [{ count }] = await db.select({ count: sql<number>`count(*)::int` })
+          .from(brainTopics)
+          .where(and(
+            eq(brainTopics.clientId, clientId),
+            sql`brain_topics.path LIKE ${likePattern}`,
+          ));
+        const moved = await moveTopic(clientId, ctx.userId, args.id, args.newParentId);
+        if (!moved) return err('Topic not found.');
+        return json({
+          id: moved.id,
+          path: moved.path,
+          descendantsRepathed: Number(count ?? 0),
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to move topic.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_merge',
+    {
+      title: 'Merge two Brain topics',
+      description: 'Fold `sourceId` into `targetId`: reattach all entity links (skipping dupes), reparent source\'s children under target (with full path rewrite), then delete source. Refuses to merge a topic into one of its own descendants. Echo: { sourceId, targetId, entitiesReattached, childrenReparented }. AUDITED.',
+      inputSchema: {
+        sourceId: z.number().int().positive(),
+        targetId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await mergeTopic(clientId, ctx.userId, args.sourceId, args.targetId);
+        if (!out) return err('Source or target topic not found.');
+        return json({
+          sourceId: args.sourceId,
+          targetId: out.targetId,
+          entitiesReattached: out.reattached,
+          childrenReparented: out.reparented,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to merge topics.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_delete',
+    {
+      title: 'Delete a Brain topic',
+      description: 'Delete a topic. Refuses if the topic has children (resolve via merge or by deleting children first). Refuses if any entities are attached unless `force=true`, which also drops the join rows. AUDITED.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await deleteTopic(clientId, ctx.userId, args.id, { force: args.force });
+      if (!out.deleted) {
+        if (out.reason === 'not_found') return err('Topic not found.');
+        return json({
+          error: out.reason ?? 'conflict',
+          message: out.reason === 'has_children'
+            ? 'Topic has child topics — delete them first or merge into another topic.'
+            : 'Topic has entities attached — pass force=true to drop the join rows and delete anyway.',
+        });
+      }
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_attach',
+    {
+      title: 'Attach topics to an entity',
+      description: 'Bulk-attach one or more topics to a single (entityType, entityId) target. Idempotent — rows that already exist are reported as `alreadyAttached`. Cross-tenant topic ids are silently dropped. Echo: { attached, alreadyAttached }.',
+      inputSchema: {
+        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']),
+        targetEntityId: z.number().int().positive(),
+        topicIds: z.array(z.number().int().positive()).min(1).max(50),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await attachTopics(db, {
+        clientId,
+        actorId: ctx.userId,
+        targetEntityType: args.targetEntityType,
+        targetEntityId: args.targetEntityId,
+        topicIds: args.topicIds,
+      });
+      return json({ attached: out.attached, alreadyAttached: out.alreadyAttached });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_detach',
+    {
+      title: 'Detach topics from an entity',
+      description: 'Bulk-detach one or more topics from a single (entityType, entityId) target. Tenant-scoped; missing rows are a no-op. Echo: { detached }.',
+      inputSchema: {
+        targetEntityType: z.enum(['note', 'meeting', 'task', 'decision', 'relationship_overlay', 'initiative', 'person']),
+        targetEntityId: z.number().int().positive(),
+        topicIds: z.array(z.number().int().positive()).min(1).max(50),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await detachTopics(clientId, ctx.userId, {
+        targetEntityType: args.targetEntityType,
+        targetEntityId: args.targetEntityId,
+        topicIds: args.topicIds,
+      });
+      return json({ detached: out.detached });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_topics_import_from_tags',
+    {
+      title: 'Import Brain topics from note tags',
+      description: 'Walk every `brain_notes.tags` string, split `a/b/c` into a hierarchical chain of topics, find-or-create each segment, and attach every note bearing that tag to the leaf topic. Optional `tagPrefix` scopes to one branch. `dryRun=true` returns the report without writing. Idempotent — re-running adds nothing if no new tags appeared. Returns the full per-topic report (intentionally NOT slimmed — this IS the result the caller wants).',
+      inputSchema: {
+        tagPrefix: z.string().optional(),
+        dryRun: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const report = await importTopicsFromTags(clientId, ctx.userId, {
+        tagPrefix: args.tagPrefix,
+        dryRun: args.dryRun,
+      });
+      return json({
+        topicsCreated: report.topicsCreated,
+        notesAttached: report.notesAttached,
+        perTopic: report.perTopic.map((p) => ({
+          topicId: p.topicId,
+          path: p.path,
+          noteCount: p.noteCount,
+        })),
+        dryRun: report.dryRun,
+      });
+    },
+  );
+  // ── PEOPLE — reads ───────────────────────────────────────────────────────
+
+  const personIncludeEnum = z.enum(['notes', 'profileUrls']);
+  const orgUnitIncludeEnum = z.enum(['descriptions']);
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_people_list',
+    {
+      title: 'List Brain people',
+      description: 'List internal people (employees / advisors / contractors). Slim row by default — pass `include: ["notes", "profileUrls"]` to opt into heavy fields. Filter by status / orgUnitId / expertiseTagId / managerId / search.',
+      inputSchema: {
+        status: z.enum(['active', 'inactive', 'departed']).optional(),
+        orgUnitId: z.number().int().positive().optional(),
+        expertiseTagId: z.number().int().positive().optional(),
+        managerId: z.number().int().positive().optional(),
+        search: z.string().max(200).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(personIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const include = new Set(args.include ?? []);
+      const rows = await listPeople(clientId, {
+        status: args.status as BrainPersonStatus | undefined,
+        orgUnitId: args.orgUnitId,
+        expertiseTagId: args.expertiseTagId,
+        managerId: args.managerId,
+        search: args.search,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      // listPeople already returns the slim shape. Hydrate heavy fields only
+      // when the caller opted in.
+      if (include.size === 0 || rows.length === 0) {
+        return json({ items: rows, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+      }
+      const ids = rows.map((r) => r.id);
+      const heavyRows = await db
+        .select({
+          id: brainPeople.id,
+          notes: brainPeople.notes,
+          profileUrls: brainPeople.profileUrls,
+        })
+        .from(brainPeople)
+        .where(and(eq(brainPeople.clientId, clientId), inArray(brainPeople.id, ids)));
+      const heavyById = new Map(heavyRows.map((r) => [r.id, r]));
+      const items = rows.map((r) => {
+        const h = heavyById.get(r.id);
+        return {
+          ...r,
+          ...(include.has('notes') ? { notes: h?.notes ?? null } : {}),
+          ...(include.has('profileUrls') ? { profileUrls: h?.profileUrls ?? [] } : {}),
+        };
+      });
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_people_get',
+    {
+      title: 'Get Brain person',
+      description: 'Fetch a person with manager, direct reports, org-unit memberships, and expertise tags. Slim person fields by default — pass `include: ["notes", "profileUrls"]` to opt into heavy fields.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(personIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getPersonById(clientId, args.id);
+      if (!detail) return err('Person not found.');
+      const include = new Set(args.include ?? []);
+      const p = detail.person;
+      const slimPerson: Record<string, unknown> = {
+        id: p.id,
+        clientId: p.clientId,
+        userId: p.userId,
+        fullName: p.fullName,
+        email: p.email,
+        managerId: p.managerId,
+        title: p.title,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        status: p.status,
+        source: p.source,
+        createdBy: p.createdBy,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+      if (include.has('notes')) slimPerson.notes = p.notes;
+      if (include.has('profileUrls')) slimPerson.profileUrls = p.profileUrls;
+      return json({
+        person: slimPerson,
+        manager: detail.manager,
+        directReports: detail.directReports,
+        orgUnits: detail.orgUnits,
+        expertise: detail.expertise,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_org_units_list',
+    {
+      title: 'List Brain org units (flat)',
+      description: 'Flat list of org units for this tenant, ordered by path. Slim row by default (no description) — pass `include: ["descriptions"]` to inline the description text. `memberCount` is always populated.',
+      inputSchema: {
+        include: z.array(orgUnitIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const include = new Set(args.include ?? []);
+      const units = await listOrgUnits(clientId);
+      // memberCount in one batch — same pattern as getOrgUnitTree.
+      const memberRows = units.length === 0 ? [] : await db
+        .select({
+          orgUnitId: brainPersonOrgUnits.orgUnitId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(brainPersonOrgUnits)
+        .where(and(
+          eq(brainPersonOrgUnits.clientId, clientId),
+          inArray(brainPersonOrgUnits.orgUnitId, units.map((u) => u.id)),
+        ))
+        .groupBy(brainPersonOrgUnits.orgUnitId);
+      const countByUnit = new Map<number, number>();
+      for (const r of memberRows) countByUnit.set(r.orgUnitId, Number(r.count));
+      const items = units.map((u) => ({
+        id: u.id,
+        name: u.name,
+        slug: u.slug,
+        path: u.path,
+        parentId: u.parentId,
+        leadPersonId: u.leadPersonId,
+        sortOrder: u.sortOrder,
+        color: u.color,
+        icon: u.icon,
+        memberCount: countByUnit.get(u.id) ?? 0,
+        ...(include.has('descriptions') ? { description: u.description } : {}),
+      }));
+      return json({ items });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_org_units_tree',
+    {
+      title: 'Get Brain org-unit tree',
+      description: 'Nested tree of org units for this tenant. Each node carries `childCount` and `memberCount`. Slim by default (no description) — pass `include: ["descriptions"]` to inline.',
+      inputSchema: {
+        include: z.array(orgUnitIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const include = new Set(args.include ?? []);
+      const roots = await getOrgUnitTree(clientId);
+      const shape = (node: BrainOrgUnitTreeNode): Record<string, unknown> => ({
+        id: node.id,
+        name: node.name,
+        slug: node.slug,
+        path: node.path,
+        parentId: node.parentId,
+        leadPersonId: node.leadPersonId,
+        sortOrder: node.sortOrder,
+        color: node.color,
+        icon: node.icon,
+        memberCount: node.memberCount,
+        childCount: node.children.length,
+        ...(include.has('descriptions') ? { description: node.description } : {}),
+        children: node.children.map(shape),
+      });
+      return json({ items: roots.map(shape) });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_org_units_get',
+    {
+      title: 'Get Brain org unit',
+      description: 'Fetch an org unit with its ancestor chain and members (personId / fullName / title / primary / roleInUnit).',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getOrgUnitById(clientId, args.id);
+      if (!detail) return err('Org unit not found.');
+      return json({
+        unit: detail.unit,
+        ancestors: detail.ancestors,
+        members: detail.members,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_who_knows',
+    {
+      title: 'Who knows X? — expertise search',
+      description: 'Resolve a free-text query to expertise tags (substring match on tag name + description), then rank people by matched-tag count, level bonus, and primary-org-unit bonus. The marquee tool — use this when the user asks "who knows about X" or "who should I talk to about Y".',
+      inputSchema: {
+        query: z.string().min(1).max(200),
+        limit: z.number().int().min(1).max(25).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const out = await whoKnows(clientId, args.query, { limit: args.limit });
+      return json(out);
+    },
+  );
+
+  // ── PEOPLE — writes ──────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_people_create',
+    {
+      title: 'Create a Brain person',
+      description: 'Add an internal person (employee / advisor / contractor). Echoes only `{ id, status }` — re-fetch via brain_people_get for the full record.',
+      inputSchema: {
+        fullName: z.string().min(1).max(200),
+        email: z.string().email().max(255).nullable().optional(),
+        userId: z.number().int().positive().nullable().optional(),
+        managerId: z.number().int().positive().nullable().optional(),
+        title: z.string().max(200).nullable().optional(),
+        startDate: z.string().nullable().optional(),
+        endDate: z.string().nullable().optional(),
+        status: z.enum(['active', 'inactive', 'departed']).optional(),
+        notes: z.string().nullable().optional(),
+        profileUrls: z.array(z.object({ label: z.string(), url: z.string().url() })).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createPerson(clientId, ctx.userId, {
+          fullName: args.fullName,
+          email: args.email ?? null,
+          userId: args.userId ?? null,
+          managerId: args.managerId ?? null,
+          title: args.title ?? null,
+          startDate: args.startDate ? new Date(args.startDate) : null,
+          endDate: args.endDate ? new Date(args.endDate) : null,
+          status: args.status,
+          notes: args.notes ?? null,
+          profileUrls: args.profileUrls,
+        });
+        return json({ id: created.id, status: created.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create person.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_people_update',
+    {
+      title: 'Update a Brain person',
+      description: 'Patch fields on a person. Manager change is cycle-guarded — assigning a descendant as the manager returns `{ error: "manager_cycle" }`. Echoes only `{ id, updatedFields }`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          fullName: z.string().min(1).max(200).optional(),
+          email: z.string().email().max(255).nullable().optional(),
+          managerId: z.number().int().positive().nullable().optional(),
+          title: z.string().max(200).nullable().optional(),
+          startDate: z.string().nullable().optional(),
+          endDate: z.string().nullable().optional(),
+          status: z.enum(['active', 'inactive', 'departed']).optional(),
+          notes: z.string().nullable().optional(),
+          profileUrls: z.array(z.object({ label: z.string(), url: z.string().url() })).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const p = args.patch;
+      const patch: Parameters<typeof updatePerson>[3] = {};
+      if (p.fullName !== undefined) patch.fullName = p.fullName;
+      if (p.email !== undefined) patch.email = p.email;
+      if (p.managerId !== undefined) patch.managerId = p.managerId;
+      if (p.title !== undefined) patch.title = p.title;
+      if (p.startDate !== undefined) patch.startDate = p.startDate ? new Date(p.startDate) : null;
+      if (p.endDate !== undefined) patch.endDate = p.endDate ? new Date(p.endDate) : null;
+      if (p.status !== undefined) patch.status = p.status;
+      if (p.notes !== undefined) patch.notes = p.notes;
+      if (p.profileUrls !== undefined) patch.profileUrls = p.profileUrls;
+      try {
+        const updated = await updatePerson(clientId, ctx.userId, args.id, patch);
+        if (!updated) return err('Person not found.');
+        return json({ id: updated.id, updatedFields: Object.keys(p) });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to update person.';
+        if (/cycle/i.test(message)) {
+          return json({ error: 'manager_cycle', message });
+        }
+        return err(message);
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_people_delete',
+    {
+      title: 'Delete a Brain person',
+      description: 'Delete a person. Cascades org-unit memberships and expertise junctions; reports-to chains pointing at this person are nulled out.',
+      inputSchema: { id: z.number().int().positive() },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const ok = await deletePerson(clientId, ctx.userId, args.id);
+      if (!ok) return err('Person not found.');
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_people_attach_expertise',
+    {
+      title: 'Attach an expertise tag to a person',
+      description: 'Attach an expertise tag with an optional 1–4 proficiency level. Idempotent — `alreadyAttached: true` means the row already existed (level may have been updated).',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        expertiseTagId: z.number().int().positive(),
+        level: z.number().int().min(1).max(4).nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await attachExpertise(clientId, ctx.userId, args.personId, {
+          expertiseTagId: args.expertiseTagId,
+          level: args.level ?? null,
+        });
+        return json({ alreadyAttached: out.alreadyAttached, level: args.level ?? null });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to attach expertise.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_people_detach_expertise',
+    {
+      title: 'Detach an expertise tag from a person',
+      description: 'Remove an expertise tag from a person. `detached: false` means the row did not exist.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        expertiseTagId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const detached = await detachExpertise(clientId, ctx.userId, args.personId, args.expertiseTagId);
+      return json({ detached });
+    },
+  );
+
+  // ── EXPERTISE TAGS — reads ───────────────────────────────────────────────
+
+  const expertiseTagIncludeEnum = z.enum(['description']);
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_expertise_tags_list',
+    {
+      title: 'List Brain expertise tags',
+      description: 'List per-tenant expertise tags. Slim row by default — pass `include: ["description"]` to inline the description text. `peopleCount` is always populated. Filter by `search` (ILIKE on name + description) or `source` ("manual" | "ai_suggested").',
+      inputSchema: {
+        search: z.string().max(200).optional(),
+        source: z.enum(['manual', 'ai_suggested']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(expertiseTagIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const include = new Set(args.include ?? []);
+      const rows = await listExpertiseTags(clientId, {
+        search: args.search,
+        source: args.source,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const items = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        source: r.source,
+        createdAt: r.createdAt,
+        peopleCount: r.peopleCount,
+        ...(include.has('description') ? { description: r.description } : {}),
+      }));
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  // ── EXPERTISE TAGS — writes ──────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_expertise_tags_create',
+    {
+      title: 'Create an expertise tag',
+      description: 'Create a per-tenant expertise tag. Slug is auto-derived from name; collisions get a `-2`, `-3` suffix. Echoes `{ id, slug }`.',
+      inputSchema: {
+        name: z.string().min(1).max(100),
+        description: z.string().nullable().optional(),
+        source: z.enum(['manual', 'ai_suggested']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createExpertiseTag(clientId, ctx.userId, {
+          name: args.name,
+          description: args.description ?? null,
+          source: args.source,
+        });
+        return json({ id: created.id, slug: created.slug });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create expertise tag.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_expertise_tags_update',
+    {
+      title: 'Update an expertise tag',
+      description: 'Patch name or description on an expertise tag. Slug stays stable (renames do not change the URL). Echoes `{ id, updatedFields }`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          name: z.string().min(1).max(100).optional(),
+          description: z.string().nullable().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const updated = await updateExpertiseTag(clientId, ctx.userId, args.id, args.patch);
+      if (!updated) return err('Expertise tag not found.');
+      return json({ id: updated.id, updatedFields: Object.keys(args.patch) });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_expertise_tags_delete',
+    {
+      title: 'Delete an expertise tag',
+      description: 'Delete an expertise tag. Default refuses if any person still holds it — pass `force: true` to cascade-detach. Returns a structured `{ error: "in_use", peopleAttached }` shape on conflict.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await deleteExpertiseTag(clientId, ctx.userId, args.id, { force: args.force });
+      if (!out.deleted) {
+        if (out.reason === 'not_found') return err('Expertise tag not found.');
+        if (out.reason === 'in_use') {
+          return json({
+            error: 'in_use',
+            message: 'Expertise tag is still attached to one or more people. Pass force=true to cascade.',
+          });
+        }
+      }
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_expertise_tags_merge',
+    {
+      title: 'Merge two expertise tags',
+      description: 'Re-attach every brain_person_expertise row from `sourceTagId` to `targetTagId`, then delete the source tag. Levels on target are preserved; if target has no level but source had one, source\'s level is copied. Echoes `{ peopleReattached, sourceDeleted: true }`.',
+      inputSchema: {
+        sourceTagId: z.number().int().positive(),
+        targetTagId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await mergeExpertiseTags(clientId, ctx.userId, args.sourceTagId, args.targetTagId);
+        return json({ peopleReattached: out.reattached, sourceDeleted: true });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to merge expertise tags.');
+      }
+    },
+  );
+
+  // ── ORG UNITS — writes ───────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_create',
+    {
+      title: 'Create an org unit',
+      description: 'Create a hierarchical org unit. Slug auto-derived; path computed from parent. Echoes `{ id, slug, path }`.',
+      inputSchema: {
+        name: z.string().min(1).max(150),
+        parentId: z.number().int().positive().nullable().optional(),
+        description: z.string().nullable().optional(),
+        leadPersonId: z.number().int().positive().nullable().optional(),
+        color: z.string().max(20).nullable().optional(),
+        icon: z.string().max(50).nullable().optional(),
+        sortOrder: z.number().int().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createOrgUnit(clientId, ctx.userId, {
+          name: args.name,
+          parentId: args.parentId ?? null,
+          description: args.description ?? null,
+          leadPersonId: args.leadPersonId ?? null,
+          color: args.color ?? null,
+          icon: args.icon ?? null,
+          sortOrder: args.sortOrder,
+        });
+        return json({ id: created.id, slug: created.slug, path: created.path });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create org unit.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_update',
+    {
+      title: 'Update an org unit',
+      description: 'Patch fields on an org unit. Slug + path stay stable on rename. Echoes `{ id, updatedFields }`. Use brain_org_units_move to re-parent.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          name: z.string().min(1).max(150).optional(),
+          description: z.string().nullable().optional(),
+          leadPersonId: z.number().int().positive().nullable().optional(),
+          color: z.string().max(20).nullable().optional(),
+          icon: z.string().max(50).nullable().optional(),
+          sortOrder: z.number().int().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await updateOrgUnit(clientId, ctx.userId, args.id, args.patch);
+        if (!updated) return err('Org unit not found.');
+        return json({ id: updated.id, updatedFields: Object.keys(args.patch) });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to update org unit.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_move',
+    {
+      title: 'Re-parent an org unit',
+      description: 'Move an org unit under a new parent (or to root with `newParentId: null`). Rewrites the path prefix for the moved unit AND every descendant. Cycle-guarded. Echoes `{ id, path, descendantsRepathed }`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        newParentId: z.number().int().positive().nullable(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const before = await getOrgUnitById(clientId, args.id);
+        if (!before) return err('Org unit not found.');
+        // Count descendants (path LIKE 'before.path/%') for the echo.
+        const descendantRows = await db
+          .select({ id: brainOrgUnits.id })
+          .from(brainOrgUnits)
+          .where(and(
+            eq(brainOrgUnits.clientId, clientId),
+            sql`${brainOrgUnits.path} LIKE ${`${before.unit.path}/%`}`,
+          ));
+        const descendantsRepathed = descendantRows.length;
+        const moved = await moveOrgUnit(clientId, ctx.userId, args.id, args.newParentId);
+        if (!moved) return err('Org unit not found.');
+        return json({ id: moved.id, path: moved.path, descendantsRepathed });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to move org unit.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_merge',
+    {
+      title: 'Merge two org units',
+      description: 'Re-parent `sourceId`\'s children under `targetId`, re-attach `sourceId`\'s members to `targetId` (dedup-safe), then delete `sourceId`. Echoes `{ sourceId, targetId, membersReattached, childrenReparented }`.',
+      inputSchema: {
+        sourceId: z.number().int().positive(),
+        targetId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        // Capture counts BEFORE the merge so we can echo them — mergeOrgUnits
+        // returns the target unit, not a stats payload.
+        const sourceDetail = await getOrgUnitById(clientId, args.sourceId);
+        if (!sourceDetail) return err('Source org unit not found.');
+        const membersReattached = sourceDetail.members.length;
+        const childrenRows = await db
+          .select({ id: brainOrgUnits.id })
+          .from(brainOrgUnits)
+          .where(and(
+            eq(brainOrgUnits.clientId, clientId),
+            eq(brainOrgUnits.parentId, args.sourceId),
+          ));
+        const childrenReparented = childrenRows.length;
+        const merged = await mergeOrgUnits(clientId, ctx.userId, args.sourceId, args.targetId);
+        if (!merged) return err('Source org unit not found.');
+        return json({
+          sourceId: args.sourceId,
+          targetId: args.targetId,
+          membersReattached,
+          childrenReparented,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to merge org units.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_delete',
+    {
+      title: 'Delete an org unit',
+      description: 'Delete an org unit. Default refuses if it has members or children — pass `force: true` to detach members and re-parent children up one level. Returns structured `{ error: "in_use", memberCount, childCount }` on conflict.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const ok = await deleteOrgUnit(clientId, ctx.userId, args.id, { force: args.force });
+        if (!ok) return err('Org unit not found.');
+        return json({ id: args.id, deleted: true });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to delete org unit.';
+        // Helper throws "Org unit has N member(s) and M child unit(s). Pass force=true to cascade."
+        const match = message.match(/has\s+(\d+)\s+member.*\s+(\d+)\s+child/i);
+        if (match) {
+          return json({
+            error: 'in_use',
+            message,
+            memberCount: Number(match[1]),
+            childCount: Number(match[2]),
+          });
+        }
+        return err(message);
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_add_member',
+    {
+      title: 'Add a person to an org unit',
+      description: 'Attach a person to an org unit. Idempotent — re-attaching updates `primary` and `roleInUnit`. Marking primary flips primary=false on the person\'s other memberships. Echoes `{ alreadyMember, primary }`.',
+      inputSchema: {
+        orgUnitId: z.number().int().positive(),
+        personId: z.number().int().positive(),
+        primary: z.boolean().optional(),
+        roleInUnit: z.string().max(150).nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        // Check pre-existing membership for the echo flag.
+        const [existing] = await db
+          .select({ id: brainPersonOrgUnits.id })
+          .from(brainPersonOrgUnits)
+          .where(and(
+            eq(brainPersonOrgUnits.clientId, clientId),
+            eq(brainPersonOrgUnits.orgUnitId, args.orgUnitId),
+            eq(brainPersonOrgUnits.personId, args.personId),
+          ))
+          .limit(1);
+        const alreadyMember = Boolean(existing);
+        const row = await addMember(clientId, ctx.userId, {
+          orgUnitId: args.orgUnitId,
+          personId: args.personId,
+          primary: args.primary,
+          roleInUnit: args.roleInUnit ?? null,
+        });
+        return json({ alreadyMember, primary: row.primary });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to add member.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_remove_member',
+    {
+      title: 'Remove a person from an org unit',
+      description: 'Detach a person from an org unit. `removed: false` means the membership row did not exist.',
+      inputSchema: {
+        orgUnitId: z.number().int().positive(),
+        personId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const removed = await removeMember(clientId, ctx.userId, {
+        orgUnitId: args.orgUnitId,
+        personId: args.personId,
+      });
+      return json({ removed });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_org_units_set_primary',
+    {
+      title: 'Set a person\'s primary org unit',
+      description: 'Mark `orgUnitId` as the primary membership for `personId`. Flips primary=false on the person\'s other memberships in the same transaction. Requires the membership to already exist — call brain_org_units_add_member first if not.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        orgUnitId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const ok = await setPrimaryUnit(clientId, ctx.userId, args.personId, args.orgUnitId);
+      if (!ok) return err('Membership not found. Call brain_org_units_add_member first.');
+      return json({ personId: args.personId, orgUnitId: args.orgUnitId, primary: true });
+    },
+  );
+  // ── GLOSSARY — read ──────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_glossary_list',
+    {
+      title: 'List Brain glossary terms',
+      description: 'List tenant glossary terms (acronyms, codenames, jargon). Slim by default: returns id, term, slug, shortDefinition, status, category, ownerId, aliasCount. To receive full `definition` and full `aliases`, pass include=["definition"] / ["aliases"]. Filters: status, category, search, ownerId. Cap limit 100.',
+      inputSchema: {
+        status: z.enum(['active', 'deprecated']).optional(),
+        category: z.string().optional(),
+        search: z.string().optional().describe('Substring match on term, aliases, and definition.'),
+        ownerId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['definition', 'aliases'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const slim = await listGlossaryTerms(clientId, {
+        status: args.status,
+        category: args.category,
+        search: args.search,
+        ownerId: args.ownerId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      if (include.size === 0) {
+        return json(slim);
+      }
+      // Heavy include: hydrate by looking up full rows for the slim page.
+      // Bounded by the same limit so token cost stays predictable.
+      const { db } = await import('@/lib/db');
+      const { brainGlossaryTerms } = await import('@/lib/db/schema');
+      const { and, eq, inArray } = await import('drizzle-orm');
+      const ids = slim.items.map((r) => r.id);
+      const heavy = ids.length > 0
+        ? await db.select({
+            id: brainGlossaryTerms.id,
+            definition: brainGlossaryTerms.definition,
+            aliases: brainGlossaryTerms.aliases,
+          })
+          .from(brainGlossaryTerms)
+          .where(and(
+            eq(brainGlossaryTerms.clientId, clientId),
+            inArray(brainGlossaryTerms.id, ids),
+          ))
+        : [];
+      const byId = new Map(heavy.map((h) => [h.id, h]));
+      const items = slim.items.map((r) => {
+        const h = byId.get(r.id);
+        return {
+          ...r,
+          ...(include.has('definition') ? { definition: h?.definition ?? null } : {}),
+          ...(include.has('aliases') ? { aliases: h?.aliases ?? [] } : {}),
+        };
+      });
+      return json({ ...slim, items });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_glossary_get',
+    {
+      title: 'Get a Brain glossary term with related terms',
+      description: 'Fetch a single term + its "see also" related terms (joined from the relatedTermIds JSON array, cross-tenant ids filtered out). Slim by default — omits full `definition` and `aliases` from the main term unless `include` is passed. Related terms are always slim (id/term/slug/shortDefinition).',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(z.enum(['definition', 'aliases'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getGlossaryTermById(clientId, args.id);
+      if (!detail) return err('Glossary term not found.');
+      const include = new Set(args.include ?? []);
+      const t = detail.term;
+      return json({
+        term: {
+          id: t.id,
+          term: t.term,
+          slug: t.slug,
+          shortDefinition: t.shortDefinition,
+          status: t.status,
+          category: t.category,
+          ownerId: t.ownerId,
+          source: t.source,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+          aliasCount: Array.isArray(t.aliases) ? t.aliases.length : 0,
+          relatedTermIdCount: Array.isArray(t.relatedTermIds) ? t.relatedTermIds.length : 0,
+          ...(include.has('definition') ? { definition: t.definition } : {}),
+          ...(include.has('aliases') ? { aliases: t.aliases } : {}),
+        },
+        relatedTerms: detail.relatedTerms,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_glossary_lookup',
+    {
+      title: 'Look up Brain glossary terms by query',
+      description: 'The marquee tool: substring + alias-array match against ACTIVE glossary terms with a scored ranking (exact term 10 / exact alias 8 / term prefix 5 / alias prefix 4 / term substring 3 / alias substring 2 / definition substring 1). Use BEFORE answering any factual question that may contain tenant-specific acronyms or codenames so the workspace\'s preferred definition is used. Cap limit 25, default 10.',
+      inputSchema: {
+        query: z.string().min(1).max(200),
+        limit: z.number().int().min(1).max(25).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const out = await lookupGlossary(clientId, args.query, { limit: args.limit });
+      return json(out);
+    },
+  );
+
+  // ── GLOSSARY — write ─────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_glossary_create',
+    {
+      title: 'Create a Brain glossary term',
+      description: 'Add a new term. Slug is auto-derived from `term` (lowercase, dash-separated); collisions per tenant suffix `-2`, `-3`, …. Default status="active", source="manual", aliases=[], relatedTermIds=[]. Echoes { id, slug } only — call brain_glossary_get for the full row.',
+      inputSchema: {
+        term: z.string().min(1).max(200),
+        definition: z.string().min(1),
+        shortDefinition: z.string().max(500).optional(),
+        aliases: z.array(z.string()).optional(),
+        status: z.enum(['active', 'deprecated']).optional(),
+        category: z.string().max(100).optional(),
+        ownerId: z.number().int().positive().optional(),
+        relatedTermIds: z.array(z.number().int().positive()).optional(),
+        source: z.enum(['manual', 'ai_suggested']).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createGlossaryTerm(clientId, ctx.userId, {
+          term: args.term,
+          definition: args.definition,
+          shortDefinition: args.shortDefinition,
+          aliases: args.aliases,
+          status: args.status,
+          category: args.category,
+          ownerId: args.ownerId,
+          relatedTermIds: args.relatedTermIds,
+          source: args.source,
+        });
+        return json({ id: created.id, slug: created.slug });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create glossary term.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_glossary_update',
+    {
+      title: 'Update a Brain glossary term',
+      description: 'Patch any field on a glossary term EXCEPT slug (which is stable for external URLs). Echoes { id, updatedFields }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          term: z.string().min(1).max(200).optional(),
+          definition: z.string().min(1).optional(),
+          shortDefinition: z.string().max(500).nullable().optional(),
+          aliases: z.array(z.string()).optional(),
+          status: z.enum(['active', 'deprecated']).optional(),
+          category: z.string().max(100).nullable().optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          relatedTermIds: z.array(z.number().int().positive()).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const updated = await updateGlossaryTerm(clientId, ctx.userId, args.id, args.patch);
+      if (!updated) return err('Glossary term not found.');
+      return json({ id: updated.id, updatedFields: Object.keys(args.patch) });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_glossary_delete',
+    {
+      title: 'Delete a Brain glossary term',
+      description: 'Hard delete. Also prunes this id from every OTHER term\'s relatedTermIds list. Audit row written before the delete. Echoes { id, deleted, prunedRelatedTermFromCount }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await deleteGlossaryTerm(clientId, ctx.userId, args.id);
+      if (!out.deleted) return err('Glossary term not found.');
+      return json({
+        id: args.id,
+        deleted: true,
+        prunedRelatedTermFromCount: out.prunedRelatedTermFromCount,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_glossary_bulk_import',
+    {
+      title: 'Bulk import / upsert Brain glossary terms',
+      description: 'Insert or update up to 200 terms in one call. Upsert is per-tenant on slug (auto-derived from `term`) — existing rows have their definition/shortDefinition/aliases/category replaced; new rows are inserted with status="active" and source="manual". A single audit row is written after the batch. Echoes { created, updated, errors }.',
+      inputSchema: {
+        terms: z.array(z.object({
+          term: z.string().min(1).max(200),
+          definition: z.string().min(1),
+          shortDefinition: z.string().max(500).optional(),
+          aliases: z.array(z.string()).optional(),
+          category: z.string().max(100).optional(),
+        })).min(1).max(200),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await bulkImportGlossary(clientId, ctx.userId, { terms: args.terms });
+        return json({ created: out.created, updated: out.updated, errors: out.errors });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Bulk import failed.');
+      }
+    },
+  );
+
+  // ── READ — playbooks (Wave 2c) ───────────────────────────────────────────
+
+  const playbookStatusEnum = z.enum(['draft', 'active', 'archived']);
+  const playbookTriggerKindEnum = z.enum(['manual', 'event', 'scheduled']);
+  const playbookRunStatusEnum = z.enum(['pending', 'active', 'paused', 'completed', 'aborted', 'failed']);
+  const playbookStepKindEnum = z.enum(['task', 'note', 'meeting', 'decision', 'review_item', 'wait', 'branch']);
+  const playbookLinkEntityTypeEnum = z.enum(['initiative', 'person', 'crm_company', 'crm_deal', 'meeting', 'decision']);
+  const playbookConditionOpEnum = z.enum(['eq', 'neq', 'in', 'not_in', 'exists', 'not_exists', 'gt', 'lt']);
+  const playbookConditionSchema = z.object({
+    field: z.string().min(1),
+    op: playbookConditionOpEnum,
+    value: z.unknown().optional(),
+  }).nullable();
+  const playbookListIncludeEnum = z.enum(['description', 'triggerConfig', 'defaultTopicIds']);
+  const playbookGetIncludeEnum = z.enum(['description', 'stepConfigs']);
+  const playbookRunGetIncludeEnum = z.enum(['context', 'triggerPayload']);
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_playbooks_list',
+    {
+      title: 'List Brain playbooks',
+      description: 'List multi-step playbooks for this tenant. Slim by default — returns { id, name, slug, status, category, triggerKind, ownerId, stepCount, activeRunCount } per row. Pass `include: ["description"]`, `["triggerConfig"]`, or `["defaultTopicIds"]` to opt into heavier fields. Filters: status, category, triggerKind, ownerId.',
+      inputSchema: {
+        status: z.union([playbookStatusEnum, z.array(playbookStatusEnum)]).optional(),
+        category: z.string().max(100).optional(),
+        triggerKind: z.union([playbookTriggerKindEnum, z.array(playbookTriggerKindEnum)]).optional(),
+        ownerId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(playbookListIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listPlaybooks(clientId, {
+        status: args.status,
+        category: args.category,
+        triggerKind: args.triggerKind,
+        ownerId: args.ownerId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      // Heavy fields require a second fetch — only if requested AND there are rows.
+      let extraByPlaybook: Map<number, {
+        description: string | null;
+        triggerConfig: unknown;
+        defaultTopicIds: number[];
+      }> | null = null;
+      if (rows.length > 0 && (include.has('description') || include.has('triggerConfig') || include.has('defaultTopicIds'))) {
+        const { brainPlaybooks } = await import('@/lib/db/schema');
+        const extras = await db.select({
+          id: brainPlaybooks.id,
+          description: brainPlaybooks.description,
+          triggerConfig: brainPlaybooks.triggerConfig,
+          defaultTopicIds: brainPlaybooks.defaultTopicIds,
+        }).from(brainPlaybooks)
+          .where(and(
+            eq(brainPlaybooks.clientId, clientId),
+            inArray(brainPlaybooks.id, rows.map((r) => r.id)),
+          ));
+        extraByPlaybook = new Map(extras.map((e) => [e.id, {
+          description: e.description,
+          triggerConfig: e.triggerConfig,
+          defaultTopicIds: e.defaultTopicIds ?? [],
+        }]));
+      }
+      const items = rows.map((r) => {
+        const extra = extraByPlaybook?.get(r.id);
+        return {
+          id: r.id,
+          name: r.name,
+          slug: r.slug,
+          status: r.status,
+          category: r.category,
+          triggerKind: r.triggerKind,
+          ownerId: r.ownerId,
+          stepCount: r.stepCount,
+          activeRunCount: r.activeRunCount,
+          ...(include.has('description') && extra ? { description: extra.description } : {}),
+          ...(include.has('triggerConfig') && extra ? { triggerConfig: extra.triggerConfig } : {}),
+          ...(include.has('defaultTopicIds') && extra ? { defaultTopicIds: extra.defaultTopicIds } : {}),
+        };
+      });
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_playbooks_get',
+    {
+      title: 'Get a Brain playbook with steps',
+      description: 'Get one playbook by id with its ordered steps. Slim by default — step rows return { id, key, name, kind, nextStepKeys, sortOrder } and the playbook omits description. Pass `include: ["description"]` to inline the playbook description, `["stepConfigs"]` to inline each step\'s config + condition + description blobs.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(playbookGetIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getPlaybookById(clientId, args.id);
+      if (!detail) return err('Playbook not found.');
+      const include = new Set(args.include ?? []);
+      const p = detail.playbook;
+      const playbook: Record<string, unknown> = {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        status: p.status,
+        category: p.category,
+        triggerKind: p.triggerKind,
+        triggerConfig: p.triggerConfig,
+        ownerId: p.ownerId,
+        defaultTopicIds: p.defaultTopicIds,
+        source: p.source,
+        createdBy: p.createdBy,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+      };
+      if (include.has('description')) playbook.description = p.description;
+      const steps = detail.steps.map((s) => {
+        const row: Record<string, unknown> = {
+          id: s.id,
+          key: s.key,
+          name: s.name,
+          kind: s.kind,
+          nextStepKeys: s.nextStepKeys,
+          sortOrder: s.sortOrder,
+        };
+        if (include.has('stepConfigs')) {
+          row.description = s.description;
+          row.config = s.config;
+          row.condition = s.condition;
+        }
+        return row;
+      });
+      return json({ playbook, steps });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_playbook_runs_list',
+    {
+      title: 'List Brain playbook runs',
+      description: 'List runs for this tenant. Slim row default — { id, playbookId, playbookName, label, status, startedAt, completedAt, stepProgress: { completed, total } }. Filter by status and / or playbookId. Cap limit at 100.',
+      inputSchema: {
+        status: z.union([playbookRunStatusEnum, z.array(playbookRunStatusEnum)]).optional(),
+        playbookId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listRuns(clientId, {
+        status: args.status,
+        playbookId: args.playbookId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const items = rows.map((r) => ({
+        id: r.id,
+        playbookId: r.playbookId,
+        playbookName: r.playbookName,
+        label: r.label,
+        status: r.status,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+        stepProgress: r.stepProgress,
+      }));
+      return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_playbook_runs_get',
+    {
+      title: 'Get a Brain playbook run',
+      description: 'Get one run by id with { run, playbook (slim: id/name/slug/status), steps (per-run state), links }. Heavy JSON columns (`context`, `triggerPayload`) are opt-in via `include`.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        include: z.array(playbookRunGetIncludeEnum).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getRunById(clientId, args.id);
+      if (!detail) return err('Playbook run not found.');
+      const include = new Set(args.include ?? []);
+      const r = detail.run;
+      const run: Record<string, unknown> = {
+        id: r.id,
+        playbookId: r.playbookId,
+        label: r.label,
+        status: r.status,
+        startedBy: r.startedBy,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+        abortedAt: r.abortedAt ? r.abortedAt.toISOString() : null,
+        abortReason: r.abortReason,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      };
+      if (include.has('context')) run.context = r.context;
+      if (include.has('triggerPayload')) run.triggerPayload = r.triggerPayload;
+      return json({
+        run,
+        playbook: {
+          id: detail.playbook.id,
+          name: detail.playbook.name,
+          slug: detail.playbook.slug,
+          status: detail.playbook.status,
+        },
+        steps: detail.steps.map((s) => ({
+          id: s.id,
+          stepId: s.stepId,
+          key: s.key,
+          name: s.name,
+          kind: s.kind,
+          status: s.status,
+          resultEntityType: s.resultEntityType,
+          resultEntityId: s.resultEntityId,
+          startedAt: s.startedAt ? s.startedAt.toISOString() : null,
+          completedAt: s.completedAt ? s.completedAt.toISOString() : null,
+          waitUntil: s.waitUntil ? s.waitUntil.toISOString() : null,
+          failureReason: s.failureReason,
+        })),
+        links: detail.links.map((l) => ({
+          id: l.id,
+          entityType: l.entityType,
+          entityId: l.entityId,
+        })),
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_playbook_runs_active_for_entity',
+    {
+      title: 'List active playbook runs anchored to an entity',
+      description: 'Returns active + paused runs anchored to the given entity via brain_playbook_links — e.g. "what onboarding playbook is in flight for this person?". Slim row shape, same as brain_playbook_runs_list.',
+      inputSchema: {
+        entityType: playbookLinkEntityTypeEnum,
+        entityId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const rows = await listActiveRunsForEntity(clientId, args.entityType, args.entityId);
+      const items = rows.map((r) => ({
+        id: r.id,
+        playbookId: r.playbookId,
+        playbookName: r.playbookName,
+        label: r.label,
+        status: r.status,
+        startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+        completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+        stepProgress: r.stepProgress,
+      }));
+      return json({ items, total: items.length });
+    },
+  );
+
+  // ── WRITE — playbooks (Wave 2c) ──────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_create',
+    {
+      title: 'Create a Brain playbook',
+      description: 'Create a new playbook (always starts in `draft`). Use brain_playbooks_add_step to attach steps, then brain_playbooks_activate once the DAG is valid. Echo: { id, slug, status }.',
+      inputSchema: {
+        name: z.string().min(1).max(200),
+        description: z.string().nullable().optional(),
+        triggerKind: playbookTriggerKindEnum.optional(),
+        triggerConfig: z.object({
+          event: z.string().optional(),
+          filters: z.record(z.string(), z.unknown()).optional(),
+          cron: z.string().optional(),
+        }).nullable().optional(),
+        category: z.string().max(100).nullable().optional(),
+        ownerId: z.number().int().positive().nullable().optional(),
+        defaultTopicIds: z.array(z.number().int().positive()).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const created = await createPlaybook(clientId, ctx.userId, {
+          name: args.name,
+          description: args.description ?? null,
+          triggerKind: args.triggerKind,
+          triggerConfig: args.triggerConfig ?? null,
+          category: args.category ?? null,
+          ownerId: args.ownerId ?? null,
+          defaultTopicIds: args.defaultTopicIds,
+        });
+        return json({ id: created.id, slug: created.slug, status: created.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create playbook.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_update',
+    {
+      title: 'Update a Brain playbook',
+      description: 'Patch fields on a playbook definition. Status changes are NOT allowed here — use brain_playbooks_activate or brain_playbooks_archive. Echo: { id, updatedFields }. Returns a structured error { error: "use_activate_or_archive" } if a status change is attempted.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          name: z.string().min(1).max(200).optional(),
+          description: z.string().nullable().optional(),
+          category: z.string().max(100).nullable().optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          triggerKind: playbookTriggerKindEnum.optional(),
+          triggerConfig: z.object({
+            event: z.string().optional(),
+            filters: z.record(z.string(), z.unknown()).optional(),
+            cron: z.string().optional(),
+          }).nullable().optional(),
+          defaultTopicIds: z.array(z.number().int().positive()).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const p = args.patch;
+      try {
+        const updated = await updatePlaybook(clientId, ctx.userId, args.id, {
+          name: p.name,
+          description: p.description,
+          category: p.category,
+          ownerId: p.ownerId,
+          triggerKind: p.triggerKind,
+          triggerConfig: p.triggerConfig,
+          defaultTopicIds: p.defaultTopicIds,
+        });
+        if (!updated) return err('Playbook not found.');
+        return json({
+          id: updated.id,
+          updatedFields: Object.keys(p).filter((k) => (p as Record<string, unknown>)[k] !== undefined),
+        });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('use activatePlaybook or archivePlaybook')) {
+          return json({ error: 'use_activate_or_archive', message });
+        }
+        return err(message || 'Failed to update playbook.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_activate',
+    {
+      title: 'Activate a Brain playbook',
+      description: 'Flip status from `draft` to `active`. Refuses if the playbook has zero steps OR the step graph fails DAG validation (cycles, missing next-step refs, no entry point). On DAG failure returns a structured error { error: "dag_invalid", errors: string[] }. Echo on success: { id, status: "active" }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await activatePlaybook(clientId, ctx.userId, args.id);
+        if (!updated) return err('Playbook not found.');
+        return json({ id: updated.id, status: updated.status });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const dagPrefix = 'playbook DAG invalid: ';
+        if (message.startsWith(dagPrefix)) {
+          const errors = message.slice(dagPrefix.length).split('; ').filter(Boolean);
+          return json({ error: 'dag_invalid', errors });
+        }
+        if (message.includes('zero steps')) {
+          return json({ error: 'dag_invalid', errors: [message] });
+        }
+        return err(message || 'Failed to activate playbook.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_archive',
+    {
+      title: 'Archive a Brain playbook',
+      description: 'Flip status to `archived`. Refuses while pending/active/paused runs exist unless `force=true`. Echo on success: { id, status: "archived" }. Returns a structured error { error: "active_runs_exist", message } if force is omitted and active runs block the transition.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await archivePlaybook(clientId, ctx.userId, args.id, { force: args.force });
+        if (!updated) return err('Playbook not found.');
+        return json({ id: updated.id, status: updated.status });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('cannot archive playbook with')) {
+          return json({ error: 'active_runs_exist', message });
+        }
+        return err(message || 'Failed to archive playbook.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_delete',
+    {
+      title: 'Delete a Brain playbook',
+      description: 'Hard delete. Refuses while any runs exist (active or historical) unless `force=true` — force cascades through runs/run-steps/links. Echo on success: { id, deleted: true }. Returns a structured error { error: "runs_exist", message } if force is omitted and runs block the delete.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const deleted = await deletePlaybook(clientId, ctx.userId, args.id, { force: args.force });
+        if (!deleted) return err('Playbook not found.');
+        return json({ id: args.id, deleted: true });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('cannot delete playbook with')) {
+          return json({ error: 'runs_exist', message });
+        }
+        return err(message || 'Failed to delete playbook.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_add_step',
+    {
+      title: 'Add a step to a Brain playbook',
+      description: 'Append a step to a playbook. The step `key` is a stable identifier within the playbook (used by nextStepKeys + run state). `sortOrder` auto-picks (append) when omitted. Echo: { id, key } — re-fetch via brain_playbooks_get for the full row.',
+      inputSchema: {
+        playbookId: z.number().int().positive(),
+        step: z.object({
+          key: z.string().min(1).max(100),
+          name: z.string().min(1).max(200),
+          description: z.string().nullable().optional(),
+          kind: playbookStepKindEnum,
+          config: z.record(z.string(), z.unknown()).optional(),
+          condition: playbookConditionSchema.optional(),
+          nextStepKeys: z.array(z.string()).optional(),
+          sortOrder: z.number().int().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const step: AddStepInput = {
+          key: args.step.key,
+          name: args.step.name,
+          description: args.step.description ?? null,
+          kind: args.step.kind,
+          config: args.step.config,
+          condition: (args.step.condition ?? null) as BrainPlaybookCondition,
+          nextStepKeys: args.step.nextStepKeys,
+          sortOrder: args.step.sortOrder,
+        };
+        const created = await addStep(clientId, ctx.userId, args.playbookId, step);
+        return json({ id: created.id, key: created.key });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to add step.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_update_step',
+    {
+      title: 'Update a Brain playbook step',
+      description: 'Patch fields on an existing step. Echo: { id, updatedFields }.',
+      inputSchema: {
+        stepId: z.number().int().positive(),
+        patch: z.object({
+          key: z.string().min(1).max(100).optional(),
+          name: z.string().min(1).max(200).optional(),
+          description: z.string().nullable().optional(),
+          kind: playbookStepKindEnum.optional(),
+          config: z.record(z.string(), z.unknown()).optional(),
+          condition: playbookConditionSchema.optional(),
+          nextStepKeys: z.array(z.string()).optional(),
+          sortOrder: z.number().int().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const p = args.patch;
+      try {
+        const patch: UpdateStepInput = {
+          key: p.key,
+          name: p.name,
+          description: p.description,
+          kind: p.kind,
+          config: p.config,
+          condition: p.condition === undefined
+            ? undefined
+            : (p.condition as BrainPlaybookCondition),
+          nextStepKeys: p.nextStepKeys,
+          sortOrder: p.sortOrder,
+        };
+        const updated = await updateStep(clientId, ctx.userId, args.stepId, patch);
+        if (!updated) return err('Step not found.');
+        return json({
+          id: updated.id,
+          updatedFields: Object.keys(p).filter((k) => (p as Record<string, unknown>)[k] !== undefined),
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to update step.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_remove_step',
+    {
+      title: 'Remove a Brain playbook step',
+      description: 'Remove a step from a playbook. Defensive — refuses if any run-step row references it (delete the affected runs first). Also walks sibling steps and strips this step\'s key from their nextStepKeys arrays so the DAG stays clean. Echo: { stepId, deleted: true }.',
+      inputSchema: {
+        stepId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const deleted = await removeStep(clientId, ctx.userId, args.stepId);
+        if (!deleted) return err('Step not found.');
+        return json({ stepId: args.stepId, deleted: true });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes('run-step row(s) reference')) {
+          return json({ error: 'run_steps_reference', message });
+        }
+        return err(message || 'Failed to remove step.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbooks_reorder_steps',
+    {
+      title: 'Reorder Brain playbook steps',
+      description: 'Atomically re-sortOrder the given step ids. All ids must belong to the same playbook + tenant; otherwise the whole batch is rejected. Steps not in `orderedStepIds` are left untouched. Echo: { playbookId, count }.',
+      inputSchema: {
+        playbookId: z.number().int().positive(),
+        orderedStepIds: z.array(z.number().int().positive()).min(1),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const refreshed = await reorderSteps(clientId, ctx.userId, args.playbookId, args.orderedStepIds);
+        return json({ playbookId: args.playbookId, count: refreshed.length });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to reorder steps.');
+      }
+    },
+  );
+
+  // ── WRITE — playbook runs (Wave 2c) ──────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbook_runs_start',
+    {
+      title: 'Start a Brain playbook run',
+      description: 'Spawn a new run of an active playbook. `context` is the variable bag step configs template against (e.g. { person: { fullName: "Jane" } }). `links` anchors the run to polymorphic entities (initiative, person, crm_company, crm_deal, meeting, decision). Entry steps fire immediately within the start tx. Echo: { runId, status: "active", firstStepKeys: string[] }.',
+      inputSchema: {
+        playbookId: z.number().int().positive(),
+        label: z.string().min(1).max(255),
+        context: z.record(z.string(), z.unknown()).optional(),
+        triggerPayload: z.record(z.string(), z.unknown()).optional(),
+        links: z.array(z.object({
+          entityType: playbookLinkEntityTypeEnum,
+          entityId: z.number().int().positive(),
+        })).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await startRun(clientId, ctx.userId, {
+          playbookId: args.playbookId,
+          label: args.label,
+          context: args.context,
+          triggerPayload: args.triggerPayload,
+          links: args.links,
+        });
+        return json({
+          runId: out.runId,
+          status: out.runStatus,
+          firstStepKeys: out.firstStepKeys,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to start run.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbook_runs_advance',
+    {
+      title: 'Advance a Brain playbook run',
+      description: 'Resolve any active `branch` run-steps and chain forward to next steps. Task/decision/review_item/wait steps stay active until explicit completion — this tool does not touch them. Echo: { runId, newActiveStepKeys, newStatus }.',
+      inputSchema: {
+        runId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await advanceRun(clientId, ctx.userId, args.runId);
+        if (!out) return err('Playbook run not found.');
+        return json({
+          runId: out.runId,
+          newActiveStepKeys: out.newActiveStepKeys,
+          newStatus: out.newStatus,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to advance run.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbook_run_steps_complete',
+    {
+      title: 'Complete a Brain playbook run step',
+      description: 'Explicitly mark a run-step completed (used for task/decision/review_item kinds that don\'t auto-complete). Optionally record the entity this step produced. After the mutation, advanceRun chains forward. Echo: { stepId, status: "completed" }.',
+      inputSchema: {
+        runId: z.number().int().positive(),
+        stepId: z.number().int().positive(),
+        resultEntityType: z.string().max(50).optional(),
+        resultEntityId: z.number().int().positive().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await completeStep(clientId, ctx.userId, args.runId, args.stepId, {
+          resultEntityType: args.resultEntityType,
+          resultEntityId: args.resultEntityId,
+        });
+        if (!out) return err('Run step not found.');
+        return json({ stepId: out.stepId, status: out.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to complete step.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbook_run_steps_skip',
+    {
+      title: 'Skip a Brain playbook run step',
+      description: 'Mark a run-step skipped (the step is treated as terminal for routing but with no result). Optional `reason` is stored on the row. After the mutation, advanceRun chains forward. Echo: { stepId, status: "skipped" }.',
+      inputSchema: {
+        runId: z.number().int().positive(),
+        stepId: z.number().int().positive(),
+        reason: z.string().max(5000).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await skipStep(clientId, ctx.userId, args.runId, args.stepId, {
+          reason: args.reason,
+        });
+        if (!out) return err('Run step not found.');
+        return json({ stepId: out.stepId, status: out.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to skip step.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_playbook_runs_abort',
+    {
+      title: 'Abort a Brain playbook run',
+      description: 'Stop a run mid-flight. Any still-active step rows are marked skipped with the abort reason. Echo: { runId, status: "aborted" }.',
+      inputSchema: {
+        runId: z.number().int().positive(),
+        reason: z.string().max(2000).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await abortRun(clientId, ctx.userId, args.runId, { reason: args.reason });
+        if (!updated) return err('Playbook run not found.');
+        return json({ runId: updated.id, status: updated.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to abort run.');
+      }
+    },
+  );
+
+  // ── DOCUMENTS — merged from feat/brain-documents ─────────────────────────
+
+  const DOCUMENT_CATEGORIES = ['sop', 'policy', 'guide', 'reference', 'announcement', 'other'] as const;
+  const DOCUMENT_STATUSES = ['draft', 'published', 'archived'] as const;
+  const DOCUMENT_LINK_ENTITY_TYPES = [
+    'topic', 'initiative', 'decision', 'meeting', 'glossary_term', 'person',
+  ] as const;
+  const DOCUMENT_REQUIRED_READ_TARGETS = ['person', 'org_unit'] as const;
+  const CONFIDENTIALITY_LEVELS = ['standard', 'restricted', 'confidential'] as const;
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_documents_list',
+    {
+      title: 'List Brain documents',
+      description: 'List versioned SOPs / policies / required-reads. Slim by default — returns { id, title, slug, category, status, ownerId, currentPublishedVersionId, publishedAt, versionCount, requiredReadCount, ackCount } per row. Pass `include: ["body"]` to hydrate each row with the current published version\'s body (heavy, opt in). Filters: status, category, ownerId, search. Cap limit 100.',
+      inputSchema: {
+        status: z.enum(DOCUMENT_STATUSES).optional(),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+        ownerId: z.number().int().positive().optional(),
+        search: z.string().max(500).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['body'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listDocuments(clientId, {
+        status: args.status as BrainDocumentStatus | undefined,
+        category: args.category as BrainDocumentCategory | undefined,
+        ownerId: args.ownerId,
+        search: args.search,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      const include = new Set(args.include ?? []);
+      if (!include.has('body')) {
+        return json({ items, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+      }
+      // Heavy include — batch fetch each row's current published version body.
+      const versionIds = items
+        .map((r) => r.currentPublishedVersionId)
+        .filter((v): v is number => v !== null);
+      const bodies = versionIds.length > 0
+        ? await db
+          .select({
+            id: brainDocumentVersions.id,
+            body: brainDocumentVersions.body,
+          })
+          .from(brainDocumentVersions)
+          .where(and(
+            eq(brainDocumentVersions.clientId, clientId),
+            inArray(brainDocumentVersions.id, versionIds),
+          ))
+        : [];
+      const bodyById = new Map(bodies.map((b) => [b.id, b.body]));
+      const hydrated = items.map((r) => ({
+        ...r,
+        body: r.currentPublishedVersionId !== null ? bodyById.get(r.currentPublishedVersionId) ?? null : null,
+      }));
+      return json({ items: hydrated, limit: args.limit ?? 50, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_documents_get',
+    {
+      title: 'Get a Brain document',
+      description: 'Fetch a single document + its slim version list + resolved links. Heavy fields are opt-in: pass `includeBody=true` to attach `currentPublishedVersion` and `currentDraftVersion` full rows (each carries the markdown body); pass `includeAllVersions=true` to attach every version\'s full row in `versions` (can be very large). Without either, you get { document, versions (slim: id/versionNumber/isDraft/publishedAt/title), links }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        includeBody: z.boolean().optional(),
+        includeAllVersions: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const detail = await getDocumentById(clientId, args.id, {
+        includeBody: args.includeBody,
+        includeAllVersions: args.includeAllVersions,
+      });
+      if (!detail) return err('Document not found.');
+      return json({
+        document: detail.document,
+        currentPublishedVersion: detail.currentPublishedVersion ?? null,
+        currentDraftVersion: detail.currentDraftVersion ?? null,
+        versions: detail.versions,
+        ...(detail.allVersions ? { allVersions: detail.allVersions } : {}),
+        links: detail.links,
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_versions_list',
+    {
+      title: 'List versions of a Brain document',
+      description: 'List a document\'s versions (newest first). Slim by default — returns { id, versionNumber, isDraft, publishedAt, title }. Pass `include: ["body"]` to attach the full markdown body per row (heavy); `["changeNotes"]` to attach the per-version change log; `["summary"]` to attach the optional executive summary. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+        include: z.array(z.enum(['body', 'changeNotes', 'summary'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      // Tenant-scope check via the lib helper.
+      const detail = await getDocumentById(clientId, args.documentId, {});
+      if (!detail) return err('Document not found.');
+      const limit = args.limit !== undefined ? Math.max(1, Math.min(args.limit, 100)) : 50;
+      const offset = args.offset !== undefined ? Math.max(0, args.offset) : 0;
+      const include = new Set(args.include ?? []);
+      const wantBody = include.has('body');
+      const wantNotes = include.has('changeNotes');
+      const wantSummary = include.has('summary');
+
+      const rows = await db
+        .select({
+          id: brainDocumentVersions.id,
+          versionNumber: brainDocumentVersions.versionNumber,
+          isDraft: brainDocumentVersions.isDraft,
+          publishedAt: brainDocumentVersions.publishedAt,
+          title: brainDocumentVersions.title,
+          body: brainDocumentVersions.body,
+          changeNotes: brainDocumentVersions.changeNotes,
+          summary: brainDocumentVersions.summary,
+        })
+        .from(brainDocumentVersions)
+        .where(and(
+          eq(brainDocumentVersions.documentId, args.documentId),
+          eq(brainDocumentVersions.clientId, clientId),
+        ))
+        .orderBy(desc(brainDocumentVersions.versionNumber))
+        .limit(limit)
+        .offset(offset);
+
+      const items = rows.map((r) => ({
+        id: r.id,
+        versionNumber: r.versionNumber,
+        isDraft: r.isDraft,
+        publishedAt: r.publishedAt,
+        title: r.title,
+        ...(wantBody ? { body: r.body } : {}),
+        ...(wantNotes ? { changeNotes: r.changeNotes } : {}),
+        ...(wantSummary ? { summary: r.summary } : {}),
+      }));
+      return json({ items, limit, offset });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_versions_get',
+    {
+      title: 'Get a Brain document version',
+      description: 'Fetch one specific version of a document — the caller asked for THIS version, so the full markdown `body` ships by default. Pass `include: ["changeNotes"]` or `["summary"]` to attach those extra fields too.',
+      inputSchema: {
+        versionId: z.number().int().positive(),
+        include: z.array(z.enum(['changeNotes', 'summary'])).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const [row] = await db
+        .select()
+        .from(brainDocumentVersions)
+        .where(and(
+          eq(brainDocumentVersions.id, args.versionId),
+          eq(brainDocumentVersions.clientId, clientId),
+        ))
+        .limit(1);
+      if (!row) return err('Document version not found.');
+      const include = new Set(args.include ?? []);
+      return json({
+        id: row.id,
+        documentId: row.documentId,
+        versionNumber: row.versionNumber,
+        isDraft: row.isDraft,
+        publishedAt: row.publishedAt,
+        publishedBy: row.publishedBy,
+        title: row.title,
+        body: row.body,
+        createdBy: row.createdBy,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        ...(include.has('changeNotes') ? { changeNotes: row.changeNotes } : {}),
+        ...(include.has('summary') ? { summary: row.summary } : {}),
+      });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_required_reads_list_for_document',
+    {
+      title: 'List required-reads on a Brain document',
+      description: 'Who is REQUIRED to read this document? Returns rows { id, targetType, targetId, targetName (resolved from brain_people.fullName or brain_org_units.name), pinnedVersionId, dueAt, assignedAt }. Filter by targetType to view only person- or only org_unit-scoped assignments. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        targetType: z.enum(DOCUMENT_REQUIRED_READ_TARGETS).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listRequiredReadsForDocument(clientId, args.documentId, {
+        targetType: args.targetType as BrainDocumentRequiredReadTarget | undefined,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_required_reads_list_for_person',
+    {
+      title: 'List a person\'s required-read queue',
+      description: 'What does THIS person have to read? Returns the person\'s direct required-read assignments with each row\'s acknowledged status, the version they actually need to ack (pinned or the doc\'s currentPublishedVersionId), and an `ackId`/`acknowledgedAt` when present. `status` filters: `open` = unacknowledged, `acknowledged` = already done, `all` = both (default). Org-unit-scoped assignments NOT expanded — use brain_document_compliance_report for that view.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        status: z.enum(['open', 'acknowledged', 'all']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listRequiredReadsForPerson(clientId, args.personId, {
+        status: args.status,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_acknowledgments_list_for_document',
+    {
+      title: 'List acknowledgments for a Brain document',
+      description: 'Audit trail — every (version, person, acknowledgedAt) recorded against this document. Optional filters by versionId or personId. Returns slim rows { ackId, versionId, versionNumber, personId, personName, acknowledgedAt, acknowledgmentNote }. Cap limit 100.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        versionId: z.number().int().positive().optional(),
+        personId: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listAcknowledgmentsForDocument(clientId, args.documentId, {
+        versionId: args.versionId,
+        personId: args.personId,
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_acknowledgments_list_for_person',
+    {
+      title: 'List acknowledgments by a person',
+      description: 'Every document this person has acknowledged, newest first. Returns { ackId, documentId, documentTitle, versionNumber, acknowledgedAt } per row. Cap limit 100.',
+      inputSchema: {
+        personId: z.number().int().positive(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const items = await listAcknowledgmentsForPerson(clientId, args.personId, {
+        limit: args.limit,
+        offset: args.offset,
+      });
+      return json({ items, limit: args.limit ?? 100, offset: args.offset ?? 0 });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:read') && server.registerTool(
+    'brain_document_compliance_report',
+    {
+      title: 'Compliance report for a Brain document',
+      description: 'The canonical "who has read this, who hasn\'t" view. Expands org-unit required-reads to active member person ids, partitions the assigned-person universe into acknowledged / pending / overdue against the document\'s currentPublishedVersionId, and returns full id arrays + a summary count rollup. A document with no current published version yields acknowledged=0 (nothing to ack against yet).',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
+      const report = await complianceReport(clientId, args.documentId);
+      if (!report) return err('Document not found.');
+      return json(report);
+    },
+  );
+
+  // ── DOCUMENTS — write ────────────────────────────────────────────────────
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_create',
+    {
+      title: 'Create a Brain document',
+      description: 'Create a new document seeded with an empty v1 draft. Slug is auto-derived from title (collisions per tenant suffix -2, -3, …). Echoes { id, slug, status, version1Id } — call brain_documents_get for the full row. To populate the body, follow up with brain_document_versions_edit_draft, then brain_documents_publish.',
+      inputSchema: {
+        title: z.string().min(1).max(255),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+        ownerId: z.number().int().positive().nullable().optional(),
+        confidentialityLevel: z.enum(CONFIDENTIALITY_LEVELS).optional(),
+        defaultTopicIds: z.array(z.number().int().positive()).optional(),
+        sourceNoteId: z.number().int().positive().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await createDocument(clientId, ctx.userId, {
+          title: args.title,
+          category: args.category as BrainDocumentCategory | undefined,
+          ownerId: args.ownerId ?? null,
+          confidentialityLevel: args.confidentialityLevel,
+          defaultTopicIds: args.defaultTopicIds,
+          sourceNoteId: args.sourceNoteId ?? null,
+        });
+        return json({
+          id: out.document.id,
+          slug: out.document.slug,
+          status: out.document.status,
+          version1Id: out.version.id,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to create document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_update',
+    {
+      title: 'Update a Brain document (metadata only)',
+      description: 'Patch document-level metadata (title, category, ownerId, confidentialityLevel, defaultTopicIds). Status changes are REJECTED here — use brain_documents_publish / brain_documents_archive / brain_documents_unarchive. Returns a structured { error: "use_publish_or_archive" } if the patch attempts a status change. Echoes { id, updatedFields }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        patch: z.object({
+          title: z.string().min(1).max(255).optional(),
+          category: z.enum(DOCUMENT_CATEGORIES).optional(),
+          ownerId: z.number().int().positive().nullable().optional(),
+          confidentialityLevel: z.enum(CONFIDENTIALITY_LEVELS).optional(),
+          defaultTopicIds: z.array(z.number().int().positive()).optional(),
+          status: z.enum(DOCUMENT_STATUSES).optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const updated = await updateDocument(clientId, ctx.userId, args.id, {
+          title: args.patch.title,
+          category: args.patch.category as BrainDocumentCategory | undefined,
+          ownerId: args.patch.ownerId,
+          confidentialityLevel: args.patch.confidentialityLevel,
+          defaultTopicIds: args.patch.defaultTopicIds,
+          status: args.patch.status as BrainDocumentStatus | undefined,
+        });
+        if (!updated) return err('Document not found.');
+        const updatedFields = Object.keys(args.patch).filter(
+          (k) => k !== 'status' && (args.patch as Record<string, unknown>)[k] !== undefined,
+        );
+        return json({ id: updated.id, updatedFields });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('publishDocument') || msg.includes('archiveDocument')) {
+          return json({
+            error: 'use_publish_or_archive',
+            message: 'Status changes go through brain_documents_publish, brain_documents_archive, or brain_documents_unarchive.',
+          });
+        }
+        return err(msg || 'Failed to update document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_versions_edit_draft',
+    {
+      title: 'Edit the current draft version of a Brain document',
+      description: 'Patch the document\'s draft body / summary / changeNotes. If no draft exists (last action was a publish), creates a new draft seeded from the latest version\'s body — so editors don\'t lose context. Refuses if the document is archived. Echo: { documentId, versionId, versionNumber, isDraft: true }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        patch: z.object({
+          body: z.string().optional(),
+          summary: z.string().nullable().optional(),
+          changeNotes: z.string().nullable().optional(),
+        }),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await editDraftVersion(clientId, ctx.userId, args.documentId, {
+          body: args.patch.body,
+          summary: args.patch.summary,
+          changeNotes: args.patch.changeNotes,
+        });
+        if (!out) return err('Document not found.');
+        return json({
+          documentId: args.documentId,
+          versionId: out.version.id,
+          versionNumber: out.version.versionNumber,
+          isDraft: true,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to edit draft version.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_publish',
+    {
+      title: 'Publish the current draft of a Brain document',
+      description: 'Flip the current draft to a published version, atomically updating the document\'s currentPublishedVersionId + status="published" + publishedAt (first-publish only). Refuses if no draft exists OR if the draft body is empty — call brain_document_versions_edit_draft first. On empty body, returns structured { error: "empty_draft_body" }. Echo: { id, versionId, versionNumber, status: "published", publishedAt }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await publishDocument(clientId, ctx.userId, args.id);
+        if (!out) return err('Document not found.');
+        return json({
+          id: out.document.id,
+          versionId: out.version.id,
+          versionNumber: out.version.versionNumber,
+          status: out.document.status,
+          publishedAt: out.document.publishedAt,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('empty body')) {
+          return json({
+            error: 'empty_draft_body',
+            message: 'Cannot publish an empty draft. Call brain_document_versions_edit_draft to add content first.',
+          });
+        }
+        return err(msg || 'Failed to publish document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_archive',
+    {
+      title: 'Archive a Brain document',
+      description: 'Soft cancellation — sets status="archived", archivedAt=now(), archiveReason=reason. Document remains in the database (cascade-deletion happens only on brain_documents_delete). Echo: { id, status: "archived", archivedAt }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        reason: z.string().max(2000).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await archiveDocument(clientId, ctx.userId, args.id, {
+          reason: args.reason,
+        });
+        if (!out) return err('Document not found.');
+        return json({
+          id: out.id,
+          status: out.status,
+          archivedAt: out.archivedAt,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to archive document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_unarchive',
+    {
+      title: 'Unarchive a Brain document',
+      description: 'Reverse archive: clears archivedAt + archiveReason and restores status to "published" (if a published version exists) or "draft" otherwise. Echo: { id, status }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await unarchiveDocument(clientId, ctx.userId, args.id);
+        if (!out) return err('Document not found.');
+        return json({ id: out.id, status: out.status });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to unarchive document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_delete',
+    {
+      title: 'Delete a Brain document (hard)',
+      description: 'Hard delete the document and (via FK cascade) every version, required-read, link, and acknowledgment. Refuses by default if any acknowledgments exist — history preservation matters more than tidiness. Pass force=true to cascade. Returns structured { error: "document_has_acks", ackCount } on conflict. Echo on success: { id, deleted: true }.',
+      inputSchema: {
+        id: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await deleteDocument(clientId, ctx.userId, args.id, { force: args.force });
+      if (!out.deleted) {
+        if (out.refused) {
+          return json({
+            error: 'document_has_acks',
+            ackCount: out.ackCount,
+            message: 'Document has acknowledgments. Pass force=true to cascade-delete the audit trail.',
+          });
+        }
+        return err('Document not found.');
+      }
+      return json({ id: args.id, deleted: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_promote_from_note',
+    {
+      title: 'Promote a Brain note into a Brain document',
+      description: 'Create a new document seeded from an existing brain_note — the note\'s body becomes the v1 draft\'s body. Title defaults to the note\'s title (or first non-empty line of the body). The document\'s sourceNoteId points back to the original. Echo: { documentId, slug, version1Id }.',
+      inputSchema: {
+        noteId: z.number().int().positive(),
+        title: z.string().min(1).max(255).optional(),
+        category: z.enum(DOCUMENT_CATEGORIES).optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await promoteFromNote(clientId, ctx.userId, args.noteId, {
+          title: args.title,
+          category: args.category as BrainDocumentCategory | undefined,
+        });
+        if (!out) return err('Note not found.');
+        return json({
+          documentId: out.document.id,
+          slug: out.document.slug,
+          version1Id: out.version.id,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to promote note to document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_link',
+    {
+      title: 'Link an entity to a Brain document',
+      description: 'Attach a polymorphic entity (topic, initiative, decision, meeting, glossary_term, person) to a document. Idempotent — re-posting the same (documentId, entityType, entityId) returns alreadyLinked=true with linkId=null. Echo: { linkId, alreadyLinked }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        entityType: z.enum(DOCUMENT_LINK_ENTITY_TYPES),
+        entityId: z.number().int().positive(),
+        note: z.string().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await linkDocumentEntity(clientId, ctx.userId, {
+          documentId: args.documentId,
+          entityType: args.entityType as BrainDocumentLinkEntityType,
+          entityId: args.entityId,
+          note: args.note ?? null,
+        });
+        return json({ linkId: out.linkId, alreadyLinked: out.alreadyLinked });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to link entity to document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_unlink',
+    {
+      title: 'Unlink an entity from a Brain document',
+      description: 'Remove a polymorphic (documentId, entityType, entityId) link. Echo: { removed: boolean } — false if no matching link existed.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        entityType: z.enum(DOCUMENT_LINK_ENTITY_TYPES),
+        entityId: z.number().int().positive(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const removed = await unlinkDocumentEntity(clientId, ctx.userId, {
+          documentId: args.documentId,
+          entityType: args.entityType as BrainDocumentLinkEntityType,
+          entityId: args.entityId,
+        });
+        return json({ removed });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to unlink entity from document.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_required_reads_assign',
+    {
+      title: 'Assign a required-read on a Brain document',
+      description: 'Make a person OR an org_unit required to read this document. Idempotent on (documentId, targetType, targetId) — re-assigning updates pinnedVersionId + dueAt. When targetType="org_unit" and expandOrgUnit=true, fans out to one row per ACTIVE member of the unit (current snapshot — new members later still need a re-assign). Echo: { assigned, alreadyAssigned, expandedTo? }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        targetType: z.enum(DOCUMENT_REQUIRED_READ_TARGETS),
+        targetId: z.number().int().positive(),
+        pinnedVersionId: z.number().int().positive().nullable().optional(),
+        dueAt: z.string().nullable().optional(),
+        expandOrgUnit: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const out = await assignRequiredRead(clientId, ctx.userId, {
+          documentId: args.documentId,
+          targetType: args.targetType as BrainDocumentRequiredReadTarget,
+          targetId: args.targetId,
+          pinnedVersionId: args.pinnedVersionId ?? null,
+          dueAt: args.dueAt ? new Date(args.dueAt) : null,
+          expandOrgUnit: args.expandOrgUnit,
+        });
+        return json({
+          assigned: out.assigned,
+          alreadyAssigned: out.alreadyAssigned,
+          ...(out.expandedTo !== undefined ? { expandedTo: out.expandedTo } : {}),
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to assign required read.');
+      }
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_document_required_reads_remove',
+    {
+      title: 'Remove a required-read on a Brain document',
+      description: 'Delete a required-read row. Default refuses if any acknowledgments reference it (history-preservation) — returns structured { error: "has_acks" }. Pass force=true to unlink (the FK is set-null, so the acks survive but lose their requiredReadId pointer). Echo on success: { removed: true }.',
+      inputSchema: {
+        requiredReadId: z.number().int().positive(),
+        force: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      const out = await removeRequiredRead(clientId, ctx.userId, args.requiredReadId, {
+        force: args.force,
+      });
+      if (!out.removed) {
+        if (out.reason === 'not_found') return err('Required-read not found.');
+        if (out.reason === 'has_acks') {
+          return json({
+            error: 'has_acks',
+            message: 'Required-read has acknowledgments. Pass force=true to detach (the acks will survive).',
+          });
+        }
+        return err('Failed to remove required read.');
+      }
+      return json({ removed: true });
+    },
+  );
+
+  hasScope(ctx.scopes, 'brain:write') && server.registerTool(
+    'brain_documents_acknowledge',
+    {
+      title: 'Acknowledge a Brain document version',
+      description: 'Record a (documentId, versionId, personId) acknowledgment. Idempotent — re-acking the same tuple returns the existing row without a duplicate audit entry. If requiredReadId is omitted, auto-links to a matching person-target required-read for this (documentId, personId) when one exists. Echo: { ackId, documentId, versionId, personId, acknowledgedAt }.',
+      inputSchema: {
+        documentId: z.number().int().positive(),
+        versionId: z.number().int().positive(),
+        personId: z.number().int().positive(),
+        acknowledgmentNote: z.string().max(10_000).nullable().optional(),
+        requiredReadId: z.number().int().positive().nullable().optional(),
+      },
+    },
+    async (args) => {
+      if (!hasScope(ctx.scopes, 'brain:write')) return denied('brain:write');
+      try {
+        const ack = await acknowledgeDocument(clientId, ctx.userId, {
+          documentId: args.documentId,
+          versionId: args.versionId,
+          personId: args.personId,
+          acknowledgmentNote: args.acknowledgmentNote ?? null,
+          requiredReadId: args.requiredReadId ?? null,
+        });
+        return json({
+          ackId: ack.id,
+          documentId: ack.documentId,
+          versionId: ack.versionId,
+          personId: ack.personId,
+          acknowledgedAt: ack.acknowledgedAt,
+        });
+      } catch (e) {
+        return err(e instanceof Error ? e.message : 'Failed to acknowledge document.');
+      }
     },
   );
 }
