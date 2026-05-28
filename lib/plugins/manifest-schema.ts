@@ -32,6 +32,31 @@ export const ManifestCallbackSchema = z.object({
     ),
 });
 
+// One script ("process") the plugin exposes to SD's automation engine.
+// The automation builder uses these to render the action picker; the
+// `kind` field on `registered_app_runs` is the `id` of the script.
+//
+// `argsSchema` is intentionally a flat list of typed fields rather than a
+// full JSON Schema — keeps the automation arg form trivial to render and
+// avoids dragging a json-schema runtime into the manifest contract. Type
+// coercion (number / boolean / string) happens client-side before the
+// run row is enqueued.
+export const ManifestScriptArgSchema = z.object({
+  name: z.string().min(1).max(64),
+  type: z.enum(['string', 'number', 'boolean']),
+  required: z.boolean().optional(),
+  description: z.string().max(500).optional(),
+  default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+});
+
+export const ManifestScriptSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(128),
+  description: z.string().min(1).max(1000),
+  icon: z.string().min(1).max(64).optional(),
+  argsSchema: z.array(ManifestScriptArgSchema).max(20).optional(),
+});
+
 // Top-level manifest. `id` MUST match `registered_apps.slug`. `requiredScopes`
 // MUST be a subset of `registered_apps.default_scopes`. Both checks happen in
 // `lib/plugins/manifest.ts` after schema validation.
@@ -41,9 +66,14 @@ export const ManifestSchema = z.object({
   nav: z.array(ManifestNavItemSchema).min(1).max(20),
   requiredScopes: z.array(z.string()).max(50),
   callbacks: z.array(ManifestCallbackSchema).max(50),
+  // Optional — earlier manifests predate the scripts/automation pairing.
+  // When absent the automation builder simply doesn't list this plugin.
+  scripts: z.array(ManifestScriptSchema).max(50).optional(),
   publishedAt: z.string().datetime(),
 });
 
 export type Manifest = z.infer<typeof ManifestSchema>;
 export type ManifestNavItem = z.infer<typeof ManifestNavItemSchema>;
 export type ManifestCallback = z.infer<typeof ManifestCallbackSchema>;
+export type ManifestScript = z.infer<typeof ManifestScriptSchema>;
+export type ManifestScriptArg = z.infer<typeof ManifestScriptArgSchema>;

@@ -45,7 +45,11 @@ export async function GET() {
 
   const activeIds = new Set(myServices.filter(s => s.status === 'active').map(s => s.serviceId));
 
-  const hiddenCategories = new Set(['hosting']);
+  // 'plugins' is surfaced via the dedicated Apps group (see lib/portal-nav.ts
+  // + loadUserApps + isClientEntitledToApp). Keeping it in this generic
+  // services list leaks the plugin row to every tenant as a top-level item,
+  // bypassing the registered_apps.allowedClientIds gate. Hide it here.
+  const hiddenCategories = new Set(['hosting', 'plugins']);
 
   const data = allServices.filter(svc => !hiddenCategories.has(svc.category)).map(svc => ({
     id: svc.id,

@@ -16,12 +16,25 @@
 // the plugin registry blows up we degrade to "no Apps group" instead of
 // blanking out the entire portal.
 
+import { cookies } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { loadUserApps, type UserAppNavMeta } from '@/lib/plugins/load-user-apps';
 import PortalLayoutClient from './PortalLayoutClient';
 
+// The Apps group in the sidebar must reflect the CURRENT active client. The
+// active client is selected via the `sd-active-client` cookie; if this layout
+// is statically rendered or its render is reused across tenants on a soft
+// nav, users see another tenant's apps. Force dynamic rendering on every
+// request to keep the entitlement check honest.
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 export default async function PortalShell({ children }: { children: React.ReactNode }) {
+  // Touch the cookie store before any cache lookups so Next.js treats this
+  // render as dynamic even if a future refactor drops the auth() call.
+  await cookies();
   let apps: UserAppNavMeta[] = [];
 
   try {

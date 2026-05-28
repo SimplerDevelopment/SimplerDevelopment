@@ -18,13 +18,14 @@ import type { CallbackHandler } from '../types';
 import { ok, fail } from '../types';
 import { enqueueRun } from './runner';
 
-const RUN_KINDS = ['research-brief', 'draft-blog-post', 'competitor-research'] as const;
-
-// Body schema for POST /scripts/run. Most fields are kind-specific; the
-// runner contract enforces per-kind requirements after Zod has done its
-// shape check.
+// Body schema for POST /scripts/run. `kind` is open-ended — the plugin's
+// dispatch-router decides whether the kind is known (legacy kinds plus
+// anything declared in the plugin's lib/scripts.ts SCRIPTS registry).
+// Per-kind arg validation happens on the worker side. The legacy fields
+// below stay as optional typed slots so existing TS callers don't break;
+// anything else is captured by the catchall.
 const RunBodySchema = z.object({
-  kind: z.enum(RUN_KINDS),
+  kind: z.string().min(1).max(64),
   topic: z.string().min(1).max(255).optional(),
   focus: z.string().max(2000).optional(),
   briefId: z.number().int().positive().optional(),
@@ -32,7 +33,7 @@ const RunBodySchema = z.object({
   competitorSlug: z.string().min(1).max(64).optional(),
   depth: z.enum(['news', 'deep']).optional(),
   lookbackDays: z.number().int().min(1).max(365).optional(),
-});
+}).catchall(z.unknown());
 
 const ListRunsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -59,9 +60,11 @@ const postScriptsRun: CallbackHandler = {
         parsed.error.flatten(),
       );
     }
-    const { kind, topic, focus, briefId, competitorSlug, depth, lookbackDays } = parsed.data;
+    const { kind, topic, focus, briefId, competitorSlug, depth, lookbackDays, ...extraArgs } = parsed.data;
 
-    // Light per-kind required-field check — keeps the runner contract tight.
+    // Light per-kind required-field check for the LEGACY kinds — keeps the
+    // contract tight for callers that haven't migrated to manifest-declared
+    // scripts. New scripts validate their own args on the worker side.
     if (kind === 'research-brief' && !topic) {
       return fail(
         'validation_error',
@@ -84,14 +87,19 @@ const postScriptsRun: CallbackHandler = {
       );
     }
 
-    // Build args narrowly per kind so unrelated fields don't leak through.
+    // Build args narrowly for legacy kinds so unrelated fields don't leak
+    // through. For arbitrary script kinds, pass through whatever the
+    // caller supplied (catchall'd by the Zod schema above) — the worker's
+    // dispatch-router does the per-kind validation.
     let args: Record<string, unknown>;
     if (kind === 'competitor-research') {
       args = { competitorSlug, depth: depth ?? 'news', focus, lookbackDays };
     } else if (kind === 'research-brief') {
       args = { topic, focus };
-    } else {
+    } else if (kind === 'draft-blog-post') {
       args = { topic, focus, briefId };
+    } else {
+      args = { ...extraArgs };
     }
 
     try {

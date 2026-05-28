@@ -70,6 +70,14 @@ function lightenColor(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
+// Field options live on disk in two shapes:
+//   • Legacy: plain strings — `['shared', 'per-captain']`. Older surveys
+//     still carry this.
+//   • Current: `{id, label, value}` objects — what the editor writes today.
+// The renderer must handle both; `normalizeOption` collapses them to a
+// `{value, label}` pair, otherwise React throws "Objects are not valid as a
+// React child" and the entire form blows up to the global error boundary.
+type SurveyFieldOption = string | { id?: string; label?: string; value?: string };
 interface SurveyField {
   id: string;
   type: string;
@@ -77,7 +85,7 @@ interface SurveyField {
   placeholder: string;
   helpText: string;
   required: boolean;
-  options: string[];
+  options: SurveyFieldOption[];
   min?: number;
   max?: number;
   step?: number;
@@ -85,6 +93,13 @@ interface SurveyField {
   goToPage?: Record<string, number>;
   order: number;
   page?: number;
+}
+
+function normalizeOption(opt: SurveyFieldOption): { value: string; label: string } {
+  if (typeof opt === 'string') return { value: opt, label: opt };
+  const value = opt?.value ?? opt?.id ?? opt?.label ?? '';
+  const label = opt?.label ?? opt?.value ?? opt?.id ?? '';
+  return { value: String(value), label: String(label) };
 }
 
 interface BrandingInfo {
@@ -924,48 +939,55 @@ function renderField(
           style={ringStyle}
         >
           <option value="">Select...</option>
-          {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          {field.options.map((rawOpt, i) => {
+            const { value, label } = normalizeOption(rawOpt);
+            return <option key={value || `opt-${i}`} value={value}>{label}</option>;
+          })}
         </select>
       );
 
     case 'radio':
       return (
         <div className="space-y-2">
-          {field.options.map(opt => (
-            <label key={opt} className="flex items-center gap-2.5 cursor-pointer group">
-              <input
-                type="radio"
-                name={field.id}
-                value={opt}
-                checked={answers[field.id] === opt}
-                onChange={() => setAnswer(field.id, opt)}
-                className="w-4 h-4"
-                style={{ accentColor: color }}
-              />
-              <span className={optionLabelCls} style={optionLabelStyle}>{opt}</span>
-            </label>
-          ))}
+          {field.options.map((rawOpt, i) => {
+            const { value, label } = normalizeOption(rawOpt);
+            return (
+              <label key={value || `opt-${i}`} className="flex items-center gap-2.5 cursor-pointer group">
+                <input
+                  type="radio"
+                  name={field.id}
+                  value={value}
+                  checked={answers[field.id] === value}
+                  onChange={() => setAnswer(field.id, value)}
+                  className="w-4 h-4"
+                  style={{ accentColor: color }}
+                />
+                <span className={optionLabelCls} style={optionLabelStyle}>{label}</span>
+              </label>
+            );
+          })}
         </div>
       );
 
     case 'checkbox':
       return (
         <div className="space-y-2">
-          {field.options.map(opt => {
-            const checked = Array.isArray(answers[field.id]) && (answers[field.id] as string[]).includes(opt);
+          {field.options.map((rawOpt, i) => {
+            const { value, label } = normalizeOption(rawOpt);
+            const checked = Array.isArray(answers[field.id]) && (answers[field.id] as string[]).includes(value);
             return (
-              <label key={opt} className="flex items-center gap-2.5 cursor-pointer group">
+              <label key={value || `opt-${i}`} className="flex items-center gap-2.5 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={checked}
                   onChange={(e) => {
                     const current = (answers[field.id] as string[]) || [];
-                    setAnswer(field.id, e.target.checked ? [...current, opt] : current.filter(v => v !== opt));
+                    setAnswer(field.id, e.target.checked ? [...current, value] : current.filter(v => v !== value));
                   }}
                   className="w-4 h-4 rounded"
                   style={{ accentColor: color }}
                 />
-                <span className={optionLabelCls} style={optionLabelStyle}>{opt}</span>
+                <span className={optionLabelCls} style={optionLabelStyle}>{label}</span>
               </label>
             );
           })}

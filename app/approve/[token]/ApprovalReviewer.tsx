@@ -11,6 +11,8 @@ export type ApprovalEntityPreview =
       published: boolean;
       content: string;
       siteId: number | null;
+      customCss?: string | null;
+      customJs?: string | null;
     }
   | {
       kind: 'block_template';
@@ -295,8 +297,19 @@ function PreviewBody({ preview }: { preview: ApprovalEntityPreview }) {
             <div className="text-xs text-gray-500">
               Slug <code className="text-gray-700">{preview.slug}</code> ·{' '}
               {preview.published ? 'Currently published' : 'Currently a draft'}
+              {preview.customJs && (
+                <span className="ml-2 text-amber-700">
+                  · Page has custom JS (not executed in preview)
+                </span>
+              )}
             </div>
           </div>
+          {/* Mirror the published renderer by injecting the post's customCss
+              into the preview card. Same pattern the slide preview uses below;
+              without this, html-render blocks render unstyled and look broken. */}
+          {preview.customCss && (
+            <style dangerouslySetInnerHTML={{ __html: preview.customCss }} />
+          )}
           <div className="p-2 sm:p-4">
             <BlockRenderer content={preview.content} siteId={preview.siteId ?? undefined} />
           </div>
