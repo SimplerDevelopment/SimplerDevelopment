@@ -87,7 +87,7 @@ export function HeroBlockRender({ block }: HeroBlockRenderProps) {
             <p data-editable-field="description" className={`${hasCustomFontSize ? '' : 'text-xl md:text-2xl'} mb-8 max-w-2xl mx-auto ${hasBackground ? 'text-white/80' : 'text-muted-foreground'}`} style={getElementCSS(block.elementStyles, 'description')} dangerouslySetInnerHTML={{ __html: description }} />
           )}
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center items-center">
             {block.ctaText && block.ctaLink && (
               <Button href={block.ctaLink} size="lg" style={getElementCSS(block.elementStyles, 'cta')}>
                 {block.ctaText}

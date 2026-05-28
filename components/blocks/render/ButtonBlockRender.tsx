@@ -169,7 +169,7 @@ export function ButtonBlockRender({ block }: ButtonBlockRenderProps) {
             href={block.url}
             target={block.openInNewTab ? '_blank' : undefined}
             rel={block.openInNewTab ? 'noopener noreferrer' : undefined}
-            className={`${variantClass} ${sizeClass} ${hoverClass} font-medium inline-flex items-center gap-2 transition-colors ${!bs?.borderRadius && !branding?.borderRadius ? 'rounded-md' : ''}`}
+            className={`${variantClass} ${sizeClass} ${hoverClass} font-medium inline-flex items-center justify-center gap-2 transition-colors shrink-0 ${!bs?.borderRadius && !branding?.borderRadius ? 'rounded-md' : ''}`}
             style={{ ...inlineStyle, ...glowStyle }}
             data-editable-field="text"
           >
