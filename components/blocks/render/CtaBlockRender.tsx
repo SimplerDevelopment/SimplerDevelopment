@@ -39,7 +39,9 @@ export function CtaBlockRender({ block }: CtaBlockRenderProps) {
   // site would be locked to the tiny `bg-primary/10` strip.
   const wrapperStyle: React.CSSProperties = { ...gradientStyle };
   if (style.backgroundColor) wrapperStyle.backgroundColor = style.backgroundColor;
-  if (style.background) wrapperStyle.background = style.background as string;
+  // `BlockStyle` exposes the specific background-* properties (color/image/
+  // gradient) — a `background` shorthand would conflict with those, so we
+  // build composites from the typed fields and skip the shorthand here.
   if (style.paddingTop) wrapperStyle.paddingTop = style.paddingTop as string;
   if (style.paddingBottom) wrapperStyle.paddingBottom = style.paddingBottom as string;
   if (style.paddingLeft) wrapperStyle.paddingLeft = style.paddingLeft as string;
