@@ -124,8 +124,10 @@ describe('lib/auth — session config', () => {
     expect(capturedConfig.session.updateAge).toBe(60 * 60 * 24);
   });
 
-  it('points signIn page to /admin/login', () => {
-    expect(capturedConfig.pages.signIn).toBe('/admin/login');
+  it('points signIn page to /portal/login', () => {
+    // Default redirect target for unauthenticated /portal/* requests — the
+    // admin shell opts into `/admin/login` via explicit signIn/signOut calls.
+    expect(capturedConfig.pages.signIn).toBe('/portal/login');
   });
 });
 

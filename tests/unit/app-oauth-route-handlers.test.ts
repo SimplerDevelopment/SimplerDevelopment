@@ -849,7 +849,10 @@ describe('POST /oauth/token', () => {
 
   it('returns 400 invalid_request when required params are missing', async () => {
     const params = validParams();
-    delete (params as Record<string, string | undefined>).code_verifier;
+    // `code` is checked in the upfront required-params block. (code_verifier
+    // is now PKCE-conditional and verified after client lookup, so deleting
+    // it alone returns invalid_client when the client isn't seeded.)
+    delete (params as Record<string, string | undefined>).code;
     const res = await tokenPOST(
       formRequest('http://x/oauth/token', params as Record<string, string>),
     );
@@ -858,11 +861,12 @@ describe('POST /oauth/token', () => {
     expect(body.error).toBe('invalid_request');
   });
 
-  it('returns 400 invalid_client when the client_id is unknown', async () => {
+  it('returns 401 invalid_client when the client_id is unknown', async () => {
+    // RFC 6749 §5.2 — token-endpoint client auth failures are 401, not 400.
     const res = await tokenPOST(
       formRequest('http://x/oauth/token', validParams()),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error).toBe('invalid_client');
   });

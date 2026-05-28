@@ -52,13 +52,17 @@ vi.mock('@/lib/db', () => ({
       lastSelectCall = { selectArg };
       return {
         from: () => {
-          // Two query shapes in the source:
+          // Query shapes in the source:
           //  - fetchLoopItems: select().from().where().orderBy().limit()
           //  - resolvePostFields: select().from().where()
-          // Both are async-iterable via Promise — we expose `.where` that
-          // either returns the promised rows directly OR returns a chain
-          // ending in `.limit()` that returns them.
-          let whereResult: { orderBy: (oc: unknown) => { limit: (n: number) => Promise<Row[]> } } & PromiseLike<Row[]>;
+          //  - fetchPostCustomFields (post-types lookup): select().from().where().limit(1)
+          //  - fetchPostCustomFields (customFields, values): select().from().where()
+          // `.where()` resolves directly to rows, or chains into
+          // `.orderBy().limit()` / `.limit()` that resolves to the same set.
+          let whereResult: {
+            orderBy: (oc: unknown) => { limit: (n: number) => Promise<Row[]> };
+            limit: (n: number) => Promise<Row[]>;
+          } & PromiseLike<Row[]>;
           const where = (w: unknown) => {
             lastSelectCall.whereArg = w;
             const rowsPromise = Promise.resolve(nextRowSet());
@@ -71,6 +75,10 @@ vi.mock('@/lib/db', () => ({
                     return rowsPromise;
                   },
                 };
+              },
+              limit: (n: number) => {
+                lastSelectCall.limitArg = n;
+                return rowsPromise;
               },
               // Awaiting `.where()` directly should also resolve to rows.
               then: (onF: (r: Row[]) => unknown, onR?: (e: unknown) => unknown) => rowsPromise.then(onF, onR),
@@ -96,6 +104,25 @@ vi.mock('@/lib/db/schema', () => ({
     content: { name: 'content' },
     websiteId: { name: 'website_id' },
     published: { name: 'published' },
+  },
+  // The html-render-loops code resolves typed CMS post-type fields by joining
+  // post_types → custom_fields → post_custom_field_values. The minimal column
+  // surface keeps the eq()/and()/select() builder happy under the same shape
+  // as `posts` above.
+  postTypes: {
+    id: { name: 'id' },
+    slug: { name: 'slug' },
+    websiteId: { name: 'website_id' },
+  },
+  customFields: {
+    id: { name: 'id' },
+    slug: { name: 'slug' },
+    postTypeId: { name: 'post_type_id' },
+  },
+  postCustomFieldValues: {
+    postId: { name: 'post_id' },
+    customFieldId: { name: 'custom_field_id' },
+    value: { name: 'value' },
   },
 }));
 

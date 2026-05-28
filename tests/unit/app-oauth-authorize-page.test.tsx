@@ -161,6 +161,9 @@ const VALID_CLIENT = {
   clientName: 'TestApp',
   clientUri: 'https://test.app',
   redirectUris: ['https://test.app/cb', 'https://test.app/cb2'],
+  // Default to public/PKCE — the existing test cases assume PKCE-is-required
+  // behaviour. Confidential-client tests can override this per-case.
+  tokenEndpointAuthMethod: 'none' as const,
 };
 
 const VALID_SESSION = { user: { id: '42', email: 'user@example.com' } };
