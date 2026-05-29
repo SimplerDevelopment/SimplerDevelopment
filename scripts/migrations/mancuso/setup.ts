@@ -12,7 +12,11 @@ dotenv.config({ path: '.env' });
  *   bun run scripts/migrations/mancuso/setup.ts
  */
 
-const CLIENT_ID = 104; // SimplerDevelopment master client
+// The SimplerDevelopment master client is resolved at runtime by stable
+// identity (see resolveMasterClientId below) rather than a hardcoded id —
+// the numeric id differs between production and the local dryrun clones.
+const MASTER_CLIENT_EMAIL = 'simplerdevelopment@simplerdevelopment.com';
+const MASTER_CLIENT_COMPANY = 'SimplerDevelopment';
 const SITE_NAME = 'L. Mancuso & Son';
 const SUBDOMAIN = 'mancuso';
 const PREVIEW_CODE = 'CHEESE26';
@@ -22,9 +26,36 @@ const SITE_DOMAIN = `${SUBDOMAIN}.simplerdevelopment.com`;
 
 async function main() {
   const { db } = await import('../../../lib/db');
-  const { clientWebsites, siteBranding } = await import('../../../lib/db/schema/sites');
+  const { clientWebsites, siteBranding, clients } = await import('../../../lib/db/schema/sites');
+  const { users } = await import('../../../lib/db/schema/auth');
   const { posts } = await import('../../../lib/db/schema/cms');
   const { eq, and } = await import('drizzle-orm');
+
+  // ── 0. Resolve the SimplerDevelopment master client ───────
+  // Prefer the master account email, fall back to the company name. This keeps
+  // the script correct across prod (metro) and the dryrun clones, where the
+  // numeric client id differs (e.g. 104 = SimplerDevelopment on prod but a
+  // different tenant on some clones).
+  const byEmail = await db
+    .select({ id: clients.id, company: clients.company })
+    .from(clients)
+    .leftJoin(users, eq(clients.userId, users.id))
+    .where(eq(users.email, MASTER_CLIENT_EMAIL))
+    .limit(1);
+  const byCompany = byEmail.length
+    ? byEmail
+    : await db
+        .select({ id: clients.id, company: clients.company })
+        .from(clients)
+        .where(eq(clients.company, MASTER_CLIENT_COMPANY))
+        .limit(1);
+  if (byCompany.length === 0) {
+    throw new Error(
+      `Could not resolve the SimplerDevelopment master client (email=${MASTER_CLIENT_EMAIL} / company=${MASTER_CLIENT_COMPANY}). Aborting so the site is not attached to the wrong tenant.`,
+    );
+  }
+  const CLIENT_ID = byCompany[0].id;
+  console.log(`✓ Resolved SimplerDevelopment master client → #${CLIENT_ID} (${byCompany[0].company ?? '—'})`);
 
   const { SITE_CSS } = await import('./site-css');
   const { SITE_JS } = await import('./site-js');
