@@ -356,7 +356,9 @@ export const crmHandlers: Record<string, CrmHandler> = {
       source: (source as string)?.trim() || null,
       status: (status as string) || 'lead',
       notes: (notes as string)?.trim() || null,
-      ownerId: userId,
+      // owner_id is a FK to users(id); never write a falsy/0 id (no such user)
+      // or the insert FK-violates. A null owner is valid (unassigned lead).
+      ownerId: userId || null,
     }).returning();
     emitEvent('crm.contact.created', clientId, userId, { id: contact.id, name: `${contact.firstName} ${contact.lastName || ''}`.trim(), email: contact.email });
     return { success: true, contactId: contact.id, message: `Contact "${contact.firstName} ${contact.lastName || ''}" created.` };

@@ -197,7 +197,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       if (field.required && field.type !== 'heading') {
         const val = answers[field.id];
         if (val === undefined || val === null || val === '') {
-          return corsJson({ success: false, message: `${field.label} is required` }, { status: 400 });
+          const message = field.type === 'checkbox'
+            ? 'Please check the box to agree before continuing.'
+            : `${field.label} is required`;
+          return corsJson({ success: false, message }, { status: 400 });
         }
       }
     }
@@ -217,6 +220,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     answers as Record<string, unknown>,
   );
 
+  // LEAD-01: many surveys collect contact info as ordinary questions (an
+  // `email`-type field, first/last-name text fields) instead of the
+  // `requireEmail` prompt — in that case the top-level `email`/`name` arrive
+  // empty and the response was saved as "Anonymous" with no email, which also
+  // starves the email-followup gate and any CRM routing. Promote those answers
+  // to the response's respondent identity. Explicit top-level values win.
+  const answerVal = (key: string): string => {
+    const v = (answers as Record<string, unknown>)[key];
+    return typeof v === 'string' ? v.trim() : v != null ? String(v).trim() : '';
+  };
+  const emailField = fields.find((f) => f.type === 'email');
+  const derivedEmail =
+    (typeof email === 'string' && email.trim()) ||
+    (emailField ? answerVal(emailField.id) : '') ||
+    answerVal('email');
+  const derivedName =
+    (typeof name === 'string' && name.trim()) ||
+    [answerVal('first_name'), answerVal('last_name')].filter(Boolean).join(' ') ||
+    answerVal('name') ||
+    answerVal('full_name');
+
   // KNOWN LIMITATION: maxResponses gate at line 69 reads from initial SELECT, not inside
   // the transaction. Under extreme concurrency at exactly max capacity, two requests could
   // both pass the gate. The transaction prevents count desync but not the gate race.
@@ -226,8 +250,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
       surveyId: survey.id,
       formName: trimmedFormName,
       answers,
-      respondentEmail: email?.trim() || null,
-      respondentName: name?.trim() || null,
+      respondentEmail: derivedEmail || null,
+      respondentName: derivedName || null,
       source: source || 'link',
       sourceId: sourceId || null,
       ipAddress: ip,
