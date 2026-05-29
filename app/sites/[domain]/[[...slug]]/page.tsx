@@ -157,14 +157,15 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     const cookieStore = await cookies();
     const unlockedCookie = cookieStore.get(unlockCookieName(site.id))?.value;
     if (!verifyUnlockCookieValue(site.id, unlockedCookie)) {
+      // Full-screen overlay (z above the fixed site nav) so the locked site's
+      // navigation/footer chrome is never visible behind the gate. The site
+      // layout has no transformed ancestor, so `fixed` pins to the viewport.
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 py-12">
-          <div className="w-full max-w-md text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">{site.name}</h1>
-            <p className="text-gray-500 mb-8">This site is not yet available to the public.</p>
-            <div className="text-left bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <AccessCodeForm />
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-auto bg-gray-50 px-6 py-12">
+          <div className="flex w-full max-w-md flex-col items-center text-center">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">{site.name}</h1>
+            <p className="mb-8 text-gray-500">This site is private.</p>
+            <AccessCodeForm variant="gate" />
           </div>
         </div>
       );

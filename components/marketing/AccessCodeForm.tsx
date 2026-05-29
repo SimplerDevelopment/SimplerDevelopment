@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-type Variant = 'inline' | 'hero';
+type Variant = 'inline' | 'hero' | 'gate';
 
 export function AccessCodeForm({ variant = 'inline' }: { variant?: Variant }) {
   const [code, setCode] = useState('');
@@ -75,6 +75,50 @@ export function AccessCodeForm({ variant = 'inline' }: { variant?: Variant }) {
           </button>
           {message && (
             <p className="text-sm text-red-500 flex items-center gap-1.5 pt-1" role="alert">
+              <span className="material-icons text-base">error_outline</span>
+              {message}
+            </p>
+          )}
+        </form>
+      </div>
+    );
+  }
+
+  // Standalone, theme-independent gate card. Uses explicit colors (not the
+  // app's semantic CSS tokens) so it stays readable inside any client-site
+  // context, whose --background/--foreground vars differ from the app shell.
+  if (variant === 'gate') {
+    return (
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-xl">
+        <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 bg-gray-100">
+          <span className="material-icons text-3xl text-gray-700">lock</span>
+        </div>
+        <h2 className="mb-2 text-xl font-bold text-gray-900">Have an access code?</h2>
+        <p className="mb-6 text-sm text-gray-500">Enter the code you were given to view this site.</p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            id="access-code"
+            type="text"
+            value={code}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder="ENTER CODE"
+            autoComplete="off"
+            disabled={status === 'loading'}
+            aria-invalid={status === 'error'}
+            style={{ backgroundColor: '#ffffff', color: '#111827' }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-center font-mono text-lg uppercase tracking-widest text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 placeholder:font-sans placeholder:tracking-normal placeholder:text-gray-400 disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={status === 'loading' || !code.trim()}
+            style={{ backgroundColor: '#111827', color: '#ffffff' }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3.5 text-base font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {status === 'loading' ? 'Checking…' : 'View site'}
+            {status !== 'loading' && <span className="material-icons text-lg">arrow_forward</span>}
+          </button>
+          {message && (
+            <p className="flex items-center justify-center gap-1.5 pt-1 text-sm text-red-600" role="alert">
               <span className="material-icons text-base">error_outline</span>
               {message}
             </p>
