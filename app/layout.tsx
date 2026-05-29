@@ -5,8 +5,18 @@ import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { generateOrganizationSchema } from "@/lib/utils/structured-data";
 import { headers } from "next/headers";
-import SessionProvider from "@/components/SessionProvider";
-import { LayoutContent } from "@/components/LayoutContent";
+import dynamic from "next/dynamic";
+
+// Code-split the app chrome (NextAuth SessionProvider + LayoutContent →
+// marketing Navigation/Footer/UserDropdown, which pull in next-auth/react and
+// a pile of icons). Statically importing them bundled all of that into the
+// client chunk loaded on EVERY page — including public client sites that never
+// render them. Dynamic (ssr:true) keeps them server-rendered where used but
+// keeps their chunk off pages (client sites) that don't render them.
+const SessionProvider = dynamic(() => import("@/components/SessionProvider"));
+const LayoutContent = dynamic(() =>
+  import("@/components/LayoutContent").then((m) => m.LayoutContent),
+);
 
 // preload: false — these app/portal fonts were being <link rel=preload>ed on
 // EVERY route (~180KB of woff2), including public client sites that use their
