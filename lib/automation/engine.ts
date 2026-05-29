@@ -297,7 +297,12 @@ export async function runRule(
   // user context, so we fall back to the rule's creator if present, else 0
   // (executePortalTool treats 0/undefined as "system"). The event-driven
   // path used to pass event.userId directly; scheduled paths can't.
-  const userId = (payload._userId as number | undefined) ?? rule.createdBy ?? 0;
+  // Public-event triggers (survey/form submits) emit userId=0 — there is no
+  // signed-in user. `??` would KEEP that 0 (it's not null/undefined), and 0 is
+  // not a real user id, so any action that writes it as an owner FK (e.g.
+  // create_crm_contact.ownerId) fails. Treat 0 as "no user" and fall back to
+  // the rule's creator so the created record is attributed to them.
+  const userId = (payload._userId as number | undefined) || rule.createdBy || 0;
   const results: { tool: string; params: Record<string, unknown>; result: unknown; error?: string }[] = [];
   let status: 'success' | 'partial' | 'failed' = 'success';
   let errorMessage: string | undefined;
