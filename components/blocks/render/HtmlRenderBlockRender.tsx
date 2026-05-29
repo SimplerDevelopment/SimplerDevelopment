@@ -83,17 +83,21 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
   // contenteditable attributes the user is mid-click-into. With this guard,
   // hover noise no longer thrashes the DOM and click-to-edit becomes stable.
   const lastHtmlRef = useRef<string | null>(null);
+  // The html present at first render. We feed THIS (stable) value to
+  // dangerouslySetInnerHTML so the content is server-rendered (in the initial
+  // HTML — critical for LCP/CLS: an html-render hero must paint at first paint,
+  // not after hydration). Because the ref value never changes, React writes the
+  // innerHTML exactly once (SSR + hydration adopt it) and never re-manages it,
+  // leaving all subsequent updates to the imperative path below — which
+  // preserves the editor's contenteditable caret handling.
+  const initialHtmlRef = useRef(html);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Only re-paint innerHTML when the rendered string has actually changed.
-    // String identity check is content-based in JS for primitive strings.
-    if (lastHtmlRef.current !== html) {
-      el.innerHTML = html;
-      lastHtmlRef.current = html;
-      // Re-create <script> tags so the browser actually executes them
-      // (scripts injected via innerHTML are inert by spec).
+    // Re-create <script> tags so the browser actually executes them (scripts
+    // present via SSR or innerHTML are inert by spec).
+    const reviveScripts = () => {
       const scripts = Array.from(el.querySelectorAll('script'));
       for (const old of scripts) {
         const fresh = document.createElement('script');
@@ -103,6 +107,22 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
         if (old.textContent) fresh.textContent = old.textContent;
         old.replaceWith(fresh);
       }
+    };
+    if (lastHtmlRef.current === null) {
+      // First mount: the content is ALREADY in the DOM from SSR
+      // (dangerouslySetInnerHTML). Re-writing innerHTML here would destroy and
+      // recreate the SSR subtree — re-painting the LCP element late and
+      // shoving the page layout (CLS). Only revive the inert <script> tags.
+      lastHtmlRef.current = html;
+      reviveScripts();
+      return;
+    }
+    // Subsequent genuine content changes (e.g. live edits): repaint imperatively
+    // so React never clobbers contenteditable state mid-typing.
+    if (lastHtmlRef.current !== html) {
+      el.innerHTML = html;
+      lastHtmlRef.current = html;
+      reviveScripts();
     }
   }, [html]);
 
@@ -255,9 +275,10 @@ function InlineHtml({ html, blockId }: { html: string; blockId: string }) {
     return () => { for (const c of cleanups) c(); };
   }, [html, isEditing, blockId]);
 
-  // innerHTML is set imperatively in the useEffect above so we can skip the
-  // DOM write when content is unchanged (preserves contenteditable state).
-  return <div ref={ref} />;
+  // Server-render the initial content (stable ref → React writes it once, then
+  // the imperative useEffect above owns all updates). This makes html-render
+  // blocks paint at first paint (huge for LCP/CLS) instead of after hydration.
+  return <div ref={ref} dangerouslySetInnerHTML={{ __html: initialHtmlRef.current }} />;
 }
 
 // Strip everything except a small allow-list of formatting tags so pasted
