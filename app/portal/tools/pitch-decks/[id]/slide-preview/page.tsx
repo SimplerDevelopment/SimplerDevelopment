@@ -148,7 +148,6 @@ function SlidePreviewInner() {
     return (
       <>
         <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap`} rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: `
           :root {
             --foreground: ${theme.textColor};
@@ -250,7 +249,6 @@ function SlidePreviewInner() {
   );
   return (
     <>
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       {branding ? <BrandingProvider branding={branding}>{previewBody}</BrandingProvider> : previewBody}
     </>
   );

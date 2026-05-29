@@ -78,10 +78,17 @@ export default async function RootLayout({
             so we don't put a 126KB render-blocking font stylesheet on every
             public page's critical path. */}
         {!isClientSite && (
-          <link
-            href="https://fonts.googleapis.com/icon?family=Material+Icons"
-            rel="stylesheet"
-          />
+          <>
+            {/* Material Icons is self-hosted (see app/globals.css @font-face).
+             *  Preload the woff2 so icon glyphs paint immediately. */}
+            <link
+              rel="preload"
+              href="/fonts/material-icons.woff2"
+              as="font"
+              type="font/woff2"
+              crossOrigin="anonymous"
+            />
+          </>
         )}
         <script
           dangerouslySetInnerHTML={{

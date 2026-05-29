@@ -232,7 +232,6 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {googleFontsUrl && <DeferredStylesheet href={googleFontsUrl} />}
-        <DeferredStylesheet href="https://fonts.googleapis.com/icon?family=Material+Icons" />
         <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif' }}>
           {children}
         </div>
@@ -271,7 +270,6 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <div
         className="min-h-screen flex flex-col"
         style={{

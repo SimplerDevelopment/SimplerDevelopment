@@ -70,14 +70,17 @@ export default function ChatBootstrap({ widgetId }: { widgetId: string }) {
 
   const widgetIdNum = useMemo(() => Number.parseInt(widgetId, 10), [widgetId]);
 
-  // Always-on Material Icons — webfont injected once per iframe.
+  // Always-on Material Icons — self-hosted webfont injected once per iframe.
+  // The widget iframe is served from our origin, so the relative /fonts URL
+  // resolves to our app (not the embedding customer's site).
   useEffect(() => {
     if (document.getElementById('sd-chat-mi')) return;
-    const link = document.createElement('link');
-    link.id = 'sd-chat-mi';
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
-    document.head.appendChild(link);
+    const style = document.createElement('style');
+    style.id = 'sd-chat-mi';
+    style.textContent =
+      '@font-face{font-family:"Material Icons";font-style:normal;font-weight:400;font-display:block;src:url("/fonts/material-icons.woff2") format("woff2");}' +
+      '.material-icons{font-family:"Material Icons";font-weight:normal;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;font-feature-settings:"liga";-webkit-font-feature-settings:"liga";-webkit-font-smoothing:antialiased;}';
+    document.head.appendChild(style);
   }, []);
 
   // Tell the parent loader to expand/collapse.
