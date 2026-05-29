@@ -7,7 +7,8 @@ export type MeetingSourceId =
   | 'google_drive_watch'
   | 'google_meet_recording'
   | 'teams_transcript'
-  | 'zoom';
+  | 'zoom'
+  | 'live_voice';
 
 export interface NormalizedMeetingInput {
   transcript: string;
@@ -37,6 +38,7 @@ import { pasteAdapter } from './paste';
 import { uploadAdapter } from './upload';
 import { googleMeetRecordingAdapter } from './google-meet-recording';
 import { teamsTranscriptAdapter } from './teams-transcript';
+import { liveVoiceAdapter } from './live-voice';
 
 const ADAPTERS: Record<MeetingSourceId, MeetingSourceAdapter | null> = {
   paste: pasteAdapter as MeetingSourceAdapter,
@@ -46,6 +48,7 @@ const ADAPTERS: Record<MeetingSourceId, MeetingSourceAdapter | null> = {
   google_meet_recording: googleMeetRecordingAdapter as MeetingSourceAdapter,
   teams_transcript: teamsTranscriptAdapter as MeetingSourceAdapter,
   zoom: null,                   // backlog
+  live_voice: liveVoiceAdapter as MeetingSourceAdapter,
 };
 
 export function getMeetingAdapter(id: string): MeetingSourceAdapter | null {
