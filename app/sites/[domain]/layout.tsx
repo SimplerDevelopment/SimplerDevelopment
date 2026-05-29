@@ -14,6 +14,7 @@ import { siteTracking } from '@/lib/db/schema';
 import { SiteNavClient } from './SiteNavClient';
 import { SiteFooter } from './SiteFooter';
 import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
+import { cssFontStack, googleFontsHref } from '@/lib/blocks/page-fonts';
 
 // Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
 // because brandingProfile schema doesn't yet have contact fields. When the
@@ -196,7 +197,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // via the site stylesheet) — without it, headings inherit the body font
   // and the brandingProfile.headingFont value silently has no effect.
   const brandStyles = [
-    branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: "${branding.headingFont}", system-ui, sans-serif; }`,
+    branding.headingFont && `h1, h2, h3, h4, h5, h6 { font-family: ${cssFontStack(branding.headingFont, 'system-ui, sans-serif')}; }`,
     branding.linkColor && `a { color: ${branding.linkColor}; }`,
     branding.linkHoverColor && `a:hover { color: ${branding.linkHoverColor}; }`,
     branding.buttonStyle?.primaryHoverBg && `.brand-btn-primary:hover { background-color: ${branding.buttonStyle.primaryHoverBg} !important; }`,
@@ -213,10 +214,11 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
   // returns every weight that font actually has (variable fonts return the
   // full axis; single-weight fonts return 400). Browsers faux-bold / faux-
   // italic as needed for any weight CSS the page actually uses.
-  const fonts = [branding.headingFont, branding.bodyFont].filter(Boolean);
-  const googleFontsUrl = fonts.length > 0
-    ? `https://fonts.googleapis.com/css2?${fonts.map(f => `family=${encodeURIComponent(f!)}`).join('&')}&display=swap`
-    : null;
+  // Reduce each branding font to its bare family name before requesting it —
+  // values may be stored as full CSS stacks ("Raleway, -apple-system, ...")
+  // which produce a malformed (dead) css2 request. googleFontsHref dedupes and
+  // appends display=swap.
+  const googleFontsUrl = googleFontsHref([branding.headingFont, branding.bodyFont]);
 
   // Custom layout mode: blocks handle their own nav/footer/styling
   if (site.customLayout) {
@@ -229,7 +231,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-        <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: branding.bodyFont ? `"${branding.bodyFont}", system-ui, sans-serif` : 'system-ui, sans-serif' }}>
+        <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif' }}>
           {children}
         </div>
       </>
@@ -272,7 +274,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         style={{
           backgroundColor: branding.backgroundColor || '#ffffff',
           color: branding.textColor || '#1e293b',
-          fontFamily: branding.bodyFont ? `"${branding.bodyFont}", system-ui, sans-serif` : 'system-ui, sans-serif',
+          fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif',
           scrollBehavior: 'smooth',
         }}
       >

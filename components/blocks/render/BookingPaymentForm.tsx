@@ -1,12 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+// '@stripe/stripe-js/pure' — the bare '@stripe/stripe-js' entry has a module
+// side-effect that injects the js.stripe.com <script> (~740KB) the moment the
+// module is evaluated. Because this file can land in a shared async chunk
+// alongside other lazy blocks (e.g. html-render), that side-effect fired
+// Stripe on ordinary pages with no booking at all. The /pure entry never
+// auto-injects — loadStripe() must be called explicitly (we do so lazily,
+// on first render of the payment form, below).
+import { loadStripe } from '@stripe/stripe-js/pure';
+import type { Stripe } from '@stripe/stripe-js'; // type-only: erased at build, no runtime import
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null;
+let stripePromiseSingleton: Promise<Stripe | null> | null = null;
+function getStripePromise(): Promise<Stripe | null> | null {
+  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) return null;
+  if (!stripePromiseSingleton) {
+    stripePromiseSingleton = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  }
+  return stripePromiseSingleton;
+}
 
 interface BookingPaymentFormProps {
   clientSecret: string;
@@ -96,6 +108,8 @@ function PaymentFormInner({ total, accent, btnBg, btnText, btnRadius, onSuccess,
 }
 
 export function BookingPaymentForm({ clientSecret, ...props }: BookingPaymentFormProps) {
+  // Lazily initialize Stripe on first render of the payment form only.
+  const [stripePromise] = useState(() => getStripePromise());
   return (
     <Elements
       stripe={stripePromise}

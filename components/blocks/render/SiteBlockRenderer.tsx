@@ -2,11 +2,20 @@
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { BlockRenderer } from './BlockRenderer';
-import { EditableBlockRenderer } from './EditableBlockRenderer';
 import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
+import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
+
+// The editor renderer (~40KB + the full editing UI) was statically imported,
+// so it shipped to every PUBLIC page even though it only renders when
+// `?_edit=true`. Lazy-load it (client-only) so visitors never download it.
+const EditableBlockRenderer = dynamic(
+  () => import('./EditableBlockRenderer').then((m) => m.EditableBlockRenderer),
+  { ssr: false },
+);
 
 interface CodeLayer {
   customCss?: string | null;
@@ -34,10 +43,15 @@ function jsWrapper(label: string, body: string): string {
   return `(function(){function run(){try{${body}\n}catch(e){console.error('[${label}]',e);}}function ready(){if(document.readyState==='complete'){setTimeout(run,200);}else{window.addEventListener('load',function(){setTimeout(run,200);},{once:true});}}ready();})();`;
 }
 
-function SiteBlockRendererInner({ content, siteId, branding, site, type, customCss, customJs }: SiteBlockRendererProps) {
-  const searchParams = useSearchParams();
-  const isEditMode = searchParams.get('_edit') === 'true';
-
+// Custom CSS + collected fonts + custom JS. Rendered OUTSIDE the Suspense
+// boundary below (and without useSearchParams) so it is part of the initial
+// SSR HTML and applies BEFORE first paint. Previously this lived inside
+// SiteBlockRendererInner (which calls useSearchParams), so during SSR the
+// Suspense fallback — which lacks these tags — was emitted and the custom CSS
+// (including the hero's background-image and all layout styling) only applied
+// after hydration. That produced a large layout shift (CLS) and a very late
+// LCP once first paint got fast. Hoisting it fixes both.
+function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }: SiteBlockRendererProps) {
   // Cascade order: site → type → post. Earliest in the document wins least.
   const cssLayers: Array<[string, string]> = [];
   if (site?.customCss) cssLayers.push(['site-custom-css', site.customCss]);
@@ -49,8 +63,24 @@ function SiteBlockRendererInner({ content, siteId, branding, site, type, customC
   if (type?.customJs) jsLayers.push(['type-custom-js', type.customJs]);
   if (customJs) jsLayers.push(['post-custom-js', customJs]);
 
-  const codeInjection = (
+  // Collect every Google Font used by this page's blocks into ONE combined
+  // request. `branding.headingFont`/`bodyFont` are emitted by the site layout,
+  // so exclude them here to avoid a duplicate request.
+  const brandingFonts = [branding?.headingFont, branding?.bodyFont];
+  const fontsHref = googleFontsHref(
+    collectBlockFonts(content).filter(
+      (f) => !brandingFonts.some((b) => (b || '').trim().split(',')[0].trim().replace(/^["']|["']$/g, '') === f),
+    ),
+  );
+
+  // NOTE: the LCP/hero image preload is emitted from the SERVER component
+  // <HeroPreload> (rendered in the page route) via ReactDOM.preload so it lands
+  // in <head> early. Emitting it here (client component, in <body>) was too
+  // late to help on real infra.
+
+  return (
     <>
+      {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       {cssLayers.map(([label, css]) => (
         <style key={label} data-layer={label} dangerouslySetInnerHTML={{ __html: css }} />
       ))}
@@ -63,31 +93,32 @@ function SiteBlockRendererInner({ content, siteId, branding, site, type, customC
       ))}
     </>
   );
+}
+
+function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRendererProps) {
+  const searchParams = useSearchParams();
+  const isEditMode = searchParams.get('_edit') === 'true';
 
   if (isEditMode) {
     const rendered = (
-      <>
-        {codeInjection}
-        <EditorModeProvider>
-          <EditableBlockRenderer content={content} />
-        </EditorModeProvider>
-      </>
+      <EditorModeProvider>
+        <EditableBlockRenderer content={content} />
+      </EditorModeProvider>
     );
     return branding ? <BrandingProvider branding={branding}>{rendered}</BrandingProvider> : rendered;
   }
 
-  return (
-    <>
-      {codeInjection}
-      <BlockRenderer content={content} siteId={siteId} branding={branding} />
-    </>
-  );
+  return <BlockRenderer content={content} siteId={siteId} branding={branding} />;
 }
 
 export function SiteBlockRenderer(props: SiteBlockRendererProps) {
   return (
-    <Suspense fallback={<BlockRenderer {...props} />}>
-      <SiteBlockRendererInner {...props} />
-    </Suspense>
+    <>
+      {/* SSR-rendered, outside Suspense → in the initial HTML, applied before paint. */}
+      <SiteCodeAndFonts {...props} />
+      <Suspense fallback={<BlockRenderer content={props.content} siteId={props.siteId} branding={props.branding} />}>
+        <SiteBlockRendererInner {...props} />
+      </Suspense>
+    </>
   );
 }
