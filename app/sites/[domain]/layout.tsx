@@ -16,6 +16,7 @@ import { SiteFooter } from './SiteFooter';
 import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
 import { cssFontStack, googleFontsHref } from '@/lib/blocks/page-fonts';
 import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
+import { SiteRouteProgress } from '@/components/sites/SiteRouteProgress';
 
 // Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
 // because brandingProfile schema doesn't yet have contact fields. When the
@@ -265,6 +266,7 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     <>
       <TrackingNoscriptBody config={trackingConfig} />
       <TrackingScripts config={trackingConfig} />
+      <SiteRouteProgress color={branding.primaryColor || '#cfa122'} />
       {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

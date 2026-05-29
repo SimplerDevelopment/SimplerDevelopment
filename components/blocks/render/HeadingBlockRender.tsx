@@ -56,7 +56,14 @@ export function HeadingBlockRender({ block }: HeadingBlockRenderProps) {
     : '';
 
   const className = `${alignmentClass} ${headingClasses} ${block.style?.color ? '' : 'text-foreground'}`;
-  const tag = `h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+  // Optional `as` override: render the styled text as a non-heading element
+  // (e.g. a section eyebrow/overline that should look small but must NOT be a
+  // real <h6>, which breaks accessible heading order). Styling still derives
+  // from `level`; only the tag changes.
+  const overrideTag = (block as unknown as { as?: string }).as;
+  const tag = (overrideTag === 'p' || overrideTag === 'div' || overrideTag === 'span')
+    ? overrideTag
+    : (`h${block.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
 
   // Compatibility alias — some LLM-authored content (notably MCP-generated
   // posts) uses `text` instead of the canonical `content`. Accept both so

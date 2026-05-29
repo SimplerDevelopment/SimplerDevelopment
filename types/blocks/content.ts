@@ -12,6 +12,10 @@ export interface HeadingBlock extends BaseBlock {
   content: string;
   level: 1 | 2 | 3 | 4 | 5 | 6;
   alignment?: 'left' | 'center' | 'right';
+  /** Optional tag override — render as a non-heading element (e.g. 'p' for a
+   *  decorative eyebrow/overline) while keeping the level-based styling. Keeps
+   *  accessible heading order correct. */
+  as?: 'p' | 'div' | 'span';
 }
 
 export interface QuoteBlock extends BaseBlock {
