@@ -16,7 +16,6 @@ import { TabsBlockRender } from './TabsBlockRender';
 import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
-import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';
 import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
@@ -35,16 +34,6 @@ import { PalizziMenuBlockRender } from './PalizziMenuBlockRender';
 import { PalizziRulesBlockRender } from './PalizziRulesBlockRender';
 import { PalizziMembershipBlockRender } from './PalizziMembershipBlockRender';
 import { PalizziFooterBlockRender } from './PalizziFooterBlockRender';
-import { ProductGridBlockRender } from './ProductGridBlockRender';
-import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
-import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
-import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
-import { StoreBannerBlockRender } from './StoreBannerBlockRender';
-import { ProductDetailBlockRender } from './ProductDetailBlockRender';
-import { BookingBlockRender } from './BookingBlockRender';
-import { BookingMenuBlockRender } from './BookingMenuBlockRender';
-import { SurveyBlockRender } from './SurveyBlockRender';
-import { SurveyResultsBlockRender } from './SurveyResultsBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { EmailHeaderBlockRender } from './EmailHeaderBlockRender';
 import { EmailFooterBlockRender } from './EmailFooterBlockRender';
@@ -57,14 +46,32 @@ import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockR
 import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
 import { MetricCardsBlockRender } from './MetricCardsBlockRender';
 import { LogoStripBlockRender } from './LogoStripBlockRender';
-import { SurveyInputBlockRender } from './SurveyInputBlockRender';
-import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
-import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
+
+// Heavy / rarely-needed block renderers are lazy-loaded from the shared
+// lazy-blocks module (Stripe/booking, survey engine, commerce, html-render/
+// embed, slideshow). See that file for the full rationale. The switch below is
+// unchanged — these names just resolve to next/dynamic components now.
+import {
+  HeroSlideshowBlockRender,
+  ProductGridBlockRender,
+  FeaturedProductsBlockRender,
+  ProductCategoriesBlockRender,
+  ShoppingCartBlockRender,
+  StoreBannerBlockRender,
+  ProductDetailBlockRender,
+  BookingBlockRender,
+  BookingMenuBlockRender,
+  SurveyBlockRender,
+  SurveyResultsBlockRender,
+  SurveyInputBlockRender,
+  HtmlEmbedBlockRender,
+  HtmlRenderBlockRender,
+} from './lazy-blocks';
 
 interface BlockRendererProps {
   content: string;

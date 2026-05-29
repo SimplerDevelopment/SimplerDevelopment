@@ -1,6 +1,18 @@
 'use client';
 
 import { TabsBlock, Block } from '@/types/blocks';
+import {
+  BookingBlockRender,
+  FeaturedProductsBlockRender,
+  HeroSlideshowBlockRender,
+  HtmlEmbedBlockRender,
+  HtmlRenderBlockRender,
+  ProductCategoriesBlockRender,
+  ProductGridBlockRender,
+  ShoppingCartBlockRender,
+  StoreBannerBlockRender,
+  SurveyBlockRender,
+} from './lazy-blocks';
 import { useState } from 'react';
 import { combineResponsiveClasses } from '@/lib/utils/responsive';
 import { getElementCSS } from '@/lib/utils/elementStyles';
@@ -25,20 +37,10 @@ import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { SectionBlockRender } from './SectionBlockRender';
-import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';
 import { ColumnsBlockRender } from './ColumnsBlockRender';
-import { ProductGridBlockRender } from './ProductGridBlockRender';
-import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
-import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
-import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
-import { StoreBannerBlockRender } from './StoreBannerBlockRender';
-import { BookingBlockRender } from './BookingBlockRender';
-import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
-import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
-import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';
