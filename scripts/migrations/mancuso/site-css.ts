@@ -257,6 +257,15 @@ a:hover { color: var(--mc-tomato); }
 }
 @media (max-width: 900px) {
   .mc-hero__inner { grid-template-columns: 1fr; }
+  /* On mobile the hero content is taller than the viewport, so the fixed nav
+     overlapped the top of it. Drop the vertical centering and clear the nav
+     with explicit top padding. */
+  .mc-hero {
+    min-height: auto;
+    align-items: flex-start;
+    padding-top: 104px;
+    padding-bottom: 52px;
+  }
 }
 .mc-hero__since {
   display: inline-block;
