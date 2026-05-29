@@ -8,32 +8,42 @@ import { headers } from "next/headers";
 import SessionProvider from "@/components/SessionProvider";
 import { LayoutContent } from "@/components/LayoutContent";
 
+// preload: false — these app/portal fonts were being <link rel=preload>ed on
+// EVERY route (~180KB of woff2), including public client sites that use their
+// own brand fonts (Raleway/Open Sans) and never reference these. With preload
+// off they still load on-demand where actually used (var(--font-*)), but no
+// longer sit on the critical path of pages that don't use them.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  preload: false,
 });
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  preload: false,
 });
 
 export const metadata: Metadata = defaultSEO;
@@ -53,10 +63,16 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <StructuredData data={generateOrganizationSchema()} />
-        <link
-          href="https://fonts.googleapis.com/icon?family=Material+Icons"
-          rel="stylesheet"
-        />
+        {/* Material Icons only for the app/portal. Public client sites load it
+            (non-blocking) from their own site layout if their content needs it,
+            so we don't put a 126KB render-blocking font stylesheet on every
+            public page's critical path. */}
+        {!isClientSite && (
+          <link
+            href="https://fonts.googleapis.com/icon?family=Material+Icons"
+            rel="stylesheet"
+          />
+        )}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -80,9 +96,19 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} antialiased min-h-screen flex flex-col`}
       >
-        <SessionProvider>
-          <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
-        </SessionProvider>
+        {isClientSite ? (
+          // Public client sites supply their own nav/footer (app/sites/[domain]
+          // layout) and have no authenticated UI, so they need neither the app
+          // marketing chrome (LayoutContent → Navigation/Footer) nor the
+          // NextAuth SessionProvider. Skipping both keeps a large amount of
+          // unused client JS off every public page. (Verified: no public-site
+          // component calls useSession.)
+          children
+        ) : (
+          <SessionProvider>
+            <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
+          </SessionProvider>
+        )}
       </body>
     </html>
   );

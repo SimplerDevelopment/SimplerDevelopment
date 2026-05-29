@@ -15,6 +15,7 @@ import { SiteNavClient } from './SiteNavClient';
 import { SiteFooter } from './SiteFooter';
 import { TrackingScripts, TrackingNoscriptBody } from '@/components/sites/TrackingScripts';
 import { cssFontStack, googleFontsHref } from '@/lib/blocks/page-fonts';
+import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 
 // Per-site footer contact overrides — keyed by subdomain. Hardcoded for now
 // because brandingProfile schema doesn't yet have contact fields. When the
@@ -229,8 +230,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
         {brandStyles && <style dangerouslySetInnerHTML={{ __html: brandStyles }} />}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {googleFontsUrl && <link href={googleFontsUrl} rel="stylesheet" />}
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+        {googleFontsUrl && <DeferredStylesheet href={googleFontsUrl} />}
+        <DeferredStylesheet href="https://fonts.googleapis.com/icon?family=Material+Icons" />
         <div className="min-h-screen" style={{ scrollBehavior: 'smooth', fontFamily: cssFontStack(branding.bodyFont, 'system-ui, sans-serif') || 'system-ui, sans-serif' }}>
           {children}
         </div>

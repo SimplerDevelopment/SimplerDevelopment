@@ -8,6 +8,7 @@ import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvide
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
 import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
+import { DeferredStylesheet } from '@/components/sites/DeferredStylesheet';
 
 // The editor renderer (~40KB + the full editing UI) was statically imported,
 // so it shipped to every PUBLIC page even though it only renders when
@@ -80,7 +81,7 @@ function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }
 
   return (
     <>
-      {fontsHref && <link rel="stylesheet" href={fontsHref} />}
+      {fontsHref && <DeferredStylesheet href={fontsHref} />}
       {cssLayers.map(([label, css]) => (
         <style key={label} data-layer={label} dangerouslySetInnerHTML={{ __html: css }} />
       ))}
