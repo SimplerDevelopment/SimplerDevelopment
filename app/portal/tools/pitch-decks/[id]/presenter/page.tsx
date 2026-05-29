@@ -100,7 +100,6 @@ export default function PresenterViewPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link
         href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(deck.theme.headingFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(deck.theme.bodyFont)}:wght@300;400;500;600&display=swap`}

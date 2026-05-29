@@ -53,10 +53,19 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <StructuredData data={generateOrganizationSchema()} />
-        <link
-          href="https://fonts.googleapis.com/icon?family=Material+Icons"
-          rel="stylesheet"
-        />
+        {/* Material Icons is self-hosted (see app/globals.css @font-face).
+            Preload the woff2 on app/portal pages so icon glyphs paint
+            immediately; client sites pick it up lazily via globals.css to
+            keep the public critical path lean. */}
+        {!isClientSite && (
+          <link
+            rel="preload"
+            href="/fonts/material-icons.woff2"
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
+        )}
         <script
           dangerouslySetInnerHTML={{
             __html: `

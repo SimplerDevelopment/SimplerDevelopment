@@ -196,7 +196,6 @@ export function SurveyFieldEditorView({
             minHeight: 'calc(100vh - 220px)',
           }}
         >
-          <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
           {editingField ? (
             <SurveySlideRenderer
               field={editingField as unknown as SurveySlideField}

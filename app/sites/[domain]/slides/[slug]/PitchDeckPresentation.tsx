@@ -436,7 +436,6 @@ export default function PitchDeckPresentation({ slides, theme, title, isDraft, s
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href={fontsUrl} rel="stylesheet" />
-      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
       {/* Defensive: legacy decks (e.g. cystrategies) shipped a self-injected
           mobile-nav overlay (`#cy-mob-nav`) inside their html-render content.
