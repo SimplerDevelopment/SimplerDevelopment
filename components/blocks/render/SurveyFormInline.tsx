@@ -428,7 +428,12 @@ export function SurveyFormInline({
       if (field.required && field.type !== 'heading') {
         const val = answers[field.id];
         if (val === undefined || val === null || val === '') {
-          return `${field.label} is required`;
+          // For a consent/agreement checkbox the label is a long paragraph that
+          // already sits right next to the box — echoing it back as a banner is
+          // redundant. Use a short, clear prompt instead.
+          return field.type === 'checkbox'
+            ? 'Please check the box to agree before continuing.'
+            : `${field.label} is required`;
         }
       }
     }
