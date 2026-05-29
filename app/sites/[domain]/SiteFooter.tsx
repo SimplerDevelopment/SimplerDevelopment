@@ -179,7 +179,7 @@ export function SiteFooter({
               alignItems: 'center',
             }}
           >
-            <div style={{ fontSize: '0.75rem', color: '#7c8aa6', lineHeight: '1.6' }}>
+            <div style={{ fontSize: '0.75rem', color: '#4d5a73', lineHeight: '1.6' }}>
               {(complianceNotes || []).map((line, i) => (
                 <p key={i} style={{ margin: '0 0 6px 0' }}>{line}</p>
               ))}
@@ -222,14 +222,14 @@ export function SiteFooter({
             alignItems: 'center',
             gap: '12px',
             fontSize: '0.75rem',
-            color: '#7c8aa6',
+            color: '#4d5a73',
           }}
         >
           <div>© {new Date().getFullYear()} {siteName}. All rights reserved.</div>
           {legalLinks && legalLinks.length > 0 && (
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
               {legalLinks.map(l => (
-                <Link key={l.href} href={prefixHref(l.href)} style={{ color: '#7c8aa6', textDecoration: 'none' }}>
+                <Link key={l.href} href={prefixHref(l.href)} style={{ color: '#4d5a73', textDecoration: 'none' }}>
                   {l.label}
                 </Link>
               ))}
