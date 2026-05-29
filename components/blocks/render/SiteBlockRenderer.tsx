@@ -7,7 +7,7 @@ import { BlockRenderer } from './BlockRenderer';
 import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
 import type { ResolvedBranding } from '@/lib/branding';
 import { BrandingProvider } from '@/contexts/BrandingContext';
-import { collectBlockFonts, googleFontsHref, firstContentImageUrl } from '@/lib/blocks/page-fonts';
+import { collectBlockFonts, googleFontsHref } from '@/lib/blocks/page-fonts';
 
 // The editor renderer (~40KB + the full editing UI) was statically imported,
 // so it shipped to every PUBLIC page even though it only renders when
@@ -73,14 +73,13 @@ function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }
     ),
   );
 
-  // Preload the likely LCP image (first on-page image). Background-image heroes
-  // are invisible to the preload scanner, so without this the hero image starts
-  // loading very late and dominates LCP.
-  const lcpImage = firstContentImageUrl(content);
+  // NOTE: the LCP/hero image preload is emitted from the SERVER component
+  // <HeroPreload> (rendered in the page route) via ReactDOM.preload so it lands
+  // in <head> early. Emitting it here (client component, in <body>) was too
+  // late to help on real infra.
 
   return (
     <>
-      {lcpImage && <link rel="preload" as="image" href={lcpImage} fetchPriority="high" />}
       {fontsHref && <link rel="stylesheet" href={fontsHref} />}
       {cssLayers.map(([label, css]) => (
         <style key={label} data-layer={label} dangerouslySetInnerHTML={{ __html: css }} />

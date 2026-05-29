@@ -10,6 +10,7 @@ import {
 import { wrapWithTypeTemplate } from '@/lib/blocks/template-wrap';
 import { expandLoopsInContent, type LoopPaginationContext } from '@/lib/blocks/html-render-loops';
 import { SiteBlockRenderer } from '@/components/blocks/render/SiteBlockRenderer';
+import { HeroPreload } from '@/components/blocks/render/HeroPreload';
 import { prefetchHtmlEmbeds } from '@/lib/blocks/prefetch-embeds';
 import { ProductPage } from '@/components/storefront/ProductPage';
 import { ShopPage } from '@/components/storefront/ShopPage';
@@ -198,6 +199,7 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
     );
     return (
       <>
+        <HeroPreload content={content} />
         <SiteBlockRenderer
           content={content}
           siteId={site.id}
@@ -299,12 +301,14 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
     const blogType = await getPostTypeForPost(site.id, post.postType);
     const ab = await applyAbToPostContent({ postId: post.id, content: post.content, skip: preview });
+    const blogContent = await prefetchHtmlEmbeds(
+      await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
+    );
     return (
       <div>
+        <HeroPreload content={blogContent} />
         <SiteBlockRenderer
-          content={await prefetchHtmlEmbeds(
-            await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, blogType?.template), post.id, pagination),
-          )}
+          content={blogContent}
           siteId={site.id}
           branding={branding}
           site={siteLayer}
@@ -334,13 +338,15 @@ export default async function ClientSitePage({ params, searchParams }: PageProps
 
   const pageType = await getPostTypeForPost(site.id, page.postType);
   const ab = await applyAbToPostContent({ postId: page.id, content: page.content, skip: preview });
+  const pageContent = await prefetchHtmlEmbeds(
+    await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
+  );
 
   return (
     <div>
+      <HeroPreload content={pageContent} />
       <SiteBlockRenderer
-        content={await prefetchHtmlEmbeds(
-          await expandLoopsInContent(site.id, wrapWithTypeTemplate(ab.content, pageType?.template), page.id, pagination),
-        )}
+        content={pageContent}
         siteId={site.id}
         branding={branding}
         site={siteLayer}
