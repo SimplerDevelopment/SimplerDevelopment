@@ -3,6 +3,7 @@
 import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import AIChatWidget from '@/components/portal/AIChatWidget';
+import VoiceAssistant from '@/components/portal/voice/VoiceAssistant';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PmNotificationBell from '@/components/portal/PmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
@@ -103,6 +104,7 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
             <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
           </div>
           {!previewMode && <AIChatWidget />}
+          {!previewMode && <VoiceAssistant />}
         </div>
         <CmdKPalette apps={apps} />
       </AgencyChromeProvider>
