@@ -2,7 +2,8 @@
 
 import SessionProvider from '@/components/SessionProvider';
 import PortalSidebar from '@/components/portal/PortalSidebar';
-import AIChatWidget from '@/components/portal/AIChatWidget';
+// AIChatWidget temporarily hidden across the portal (see mount below).
+// import AIChatWidget from '@/components/portal/AIChatWidget';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PmNotificationBell from '@/components/portal/PmNotificationBell';
 import PortalTitle from '@/components/portal/PortalTitle';
@@ -102,7 +103,9 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
             )}
             <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
           </div>
-          {!previewMode && <AIChatWidget />}
+          {/* AIChatWidget (floating robot/chat toggle) temporarily hidden across
+              the portal per request. Re-enable by uncommenting this line. */}
+          {/* {!previewMode && <AIChatWidget />} */}
         </div>
         <CmdKPalette apps={apps} />
       </AgencyChromeProvider>
