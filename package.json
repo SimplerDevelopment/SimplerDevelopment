@@ -140,10 +140,12 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.1.5",
     "c8": "^11.0.0",
+    "dependency-cruiser": "^17.4.3",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "jsdom": "^27.4.0",
+    "knip": "^6.14.2",
     "msw": "^2.13.4",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.58.0",
@@ -158,7 +160,7 @@
   "overrides": {
     "fast-xml-parser": ">=4.5.0",
     "html-encoding-sniffer": "4.0.0",
-    "jsdom": "27.3.0",
+    "jsdom": "$jsdom",
     "@asamuzakjp/css-color": "4.1.1"
   }
 }

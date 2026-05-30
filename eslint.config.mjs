@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Not first-party source — vendored skills, throwaway probes, generated artifacts:
+    ".agents/**",
+    ".claude/**",
+    ".planning/**",
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
   ]),
 ]);
 
