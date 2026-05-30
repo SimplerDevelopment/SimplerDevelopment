@@ -22,6 +22,7 @@ import type {
   CardDetailModalProps,
   ChecklistItem,
   Comment,
+  CustomFieldValue,
   DependencyRef,
   FileAttachment,
   Label,
@@ -52,6 +53,7 @@ export interface UseCardDetail {
   artifacts: Artifact[];
   availableArtifacts: AvailableArtifact[];
   artifactsLoaded: boolean;
+  customFields: CustomFieldValue[];
 
   /* Edit drafts / per-section UI flags */
   editingTitle: boolean;
@@ -151,11 +153,10 @@ export interface UseCardDetail {
 
 export function useCardDetail({
   cardId,
-  projectId: knownProjectId,
   onClose,
   onDeleted,
   onUpdated,
-}: Pick<CardDetailModalProps, 'cardId' | 'projectId' | 'onClose' | 'onDeleted' | 'onUpdated'>): UseCardDetail {
+}: Pick<CardDetailModalProps, 'cardId' | 'onClose' | 'onDeleted' | 'onUpdated'>): UseCardDetail {
   const [loading, setLoading] = useState(true);
   const [card, setCard] = useState<CardDetail | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -208,6 +209,7 @@ export function useCardDetail({
   const [availableArtifactsLoaded, setAvailableArtifactsLoaded] = useState(false);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [artifactTypeFilter, setArtifactTypeFilter] = useState('');
+  const [customFields, setCustomFields] = useState<CustomFieldValue[]>([]);
 
   /* ─── Initial load ────────────────────────────────────────────────── */
 
@@ -215,22 +217,14 @@ export function useCardDetail({
     let cancelled = false;
     async function load() {
       try {
-        // Previously this ran in three serial waves (bundle → labels/cards →
-        // artifacts), each waiting on the prior round-trip. The card's project
-        // is already known by the board (passed as `knownProjectId`), so every
-        // request can fire at once. The expensive `availableArtifacts` 9-table
-        // scan is deferred until the artifact picker is actually opened.
-        const haveProject = knownProjectId != null;
-        const [cardRes, usersRes, aRes, labelsRes, cardsRes] = await Promise.all([
-          api.fetchCardBundle(cardId),
-          api.fetchMentionableUsers(),
-          api.fetchArtifacts(cardId),
-          haveProject ? api.fetchProjectLabels(knownProjectId!) : Promise.resolve(null),
-          haveProject ? api.fetchProjectCards(knownProjectId!) : Promise.resolve(null),
-        ]);
+        // The card bundle now returns everything the modal needs in ONE
+        // request — card + comments/files/labels/activity/checklist/assignees/
+        // deps AND the project label palette, sibling cards, mentionable users,
+        // linked artifacts, and custom fields. Opening a card is a single
+        // round-trip. The heavy availableArtifacts scan is still deferred until
+        // the artifact picker is opened.
+        const cardRes = await api.fetchCardBundle(cardId);
         if (cancelled) return;
-
-        let projectId: number | null = knownProjectId ?? null;
         if (cardRes.success && cardRes.data) {
           const d = cardRes.data as {
             card: CardDetail;
@@ -244,6 +238,11 @@ export function useCardDetail({
             watching?: boolean;
             blockers?: DependencyRef[];
             blocking?: DependencyRef[];
+            projectLabels?: Label[];
+            projectCards?: DependencyRef[];
+            mentionableUsers?: MentionUser[];
+            artifacts?: Artifact[];
+            customFields?: CustomFieldValue[];
           };
           setCard(d.card);
           setTimeLogs(d.timeLogs);
@@ -262,25 +261,12 @@ export function useCardDetail({
           setWatching(d.watching ?? false);
           setBlockers(d.blockers ?? []);
           setBlocking(d.blocking ?? []);
-          projectId = projectId ?? d.card?.projectId ?? null;
-        }
-        if (usersRes.success && Array.isArray(usersRes.data)) setMentionUsers(usersRes.data as MentionUser[]);
-        if (aRes.success && Array.isArray(aRes.data)) setArtifacts(aRes.data as Artifact[]);
-        setArtifactsLoaded(true);
-
-        // Project labels + cards: applied from the parallel batch when the
-        // project was known up front; otherwise fetched now that the bundle has
-        // revealed it (fallback for callers that don't pass projectId).
-        if (labelsRes && labelsRes.success && Array.isArray(labelsRes.data)) setProjectLabels(labelsRes.data as Label[]);
-        if (cardsRes && cardsRes.success && Array.isArray(cardsRes.data)) setProjectCards(cardsRes.data as DependencyRef[]);
-        if (!haveProject && projectId != null) {
-          const [lRes, cRes] = await Promise.all([
-            api.fetchProjectLabels(projectId),
-            api.fetchProjectCards(projectId),
-          ]);
-          if (cancelled) return;
-          if (lRes.success && Array.isArray(lRes.data)) setProjectLabels(lRes.data as Label[]);
-          if (cRes.success && Array.isArray(cRes.data)) setProjectCards(cRes.data as DependencyRef[]);
+          setProjectLabels(d.projectLabels ?? []);
+          setProjectCards(d.projectCards ?? []);
+          setMentionUsers(d.mentionableUsers ?? []);
+          setArtifacts(d.artifacts ?? []);
+          setCustomFields(d.customFields ?? []);
+          setArtifactsLoaded(true);
         }
       } catch (e) {
         console.error(e);
@@ -292,7 +278,7 @@ export function useCardDetail({
     return () => {
       cancelled = true;
     };
-  }, [cardId, knownProjectId]);
+  }, [cardId]);
 
   /* ─── Lazy-load the artifact library only when the picker opens ──────── */
 
@@ -570,6 +556,7 @@ export function useCardDetail({
     artifacts,
     availableArtifacts,
     artifactsLoaded,
+    customFields,
 
     editingTitle,
     setEditingTitle,

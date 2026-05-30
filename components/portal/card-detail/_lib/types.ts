@@ -120,6 +120,19 @@ export interface AvailableArtifact {
   title: string;
 }
 
+export type CustomFieldKind = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'url' | 'checkbox';
+
+export interface CustomFieldValue {
+  id: number;
+  key: string;
+  name: string;
+  kind: CustomFieldKind;
+  required: boolean;
+  options: string[];
+  order?: number;
+  value: unknown;
+}
+
 export interface CardDetailModalProps {
   cardId: number;
   /**

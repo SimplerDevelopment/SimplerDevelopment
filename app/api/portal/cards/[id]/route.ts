@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanColumns, users, projects } from '@/lib/db/schema';
+import { kanbanCards, kanbanCardComments, kanbanCardTimeLogs, kanbanCardFiles, kanbanCardLabels, kanbanLabels, kanbanCardActivities, kanbanCardChecklistItems, kanbanCardAssignees, kanbanCardWatchers, kanbanCardDependencies, kanbanCardArtifacts, kanbanColumns, users, projects, clientMembers, projectCustomFields, cardCustomFieldValues } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
-import { eq, and, asc, desc } from 'drizzle-orm';
+import { eq, and, or, inArray, asc, desc } from 'drizzle-orm';
 import { logCardActivity } from '@/lib/pm-activity';
 import { filterUserIdsVisibleToClient } from '@/lib/security/assert-owned';
 import { canUserEditProject } from '@/lib/portal/project-access';
@@ -43,13 +43,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params;
     const cardId = parseInt(id, 10);
 
-    const result = await authorizeCard(cardId, session);
-    if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-    const { card } = result;
-
+    const sessUserId = parseInt(session.user.id, 10);
     const role = getRole(session);
     const isStaff = role === 'admin' || role === 'employee';
-    const sessUserId = parseInt(session.user.id, 10);
+
+    const [card] = await db.select().from(kanbanCards).where(eq(kanbanCards.id, cardId)).limit(1);
+    if (!card) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+
+    // Resolve the caller's client once (honors the active-client cookie + staff
+    // impersonation). Used for BOTH the tenancy check and the mentionable-users
+    // list, so this whole modal load is a single request instead of five.
+    const client = await getPortalClient(sessUserId);
+    if (!isStaff) {
+      if (!client) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.id, card.projectId), eq(projects.clientId, client.id))).limit(1);
+      if (!proj) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
+    }
 
     // These are all independent given the card id. Run them in one parallel
     // batch rather than ~10 sequential round-trips — this was the dominant
@@ -66,6 +76,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       watcherRows,
       blockers,
       blocking,
+      projectLabels,
+      projectCardRows,
+      mentionableUsers,
+      linkedArtifacts,
+      customFieldDefs,
+      customFieldValues,
     ] = await Promise.all([
       db
         .select({
@@ -167,6 +183,45 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockedCardId))
         .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
         .where(eq(kanbanCardDependencies.blockerCardId, cardId)),
+      // Folded in (were 4 separate modal requests): project label palette,
+      // sibling cards (dependency/parent pickers), mentionable users, and the
+      // card's linked artifacts. Same tenancy scope as the card itself.
+      db.select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
+        .from(kanbanLabels).where(eq(kanbanLabels.projectId, card.projectId)).orderBy(asc(kanbanLabels.name)),
+      db
+        .select({
+          id: kanbanCards.id,
+          title: kanbanCards.title,
+          number: kanbanCards.number,
+          columnIsDone: kanbanColumns.isDone,
+          cardType: kanbanCards.cardType,
+          parentCardId: kanbanCards.parentCardId,
+          storyPoints: kanbanCards.storyPoints,
+        })
+        .from(kanbanCards)
+        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+        .where(eq(kanbanCards.projectId, card.projectId))
+        .orderBy(asc(kanbanCards.number)),
+      (async () => {
+        // Mentionable = active agency staff + members of the caller's active
+        // client (mirrors /api/portal/mentionable-users exactly).
+        let memberIds: number[] = [];
+        if (client) {
+          const members = await db.select({ userId: clientMembers.userId }).from(clientMembers).where(eq(clientMembers.clientId, client.id));
+          memberIds = members.map(m => m.userId);
+        }
+        const staffFilter = or(eq(users.role, 'admin'), eq(users.role, 'employee'));
+        const whereClause = memberIds.length > 0
+          ? and(eq(users.active, true), or(staffFilter, inArray(users.id, memberIds)))
+          : and(eq(users.active, true), staffFilter);
+        return db.select({ id: users.id, name: users.name }).from(users).where(whereClause).orderBy(asc(users.name));
+      })(),
+      db.select().from(kanbanCardArtifacts).where(eq(kanbanCardArtifacts.cardId, cardId))
+        .orderBy(desc(kanbanCardArtifacts.pinned), desc(kanbanCardArtifacts.createdAt)),
+      // Custom-field definitions (project) + this card's values (folds the 6th request).
+      db.select().from(projectCustomFields).where(eq(projectCustomFields.projectId, card.projectId))
+        .orderBy(asc(projectCustomFields.order), asc(projectCustomFields.id)),
+      db.select().from(cardCustomFieldValues).where(eq(cardCustomFieldValues.cardId, cardId)),
     ]);
 
     const projectKey = projectRow[0]?.projectKey ?? null;
@@ -179,12 +234,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       key: projectKey && r.number != null ? `${projectKey}-${r.number}` : null,
     }));
 
+    const projectCards = projectCardRows.map(r => ({
+      ...r,
+      key: projectKey && r.number != null ? `${projectKey}-${r.number}` : null,
+    }));
+
+    const valueByField = new Map(customFieldValues.map(v => [v.fieldId, v.value]));
+    const customFields = customFieldDefs.map(f => ({
+      id: f.id, key: f.key, name: f.name, kind: f.kind,
+      required: f.required, options: f.options, order: f.order,
+      value: valueByField.get(f.id) ?? null,
+    }));
+
     return NextResponse.json({ success: true, data: {
       card: { ...card, key, projectKey },
       comments, timeLogs, files, labels, activities, checklist, assignees,
       watcherIds, watching,
       blockers: decorate(blockers),
       blocking: decorate(blocking),
+      // Folded-in auxiliary data so the modal loads in one request.
+      projectLabels, projectCards, mentionableUsers,
+      artifacts: linkedArtifacts, customFields,
     } });
   } catch (err) {
     console.error('[GET /api/portal/cards/[id]]', err);
