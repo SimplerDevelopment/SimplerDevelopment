@@ -122,6 +122,13 @@ export interface AvailableArtifact {
 
 export interface CardDetailModalProps {
   cardId: number;
+  /**
+   * The project the card belongs to. Passed by the board so the detail hook can
+   * fire project-scoped fetches (labels, sibling cards) in parallel with the
+   * card bundle instead of waiting for the bundle to reveal the project, and so
+   * the header can render a shareable `/portal/projects/<id>/<cardId>` link.
+   */
+  projectId?: number;
   isStaff: boolean;
   canEdit: boolean;
   currentUserId: number;

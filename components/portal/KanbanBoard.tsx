@@ -85,6 +85,8 @@ interface Props {
   canEdit: boolean;
   currentUserId: number;
   sprints?: SprintOption[];
+  /** Card id from the addressable route /portal/projects/<id>/<cardId>; opens that card on load. */
+  initialCardId?: number | null;
 }
 
 function KanbanCard({
@@ -470,7 +472,7 @@ function KanbanColumn({
   );
 }
 
-export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdit, currentUserId, sprints = [] }: Props) {
+export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdit, currentUserId, sprints = [], initialCardId = null }: Props) {
   const [columns, setColumns] = useState(initialColumns);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [filterSprintId, setFilterSprintId] = useState<number | 'backlog' | null>(null);
@@ -776,15 +778,68 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
     });
   }
 
-  // Deep-link: open ?card=<id> when present
+  // ─── Card deep-linking / URL sync ──────────────────────────────────────
+  // Each open card is addressable at /portal/projects/<projectId>/<cardId>.
+  // The modal stays client-side (no server navigation) — we only rewrite the
+  // URL via history so opening a card is instant and the board never re-renders.
+  const projectBasePath = `/portal/projects/${projectId}`;
+  // Tracks whether the currently-open card was opened by us via pushState (so
+  // closing can pop back), vs. arrived via a hard load / deep link (so closing
+  // just replaces the URL without leaving the app).
+  const didPushCardRef = useRef(false);
+
+  const cardIdFromPath = (pathname: string): number | null => {
+    // Matches /portal/projects/<projectId>/<cardId> (optional catch-all route).
+    const m = pathname.match(new RegExp(`^/portal/projects/${projectId}/(\\d+)`));
+    if (!m) return null;
+    const id = parseInt(m[1], 10);
+    return Number.isFinite(id) ? id : null;
+  };
+
+  function openCard(id: number) {
+    setSelectedCardId(id);
+    if (typeof window === 'undefined') return;
+    if (cardIdFromPath(window.location.pathname) === id) return; // already addressed (deep load)
+    window.history.pushState({ sdCardId: id }, '', `${projectBasePath}/${id}${window.location.search}`);
+    didPushCardRef.current = true;
+  }
+
+  function closeCard() {
+    setSelectedCardId(null);
+    if (typeof window === 'undefined') return;
+    if (didPushCardRef.current) {
+      didPushCardRef.current = false;
+      window.history.back(); // return to the pre-open entry; popstate reconciles state
+    } else if (cardIdFromPath(window.location.pathname) != null) {
+      window.history.replaceState({}, '', `${projectBasePath}${window.location.search}`);
+    }
+  }
+
+  // Seed the open card on mount from the path segment (preferred) or the legacy
+  // ?card=<id> query param (still emitted by notifications / standup links).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const cardParam = new URLSearchParams(window.location.search).get('card');
-    if (cardParam) {
-      const id = parseInt(cardParam, 10);
-      if (Number.isFinite(id)) setSelectedCardId(id);
-    }
+    const fromPath = initialCardId ?? cardIdFromPath(window.location.pathname);
+    const fromQuery = (() => {
+      const p = new URLSearchParams(window.location.search).get('card');
+      const id = p ? parseInt(p, 10) : NaN;
+      return Number.isFinite(id) ? id : null;
+    })();
+    const seed = fromPath ?? fromQuery;
+    if (seed != null) setSelectedCardId(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Browser back/forward: reconcile the open card with the URL.
+  useEffect(() => {
+    function onPop() {
+      didPushCardRef.current = false;
+      setSelectedCardId(cardIdFromPath(window.location.pathname));
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // Keyboard shortcuts: "/" focuses filter search, "c" starts adding a card to the first column.
   // Use refs for values to avoid re-registering the listener on every state change.
@@ -951,7 +1006,7 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
                 onCancelAdd={() => setAddingToColumn(null)}
                 onNewCardTitleChange={setNewCardTitle}
                 onSubmitAdd={handleAddCard}
-                onCardOpen={id => { if (!activeCard) setSelectedCardId(id); }}
+                onCardOpen={id => { if (!activeCard) openCard(id); }}
                 allColumns={allColumnsMeta}
                 onMoveToColumn={moveCardToColumn}
                 onMoveColumn={handleMoveColumn}
@@ -1027,11 +1082,12 @@ export default function KanbanBoard({ projectId, initialColumns, isStaff, canEdi
       {selectedCardId !== null && (
         <CardDetailModal
           cardId={selectedCardId}
+          projectId={projectId}
           isStaff={isStaff}
           canEdit={canEdit}
           currentUserId={currentUserId}
-          onClose={() => setSelectedCardId(null)}
-          onDeleted={handleCardDeleted}
+          onClose={closeCard}
+          onDeleted={(id) => { handleCardDeleted(id); closeCard(); }}
           onUpdated={handleCardUpdated}
         />
       )}

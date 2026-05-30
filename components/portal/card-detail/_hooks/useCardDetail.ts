@@ -151,10 +151,11 @@ export interface UseCardDetail {
 
 export function useCardDetail({
   cardId,
+  projectId: knownProjectId,
   onClose,
   onDeleted,
   onUpdated,
-}: Pick<CardDetailModalProps, 'cardId' | 'onClose' | 'onDeleted' | 'onUpdated'>): UseCardDetail {
+}: Pick<CardDetailModalProps, 'cardId' | 'projectId' | 'onClose' | 'onDeleted' | 'onUpdated'>): UseCardDetail {
   const [loading, setLoading] = useState(true);
   const [card, setCard] = useState<CardDetail | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -204,6 +205,7 @@ export function useCardDetail({
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [availableArtifacts, setAvailableArtifacts] = useState<AvailableArtifact[]>([]);
   const [artifactsLoaded, setArtifactsLoaded] = useState(false);
+  const [availableArtifactsLoaded, setAvailableArtifactsLoaded] = useState(false);
   const [showArtifactPicker, setShowArtifactPicker] = useState(false);
   const [artifactTypeFilter, setArtifactTypeFilter] = useState('');
 
@@ -213,11 +215,22 @@ export function useCardDetail({
     let cancelled = false;
     async function load() {
       try {
-        const [cardRes, usersRes] = await Promise.all([
+        // Previously this ran in three serial waves (bundle → labels/cards →
+        // artifacts), each waiting on the prior round-trip. The card's project
+        // is already known by the board (passed as `knownProjectId`), so every
+        // request can fire at once. The expensive `availableArtifacts` 9-table
+        // scan is deferred until the artifact picker is actually opened.
+        const haveProject = knownProjectId != null;
+        const [cardRes, usersRes, aRes, labelsRes, cardsRes] = await Promise.all([
           api.fetchCardBundle(cardId),
           api.fetchMentionableUsers(),
+          api.fetchArtifacts(cardId),
+          haveProject ? api.fetchProjectLabels(knownProjectId!) : Promise.resolve(null),
+          haveProject ? api.fetchProjectCards(knownProjectId!) : Promise.resolve(null),
         ]);
-        let projectId: number | null = null;
+        if (cancelled) return;
+
+        let projectId: number | null = knownProjectId ?? null;
         if (cardRes.success && cardRes.data) {
           const d = cardRes.data as {
             card: CardDetail;
@@ -232,7 +245,6 @@ export function useCardDetail({
             blockers?: DependencyRef[];
             blocking?: DependencyRef[];
           };
-          if (cancelled) return;
           setCard(d.card);
           setTimeLogs(d.timeLogs);
           const allFiles: FileAttachment[] = d.files ?? [];
@@ -250,29 +262,25 @@ export function useCardDetail({
           setWatching(d.watching ?? false);
           setBlockers(d.blockers ?? []);
           setBlocking(d.blocking ?? []);
-          projectId = d.card?.projectId ?? null;
+          projectId = projectId ?? d.card?.projectId ?? null;
         }
-        if (usersRes.success && Array.isArray(usersRes.data)) {
-          if (!cancelled) setMentionUsers(usersRes.data as MentionUser[]);
-        }
-        if (projectId != null) {
-          const [labelsRes, cardsRes] = await Promise.all([
+        if (usersRes.success && Array.isArray(usersRes.data)) setMentionUsers(usersRes.data as MentionUser[]);
+        if (aRes.success && Array.isArray(aRes.data)) setArtifacts(aRes.data as Artifact[]);
+        setArtifactsLoaded(true);
+
+        // Project labels + cards: applied from the parallel batch when the
+        // project was known up front; otherwise fetched now that the bundle has
+        // revealed it (fallback for callers that don't pass projectId).
+        if (labelsRes && labelsRes.success && Array.isArray(labelsRes.data)) setProjectLabels(labelsRes.data as Label[]);
+        if (cardsRes && cardsRes.success && Array.isArray(cardsRes.data)) setProjectCards(cardsRes.data as DependencyRef[]);
+        if (!haveProject && projectId != null) {
+          const [lRes, cRes] = await Promise.all([
             api.fetchProjectLabels(projectId),
             api.fetchProjectCards(projectId),
           ]);
-          if (!cancelled && labelsRes.success && Array.isArray(labelsRes.data)) setProjectLabels(labelsRes.data as Label[]);
-          // Eager-load project cards so the dependencies picker, parent
-          // breadcrumb, and hierarchy view all share one cached list.
-          if (!cancelled && cardsRes.success && Array.isArray(cardsRes.data)) setProjectCards(cardsRes.data as DependencyRef[]);
-        }
-        const [aRes, availRes] = await Promise.all([
-          api.fetchArtifacts(cardId),
-          api.fetchAvailableArtifacts(cardId),
-        ]);
-        if (!cancelled) {
-          if (aRes.success && Array.isArray(aRes.data)) setArtifacts(aRes.data as Artifact[]);
-          if (availRes.success && Array.isArray(availRes.data)) setAvailableArtifacts(availRes.data as AvailableArtifact[]);
-          setArtifactsLoaded(true);
+          if (cancelled) return;
+          if (lRes.success && Array.isArray(lRes.data)) setProjectLabels(lRes.data as Label[]);
+          if (cRes.success && Array.isArray(cRes.data)) setProjectCards(cRes.data as DependencyRef[]);
         }
       } catch (e) {
         console.error(e);
@@ -284,7 +292,20 @@ export function useCardDetail({
     return () => {
       cancelled = true;
     };
-  }, [cardId]);
+  }, [cardId, knownProjectId]);
+
+  /* ─── Lazy-load the artifact library only when the picker opens ──────── */
+
+  useEffect(() => {
+    if (!showArtifactPicker || availableArtifactsLoaded) return;
+    let cancelled = false;
+    api.fetchAvailableArtifacts(cardId).then(res => {
+      if (cancelled) return;
+      if (res.success && Array.isArray(res.data)) setAvailableArtifacts(res.data as AvailableArtifact[]);
+      setAvailableArtifactsLoaded(true);
+    }).catch(() => { if (!cancelled) setAvailableArtifactsLoaded(true); });
+    return () => { cancelled = true; };
+  }, [showArtifactPicker, availableArtifactsLoaded, cardId]);
 
   /* ─── Esc to close (when not editing) ─────────────────────────────── */
 

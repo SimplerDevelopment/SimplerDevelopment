@@ -65,7 +65,9 @@ export const kanbanColumns = pgTable('kanban_columns', {
   isDone: boolean('is_done').default(false).notNull(),
   wipLimit: integer('wip_limit'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_columns_project_idx').on(t.projectId),
+]);
 
 export const kanbanCards = pgTable('kanban_cards', {
   id: serial('id').primaryKey(),
@@ -101,6 +103,9 @@ export const kanbanCards = pgTable('kanban_cards', {
 }, (t) => [
   index('kanban_cards_campaign_idx').on(t.campaignId),
   index('kanban_cards_scheduled_for_idx').on(t.scheduledFor),
+  // Every board load filters cards by project and groups them by column.
+  index('kanban_cards_project_idx').on(t.projectId),
+  index('kanban_cards_column_idx').on(t.columnId),
 ]);
 
 export const supportTickets = pgTable('support_tickets', {
@@ -147,7 +152,9 @@ export const kanbanCardFiles = pgTable('kanban_card_files', {
   fileSize: integer('file_size').notNull(),
   url: varchar('url', { length: 500 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_files_card_idx').on(t.cardId),
+]);
 
 export const kanbanCardComments = pgTable('kanban_card_comments', {
   id: serial('id').primaryKey(),
@@ -157,7 +164,9 @@ export const kanbanCardComments = pgTable('kanban_card_comments', {
   mentions: json('mentions').$type<number[]>().default([]),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_comments_card_idx').on(t.cardId),
+]);
 
 export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
   id: serial('id').primaryKey(),
@@ -167,7 +176,9 @@ export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
   note: text('note'),
   loggedAt: timestamp('logged_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_time_logs_card_idx').on(t.cardId),
+]);
 
 export const kanbanLabels = pgTable('kanban_labels', {
   id: serial('id').primaryKey(),
@@ -190,7 +201,9 @@ export const kanbanCardActivities = pgTable('kanban_card_activities', {
   type: varchar('type', { length: 50 }).notNull(),
   payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_activities_card_idx').on(t.cardId),
+]);
 
 export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
   id: serial('id').primaryKey(),
@@ -202,7 +215,9 @@ export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
   completedBy: integer('completed_by').references(() => users.id, { onDelete: 'set null' }),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_checklist_items_card_idx').on(t.cardId),
+]);
 
 export const kanbanCardAssignees = pgTable('kanban_card_assignees', {
   cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
@@ -220,7 +235,12 @@ export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
   blockedCardId: integer('blocked_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
   blockerCardId: integer('blocker_card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-}, (t) => ({ pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }) }));
+}, (t) => ({
+  pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }),
+  // The PK covers blockedCardId lookups; the "blocking" (reverse) query filters
+  // on blockerCardId, which the composite PK can't serve efficiently.
+  blockerIdx: index('kanban_card_dependencies_blocker_idx').on(t.blockerCardId),
+}));
 
 // Event-log of every change to a sprint's scope. This is what powers burndown/
 // velocity charts — by replaying events between sprint.startDate and a point in
@@ -253,7 +273,9 @@ export const kanbanCardArtifacts = pgTable('kanban_card_artifacts', {
   pinned: boolean('pinned').default(false).notNull(),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_card_artifacts_card_idx').on(t.cardId),
+]);
 
 // Polymorphic link from a project to any artifact owned by the same client.
 // Mirrors kanban_card_artifacts and crm_deal_artifacts; the artifact_type

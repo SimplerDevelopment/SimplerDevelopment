@@ -47,124 +47,132 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (!result) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
     const { card } = result;
 
-    const comments = await db
-      .select({
-        id: kanbanCardComments.id,
-        body: kanbanCardComments.body,
-        mentions: kanbanCardComments.mentions,
-        createdAt: kanbanCardComments.createdAt,
-        userId: kanbanCardComments.userId,
-        userName: users.name,
-      })
-      .from(kanbanCardComments)
-      .leftJoin(users, eq(kanbanCardComments.userId, users.id))
-      .where(eq(kanbanCardComments.cardId, cardId))
-      .orderBy(asc(kanbanCardComments.createdAt));
-
     const role = getRole(session);
     const isStaff = role === 'admin' || role === 'employee';
-
-    const timeLogs = isStaff
-      ? await db
-          .select({
-            id: kanbanCardTimeLogs.id,
-            minutes: kanbanCardTimeLogs.minutes,
-            note: kanbanCardTimeLogs.note,
-            loggedAt: kanbanCardTimeLogs.loggedAt,
-            userId: kanbanCardTimeLogs.userId,
-            userName: users.name,
-          })
-          .from(kanbanCardTimeLogs)
-          .leftJoin(users, eq(kanbanCardTimeLogs.userId, users.id))
-          .where(eq(kanbanCardTimeLogs.cardId, cardId))
-          .orderBy(desc(kanbanCardTimeLogs.loggedAt))
-      : [];
-
-    const files = await db
-      .select({
-        id: kanbanCardFiles.id,
-        originalName: kanbanCardFiles.originalName,
-        mimeType: kanbanCardFiles.mimeType,
-        fileSize: kanbanCardFiles.fileSize,
-        url: kanbanCardFiles.url,
-        commentId: kanbanCardFiles.commentId,
-        userId: kanbanCardFiles.userId,
-        createdAt: kanbanCardFiles.createdAt,
-        userName: users.name,
-      })
-      .from(kanbanCardFiles)
-      .leftJoin(users, eq(kanbanCardFiles.userId, users.id))
-      .where(eq(kanbanCardFiles.cardId, cardId))
-      .orderBy(asc(kanbanCardFiles.createdAt));
-
-    const labels = await db
-      .select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
-      .from(kanbanCardLabels)
-      .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
-      .where(eq(kanbanCardLabels.cardId, cardId))
-      .orderBy(asc(kanbanLabels.name));
-
-    const activities = await db
-      .select({
-        id: kanbanCardActivities.id,
-        type: kanbanCardActivities.type,
-        payload: kanbanCardActivities.payload,
-        createdAt: kanbanCardActivities.createdAt,
-        userId: kanbanCardActivities.userId,
-        userName: users.name,
-      })
-      .from(kanbanCardActivities)
-      .leftJoin(users, eq(users.id, kanbanCardActivities.userId))
-      .where(eq(kanbanCardActivities.cardId, cardId))
-      .orderBy(desc(kanbanCardActivities.createdAt))
-      .limit(200);
-
-    const [project] = await db.select({ projectKey: projects.projectKey }).from(projects).where(eq(projects.id, card.projectId)).limit(1);
-    const projectKey = project?.projectKey ?? null;
-    const key = projectKey && card.number != null ? `${projectKey}-${card.number}` : null;
-
-    const checklist = await db.select().from(kanbanCardChecklistItems)
-      .where(eq(kanbanCardChecklistItems.cardId, cardId))
-      .orderBy(asc(kanbanCardChecklistItems.order), asc(kanbanCardChecklistItems.id));
-
-    const assignees = await db
-      .select({ id: users.id, name: users.name, email: users.email })
-      .from(kanbanCardAssignees)
-      .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
-      .where(eq(kanbanCardAssignees.cardId, cardId))
-      .orderBy(asc(users.name));
-
-    const watcherRows = await db
-      .select({ userId: kanbanCardWatchers.userId })
-      .from(kanbanCardWatchers)
-      .where(eq(kanbanCardWatchers.cardId, cardId));
-    const watcherIds = watcherRows.map(w => w.userId);
     const sessUserId = parseInt(session.user.id, 10);
+
+    // These are all independent given the card id. Run them in one parallel
+    // batch rather than ~10 sequential round-trips — this was the dominant
+    // card-open latency source. timeLogs is staff-only (resolves to [] otherwise).
+    const [
+      comments,
+      timeLogs,
+      files,
+      labels,
+      activities,
+      projectRow,
+      checklist,
+      assignees,
+      watcherRows,
+      blockers,
+      blocking,
+    ] = await Promise.all([
+      db
+        .select({
+          id: kanbanCardComments.id,
+          body: kanbanCardComments.body,
+          mentions: kanbanCardComments.mentions,
+          createdAt: kanbanCardComments.createdAt,
+          userId: kanbanCardComments.userId,
+          userName: users.name,
+        })
+        .from(kanbanCardComments)
+        .leftJoin(users, eq(kanbanCardComments.userId, users.id))
+        .where(eq(kanbanCardComments.cardId, cardId))
+        .orderBy(asc(kanbanCardComments.createdAt)),
+      isStaff
+        ? db
+            .select({
+              id: kanbanCardTimeLogs.id,
+              minutes: kanbanCardTimeLogs.minutes,
+              note: kanbanCardTimeLogs.note,
+              loggedAt: kanbanCardTimeLogs.loggedAt,
+              userId: kanbanCardTimeLogs.userId,
+              userName: users.name,
+            })
+            .from(kanbanCardTimeLogs)
+            .leftJoin(users, eq(kanbanCardTimeLogs.userId, users.id))
+            .where(eq(kanbanCardTimeLogs.cardId, cardId))
+            .orderBy(desc(kanbanCardTimeLogs.loggedAt))
+        : Promise.resolve([] as { id: number; minutes: number; note: string | null; loggedAt: Date; userId: number | null; userName: string | null }[]),
+      db
+        .select({
+          id: kanbanCardFiles.id,
+          originalName: kanbanCardFiles.originalName,
+          mimeType: kanbanCardFiles.mimeType,
+          fileSize: kanbanCardFiles.fileSize,
+          url: kanbanCardFiles.url,
+          commentId: kanbanCardFiles.commentId,
+          userId: kanbanCardFiles.userId,
+          createdAt: kanbanCardFiles.createdAt,
+          userName: users.name,
+        })
+        .from(kanbanCardFiles)
+        .leftJoin(users, eq(kanbanCardFiles.userId, users.id))
+        .where(eq(kanbanCardFiles.cardId, cardId))
+        .orderBy(asc(kanbanCardFiles.createdAt)),
+      db
+        .select({ id: kanbanLabels.id, name: kanbanLabels.name, color: kanbanLabels.color })
+        .from(kanbanCardLabels)
+        .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+        .where(eq(kanbanCardLabels.cardId, cardId))
+        .orderBy(asc(kanbanLabels.name)),
+      db
+        .select({
+          id: kanbanCardActivities.id,
+          type: kanbanCardActivities.type,
+          payload: kanbanCardActivities.payload,
+          createdAt: kanbanCardActivities.createdAt,
+          userId: kanbanCardActivities.userId,
+          userName: users.name,
+        })
+        .from(kanbanCardActivities)
+        .leftJoin(users, eq(users.id, kanbanCardActivities.userId))
+        .where(eq(kanbanCardActivities.cardId, cardId))
+        .orderBy(desc(kanbanCardActivities.createdAt))
+        .limit(200),
+      db.select({ projectKey: projects.projectKey }).from(projects).where(eq(projects.id, card.projectId)).limit(1),
+      db.select().from(kanbanCardChecklistItems)
+        .where(eq(kanbanCardChecklistItems.cardId, cardId))
+        .orderBy(asc(kanbanCardChecklistItems.order), asc(kanbanCardChecklistItems.id)),
+      db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(kanbanCardAssignees)
+        .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+        .where(eq(kanbanCardAssignees.cardId, cardId))
+        .orderBy(asc(users.name)),
+      db
+        .select({ userId: kanbanCardWatchers.userId })
+        .from(kanbanCardWatchers)
+        .where(eq(kanbanCardWatchers.cardId, cardId)),
+      db
+        .select({
+          id: kanbanCards.id,
+          title: kanbanCards.title,
+          number: kanbanCards.number,
+          columnIsDone: kanbanColumns.isDone,
+        })
+        .from(kanbanCardDependencies)
+        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+        .where(eq(kanbanCardDependencies.blockedCardId, cardId)),
+      db
+        .select({
+          id: kanbanCards.id,
+          title: kanbanCards.title,
+          number: kanbanCards.number,
+          columnIsDone: kanbanColumns.isDone,
+        })
+        .from(kanbanCardDependencies)
+        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockedCardId))
+        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+        .where(eq(kanbanCardDependencies.blockerCardId, cardId)),
+    ]);
+
+    const projectKey = projectRow[0]?.projectKey ?? null;
+    const key = projectKey && card.number != null ? `${projectKey}-${card.number}` : null;
+    const watcherIds = watcherRows.map(w => w.userId);
     const watching = watcherIds.includes(sessUserId);
-
-    const blockers = await db
-      .select({
-        id: kanbanCards.id,
-        title: kanbanCards.title,
-        number: kanbanCards.number,
-        columnIsDone: kanbanColumns.isDone,
-      })
-      .from(kanbanCardDependencies)
-      .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
-      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-      .where(eq(kanbanCardDependencies.blockedCardId, cardId));
-
-    const blocking = await db
-      .select({
-        id: kanbanCards.id,
-        title: kanbanCards.title,
-        number: kanbanCards.number,
-        columnIsDone: kanbanColumns.isDone,
-      })
-      .from(kanbanCardDependencies)
-      .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockedCardId))
-      .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-      .where(eq(kanbanCardDependencies.blockerCardId, cardId));
 
     const decorate = (list: typeof blockers) => list.map(r => ({
       ...r,
