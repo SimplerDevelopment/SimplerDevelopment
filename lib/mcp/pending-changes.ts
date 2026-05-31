@@ -52,6 +52,15 @@ interface StageOrApplyOpts<T> {
   payload: unknown;
   originalSnapshot?: unknown;
   apply: () => Promise<T>;
+  /**
+   * Bypass the approval gate and apply directly, even when the key has
+   * `require_cms_approval`. Use for writes with NO live impact — e.g. editing
+   * an unpublished draft/fork, whose own publish step is the real gate. Without
+   * this, a require-approval key staging an edit to a draft would orphan the
+   * change in a separate pending_change row, divorced from the draft's own
+   * entity approval link (the edit silently never reaches the draft row).
+   */
+  skipApproval?: boolean;
 }
 
 /**
@@ -86,9 +95,9 @@ async function keyRequiresApproval(keyId: number): Promise<boolean> {
  *   return json(result.data);
  */
 export async function stageOrApply<T>(opts: StageOrApplyOpts<T>): Promise<StageOrApplyResult<T>> {
-  const { ctx, entityType, entityId, operation, summary, payload, originalSnapshot, apply } = opts;
+  const { ctx, entityType, entityId, operation, summary, payload, originalSnapshot, apply, skipApproval } = opts;
 
-  const mustStage = await keyRequiresApproval(ctx.keyId);
+  const mustStage = !skipApproval && (await keyRequiresApproval(ctx.keyId));
   if (!mustStage) {
     const data = await apply();
     // Fan out to any open editors for this entity. Fire-and-forget — we
