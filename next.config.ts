@@ -26,7 +26,10 @@ const SECURITY_HEADERS = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self), interest-cohort=()' },
+  // microphone=(self) enables the portal's WebRTC voice assistant (getUserMedia)
+  // on same-origin pages. Camera stays disabled. If we later want mic limited to
+  // /portal only, move this header into middleware keyed on the pathname.
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(self), payment=(self), interest-cohort=()' },
   { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
 ];
 

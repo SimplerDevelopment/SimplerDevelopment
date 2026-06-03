@@ -139,6 +139,37 @@ export async function resolvePortalSite(userId: number, siteId: number) {
 }
 
 /**
+ * Resolve a website the URL's `[siteId]` refers to, scoped across ALL clients
+ * the user can access — NOT just the active/preferred one. This mirrors the
+ * access check in `app/portal/websites/[siteId]/layout.tsx`, so deep links and
+ * cross-client navigation don't 404 when the site belongs to a non-active
+ * accessible client (a portal user can have multiple clients/sites).
+ *
+ * Returns the full site row plus its OWNING client (use this, not the active
+ * client, for any client-scoped data on the page — e.g. a new post's clientId).
+ * Returns null when the user has no access to that site → callers should
+ * `notFound()`.
+ */
+export async function resolvePortalSite(userId: number, siteId: number) {
+  if (Number.isNaN(siteId)) return null;
+  const accessible = await getPortalClients(userId);
+  if (accessible.length === 0) return null;
+  const [site] = await db
+    .select()
+    .from(clientWebsites)
+    .where(
+      and(
+        eq(clientWebsites.id, siteId),
+        inArray(clientWebsites.clientId, accessible.map((c) => c.id)),
+      ),
+    )
+    .limit(1);
+  if (!site) return null;
+  const client = accessible.find((c) => c.id === site.clientId) ?? accessible[0];
+  return { site, client };
+}
+
+/**
  * Returns the user's role on a specific client, or null if the user has no
  * access. 'owner' is returned for legacy direct-owned rows (clients.userId)
  * even when no clientMembers record exists.
