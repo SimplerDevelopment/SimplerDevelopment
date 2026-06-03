@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory } from '@/lib/db/schema';
-import { and, eq, asc } from 'drizzle-orm';
+import { orders, orderItems, orderStatusHistory, productDesigns } from '@/lib/db/schema';
+import { and, eq, asc, isNull } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import {
   sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
@@ -32,10 +32,66 @@ export async function GET(_req: Request, { params }: Params) {
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  const [items, history] = await Promise.all([
-    db.select().from(orderItems).where(eq(orderItems.orderId, order.id)),
+  // Left-join productDesigns so the admin can see the saved-design
+  // thumbnail/name inline with each order line (or a "Design no longer
+  // available" placeholder when the design row has been deleted but the
+  // FK is still on the order item — designId column stays via ON DELETE
+  // SET NULL on the runtime FK, but the customer can also soft-delete
+  // their design which the join handles via isNull(deletedAt)).
+  const [itemsWithDesign, history] = await Promise.all([
+    db.select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      designId: orderItems.designId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      sku: orderItems.sku,
+      unitPrice: orderItems.unitPrice,
+      quantity: orderItems.quantity,
+      total: orderItems.total,
+      createdAt: orderItems.createdAt,
+      designIdRow: productDesigns.id,
+      designUuid: productDesigns.uuid,
+      designName: productDesigns.name,
+      designThumbnailUrl: productDesigns.thumbnailUrl,
+    })
+      .from(orderItems)
+      .leftJoin(productDesigns, and(
+        eq(productDesigns.id, orderItems.designId),
+        isNull(productDesigns.deletedAt),
+      ))
+      .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(asc(orderStatusHistory.createdAt)),
   ]);
+
+  const items = itemsWithDesign.map(row => ({
+    id: row.id,
+    orderId: row.orderId,
+    productId: row.productId,
+    variantId: row.variantId,
+    designId: row.designId,
+    productName: row.productName,
+    variantName: row.variantName,
+    sku: row.sku,
+    unitPrice: row.unitPrice,
+    quantity: row.quantity,
+    total: row.total,
+    createdAt: row.createdAt,
+    // `design` resolves to null both when the order line has no designId
+    // AND when it referenced a now-deleted design — the UI renders
+    // "Design no longer available" in the second case (using the
+    // row.designId hint).
+    design: row.designIdRow
+      ? {
+          id: row.designIdRow,
+          uuid: row.designUuid,
+          name: row.designName,
+          thumbnailUrl: row.designThumbnailUrl,
+        }
+      : null,
+  }));
 
   return NextResponse.json({
     success: true,

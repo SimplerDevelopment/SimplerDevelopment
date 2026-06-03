@@ -93,6 +93,7 @@ export async function POST(
       id: cartItems.id,
       productId: cartItems.productId,
       variantId: cartItems.variantId,
+      designId: cartItems.designId,
       quantity: cartItems.quantity,
       unitPrice: cartItems.unitPrice,
     })
@@ -124,6 +125,7 @@ export async function POST(
     const orderItemsData: {
       productId: number;
       variantId: number | null;
+      designId: number | null;
       productName: string;
       variantName: string | null;
       sku: string | null;
@@ -187,6 +189,7 @@ export async function POST(
       orderItemsData.push({
         productId: item.productId,
         variantId: item.variantId,
+        designId: item.designId,
         productName: product.name,
         variantName: variant?.name || null,
         sku: variant?.sku || product.sku || null,
@@ -384,6 +387,11 @@ export async function POST(
         orderId: order.id,
         productId: item.productId,
         variantId: item.variantId,
+        // Carry the saved-design FK forward so the order detail (admin
+        // + storefront) can render the design thumbnail and the
+        // fulfillment team has a permanent link back to the customer's
+        // canvas.
+        designId: item.designId,
         productName: item.productName,
         variantName: item.variantName,
         sku: item.sku,

@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import {
   storeSettings, carts, cartItems, products, productImages,
   productVariants, designs,
 } from '@/lib/db/schema';
-import { eq, and, asc, sql } from 'drizzle-orm';
+import { eq, and, asc, isNull, sql } from 'drizzle-orm';
 import { extractToken, validateSession } from '@/lib/storefront/customer-auth';
 
 async function verifyStore(websiteId: number) {
@@ -52,19 +52,26 @@ export async function GET(
       return NextResponse.json({ success: true, data: { items: [], subtotal: 0 } });
     }
 
-    // Fetch cart items with product details
+    // Fetch cart items with product details + (optional) saved-design info.
+    // Left-join on designs so storefront can render the design
+    // thumbnail/name and an "Edit design" link without a second round-trip.
     const items = await db.select({
       id: cartItems.id,
       productId: cartItems.productId,
       variantId: cartItems.variantId,
+      designId: cartItems.designId,
       quantity: cartItems.quantity,
       unitPrice: cartItems.unitPrice,
       productName: products.name,
       productSlug: products.slug,
       productStatus: products.status,
+      designRowId: designs.id,
+      designName: designs.name,
+      designThumbnailUrl: designs.thumbnailUrl,
     })
       .from(cartItems)
       .innerJoin(products, eq(products.id, cartItems.productId))
+      .leftJoin(designs, eq(designs.id, cartItems.designId))
       .where(eq(cartItems.cartId, cart.id));
 
     // Fetch first image per product
@@ -108,6 +115,7 @@ export async function GET(
       id: item.id,
       productId: item.productId,
       variantId: item.variantId,
+      designId: item.designId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       lineTotal: item.unitPrice * item.quantity,
@@ -115,6 +123,16 @@ export async function GET(
       productSlug: item.productSlug,
       variantName: item.variantId ? (variantsMap[item.variantId] || null) : null,
       image: imagesMap[item.productId] || null,
+      // `design` is null when (a) no designId on the row, or (b) the
+      // referenced design has been soft-deleted (left-join misses on
+      // `isNull(deletedAt)`).
+      design: item.designRowId
+        ? {
+            id: item.designRowId,
+            name: item.designName,
+            thumbnailUrl: item.designThumbnailUrl,
+          }
+        : null,
     }));
 
     const subtotal = enrichedItems.reduce((sum, i) => sum + i.lineTotal, 0);
@@ -135,7 +153,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ siteId: string }> }
 ) {
   try {
@@ -151,7 +169,13 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { sessionId, productId, variantId, quantity = 1, designId } = body;
+    const { sessionId, productId, variantId, quantity = 1, designId } = body as {
+      sessionId?: string;
+      productId?: number;
+      variantId?: number | null;
+      quantity?: number;
+      designId?: string | null;
+    };
 
     if (!sessionId || !productId) {
       return NextResponse.json({ success: false, message: 'sessionId and productId are required' }, { status: 400 });
@@ -246,7 +270,8 @@ export async function POST(
       cart = newCart;
     }
 
-    // Check if item already exists in cart — designed items are always treated as a new line
+    // Check if item already exists in cart. Each unique (product, variant,
+    // design) tuple is its own line — designed items are always treated as a new line
     // (different design = different fulfillment), so skip the merge when designId is present.
     const existingConditions = [
       eq(cartItems.cartId, cart.id),
@@ -254,6 +279,13 @@ export async function POST(
     ];
     if (variantId) {
       existingConditions.push(eq(cartItems.variantId, variantId));
+    } else {
+      existingConditions.push(isNull(cartItems.variantId));
+    }
+    if (designId != null) {
+      existingConditions.push(eq(cartItems.designId, designId));
+    } else {
+      existingConditions.push(isNull(cartItems.designId));
     }
 
     const existing = !designId ? (await db.select().from(cartItems)

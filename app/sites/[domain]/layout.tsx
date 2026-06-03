@@ -176,7 +176,8 @@ export default async function ClientSiteLayout({ children, params }: LayoutProps
     sitePathname.includes('/nav-preview') ||
     sitePathname.startsWith('/pitch-deck') ||
     sitePathname.startsWith('/slides') ||
-    sitePathname.startsWith('/designer')
+    sitePathname.startsWith('/designer') ||
+    sitePathname.startsWith('/design/')
   ) {
     return <>{children}</>;
   }

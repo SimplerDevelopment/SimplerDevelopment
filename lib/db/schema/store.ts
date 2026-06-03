@@ -118,6 +118,10 @@ export const products = pgTable('products', {
   seoDescription: text('seo_description'),
   tags: json('tags').$type<string[]>().default([]),
   metadata: json('metadata').$type<Record<string, string>>(),
+  // When true, this product is opened in the custom designer (see
+  // lib/db/schema/productDesigner.ts). Storefront/admin checks this to flip
+  // the "Design it" CTA on and gate productStyles/productSides reads.
+  designable: boolean('designable').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
