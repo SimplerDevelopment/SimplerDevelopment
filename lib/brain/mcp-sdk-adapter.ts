@@ -372,7 +372,10 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
     },
     async (args) => {
       if (!hasScope(ctx.scopes, 'brain:read')) return denied('brain:read');
-      return json(await listMeetings(clientId, { status: args.status, limit: args.limit }));
+      // MCP consumers historically received full rows including transcripts;
+      // keep that behaviour explicit via `includeTranscript: true` so the slim
+      // default list path doesn't silently strip fields a model might rely on.
+      return json(await listMeetings(clientId, { status: args.status, limit: args.limit, includeTranscript: true }));
     },
   );
 
@@ -891,7 +894,9 @@ export function registerBrainToolsOnSdk(server: McpServer, ctx: PortalMcpContext
         trashed: args.trashed,
       };
       const [notes, total] = await Promise.all([
-        listNotes(clientId, { ...filters, limit, offset }),
+        // includeBody: true because this MCP tool returns a 400-char preview
+        // and the body length; the default slim list projection drops body.
+        listNotes(clientId, { ...filters, limit, offset, includeBody: true }),
         countNotes(clientId, filters),
       ]);
       // Trim bodies for list responses; full body is available via brain_get_note.
