@@ -54,6 +54,12 @@ vi.mock('@/lib/email', () => ({
   renderBlocksToEmailHtml: (...args: unknown[]) => renderBlocksToEmailHtmlMock(...args),
 }));
 
+// sanitize-html passthrough — lets rendered HTML survive the sanitization step
+vi.mock('@/lib/security/sanitize-html', () => ({
+  sanitizeHtml: (html: string) => html,
+  sanitizeRichHtml: (html: string) => html,
+}));
+
 // drizzle-orm operators — inert objects
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),

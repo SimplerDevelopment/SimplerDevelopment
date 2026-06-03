@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Unit tests for 4 small UI components (batch 40g):
@@ -134,7 +135,7 @@ describe('ThemeToggle', () => {
   it('renders a button labelled "Toggle theme"', () => {
     render(<ThemeToggle />);
     expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeTruthy();
-  });
+  }, 15_000);
 
   it('renders the moon icon path when resolvedTheme is "light"', () => {
     themeState.resolvedTheme = 'light';
@@ -213,7 +214,7 @@ describe('AccordionItem', () => {
     expect(screen.getByText('Body text')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Toggle me/ }));
     expect(screen.queryByText('Body text')).toBeNull();
-  });
+  }, 15_000);
 
   it('adds the rotate-180 class to the chevron when open', () => {
     const { container } = render(

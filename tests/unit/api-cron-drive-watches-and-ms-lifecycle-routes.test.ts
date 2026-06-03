@@ -94,6 +94,10 @@ vi.mock('drizzle-orm', () => ({
   inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
+vi.mock('@/lib/db/schema/cronHealth', () => ({
+  cronHealth: { name: 'cron_health.name' },
+}));
+
 vi.mock('@/lib/db', () => {
   function makeDriveSelect() {
     const chain: Record<string, unknown> = {};
@@ -121,6 +125,11 @@ vi.mock('@/lib/db', () => {
           updateCalls.push({ table: table?._name ?? 'unknown', set: values });
           return { where: () => Promise.resolve() };
         },
+      }),
+      insert: () => ({
+        values: () => ({
+          onConflictDoUpdate: () => Promise.resolve(),
+        }),
       }),
     },
   };
@@ -395,9 +404,11 @@ describe('GET /api/cron/renew-drive-watches', () => {
     expect(subscribeDriveChangesMock).toHaveBeenCalledTimes(1);
     expect(stopDriveChangesMock).not.toHaveBeenCalled();
     expect(getDriveStartPageTokenMock).not.toHaveBeenCalled();
-    // The final update should write the new channel fields.
-    const lastUpdate = updateCalls[updateCalls.length - 1];
-    expect(lastUpdate.set).toMatchObject({
+    // Find the update that wrote the new channel fields (withCronHealth may add
+    // additional db.update calls for health tracking after the handler returns).
+    const channelUpdate = updateCalls.find((u) => 'driveChannelId' in u.set);
+    expect(channelUpdate).toBeDefined();
+    expect(channelUpdate!.set).toMatchObject({
       driveChannelId: 'ch-new',
       driveChannelResourceId: 'rid-new',
       driveChannelToken: 'tok-new',

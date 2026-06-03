@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -167,7 +168,7 @@ describe('SectionsPanel — CTA block', () => {
     expect(onChange).toHaveBeenCalledWith({ primaryButtonUrl: 'http://btn' });
     expect(onChange).toHaveBeenCalledWith({ secondaryButtonText: 'BTN2' });
     expect(onChange).toHaveBeenCalledWith({ secondaryButtonUrl: 'http://btn2' });
-  });
+  }, 15000);
 
   it('defaults backgroundStyle to gradient when block.backgroundStyle missing', () => {
     const noBg = { ...baseCta, backgroundStyle: undefined };

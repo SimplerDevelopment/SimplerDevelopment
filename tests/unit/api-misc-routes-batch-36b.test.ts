@@ -707,6 +707,7 @@ describe('PATCH /api/portal/project-webhooks/[id]', () => {
     selectQueue.push([{ id: 7, projectId: 100, secret: 'abcdefghij' }]);
     getPortalClientMock.mockResolvedValueOnce({ id: 9 });
     selectQueue.push([{ id: 100, clientId: 9, isPrivate: true }]);
+    selectQueue.push([{ role: 'owner' }]); // projectMembers → canUserEditProject → true
     validateWebhookUrlMock.mockReturnValueOnce({ ok: false, reason: 'bad host' });
 
     const res = await projectWebhookIdRoute.PATCH(
@@ -722,6 +723,7 @@ describe('PATCH /api/portal/project-webhooks/[id]', () => {
     selectQueue.push([{ id: 7, projectId: 100, secret: 'abcdefghij' }]);
     getPortalClientMock.mockResolvedValueOnce({ id: 9 });
     selectQueue.push([{ id: 100, clientId: 9, isPrivate: true }]);
+    selectQueue.push([{ role: 'owner' }]); // projectMembers → canUserEditProject → true
     validateWebhookUrlMock.mockReturnValueOnce({ ok: true });
     writeReturnQueue.push([
       { id: 7, projectId: 100, url: 'https://ok', events: ['x', 'y'], active: true, secret: 'abcdefghij' },
@@ -819,6 +821,7 @@ describe('DELETE /api/portal/project-webhooks/[id]', () => {
     selectQueue.push([{ id: 7, projectId: 100, secret: 'abcdef' }]);
     getPortalClientMock.mockResolvedValueOnce({ id: 9 });
     selectQueue.push([{ id: 100, clientId: 9, isPrivate: true }]);
+    selectQueue.push([{ role: 'owner' }]); // projectMembers → canUserEditProject → true
     const res = await projectWebhookIdRoute.DELETE(
       makeReq('http://x', { method: 'DELETE' }),
       { params: Promise.resolve({ id: '7' }) },

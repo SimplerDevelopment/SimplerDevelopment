@@ -294,7 +294,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([]); // no proposal
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'test@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(404);
@@ -308,7 +308,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       { id: 9, clientToken: 'tok123', status: 'accepted' },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'test@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(400);
@@ -332,7 +332,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'client@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(200);
@@ -358,7 +358,7 @@ describe('POST /api/portal/crm/proposals/[id]/send', () => {
       { id: 9, clientToken: 'tok123', status: 'sent' },
     ]);
     const res = await proposalsSendRoute.POST(
-      makeReq('http://x/api/portal/crm/proposals/9/send', { method: 'POST' }),
+      makeJsonReq('http://x/api/portal/crm/proposals/9/send', 'POST', { recipientEmail: 'client@example.com' }),
       { params: Promise.resolve({ id: '9' }) },
     );
     expect(res.status).toBe(200);

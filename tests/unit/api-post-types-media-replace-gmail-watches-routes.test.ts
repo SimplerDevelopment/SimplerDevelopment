@@ -213,6 +213,16 @@ vi.mock('@/lib/google/tenant-credentials', () => ({
     getTenantWorkspaceCredentialsByClientIdMock(...args),
 }));
 
+// Mock cron-health so withCronHealth is a transparent passthrough — prevents
+// the DB insert(..).values(..).onConflictDoUpdate TypeError and the extra
+// db.update() call from recordSuccess() polluting updateSpy assertions.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _opts: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
+}));
+
 // ===========================================================================
 // /api/post-types/[id]
 // ===========================================================================

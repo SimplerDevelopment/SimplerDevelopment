@@ -173,7 +173,9 @@ describe('lib/automation/engine.ts', () => {
     initAutomationEngine();
     initAutomationEngine();
     initAutomationEngine();
-    expect(onEventSpy).toHaveBeenCalledTimes(1);
+    // initAutomationEngine calls onEvent twice per init (processEvent + processEventForPlaybookAutoStart)
+    // but the initialized guard means only the first call to initAutomationEngine registers.
+    expect(onEventSpy).toHaveBeenCalledTimes(2);
   });
 
   it('processEvent skips rules whose trigger event does not match', async () => {

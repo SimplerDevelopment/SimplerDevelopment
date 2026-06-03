@@ -41,11 +41,10 @@ vi.mock('drizzle-orm', () => ({
   count: (a?: unknown) => ({ op: 'count', a }),
   sum: (a: unknown) => ({ op: 'sum', a }),
   sql: Object.assign(
-    (strings: TemplateStringsArray, ...values: unknown[]) => ({
-      op: 'sql',
-      strings: Array.from(strings),
-      values,
-    }),
+    (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const node = { op: 'sql', strings: Array.from(strings), values, as: (alias: string) => ({ op: 'sql-alias', alias, strings: Array.from(strings), values }) };
+      return node;
+    },
     {
       raw: (s: string) => ({ op: 'sql-raw', s }),
     },
@@ -130,6 +129,12 @@ const htmlToTextMock = vi.fn((h: string) => `text:${h}`);
 vi.mock('@/lib/email/render-cache', () => ({
   getOrRenderCampaignHtml: (...args: unknown[]) => getOrRenderCampaignHtmlMock(...args),
   htmlToText: (h: string) => htmlToTextMock(h),
+}));
+
+// sanitize-html passthrough — lets rendered HTML survive the sanitization step
+vi.mock('@/lib/security/sanitize-html', () => ({
+  sanitizeHtml: (html: string) => html,
+  sanitizeRichHtml: (html: string) => html,
 }));
 
 // ===========================================================================
@@ -358,12 +363,13 @@ describe('GET /api/portal/email/analytics', () => {
       { id: 11, name: 'List A' },
       { id: 12, name: 'List B' },
     ]);
-    // List A: total=20, active=15
-    selectQueue.push([{ count: 20 }]);
-    selectQueue.push([{ count: 15 }]);
-    // List B: total=10, active=8
-    selectQueue.push([{ count: 10 }]);
-    selectQueue.push([{ count: 8 }]);
+    // Single grouped query: (listId, status, count) rows for both lists
+    selectQueue.push([
+      { listId: 11, status: 'active',       count: 15 },
+      { listId: 11, status: 'unsubscribed', count:  5 },
+      { listId: 12, status: 'active',       count:  8 },
+      { listId: 12, status: 'unsubscribed', count:  2 },
+    ]);
     selectQueue.push([
       {
         id: 91,
@@ -391,8 +397,8 @@ describe('GET /api/portal/email/analytics', () => {
     expect(body.data.subscribers.active).toBe(23);
     expect(body.data.subscribers.totalLists).toBe(2);
     expect(body.data.subscribers.listBreakdown).toEqual([
-      { id: 11, name: 'List A', total: 20, active: 15 },
-      { id: 12, name: 'List B', total: 10, active: 8 },
+      { id: 11, name: 'List A', total: 20, active: 15, unsubscribed: 5, bounced: 0 },
+      { id: 12, name: 'List B', total: 10, active: 8,  unsubscribed: 2, bounced: 0 },
     ]);
     expect(body.data.recentCampaigns).toHaveLength(1);
     expect(body.data.recentCampaigns[0].name).toBe('Recent 1');

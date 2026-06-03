@@ -77,6 +77,32 @@ vi.mock('@/lib/portal-client', () => ({
   resolveClientSite: (...args: unknown[]) => resolveClientSiteMock(...args),
 }));
 
+// Mock portal-auth so authorizePortal passes when auth() resolves a session,
+// without consuming getPortalClient calls or querying the DB for service access.
+// The route calls requireClient() separately for its own 401 checks.
+vi.mock('@/lib/portal-auth', async () => {
+  const { auth } = await import('@/lib/auth');
+  return {
+    authorizePortal: async (_opts?: unknown) => {
+      const session = await auth();
+      if (!(session as { user?: { id?: string } } | null)?.user?.id) {
+        const { NextResponse } = await import('next/server');
+        return { response: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
+      }
+      const userId = parseInt((session as { user: { id: string } }).user.id, 10);
+      // Return a stub client — the route's own requireClient() does the real lookup.
+      return { client: { id: 10 } as Record<string, unknown>, userId, role: 'owner' };
+    },
+    isAuthError: (result: unknown) =>
+      typeof result === 'object' && result !== null && 'response' in result,
+  };
+});
+
+// sanitizeRichHtml must be a passthrough so rendered block HTML is not mangled.
+vi.mock('@/lib/security/sanitize-html', () => ({
+  sanitizeRichHtml: (html: string) => html,
+}));
+
 // ===========================================================================
 // Orders route external helpers
 // ===========================================================================

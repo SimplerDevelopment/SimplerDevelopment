@@ -170,7 +170,9 @@ vi.mock('@/lib/db', () => {
         deleteCalls.push({ table: table.__table, filter });
         return {
           returning() {
-            return Promise.resolve([]);
+            // Return a sentinel row so the route's `deleted.length === 0` guard
+            // sees a successful delete (non-empty = row was found and deleted).
+            return Promise.resolve([{ id: 1 }]);
           },
           then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
             return Promise.resolve(undefined).then(onF, onR);

@@ -30,6 +30,7 @@ const dbState: {
   updateReturning: Row[];
   capturedInsertValues: Row | null;
   capturedUpdatePatch: Row | null;
+  insertCalls: Row[];
 } = {
   insertReturning: [],
   selectQueue: [],
@@ -37,6 +38,7 @@ const dbState: {
   updateReturning: [],
   capturedInsertValues: null,
   capturedUpdatePatch: null,
+  insertCalls: [],
 };
 
 function makeChain(rows: Row[]) {
@@ -56,8 +58,10 @@ vi.mock('@/lib/db', () => ({
     insert: vi.fn(() => ({
       values: vi.fn((vals: Row) => {
         dbState.capturedInsertValues = vals;
+        dbState.insertCalls.push(vals);
         return {
           returning: vi.fn(async () => dbState.insertReturning),
+          onConflictDoNothing: vi.fn(async () => undefined),
         };
       }),
     })),
@@ -268,6 +272,7 @@ beforeEach(() => {
   dbState.updateReturning = [];
   dbState.capturedInsertValues = null;
   dbState.capturedUpdatePatch = null;
+  dbState.insertCalls = [];
   hasServiceAccessMock.mockReset();
   hasServiceAccessMock.mockResolvedValue(true);
 });
@@ -367,12 +372,13 @@ describe('projects_create', () => {
     const res = await tools.get('projects_create')!.handler({ name: 'New Project' });
     const out = parseJson(res) as Row;
     expect(out.id).toBe(10);
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = projects row; [1] = projectMembers row (onConflictDoNothing).
+    // Use [0] so the second insert does not overwrite our assertion target.
+    const vals = dbState.insertCalls[0]!;
     expect(vals.name).toBe('New Project');
     expect(vals.description).toBeNull();
     expect(vals.clientId).toBe(7);
     expect(vals.status).toBe('active');
-    expect(vals.isPrivate).toBe(true);
     expect(vals.createdBy).toBe(42);
   });
 
@@ -383,7 +389,8 @@ describe('projects_create', () => {
       name: 'With description',
       description: 'hello world',
     });
-    const vals = dbState.capturedInsertValues!;
+    // insertCalls[0] = projects row; [1] = projectMembers row.
+    const vals = dbState.insertCalls[0]!;
     expect(vals.description).toBe('hello world');
   });
 

@@ -84,6 +84,7 @@ vi.mock('drizzle-orm', () => ({
 // ---- in-memory state ----
 
 interface State {
+  clientWebsites: Array<Record<string, unknown>>;
   products: Array<Record<string, unknown>>;
   productImages: Array<Record<string, unknown>>;
   productOptions: Array<Record<string, unknown>>;
@@ -94,6 +95,7 @@ interface State {
 }
 
 const state: State = {
+  clientWebsites: [],
   products: [],
   productImages: [],
   productOptions: [],
@@ -105,6 +107,8 @@ const state: State = {
 
 function tableArray(name: string): Array<Record<string, unknown>> {
   switch (name) {
+    case 'clientWebsites':
+      return state.clientWebsites;
     case 'products':
       return state.products;
     case 'productImages':
@@ -190,7 +194,7 @@ vi.mock('@/lib/db', () => {
           | { __col?: string; __table?: string; __isTable?: boolean }
           | undefined;
         if (colRef && colRef.__isTable) {
-          Object.assign(out, row);
+          out[outKey] = { ...row };
         } else if (colRef?.__col) {
           out[outKey] = row[colRef.__col] ?? null;
         } else {
@@ -222,6 +226,12 @@ vi.mock('@/lib/db', () => {
       },
       limit(n: number) {
         limitVal = n;
+        return chain;
+      },
+      innerJoin() {
+        return chain;
+      },
+      leftJoin() {
         return chain;
       },
       then(
@@ -367,6 +377,7 @@ function ctx(siteId = '1', productId = '1') {
 }
 
 beforeEach(() => {
+  state.clientWebsites.length = 0;
   state.products.length = 0;
   state.productImages.length = 0;
   state.productOptions.length = 0;
@@ -374,6 +385,10 @@ beforeEach(() => {
   state.productVariants.length = 0;
   state.bulkPricingRules.length = 0;
   state.nextImageId = 1;
+
+  // Seed a default site so resolveProduct succeeds for tests that push products.
+  // The route queries clientWebsites filtered by id=1 (the siteId param default).
+  state.clientWebsites.push({ id: 1, clientId: 1, userId: 7 });
 
   authMock.mockReset();
   resolveClientSiteMock.mockReset();
@@ -428,7 +443,7 @@ describe('GET /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('returns product with empty related lists when no related data', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       price: 100,
@@ -448,7 +463,7 @@ describe('GET /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('returns product with related images, variants, and bulk rules', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       price: 100,
@@ -470,7 +485,7 @@ describe('GET /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('returns product with options that include their values (single option)', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -498,7 +513,7 @@ describe('GET /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('returns product with options that include their values (multiple options)', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -550,7 +565,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('updates basic string fields', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       description: 'old',
@@ -586,7 +601,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('coerces int fields from strings', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       price: 100,
@@ -613,7 +628,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('passes null through for nullable int fields', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       compareAtPrice: 200,
@@ -632,7 +647,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('updates boolean fields trackInventory and featured', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       trackInventory: true,
@@ -651,7 +666,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('stringifies weight and accepts null weight', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -669,7 +684,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('updates tags and metadata when provided', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
       tags: ['old'],
@@ -687,13 +702,13 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('returns 409 when changing slug to one that already exists for the site', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
     state.products.push({
       id: 2,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Cap',
       slug: 'cap',
     });
@@ -706,7 +721,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('allows updating slug to its current value (no uniqueness check)', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -719,7 +734,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('allows updating slug to a new unique value', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -732,7 +747,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('allows the same slug on a different website without conflict', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -751,7 +766,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('replaces images when provided as an array', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -790,7 +805,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('clears all images when given an empty array', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -808,7 +823,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('does not touch images when images is not an array', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
@@ -826,7 +841,7 @@ describe('PUT /api/portal/websites/[siteId]/store/products/[productId]', () => {
   it('does not update product fields when body is empty (only updatedAt)', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Original',
       slug: 'orig',
       price: 100,
@@ -884,13 +899,13 @@ describe('DELETE /api/portal/websites/[siteId]/store/products/[productId]', () =
   it('deletes product and returns success', async () => {
     state.products.push({
       id: 1,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Hat',
       slug: 'hat',
     });
     state.products.push({
       id: 2,
-      websiteId: 10,
+      websiteId: 1,
       name: 'Cap',
       slug: 'cap',
     });

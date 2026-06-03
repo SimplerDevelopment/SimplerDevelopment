@@ -223,12 +223,12 @@ describe('POST /api/realtime/token', () => {
     expect(body.message).toBe('Unauthorized');
   });
 
-  it('returns 500 when REALTIME_JWT_SECRET is missing', async () => {
+  it('returns 503 when REALTIME_JWT_SECRET is missing', async () => {
     authMock.mockResolvedValue({ user: { id: '7' } });
     delete process.env.REALTIME_JWT_SECRET;
     const { POST } = await import('@/app/api/realtime/token/route');
     const res = await POST(makeReq({ entityType: 'post', entityId: '1' }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.message).toContain('REALTIME_JWT_SECRET');
   });

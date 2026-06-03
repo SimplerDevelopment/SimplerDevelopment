@@ -414,26 +414,37 @@ describe('GET /api/portal/cms/websites/[siteId]/code', () => {
   it('returns the existing css/js for an owned site', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
-    selectQueue.push([{ id: 1, customCss: 'body{}', customJs: 'noop()' }]);
+    selectQueue.push([{
+      id: 1, customCss: 'body{}', customJs: 'noop()',
+      draftCustomCss: null, draftCustomJs: null,
+      draftUpdatedAt: null, draftUpdatedBy: null,
+    }]);
     const res = await siteCodeRoute.GET(
       new Request('http://x/api/portal/cms/websites/1/code'),
       makeSiteIdOnlyParams('1'),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toEqual({ customCss: 'body{}', customJs: 'noop()' });
+    expect(body.data).toMatchObject({ customCss: 'body{}', customJs: 'noop()' });
+    expect(body.data.hasDraft).toBe(false);
+    expect(body.data.draftUpdatedBy).toBeNull();
   });
 
   it('coalesces null css/js to empty strings', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
-    selectQueue.push([{ id: 1, customCss: null, customJs: null }]);
+    selectQueue.push([{
+      id: 1, customCss: null, customJs: null,
+      draftCustomCss: null, draftCustomJs: null,
+      draftUpdatedAt: null, draftUpdatedBy: null,
+    }]);
     const res = await siteCodeRoute.GET(
       new Request('http://x/api/portal/cms/websites/1/code'),
       makeSiteIdOnlyParams('1'),
     );
     const body = await res.json();
-    expect(body.data).toEqual({ customCss: '', customJs: '' });
+    expect(body.data.customCss).toBe('');
+    expect(body.data.customJs).toBe('');
   });
 });
 
@@ -447,11 +458,15 @@ describe('PUT /api/portal/cms/websites/[siteId]/code', () => {
     expect(res.status).toBe(401);
   });
 
-  it('updates css/js when provided', async () => {
+  it('updates css/js when provided (stored in draft columns)', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 1 }]); // verify
-    updateReturnQueue.push([{ customCss: 'body{}', customJs: 'noop()' }]);
+    updateReturnQueue.push([{
+      customCss: '', customJs: '',
+      draftCustomCss: 'body{}', draftCustomJs: 'noop()',
+      draftUpdatedAt: new Date(), draftUpdatedBy: 7,
+    }]);
     const res = await siteCodeRoute.PUT(
       makeJsonRequest('http://x/api/portal/cms/websites/1/code', 'PUT', {
         customCss: 'body{}',
@@ -460,15 +475,22 @@ describe('PUT /api/portal/cms/websites/[siteId]/code', () => {
       makeSiteIdOnlyParams('1'),
     );
     expect(res.status).toBe(200);
-    expect(updateCalls[0].patch).toMatchObject({ customCss: 'body{}', customJs: 'noop()' });
+    // Route writes to draft columns, not live columns
+    expect(updateCalls[0].patch).toMatchObject({ draftCustomCss: 'body{}', draftCustomJs: 'noop()' });
     expect(updateCalls[0].patch.updatedAt).toBeInstanceOf(Date);
+    expect(updateCalls[0].patch.draftUpdatedAt).toBeInstanceOf(Date);
+    expect(updateCalls[0].patch.draftUpdatedBy).toBe(7);
   });
 
-  it('treats empty string as null for css/js', async () => {
+  it('treats empty string as null for css/js (in draft columns)', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 1 }]);
-    updateReturnQueue.push([{ customCss: null, customJs: null }]);
+    updateReturnQueue.push([{
+      customCss: null, customJs: null,
+      draftCustomCss: null, draftCustomJs: null,
+      draftUpdatedAt: new Date(), draftUpdatedBy: 7,
+    }]);
     const res = await siteCodeRoute.PUT(
       makeJsonRequest('http://x/api/portal/cms/websites/1/code', 'PUT', {
         customCss: '',
@@ -477,24 +499,26 @@ describe('PUT /api/portal/cms/websites/[siteId]/code', () => {
       makeSiteIdOnlyParams('1'),
     );
     expect(res.status).toBe(200);
-    expect(updateCalls[0].patch.customCss).toBeNull();
-    expect(updateCalls[0].patch.customJs).toBeNull();
+    // Empty strings are stored as null in draft columns
+    expect(updateCalls[0].patch.draftCustomCss).toBeNull();
+    expect(updateCalls[0].patch.draftCustomJs).toBeNull();
     const body = await res.json();
-    expect(body.data).toEqual({ customCss: '', customJs: '' });
+    expect(body.data.customCss).toBe('');
+    expect(body.data.customJs).toBe('');
   });
 
   it('omits fields from patch when not in body', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 1 }]);
-    updateReturnQueue.push([{ customCss: 'kept', customJs: 'kept' }]);
+    updateReturnQueue.push([{ customCss: 'kept', customJs: 'kept', draftCustomCss: null, draftCustomJs: null, draftUpdatedAt: new Date(), draftUpdatedBy: 7 }]);
     await siteCodeRoute.PUT(
       makeJsonRequest('http://x/api/portal/cms/websites/1/code', 'PUT', {}),
       makeSiteIdOnlyParams('1'),
     );
     const patch = updateCalls[0].patch;
-    expect(patch).not.toHaveProperty('customCss');
-    expect(patch).not.toHaveProperty('customJs');
+    expect(patch).not.toHaveProperty('draftCustomCss');
+    expect(patch).not.toHaveProperty('draftCustomJs');
     expect(patch.updatedAt).toBeInstanceOf(Date);
   });
 });

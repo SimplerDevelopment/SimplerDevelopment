@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Batch 44a — medium-size portal/card-detail + post-form section components.
@@ -358,7 +359,12 @@ describe('CardSidebar', () => {
 
   it('renders an editable priority select that fires saveField on change', () => {
     const { container } = render(<CardSidebar {...baseProps} />);
-    const select = container.querySelector('select') as HTMLSelectElement;
+    // The sidebar now renders Type (index 0) and WorkflowState (index 1) selects
+    // before the Priority select (index 2).
+    const selects = container.querySelectorAll('select');
+    const select = Array.from(selects).find(
+      (s) => s.querySelector('option[value="high"]'),
+    ) as HTMLSelectElement;
     expect(select).toBeTruthy();
     expect(select.value).toBe('high');
     fireEvent.change(select, { target: { value: 'urgent' } });

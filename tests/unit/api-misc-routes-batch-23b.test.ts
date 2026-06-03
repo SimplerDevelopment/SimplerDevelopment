@@ -160,6 +160,14 @@ vi.mock('@/lib/db', () => {
     };
   }
 
+  function buildInsert(_table: { __table?: string }) {
+    return {
+      values(_vals: unknown) {
+        return Promise.resolve(undefined);
+      },
+    };
+  }
+
   return {
     db: {
       select() {
@@ -170,6 +178,9 @@ vi.mock('@/lib/db', () => {
       },
       delete(table: { __table: string }) {
         return buildDelete(table);
+      },
+      insert(table: { __table?: string }) {
+        return buildInsert(table);
       },
       execute(stmt: unknown) {
         executeCalls.push({ sql: stmt });

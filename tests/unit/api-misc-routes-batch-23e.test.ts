@@ -112,22 +112,21 @@ vi.mock('@/lib/db', () => {
     for (const m of ['from', 'leftJoin', 'innerJoin', 'where', 'groupBy']) {
       chain[m] = passthrough;
     }
-    chain.orderBy = () => {
+    const makeTerminal = () => {
       materialize();
-      return {
+      const term: Record<string, unknown> = {
         then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
           return materializedPromise!.then(onF, onR);
         },
       };
+      // Allow further chaining after orderBy/limit (e.g. .orderBy().limit())
+      term.limit = () => makeTerminal();
+      term.offset = () => makeTerminal();
+      term.orderBy = () => makeTerminal();
+      return term;
     };
-    chain.limit = () => {
-      materialize();
-      return {
-        then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
-          return materializedPromise!.then(onF, onR);
-        },
-      };
-    };
+    chain.orderBy = makeTerminal;
+    chain.limit = makeTerminal;
     chain.then = (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
       materialize().then(onF, onR);
     return chain;
@@ -435,22 +434,24 @@ describe('POST /api/portal/tools/pitch-decks', () => {
 // ===========================================================================
 
 describe('GET /api/admin/portal/websites', () => {
+  const adminWebsitesReq = () => new Request('http://localhost/api/admin/portal/websites');
+
   it('returns 401 without a session', async () => {
     authMock.mockResolvedValue(null);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when user is not admin or employee', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'client' } });
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(401);
   });
 
   it('returns the joined website list for admin users', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'admin' } });
     selectQueue.push([{ id: 1, name: 'Acme Site', clientCompany: 'Acme' }]);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -460,7 +461,7 @@ describe('GET /api/admin/portal/websites', () => {
   it('allows employee role too', async () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'employee' } });
     selectQueue.push([]);
-    const res = await adminWebsitesRoute.GET();
+    const res = await adminWebsitesRoute.GET(adminWebsitesReq());
     expect(res.status).toBe(200);
   });
 });

@@ -181,6 +181,7 @@ vi.mock('@/lib/db/schema', () => {
     websiteEnvironments: t(['id']), websiteEnvVars: t(['id']), clients: t(['id']),
     aiCreditBalances: t(['id']), aiCreditLedger: t(['id']), hostedSites: t(['id']),
     googleWorkspaceUserConnections: t(['id']),
+    mcpApprovalLinks: t(['id', 'token', 'entityType', 'entityId', 'summary', 'status', 'clientId', 'requestedBy', 'createdAt', 'expiresAt', 'resolvedAt']),
   };
 });
 

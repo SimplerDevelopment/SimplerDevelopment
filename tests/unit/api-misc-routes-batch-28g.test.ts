@@ -33,6 +33,11 @@ vi.mock('@/lib/security/assert-owned', () => ({
     filterUserIdsVisibleToClientMock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
@@ -250,6 +255,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset();
   filterUserIdsVisibleToClientMock.mockReset();
+  canUserEditProjectMock.mockReset();
+  canUserEditProjectMock.mockResolvedValue(false); // default: client read-only
 });
 
 // ===========================================================================

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Batch 44e — four medium-size, mostly self-contained UI components.
@@ -64,9 +65,9 @@ describe('HtmlEmbedBlockRender', () => {
     );
     const iframe = container.querySelector('iframe')!;
     expect(iframe).toBeTruthy();
-    expect(iframe.getAttribute('src')).toBe('https://example.com/x.html');
-    // Default preset === 'scripts' which maps to 'allow-scripts'.
-    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(iframe.getAttribute('src')).toBe('https://example.com/x.html?embed=1');
+    // Default preset === 'scripts' which maps to 'allow-scripts allow-popups allow-popups-to-escape-sandbox'.
+    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-popups allow-popups-to-escape-sandbox');
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(iframe.getAttribute('loading')).toBe('lazy');
     // Default height fallback.
@@ -102,7 +103,7 @@ describe('HtmlEmbedBlockRender', () => {
       />,
     );
     const iframe = container.querySelector('iframe')!;
-    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-popups');
+    expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox');
   });
 
   it('applies the contained width wrapper when block.width is "contained"', () => {
@@ -230,7 +231,7 @@ describe('PositionMultiSelect', () => {
     const labels = Array.from(items).map((li) => li.textContent);
     expect(labels).not.toContain('Engineer');
     expect(labels).toContain('Designer');
-  });
+  }, 15_000);
 
   it('filters options by case-insensitive substring match on the query', () => {
     const { container, getByRole } = render(

@@ -953,7 +953,7 @@ describe('POST /api/portal/websites/[siteId]/store/shipping/[zoneId]/rates', () 
     const res = await ratesListMod.POST(
       makeReq('POST', 'http://x/rates', {
         name: 'Tiered',
-        rateType: 'weight',
+        rateType: 'weight_based',
         price: '1500',
         weightTiers: [{ maxWeight: 100, price: 100 }],
         freeAbove: '5000',
@@ -965,7 +965,7 @@ describe('POST /api/portal/websites/[siteId]/store/shipping/[zoneId]/rates', () 
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.data.rateType).toBe('weight');
+    expect(body.data.rateType).toBe('weight_based');
     expect(body.data.price).toBe(1500);
     expect(body.data.weightTiers).toEqual([{ maxWeight: 100, price: 100 }]);
     expect(body.data.freeAbove).toBe(5000);
@@ -1096,7 +1096,7 @@ describe('PUT /api/portal/websites/[siteId]/store/shipping/[zoneId]/rates/[rateI
     const res = await rateMod.PUT(
       makeReq('PUT', 'http://x/rate', {
         name: 'Renamed',
-        rateType: 'weight',
+        rateType: 'weight_based',
         price: '999',
         weightTiers: [{ maxWeight: 50, price: 200 }],
         freeAbove: '10000',
@@ -1110,7 +1110,7 @@ describe('PUT /api/portal/websites/[siteId]/store/shipping/[zoneId]/rates/[rateI
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data.name).toBe('Renamed');
-    expect(body.data.rateType).toBe('weight');
+    expect(body.data.rateType).toBe('weight_based');
     expect(body.data.price).toBe(999);
     expect(body.data.weightTiers).toEqual([{ maxWeight: 50, price: 200 }]);
     expect(body.data.freeAbove).toBe(10000);

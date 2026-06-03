@@ -417,6 +417,7 @@ describe('PATCH /api/portal/labels/[id]', () => {
     authMock.mockResolvedValue({ user: { id: '7', role: 'client' } });
     selectQueue.push([{ id: 5, projectId: 100 }]); // label
     selectQueue.push([{ id: 100, clientId: 33, isPrivate: true }]); // project
+    selectQueue.push([{ role: 'editor' }]); // projectMembers (canUserEditProject)
     getPortalClientMock.mockResolvedValue({ id: 33 });
     updateReturnQueue.push([{ id: 5, name: 'X', projectId: 100 }]);
     const res = await labelsRoute.PATCH(

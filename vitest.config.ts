@@ -47,6 +47,9 @@ export default defineConfig({
           name: 'unit',
           environment: 'jsdom',
           include: ['tests/unit/**/*.test.{ts,tsx}'],
+          // Cold-starting heavy transitive deps (next-auth, drizzle schema) can
+          // take 5-8 s on the first dynamic import in a file. Match integration.
+          testTimeout: 15_000,
         },
       },
       {

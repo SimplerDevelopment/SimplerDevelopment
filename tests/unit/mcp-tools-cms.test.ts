@@ -949,8 +949,10 @@ describe('posts_set_taxonomies', () => {
     dbState.selectQueue = [
       [{ websiteId: 5 }],   // post
       [{ id: 5 }],          // site lookup
-      [{ categoryId: 7 }],  // post categories after replace
-      [{ tagId: 9 }],       // post tags after replace
+      [],                   // prevCats (current categories before replace)
+      [],                   // prevTags (current tags before replace)
+      [{ categoryId: 7 }],  // assignedCats after replace (inside apply)
+      [{ tagId: 9 }],       // assignedTags after replace (inside apply)
     ];
     const tools = registerAll();
     const res = await tools.get('posts_set_taxonomies')!.handler({
@@ -1030,25 +1032,26 @@ describe('sites_update_custom_code', () => {
 
   it('clears value when empty string passed', async () => {
     dbState.selectQueue = [[{ id: 5 }]];
-    dbState.updateReturning = [{ customCss: null, customJs: null }];
+    // Handler now stages to draftCustomCss/draftCustomJs; updateReturning reflects those fields
+    dbState.updateReturning = [{ draftCustomCss: null, draftCustomJs: null, customCss: null, customJs: null }];
     const tools = registerAll();
     const res = await tools.get('sites_update_custom_code')!.handler({
       id: 5, customCss: '', customJs: '',
     });
-    const out = parseJson(res) as { customCss: string; customJs: string };
-    expect(out.customCss).toBe('');
-    expect(out.customJs).toBe('');
+    const out = parseJson(res) as { draftCustomCss: string; draftCustomJs: string };
+    expect(out.draftCustomCss).toBe('');
+    expect(out.draftCustomJs).toBe('');
   });
 
   it('updates non-empty values', async () => {
     dbState.selectQueue = [[{ id: 5 }]];
-    dbState.updateReturning = [{ customCss: 'body{}', customJs: 'x' }];
+    dbState.updateReturning = [{ draftCustomCss: 'body{}', draftCustomJs: 'x', customCss: null, customJs: null }];
     const tools = registerAll();
     const res = await tools.get('sites_update_custom_code')!.handler({
       id: 5, customCss: 'body{}', customJs: 'x',
     });
-    const out = parseJson(res) as { customCss: string };
-    expect(out.customCss).toBe('body{}');
+    const out = parseJson(res) as { draftCustomCss: string };
+    expect(out.draftCustomCss).toBe('body{}');
   });
 });
 
@@ -1211,7 +1214,8 @@ describe('block templates', () => {
   });
 
   it('block_templates_update bumps version when blocks change', async () => {
-    dbState.selectQueue = [[{ id: 1, name: 'T', version: 5, blocks: [] }]];
+    // clientId must match ctx clientId (7) to pass the tenancy check
+    dbState.selectQueue = [[{ id: 1, clientId: 7, name: 'T', version: 5, blocks: [] }]];
     dbState.updateReturning = [{ id: 1, version: 6 }];
     const tools = registerAll();
     const res = await tools.get('block_templates_update')!.handler({
@@ -1228,8 +1232,9 @@ describe('block templates', () => {
   });
 
   it('block_templates_delete refuses when usages exist', async () => {
+    // clientId must match the ctx clientId (7) to pass the tenancy check
     dbState.selectQueue = [
-      [{ id: 1 }],
+      [{ id: 1, clientId: 7 }],
       [{ id: 1 }, { id: 2 }], // usages
     ];
     const tools = registerAll();
@@ -1238,8 +1243,9 @@ describe('block templates', () => {
   });
 
   it('block_templates_delete succeeds when no usages', async () => {
+    // clientId must match the ctx clientId (7) to pass the tenancy check
     dbState.selectQueue = [
-      [{ id: 1 }],
+      [{ id: 1, clientId: 7 }],
       [],
     ];
     const tools = registerAll();

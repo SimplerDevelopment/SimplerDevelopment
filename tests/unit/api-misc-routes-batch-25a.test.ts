@@ -658,6 +658,7 @@ describe('PATCH /api/portal/checklist-items/[id]', () => {
     selectQueue.push([{ id: 50, projectId: 200 }]);
     getPortalClientMock.mockResolvedValue({ id: 33 });
     selectQueue.push([{ id: 200, clientId: 33, isPrivate: true }]);
+    selectQueue.push([{ role: 'editor' }]); // projectMembers (canUserEditProject)
     updateReturningQueue.push([{ id: 1, text: 'edited' }]);
 
     const res = await checklistItemRoute.PATCH(

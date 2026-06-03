@@ -441,11 +441,12 @@ describe('GET /api/portal/projects/[id]/files', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 403 when non-staff has no portal client', async () => {
+  it('returns 404 when non-staff has no portal client', async () => {
     authMock.mockResolvedValue(CLIENT_SESSION);
     getPortalClientMock.mockResolvedValue(null);
+    selectQueue.push([{ id: 5, clientId: 99 }]); // project found, but client null → 404
     const res = await filesRoute.GET(new Request('http://x'), params('5'));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it('returns 404 when non-staff client does not own the project', async () => {
@@ -456,11 +457,14 @@ describe('GET /api/portal/projects/[id]/files', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 200 with files for staff (skips project lookup)', async () => {
+  it('returns 200 with files for staff', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
+    // Route does Promise.all([auth(), db.select(project)]) so project is always
+    // fetched first, then files are fetched after the auth/staff check.
+    selectQueue.push([{ id: 5, clientId: 99 }]); // project (consumed by parallel fetch)
     selectQueue.push([
       { id: 1, originalName: 'a.png', mimeType: 'image/png', fileSize: 100, url: 'http://f/a.png', commentId: null, userId: 7, createdAt: new Date('2026-01-01'), userName: 'Dan', cardId: 10, cardTitle: 'Card A' },
-    ]);
+    ]); // files
     const res = await filesRoute.GET(new Request('http://x'), params('5'));
     expect(res.status).toBe(200);
     const body = await res.json();

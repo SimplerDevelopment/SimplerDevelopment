@@ -453,6 +453,8 @@ describe('GET /api/admin/portal/websites/[id]', () => {
     selectQueue.push([
       { id: 3, name: 'Acme', domain: 'acme.test', active: true },
     ]);
+    // second select: loadStoreSettings → no row
+    selectQueue.push([]);
     const res = await websitesRoute.GET(
       makeReq('http://x'),
       makeParams({ id: '3' }),
@@ -465,12 +467,21 @@ describe('GET /api/admin/portal/websites/[id]', () => {
       name: 'Acme',
       domain: 'acme.test',
       active: true,
+      storeSettings: {
+        stripeByokAllowed: false,
+        stripeMode: 'connect',
+        stripeSecretKeyConfigured: false,
+        stripeOnboardingComplete: false,
+        hasStoreSettingsRow: false,
+      },
     });
   });
 
   it('returns site data for employee', async () => {
     authMock.mockResolvedValue(EMPLOYEE_SESSION);
     selectQueue.push([{ id: 4, name: 'Beta' }]);
+    // second select: loadStoreSettings → no row
+    selectQueue.push([]);
     const res = await websitesRoute.GET(
       makeReq('http://x'),
       makeParams({ id: '4' }),

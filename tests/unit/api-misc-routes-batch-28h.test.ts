@@ -32,6 +32,11 @@ vi.mock('@/lib/s3/upload', () => ({
   uploadToS3: (...args: unknown[]) => uploadToS3Mock(...args),
 }));
 
+const canUserEditProjectMock = vi.fn();
+vi.mock('@/lib/portal/project-access', () => ({
+  canUserEditProject: (...args: unknown[]) => canUserEditProjectMock(...args),
+}));
+
 // drizzle-orm — stub operators to plain objects (we don't introspect them)
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
@@ -226,6 +231,8 @@ beforeEach(() => {
   getPortalClientMock.mockReset();
   logCardActivityMock.mockReset().mockResolvedValue(undefined);
   uploadToS3Mock.mockReset();
+  canUserEditProjectMock.mockReset();
+  canUserEditProjectMock.mockResolvedValue(false); // default: read-only
 });
 
 // ===========================================================================
@@ -384,6 +391,7 @@ describe('POST /api/portal/cards/[id]/dependencies', () => {
     selectQueue.push([{ id: 2, projectId: 5, title: 'Blocker' }]); // blocker
     selectQueue.push([]); // no reciprocal
     getPortalClientMock.mockResolvedValue({ id: 33 });
+    canUserEditProjectMock.mockResolvedValueOnce(true); // client has edit access
     const res = await dependenciesRoute.POST(
       makeJsonRequest('http://x/api/portal/cards/1/dependencies', 'POST', { blockerCardId: 2 }),
       makeParams('1'),

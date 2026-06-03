@@ -104,6 +104,15 @@ vi.mock('@/lib/crm/notifications', () => ({
   createCrmNotification: (...args: unknown[]) => createCrmNotificationMock(...args),
 }));
 
+// Transparent passthrough so withCronHealth doesn't hit the DB insert/update
+// for health tracking, and doesn't add spurious db.update() calls to assertions.
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (
+    _opts: unknown,
+    handler: (req: Request) => Promise<Response>,
+  ) => handler,
+}));
+
 // ---------------------------------------------------------------------------
 // Generic queue-based db mock
 //

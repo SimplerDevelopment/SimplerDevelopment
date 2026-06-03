@@ -401,7 +401,7 @@ describe('/api/media/proxy/[...path]', () => {
       expect(buf[0]).toBe(0x89);
     });
 
-    it('forces attachment + octet-stream for unsafe content types (e.g. text/html)', async () => {
+    it('serves text/html inline with CSP sandbox (html-embed block support)', async () => {
       const data = new TextEncoder().encode('<script>alert(1)</script>');
       s3SendMock.mockResolvedValueOnce({
         Body: await asyncIterFromChunks([data]),
@@ -411,10 +411,14 @@ describe('/api/media/proxy/[...path]', () => {
         params: Promise.resolve({ path: ['evil', 'index.html'] }),
       });
       expect(res.status).toBe(200);
-      expect(res.headers.get('Content-Type')).toBe('application/octet-stream');
-      const cd = res.headers.get('Content-Disposition');
-      expect(cd).toContain('attachment');
-      expect(cd).toContain('filename="index.html"');
+      // text/html is served inline (for html-embed iframes) with charset and CSP sandbox,
+      // NOT forced to application/octet-stream.
+      expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      // No Content-Disposition: attachment — must render inline in the iframe.
+      expect(res.headers.get('Content-Disposition')).toBeNull();
+      // CSP sandbox must be present to restrict script execution on direct navigation.
+      const csp = res.headers.get('Content-Security-Policy');
+      expect(csp).toContain('sandbox');
     });
 
     it('falls back to application/octet-stream when S3 returns no ContentType', async () => {

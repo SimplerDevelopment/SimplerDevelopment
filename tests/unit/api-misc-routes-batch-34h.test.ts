@@ -362,6 +362,7 @@ describe('POST /api/public/booking/cancel', () => {
       future,
       'America/New_York',
       'demo',
+      null, // brand — loadBookingBrand mock returns null
     );
     expect(resendSendMock).toHaveBeenCalledTimes(1);
     const sendArgs = resendSendMock.mock.calls[0][0] as Record<string, unknown>;

@@ -142,6 +142,7 @@ vi.mock('@/lib/db/schema', () => {
     websiteDomains: {}, websiteEnvironments: {}, websiteEnvVars: {},
     clients: {}, aiCreditBalances: {}, aiCreditLedger: {}, hostedSites: {},
     googleWorkspaceUserConnections: {},
+    mcpApprovalLinks: table(['id', 'token', 'entityType', 'entityId', 'summary', 'status', 'clientId', 'createdBy', 'expiresAt']),
   };
 });
 
@@ -265,7 +266,10 @@ function parseJson(res: { content: { text: string }[] }): unknown {
 beforeEach(() => {
   dbState.selectQueue = [];
   dbState.selectDefault = [];
-  dbState.insertReturning = [];
+  // Default to a row with id so createApprovalLink (which always runs via
+  // mintLinkForResult after stageOrApply) can destructure `row.id` without
+  // throwing. Individual tests that verify the inserted row shape can override.
+  dbState.insertReturning = [{ id: 1 }];
   dbState.insertCalls = [];
   dbState.updateCalls = [];
   dbState.deleteCalls = [];
@@ -273,13 +277,14 @@ beforeEach(() => {
 });
 
 describe('registerPitchDecksTools — registration & scope gating', () => {
-  it('registers all 8 deck tools when scopes=*', () => {
+  it('registers all 12 deck tools when scopes=*', () => {
     const tools = registerAll(['*']);
-    expect(tools.size).toBe(8);
+    expect(tools.size).toBe(12);
     for (const name of [
       'decks_list', 'decks_get', 'decks_create', 'decks_update',
-      'decks_replace_slides', 'decks_add_slide', 'decks_delete',
-      'decks_upload_html',
+      'decks_fork', 'decks_replace_slides', 'decks_add_slide', 'decks_delete',
+      'decks_upload_html', 'decks_upload_html_zip',
+      'decks_publish_slide', 'decks_publish_all',
     ]) {
       expect(tools.has(name), `expected ${name}`).toBe(true);
     }
@@ -311,7 +316,7 @@ describe('registerPitchDecksTools — registration & scope gating', () => {
 
   it('registers the resource-wildcard decks:*', () => {
     const tools = registerAll(['decks:*']);
-    expect(tools.size).toBe(8);
+    expect(tools.size).toBe(12);
   });
 
   it('registers nothing when ctx has no deck scopes', () => {
@@ -545,14 +550,21 @@ describe('decks_replace_slides', () => {
     }
   });
 
-  it('supports empty slides array (clear deck)', async () => {
+  it('supports empty slides array (tombstones live slides for deferred publish)', async () => {
+    // When called with slides: [] the implementation does NOT immediately clear
+    // the live array. Instead live slides that are absent from the incoming list
+    // receive a `draft.pendingDelete: true` tombstone — they stay visible to the
+    // renderer until decks_publish_all is called. The test asserts that shape.
     dbState.selectDefault = [{ id: 1, title: 'D', slides: [{ id: 's' }], formatVersion: 2 }];
     dbState.insertReturning = [{ id: 1 }];
     const tools = registerAll(['*']);
     const res = await tools.get('decks_replace_slides')!.handler({ id: 1, slides: [] });
     expect(res.isError).toBeUndefined();
     const patch = dbState.updateCalls[0].patch as Record<string, unknown>;
-    expect((patch.slides as unknown[])).toEqual([]);
+    const slides = patch.slides as Array<{ id: string; draft: { pendingDelete: boolean } }>;
+    expect(slides).toHaveLength(1);
+    expect(slides[0].id).toBe('s');
+    expect(slides[0].draft.pendingDelete).toBe(true);
   });
 });
 
@@ -587,16 +599,18 @@ describe('decks_add_slide', () => {
     expect(slides[1].id).toMatch(/^slide-/);
   });
 
-  it('respects an explicitly-supplied slide id', async () => {
+  it('respects an explicitly-supplied slide id and stores notes in draft', async () => {
+    // notes go into draft.notes (the draft/live split); they are not a top-level
+    // property on the slide object.
     dbState.selectDefault = [{ id: 1, title: 'D', slides: [] }];
     dbState.insertReturning = [{ id: 1 }];
     const tools = registerAll(['*']);
     await tools.get('decks_add_slide')!.handler({
       deckId: 1, label: 'X', blocks: [], id: 'my-slide-id', notes: 'spkn',
     });
-    const slides = (dbState.updateCalls[0].patch as { slides: Array<{ id: string; notes: string }> }).slides;
+    const slides = (dbState.updateCalls[0].patch as { slides: Array<{ id: string; draft: { notes: string } }> }).slides;
     expect(slides[0].id).toBe('my-slide-id');
-    expect(slides[0].notes).toBe('spkn');
+    expect(slides[0].draft.notes).toBe('spkn');
   });
 
   it('starts from empty when existing.slides is not an array', async () => {

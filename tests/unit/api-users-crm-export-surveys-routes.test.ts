@@ -96,6 +96,7 @@ vi.mock('@/lib/db/schema', () => {
     crmPipelineStages: wrap('crmPipelineStages'),
     surveys: wrap('surveys'),
     surveyResponses: wrap('surveyResponses'),
+    surveyVariants: wrap('surveyVariants'),
   };
 });
 

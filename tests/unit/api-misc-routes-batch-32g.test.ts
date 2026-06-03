@@ -474,7 +474,8 @@ describe('POST /api/portal/tickets/[id]/messages', () => {
   it('does not advance ticket status when not in matching state', async () => {
     authMock.mockResolvedValue(STAFF_SESSION);
     insertReturnQueue.push([{ id: 300, ticketId: 5 }]);
-    selectQueue.push([{ id: 5, status: 'closed' }]); // post-insert: status closed
+    // firstResponseAt already set → SLA timer won't fire; status closed → no status advance
+    selectQueue.push([{ id: 5, status: 'closed', firstResponseAt: new Date() }]);
 
     const res = await ticketMessagesRoute.POST(
       makeJsonReq('http://x/a', 'POST', { body: 'note' }),

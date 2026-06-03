@@ -28,12 +28,19 @@ if (typeof window !== 'undefined') {
     })) as unknown as typeof window.ResizeObserver;
   }
   if (!window.IntersectionObserver) {
-    window.IntersectionObserver = vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-      takeRecords: vi.fn(() => []),
-    })) as unknown as typeof window.IntersectionObserver;
+    // Must be a real class/function constructor — vi.fn().mockImplementation(arrow)
+    // produces an arrow that throws "is not a constructor" when next/link calls
+    // `new IntersectionObserver(callback)` inside use-intersection.tsx.
+    window.IntersectionObserver = class MockIntersectionObserver {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+      takeRecords = vi.fn(() => [] as IntersectionObserverEntry[]);
+      constructor(
+        _callback: IntersectionObserverCallback,
+        _options?: IntersectionObserverInit,
+      ) {}
+    } as unknown as typeof window.IntersectionObserver;
   }
   if (!window.scrollTo) {
     window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;

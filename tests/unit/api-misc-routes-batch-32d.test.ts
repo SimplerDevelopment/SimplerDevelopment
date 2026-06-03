@@ -712,6 +712,7 @@ describe('POST /api/portal/sprints/[id]/card-order', () => {
     selectQueue.push([{ id: 9, projectId: 1 }]); // sprint
     getPortalClientMock.mockResolvedValue({ id: 5 });
     selectQueue.push([{ id: 1, clientId: 5, isPrivate: true }]); // project private + owned
+    selectQueue.push([{ role: 'owner' }]); // projectMembers → canUserEditProject → true
     const res = await cardOrderRoute.POST(
       makeJsonReq('http://x/api/portal/sprints/9/card-order', 'POST', {
         cardIds: [10, 11],
