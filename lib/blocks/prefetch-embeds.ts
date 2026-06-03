@@ -12,19 +12,30 @@ interface BlockLike {
 // 60s TTL is short enough that an editor save is visible quickly without
 // requiring an explicit revalidate. Keyed by S3 key so a re-uploaded file
 // (which gets a new UUID via uploadToS3) immediately misses cache.
-const fetchEmbedHtml = unstable_cache(
-  async (key: string): Promise<string | null> => {
-    try {
-      const { buffer } = await getFromS3(key);
-      return buffer.toString('utf8');
-    } catch (err) {
-      console.warn('[prefetch-embeds] s3 fetch failed for', key, err instanceof Error ? err.message : err);
-      return null;
-    }
-  },
+async function _fetchEmbedHtmlUncached(key: string): Promise<string | null> {
+  try {
+    const { buffer } = await getFromS3(key);
+    return buffer.toString('utf8');
+  } catch (err) {
+    console.warn('[prefetch-embeds] s3 fetch failed for', key, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+const _fetchEmbedHtmlCached = unstable_cache(
+  _fetchEmbedHtmlUncached,
   ['html-embed-body'],
   { revalidate: 60, tags: ['html-embed-body'] }
 );
+
+async function fetchEmbedHtml(key: string): Promise<string | null> {
+  try {
+    return await _fetchEmbedHtmlCached(key);
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _fetchEmbedHtmlUncached(key);
+  }
+}
 
 // Walk the block tree, find every html-embed, and inline its HTML from S3 so
 // the embedded markup is part of the initial server-rendered response —

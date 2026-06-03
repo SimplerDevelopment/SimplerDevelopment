@@ -59,6 +59,11 @@ vi.mock('@/lib/db/schema', () => {
   }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
+vi.mock('@/lib/admin/dashboard-cache', () => ({
+  revalidateAdminDashboard: vi.fn(),
+  getAdminDashboard: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // DB mock: select queue + insert/update with returning
 // ---------------------------------------------------------------------------
@@ -207,7 +212,7 @@ beforeEach(() => {
 describe('GET /api/admin/portal/tickets', () => {
   it('returns 401 when no session', async () => {
     authMock.mockResolvedValueOnce(null);
-    const res = await ticketsRoute.GET();
+    const res = await ticketsRoute.GET(new Request('http://localhost/api/admin/portal/tickets'));
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.success).toBe(false);
@@ -215,7 +220,7 @@ describe('GET /api/admin/portal/tickets', () => {
 
   it('returns 401 for client role', async () => {
     authMock.mockResolvedValueOnce(CLIENT_SESSION);
-    const res = await ticketsRoute.GET();
+    const res = await ticketsRoute.GET(new Request('http://localhost/api/admin/portal/tickets'));
     expect(res.status).toBe(401);
   });
 
@@ -235,7 +240,7 @@ describe('GET /api/admin/portal/tickets', () => {
         clientName: 'Alice',
       },
     ]);
-    const res = await ticketsRoute.GET();
+    const res = await ticketsRoute.GET(new Request('http://localhost/api/admin/portal/tickets'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -246,7 +251,7 @@ describe('GET /api/admin/portal/tickets', () => {
   it('returns 200 with empty data for employee when none found', async () => {
     authMock.mockResolvedValueOnce(EMPLOYEE_SESSION);
     selectQueue.push([]);
-    const res = await ticketsRoute.GET();
+    const res = await ticketsRoute.GET(new Request('http://localhost/api/admin/portal/tickets'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual([]);

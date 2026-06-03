@@ -83,6 +83,15 @@ const fetchAppBySlugCached = unstable_cache(
   { revalidate: 300, tags: [PLUGIN_REGISTRY_TAG] },
 );
 
+async function fetchAppBySlugWithFallback(slug: string): Promise<RegisteredApp | null> {
+  try {
+    return await fetchAppBySlugCached(slug);
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return fetchAppBySlug(slug);
+  }
+}
+
 /**
  * Load an active plugin app by slug. Returns null if not found OR if status is
  * not 'active'. Two-tier cache: 30s in-memory + 5min cross-instance via
@@ -97,7 +106,7 @@ export async function loadActiveAppBySlug(
   if (cached && cached.expiresAt > now) {
     return cached.app;
   }
-  const app = await fetchAppBySlugCached(slug);
+  const app = await fetchAppBySlugWithFallback(slug);
   APP_CACHE.set(slug, { app, expiresAt: now + APP_CACHE_TTL_MS });
   return app;
 }

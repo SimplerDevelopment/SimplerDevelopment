@@ -78,13 +78,17 @@ describe('BlockStyleWrapper — brand sentinel resolution', () => {
     expect(style).not.toContain('var(--brand');
   });
 
-  it('loads Google Font link for raw font names', () => {
+  it('applies font-family style for raw font names (no per-block link tag)', () => {
     const { container } = render(
       <BlockStyleWrapper block={makeBlock({ fontFamily: 'Inter' })}>
         <span>content</span>
       </BlockStyleWrapper>,
     );
-    const link = container.querySelector('link[rel="stylesheet"]');
-    expect(link?.getAttribute('href')).toContain('family=Inter');
+    // Google Font <link> tags are no longer emitted per-block (they are
+    // collected at page level by SiteBlockRenderer to avoid 40-50 render-blocking
+    // requests per page). The wrapper should still set the fontFamily style.
+    expect(container.querySelector('link[rel="stylesheet"]')).toBeNull();
+    const wrapper = container.querySelector('div');
+    expect(wrapper?.getAttribute('style')).toContain('Inter');
   });
 });

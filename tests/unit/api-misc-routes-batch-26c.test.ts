@@ -268,7 +268,7 @@ describe('admin/portal/automations route', () => {
       // Second select: failed count
       selectQueue.push([{ count: 7 }]);
 
-      const res = await automationsRoute.GET();
+      const res = await automationsRoute.GET(new Request('http://localhost/api/admin/portal/automations'));
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
@@ -283,7 +283,7 @@ describe('admin/portal/automations route', () => {
       authMock.mockResolvedValue(EMPLOYEE_SESSION);
       selectQueue.push([]); // rules
       selectQueue.push([]); // failed count (empty array)
-      const res = await automationsRoute.GET();
+      const res = await automationsRoute.GET(new Request('http://localhost/api/admin/portal/automations'));
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.stats.failedCount).toBe(0);

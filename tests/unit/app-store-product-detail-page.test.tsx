@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment, react-hooks/rules-of-hooks, @typescript-eslint/no-require-imports */
 // @vitest-environment jsdom
 /**
  * Unit tests for the Portal Store Product detail/edit page:
@@ -237,8 +238,8 @@ describe('ProductEditPage — new product mode', () => {
     expect(container.textContent).toContain('Disabled');
     expect(container.textContent).not.toContain('Quantity');
     const toggles = Array.from(container.querySelectorAll('button.rounded-full')) as HTMLButtonElement[];
-    // Second toggle in DOM order is track-inventory (after featured)
-    fireEvent.click(toggles[1]);
+    // Third toggle in DOM order is track-inventory (after featured and designable)
+    fireEvent.click(toggles[2]);
     await waitFor(() => {
       expect(container.textContent).toContain('Enabled');
       expect(container.textContent).toContain('Quantity');

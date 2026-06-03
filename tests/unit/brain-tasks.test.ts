@@ -120,6 +120,7 @@ vi.mock('@/lib/db', () => {
     let activeTable: string | null = null;
     let filter: unknown = null;
     let limit: number | null = null;
+    let offset: number | null = null;
     let isMaxQuery = false;
     if (projection) {
       for (const v of Object.values(projection)) {
@@ -147,6 +148,10 @@ vi.mock('@/lib/db', () => {
       },
       limit(n: number) {
         limit = n;
+        return chain;
+      },
+      offset(n: number) {
+        offset = n;
         return runQuery();
       },
       then(onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) {
@@ -162,7 +167,8 @@ vi.mock('@/lib/db', () => {
         return Promise.resolve([projectRow({}, projection)]);
       }
 
-      const rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
+      let rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
+      if (offset !== null) rows = rows.slice(offset);
       let out = rows.map((r) => projectRow(r, projection));
       if (limit !== null) out = out.slice(0, limit);
       return Promise.resolve(out);

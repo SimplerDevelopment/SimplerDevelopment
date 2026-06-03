@@ -256,7 +256,7 @@ describe('admin/portal/clients route', () => {
       { id: 10, userId: 100, company: 'Acme', userName: 'A', userEmail: 'a@b' },
       { id: 11, userId: 101, company: 'Beta', userName: 'B', userEmail: 'b@b' },
     ]);
-    const res = await clientsRoute.GET();
+    const res = await clientsRoute.GET(new Request('http://localhost/api/admin/portal/clients'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
@@ -267,7 +267,7 @@ describe('admin/portal/clients route', () => {
   it('GET works for employee role as well', async () => {
     authMock.mockResolvedValue(EMPLOYEE);
     selectQueue.push([{ id: 99 }]);
-    const res = await clientsRoute.GET();
+    const res = await clientsRoute.GET(new Request('http://localhost/api/admin/portal/clients'));
     expect(res.status).toBe(200);
   });
 

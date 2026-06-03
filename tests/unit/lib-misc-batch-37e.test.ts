@@ -163,7 +163,7 @@ describe('lib/utils/seo', () => {
   it('generateSEO returns metadata with defaults', async () => {
     const { generateSEO } = await import('@/lib/utils/seo');
     const meta = generateSEO({});
-    expect(meta.title).toBe('SimplerDevelopment');
+    expect(meta.title).toEqual({ absolute: 'SimplerDevelopment' });
     expect(meta.description).toBe('Design, Dev, and Automation Agency');
     expect(meta.alternates?.canonical).toBe('https://simplerdevelopment.com');
     expect(meta.openGraph).toMatchObject({
@@ -180,7 +180,7 @@ describe('lib/utils/seo', () => {
   it('generateSEO composes title with site name', async () => {
     const { generateSEO } = await import('@/lib/utils/seo');
     const meta = generateSEO({ title: 'About', description: 'About us', path: '/about' });
-    expect(meta.title).toBe('About | SimplerDevelopment');
+    expect(meta.title).toEqual({ absolute: 'About | SimplerDevelopment' });
     expect(meta.description).toBe('About us');
     expect(meta.alternates?.canonical).toBe('https://simplerdevelopment.com/about');
   });

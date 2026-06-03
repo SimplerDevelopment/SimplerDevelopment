@@ -20,18 +20,36 @@ const getCreditPackagesCached = unstable_cache(
 // The ledger is intentionally NOT cached here — it accepts arbitrary
 // limit/offset pagination AND must reflect the latest mutation so the user
 // sees "you just spent X" without a 30s lag.
-function getCreditSnapshotCached(clientId: number) {
-  return unstable_cache(
-    async () => {
-      const [balance, monthlyUsage] = await Promise.all([
-        getBalance(clientId),
-        getMonthlyUsage(clientId),
-      ]);
-      return { balance, monthlyUsage };
-    },
-    ['portal-credit-snapshot', String(clientId)],
-    { revalidate: 30, tags: ['credits', `credits:${clientId}`] },
-  )();
+async function getCreditSnapshotCached(clientId: number) {
+  const inner = async () => {
+    const [balance, monthlyUsage] = await Promise.all([
+      getBalance(clientId),
+      getMonthlyUsage(clientId),
+    ]);
+    return { balance, monthlyUsage };
+  };
+  try {
+    // `await` inside the try so the async "incrementalCache missing" rejection
+    // is caught (a bare `return promise` escapes try/catch). Falls back to the
+    // uncached path outside a request context (cron/MCP/tests).
+    return await unstable_cache(
+      inner,
+      ['portal-credit-snapshot', String(clientId)],
+      { revalidate: 30, tags: ['credits', `credits:${clientId}`] },
+    )();
+  } catch {
+    return inner();
+  }
+}
+
+// Packages list is cached at module scope; guard the call so a non-request
+// context (cron/MCP/tests) degrades to a direct fetch instead of throwing.
+async function getCreditPackagesSafe() {
+  try {
+    return await getCreditPackagesCached();
+  } catch {
+    return getCreditPackages();
+  }
 }
 
 export async function GET(req: Request) {
@@ -49,7 +67,7 @@ export async function GET(req: Request) {
   const [snapshot, ledger, packages] = await Promise.all([
     getCreditSnapshotCached(client.id),
     getLedger(client.id, { limit, offset }),
-    getCreditPackagesCached(),
+    getCreditPackagesSafe(),
   ]);
 
   const { balance, monthlyUsage } = snapshot;

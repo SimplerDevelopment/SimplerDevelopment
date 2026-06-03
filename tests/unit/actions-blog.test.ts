@@ -223,6 +223,13 @@ vi.mock('@/lib/db', () => {
           },
         };
       },
+      selectDistinct(projection?: Record<string, unknown>) {
+        return {
+          from(table: { __table: string }) {
+            return buildSelect(projection ?? null).from(table);
+          },
+        };
+      },
     },
   };
 });
@@ -475,6 +482,11 @@ describe('getAllCategories', () => {
   it('projects all category columns', async () => {
     seedCategory({ id: 1, name: 'A', slug: 'a', description: 'desc a', color: '#aaa' });
     seedCategory({ id: 2, name: 'B', slug: 'b', description: null, color: null });
+    // The query is a 3-way join (categories → postCategories → posts) filtered to
+    // published global blog posts. Seed one post per category so the join matches.
+    seedPost({ id: 10, slug: 'post-a', published: true, postType: 'blog', websiteId: null });
+    seedPost({ id: 20, slug: 'post-b', published: true, postType: 'blog', websiteId: null });
+    state.postCategories.push({ postId: 10, categoryId: 1 }, { postId: 20, categoryId: 2 });
     const { getAllCategories } = await importModule();
     const rows = await getAllCategories();
     expect(rows).toHaveLength(2);

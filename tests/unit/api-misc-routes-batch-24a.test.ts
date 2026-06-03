@@ -105,6 +105,13 @@ vi.mock('@/lib/db', () => {
         then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
           return materializedPromise!.then(onF, onR);
         },
+        limit() {
+          return {
+            then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
+              return materializedPromise!.then(onF, onR);
+            },
+          };
+        },
       };
     };
     chain.limit = () => {

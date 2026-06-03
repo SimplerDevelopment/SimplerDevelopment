@@ -9,6 +9,15 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// `unstable_cache` requires an incremental-cache context (only available in
+// a real Next.js request). In the unit environment we stub it to be a
+// pass-through so the module's in-memory TTL cache (the cache Map) is the
+// only caching layer under test — which is exactly what these tests target.
+vi.mock('next/cache', () => ({
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
+  revalidateTag: vi.fn(),
+}));
+
 interface ClientRow {
   id: number;
   customDomain: string | null;

@@ -201,12 +201,16 @@ async function _getBrandingByClientIdUncached(
 export async function getBrandingByClientId(
   clientId: number,
 ): Promise<ResolvedBranding & { websiteId?: number }> {
-  const cached = unstable_cache(
-    () => _getBrandingByClientIdUncached(clientId),
-    ['branding-by-client', String(clientId)],
-    { revalidate: 60, tags: ['brand-profile', `brand-profile:${clientId}`] },
-  );
-  return cached();
+  try {
+    return await unstable_cache(
+      () => _getBrandingByClientIdUncached(clientId),
+      ['branding-by-client', String(clientId)],
+      { revalidate: 60, tags: ['brand-profile', `brand-profile:${clientId}`] },
+    )();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _getBrandingByClientIdUncached(clientId);
+  }
 }
 
 /** Load branding for a booking page. Prefers assigned profile, falls back to client default. */

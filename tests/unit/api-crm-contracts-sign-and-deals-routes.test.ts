@@ -115,6 +115,9 @@ vi.mock('@/lib/db', () => {
         return chain;
       },
       limit() {
+        return chain;
+      },
+      offset() {
         return Promise.resolve(selectQueue.shift() ?? []);
       },
       then(onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) {

@@ -70,6 +70,7 @@ vi.mock('@/lib/db/schema', () => {
 
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
+  desc: (a: unknown) => ({ op: 'desc', a }),
   and: (...args: unknown[]) => ({ op: 'and', args: args.filter(Boolean) }),
   isNull: (a: unknown) => ({ op: 'isNull', a }),
   or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
@@ -139,6 +140,9 @@ vi.mock('@/lib/db', () => {
       },
       where(arg: unknown) {
         filter = arg;
+        return chain;
+      },
+      orderBy() {
         return chain;
       },
       limit(n: number) {

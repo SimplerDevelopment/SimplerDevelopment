@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
       limit: vi.fn(() => makeThenable(resolver)),
       orderBy: vi.fn(() => makeThenable(resolver)),
       innerJoin: vi.fn(() => makeThenable(resolver)),
+      leftJoin: vi.fn(() => makeThenable(resolver)),
       from: vi.fn(() => makeThenable(resolver)),
       values: vi.fn(() => makeThenable(resolver)),
       returning: vi.fn(() => makeThenable(resolver)),
@@ -84,6 +85,11 @@ vi.mock('@/lib/db/schema', () => ({
     productId: 'productVariants.productId',
     active: 'productVariants.active',
     name: 'productVariants.name',
+  },
+  designs: {
+    id: 'designs.id',
+    name: 'designs.name',
+    thumbnailUrl: 'designs.thumbnailUrl',
   },
 }));
 

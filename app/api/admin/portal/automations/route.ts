@@ -21,17 +21,28 @@ async function requireStaff() {
 const PAGE_SIZE = 100;
 const FAILED_COUNT_TAG = 'admin-automation-logs-failed-count';
 
-const getFailedAutomationCount = unstable_cache(
-  async () => {
-    const [row] = await db
-      .select({ count: count() })
-      .from(automationLogs)
-      .where(eq(automationLogs.status, 'failed'));
-    return row?.count ?? 0;
-  },
+async function _getFailedAutomationCountUncached(): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(automationLogs)
+    .where(eq(automationLogs.status, 'failed'));
+  return row?.count ?? 0;
+}
+
+const _getFailedAutomationCountCached = unstable_cache(
+  _getFailedAutomationCountUncached,
   ['admin-automation-logs-failed-count'],
   { revalidate: 60, tags: [FAILED_COUNT_TAG] },
 );
+
+async function getFailedAutomationCount(): Promise<number> {
+  try {
+    return await _getFailedAutomationCountCached();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _getFailedAutomationCountUncached();
+  }
+}
 
 export function revalidateFailedAutomationCount() {
   revalidateTag(FAILED_COUNT_TAG, 'default');

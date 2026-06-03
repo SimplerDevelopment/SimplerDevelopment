@@ -13,8 +13,8 @@ describe('lib/data/solutions', () => {
       expect(solutions.length).toBeGreaterThan(0);
     });
 
-    it('contains exactly 8 solutions', () => {
-      expect(solutions.length).toBe(8);
+    it('contains exactly 14 solutions', () => {
+      expect(solutions.length).toBe(14);
     });
 
     it('has unique slugs', () => {
@@ -27,12 +27,18 @@ describe('lib/data/solutions', () => {
       const slugs = solutions.map((s) => s.slug).sort();
       expect(slugs).toEqual([
         'ai-chatbot',
+        'ai-connect',
+        'automations',
         'booking',
+        'company-brain',
+        'contracts',
         'crm',
+        'ecommerce',
         'email-marketing',
         'hosting',
         'pitch-decks',
         'project-management',
+        'surveys',
         'websites',
       ]);
     });

@@ -165,11 +165,20 @@ async function loadAdminDashboard() {
   };
 }
 
-export const getAdminDashboard = unstable_cache(
+const getAdminDashboardCached = unstable_cache(
   loadAdminDashboard,
   ['admin-dashboard'],
   { revalidate: 90, tags: [ADMIN_DASHBOARD_TAG] },
 );
+
+export async function getAdminDashboard(): Promise<ReturnType<typeof loadAdminDashboard>> {
+  try {
+    return await getAdminDashboardCached();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return loadAdminDashboard();
+  }
+}
 
 /**
  * Invalidate the cached admin dashboard payload. Call from high-frequency

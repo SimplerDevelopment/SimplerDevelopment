@@ -15,51 +15,63 @@ import { and, eq, desc, inArray, sql } from 'drizzle-orm';
 //
 // We key on (clientId, userId, limit, unreadOnly) so the bell-bar's canonical
 // `?limit=20` query doesn't collide with a dropdown asking for `?limit=50`.
-function getNotificationsSnapshotCached(
+async function _getNotificationsSnapshotUncached(
   clientId: number,
   userId: number,
   limit: number,
   unreadOnly: boolean,
 ) {
-  return unstable_cache(
-    async () => {
-      const baseScope = unreadOnly
-        ? and(
-            eq(crmNotifications.clientId, clientId),
-            eq(crmNotifications.userId, userId),
-            eq(crmNotifications.read, false),
-          )
-        : and(eq(crmNotifications.clientId, clientId), eq(crmNotifications.userId, userId));
+  const baseScope = unreadOnly
+    ? and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )
+    : and(eq(crmNotifications.clientId, clientId), eq(crmNotifications.userId, userId));
 
-      const [notifications, countRows] = await Promise.all([
-        db.select()
-          .from(crmNotifications)
-          .where(baseScope)
-          .orderBy(desc(crmNotifications.createdAt))
-          .limit(limit),
-        db.select({ count: sql<number>`count(*)::int` })
-          .from(crmNotifications)
-          .where(and(
-            eq(crmNotifications.clientId, clientId),
-            eq(crmNotifications.userId, userId),
-            eq(crmNotifications.read, false),
-          )),
-      ]);
+  const [notifications, countRows] = await Promise.all([
+    db.select()
+      .from(crmNotifications)
+      .where(baseScope)
+      .orderBy(desc(crmNotifications.createdAt))
+      .limit(limit),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(crmNotifications)
+      .where(and(
+        eq(crmNotifications.clientId, clientId),
+        eq(crmNotifications.userId, userId),
+        eq(crmNotifications.read, false),
+      )),
+  ]);
 
-      return {
-        notifications,
-        unreadCount: countRows[0]?.count ?? 0,
-      };
-    },
-    [
-      'portal-notifications-snapshot',
-      String(clientId),
-      String(userId),
-      String(limit),
-      unreadOnly ? '1' : '0',
-    ],
-    { revalidate: 15, tags: ['notifications', `notifications:${userId}`] },
-  )();
+  return {
+    notifications,
+    unreadCount: countRows[0]?.count ?? 0,
+  };
+}
+
+async function getNotificationsSnapshotCached(
+  clientId: number,
+  userId: number,
+  limit: number,
+  unreadOnly: boolean,
+) {
+  try {
+    return await unstable_cache(
+      () => _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly),
+      [
+        'portal-notifications-snapshot',
+        String(clientId),
+        String(userId),
+        String(limit),
+        unreadOnly ? '1' : '0',
+      ],
+      { revalidate: 15, tags: ['notifications', `notifications:${userId}`] },
+    )();
+  } catch {
+    // Outside a request context (tests/cron/MCP) — incrementalCache unavailable.
+    return _getNotificationsSnapshotUncached(clientId, userId, limit, unreadOnly);
+  }
 }
 
 async function getAuthedClient() {

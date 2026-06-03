@@ -138,6 +138,8 @@ describe('GET /api/portal/brain/relationships', () => {
       priority: undefined,
       status: undefined,
       staleOnly: false,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -159,6 +161,8 @@ describe('GET /api/portal/brain/relationships', () => {
       priority: 'high',
       status: 'active',
       staleOnly: true,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -769,6 +773,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: undefined,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -789,6 +795,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: 11,
       meetingId: 22,
       needsReview: true,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -807,6 +815,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: false,
+      limit: 100,
+      offset: 0,
     });
   });
 
@@ -825,6 +835,8 @@ describe('GET /api/portal/brain/tasks', () => {
       ownerId: undefined,
       meetingId: undefined,
       needsReview: undefined,
+      limit: 100,
+      offset: 0,
     });
   });
 });

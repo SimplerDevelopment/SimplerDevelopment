@@ -128,7 +128,7 @@ export async function PUT(
   // back to the same value, or repeated autosaves on an idle tab).
   const trigger = published && revisionTrigger !== 'autosave' ? 'publish' : (revisionTrigger || 'manual');
   if (content !== undefined) {
-    const newHash = hashContent(post.content);
+    const newHash = hashContent(typeof post.content === 'string' ? post.content : JSON.stringify(post.content));
     let shouldWriteRevision = true;
     if (trigger === 'autosave') {
       const [last] = await db

@@ -519,7 +519,7 @@ describe('GET /api/portal/crm/companies', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data.page).toBe(1);
-    expect(body.data.limit).toBe(25);
+    expect(body.data.limit).toBe(50);
     expect(body.data.total).toBe(0);
     expect(body.data.companies).toEqual([]);
   });
@@ -546,7 +546,7 @@ describe('GET /api/portal/crm/companies', () => {
     selectQueue.push([]);
     const res = await companiesGET(makeNextRequest('limit=99999&page=0') as never);
     const body = await res.json();
-    expect(body.data.limit).toBe(5000);
+    expect(body.data.limit).toBe(200);
     expect(body.data.page).toBe(1);
   });
 
