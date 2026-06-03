@@ -75,3 +75,12 @@ export default async function PublishingPermissionsPage() {
     />
   );
 }
+
+function normalizeRole(
+  role: string | null | undefined,
+): PermissionMatrixMember['role'] | null {
+  if (role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer') {
+    return role;
+  }
+  return null;
+}
