@@ -21,19 +21,24 @@ const FeaturesBackground = dynamic(() => import('@/components/three/FeaturesBack
 });
 
 const portalFeatures = [
+  { title: 'AI Connect', description: 'Connect Claude, ChatGPT, and AI tools to your portal via MCP', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
   { title: 'Website Builder', description: 'Drag-and-drop editor with unlimited pages, blog, SEO, and ecommerce', icon: 'language', href: '/solutions/websites', color: '#3b82f6' },
   { title: 'Online Store', description: 'Sell products with variants, discounts, shipping, and print-on-demand designs', icon: 'storefront', href: '/solutions/ecommerce', color: '#16a34a' },
+  { title: 'Content Calendar', description: 'Editorial kanban and calendar to plan, schedule, and ship content across channels', icon: 'rocket_launch', href: '/solutions/publishing', color: '#0d9488' },
   { title: 'Email Marketing', description: 'Campaigns, subscriber lists, automations, and engagement tracking', icon: 'email', href: '/solutions/email-marketing', color: '#8b5cf6' },
   { title: 'CRM', description: 'Contacts, deals, proposals, and your full sales pipeline', icon: 'groups', href: '/solutions/crm', color: '#0ea5e9' },
   { title: 'Contracts & E-Sign', description: 'Branded proposals and legally binding contracts with built-in e-signature', icon: 'draw', href: '/solutions/contracts', color: '#b45309' },
+  { title: 'Invoicing & Payments', description: 'Send itemized invoices and get paid securely by card via Stripe', icon: 'receipt_long', href: '/solutions/invoicing', color: '#0369a1' },
   { title: 'Online Booking', description: 'Scheduling pages with calendar sync and automatic reminders', icon: 'calendar_month', href: '/solutions/booking', color: '#10b981' },
   { title: 'Surveys & Forms', description: 'Smart forms with branching logic, scoring, and auto-routing to your CRM', icon: 'ballot', href: '/solutions/surveys', color: '#e11d48' },
+  { title: 'A/B Experiments', description: 'Split-test pages and pitch deck slides with built-in significance testing', icon: 'science', href: '/solutions/experiments', color: '#65a30d' },
   { title: 'Project Management', description: 'Kanban boards, sprint planning, and team collaboration', icon: 'view_kanban', href: '/solutions/project-management', color: '#4f46e5' },
+  { title: 'Help Desk', description: 'Embeddable live chat plus a shared inbox and SLA-tracked support tickets', icon: 'support_agent', href: '/solutions/help-desk', color: '#ea580c' },
   { title: 'Company Brain', description: 'AI knowledge base that answers questions about your business with citations', icon: 'psychology', href: '/solutions/company-brain', color: '#7c3aed' },
   { title: 'AI Chatbot', description: 'Trained on your content for 24/7 support and lead capture', icon: 'smart_toy', href: '/solutions/ai-chatbot', color: '#a855f7' },
-  { title: 'AI Connect', description: 'Connect Claude, ChatGPT, and AI tools to your portal via MCP', icon: 'cable', href: '/solutions/ai-connect', color: '#0891b2' },
   { title: 'Automations', description: 'Visual no-code workflows that connect every tool automatically', icon: 'account_tree', href: '/solutions/automations', color: '#db2777' },
   { title: 'Pitch Decks', description: 'AI-generated, branded pitch decks with shareable links and PDF export', icon: 'slideshow', href: '/solutions/pitch-decks', color: '#f59e0b' },
+  { title: 'Agency & White-Label', description: 'Run the platform under your own brand with a custom domain and logo', icon: 'storefront', href: '/solutions/agency', color: '#c026d3' },
   { title: 'Managed Hosting', description: 'SSL, CDN, daily backups, and 99.9% uptime included', icon: 'cloud', href: '/solutions/hosting', color: '#64748b' },
 ];
 
@@ -80,7 +85,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
                   </FadeIn>
                   <FadeIn delay={0.3} immediate>
                     <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed">
-                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — fourteen connected tools in one place. Built and backed by a full-service agency.
+                      Websites, online stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — nineteen connected tools in one place. Built and backed by a full-service agency.
                     </p>
                   </FadeIn>
                   <FadeIn delay={0.4} immediate>
@@ -122,7 +127,7 @@ export function HomeClient({ recentPosts = [] }: { recentPosts?: BlogPostWithRel
             <FadeIn>
               <p className="text-primary font-mono text-sm font-semibold mb-3 tracking-wider text-center">{'// THE PLATFORM'}</p>
               <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-center">
-                Fourteen tools. One platform.
+                Nineteen tools. One platform.
               </h2>
               <p className="text-lg text-muted-foreground text-center max-w-2xl mx-auto mb-12">
                 Stop paying for a dozen subscriptions that don&apos;t talk to each other. Everything you need is here.

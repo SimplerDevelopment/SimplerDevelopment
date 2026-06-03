@@ -9,6 +9,7 @@ import { siteConfig } from '@/config/site';
 import { ThemeToggle } from './ThemeToggle';
 import { UserDropdown } from './UserDropdown';
 import { Button } from './Button';
+import { SolutionsMegaMenu } from './SolutionsMegaMenu';
 
 export function Navigation() {
   const { data: session } = useSession();
@@ -94,17 +95,21 @@ export function Navigation() {
             <div className="hidden md:flex items-center space-x-8">
               {!pathname.startsWith('/admin') && (
                 <>
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
-                        pathname === link.href ? 'text-primary' : ''
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+                  {navLinks.map((link) =>
+                    link.href === '/solutions' ? (
+                      <SolutionsMegaMenu key={link.href} />
+                    ) : (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={`text-sm font-heading font-semibold hover:text-primary transition-colors ${
+                          pathname === link.href ? 'text-primary' : ''
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    )
+                  )}
                 </>
               )}
 

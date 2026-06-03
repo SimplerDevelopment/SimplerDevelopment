@@ -4,15 +4,24 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
+import { CodeLogo3D } from '@/components/three/CodeLogo3D';
 
 export const metadata = generateSEO({
   title: 'Platform Features',
-  description: 'Website builder, online store, email marketing, CRM, contracts & e-signature, booking, surveys, project management, Company Brain AI, AI chatbot, automations, and more — 14 tools in one platform',
+  description: 'Website builder, online store, publishing & content calendar, email marketing, CRM, contracts & e-signature, invoicing, booking, surveys, A/B experiments, project management, help desk, Company Brain AI, AI chatbot, automations, white-label agency, and more — 19 tools in one platform',
   path: '/solutions',
 });
 
+const NUMBER_WORDS = [
+  'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen',
+  'Eighteen', 'Nineteen', 'Twenty', 'Twenty-One', 'Twenty-Two', 'Twenty-Three', 'Twenty-Four',
+];
+const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
+
 export default function SolutionsPage() {
   const solutions = getAllSolutions();
+  const toolCount = solutions.length;
 
   return (
     <div className="min-h-screen">
@@ -20,21 +29,29 @@ export default function SolutionsPage() {
       <section className="relative py-24 md:py-32 overflow-hidden bg-dot-grid">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl">
-            <FadeIn>
-              <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">{`// PLATFORM`}</p>
-            </FadeIn>
-            <FadeIn delay={0.1}>
-              <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
-                Every Tool Your Business{' '}
-                <span className="text-primary">Actually Needs</span>
-              </h1>
-            </FadeIn>
-            <FadeIn delay={0.2}>
-              <p className="text-xl text-muted-foreground max-w-xl">
-                Fourteen integrated tools that replace your entire SaaS stack. Websites, stores, email, CRM, booking, surveys, projects, an AI Company Brain, and more — all working together from one dashboard.
-              </p>
-              <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* Left column — copy */}
+            <div className="max-w-xl">
+              <FadeIn immediate>
+                <p className="text-primary font-mono text-sm font-semibold mb-4 tracking-wider">{`// PLATFORM`}</p>
+              </FadeIn>
+              <FadeIn immediate delay={0.1}>
+                <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-[1.05]">
+                  Every Tool Your Business{' '}
+                  <span className="text-primary">Actually Needs</span>
+                </h1>
+              </FadeIn>
+              <FadeIn immediate delay={0.2}>
+                <p className="text-xl text-muted-foreground">
+                  {numberWord(toolCount)} integrated tools that replace your entire SaaS stack. Websites, stores, a content calendar, email, CRM, invoicing, booking, surveys, A/B testing, projects, a help desk, an AI Company Brain, white-label agency, and more — all working together from one dashboard.
+                </p>
+                <div className="mt-6 w-20 h-1 bg-gradient-to-r from-primary to-accent-warm rounded-full" />
+              </FadeIn>
+            </div>
+
+            {/* Right column — 3D code logo */}
+            <FadeIn immediate delay={0.3}>
+              <CodeLogo3D className="h-[320px] w-full md:h-[440px] lg:h-[480px]" />
             </FadeIn>
           </div>
         </div>
@@ -137,7 +154,7 @@ export default function SolutionsPage() {
               <div className="text-center mb-16">
                 <p className="font-mono text-sm font-semibold mb-3 tracking-wider opacity-50">{`// ALL-IN-ONE`}</p>
                 <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-                  Why One Platform Beats Twelve
+                  Why One Platform Beats {numberWord(toolCount - 1)}
                 </h2>
                 <p className="text-lg opacity-70 max-w-2xl mx-auto">
                   Everything connected, everything managed, everything working together
