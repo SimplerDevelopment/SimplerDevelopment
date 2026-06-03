@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, orderStatusHistory, productDesigns } from '@/lib/db/schema';
-import { and, eq, asc, isNull } from 'drizzle-orm';
+import { orders, orderItems, orderStatusHistory, designs } from '@/lib/db/schema';
+import { and, eq, asc } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import {
   sendTransactionalEmail, getWebsiteUrls, formatCents, formatAddress, formatEmailDate, buildItemsHtml,
@@ -32,12 +32,10 @@ export async function GET(_req: Request, { params }: Params) {
   const order = await resolveOrder(parseInt(session.user.id, 10), siteId, orderId);
   if (!order) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  // Left-join productDesigns so the admin can see the saved-design
-  // thumbnail/name inline with each order line (or a "Design no longer
-  // available" placeholder when the design row has been deleted but the
-  // FK is still on the order item — designId column stays via ON DELETE
-  // SET NULL on the runtime FK, but the customer can also soft-delete
-  // their design which the join handles via isNull(deletedAt)).
+  // Left-join designs (uuid-PK Fabric.js designs table) so the admin can
+  // see the saved-design thumbnail/name inline with each order line.
+  // When the design row no longer exists the join misses and design is null,
+  // letting the UI render a "Design no longer available" placeholder.
   const [itemsWithDesign, history] = await Promise.all([
     db.select({
       id: orderItems.id,
@@ -52,16 +50,12 @@ export async function GET(_req: Request, { params }: Params) {
       quantity: orderItems.quantity,
       total: orderItems.total,
       createdAt: orderItems.createdAt,
-      designIdRow: productDesigns.id,
-      designUuid: productDesigns.uuid,
-      designName: productDesigns.name,
-      designThumbnailUrl: productDesigns.thumbnailUrl,
+      designRowId: designs.id,
+      designName: designs.name,
+      designThumbnailUrl: designs.thumbnailUrl,
     })
       .from(orderItems)
-      .leftJoin(productDesigns, and(
-        eq(productDesigns.id, orderItems.designId),
-        isNull(productDesigns.deletedAt),
-      ))
+      .leftJoin(designs, eq(designs.id, orderItems.designId))
       .where(eq(orderItems.orderId, order.id)),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(asc(orderStatusHistory.createdAt)),
   ]);
@@ -80,13 +74,11 @@ export async function GET(_req: Request, { params }: Params) {
     total: row.total,
     createdAt: row.createdAt,
     // `design` resolves to null both when the order line has no designId
-    // AND when it referenced a now-deleted design — the UI renders
-    // "Design no longer available" in the second case (using the
-    // row.designId hint).
-    design: row.designIdRow
+    // AND when the referenced design row no longer exists (left-join miss).
+    // The UI renders "Design no longer available" using the row.designId hint.
+    design: row.designRowId
       ? {
-          id: row.designIdRow,
-          uuid: row.designUuid,
+          id: row.designRowId,
           name: row.designName,
           thumbnailUrl: row.designThumbnailUrl,
         }
