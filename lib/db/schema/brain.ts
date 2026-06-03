@@ -504,6 +504,12 @@ export const brainNotes = pgTable('brain_notes', {
   tags: json('tags').$type<string[]>().default([]).notNull(),
   confidentialityLevel: varchar('confidentiality_level', { length: 20 }).default('standard').notNull(),
   pinned: boolean('pinned').default(false).notNull(),
+  // BRAIN-1 taxonomy status — replaces the legacy flat tags
+  // (`pending_deletion`, `short_note_review` from BRAIN-12) which Phase 2 will
+  // migrate. 'canonical' = gold-standard reference, 'draft' = in progress
+  // (default), 'stub' = under-quality / needs work, 'duplicate' = replaced by
+  // another note. Faceted filtering hits this column directly.
+  status: varchar('status', { length: 20 }).$type<'canonical' | 'draft' | 'stub' | 'duplicate'>().default('draft').notNull(),
   // Provenance — 'manual' for user-authored, 'ai_review' when promoted from a
   // brain_ai_review_items row of type 'note', 'document_import' for future
   // upload pipelines.
@@ -531,6 +537,7 @@ export const brainNotes = pgTable('brain_notes', {
   index('brain_notes_client_company_idx').on(t.clientId, t.companyId),
   index('brain_notes_client_deal_idx').on(t.clientId, t.dealId),
   index('brain_notes_client_pinned_idx').on(t.clientId, t.pinned),
+  index('brain_notes_status_idx').on(t.status),
 ]);
 
 // Brain note templates — reusable note bodies a tenant can apply manually, via
