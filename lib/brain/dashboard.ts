@@ -132,9 +132,11 @@ async function _getStaticBrainCounts(clientId: number): Promise<StaticBrainCount
  * different tenants get distinct cache entries even though the key array
  * shares the `brain-static-counts` prefix.
  */
-export function getStaticBrainCounts(clientId: number): Promise<StaticBrainCounts> {
+export async function getStaticBrainCounts(clientId: number): Promise<StaticBrainCounts> {
   try {
-    return unstable_cache(
+    // `await` inside the try so the async "incrementalCache missing" rejection
+    // is caught here (a bare `return promise` escapes the try/catch).
+    return await unstable_cache(
       async (cid: number) => _getStaticBrainCounts(cid),
       ['brain-static-counts', String(clientId)],
       {
@@ -470,9 +472,11 @@ async function _getDashboardSummary(clientId: number): Promise<DashboardSummary>
  * {@link DASHBOARD_TTL_SECONDS} staleness for entities whose write paths are
  * not yet wired.
  */
-export function getDashboardSummary(clientId: number): Promise<DashboardSummary> {
+export async function getDashboardSummary(clientId: number): Promise<DashboardSummary> {
   try {
-    return unstable_cache(
+    // `await` inside the try so the async "incrementalCache missing" rejection
+    // is caught here (a bare `return promise` escapes the try/catch).
+    return await unstable_cache(
       async (cid: number) => _getDashboardSummary(cid),
       ['brain-dashboard', String(clientId)],
       {
