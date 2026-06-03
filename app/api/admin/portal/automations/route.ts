@@ -45,7 +45,12 @@ async function getFailedAutomationCount(): Promise<number> {
 }
 
 export function revalidateFailedAutomationCount() {
-  revalidateTag(FAILED_COUNT_TAG, 'default');
+  try {
+    revalidateTag(FAILED_COUNT_TAG, 'default');
+  } catch {
+    // Outside a request/action context (cron/MCP/tests) — revalidation is a
+    // best-effort cache hint; the TTL will catch up.
+  }
 }
 
 export async function GET(req: Request) {

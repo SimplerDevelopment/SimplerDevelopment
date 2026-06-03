@@ -190,5 +190,10 @@ export async function getAdminDashboard(): Promise<ReturnType<typeof loadAdminDa
  * unstable_cache `revalidate` option above.
  */
 export function revalidateAdminDashboard() {
-  revalidateTag(ADMIN_DASHBOARD_TAG, 'default');
+  try {
+    revalidateTag(ADMIN_DASHBOARD_TAG, 'default');
+  } catch {
+    // Outside a request/action context (cron/MCP/tests) — revalidation is a
+    // best-effort cache hint; the TTL will catch up.
+  }
 }
