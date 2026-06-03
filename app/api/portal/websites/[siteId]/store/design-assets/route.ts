@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { designAssets } from '@/lib/db/schema';
+import { philaprintsDesignAssets as designAssets } from '@/lib/db/schema';
 import { and, asc, eq } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 

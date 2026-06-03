@@ -108,6 +108,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
         projectId: kanbanCards.projectId,
         number: kanbanCards.number,
         title: kanbanCards.title,
+        description: kanbanCards.description,
         dueDate: kanbanCards.dueDate,
         priority: kanbanCards.priority,
         order: kanbanCards.order,

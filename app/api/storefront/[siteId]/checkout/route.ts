@@ -125,7 +125,7 @@ export async function POST(
     const orderItemsData: {
       productId: number;
       variantId: number | null;
-      designId: number | null;
+      designId: string | null;
       productName: string;
       variantName: string | null;
       sku: string | null;

@@ -34,7 +34,8 @@ export default function VoiceAssistant() {
 
   const active = status === 'listening' || status === 'connecting';
   const open = active || transcript.length > 0 || !!error;
-  const canSave = meetingMode && transcript.length > 0 && saveState !== 'saving';
+  const showSaveButton = meetingMode && transcript.length > 0;
+  const canSave = showSaveButton && saveState !== 'saving';
 
   const buttonIcon =
     status === 'connecting' ? 'hourglass_empty' : status === 'listening' ? 'stop' : 'mic';
@@ -175,10 +176,11 @@ export default function VoiceAssistant() {
                 {saveMessage}
               </span>
             ) : (
-              canSave && (
+              showSaveButton && (
                 <button
                   onClick={() => void saveToBrain()}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1"
+                  disabled={!canSave}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-icons text-sm">psychology</span>
                   {saveState === 'saving' ? 'Saving…' : 'Save to Brain'}
