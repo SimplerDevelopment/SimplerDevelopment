@@ -6,6 +6,10 @@ interface MediaItem {
   id: number;
   filename: string;
   url: string;
+  // Smaller derivative used for grid renders. E2 perf — when present, the
+  // grid <img> prefers thumbnailUrl over the full url to avoid downloading
+  // multi-MB originals for h-40 tiles.
+  thumbnailUrl?: string | null;
   mimeType: string;
   fileSize: number;
   width?: number | null;
@@ -329,7 +333,14 @@ export default function PortalMediaPage() {
               className="bg-card border border-border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/40 transition-all group"
             >
               {item.mimeType.startsWith('image/') ? (
-                <img src={item.url} alt={item.alt || item.filename} className="w-full h-40 object-cover" />
+                // eslint-disable-next-line @next/next/no-img-element -- grid thumbnail; we prefer manual <img> + lazy over next/image to avoid layout cost
+                <img
+                  src={item.thumbnailUrl ?? item.url}
+                  alt={item.alt || item.filename}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-40 object-cover"
+                />
               ) : item.mimeType.startsWith('video/') ? (
                 <div className="w-full h-40 bg-muted flex items-center justify-center">
                   <span className="material-icons text-4xl text-muted-foreground">videocam</span>

@@ -137,7 +137,13 @@ export const supportTickets = pgTable('support_tickets', {
   resolutionDueAt: timestamp('resolution_due_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin clients list aggregates open tickets per client, admin
+  // tickets list orders globally by updatedAt, and the dashboard counts by
+  // status. (clientId, status, updatedAt) covers all three.
+  index('support_tickets_client_status_updated_idx').on(t.clientId, t.status, t.updatedAt),
+  index('support_tickets_updated_idx').on(t.updatedAt),
+]);
 
 export const ticketMessages = pgTable('ticket_messages', {
   id: serial('id').primaryKey(),
@@ -572,5 +578,10 @@ export const suggestedProjectRequests = pgTable('suggested_project_requests', {
   adminNotes: text('admin_notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — admin approvals queue lists pending requests per client sorted
+  // by createdAt; the dashboard scans by status only.
+  index('suggested_project_requests_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('suggested_project_requests_client_status_idx').on(t.clientId, t.status),
+]);
 

@@ -78,7 +78,12 @@ export const automationRules = pgTable('automation_rules', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — automations admin filters by clientId; the per-tenant rules
+  // list is the hot path. (The partial 'failed' index on automation_logs is
+  // declared in SQL only since Drizzle doesn't support partial indexes here.)
+  index('automation_rules_client_idx').on(t.clientId),
+]);
 
 // ─── SURVEYS ────────────────────────────────────────────────────────────────
 
@@ -395,6 +400,10 @@ export const brainAiReviewItems = pgTable('brain_ai_review_items', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('brain_ai_review_items_suggested_reviewer_idx').on(t.suggestedReviewerPersonId),
+  // E2 perf — admin/approvals dashboard filters by (clientId, status) sorted
+  // by createdAt; the review queue panel also scans by status only.
+  index('brain_ai_review_items_client_status_created_idx').on(t.clientId, t.status, t.createdAt),
+  index('brain_ai_review_items_status_idx').on(t.status),
 ]);
 
 export type BrainAiJobType = 'process_meeting' | 'embed' | 'summarize_doc' | 'crm_classify';

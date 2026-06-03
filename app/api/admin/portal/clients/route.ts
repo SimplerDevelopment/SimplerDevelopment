@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { clients, users, clientMembers, clientServices, services, clientWebsites, projects, supportTickets, invoices } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { clients, users, clientMembers } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
 import { ensureDefaultPipeline } from '@/lib/crm/default-pipeline';
+import { listAdminClients } from '@/lib/admin/clients-list';
 
 async function requireStaff() {
   const session = await auth();
@@ -14,35 +15,27 @@ async function requireStaff() {
   return session;
 }
 
-export async function GET() {
+// E2 perf — see lib/admin/clients-list.ts for the full perf-rewrite rationale.
+// This route is a thin wrapper that parses cursor + limit from query params.
+export async function GET(req: Request) {
   const session = await requireStaff();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
-  const data = await db
-    .select({
-      id: clients.id,
-      userId: clients.userId,
-      company: clients.company,
-      phone: clients.phone,
-      website: clients.website,
-      address: clients.address,
-      notes: clients.notes,
-      createdAt: clients.createdAt,
-      userName: users.name,
-      userEmail: users.email,
-      userActive: users.active,
-      activeServices: sql<number>`(select count(*) from ${clientServices} where ${clientServices.clientId} = ${clients.id} and ${clientServices.status} = 'active')`,
-      websiteCount: sql<number>`(select count(*) from ${clientWebsites} where ${clientWebsites.clientId} = ${clients.id})`,
-      activeProjects: sql<number>`(select count(*) from ${projects} where ${projects.clientId} = ${clients.id} and ${projects.status} = 'active')`,
-      openTickets: sql<number>`(select count(*) from ${supportTickets} where ${supportTickets.clientId} = ${clients.id} and ${supportTickets.status} in ('open','in_progress'))`,
-      totalRevenue: sql<number>`coalesce((select sum(${invoices.total}) from ${invoices} where ${invoices.clientId} = ${clients.id} and ${invoices.status} = 'paid'), 0)`,
-      mrr: sql<number>`coalesce((select sum(case when ${services.billingCycle} = 'monthly' then ${services.price} when ${services.billingCycle} = 'annually' then ${services.price} / 12 else 0 end) from ${clientServices} inner join ${services} on ${services.id} = ${clientServices.serviceId} where ${clientServices.clientId} = ${clients.id} and ${clientServices.status} = 'active'), 0)`,
-    })
-    .from(clients)
-    .innerJoin(users, eq(clients.userId, users.id))
-    .orderBy(sql`${clients.createdAt} desc`);
+  const url = new URL(req.url);
+  const rawLimit = Number(url.searchParams.get('limit') ?? '100');
+  const cursorCreatedAt = url.searchParams.get('cursorCreatedAt');
+  const cursorId = url.searchParams.get('cursorId');
 
-  return NextResponse.json({ success: true, data });
+  const cursor = cursorCreatedAt && cursorId
+    ? { createdAt: cursorCreatedAt, id: Number(cursorId) }
+    : null;
+
+  const { data, nextCursor } = await listAdminClients({
+    limit: Number.isFinite(rawLimit) ? rawLimit : undefined,
+    cursor,
+  });
+
+  return NextResponse.json({ success: true, data, nextCursor });
 }
 
 export async function POST(req: Request) {

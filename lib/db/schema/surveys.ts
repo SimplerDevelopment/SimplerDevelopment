@@ -1,6 +1,6 @@
 // Surveys / intake forms with recommendation engine, AI summaries, and partial-response capture.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -236,7 +236,10 @@ export const surveys = pgTable('surveys', {
   parentSurveyId: integer('parent_survey_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  // E2 perf — portal/surveys list filters by clientId ordered by updatedAt desc.
+  index('surveys_client_updated_idx').on(t.clientId, t.updatedAt),
+]);
 
 export const surveyResponses = pgTable('survey_responses', {
   id: serial('id').primaryKey(),

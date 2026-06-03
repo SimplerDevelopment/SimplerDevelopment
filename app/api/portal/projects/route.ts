@@ -7,6 +7,7 @@ import { getPortalClient } from '@/lib/portal-client';
 import { isPortalStaff } from '@/lib/portal';
 import { emitEvent } from '@/lib/automation';
 import type { ProjectRole } from '@/lib/portal/project-permissions';
+import { revalidateAdminDashboard } from '@/lib/admin/dashboard-cache';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -172,6 +173,9 @@ export async function POST(req: Request) {
   }
 
   emitEvent('project.created', client.id, userId, { id: project.id, name: project.name, status: project.status, clonedFrom: source?.id ?? null });
+
+  // E2 — invalidate the admin dashboard cache (active-project count bumped).
+  revalidateAdminDashboard();
 
   return NextResponse.json({ success: true, data: { ...project, myRole: 'owner' as ProjectRole } }, { status: 201 });
 }
