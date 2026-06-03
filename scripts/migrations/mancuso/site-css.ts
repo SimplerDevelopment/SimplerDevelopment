@@ -210,12 +210,14 @@ a:hover { color: var(--mc-tomato); }
 .mc-nav__links a:hover::after,
 .mc-nav__links a[aria-current="page"]::after { transform: scaleX(1); }
 .mc-nav__cta {
+  display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--mc-sans); font-size: 12px;
   font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
   background: var(--mc-ink); color: var(--mc-cream);
   padding: 10px 18px; border-radius: 999px;
   transition: all 220ms ease;
 }
+.mc-nav__cta-icon { font-size: 14px; }
 .mc-nav__cta:hover { background: var(--mc-tomato); color: #fff; transform: translateY(-1px); }
 .mc-nav__toggle {
   display: none; background: none; border: none;
@@ -224,7 +226,7 @@ a:hover { color: var(--mc-tomato); }
 
 @media (max-width: 860px) {
   .mc-nav__toggle { display: block; }
-  .mc-nav__links, .mc-nav__cta { display: none; }
+  .mc-nav__links { display: none; }
   .mc-nav.is-open .mc-nav__links {
     display: flex; flex-direction: column;
     position: absolute; top: 100%; left: 0; right: 0;
@@ -232,7 +234,16 @@ a:hover { color: var(--mc-tomato); }
     border-bottom: 1px solid var(--mc-line);
     gap: 18px;
   }
-  .mc-nav.is-open .mc-nav__cta { display: inline-flex; align-self: flex-start; margin-top: 6px; }
+  /* Phone CTA collapses to an icon-only round button in the header bar —
+     the number is dropped from the visible text but the link still dials it. */
+  .mc-nav__cta {
+    width: 42px; height: 42px;
+    flex: 0 0 42px;
+    padding: 0; gap: 0;
+    justify-content: center;
+  }
+  .mc-nav__cta-label { display: none; }
+  .mc-nav__cta-icon { font-size: 18px; }
 }
 
 /* spacer so fixed nav doesn't cover content on page top */
@@ -257,6 +268,15 @@ a:hover { color: var(--mc-tomato); }
 }
 @media (max-width: 900px) {
   .mc-hero__inner { grid-template-columns: 1fr; }
+  /* On mobile the hero content is taller than the viewport, so the fixed nav
+     overlapped the top of it. Drop the vertical centering and clear the nav
+     with explicit top padding. */
+  .mc-hero {
+    min-height: auto;
+    align-items: flex-start;
+    padding-top: 104px;
+    padding-bottom: 52px;
+  }
 }
 .mc-hero__since {
   display: inline-block;
