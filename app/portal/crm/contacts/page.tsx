@@ -6,6 +6,7 @@ import CrmDuplicateWarning from '@/components/portal/CrmDuplicateWarning';
 import CrmImportExport from '@/components/portal/CrmImportExport';
 import CrmCustomFieldFilters from '@/components/portal/CrmCustomFieldFilters';
 import PositionMultiSelect from '@/components/portal/PositionMultiSelect';
+import CrmCompanyTypeaheadPicker from '@/components/portal/CrmCompanyTypeaheadPicker';
 
 interface Contact {
   id: number;
@@ -29,11 +30,6 @@ interface SavedView {
   filters: { search?: string; status?: string; companyId?: string; title?: string };
   entityType: string;
   isDefault: boolean;
-}
-
-interface Company {
-  id: number;
-  name: string;
 }
 
 const statusOptions = [
@@ -66,13 +62,18 @@ const LIMIT = 25;
 export default function CrmContactsPage() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // Selected company-filter is held as both id and display label so we can
+  // show the chosen company in the picker's collapsed state without paying
+  // the cost of a separate /companies/[id] lookup. Typeahead users always
+  // pick from a label-bearing option so we get the name for free.
   const [companyFilter, setCompanyFilter] = useState('');
+  const [companyFilterLabel, setCompanyFilterLabel] = useState<string | null>(null);
+  const [formCompanyLabel, setFormCompanyLabel] = useState<string | null>(null);
   const [titleFilter, setTitleFilter] = useState<string[]>([]);
   const [availableTitles, setAvailableTitles] = useState<string[]>([]);
   const [customFilters, setCustomFilters] = useState<Record<number, string>>({});
@@ -123,13 +124,25 @@ export default function CrmContactsPage() {
     fetchContacts();
   }, [fetchContacts]);
 
+  // Saved views can preload a companyId without a label. Resolve the name
+  // once via the single-company endpoint so the picker's closed state has
+  // something to show; without this it would render an empty label until
+  // the user opens the dropdown.
   useEffect(() => {
-    // TODO(perf): convert this company-filter dropdown to typeahead (?q=<query>).
-    // For now it pulls the first 200 companies — the endpoint hard-caps at 200.
-    fetch('/api/portal/crm/companies?limit=200')
-      .then(r => r.json())
-      .then(d => setCompanies(d.data?.companies ?? d.data ?? []));
-  }, []);
+    if (!companyFilter || companyFilterLabel) return;
+    let alive = true;
+    fetch(`/api/portal/crm/companies/${companyFilter}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!alive) return;
+        const name = d?.data?.name ?? d?.data?.company?.name ?? null;
+        if (name) setCompanyFilterLabel(name);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [companyFilter, companyFilterLabel]);
 
   const fetchTitles = useCallback(async () => {
     const res = await fetch('/api/portal/crm/contacts/titles');
@@ -169,6 +182,7 @@ export default function CrmContactsPage() {
       setSearch('');
       setStatusFilter('');
       setCompanyFilter('');
+      setCompanyFilterLabel(null);
       setTitleFilter([]);
       setPage(1);
       return;
@@ -178,6 +192,7 @@ export default function CrmContactsPage() {
     setSearch(view.filters.search ?? '');
     setStatusFilter(view.filters.status ?? '');
     setCompanyFilter(view.filters.companyId ?? '');
+    setCompanyFilterLabel(null); // hydrated by effect above
     setTitleFilter(
       view.filters.title
         ? view.filters.title.split(',').map((t) => t.trim()).filter(Boolean)
@@ -235,6 +250,7 @@ export default function CrmContactsPage() {
     }
     setShowForm(false);
     setForm({ firstName: '', lastName: '', email: '', phone: '', linkedinUrl: '', title: '', companyId: '', source: '', status: 'lead', notes: '' });
+    setFormCompanyLabel(null);
     fetchContacts();
     fetchTitles();
   }
@@ -329,16 +345,15 @@ export default function CrmContactsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Company</label>
-              <select
+              <CrmCompanyTypeaheadPicker
                 value={form.companyId}
-                onChange={e => setForm(f => ({ ...f, companyId: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="">None</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                selectedLabel={formCompanyLabel}
+                onChange={opt => {
+                  setForm(f => ({ ...f, companyId: opt ? String(opt.id) : '' }));
+                  setFormCompanyLabel(opt ? opt.name : null);
+                }}
+                placeholder="Select company…"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Source</label>
@@ -473,16 +488,19 @@ export default function CrmContactsPage() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
-          <select
-            value={companyFilter}
-            onChange={e => { setCompanyFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-          >
-            <option value="">All Companies</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <div className="min-w-[180px]">
+            <CrmCompanyTypeaheadPicker
+              value={companyFilter}
+              selectedLabel={companyFilterLabel}
+              onChange={opt => {
+                setCompanyFilter(opt ? String(opt.id) : '');
+                setCompanyFilterLabel(opt ? opt.name : null);
+                setPage(1);
+              }}
+              placeholder="All Companies"
+              noneLabel="All Companies"
+            />
+          </div>
           <PositionMultiSelect
             options={availableTitles}
             selected={titleFilter}
