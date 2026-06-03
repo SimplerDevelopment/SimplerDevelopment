@@ -22,7 +22,11 @@ export const projects = pgTable('projects', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('projects_client_idx').on(t.clientId),
+  index('projects_client_status_idx').on(t.clientId, t.status),
+  index('projects_client_updated_idx').on(t.clientId, t.updatedAt),
+]);
 
 // Per-project member roles. Staff (admin/employee) have implicit owner-equivalent
 // access on every project and do not need a row here; non-staff portal users
@@ -54,7 +58,10 @@ export const sprints = pgTable('sprints', {
   order: integer('order').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('sprints_project_idx').on(t.projectId),
+  index('sprints_project_order_idx').on(t.projectId, t.order),
+]);
 
 export const kanbanColumns = pgTable('kanban_columns', {
   id: serial('id').primaryKey(),
@@ -67,6 +74,7 @@ export const kanbanColumns = pgTable('kanban_columns', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('kanban_columns_project_idx').on(t.projectId),
+  index('kanban_columns_project_order_idx').on(t.projectId, t.order),
 ]);
 
 export const kanbanCards = pgTable('kanban_cards', {
@@ -107,6 +115,8 @@ export const kanbanCards = pgTable('kanban_cards', {
   index('kanban_cards_project_idx').on(t.projectId),
   index('kanban_cards_column_idx').on(t.columnId),
   index('kanban_cards_project_column_order_idx').on(t.projectId, t.columnId, t.order),
+  index('kanban_cards_sprint_idx').on(t.sprintId),
+  index('kanban_cards_sprint_order_idx').on(t.sprintId, t.sprintOrder),
 ]);
 
 export const supportTickets = pgTable('support_tickets', {
@@ -167,6 +177,10 @@ export const kanbanCardComments = pgTable('kanban_card_comments', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   index('kanban_card_comments_card_idx').on(t.cardId),
+<<<<<<< HEAD
+=======
+  index('kanban_card_comments_card_created_idx').on(t.cardId, t.createdAt),
+>>>>>>> perf/projects-indexes-pagination-v2
 ]);
 
 export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
@@ -187,7 +201,9 @@ export const kanbanLabels = pgTable('kanban_labels', {
   name: varchar('name', { length: 50 }).notNull(),
   color: varchar('color', { length: 7 }).default('#6366f1').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('kanban_labels_project_idx').on(t.projectId),
+]);
 
 export const kanbanCardLabels = pgTable('kanban_card_labels', {
   cardId: integer('card_id').notNull().references(() => kanbanCards.id, { onDelete: 'cascade' }),
@@ -203,7 +219,11 @@ export const kanbanCardActivities = pgTable('kanban_card_activities', {
   payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
+<<<<<<< HEAD
   index('kanban_card_activities_card_idx').on(t.cardId),
+=======
+  index('kanban_card_activities_card_created_idx').on(t.cardId, t.createdAt),
+>>>>>>> perf/projects-indexes-pagination-v2
 ]);
 
 export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
@@ -238,8 +258,11 @@ export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }),
+<<<<<<< HEAD
   // The PK covers blockedCardId lookups; the "blocking" (reverse) query filters
   // on blockerCardId, which the composite PK can't serve efficiently.
+=======
+>>>>>>> perf/projects-indexes-pagination-v2
   blockerIdx: index('kanban_card_dependencies_blocker_idx').on(t.blockerCardId),
 }));
 
@@ -294,6 +317,7 @@ export const projectArtifacts = pgTable('project_artifacts', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
   index('project_artifacts_project_idx').on(t.projectId, t.pinned, t.createdAt),
+  index('project_artifacts_project_type_idx').on(t.projectId, t.artifactType),
 ]);
 
 export const projectWebhooks = pgTable('project_webhooks', {
