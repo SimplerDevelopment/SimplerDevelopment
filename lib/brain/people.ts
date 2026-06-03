@@ -37,6 +37,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard, revalidateBrainStaticCounts } from './dashboard';
 
 // ─── EXPORTED TYPES ──────────────────────────────────────────────────────────
 
@@ -448,6 +449,8 @@ export async function createPerson(
     entityId: created.id,
   });
 
+  // peopleActive tile.
+  if (created.status === 'active') revalidateBrainDashboard(clientId);
   return created;
 }
 
@@ -496,6 +499,10 @@ export async function updatePerson(
       entityId: id,
       metadata: { changedFields: Object.keys(patch) },
     });
+    // peopleActive tile changes only when status flips into / out of 'active'.
+    if (patch.status !== undefined && before[0].status !== updated.status) {
+      revalidateBrainDashboard(clientId);
+    }
   }
   return updated ?? null;
 }
@@ -528,6 +535,7 @@ export async function deletePerson(
     .where(and(eq(brainPeople.clientId, clientId), eq(brainPeople.id, id)))
     .returning({ id: brainPeople.id });
 
+  if (result.length > 0) revalidateBrainDashboard(clientId);
   return result.length > 0;
 }
 
@@ -751,6 +759,8 @@ export async function createExpertiseTag(
     entityId: created.id,
   });
 
+  // expertiseTagsCount feeds the dashboard static-counts tile (10m TTL).
+  revalidateBrainStaticCounts(clientId);
   return created;
 }
 
@@ -830,6 +840,7 @@ export async function deleteExpertiseTag(
   await db.delete(brainExpertiseTags)
     .where(and(eq(brainExpertiseTags.clientId, clientId), eq(brainExpertiseTags.id, id)));
 
+  revalidateBrainStaticCounts(clientId);
   return { deleted: true };
 }
 
@@ -852,7 +863,7 @@ export async function mergeExpertiseTags(
     throw new Error('Cannot merge a tag into itself');
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [source] = await tx
       .select({ id: brainExpertiseTags.id })
       .from(brainExpertiseTags)
@@ -928,6 +939,9 @@ export async function mergeExpertiseTags(
 
     return { merged: true as const, reattached };
   });
+  // Merge deletes one expertise tag — bump the static-counts tile.
+  revalidateBrainStaticCounts(clientId);
+  return result;
 }
 
 // ─── WHO-KNOWS SEARCH ────────────────────────────────────────────────────────

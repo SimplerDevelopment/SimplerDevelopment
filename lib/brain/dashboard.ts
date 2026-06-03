@@ -1,3 +1,4 @@
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import {
   brainMeetings,
@@ -8,6 +9,23 @@ import {
   type BrainTaskStatus,
 } from '@/lib/db/schema';
 import { eq, and, or, desc, lt, inArray, sql } from 'drizzle-orm';
+
+/**
+ * Cache TTLs for the brain dashboard summary.
+ *
+ * The full dashboard payload is recomputed at most every {@link DASHBOARD_TTL_SECONDS},
+ * and explicitly revalidated by the mutation paths in lib/brain/* via
+ * {@link revalidateBrainDashboard}. The slowly-changing rollups (org units,
+ * expertise tags, glossary terms) are split into their own longer-TTL cache
+ * so the page can fold them in without forcing a full recompute on every nav.
+ */
+const DASHBOARD_TTL_SECONDS = 60;
+const STATIC_COUNTS_TTL_SECONDS = 600;
+
+/** Per-client cache tag for the full dashboard summary. */
+export const brainDashboardTag = (clientId: number): string => `brain-dashboard:${clientId}`;
+/** Per-client cache tag for the slowly-changing static counts subset. */
+export const brainStaticCountsTag = (clientId: number): string => `brain-static-counts:${clientId}`;
 
 export interface DashboardSummary {
   needsReviewMeetings: {
@@ -83,7 +101,49 @@ interface DashboardRelationship {
   openTaskCount: number;
 }
 
-export async function getDashboardSummary(clientId: number): Promise<DashboardSummary> {
+interface StaticBrainCounts extends Record<string, unknown> {
+  org_unit_count: number;
+  expertise_tags_count: number;
+  glossary_terms_active: number;
+}
+
+/**
+ * Slowly-changing brain rollups (org units / expertise tags / glossary terms).
+ * Cached on a longer TTL than the main dashboard so the page can fold them in
+ * without forcing a full recompute on every nav. Wired into write paths that
+ * touch glossary / org units / expertise via {@link revalidateBrainStaticCounts}.
+ */
+async function _getStaticBrainCounts(clientId: number): Promise<StaticBrainCounts> {
+  const rows = await db.execute<StaticBrainCounts>(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
+      (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
+      (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active
+  `);
+  return rows[0] ?? { org_unit_count: 0, expertise_tags_count: 0, glossary_terms_active: 0 };
+}
+
+/**
+ * Cache-wrapped accessor for {@link _getStaticBrainCounts}. We build a fresh
+ * `unstable_cache` per `clientId` so we can emit a per-client tag
+ * (`brain-static-counts:${clientId}`) — `unstable_cache`'s `tags` array is
+ * static at definition time, so a per-client wrapper is the cleanest way to
+ * get tenant-scoped invalidation. The inner cache key includes `clientId` so
+ * different tenants get distinct cache entries even though the key array
+ * shares the `brain-static-counts` prefix.
+ */
+export function getStaticBrainCounts(clientId: number): Promise<StaticBrainCounts> {
+  return unstable_cache(
+    async (cid: number) => _getStaticBrainCounts(cid),
+    ['brain-static-counts', String(clientId)],
+    {
+      revalidate: STATIC_COUNTS_TTL_SECONDS,
+      tags: [brainStaticCountsTag(clientId), 'brain-static-counts'],
+    },
+  )(clientId);
+}
+
+async function _getDashboardSummary(clientId: number): Promise<DashboardSummary> {
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -97,6 +157,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     upcomingRows,
     overlayRows,
     countsRow,
+    staticCounts,
   ] = await Promise.all([
     db.select({ id: brainMeetings.id, title: brainMeetings.title, createdAt: brainMeetings.createdAt, meetingDate: brainMeetings.meetingDate })
       .from(brainMeetings)
@@ -145,7 +206,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       .where(and(eq(brainRelationshipOverlays.clientId, clientId), eq(brainRelationshipOverlays.status, 'active'))),
     // Counts: pending review items total, open tasks, ai-created tasks, relationships,
     // initiatives active, goals at risk, goals achieved this quarter (last 90d),
-    // plus people/org/expertise rollups.
+    // plus people / documents / playbooks rollups. NOTE: the slowly-changing
+    // org_units / expertise_tags / glossary_terms_active counts have been
+    // hoisted into getStaticBrainCounts (10-minute TTL) and are merged below.
     db.execute<{
       pending_review: number;
       open_tasks: number;
@@ -155,9 +218,6 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       goals_at_risk: number;
       goals_achieved_q: number;
       people_active: number;
-      org_unit_count: number;
-      expertise_tags_count: number;
-      glossary_terms_active: number;
       playbook_runs_active: number;
       playbook_runs_paused: number;
       documents_published: number;
@@ -173,9 +233,6 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
         (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status IN ('at_risk','off_track')) AS goals_at_risk,
         (SELECT COUNT(*)::int FROM brain_goals WHERE client_id = ${clientId} AND status = 'achieved' AND last_checked_in_at IS NOT NULL AND last_checked_in_at > now() - interval '90 days') AS goals_achieved_q,
         (SELECT COUNT(*)::int FROM brain_people WHERE client_id = ${clientId} AND status = 'active') AS people_active,
-        (SELECT COUNT(*)::int FROM brain_org_units WHERE client_id = ${clientId}) AS org_unit_count,
-        (SELECT COUNT(*)::int FROM brain_expertise_tags WHERE client_id = ${clientId}) AS expertise_tags_count,
-        (SELECT COUNT(*)::int FROM brain_glossary_terms WHERE client_id = ${clientId} AND status = 'active') AS glossary_terms_active,
         (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'active') AS playbook_runs_active,
         (SELECT COUNT(*)::int FROM brain_playbook_runs WHERE client_id = ${clientId} AND status = 'paused') AS playbook_runs_paused,
         (SELECT COUNT(*)::int FROM brain_documents WHERE client_id = ${clientId} AND status = 'published') AS documents_published,
@@ -204,6 +261,7 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
             )
         ) AS documents_required_reads_pending
     `),
+    getStaticBrainCounts(clientId),
   ]);
 
   // ── Resolve linked CRM names for the task tiles.
@@ -345,9 +403,6 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
     goals_at_risk: 0,
     goals_achieved_q: 0,
     people_active: 0,
-    org_unit_count: 0,
-    expertise_tags_count: 0,
-    glossary_terms_active: 0,
     playbook_runs_active: 0,
     playbook_runs_paused: 0,
     documents_published: 0,
@@ -383,9 +438,9 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       goalsAtRisk: counts.goals_at_risk ?? 0,
       goalsAchievedThisQuarter: counts.goals_achieved_q ?? 0,
       peopleActive: counts.people_active ?? 0,
-      orgUnitCount: counts.org_unit_count ?? 0,
-      expertiseTagsCount: counts.expertise_tags_count ?? 0,
-      glossaryTermsActive: counts.glossary_terms_active ?? 0,
+      orgUnitCount: staticCounts.org_unit_count ?? 0,
+      expertiseTagsCount: staticCounts.expertise_tags_count ?? 0,
+      glossaryTermsActive: staticCounts.glossary_terms_active ?? 0,
       playbookRunsActive: counts.playbook_runs_active ?? 0,
       playbookRunsPaused: counts.playbook_runs_paused ?? 0,
       documentsPublished: counts.documents_published ?? 0,
@@ -393,4 +448,60 @@ export async function getDashboardSummary(clientId: number): Promise<DashboardSu
       documentsRequiredReadsPending: counts.documents_required_reads_pending ?? 0,
     },
   };
+}
+
+/**
+ * Public cache-wrapped dashboard summary accessor. Builds a fresh
+ * `unstable_cache` per `clientId` so we can emit a per-client tag
+ * (`brain-dashboard:${clientId}`) alongside the generic `brain-dashboard`
+ * tag — the `tags` array in `unstable_cache` is static at definition time,
+ * and we want tenant-scoped invalidation. The inner cache key includes
+ * `clientId` so different tenants don't collide.
+ *
+ * Mutation paths in lib/brain/notes.ts, lib/brain/tasks.ts, lib/brain/decisions.ts,
+ * lib/brain/documents.ts, lib/brain/initiatives.ts, lib/brain/goals.ts (and their
+ * API/MCP entrypoints) should call {@link revalidateBrainDashboard} after a
+ * successful write that changes a dashboard-counted entity. We accept up to
+ * {@link DASHBOARD_TTL_SECONDS} staleness for entities whose write paths are
+ * not yet wired.
+ */
+export function getDashboardSummary(clientId: number): Promise<DashboardSummary> {
+  return unstable_cache(
+    async (cid: number) => _getDashboardSummary(cid),
+    ['brain-dashboard', String(clientId)],
+    {
+      revalidate: DASHBOARD_TTL_SECONDS,
+      tags: [brainDashboardTag(clientId), 'brain-dashboard'],
+    },
+  )(clientId);
+}
+
+/**
+ * Revalidate the cached dashboard summary for one client. Safe to call from
+ * any mutation path that changes a dashboard-counted entity (notes, tasks,
+ * decisions, documents, initiatives, goals, etc.). Idempotent and cheap.
+ */
+export function revalidateBrainDashboard(clientId: number): void {
+  // The generic tag invalidates every tenant's cache entry, but since each
+  // tenant's args array (clientId) generates its own cache key under the hood
+  // we still only fully recompute the one client that next requests it. We
+  // also emit a per-client tag so future read-path wrappers can subscribe to
+  // exactly one tenant if needed. Next 16 requires a CacheLife profile arg;
+  // 'default' inherits the same revalidate/expire semantics already encoded
+  // in the unstable_cache `revalidate` option on each accessor.
+  revalidateTag(brainDashboardTag(clientId), 'default');
+  revalidateTag('brain-dashboard', 'default');
+}
+
+/**
+ * Revalidate the cached slowly-changing brain counts (org units, expertise
+ * tags, glossary terms) for one client. Call from glossary / org-unit /
+ * expertise write paths so the dashboard reflects the change without waiting
+ * for the 10-minute TTL. Also bumps the main dashboard cache, since the
+ * static counts feed into the dashboard payload.
+ */
+export function revalidateBrainStaticCounts(clientId: number): void {
+  revalidateTag(brainStaticCountsTag(clientId), 'default');
+  revalidateTag('brain-static-counts', 'default');
+  revalidateBrainDashboard(clientId);
 }

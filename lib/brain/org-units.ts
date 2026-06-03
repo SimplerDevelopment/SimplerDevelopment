@@ -33,6 +33,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainStaticCounts } from './dashboard';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -356,6 +357,8 @@ export async function createOrgUnit(
     metadata: { name: created.name, slug: created.slug, path: created.path, parentId: created.parentId },
   });
 
+  // orgUnitCount feeds the dashboard static-counts tile (10m TTL).
+  revalidateBrainStaticCounts(clientId);
   return created;
 }
 
@@ -624,6 +627,8 @@ export async function mergeOrgUnits(
     },
   });
 
+  // Merge deletes one org unit — orgUnitCount tile changes.
+  revalidateBrainStaticCounts(clientId);
   return loadUnitOwned(clientId, targetId);
 }
 
@@ -735,6 +740,9 @@ export async function deleteOrgUnit(
     },
   });
 
+  // orgUnitCount tile changes (only the deleted unit drops out; children
+  // re-parent but don't change the total).
+  revalidateBrainStaticCounts(clientId);
   return true;
 }
 

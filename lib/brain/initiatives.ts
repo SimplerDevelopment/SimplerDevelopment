@@ -45,6 +45,7 @@ import {
 } from '@/lib/db/schema';
 import { and, asc, desc, eq, sql, inArray } from 'drizzle-orm';
 import { logAudit } from './audit';
+import { revalidateBrainDashboard } from './dashboard';
 
 export type BrainInitiative = typeof brainInitiatives.$inferSelect;
 export type BrainGoal = typeof brainGoals.$inferSelect;
@@ -305,6 +306,8 @@ export async function createInitiative(
     metadata: { slug: created.slug, status: created.status },
   });
 
+  // initiativesActive count tile.
+  if (created.status === 'active') revalidateBrainDashboard(clientId);
   return created;
 }
 
@@ -400,7 +403,7 @@ export async function closeInitiative(
     throw new Error('closeInitiative requires either reason or lessonsLearned');
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     // 1. Lock + verify ownership.
     const [before] = await tx
       .select()
@@ -479,6 +482,10 @@ export async function closeInitiative(
 
     return { initiative: updated, lessonsLearnedNoteId: noteId };
   });
+  // closeInitiative always flips status away from 'active' (or stays in a
+  // terminal state) — either way the initiativesActive tile may shift.
+  if (result) revalidateBrainDashboard(clientId);
+  return result;
 }
 
 // ─── reopen ──────────────────────────────────────────────────────────────────
@@ -517,6 +524,7 @@ export async function reopenInitiative(
     metadata: { from: before.status },
   });
 
+  if (updated) revalidateBrainDashboard(clientId);
   return updated ?? null;
 }
 
