@@ -5,35 +5,55 @@ import { defaultSEO } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { generateOrganizationSchema } from "@/lib/utils/structured-data";
 import { headers } from "next/headers";
-import SessionProvider from "@/components/SessionProvider";
-import { LayoutContent } from "@/components/LayoutContent";
+import dynamic from "next/dynamic";
 
+// Code-split the app chrome (NextAuth SessionProvider + LayoutContent →
+// marketing Navigation/Footer/UserDropdown, which pull in next-auth/react and
+// a pile of icons). Statically importing them bundled all of that into the
+// client chunk loaded on EVERY page — including public client sites that never
+// render them. Dynamic (ssr:true) keeps them server-rendered where used but
+// keeps their chunk off pages (client sites) that don't render them.
+const SessionProvider = dynamic(() => import("@/components/SessionProvider"));
+const LayoutContent = dynamic(() =>
+  import("@/components/LayoutContent").then((m) => m.LayoutContent),
+);
+
+// preload: false — these app/portal fonts were being <link rel=preload>ed on
+// EVERY route (~180KB of woff2), including public client sites that use their
+// own brand fonts (Raleway/Open Sans) and never reference these. With preload
+// off they still load on-demand where actually used (var(--font-*)), but no
+// longer sit on the critical path of pages that don't use them.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  preload: false,
 });
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  preload: false,
 });
 
 export const metadata: Metadata = defaultSEO;
@@ -53,18 +73,22 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <StructuredData data={generateOrganizationSchema()} />
-        {/* Material Icons is self-hosted (see app/globals.css @font-face).
-            Preload the woff2 on app/portal pages so icon glyphs paint
-            immediately; client sites pick it up lazily via globals.css to
-            keep the public critical path lean. */}
+        {/* Material Icons only for the app/portal. Public client sites load it
+            (non-blocking) from their own site layout if their content needs it,
+            so we don't put a 126KB render-blocking font stylesheet on every
+            public page's critical path. */}
         {!isClientSite && (
-          <link
-            rel="preload"
-            href="/fonts/material-icons.woff2"
-            as="font"
-            type="font/woff2"
-            crossOrigin="anonymous"
-          />
+          <>
+            {/* Material Icons is self-hosted (see app/globals.css @font-face).
+             *  Preload the woff2 so icon glyphs paint immediately. */}
+            <link
+              rel="preload"
+              href="/fonts/material-icons.woff2"
+              as="font"
+              type="font/woff2"
+              crossOrigin="anonymous"
+            />
+          </>
         )}
         <script
           dangerouslySetInnerHTML={{
@@ -89,9 +113,19 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${inter.variable} ${playfairDisplay.variable} antialiased min-h-screen flex flex-col`}
       >
-        <SessionProvider>
-          <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
-        </SessionProvider>
+        {isClientSite ? (
+          // Public client sites supply their own nav/footer (app/sites/[domain]
+          // layout) and have no authenticated UI, so they need neither the app
+          // marketing chrome (LayoutContent → Navigation/Footer) nor the
+          // NextAuth SessionProvider. Skipping both keeps a large amount of
+          // unused client JS off every public page. (Verified: no public-site
+          // component calls useSession.)
+          children
+        ) : (
+          <SessionProvider>
+            <LayoutContent isClientSite={isClientSite}>{children}</LayoutContent>
+          </SessionProvider>
+        )}
       </body>
     </html>
   );

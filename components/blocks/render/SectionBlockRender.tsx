@@ -1,6 +1,19 @@
 'use client';
 
 import { SectionBlock, Block } from '@/types/blocks';
+import {
+  BookingBlockRender,
+  BookingMenuBlockRender,
+  FeaturedProductsBlockRender,
+  HeroSlideshowBlockRender,
+  HtmlEmbedBlockRender,
+  HtmlRenderBlockRender,
+  ProductCategoriesBlockRender,
+  ProductGridBlockRender,
+  ShoppingCartBlockRender,
+  StoreBannerBlockRender,
+  SurveyBlockRender,
+} from './lazy-blocks';
 import { TextBlockRender } from './TextBlockRender';
 import { HeadingBlockRender } from './HeadingBlockRender';
 import { ImageBlockRender } from './ImageBlockRender';
@@ -16,7 +29,6 @@ import { TabsBlockRender } from './TabsBlockRender';
 import { StickyScrollTabsBlockRender } from './StickyScrollTabsBlockRender';
 import { AccordionBlockRender } from './AccordionBlockRender';
 import { HeroBlockRender } from './HeroBlockRender';
-import { HeroSlideshowBlockRender } from './HeroSlideshowBlockRender';
 import { MarqueeBlockRender } from './MarqueeBlockRender';
 import { ServicesGridBlockRender } from './ServicesGridBlockRender';
 import { CtaBlockRender } from './CtaBlockRender';
@@ -26,14 +38,6 @@ import { BlogPostsBlockRender } from './BlogPostsBlockRender';
 import { FeaturedContentBlockRender } from './FeaturedContentBlockRender';
 import { CardGridBlockRender } from './CardGridBlockRender';
 import { GalleryBlockRender } from './GalleryBlockRender';
-import { ProductGridBlockRender } from './ProductGridBlockRender';
-import { FeaturedProductsBlockRender } from './FeaturedProductsBlockRender';
-import { ProductCategoriesBlockRender } from './ProductCategoriesBlockRender';
-import { ShoppingCartBlockRender } from './ShoppingCartBlockRender';
-import { StoreBannerBlockRender } from './StoreBannerBlockRender';
-import { BookingBlockRender } from './BookingBlockRender';
-import { BookingMenuBlockRender } from './BookingMenuBlockRender';
-import { SurveyBlockRender } from './SurveyBlockRender';
 import { SocialLinksBlockRender } from './SocialLinksBlockRender';
 import { TimelineBlockRender } from './TimelineBlockRender';
 import { TeamShowcaseBlockRender } from './TeamShowcaseBlockRender';
@@ -43,8 +47,6 @@ import { LogoStripBlockRender } from './LogoStripBlockRender';
 import { FlipCardGridBlockRender } from './FlipCardGridBlockRender';
 import { BentoGridBlockRender } from './BentoGridBlockRender';
 import { DeckNextSlideBlockRender, DeckJumpToBlockRender } from './DeckNavBlockRender';
-import { HtmlRenderBlockRender } from './HtmlRenderBlockRender';
-import { HtmlEmbedBlockRender } from './HtmlEmbedBlockRender';
 import { PopupBlockRender } from './PopupBlockRender';
 import { PostContentPlaceholderRender } from './PostContentPlaceholderRender';
 import { BlockStyleWrapper } from './BlockStyleWrapper';

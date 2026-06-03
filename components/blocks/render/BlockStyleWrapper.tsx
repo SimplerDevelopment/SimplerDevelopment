@@ -4,6 +4,7 @@ import React from 'react';
 import { Block, BlockStyle } from '@/types/blocks';
 import { isBrandSentinel, resolveBrandSentinel } from '@/lib/branding/sentinel';
 import { generateResponsiveStyles, parseShorthandSide } from '@/lib/utils/responsiveCss';
+import { cssFontStack } from '@/lib/blocks/page-fonts';
 
 interface BlockStyleWrapperProps {
   block: Block;
@@ -178,7 +179,11 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
     if (isBrandFont) {
       customStyles.fontFamily = resolveBrandSentinel(rawFont);
     } else {
-      customStyles.fontFamily = `"${rawFont}", sans-serif`;
+      // cssFontStack handles both bare names ("Raleway" → '"Raleway", sans-serif')
+      // and already-stacked values ("Raleway, -apple-system, ..." used verbatim).
+      // The old code quoted the whole value, turning a stack into one invalid
+      // family name that silently fell back to the generic.
+      customStyles.fontFamily = cssFontStack(rawFont);
     }
   }
 
@@ -188,12 +193,10 @@ export function BlockStyleWrapper({ block, children }: BlockStyleWrapperProps) {
 
   return (
     <>
-      {rawFont && !isTailwindFont && !isBrandFont && (
-        <link
-          rel="stylesheet"
-          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(rawFont)}&display=swap`}
-        />
-      )}
+      {/* Google Fonts links are NOT emitted per-block anymore — they are
+          collected once at the page level (SiteBlockRenderer) into a single
+          combined request. Emitting one <link> per styled block produced
+          40-50 render-blocking requests and tanked FCP/LCP. */}
       {responsiveResult && (
         <style dangerouslySetInnerHTML={{ __html: responsiveResult.css }} />
       )}

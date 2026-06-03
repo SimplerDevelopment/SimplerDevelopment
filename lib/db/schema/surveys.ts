@@ -47,6 +47,14 @@ export interface SurveyRecommendationConfig {
     forceOfferingKey: string;
   }[];
   hybrid?: SurveyRecommendationHybridRule;
+  /**
+   * Mutually-exclusive outcomes — show ONLY the single winning offering, never
+   * a "secondary" / "also came up" card. Use for binary verdicts (e.g.
+   * pre-qualified vs. declined) where the runner-up is the opposite answer and
+   * showing both contradicts the result. Defaults to on when there are ≤2
+   * offerings (a two-offering survey has no meaningful "also consider").
+   */
+  exclusiveOutcomes?: boolean;
   /** Always-shown bottom card (e.g. "advisory" as a backstop suggestion) */
   alwaysAlsoOfferingKey?: string;
   /** Book-call URL for the primary CTA */

@@ -23,12 +23,19 @@ import { getPortalClient } from '@/lib/portal-client';
 import { getProjectRole } from '@/lib/portal/project-access';
 import { canEditProject, canManageProject } from '@/lib/portal/project-permissions';
 
-export default async function ProjectKanbanPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function ProjectKanbanPage({ params, searchParams }: { params: Promise<{ id: string; card?: string[] }>; searchParams: Promise<{ tab?: string }> }) {
   const session = await auth();
   if (!session?.user?.id) redirect('/portal/login');
 
-  const { id } = await params;
+  const { id, card } = await params;
   const { tab } = await searchParams;
+  // Optional catch-all `[[...card]]`: /portal/projects/<id>/<cardId> opens that
+  // card on load. Anything non-numeric is ignored (board renders normally).
+  const initialCardId = (() => {
+    const seg = Array.isArray(card) ? card[0] : undefined;
+    const n = seg ? parseInt(seg, 10) : NaN;
+    return Number.isFinite(n) ? n : null;
+  })();
   const activeTab = tab === 'files' ? 'files'
     : tab === 'sprints' ? 'sprints'
     : tab === 'backlog' ? 'backlog'
@@ -65,50 +72,115 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
   const canEdit = canEditProject(role);
   const canManage = canManageProject(role);
 
-  const columns = await db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId)).orderBy(kanbanColumns.order);
-  const cards = await db.select().from(kanbanCards).where(eq(kanbanCards.projectId, projectId)).orderBy(kanbanCards.order);
-
-  const projectSprints = await db
-    .select({ id: sprints.id, name: sprints.name, status: sprints.status })
-    .from(sprints)
-    .where(eq(sprints.projectId, projectId))
-    .orderBy(sprints.order);
+  // Columns, cards, and sprints are independent — fetch in parallel.
+  const [columns, cards, projectSprints] = await Promise.all([
+    db.select().from(kanbanColumns).where(eq(kanbanColumns.projectId, projectId)).orderBy(kanbanColumns.order),
+    db.select().from(kanbanCards).where(eq(kanbanCards.projectId, projectId)).orderBy(kanbanCards.order),
+    db
+      .select({ id: sprints.id, name: sprints.name, status: sprints.status })
+      .from(sprints)
+      .where(eq(sprints.projectId, projectId))
+      .orderBy(sprints.order),
+  ]);
 
   const cardIds = cards.map(c => c.id);
-  const files = cardIds.length > 0
-    ? await db.select({ cardId: kanbanCardFiles.cardId, url: kanbanCardFiles.url, mimeType: kanbanCardFiles.mimeType })
-        .from(kanbanCardFiles)
-        .where(inArray(kanbanCardFiles.cardId, cardIds))
-    : [];
+  // All per-card lookups are independent and keyed by the same cardIds set —
+  // run them in one parallel batch instead of 8 sequential round-trips. Each
+  // resolves to [] when the board has no cards.
+  const [
+    files,
+    cardLabels,
+    checklistItems,
+    assigneeRows,
+    blockerRows,
+    commentCountRows,
+    unreadAlertRows,
+    watcherRows,
+  ] = await Promise.all([
+    cardIds.length
+      ? db.select({ cardId: kanbanCardFiles.cardId, url: kanbanCardFiles.url, mimeType: kanbanCardFiles.mimeType })
+          .from(kanbanCardFiles)
+          .where(inArray(kanbanCardFiles.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; url: string; mimeType: string }[]),
+    cardIds.length
+      ? db
+          .select({
+            cardId: kanbanCardLabels.cardId,
+            id: kanbanLabels.id,
+            name: kanbanLabels.name,
+            color: kanbanLabels.color,
+          })
+          .from(kanbanCardLabels)
+          .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
+          .where(inArray(kanbanCardLabels.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; id: number; name: string; color: string }[]),
+    cardIds.length
+      ? db.select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
+          .from(kanbanCardChecklistItems)
+          .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; completed: boolean }[]),
+    cardIds.length
+      ? db
+          .select({ cardId: kanbanCardAssignees.cardId, id: users.id, name: users.name })
+          .from(kanbanCardAssignees)
+          .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
+          .where(inArray(kanbanCardAssignees.cardId, cardIds))
+      : Promise.resolve([] as { cardId: number; id: number; name: string }[]),
+    // Active blockers (the blocker card is NOT in a "done" column)
+    cardIds.length
+      ? db
+          .select({
+            blockedCardId: kanbanCardDependencies.blockedCardId,
+            blockerIsDone: kanbanColumns.isDone,
+          })
+          .from(kanbanCardDependencies)
+          .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
+          .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
+          .where(inArray(kanbanCardDependencies.blockedCardId, cardIds))
+      : Promise.resolve([] as { blockedCardId: number; blockerIsDone: boolean | null }[]),
+    // Comment counts per card (project-scoped via cardIds filter).
+    cardIds.length
+      ? db
+          .select({ cardId: kanbanCardComments.cardId, count: sql<number>`count(*)::int` })
+          .from(kanbanCardComments)
+          .where(inArray(kanbanCardComments.cardId, cardIds))
+          .groupBy(kanbanCardComments.cardId)
+      : Promise.resolve([] as { cardId: number; count: number }[]),
+    // Unread alerts per card for the current user. notifications.cardId scoped to
+    // this project's cardIds so notifications attached to cards in other projects
+    // can never inflate this count.
+    cardIds.length
+      ? db
+          .select({ cardId: notifications.cardId, count: sql<number>`count(*)::int` })
+          .from(notifications)
+          .where(and(
+            eq(notifications.userId, userId),
+            isNull(notifications.readAt),
+            inArray(notifications.cardId, cardIds),
+          ))
+          .groupBy(notifications.cardId)
+      : Promise.resolve([] as { cardId: number | null; count: number }[]),
+    // Cards the current user is watching.
+    cardIds.length
+      ? db
+          .select({ cardId: kanbanCardWatchers.cardId })
+          .from(kanbanCardWatchers)
+          .where(and(
+            eq(kanbanCardWatchers.userId, userId),
+            inArray(kanbanCardWatchers.cardId, cardIds),
+          ))
+      : Promise.resolve([] as { cardId: number }[]),
+  ]);
 
   const filesByCard = files.reduce<Record<number, { url: string; mimeType: string }[]>>((acc, f) => {
     (acc[f.cardId] ??= []).push({ url: f.url, mimeType: f.mimeType });
     return acc;
   }, {});
 
-  const cardLabels = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardLabels.cardId,
-          id: kanbanLabels.id,
-          name: kanbanLabels.name,
-          color: kanbanLabels.color,
-        })
-        .from(kanbanCardLabels)
-        .innerJoin(kanbanLabels, eq(kanbanLabels.id, kanbanCardLabels.labelId))
-        .where(inArray(kanbanCardLabels.cardId, cardIds))
-    : [];
-
   const labelsByCard = cardLabels.reduce<Record<number, { id: number; name: string; color: string }[]>>((acc, l) => {
     (acc[l.cardId] ??= []).push({ id: l.id, name: l.name, color: l.color });
     return acc;
   }, {});
-
-  const checklistItems = cardIds.length > 0
-    ? await db.select({ cardId: kanbanCardChecklistItems.cardId, completed: kanbanCardChecklistItems.completed })
-        .from(kanbanCardChecklistItems)
-        .where(inArray(kanbanCardChecklistItems.cardId, cardIds))
-    : [];
 
   const checklistByCard = checklistItems.reduce<Record<number, { total: number; done: number }>>((acc, i) => {
     const r = (acc[i.cardId] ??= { total: 0, done: 0 });
@@ -117,92 +189,26 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
     return acc;
   }, {});
 
-  const assigneeRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardAssignees.cardId,
-          id: users.id,
-          name: users.name,
-        })
-        .from(kanbanCardAssignees)
-        .innerJoin(users, eq(users.id, kanbanCardAssignees.userId))
-        .where(inArray(kanbanCardAssignees.cardId, cardIds))
-    : [];
-
   const assigneesByCard = assigneeRows.reduce<Record<number, { id: number; name: string }[]>>((acc, a) => {
     (acc[a.cardId] ??= []).push({ id: a.id, name: a.name });
     return acc;
   }, {});
-
-  // Active blockers (the blocker card is NOT in a "done" column)
-  const blockerRows = cardIds.length > 0
-    ? await db
-        .select({
-          blockedCardId: kanbanCardDependencies.blockedCardId,
-          blockerIsDone: kanbanColumns.isDone,
-        })
-        .from(kanbanCardDependencies)
-        .innerJoin(kanbanCards, eq(kanbanCards.id, kanbanCardDependencies.blockerCardId))
-        .leftJoin(kanbanColumns, eq(kanbanColumns.id, kanbanCards.columnId))
-        .where(inArray(kanbanCardDependencies.blockedCardId, cardIds))
-    : [];
 
   const blockedCountByCard = blockerRows.reduce<Record<number, number>>((acc, r) => {
     if (!r.blockerIsDone) acc[r.blockedCardId] = (acc[r.blockedCardId] ?? 0) + 1;
     return acc;
   }, {});
 
-  // Comment counts per card (project-scoped via cardIds filter).
-  const commentCountRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: kanbanCardComments.cardId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(kanbanCardComments)
-        .where(inArray(kanbanCardComments.cardId, cardIds))
-        .groupBy(kanbanCardComments.cardId)
-    : [];
-
   const commentCountByCard = commentCountRows.reduce<Record<number, number>>((acc, r) => {
     acc[r.cardId] = Number(r.count) || 0;
     return acc;
   }, {});
-
-  // Unread alerts per card for the current user. notifications.cardId scoped to
-  // this project's cardIds so notifications attached to cards in other projects
-  // can never inflate this count.
-  const unreadAlertRows = cardIds.length > 0
-    ? await db
-        .select({
-          cardId: notifications.cardId,
-          count: sql<number>`count(*)::int`,
-        })
-        .from(notifications)
-        .where(and(
-          eq(notifications.userId, userId),
-          isNull(notifications.readAt),
-          inArray(notifications.cardId, cardIds),
-        ))
-        .groupBy(notifications.cardId)
-    : [];
 
   const unreadAlertsByCard = unreadAlertRows.reduce<Record<number, number>>((acc, r) => {
     if (r.cardId == null) return acc;
     acc[r.cardId] = Number(r.count) || 0;
     return acc;
   }, {});
-
-  // Cards the current user is watching.
-  const watcherRows = cardIds.length > 0
-    ? await db
-        .select({ cardId: kanbanCardWatchers.cardId })
-        .from(kanbanCardWatchers)
-        .where(and(
-          eq(kanbanCardWatchers.userId, userId),
-          inArray(kanbanCardWatchers.cardId, cardIds),
-        ))
-    : [];
 
   const watchedCardIds = new Set<number>(watcherRows.map(r => r.cardId));
 
@@ -314,6 +320,7 @@ export default async function ProjectKanbanPage({ params, searchParams }: { para
           canEdit={canEdit}
           currentUserId={userId}
           sprints={projectSprints}
+          initialCardId={initialCardId}
         />
       )}
     </div>

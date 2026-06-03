@@ -90,13 +90,22 @@ vi.mock('bcryptjs', () => ({
 // stageOrApply: by default, run apply() directly and return its data.
 let stageOrApplyMode: 'apply' | 'pending' = 'apply';
 vi.mock('@/lib/mcp/pending-changes', () => ({
-  stageOrApply: vi.fn(async (opts: { apply: () => Promise<unknown>; summary: string }) => {
+  stageOrApply: vi.fn(async (opts: { apply: () => Promise<unknown>; summary: string; skipApproval?: boolean }) => {
     if (stageOrApplyMode === 'pending') {
       return { pending: true, pendingId: 42, summary: opts.summary, status: 'pending' };
     }
     const data = await opts.apply();
     return { pending: false, data };
   }),
+}));
+
+// Approval-link minting is exercised by lib/mcp/approval-links' own tests; here
+// we stub it so CMS-tool tests stay focused on the tool logic (and don't depend
+// on the mcp_approval_links insert plumbing).
+vi.mock('@/lib/mcp/approval-links', () => ({
+  mintLinkForResult: vi.fn(async () => ({ approvalUrl: 'https://x/approve/tok', approvalToken: 'tok' })),
+  createApprovalLink: vi.fn(async () => ({ approvalUrl: 'https://x/approve/tok', approvalToken: 'tok' })),
+  approvalEnvelope: vi.fn((link: unknown) => link),
 }));
 
 // drizzle-orm helpers are no-ops.
@@ -147,7 +156,7 @@ vi.mock('@/lib/db/schema', () => {
     'crmCustomFieldValues', 'crmSavedViews', 'crmScoringRules', 'websiteDomains',
     'websiteEnvironments', 'websiteEnvVars', 'clients', 'aiCreditBalances',
     'aiCreditLedger', 'hostedSites', 'googleWorkspaceUserConnections',
-    'portalApiKeys', 'mcpPendingChanges', 'oauthAccessTokens',
+    'portalApiKeys', 'mcpPendingChanges', 'mcpApprovalLinks', 'oauthAccessTokens',
   ] as const;
   return Object.fromEntries(names.map((n) => [n, mkTable(n)]));
 });
@@ -257,6 +266,7 @@ vi.mock('@/lib/mcp/blocks-schema', () => ({
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 import { registerCmsTools } from '@/lib/mcp/tools/cms';
+import { stageOrApply } from '@/lib/mcp/pending-changes';
 
 interface CapturedTool {
   name: string;
@@ -581,13 +591,66 @@ describe('posts_update', () => {
 
   it('returns pending envelope when staged', async () => {
     dbState.selectQueue = [
-      [{ id: 1, websiteId: 5, title: 'old' }],
+      [{ id: 1, websiteId: 5, title: 'old', published: true }],
       [{ id: 5 }],
     ];
     stageOrApplyMode = 'pending';
     const tools = registerAll();
     const res = await tools.get('posts_update')!.handler({ id: 1, title: 'X' });
     expect((parseJson(res) as { pending: boolean }).pending).toBe(true);
+  });
+
+  // Regression: posts_fork creates an unpublished draft (parentPostId set) +
+  // its own entity approval link, then posts_update edits it. Under a
+  // require_cms_approval key the edit must apply DIRECTLY to the fork
+  // (skipApproval), not get staged into a separate pending_change — otherwise
+  // it's orphaned from the fork's link and the preview shows the unmodified
+  // clone ("nothing changed").
+  it('applies directly (skipApproval) when editing an unpublished fork', async () => {
+    dbState.selectQueue = [
+      [{ id: 699, websiteId: 5, title: 'CY (fork)', published: false, parentPostId: 12, content: '{}', customCss: null }],
+      [{ id: 5 }],
+    ];
+    dbState.updateReturning = [{ id: 699, title: 'CY (fork)' }];
+    const tools = registerAll();
+    await tools.get('posts_update')!.handler({ id: 699, customCss: 'svg{fill:#fff}' });
+    expect(vi.mocked(stageOrApply).mock.lastCall?.[0].skipApproval).toBe(true);
+  });
+
+  it('stages (no skipApproval) when editing a live published post', async () => {
+    dbState.selectQueue = [
+      [{ id: 1, websiteId: 5, title: 'live', published: true, content: '{}', customCss: null }],
+      [{ id: 5 }],
+    ];
+    dbState.updateReturning = [{ id: 1, title: 'live' }];
+    const tools = registerAll();
+    await tools.get('posts_update')!.handler({ id: 1, title: 'new' });
+    expect(vi.mocked(stageOrApply).mock.lastCall?.[0].skipApproval).toBe(false);
+  });
+
+  // Narrow scope: a plain unpublished draft (NOT a fork — no parentPostId) has
+  // no separate entity link, so AI edits on a require-approval key stay
+  // reviewable. This mirrors the e2e expectation in portal-mcp-approvals.
+  it('stages (no skipApproval) when editing a plain non-fork unpublished draft', async () => {
+    dbState.selectQueue = [
+      [{ id: 2, websiteId: 5, title: 'draft', published: false, parentPostId: null, content: '{}', customCss: null }],
+      [{ id: 5 }],
+    ];
+    dbState.updateReturning = [{ id: 2, title: 'draft2' }];
+    const tools = registerAll();
+    await tools.get('posts_update')!.handler({ id: 2, title: 'draft2' });
+    expect(vi.mocked(stageOrApply).mock.lastCall?.[0].skipApproval).toBe(false);
+  });
+
+  it('stages when publishing a fork (published: true is the gate)', async () => {
+    dbState.selectQueue = [
+      [{ id: 699, websiteId: 5, title: 'fork', published: false, parentPostId: 12, content: '{}', customCss: null }],
+      [{ id: 5 }],
+    ];
+    dbState.updateReturning = [{ id: 699 }];
+    const tools = registerAll();
+    await tools.get('posts_update')!.handler({ id: 699, published: true });
+    expect(vi.mocked(stageOrApply).mock.lastCall?.[0].skipApproval).toBe(false);
   });
 });
 

@@ -242,8 +242,12 @@ export async function getBlogPostsByCategory(categorySlug: string): Promise<Blog
  */
 export async function getAllCategories(): Promise<BlogCategory[]> {
   try {
+    // Only surface categories that actually have a published, global blog post
+    // (websiteId IS NULL). This keeps empty/leftover categories — e.g. test
+    // fixtures like "test-cat-<timestamp>" — out of the public category list,
+    // and prevents linking to category pages that would render no posts.
     const allCategories = await db
-      .select({
+      .selectDistinct({
         id: categories.id,
         name: categories.name,
         slug: categories.slug,
@@ -251,6 +255,13 @@ export async function getAllCategories(): Promise<BlogCategory[]> {
         color: categories.color,
       })
       .from(categories)
+      .innerJoin(postCategories, eq(postCategories.categoryId, categories.id))
+      .innerJoin(posts, eq(posts.id, postCategories.postId))
+      .where(and(
+        eq(posts.published, true),
+        eq(posts.postType, 'blog'),
+        isNull(posts.websiteId),
+      ))
       .orderBy(categories.name);
 
     return allCategories;

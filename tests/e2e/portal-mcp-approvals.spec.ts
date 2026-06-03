@@ -465,6 +465,71 @@ test.describe('MCP approval — update & send operations @mcp @approvals', () =>
     expect(snapshot).toBeTruthy();
     expect(snapshot.title).toBe(`Original Title ${ts}`);
   });
+
+  // Regression (Cody / CY Strategies): under a require_cms_approval key, the
+  // posts_fork → posts_update flow must apply the edit DIRECTLY to the fork.
+  // Previously the update was staged into a separate pending_change, orphaned
+  // from the fork's own entity approval link, so the fork's preview showed the
+  // unmodified clone ("nothing changed").
+  test('fork + update under approval key applies to the fork directly (no orphaned pending)', async ({ clientApi }) => {
+    const { website } = await createTestWebsite(clientApi);
+
+    // Seed a published "live" page via a direct-apply key.
+    const { keyRecord: directKey, cleanup: directCleanup } = await createTestApiKey(clientApi, {
+      requireCmsApproval: false,
+    });
+    cleanups.push(directCleanup);
+    const directMcp = await new McpTestClient(directKey.key).init();
+    cleanups.push(() => directMcp.dispose());
+
+    const ts = Date.now();
+    const created = await directMcp.callTool('posts_create', {
+      websiteId: website.id,
+      title: `Live Home ${ts}`,
+      slug: `live-home-${ts}`,
+      content: 'original homepage',
+      published: true,
+    });
+    const sourceId = created.data.id as number;
+    expect(sourceId).toBeDefined();
+
+    // Approval-required key forks then edits the fork (exactly Cody's flow).
+    const { keyRecord: approvalKey, cleanup: approvalCleanup } = await createTestApiKey(clientApi, {
+      requireCmsApproval: true,
+    });
+    cleanups.push(approvalCleanup);
+    const approvalMcp = await new McpTestClient(approvalKey.key).init();
+    cleanups.push(() => approvalMcp.dispose());
+
+    // Fork is an immediate write even under a require-approval key.
+    const forked = await approvalMcp.callTool('posts_fork', { id: sourceId });
+    expect(forked.data.pending).toBeFalsy();
+    const forkId = forked.data.id as number;
+    expect(forkId).toBeDefined();
+    expect(forkId).not.toBe(sourceId);
+
+    // The follow-up update must apply DIRECTLY to the fork — not stage a
+    // separate pending_change.
+    const updated = await approvalMcp.callTool('posts_update', {
+      id: forkId,
+      title: `Edited Fork ${ts}`,
+      content: 'edited homepage',
+    });
+    expect(updated.data.pending).toBeFalsy();
+    expect(updated.data.id).toBe(forkId);
+
+    // The fork row itself now reflects the edit, so its approval link previews
+    // the change instead of the unmodified clone.
+    const got = await approvalMcp.callTool('posts_get', { id: forkId, includeContent: true });
+    expect(got.data.title).toBe(`Edited Fork ${ts}`);
+
+    // And NO pending change was created for the fork.
+    const pendingList = await clientApi.get('/api/portal/approvals?status=pending');
+    const orphan = (pendingList.data.data as Array<{ entityType: string; entityId: number }>).find(
+      (r) => r.entityType === 'post' && r.entityId === forkId,
+    );
+    expect(orphan).toBeUndefined();
+  });
 });
 
 test.describe('MCP approval — entity coverage @mcp @approvals @entities', () => {

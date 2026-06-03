@@ -104,6 +104,7 @@ export function SlideContentEditor({
             slidePageSettings: slide.pageSettings as Record<string, unknown> | undefined,
             theme,
             brandingProfileId,
+            slideCustomCss: slide.customCss,
           })}
           onBlocksChange={(blocks: Block[]) => onBlocksChange(blocks)}
           onSelectBlock={() => {}}
