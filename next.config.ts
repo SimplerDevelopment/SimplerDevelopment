@@ -35,6 +35,15 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The in-build `next build` TypeScript recheck re-type-checks the whole
+  // ~357k-line app in a single worker and exhausts the heap (OOM/SIGABRT) on
+  // both local and the Vercel build container (made worse by the Sentry plugin).
+  // Types are still gated outside the build — `tsc --noEmit` runs in the
+  // pre-push hook and CI — so skipping the redundant in-build pass keeps the
+  // type guarantee while letting the production build complete reliably.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // Limit static generation workers to avoid exhausting Postgres connections
   experimental: {
     workerThreads: false,
