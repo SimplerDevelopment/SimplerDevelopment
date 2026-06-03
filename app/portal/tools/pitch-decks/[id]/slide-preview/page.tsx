@@ -67,6 +67,7 @@ function SlidePreviewInner() {
   const [previewBlocks, setPreviewBlocks] = useState<Block[]>([]);
   const [branding, setBranding] = useState<ResolvedBranding | null>(null);
 
+  const slideCustomCss = searchParams.get('scss') || undefined;
   const theme: PitchDeckTheme = {
     primaryColor: searchParams.get('pc') || '#2563eb',
     accentColor: searchParams.get('ac') || '#60a5fa',
@@ -74,6 +75,7 @@ function SlidePreviewInner() {
     textColor: searchParams.get('text') || '#f8fafc',
     headingFont: searchParams.get('hf') || 'Inter',
     bodyFont: searchParams.get('bf') || 'Inter',
+    customCss: searchParams.get('tcss') || undefined,
   };
 
   // Fetch the deck's branding profile so BrandingProvider can expose
@@ -129,11 +131,22 @@ function SlidePreviewInner() {
     id: 'preview',
     label: 'Preview',
     blocks: isEditMode ? [] : previewBlocks,
+    customCss: slideCustomCss,
     pageSettings: {
       backgroundColor: theme.backgroundColor,
       ...parsedPageSettings,
     },
   };
+
+  // The live presentation injects deck-global (theme.customCss) and per-slide
+  // (slide.customCss) custom CSS. Mirror that here so the editor preview — in
+  // BOTH edit and preview modes — matches the published deck exactly.
+  const customCssTags = (
+    <>
+      {theme.customCss && <style dangerouslySetInnerHTML={{ __html: theme.customCss }} />}
+      {slideCustomCss && <style dangerouslySetInnerHTML={{ __html: slideCustomCss }} />}
+    </>
+  );
 
   // Force body to match theme so no portal background bleeds through
   useEffect(() => {
@@ -144,94 +157,32 @@ function SlidePreviewInner() {
   }, [theme.backgroundColor]);
 
   if (isEditMode) {
-    // Edit mode: keep the existing editable structure with theme styling
+    // Edit mode: render through the SAME SlideBlockWrapper the live presentation
+    // uses, passing EditableBlockRenderer as its content. This guarantees the
+    // edit-mode preview shares identical theme chrome (CSS vars, font scoping,
+    // accent-colored links, un-forced heading colors, background image/video)
+    // with the published deck — the two pipelines can no longer drift. The only
+    // difference from live is the editing affordances inside EditableBlockRenderer.
+    const editBody = (
+      <SlideBlockWrapper
+        slide={virtualSlide}
+        theme={theme}
+        className="min-h-screen w-full flex items-center justify-center"
+        onContentBackgroundClick={(e) => {
+          if (e.target === e.currentTarget || !(e.target as HTMLElement).closest('[data-block-id]')) {
+            editor.onBlockClicked('');
+          }
+        }}
+      >
+        <EditableBlockRenderer content={content} />
+      </SlideBlockWrapper>
+    );
     return (
       <>
         <link href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.headingFont)}:wght@400;500;600;700;800;900&family=${encodeURIComponent(theme.bodyFont)}:wght@300;400;500;600;700&display=swap`} rel="stylesheet" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-        <style dangerouslySetInnerHTML={{ __html: `
-          :root {
-            --foreground: ${theme.textColor};
-            --card-foreground: ${theme.textColor};
-            --background: ${theme.backgroundColor};
-            --card: ${theme.backgroundColor};
-            --primary: ${theme.primaryColor};
-            --primary-foreground: ${theme.backgroundColor};
-            --muted: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
-            --muted-foreground: color-mix(in srgb, ${theme.textColor} 70%, transparent);
-            --accent: color-mix(in srgb, ${theme.textColor} 10%, ${theme.backgroundColor});
-            --accent-foreground: ${theme.textColor};
-            --border: color-mix(in srgb, ${theme.textColor} 20%, transparent);
-          }
-          h1, h2, h3, h4, h5, h6 {
-            font-family: "${theme.headingFont}", sans-serif !important;
-            color: ${theme.textColor} !important;
-          }
-          body, p, li, span, div { color: ${theme.textColor}; }
-          a, .text-primary { color: ${theme.primaryColor}; }
-        `}} />
-        <div
-          className="relative"
-          style={{
-            // Ticket #19: per-slide pageSettings.backgroundColor wins over the
-            // brand theme on the slide-stage wrapper.
-            backgroundColor: parsedPageSettings.backgroundColor || theme.backgroundColor,
-            color: theme.textColor,
-            fontFamily: `"${theme.bodyFont}", sans-serif`,
-            width: '100%',
-            minHeight: '100vh',
-          }}
-        >
-          {parsedPageSettings.backgroundImage && (
-            <div
-              className="absolute inset-0 z-0"
-              style={{
-                // Ticket #19: accept raw URL or pre-wrapped `url(...)` form.
-                backgroundImage: /^url\(/i.test(String(parsedPageSettings.backgroundImage).trim())
-                  ? String(parsedPageSettings.backgroundImage).trim()
-                  : `url(${parsedPageSettings.backgroundImage})`,
-                backgroundSize: parsedPageSettings.backgroundSize || 'cover',
-                backgroundPosition: parsedPageSettings.backgroundPosition || 'center',
-                backgroundRepeat: parsedPageSettings.backgroundRepeat || 'no-repeat',
-                opacity: parsedPageSettings.backgroundOpacity ?? 1,
-              }}
-            />
-          )}
-          {parsedPageSettings.backgroundVideo && (
-            <video
-              autoPlay muted loop playsInline
-              className="absolute inset-0 w-full h-full object-cover z-0"
-              style={{ opacity: parsedPageSettings.backgroundOpacity ?? 1 }}
-              src={parsedPageSettings.backgroundVideo}
-            />
-          )}
-          <div
-            className="w-full min-h-screen flex flex-col relative z-10"
-            onClick={(e) => {
-              if (e.target === e.currentTarget || !(e.target as HTMLElement).closest('[data-block-id]')) {
-                editor.onBlockClicked('');
-              }
-            }}
-            style={{
-              ['--slide-primary' as string]: theme.primaryColor,
-              ['--slide-accent' as string]: theme.accentColor,
-              ['--slide-bg' as string]: theme.backgroundColor,
-              ['--slide-text' as string]: theme.textColor,
-              ['--slide-heading-font' as string]: theme.headingFont,
-              ['--slide-body-font' as string]: theme.bodyFont,
-            }}
-          >
-            <div className="w-full max-w-6xl mx-auto px-12 md:px-20 py-12" style={{ marginTop: 'auto', marginBottom: 'auto' }}>
-              {branding ? (
-                <BrandingProvider branding={branding}>
-                  <EditableBlockRenderer content={content} />
-                </BrandingProvider>
-              ) : (
-                <EditableBlockRenderer content={content} />
-              )}
-            </div>
-          </div>
-        </div>
+        {customCssTags}
+        {branding ? <BrandingProvider branding={branding}>{editBody}</BrandingProvider> : editBody}
       </>
     );
   }
@@ -251,6 +202,7 @@ function SlidePreviewInner() {
   return (
     <>
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      {customCssTags}
       {branding ? <BrandingProvider branding={branding}>{previewBody}</BrandingProvider> : previewBody}
     </>
   );

@@ -191,8 +191,10 @@ export function buildSlidePreviewSrc(args: {
   slidePageSettings: Record<string, unknown> | undefined;
   theme: PitchDeckTheme;
   brandingProfileId: number | null;
+  /** Per-slide custom CSS — injected into the preview so it matches the live deck. */
+  slideCustomCss?: string;
 }) {
-  const { id, editorMode, slidePageSettings, theme, brandingProfileId } = args;
+  const { id, editorMode, slidePageSettings, theme, brandingProfileId, slideCustomCss } = args;
   const ps = slidePageSettings || {};
   const params = new URLSearchParams();
   if (editorMode === 'edit') params.set('_edit', 'true');
@@ -203,6 +205,10 @@ export function buildSlidePreviewSrc(args: {
   params.set('hf', theme.headingFont);
   params.set('bf', theme.bodyFont);
   params.set('ps', JSON.stringify(ps));
+  // Deck-global + per-slide custom CSS — the live presentation injects both, so
+  // the preview must too or themed/custom rules silently differ from the live deck.
+  if (theme.customCss) params.set('tcss', theme.customCss);
+  if (slideCustomCss) params.set('scss', slideCustomCss);
   if (brandingProfileId) params.set('profileId', String(brandingProfileId));
   return `/portal/tools/pitch-decks/${id}/slide-preview?${params.toString()}`;
 }
