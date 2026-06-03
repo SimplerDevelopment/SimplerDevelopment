@@ -177,10 +177,7 @@ export const kanbanCardComments = pgTable('kanban_card_comments', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => [
   index('kanban_card_comments_card_idx').on(t.cardId),
-<<<<<<< HEAD
-=======
   index('kanban_card_comments_card_created_idx').on(t.cardId, t.createdAt),
->>>>>>> perf/projects-indexes-pagination-v2
 ]);
 
 export const kanbanCardTimeLogs = pgTable('kanban_card_time_logs', {
@@ -219,11 +216,8 @@ export const kanbanCardActivities = pgTable('kanban_card_activities', {
   payload: jsonb('payload').$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => [
-<<<<<<< HEAD
   index('kanban_card_activities_card_idx').on(t.cardId),
-=======
   index('kanban_card_activities_card_created_idx').on(t.cardId, t.createdAt),
->>>>>>> perf/projects-indexes-pagination-v2
 ]);
 
 export const kanbanCardChecklistItems = pgTable('kanban_card_checklist_items', {
@@ -258,11 +252,8 @@ export const kanbanCardDependencies = pgTable('kanban_card_dependencies', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.blockedCardId, t.blockerCardId] }),
-<<<<<<< HEAD
   // The PK covers blockedCardId lookups; the "blocking" (reverse) query filters
   // on blockerCardId, which the composite PK can't serve efficiently.
-=======
->>>>>>> perf/projects-indexes-pagination-v2
   blockerIdx: index('kanban_card_dependencies_blocker_idx').on(t.blockerCardId),
 }));
 
