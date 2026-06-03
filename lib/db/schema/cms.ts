@@ -1,6 +1,6 @@
 // Posts, post-types, taxonomies, media, branding profiles, and reusable block templates.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 
@@ -31,7 +31,10 @@ export const posts = pgTable('posts', {
   parentPostId: integer('parent_post_id'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('posts_website_published_idx').on(t.websiteId, t.published, t.publishedAt),
+  index('posts_website_slug_idx').on(t.websiteId, t.slug),
+]);
 
 export const postRevisions = pgTable('post_revisions', {
   id: serial('id').primaryKey(),

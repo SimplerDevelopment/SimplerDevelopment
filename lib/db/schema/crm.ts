@@ -1,6 +1,6 @@
 // Companies, contacts, pipelines, deals, proposals, contracts, and CRM-side custom fields.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, numeric, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 
@@ -28,7 +28,11 @@ export const crmCompanies = pgTable('crm_companies', {
   facebookUrl: varchar('facebook_url', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('crm_companies_client_idx').on(t.clientId),
+  index('crm_companies_client_updated_idx').on(t.clientId, t.updatedAt),
+  index('crm_companies_client_name_idx').on(t.clientId, t.name),
+]);
 
 export const crmContacts = pgTable('crm_contacts', {
   id: serial('id').primaryKey(),
@@ -52,7 +56,12 @@ export const crmContacts = pgTable('crm_contacts', {
   department: varchar('department', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('crm_contacts_client_idx').on(t.clientId),
+  index('crm_contacts_client_company_idx').on(t.clientId, t.companyId),
+  index('crm_contacts_client_email_idx').on(t.clientId, t.email),
+  index('crm_contacts_client_updated_idx').on(t.clientId, t.updatedAt),
+]);
 
 export const crmPipelines = pgTable('crm_pipelines', {
   id: serial('id').primaryKey(),
@@ -94,7 +103,12 @@ export const crmDeals = pgTable('crm_deals', {
   ownerId: integer('owner_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('crm_deals_client_idx').on(t.clientId),
+  index('crm_deals_client_stage_idx').on(t.clientId, t.stageId),
+  index('crm_deals_client_owner_idx').on(t.clientId, t.ownerId),
+  index('crm_deals_client_updated_idx').on(t.clientId, t.updatedAt),
+]);
 
 export const crmActivities = pgTable('crm_activities', {
   id: serial('id').primaryKey(),
@@ -110,7 +124,11 @@ export const crmActivities = pgTable('crm_activities', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   viaUserId: integer('via_user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('crm_activities_client_deal_idx').on(t.clientId, t.dealId),
+  index('crm_activities_client_contact_idx').on(t.clientId, t.contactId),
+  index('crm_activities_client_created_idx').on(t.clientId, t.createdAt),
+]);
 
 export const crmTags = pgTable('crm_tags', {
   id: serial('id').primaryKey(),

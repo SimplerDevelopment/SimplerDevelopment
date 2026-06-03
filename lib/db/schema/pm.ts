@@ -106,6 +106,7 @@ export const kanbanCards = pgTable('kanban_cards', {
   // Every board load filters cards by project and groups them by column.
   index('kanban_cards_project_idx').on(t.projectId),
   index('kanban_cards_column_idx').on(t.columnId),
+  index('kanban_cards_project_column_order_idx').on(t.projectId, t.columnId, t.order),
 ]);
 
 export const supportTickets = pgTable('support_tickets', {

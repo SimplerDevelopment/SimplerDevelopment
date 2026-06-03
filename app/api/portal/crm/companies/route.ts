@@ -26,14 +26,49 @@ export async function GET(req: NextRequest) {
 
   const url = req.nextUrl;
   const search = url.searchParams.get('search') || '';
+  // Typeahead mode — minimal projection for company-picker dropdowns.
+  // Caller sends `?q=<query>` and receives only id/name/logoUrl, hard-capped at 50.
+  const typeahead = url.searchParams.get('q');
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-  const limit = Math.min(
-    5000,
-    Math.max(1, parseInt(url.searchParams.get('limit') || '25', 10))
+  // Default 50, hard cap 200. Was 5000 — see perf/phase1.md (eliminated the 4.2s/267KB
+  // round-trip on every CRM page). Typeahead mode forces a stricter ≤50 cap.
+  const DEFAULT_LIMIT = 50;
+  const MAX_LIMIT = 200;
+  const TYPEAHEAD_MAX = 50;
+  const requestedLimit = Math.max(
+    1,
+    parseInt(url.searchParams.get('limit') || String(DEFAULT_LIMIT), 10)
   );
+  const limit = typeahead !== null
+    ? Math.min(TYPEAHEAD_MAX, requestedLimit)
+    : Math.min(MAX_LIMIT, requestedLimit);
   const offset = (page - 1) * limit;
 
   const conditions = [eq(crmCompanies.clientId, client.id)];
+
+  if (typeahead !== null) {
+    // Typeahead path: skip custom-field filters, skip count query, minimal projection.
+    if (typeahead.trim()) {
+      conditions.push(
+        sql`(${crmCompanies.name} ILIKE ${'%' + typeahead + '%'} OR ${crmCompanies.domain} ILIKE ${'%' + typeahead + '%'})`
+      );
+    }
+    const companies = await db
+      .select({
+        id: crmCompanies.id,
+        name: crmCompanies.name,
+        logoUrl: crmCompanies.logoUrl,
+      })
+      .from(crmCompanies)
+      .where(and(...conditions))
+      .orderBy(crmCompanies.name)
+      .limit(limit);
+    return NextResponse.json({
+      success: true,
+      data: { companies, total: companies.length, page: 1, limit },
+    });
+  }
+
   if (search) {
     conditions.push(
       sql`(${crmCompanies.name} ILIKE ${'%' + search + '%'} OR ${crmCompanies.domain} ILIKE ${'%' + search + '%'})`
