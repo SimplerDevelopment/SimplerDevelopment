@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { clients, clientMembers, clientServices, services } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getPortalClient } from '@/lib/portal-client';
+import { resolvePortalFromCurrentRequest } from '@/lib/mcp-auth';
 import { NextResponse } from 'next/server';
 
 export type PortalAction = 'read' | 'write' | 'admin' | 'owner';
@@ -43,15 +44,29 @@ export async function authorizePortal(opts?: {
   action?: PortalAction;
   requireService?: string;
 }): Promise<AuthorizeResult | AuthorizeError> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { response: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  const userId = parseInt(session.user.id, 10);
-  const client = await getPortalClient(userId);
-  if (!client) {
-    return { response: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
+  // ── Bearer-token path (mobile / API clients) ────────────────────────────
+  // The mobile client sends `Authorization: Bearer sd_mcp_…` after a
+  // successful /api/portal/auth/mobile-sign-in. Bearer tokens are bound to a
+  // specific client at issuance time, so we skip the multi-tenant
+  // `getPortalClient(userId)` lookup and use whichever client the key was
+  // minted against — same shape the legacy session path returns.
+  const bearer = await resolvePortalFromCurrentRequest();
+  let userId: number;
+  let client: typeof clients.$inferSelect;
+  if (bearer) {
+    userId = bearer.userId;
+    client = bearer.client;
+  } else {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { response: NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 }) };
+    }
+    userId = parseInt(session.user.id, 10);
+    const resolved = await getPortalClient(userId);
+    if (!resolved) {
+      return { response: NextResponse.json({ success: false, message: 'Client not found' }, { status: 404 }) };
+    }
+    client = resolved;
   }
 
   // Resolve role

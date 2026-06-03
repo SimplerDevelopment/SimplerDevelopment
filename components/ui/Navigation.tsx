@@ -18,10 +18,13 @@ export function Navigation() {
   const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  // Close menu on route change
+  // Close menu on route change. Guarded so we only write state when the menu
+  // is actually open; syncing UI visibility to the route is a legitimate
+  // effect, not a cascading-render smell.
   useEffect(() => {
-    closeMobileMenu();
-  }, [pathname]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (mobileMenuOpen) closeMobileMenu();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -37,6 +40,7 @@ export function Navigation() {
 
   const navLinks = [
     { href: '/solutions', label: 'Solutions' },
+    { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
   ];
