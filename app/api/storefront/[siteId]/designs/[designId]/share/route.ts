@@ -4,16 +4,19 @@ import { productDesigns } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import { resolveDesignerCaller } from '@/lib/storefront/designer-auth';
 
-// POST /api/storefront/[siteId]/designs/[id]/share
+// POST /api/storefront/[siteId]/designs/[designId]/share
 // Body: { isPublic: boolean }
 // Returns: { design, shareableUrl, uuid, isPublic }
+//
+// Product-designs only (integer ids). The shared `[designId]` segment routes
+// numeric ids here; legacy UUID designs never call share.
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ siteId: string; id: string }> },
+  { params }: { params: Promise<{ siteId: string; designId: string }> },
 ) {
-  const { siteId, id } = await params;
+  const { siteId, designId: designIdStr } = await params;
   const websiteId = parseInt(siteId, 10);
-  const designId = parseInt(id, 10);
+  const designId = parseInt(designIdStr, 10);
   if (Number.isNaN(websiteId) || Number.isNaN(designId)) {
     return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 });
   }

@@ -9,19 +9,22 @@ import {
   designSessionCookieOptions,
 } from '@/lib/storefront/designer-auth';
 
-// POST /api/storefront/[siteId]/designs/[id]/clone
+// POST /api/storefront/[siteId]/designs/[designId]/clone
 // Body: { name? }
 //
 // Clones any design the caller can READ — they own it, OR it is public/template.
 // The clone is owned by the caller (customer if logged-in, else anonymous
 // session — minting a cookie if missing).
+//
+// Product-designs only (integer ids). The shared `[designId]` segment routes
+// numeric ids here; legacy UUID designs never call clone.
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ siteId: string; id: string }> },
+  { params }: { params: Promise<{ siteId: string; designId: string }> },
 ) {
-  const { siteId, id } = await params;
+  const { siteId, designId: designIdStr } = await params;
   const websiteId = parseInt(siteId, 10);
-  const designId = parseInt(id, 10);
+  const designId = parseInt(designIdStr, 10);
   if (Number.isNaN(websiteId) || Number.isNaN(designId)) {
     return NextResponse.json({ success: false, message: 'Invalid id' }, { status: 400 });
   }
