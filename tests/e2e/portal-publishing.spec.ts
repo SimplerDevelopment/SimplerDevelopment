@@ -41,7 +41,7 @@ interface Column { id: number; name: string; order: number }
  *           scheduledColId, publishedColId }
  */
 async function resolvePublishingColumns(
-  adminApi: { get: (path: string) => Promise<{ status: number; data: any }> },
+  adminApi: { get: (path: string) => Promise<{ status: number; data: { data?: unknown } }> },
 ) {
   // Trigger bootstrap — idempotent
   await adminApi.get('/api/portal/publishing/campaigns');
