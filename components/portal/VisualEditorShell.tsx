@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVisualEditorParent } from '@/lib/visual-editor/useVisualEditorParent';
 import {
@@ -9,7 +10,13 @@ import {
 } from '@/lib/utils/blockHelpers';
 import type { Block, BlockType, ColumnsBlock } from '@/types/blocks';
 import type { Breakpoint } from '@/types/responsive';
-import { ImagePickerModal } from './visual-editor/HtmlRenderEditor';
+// Lazy-load ImagePickerModal — the modal lives in HtmlRenderEditor.tsx (~1700
+// LoC + @codemirror), only mounts when the iframe requests a swap, and would
+// otherwise re-anchor the entire HtmlRenderEditor chunk to this shell.
+const ImagePickerModal = dynamic(
+  () => import('./visual-editor/HtmlRenderEditor').then((m) => ({ default: m.ImagePickerModal })),
+  { ssr: false },
+);
 import { SaveAsTemplateModal } from '@/components/blocks/SaveAsTemplateModal';
 import { TemplateLibrary } from '@/components/blocks/TemplateLibrary';
 import { BUILT_IN_BLOCK_TYPES } from '@/lib/blocks/registry';
@@ -362,14 +369,33 @@ export function VisualEditorShell({
     },
   });
 
+  // Debounce + diff sendBlocksUpdate. The effect re-runs on every blocks
+  // reference change (which is every panel-field tweak), and the iframe
+  // postMessage payload is the entire block tree — JSON.stringify + structured
+  // clone on every keystroke gets expensive past ~30 blocks. We coalesce
+  // bursts inside one animation frame and bail out when the tree is reference-
+  // equal to the last successfully-sent reference (cheap O(1) compare).
+  const blocksSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSentBlocksRef = useRef<Block[] | null>(null);
   useEffect(() => {
     if (iframeOriginatedRef.current) {
       iframeOriginatedRef.current = false;
+      lastSentBlocksRef.current = blocks; // iframe already has these
       return;
     }
+    if (lastSentBlocksRef.current === blocks) return; // already sent this reference
     // Coalesce mid-drag updates (slider thumb, color picker, range input) into
     // one undo entry; pointer-up flushes the next change as discrete.
-    sendBlocksUpdate(blocks, { coalesce: pointerDownRef.current });
+    const coalesce = pointerDownRef.current;
+    if (blocksSendTimerRef.current) clearTimeout(blocksSendTimerRef.current);
+    blocksSendTimerRef.current = setTimeout(() => {
+      if (lastSentBlocksRef.current === blocks) return;
+      lastSentBlocksRef.current = blocks;
+      sendBlocksUpdate(blocks, { coalesce });
+    }, 16); // ~1 animation frame
+    return () => {
+      if (blocksSendTimerRef.current) clearTimeout(blocksSendTimerRef.current);
+    };
   }, [blocks, sendBlocksUpdate]);
   useEffect(() => { sendSelectBlock(selectedBlockId, selectedBlockIds); }, [selectedBlockId, selectedBlockIds, sendSelectBlock]);
 

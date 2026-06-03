@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { posts, postCategories, postTags, postRevisions } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { resolveClientSite } from '@/lib/portal-client';
 import { revalidateClientSite, clientSiteUrl } from '@/lib/revalidate-client-site';
 import { assertBlocksAllowedForRole, BlockGateError } from '@/lib/security/block-allowlist';
+
+// How recent the previous revision needs to be for an autosave write to be
+// considered redundant. Combined with the content-hash check below, this keeps
+// the revision table from ballooning during long editing sessions.
+const AUTOSAVE_REVISION_MIN_INTERVAL_MS = 10 * 60_000; // 10 minutes
+
+function hashContent(content: string): string {
+  return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+}
 
 export async function GET(
   _req: Request,
@@ -108,34 +118,86 @@ export async function PUT(
 
   if (!post) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
 
-  // Create revision snapshot
+  // Create revision snapshot.
+  //
+  // Manual saves and publish events always write a revision. Autosaves now skip
+  // the write when the most recent revision is both (a) less than
+  // AUTOSAVE_REVISION_MIN_INTERVAL_MS old and (b) has the same content hash —
+  // otherwise a 2s autosave loop would write a fresh row for every keystroke
+  // even when nothing actually changed (e.g. style-tab tinkering that bounces
+  // back to the same value, or repeated autosaves on an idle tab).
   const trigger = published && revisionTrigger !== 'autosave' ? 'publish' : (revisionTrigger || 'manual');
   if (content !== undefined) {
-    await db.insert(postRevisions).values({
-      postId: pid,
-      content: post.content,
-      title: post.title,
-      trigger,
-      createdBy: parseInt(session.user.id, 10),
-    });
+    const newHash = hashContent(post.content);
+    let shouldWriteRevision = true;
+    if (trigger === 'autosave') {
+      const [last] = await db
+        .select({ createdAt: postRevisions.createdAt, contentHash: postRevisions.contentHash })
+        .from(postRevisions)
+        .where(eq(postRevisions.postId, pid))
+        .orderBy(desc(postRevisions.createdAt))
+        .limit(1);
+      if (last) {
+        const tooSoon = Date.now() - last.createdAt.getTime() < AUTOSAVE_REVISION_MIN_INTERVAL_MS;
+        const sameHash = last.contentHash === newHash;
+        if (tooSoon && sameHash) shouldWriteRevision = false;
+      }
+    }
+    if (shouldWriteRevision) {
+      await db.insert(postRevisions).values({
+        postId: pid,
+        content: post.content,
+        title: post.title,
+        trigger,
+        contentHash: newHash,
+        createdBy: parseInt(session.user.id, 10),
+      });
+    }
   }
 
-  // Sync categories if provided
+  // Sync categories if provided. The client form always sends `categoryIds`
+  // even on autosave (it's part of formData), so DELETE+INSERT every PUT would
+  // churn join rows even when nothing changed. Diff against the current set
+  // and only touch rows that actually moved.
   if (categoryIds !== undefined) {
-    await db.delete(postCategories).where(eq(postCategories.postId, pid));
-    if (categoryIds.length) {
+    const incoming = new Set<number>((categoryIds as number[]) ?? []);
+    const existingRows = await db
+      .select({ categoryId: postCategories.categoryId })
+      .from(postCategories)
+      .where(eq(postCategories.postId, pid));
+    const existing = new Set<number>(existingRows.map((r) => r.categoryId as number));
+    const toAdd: number[] = [...incoming].filter((id) => !existing.has(id));
+    const toRemove: number[] = [...existing].filter((id) => !incoming.has(id));
+    if (toRemove.length) {
+      await db
+        .delete(postCategories)
+        .where(and(eq(postCategories.postId, pid), inArray(postCategories.categoryId, toRemove)));
+    }
+    if (toAdd.length) {
       await db.insert(postCategories).values(
-        categoryIds.map((catId: number) => ({ postId: pid, categoryId: catId }))
+        toAdd.map((catId) => ({ postId: pid, categoryId: catId }))
       );
     }
   }
 
-  // Sync tags if provided
+  // Same diff strategy for tags.
   if (tagIds !== undefined) {
-    await db.delete(postTags).where(eq(postTags.postId, pid));
-    if (tagIds.length) {
+    const incoming = new Set<number>((tagIds as number[]) ?? []);
+    const existingRows = await db
+      .select({ tagId: postTags.tagId })
+      .from(postTags)
+      .where(eq(postTags.postId, pid));
+    const existing = new Set<number>(existingRows.map((r) => r.tagId as number));
+    const toAdd: number[] = [...incoming].filter((id) => !existing.has(id));
+    const toRemove: number[] = [...existing].filter((id) => !incoming.has(id));
+    if (toRemove.length) {
+      await db
+        .delete(postTags)
+        .where(and(eq(postTags.postId, pid), inArray(postTags.tagId, toRemove)));
+    }
+    if (toAdd.length) {
       await db.insert(postTags).values(
-        tagIds.map((tId: number) => ({ postId: pid, tagId: tId }))
+        toAdd.map((tId) => ({ postId: pid, tagId: tId }))
       );
     }
   }

@@ -43,6 +43,10 @@ export const postRevisions = pgTable('post_revisions', {
   title: varchar('title', { length: 255 }).notNull(),
   trigger: varchar('trigger', { length: 20 }).notNull(), // 'autosave' | 'manual' | 'publish'
   createdBy: integer('created_by'),
+  // First 16 hex chars of sha256(content) — used to skip duplicate autosave
+  // revisions when the block tree is unchanged. Nullable for historical rows
+  // (a null hash never matches incoming, so old rows just never deduplicate).
+  contentHash: varchar('content_hash', { length: 16 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
