@@ -47,6 +47,10 @@ export interface BookingBlock extends BaseBlock {
     buttonText?: string;
     buttonBorderRadius?: string;
     borderRadius?: string;
+    // Calendar controls — the day-grid cells default to translucent-accent
+    // backgrounds and near-black text, which disappear on dark booking cards.
+    calendarDateColor?: string; // text of selectable day numbers + month/weekday labels
+    calendarDateBg?: string; // background of selectable day cells (else accent @ ~6%)
   };
 }
 
