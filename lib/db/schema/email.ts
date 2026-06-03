@@ -1,6 +1,6 @@
 // Email marketing: lists, subscribers, campaigns, segments, templates, and per-website transactional templates.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, index } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clientWebsites, clients } from './sites';
 import { brandingProfiles } from './cms';
@@ -13,7 +13,9 @@ export const emailLists = pgTable('email_lists', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('email_lists_client_id_idx').on(t.clientId),
+]);
 
 export const emailSubscribers = pgTable('email_subscribers', {
   id: serial('id').primaryKey(),
@@ -26,7 +28,15 @@ export const emailSubscribers = pgTable('email_subscribers', {
   subscribedAt: timestamp('subscribed_at').defaultNow().notNull(),
   unsubscribedAt: timestamp('unsubscribed_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('email_subscribers_list_id_idx').on(t.listId),
+  index('email_subscribers_list_status_idx').on(t.listId, t.status),
+  uniqueIndex('email_subscribers_list_email_uniq_idx').on(t.listId, t.email),
+  // Plain (listId, subscribedAt) covers both ASC and DESC scans for "newest
+  // subscribers first" pagination over a single list. .desc() not in use
+  // elsewhere in this codebase; the planner reverse-scans cleanly.
+  index('email_subscribers_list_subscribed_at_idx').on(t.listId, t.subscribedAt),
+]);
 
 export const emailCampaigns = pgTable('email_campaigns', {
   id: serial('id').primaryKey(),
@@ -68,7 +78,11 @@ export const emailCampaigns = pgTable('email_campaigns', {
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('email_campaigns_client_created_at_idx').on(t.clientId, t.createdAt),
+  index('email_campaigns_list_id_idx').on(t.listId),
+  index('email_campaigns_status_scheduled_at_idx').on(t.status, t.scheduledAt),
+]);
 
 export const emailTemplates = pgTable('email_templates', {
   id: serial('id').primaryKey(),
@@ -100,7 +114,10 @@ export const emailSubscriberTagAssignments = pgTable('email_subscriber_tag_assig
   id: serial('id').primaryKey(),
   subscriberId: integer('subscriber_id').notNull().references(() => emailSubscribers.id, { onDelete: 'cascade' }),
   tagId: integer('tag_id').notNull().references(() => emailSubscriberTags.id, { onDelete: 'cascade' }),
-});
+}, (t) => [
+  index('email_subscriber_tag_assignments_subscriber_idx').on(t.subscriberId),
+  index('email_subscriber_tag_assignments_tag_idx').on(t.tagId),
+]);
 
 export const emailSegments = pgTable('email_segments', {
   id: serial('id').primaryKey(),
@@ -113,7 +130,9 @@ export const emailSegments = pgTable('email_segments', {
   lastCalculatedAt: timestamp('last_calculated_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('email_segments_client_id_idx').on(t.clientId),
+]);
 
 // ─── HOSTING & DNS ────────────────────────────────────────────────────────────
 
@@ -132,7 +151,11 @@ export const emailCampaignSends = pgTable('email_campaign_sends', {
   bouncedAt: timestamp('bounced_at'),
   complainedAt: timestamp('complained_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+  index('email_campaign_sends_campaign_idx').on(t.campaignId),
+  index('email_campaign_sends_subscriber_idx').on(t.subscriberId),
+  uniqueIndex('email_campaign_sends_campaign_subscriber_uniq_idx').on(t.campaignId, t.subscriberId),
+]);
 
 // Saved payment methods (mirrors Stripe PaymentMethod objects)
 
