@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { CodeLogo3D } from '@/components/three/CodeLogo3D';
+import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
 
 export const metadata = generateSEO({
   title: 'Platform Features',
@@ -20,6 +21,7 @@ const NUMBER_WORDS = [
 const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
 
 export default function SolutionsPage() {
+  if (SOLUTIONS_UNDER_MAINTENANCE) return <MaintenanceNotice />;
   const solutions = getAllSolutions();
   const toolCount = solutions.length;
 

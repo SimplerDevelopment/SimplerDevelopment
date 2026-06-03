@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { SolutionGallery } from '@/components/solutions/SolutionGallery';
+import { MaintenanceNotice, SOLUTIONS_UNDER_MAINTENANCE } from '@/components/marketing/MaintenanceNotice';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function SolutionPage({ params }: PageProps) {
+  if (SOLUTIONS_UNDER_MAINTENANCE) return <MaintenanceNotice />;
   const { slug } = await params;
   const solution = getSolutionBySlug(slug);
 
