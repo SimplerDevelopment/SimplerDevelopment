@@ -1,6 +1,6 @@
 // Company Brain: meetings, AI-extracted review items, relationships, notes, and the automation engine.
 
-import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index, vector } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, text, timestamp, boolean, integer, json, uniqueIndex, index, vector, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './auth';
 import { clients } from './sites';
 import { crmCompanies, crmContacts, crmDeals } from './crm';
@@ -399,7 +399,7 @@ export const brainAiReviewItems = pgTable('brain_ai_review_items', {
   // Routing-by-expertise — Phase 6. Populated by lib/brain/review-routing.ts.
   // SUGGESTIONS, not assignments — the actual reviewer on approval is recorded
   // in reviewedBy. A person can query "items routed to me" via the index below.
-  suggestedReviewerPersonId: integer('suggested_reviewer_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  suggestedReviewerPersonId: integer('suggested_reviewer_person_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   suggestedReviewerScore: integer('suggested_reviewer_score'),
   suggestedReviewerReason: text('suggested_reviewer_reason'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -643,7 +643,15 @@ export const brainEmbeddingJobs = pgTable('brain_embedding_jobs', {
   lastError: text('last_error'),
   enqueuedAt: timestamp('enqueued_at').defaultNow().notNull(),
   startedAt: timestamp('started_at'),
-});
+}, (t) => [
+  // REQUIRED by the enqueue_embedding_job() trigger's `ON CONFLICT (entity_type,
+  // entity_id)` upsert. Created in migration 0064, but it MUST also be declared
+  // here or `drizzle-kit push`-built databases (e.g. realprod_dryrun) omit it and
+  // every posts/notes/meetings write 500s with Postgres 42P10. Do not remove.
+  uniqueIndex('brain_embedding_jobs_entity_unique_idx').on(t.entityType, t.entityId),
+  // Worker read pattern: oldest pending first (also from 0064).
+  index('brain_embedding_jobs_status_idx').on(t.status, t.enqueuedAt),
+]);
 
 // Embedding storage. One row per (entity, chunk). Vectors are written via raw
 // SQL in lib/brain/embeddings.ts (pgvector accepts a `[1,2,…]::vector` literal,
@@ -866,7 +874,7 @@ export const brainDecisions = pgTable('brain_decisions', {
   // Supersede chain (immutable replacement, never edit-in-place). Self-FK
   // declared via the `(): any => brainDecisions.id` pattern to break the
   // circular type inference Drizzle would otherwise hit.
-  supersededByDecisionId: integer('superseded_by_decision_id').references((): any => brainDecisions.id, { onDelete: 'set null' }),
+  supersededByDecisionId: integer('superseded_by_decision_id').references((): AnyPgColumn => brainDecisions.id, { onDelete: 'set null' }),
   // Optional anchors — usually one of these is set.
   meetingId: integer('meeting_id').references(() => brainMeetings.id, { onDelete: 'set null' }),
   noteId: integer('note_id').references(() => brainNotes.id, { onDelete: 'set null' }),
@@ -896,7 +904,7 @@ export const brainDecisions = pgTable('brain_decisions', {
 export const brainTopics = pgTable('brain_topics', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id').references((): any => brainTopics.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnyPgColumn => brainTopics.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 150 }).notNull(),
   slug: varchar('slug', { length: 150 }).notNull(),
   path: varchar('path', { length: 1000 }).notNull(),    // '/ops/hiring/eng' — derived, kept in sync
@@ -954,7 +962,7 @@ export const brainPeople = pgTable('brain_people', {
   fullName: varchar('full_name', { length: 200 }).notNull(),
   email: varchar('email', { length: 255 }),
   // Reports-to chain (self-FK). Null = top of chain (CEO/founder/independent).
-  managerId: integer('manager_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  managerId: integer('manager_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   title: varchar('title', { length: 200 }),
   startDate: timestamp('start_date'),
   endDate: timestamp('end_date'),
@@ -986,13 +994,13 @@ export type NewBrainPerson = typeof brainPeople.$inferInsert;
 export const brainOrgUnits = pgTable('brain_org_units', {
   id: serial('id').primaryKey(),
   clientId: integer('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
-  parentId: integer('parent_id').references((): any => brainOrgUnits.id, { onDelete: 'cascade' }),
+  parentId: integer('parent_id').references((): AnyPgColumn => brainOrgUnits.id, { onDelete: 'cascade' }),
   name: varchar('name', { length: 150 }).notNull(),
   slug: varchar('slug', { length: 150 }).notNull(),
   path: varchar('path', { length: 1000 }).notNull(),
   description: text('description'),
   // Optional unit head — must belong to the same client.
-  leadPersonId: integer('lead_person_id').references((): any => brainPeople.id, { onDelete: 'set null' }),
+  leadPersonId: integer('lead_person_id').references((): AnyPgColumn => brainPeople.id, { onDelete: 'set null' }),
   color: varchar('color', { length: 20 }),
   icon: varchar('icon', { length: 50 }),
   sortOrder: integer('sort_order').default(0).notNull(),
