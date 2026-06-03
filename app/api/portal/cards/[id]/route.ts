@@ -280,6 +280,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.description !== undefined) updates.description = body.description;
   if (body.priority !== undefined) updates.priority = body.priority;
   if (body.dueDate !== undefined) updates.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  // Publishing calendar reads kanbanCards.scheduledFor to place a card on a date.
+  // Accept an ISO string to schedule, or null to unschedule (remove from calendar).
+  if (body.scheduledFor !== undefined) updates.scheduledFor = body.scheduledFor ? new Date(body.scheduledFor) : null;
   if (body.sprintId !== undefined) updates.sprintId = body.sprintId ?? null;
   if (body.storyPoints !== undefined) {
     const v = body.storyPoints;
