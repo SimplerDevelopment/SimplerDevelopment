@@ -1,4 +1,5 @@
 import { getSolutionBySlug, getAllSolutions } from '@/lib/data/solutions';
+import { getSolutionScreenshots } from '@/lib/data/solution-screenshots';
 import { generateSEO } from '@/lib/utils/seo';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -6,6 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { FadeIn } from '@/components/animations/FadeIn';
 import { SlideIn } from '@/components/animations/SlideIn';
+import { SolutionGallery } from '@/components/solutions/SolutionGallery';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -41,6 +43,7 @@ export default async function SolutionPage({ params }: PageProps) {
 
   const allSolutions = getAllSolutions();
   const otherSolutions = allSolutions.filter((s) => s.slug !== slug);
+  const screenshots = getSolutionScreenshots(slug);
 
   return (
     <div className="min-h-screen">
@@ -105,27 +108,38 @@ export default async function SolutionPage({ params }: PageProps) {
                 </FadeIn>
               </div>
 
-              {/* Icon visual */}
-              <FadeIn delay={0.3}>
-                <div className="hidden lg:flex items-center justify-center">
-                  <div
-                    className="w-36 h-36 rounded-3xl flex items-center justify-center relative"
-                    style={{ backgroundColor: `${solution.color}10` }}
-                  >
+              {/* Icon visual — shown only when a solution has no product screenshots */}
+              {screenshots.length === 0 && (
+                <FadeIn delay={0.3}>
+                  <div className="hidden lg:flex items-center justify-center">
                     <div
-                      className="absolute inset-0 rounded-3xl blur-2xl opacity-20"
-                      style={{ backgroundColor: solution.color }}
-                    />
-                    <span
-                      className="material-icons relative z-10"
-                      style={{ color: solution.color, fontSize: '72px' }}
+                      className="w-36 h-36 rounded-3xl flex items-center justify-center relative"
+                      style={{ backgroundColor: `${solution.color}10` }}
                     >
-                      {solution.icon}
-                    </span>
+                      <div
+                        className="absolute inset-0 rounded-3xl blur-2xl opacity-20"
+                        style={{ backgroundColor: solution.color }}
+                      />
+                      <span
+                        className="material-icons relative z-10"
+                        style={{ color: solution.color, fontSize: '72px' }}
+                      >
+                        {solution.icon}
+                      </span>
+                    </div>
                   </div>
+                </FadeIn>
+              )}
+            </div>
+
+            {/* Product screenshots — real, data-filled UI of this feature */}
+            {screenshots.length > 0 && (
+              <FadeIn delay={0.3}>
+                <div className="mt-14">
+                  <SolutionGallery images={screenshots} color={solution.color} label={solution.title} />
                 </div>
               </FadeIn>
-            </div>
+            )}
           </div>
         </div>
       </section>
