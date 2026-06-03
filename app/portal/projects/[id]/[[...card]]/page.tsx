@@ -17,19 +17,14 @@ import { isPortalStaff } from '@/lib/portal';
 import { getPortalClient } from '@/lib/portal-client';
 import { getProjectRole } from '@/lib/portal/project-access';
 import { canEditProject, canManageProject } from '@/lib/portal/project-permissions';
+// KanbanBoard/SprintPlanning opt out of SSR (dnd-kit + window). `ssr: false` is
+// not allowed with next/dynamic inside a Server Component, so those two live in
+// a Client Component wrapper. The SSR-safe tabs below stay code-split here.
+import { KanbanBoard, SprintPlanning } from './dynamic-tabs';
 
 // Heavy tab components are code-split — only the bundle for the active tab
-// ships down to the client. KanbanBoard/SprintPlanning use dnd-kit + window
-// directly, so they must opt out of SSR. The others are pure React (useEffect
-// + fetch), so they can SSR fine and we just want the chunk split.
-const KanbanBoard = dynamic(() => import('@/components/portal/KanbanBoard'), {
-  ssr: false,
-  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading board…</div>,
-});
-const SprintPlanning = dynamic(() => import('@/components/portal/SprintPlanning'), {
-  ssr: false,
-  loading: () => <div className="p-8 text-sm text-muted-foreground">Loading sprints…</div>,
-});
+// ships down to the client. These are pure React (useEffect + fetch), so they
+// can SSR fine and we just want the chunk split.
 const BacklogTab = dynamic(() => import('@/components/portal/BacklogTab'), {
   loading: () => <div className="p-8 text-sm text-muted-foreground">Loading backlog…</div>,
 });
