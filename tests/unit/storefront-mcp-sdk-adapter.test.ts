@@ -24,6 +24,7 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // db chain mock — handles every shape used by the adapter:
@@ -196,6 +197,8 @@ vi.mock('drizzle-orm', () => ({
   gte: vi.fn(() => ({})),
   ilike: vi.fn(() => ({})),
   sql: Object.assign(vi.fn(() => ({})), { raw: vi.fn(() => ({})) }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ── helpers ─────────────────────────────────────────────────────────────────

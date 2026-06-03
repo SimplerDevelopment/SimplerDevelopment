@@ -35,6 +35,7 @@ vi.mock('drizzle-orm', () => ({
     }),
     { raw: (s: string) => ({ __sql_raw: true, s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 // schema — proxy tables; every property access returns a { __col, __table }.
@@ -51,7 +52,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     media: wrap('media'),
     posts: wrap('posts'),
     categories: wrap('categories'),
@@ -59,7 +60,7 @@ vi.mock('@/lib/db/schema', () => {
     postCategories: wrap('postCategories'),
     postTags: wrap('postTags'),
     clientWebsites: wrap('clientWebsites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

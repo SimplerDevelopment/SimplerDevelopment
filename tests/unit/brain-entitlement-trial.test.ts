@@ -73,6 +73,9 @@ vi.mock('@/lib/portal-auth', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: (col: { __col: string }, val: unknown) => ({ kind: 'eq', col: col.__col, val }),
   and: (...parts: unknown[]) => ({ kind: 'and', parts }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 const { isBrainEntitled, requireBrainEntitlement } = await import('@/lib/brain/entitlement');

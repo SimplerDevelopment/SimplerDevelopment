@@ -83,7 +83,7 @@ vi.mock('@/lib/db/schema', () => {
   const col = (name: string) => ({ name });
   const make = (...cols: string[]) =>
     Object.fromEntries(cols.map((c) => [c, col(c)])) as Record<string, unknown>;
-  return {
+  return new Proxy({
     projects: make('id', 'clientId'),
     kanbanCards: make('id'),
     kanbanColumns: make('id'),
@@ -162,7 +162,7 @@ vi.mock('@/lib/db/schema', () => {
     aiCreditLedger: make('id'),
     hostedSites: make('id'),
     googleWorkspaceUserConnections: make('id'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -195,6 +195,7 @@ vi.mock('@/lib/portal-auth', () => ({
 // Stubs for revalidatePath (called inside revalidateForWrite).
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // Transitive imports pulled in by surveys.ts — keep mocks minimal.

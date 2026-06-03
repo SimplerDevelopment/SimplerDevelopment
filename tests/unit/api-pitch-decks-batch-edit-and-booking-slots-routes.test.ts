@@ -85,6 +85,9 @@ vi.mock('drizzle-orm', () => ({
     (strings: TemplateStringsArray, ...values: unknown[]) => ({ kind: 'sql', strings, values }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` is inert
@@ -100,14 +103,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     pitchDecks: wrap('pitchDecks'),
     bookingPages: wrap('bookingPages'),
     bookings: wrap('bookings'),
     bookingAttendees: wrap('bookingAttendees'),
     bookingDateOverrides: wrap('bookingDateOverrides'),
     bookingPageMembers: wrap('bookingPageMembers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock — supports both a scripted select queue (for booking slots)

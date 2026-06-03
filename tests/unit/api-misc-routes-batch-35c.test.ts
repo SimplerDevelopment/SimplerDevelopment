@@ -56,6 +56,8 @@ vi.mock('drizzle-orm', () => ({
     },
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {

@@ -47,6 +47,7 @@ vi.mock('drizzle-orm', () => ({
     },
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -62,7 +63,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmDeals: wrap('crmDeals'),
     crmContacts: wrap('crmContacts'),
     crmCompanies: wrap('crmCompanies'),
@@ -77,7 +78,7 @@ vi.mock('@/lib/db/schema', () => {
     clientWebsites: wrap('clientWebsites'),
     users: wrap('users'),
     hostedSites: wrap('hostedSites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

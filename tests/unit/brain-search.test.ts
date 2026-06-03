@@ -66,14 +66,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainMeetings: wrap('brainMeetings'),
     brainNotes: wrap('brainNotes'),
     brainTasks: wrap('brainTasks'),
     brainRelationshipOverlays: wrap('brainRelationshipOverlays'),
     crmCompanies: wrap('crmCompanies'),
     crmDeals: wrap('crmDeals'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -89,6 +89,7 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql-raw', raw: s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/brain/embeddings', () => ({

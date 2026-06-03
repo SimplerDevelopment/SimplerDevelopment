@@ -67,6 +67,9 @@ vi.mock('@/lib/portal-client', () => ({
 // drizzle-orm operators — inert
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy table so eq(oauthClients.clientId, x) doesn't blow up.
@@ -83,7 +86,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return { oauthClients: wrap('oauthClients') };
+  return new Proxy({ oauthClients: wrap('oauthClients') }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // db.select() returns a single row from the queue per terminal call. The

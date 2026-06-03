@@ -22,6 +22,7 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('@/lib/branding/mcp-tools', () => ({
@@ -116,6 +117,9 @@ vi.mock('@/lib/db/schema', () => {
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn(() => ({})),
   and: vi.fn(() => ({})),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ── helpers ─────────────────────────────────────────────────────────────────

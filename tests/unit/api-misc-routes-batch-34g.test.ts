@@ -34,6 +34,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -49,13 +51,13 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     bookingPages: wrap('bookingPages'),
     discountCodes: wrap('discountCodes'),
     clientWebsites: wrap('clientWebsites'),
     bookings: wrap('bookings'),
     bookingWaivers: wrap('bookingWaivers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

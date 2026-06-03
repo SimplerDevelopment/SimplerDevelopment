@@ -54,7 +54,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     clientWebsites: wrap('clientWebsites'),
     posts: wrap('posts'),
     postRevisions: wrap('postRevisions'),
@@ -62,7 +62,7 @@ vi.mock('@/lib/db/schema', () => {
     tags: wrap('tags'),
     media: wrap('media'),
     hostedSites: wrap('hostedSites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -77,6 +77,7 @@ vi.mock('drizzle-orm', () => ({
     strings: Array.from(strings),
     values,
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 function getCol(ref: unknown): { col: string; table: string } | null {

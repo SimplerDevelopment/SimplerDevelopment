@@ -30,6 +30,7 @@ vi.mock('@/lib/brain/relationships', () => ({
   getRelationship: (...args: unknown[]) => getRelationshipMock(...args),
   updateOverlay: (...args: unknown[]) => updateOverlayMock(...args),
   deleteOverlay: (...args: unknown[]) => deleteOverlayMock(...args),
+  countRelationships: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 // search lib
@@ -44,6 +45,7 @@ const createTaskMock = vi.fn();
 vi.mock('@/lib/brain/tasks', () => ({
   listTasks: (...args: unknown[]) => listTasksMock(...args),
   createTask: (...args: unknown[]) => createTaskMock(...args),
+  countTasks: (..._args: unknown[]) => Promise.resolve(0),
 }));
 
 // audit
@@ -65,10 +67,10 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainRelationshipOverlays: wrap('brainRelationshipOverlays'),
     brainTasks: wrap('brainTasks'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- modules under test (loaded AFTER mocks) ----

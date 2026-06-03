@@ -88,6 +88,7 @@ vi.mock('drizzle-orm', () => ({
   or: vi.fn((...args) => ({ _op: 'or', args })),
   isNull: vi.fn((a) => ({ _op: 'isNull', a })),
   lt: vi.fn((a, b) => ({ _op: 'lt', a, b })),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/microsoft/oauth', () => ({

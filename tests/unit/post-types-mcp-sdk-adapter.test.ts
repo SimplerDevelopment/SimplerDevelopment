@@ -25,6 +25,7 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // db mock: each select/insert/update/delete returns a chainable proxy whose
@@ -133,6 +134,7 @@ vi.mock('drizzle-orm', () => ({
   or: vi.fn(() => ({})),
   asc: vi.fn(() => ({})),
   isNull: vi.fn(() => ({})),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ── helpers ─────────────────────────────────────────────────────────────────

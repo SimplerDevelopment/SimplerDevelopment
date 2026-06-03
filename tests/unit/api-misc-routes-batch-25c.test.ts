@@ -32,6 +32,7 @@ vi.mock('drizzle-orm', () => ({
     strings: Array.from(strings),
     values,
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -46,7 +47,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     supportTickets: wrap('supportTickets'),
     clientServices: wrap('clientServices'),
     services: wrap('services'),
@@ -55,7 +56,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanColumns: wrap('kanbanColumns'),
     clients: wrap('clients'),
     users: wrap('users'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

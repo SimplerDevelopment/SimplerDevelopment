@@ -21,6 +21,7 @@ import type { PortalMcpContext } from '@/lib/mcp-auth';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 vi.mock('@/lib/portal-auth', () => ({

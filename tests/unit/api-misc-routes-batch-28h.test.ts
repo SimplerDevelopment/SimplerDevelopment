@@ -36,6 +36,9 @@ vi.mock('@/lib/s3/upload', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: (a: unknown, b: unknown) => ({ op: 'eq', a, b }),
   and: (...args: unknown[]) => ({ op: 'and', args }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables so `table.col` and `eq(table.col, x)` are inert
@@ -51,7 +54,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     kanbanCards: wrap('kanbanCards'),
     kanbanCardDependencies: wrap('kanbanCardDependencies'),
     kanbanCardFiles: wrap('kanbanCardFiles'),
@@ -59,7 +62,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanLabels: wrap('kanbanLabels'),
     kanbanColumns: wrap('kanbanColumns'),
     projects: wrap('projects'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + capture for writes ----

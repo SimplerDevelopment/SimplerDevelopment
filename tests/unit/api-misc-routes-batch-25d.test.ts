@@ -45,6 +45,7 @@ vi.mock('drizzle-orm', () => ({
   sql: Object.assign((..._args: unknown[]) => ({ op: 'sql' }), {
     raw: (s: string) => ({ op: 'raw', s }),
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables.
@@ -61,7 +62,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     sprints: wrap('sprints'),
     kanbanCards: wrap('kanbanCards'),
     kanbanColumns: wrap('kanbanColumns'),
@@ -69,7 +70,7 @@ vi.mock('@/lib/db/schema', () => {
     kanbanCardFiles: wrap('kanbanCardFiles'),
     projects: wrap('projects'),
     users: wrap('users'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---- db mock with select-queue + write capture --------------------------------

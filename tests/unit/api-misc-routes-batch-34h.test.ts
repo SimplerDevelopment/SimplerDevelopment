@@ -27,6 +27,8 @@ vi.mock('drizzle-orm', () => ({
   ne: (a: unknown, b: unknown) => ({ op: 'ne', a, b }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   asc: (a: unknown) => ({ op: 'asc', a }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables, every property access returns a { __col, __table }.
@@ -43,7 +45,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     bookings: wrap('bookings'),
     bookingPages: wrap('bookingPages'),
     bookingQuotes: wrap('bookingQuotes'),
@@ -53,13 +55,14 @@ vi.mock('@/lib/db/schema', () => {
     storeSettings: wrap('storeSettings'),
     chatConversations: wrap('chatConversations'),
     chatMessages: wrap('chatMessages'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // Booking emails
 const sendCancellationEmailMock = vi.fn();
 vi.mock('@/lib/email/booking-emails', () => ({
   sendCancellationEmail: (...args: unknown[]) => sendCancellationEmailMock(...args),
+  loadBookingBrand: (..._args: unknown[]) => Promise.resolve(null),
 }));
 
 // Google Calendar

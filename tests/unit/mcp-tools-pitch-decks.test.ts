@@ -191,6 +191,7 @@ vi.mock('@/lib/realtime/internal-publisher', () => ({
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
 }));
 
 // Email / html / pm-activity / google / brain modules — pitch-decks doesn't

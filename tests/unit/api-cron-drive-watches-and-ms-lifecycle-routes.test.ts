@@ -91,6 +91,7 @@ vi.mock('drizzle-orm', () => ({
     strings,
     vals,
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db', () => {

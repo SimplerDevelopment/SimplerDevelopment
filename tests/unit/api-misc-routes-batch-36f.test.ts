@@ -48,6 +48,8 @@ vi.mock('drizzle-orm', () => ({
     }),
     { raw: (s: string) => ({ __sql_raw: true, s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -72,11 +74,11 @@ vi.mock('@/lib/db/schema', () => {
       },
     });
   };
-  return {
+  return new Proxy({
     productCategories: wrap('productCategories'),
     chatConversations: wrap('chatConversations'),
     clients: wrap('clients'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 // ---------------------------------------------------------------------------
@@ -922,7 +924,6 @@ describe('GET /api/cron/brain-empty-old-trash', () => {
 
   // Restore env after each test in this block.
   // (top-level beforeEach already resets purgeOldTrashMock.)
-  // eslint-disable-next-line vitest/expect-expect
   it('restores env', () => {
     process.env.CRON_SECRET = ORIGINAL_SECRET ?? 'shh';
     expect(true).toBe(true);

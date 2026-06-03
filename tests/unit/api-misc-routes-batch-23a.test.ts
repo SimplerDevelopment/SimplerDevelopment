@@ -39,6 +39,7 @@ vi.mock('drizzle-orm', () => ({
     __sql: strings.join('?'),
     vals,
   }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -53,12 +54,12 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     media: wrap('media'),
     brandingProfiles: wrap('brandingProfiles'),
     brandingMessaging: wrap('brandingMessaging'),
     clients: wrap('clients'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // Branding audit + messaging helpers

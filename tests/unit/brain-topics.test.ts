@@ -137,6 +137,8 @@ vi.mock('drizzle-orm', () => ({
     (..._args: unknown[]) => ({ kind: 'sql' }),
     { raw: (s: string) => ({ kind: 'raw', s }) },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 const topics = await import('@/lib/brain/topics');

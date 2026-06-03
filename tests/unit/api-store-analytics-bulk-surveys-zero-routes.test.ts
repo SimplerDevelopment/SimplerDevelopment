@@ -42,6 +42,9 @@ vi.mock('drizzle-orm', () => ({
       join: (parts: unknown[], sep: unknown) => ({ __sqlJoin: true, parts, sep }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---------------------------------------------------------------------------

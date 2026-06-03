@@ -51,7 +51,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     brainMeetings: wrap('brainMeetings'),
     brainMeetingParticipants: wrap('brainMeetingParticipants'),
     brainAiJobs: wrap('brainAiJobs'),
@@ -59,7 +59,7 @@ vi.mock('@/lib/db/schema', () => {
     brainRelationshipOverlays: wrap('brainRelationshipOverlays'),
     crmCompanies: wrap('crmCompanies'),
     crmDeals: wrap('crmDeals'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -73,6 +73,7 @@ vi.mock('drizzle-orm', () => ({
     (strings: TemplateStringsArray, ...values: unknown[]) => ({ op: 'sql', strings, values }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/brain/audit', () => ({

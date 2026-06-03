@@ -38,14 +38,14 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     posts: wrap('posts'),
     categories: wrap('categories'),
     tags: wrap('tags'),
     postCategories: wrap('postCategories'),
     postTags: wrap('postTags'),
     clientWebsites: wrap('clientWebsites'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // Sentinel for the count(*) aggregation. The real code does:
@@ -64,6 +64,8 @@ vi.mock('drizzle-orm', () => ({
       // Drizzle exposes `sql` as a function. The data file only calls it as a tag.
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 function getCol(ref: unknown): { col: string; table: string } | null {

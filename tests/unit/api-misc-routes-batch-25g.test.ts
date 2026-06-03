@@ -39,6 +39,7 @@ vi.mock('drizzle-orm', () => ({
   asc: (a: unknown) => ({ op: 'asc', a }),
   desc: (a: unknown) => ({ op: 'desc', a }),
   inArray: (a: unknown, b: unknown) => ({ op: 'inArray', a, b }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
 }));
 
 vi.mock('@/lib/db/schema', () => {
@@ -53,10 +54,10 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     users: wrap('users'),
     clientMembers: wrap('clientMembers'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------

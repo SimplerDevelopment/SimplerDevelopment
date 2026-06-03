@@ -40,7 +40,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmContracts: wrap('crmContracts'),
     crmContractSigners: wrap('crmContractSigners'),
     crmContacts: wrap('crmContacts'),
@@ -48,7 +48,7 @@ vi.mock('@/lib/db/schema', () => {
     crmDeals: wrap('crmDeals'),
     crmCustomFields: wrap('crmCustomFields'),
     crmCustomFieldValues: wrap('crmCustomFieldValues'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -58,6 +58,8 @@ vi.mock('drizzle-orm', () => ({
   asc: (a: unknown) => ({ op: 'asc', a }),
   inArray: (a: unknown, b: unknown) => ({ op: 'inArray', a, b }),
   sql: Object.assign((..._a: unknown[]) => ({ op: 'sql' }), { raw: () => ({ op: 'raw' }) }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 // Stable predictable bytes for crypto.randomBytes used in contracts POST.

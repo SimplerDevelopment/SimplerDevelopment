@@ -51,11 +51,11 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     crmNotifications: wrap('crmNotifications'),
     users: wrap('users'),
     clients: wrap('clients'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 vi.mock('drizzle-orm', () => ({
@@ -67,6 +67,8 @@ vi.mock('drizzle-orm', () => ({
     (...args: unknown[]) => ({ op: 'sql', args }),
     {},
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
 }));
 
 vi.mock('@/lib/db', () => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Unit tests for lib/auth.ts (NextAuth configuration).
  *
@@ -50,6 +51,9 @@ vi.mock('bcryptjs', () => ({
 // Drizzle eq — return a tagged marker so we can sanity-check it's used.
 vi.mock('drizzle-orm', () => ({
   eq: (col: unknown, val: unknown) => ({ __eq: true, col, val }),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // users table marker

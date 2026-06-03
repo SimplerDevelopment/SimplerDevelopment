@@ -59,14 +59,14 @@ vi.mock('@/lib/db/schema', () => {
       },
     });
   };
-  return {
+  return new Proxy({
     discountCodes: wrap('discountCodes'),
     orders: wrap('orders'),
     orderItems: wrap('orderItems'),
     products: wrap('products'),
     productOptions: wrap('productOptions'),
     productOptionValues: wrap('productOptionValues'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : new Proxy({ __table: String(p) }, { get: (_x, c) => c === "__table" ? String(p) : (typeof c === "string" ? { __col: c, __table: String(p) } : undefined) })) });
 });
 
 // ---------------------------------------------------------------------------
@@ -95,6 +95,8 @@ vi.mock('drizzle-orm', () => ({
       }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -259,7 +261,7 @@ vi.mock('@/lib/db', () => {
         return Promise.resolve([{ [key]: rows.length }]);
       }
 
-      let rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
+      const rows = tableArray(activeTable).filter((r) => evalPredicate(filter, r));
       let out = rows.map(project);
       if (typeof offsetVal === 'number') out = out.slice(offsetVal);
       if (typeof limitVal === 'number') out = out.slice(0, limitVal);

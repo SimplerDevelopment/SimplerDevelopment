@@ -64,6 +64,9 @@ vi.mock('@/lib/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col, val) => ({ __eq: [col, val] })),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  or: (...args: unknown[]) => ({ op: 'or', args: args.filter(Boolean) }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // ---- brain mocks ----

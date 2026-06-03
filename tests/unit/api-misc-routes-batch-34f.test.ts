@@ -45,6 +45,8 @@ vi.mock('drizzle-orm', () => ({
       raw: (s: string) => ({ op: 'sql.raw', s }),
     },
   ),
+  isNull: (a: unknown) => ({ op: 'isNull', a }),
+  inArray: (a: unknown, list: unknown[]) => ({ op: 'inArray', a, list }),
 }));
 
 // schema — proxy tables, columns are objects.
@@ -61,7 +63,7 @@ vi.mock('@/lib/db/schema', () => {
         },
       },
     );
-  return {
+  return new Proxy({
     posts: wrap('posts'),
     abEvents: wrap('abEvents'),
     abExperiments: wrap('abExperiments'),
@@ -72,7 +74,7 @@ vi.mock('@/lib/db/schema', () => {
     productVariants: wrap('productVariants'),
     productImages: wrap('productImages'),
     users: wrap('users'),
-  };
+  }, { has: (t, p) => (p in t) || !(p === "then" || p === "__esModule" || p === "default" || typeof p !== "string"), get: (t, p) => (p in t) ? t[p] : ((p === "then" || p === "__esModule" || p === "default" || typeof p !== "string") ? undefined : wrap(p)) });
 });
 
 // ---------------------------------------------------------------------------
