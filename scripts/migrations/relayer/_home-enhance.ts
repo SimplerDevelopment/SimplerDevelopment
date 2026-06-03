@@ -36,8 +36,10 @@ html{ scroll-behavior:smooth; }
 .rl-grid{ position:absolute; inset:0; z-index:-2; pointer-events:none; opacity:.12;
   background-image:linear-gradient(rgba(246,245,243,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(246,245,243,.6) 1px,transparent 1px);
   background-size:60px 60px;
-  -webkit-mask-image:radial-gradient(ellipse 78% 66% at 50% 42%,#000,transparent 76%);
-  mask-image:radial-gradient(ellipse 78% 66% at 50% 42%,#000,transparent 76%); }
+  /* Clear the central band where the hero copy sits so the grid frames the
+     edges/corners instead of sitting behind the text. */
+  -webkit-mask-image:radial-gradient(ellipse 60% 42% at 50% 50%,transparent 32%,#000 86%);
+  mask-image:radial-gradient(ellipse 60% 42% at 50% 50%,transparent 32%,#000 86%); }
 @keyframes rl-aurora{ 0%{background-position:0% 0%} 100%{background-position:100% 100%} }
 
 /* ---- animated gradient/shimmer text (highlight words) ---- */
@@ -126,18 +128,31 @@ if (hero){
     var ctx=c.getContext('2d'); var W=0,H=0,nodes=[],pulses=[]; var DPR=Math.min(window.devicePixelRatio||1,2);
     function size(){ W=hero.clientWidth; H=hero.clientHeight; c.width=W*DPR; c.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
     var LINK=175;
+    // Keep the constellation around the borders so it frames the hero copy
+    // instead of sitting behind it (the centred headline + body were hard to
+    // read over the network). frame() returns 0 inside a wide, short central
+    // ellipse (where the text lives), ramping to 1 at the edges/corners via a
+    // smoothstep — used as an alpha multiplier on every node, link and pulse.
+    function frame(x,y){
+      var ex=(x/W-0.5)/0.5, ey=(y/H-0.5)/0.22;
+      var d=Math.sqrt(ex*ex+ey*ey);
+      if(d<=0.92) return 0;
+      if(d>=1.45) return 1;
+      var t=(d-0.92)/0.53; return t*t*(3-2*t);
+    }
     function init(){ var n=Math.max(42,Math.min(110,Math.round(W/14))); nodes=[]; for(var i=0;i<n;i++){ nodes.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.8+.9}); } }
     function draw(){
       ctx.clearRect(0,0,W,H);
       var i,j;
       for(i=0;i<nodes.length;i++){ var a=nodes[i]; a.x+=a.vx; a.y+=a.vy; if(a.x<0||a.x>W)a.vx*=-1; if(a.y<0||a.y>H)a.vy*=-1; }
-      for(i=0;i<nodes.length;i++){ for(j=i+1;j<nodes.length;j++){ var p=nodes[i],q=nodes[j]; var dx=p.x-q.x,dy=p.y-q.y; var d=Math.sqrt(dx*dx+dy*dy);
-        if(d<LINK){ var o=(1-d/LINK); ctx.strokeStyle='rgba(35,238,146,'+(o*0.55)+')'; ctx.lineWidth=1.1; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
+      var ff=[]; for(i=0;i<nodes.length;i++){ ff[i]=frame(nodes[i].x,nodes[i].y); }
+      for(i=0;i<nodes.length;i++){ for(j=i+1;j<nodes.length;j++){ var fa=ff[i]<ff[j]?ff[i]:ff[j]; if(fa<=0) continue; var p=nodes[i],q=nodes[j]; var dx=p.x-q.x,dy=p.y-q.y; var d=Math.sqrt(dx*dx+dy*dy);
+        if(d<LINK){ var o=(1-d/LINK); ctx.strokeStyle='rgba(35,238,146,'+(o*0.55*fa)+')'; ctx.lineWidth=1.1; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
           if(pulses.length<40 && Math.random()<0.0016){ pulses.push({a:p,b:q,t:0,s:0.014+Math.random()*0.022}); } } } }
-      for(i=0;i<nodes.length;i++){ var nn=nodes[i]; ctx.fillStyle='rgba(205,255,231,.95)'; ctx.beginPath(); ctx.arc(nn.x,nn.y,nn.r,0,6.2832); ctx.fill(); }
+      for(i=0;i<nodes.length;i++){ if(ff[i]<=0) continue; var nn=nodes[i]; ctx.fillStyle='rgba(205,255,231,'+(0.95*ff[i])+')'; ctx.beginPath(); ctx.arc(nn.x,nn.y,nn.r,0,6.2832); ctx.fill(); }
       for(i=pulses.length-1;i>=0;i--){ var P=pulses[i]; P.t+=P.s; if(P.t>=1){ pulses.splice(i,1); continue; }
-        var x=P.a.x+(P.b.x-P.a.x)*P.t, y=P.a.y+(P.b.y-P.a.y)*P.t;
-        ctx.shadowColor='rgba(35,238,146,1)'; ctx.shadowBlur=14; ctx.fillStyle='rgba(120,255,190,1)'; ctx.beginPath(); ctx.arc(x,y,2.8,0,6.2832); ctx.fill(); ctx.shadowBlur=0; }
+        var x=P.a.x+(P.b.x-P.a.x)*P.t, y=P.a.y+(P.b.y-P.a.y)*P.t; var pf=frame(x,y); if(pf<=0) continue;
+        ctx.shadowColor='rgba(35,238,146,1)'; ctx.shadowBlur=14; ctx.fillStyle='rgba(120,255,190,'+pf+')'; ctx.beginPath(); ctx.arc(x,y,2.8,0,6.2832); ctx.fill(); ctx.shadowBlur=0; }
       requestAnimationFrame(draw);
     }
     size(); init(); draw();

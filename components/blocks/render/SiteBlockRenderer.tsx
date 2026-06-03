@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { BlockRenderer } from './BlockRenderer';
 import { EditorModeProvider } from '@/components/visual-editor/EditorModeProvider';
@@ -40,8 +40,18 @@ interface SiteBlockRendererProps {
 // Wrap user JS in an IIFE so each layer's `var`/function declarations don't
 // leak into the next, and so a thrown error in one layer doesn't kill the
 // others. Layered tag names make stray errors easy to attribute in DevTools.
+//
+// Execution is gated on the `sd:hydrated` signal (dispatched by <HydrationSignal>
+// once React has committed the block tree on the client). Custom JS frequently
+// mutates block DOM imperatively — e.g. the relayer hero prepends a
+// <canvas id="rl-net"> for its particle network. Running that BEFORE React
+// finishes hydrating the hero produced a hydration mismatch (React expected the
+// section <div>, found the <canvas>). Waiting for hydration makes these
+// progressive enhancements safe. A `load`-based fallback still fires if the
+// hydration signal never arrives (JS error upstream, etc.) so enhancements are
+// never silently lost.
 function jsWrapper(label: string, body: string): string {
-  return `(function(){function run(){try{${body}\n}catch(e){console.error('[${label}]',e);}}function ready(){if(document.readyState==='complete'){setTimeout(run,200);}else{window.addEventListener('load',function(){setTimeout(run,200);},{once:true});}}ready();})();`;
+  return `(function(){function run(){try{${body}\n}catch(e){console.error('[${label}]',e);}}var done=false;function go(){if(done)return;done=true;run();}if(window.__sdSiteHydrated){go();}else{document.addEventListener('sd:hydrated',go,{once:true});function fb(){setTimeout(go,2500);}if(document.readyState==='complete'){fb();}else{window.addEventListener('load',fb,{once:true});}}})();`;
 }
 
 // Custom CSS + collected fonts + custom JS. Rendered OUTSIDE the Suspense
@@ -96,6 +106,18 @@ function SiteCodeAndFonts({ content, branding, site, type, customCss, customJs }
   );
 }
 
+// Fires once the client has committed the block tree (effects run after the
+// hydration commit), telling the gated custom-JS layers it is safe to mutate
+// block DOM. See jsWrapper above for why this matters.
+function HydrationSignal() {
+  useEffect(() => {
+    const w = window as unknown as { __sdSiteHydrated?: boolean };
+    w.__sdSiteHydrated = true;
+    document.dispatchEvent(new Event('sd:hydrated'));
+  }, []);
+  return null;
+}
+
 function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRendererProps) {
   const searchParams = useSearchParams();
   const isEditMode = searchParams.get('_edit') === 'true';
@@ -106,10 +128,20 @@ function SiteBlockRendererInner({ content, siteId, branding }: SiteBlockRenderer
         <EditableBlockRenderer content={content} />
       </EditorModeProvider>
     );
-    return branding ? <BrandingProvider branding={branding}>{rendered}</BrandingProvider> : rendered;
+    return (
+      <>
+        {branding ? <BrandingProvider branding={branding}>{rendered}</BrandingProvider> : rendered}
+        <HydrationSignal />
+      </>
+    );
   }
 
-  return <BlockRenderer content={content} siteId={siteId} branding={branding} />;
+  return (
+    <>
+      <BlockRenderer content={content} siteId={siteId} branding={branding} />
+      <HydrationSignal />
+    </>
+  );
 }
 
 export function SiteBlockRenderer(props: SiteBlockRendererProps) {
