@@ -99,3 +99,8 @@ graphify-out/
 
 # Skill test runs / dry-run logs (session-specific, not source)
 .planning/skill-test-runs/
+# MCP credentials — never commit
+.planning/leads/.mcp-secrets
+.planning/leads/*secrets*
+.planning/leads/*credentials*
+
