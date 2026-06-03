@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { mcpPendingChanges } from '@/lib/db/schema';
@@ -90,6 +91,10 @@ export async function POST(req: Request) {
 
   const rejected = results.filter((r) => r.status === 'rejected').length;
   const skipped = results.filter((r) => r.status === 'skipped').length;
+
+  if (rejected > 0) {
+    try { revalidateTag(`approvals:${client.id}`, 'max'); } catch { /* ignore */ }
+  }
 
   return NextResponse.json({
     success: true,

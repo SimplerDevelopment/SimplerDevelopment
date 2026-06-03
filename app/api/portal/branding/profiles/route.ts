@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { getPortalClient } from '@/lib/portal-client';
 import { db } from '@/lib/db';
@@ -63,6 +64,10 @@ export async function POST(req: Request) {
     logoIconUrl: body.logoIconUrl ?? null,
     darkMode: body.darkMode ?? null,
   }).returning();
+
+  // Invalidate cross-request brand-profile cache for this client (see
+  // getBrandingByClientId in lib/branding.ts).
+  try { revalidateTag(`brand-profile:${client.id}`, 'max'); } catch { /* ignore */ }
 
   return NextResponse.json({ success: true, data: profile }, { status: 201 });
 }

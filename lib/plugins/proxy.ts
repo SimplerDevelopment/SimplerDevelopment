@@ -25,6 +25,7 @@
 // architecture.
 
 import { and, eq } from 'drizzle-orm';
+import { unstable_cache, revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import {
   registeredApps,
@@ -32,6 +33,11 @@ import {
   services,
   type RegisteredApp,
 } from '@/lib/db/schema';
+
+// Tag used by the cross-request `unstable_cache` layer for the plugin
+// registry. Invalidated from `invalidateAppCache()` so admin mutations
+// flush every serverless instance, not just the one that handled the call.
+const PLUGIN_REGISTRY_TAG = 'plugin-registry';
 
 // ─── Caches ────────────────────────────────────────────────────────────────
 
@@ -58,8 +64,30 @@ function entitlementCacheKey(clientId: number, appId: number): string {
 // ─── App lookup ────────────────────────────────────────────────────────────
 
 /**
+ * Inner DB lookup for a plugin app by slug. Extracted so it can be wrapped
+ * with `unstable_cache` for cross-request reuse.
+ */
+async function fetchAppBySlug(slug: string): Promise<RegisteredApp | null> {
+  const rows = await db
+    .select()
+    .from(registeredApps)
+    .where(eq(registeredApps.slug, slug))
+    .limit(1);
+  const row = rows[0];
+  return row && row.status === 'active' ? row : null;
+}
+
+const fetchAppBySlugCached = unstable_cache(
+  fetchAppBySlug,
+  ['plugin-registry-app'],
+  { revalidate: 300, tags: [PLUGIN_REGISTRY_TAG] },
+);
+
+/**
  * Load an active plugin app by slug. Returns null if not found OR if status is
- * not 'active'. 30-second in-memory cache (both positive and negative).
+ * not 'active'. Two-tier cache: 30s in-memory + 5min cross-instance via
+ * `unstable_cache` (tag `plugin-registry`). Admin mutations flush both layers
+ * via `invalidateAppCache()`.
  */
 export async function loadActiveAppBySlug(
   slug: string,
@@ -69,14 +97,7 @@ export async function loadActiveAppBySlug(
   if (cached && cached.expiresAt > now) {
     return cached.app;
   }
-  // Cache miss / expired — fetch.
-  const rows = await db
-    .select()
-    .from(registeredApps)
-    .where(eq(registeredApps.slug, slug))
-    .limit(1);
-  const row = rows[0];
-  const app = row && row.status === 'active' ? row : null;
+  const app = await fetchAppBySlugCached(slug);
   APP_CACHE.set(slug, { app, expiresAt: now + APP_CACHE_TTL_MS });
   return app;
 }
@@ -158,9 +179,17 @@ export async function isClientEntitled(
 export function invalidateAppCache(slug?: string): void {
   if (slug === undefined) {
     APP_CACHE.clear();
-    return;
+  } else {
+    APP_CACHE.delete(slug);
   }
-  APP_CACHE.delete(slug);
+  // Also flush the cross-instance cache so other serverless workers see
+  // the change on their next call instead of waiting out the 5-min revalidate.
+  try {
+    revalidateTag(PLUGIN_REGISTRY_TAG, 'max');
+  } catch {
+    // Non-route context (e.g. test harness) — in-memory clear above is
+    // sufficient; revalidateTag is unavailable.
+  }
 }
 
 /**
