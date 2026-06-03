@@ -104,7 +104,7 @@
   "lib/blocks/html-render-template.ts": 635,
   "lib/brain/classify-crm.ts": 610,
   "lib/brain/classify-notes.ts": 532,
-  "lib/brain/dashboard.ts": 508,
+  "lib/brain/dashboard.ts": 528,
   "lib/brain/dataview.ts": 584,
   "lib/brain/decisions.ts": 624,
   "lib/brain/document-acks.ts": 1015,

@@ -59,6 +59,7 @@ export async function GET(req: Request) {
   const logs = await db
     .select({
       id: automationLogs.id,
+      clientId: automationLogs.clientId,
       ruleId: automationLogs.ruleId,
       triggerEvent: automationLogs.triggerEvent,
       status: automationLogs.status,

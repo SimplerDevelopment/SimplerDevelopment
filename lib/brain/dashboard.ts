@@ -133,14 +133,19 @@ async function _getStaticBrainCounts(clientId: number): Promise<StaticBrainCount
  * shares the `brain-static-counts` prefix.
  */
 export function getStaticBrainCounts(clientId: number): Promise<StaticBrainCounts> {
-  return unstable_cache(
-    async (cid: number) => _getStaticBrainCounts(cid),
-    ['brain-static-counts', String(clientId)],
-    {
-      revalidate: STATIC_COUNTS_TTL_SECONDS,
-      tags: [brainStaticCountsTag(clientId), 'brain-static-counts'],
-    },
-  )(clientId);
+  try {
+    return unstable_cache(
+      async (cid: number) => _getStaticBrainCounts(cid),
+      ['brain-static-counts', String(clientId)],
+      {
+        revalidate: STATIC_COUNTS_TTL_SECONDS,
+        tags: [brainStaticCountsTag(clientId), 'brain-static-counts'],
+      },
+    )(clientId);
+  } catch {
+    // Outside a request context (tests/cron) — incrementalCache unavailable.
+    return _getStaticBrainCounts(clientId);
+  }
 }
 
 async function _getDashboardSummary(clientId: number): Promise<DashboardSummary> {
@@ -466,14 +471,19 @@ async function _getDashboardSummary(clientId: number): Promise<DashboardSummary>
  * not yet wired.
  */
 export function getDashboardSummary(clientId: number): Promise<DashboardSummary> {
-  return unstable_cache(
-    async (cid: number) => _getDashboardSummary(cid),
-    ['brain-dashboard', String(clientId)],
-    {
-      revalidate: DASHBOARD_TTL_SECONDS,
-      tags: [brainDashboardTag(clientId), 'brain-dashboard'],
-    },
-  )(clientId);
+  try {
+    return unstable_cache(
+      async (cid: number) => _getDashboardSummary(cid),
+      ['brain-dashboard', String(clientId)],
+      {
+        revalidate: DASHBOARD_TTL_SECONDS,
+        tags: [brainDashboardTag(clientId), 'brain-dashboard'],
+      },
+    )(clientId);
+  } catch {
+    // Outside a request context (tests/cron) — incrementalCache unavailable.
+    return _getDashboardSummary(clientId);
+  }
 }
 
 /**
@@ -489,8 +499,13 @@ export function revalidateBrainDashboard(clientId: number): void {
   // exactly one tenant if needed. Next 16 requires a CacheLife profile arg;
   // 'default' inherits the same revalidate/expire semantics already encoded
   // in the unstable_cache `revalidate` option on each accessor.
-  revalidateTag(brainDashboardTag(clientId), 'default');
-  revalidateTag('brain-dashboard', 'default');
+  try {
+    revalidateTag(brainDashboardTag(clientId), 'default');
+    revalidateTag('brain-dashboard', 'default');
+  } catch {
+    // Outside a request/action context (tests/cron) — revalidateTag is unavailable.
+    // Degrade gracefully: the TTL will catch up.
+  }
 }
 
 /**
@@ -501,7 +516,12 @@ export function revalidateBrainDashboard(clientId: number): void {
  * static counts feed into the dashboard payload.
  */
 export function revalidateBrainStaticCounts(clientId: number): void {
-  revalidateTag(brainStaticCountsTag(clientId), 'default');
-  revalidateTag('brain-static-counts', 'default');
+  try {
+    revalidateTag(brainStaticCountsTag(clientId), 'default');
+    revalidateTag('brain-static-counts', 'default');
+  } catch {
+    // Outside a request/action context (tests/cron) — revalidateTag is unavailable.
+    // Degrade gracefully: the TTL will catch up.
+  }
   revalidateBrainDashboard(clientId);
 }

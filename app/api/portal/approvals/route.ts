@@ -10,21 +10,26 @@ import { getPortalClient, getPortalRole } from '@/lib/portal-client';
 // absorbs the per-nav fan-out; the approve / reject / bulk-* routes call
 // `revalidateTag('approvals:'+clientId)` to refresh immediately so a user
 // who just approved an item doesn't keep seeing the old badge count.
-function getApprovalCountCached(clientId: number, status: string) {
-  return unstable_cache(
-    async () => {
-      const [row] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(mcpPendingChanges)
-        .where(and(
-          eq(mcpPendingChanges.clientId, clientId),
-          eq(mcpPendingChanges.status, status),
-        ));
-      return row?.count ?? 0;
-    },
-    ['portal-approvals-count', String(clientId), status],
-    { revalidate: 30, tags: ['approvals', `approvals:${clientId}`] },
-  )();
+async function getApprovalCount(clientId: number, status: string): Promise<number> {
+  const inner = async () => {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(mcpPendingChanges)
+      .where(and(
+        eq(mcpPendingChanges.clientId, clientId),
+        eq(mcpPendingChanges.status, status),
+      ));
+    return row?.count ?? 0;
+  };
+  try {
+    return await unstable_cache(inner, ['portal-approvals-count', String(clientId), status], {
+      revalidate: 30,
+      tags: ['approvals', `approvals:${clientId}`],
+    })();
+  } catch {
+    // Outside a request context (tests/cron) — incrementalCache unavailable.
+    return inner();
+  }
 }
 
 export async function GET(req: Request) {
@@ -45,7 +50,7 @@ export async function GET(req: Request) {
   const countOnly = url.searchParams.get('count') === 'true';
 
   if (countOnly) {
-    const count = await getApprovalCountCached(client.id, status ?? 'pending');
+    const count = await getApprovalCount(client.id, status ?? 'pending');
     return NextResponse.json({ success: true, data: { count } });
   }
 
