@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { siteConfig } from '@/config/site';
@@ -73,7 +74,14 @@ export function Navigation() {
                 </Link>
               )}
               <Link href="/" className="text-xl font-heading flex items-center" onClick={closeMobileMenu}>
-                <img src="/iconLogo.png" alt="" className="nav-logo-icon" />
+                <Image
+                  src="/iconLogo.png"
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="nav-logo-icon"
+                  priority
+                />
                 <span><b>Simpler</b> Development</span>
               </Link>
             </div>

@@ -352,6 +352,10 @@ function ProjectGrid({
         <Link
           key={project.id}
           href={`/portal/projects/${project.id}`}
+          // Disable viewport prefetch: ~30 tiles each triggering an `_rsc`
+          // prefetch on render storms the server with concurrent RSC payload
+          // requests. Hover still triggers prefetch in Next/Link by default.
+          prefetch={false}
           className="bg-card border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-sm transition-all group min-w-0"
         >
           <div className="flex items-start justify-between gap-2 mb-3">

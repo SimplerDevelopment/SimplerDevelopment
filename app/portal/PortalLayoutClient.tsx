@@ -1,7 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import SessionProvider from '@/components/SessionProvider';
+// SessionProvider is mounted once at the app root in `app/layout.tsx`.
+// We intentionally don't re-wrap here — every nested SessionProvider spins up
+// its own /api/auth/session fetch + refetch interval, which previously caused
+// 6× duplicate session calls per page load.
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import CrmNotificationBell from '@/components/portal/CrmNotificationBell';
 import PmNotificationBell from '@/components/portal/PmNotificationBell';
@@ -77,16 +80,14 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
 
   if (isLoginPage || isIframePage) {
     return (
-      <SessionProvider>
-        <AgencyChromeProvider>
-          <PortalTitle />
-          {isIframePage ? children : (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-              {children}
-            </div>
-          )}
-        </AgencyChromeProvider>
-      </SessionProvider>
+      <AgencyChromeProvider>
+        <PortalTitle />
+        {isIframePage ? children : (
+          <div className="min-h-screen flex items-center justify-center bg-background">
+            {children}
+          </div>
+        )}
+      </AgencyChromeProvider>
     );
   }
 
@@ -96,27 +97,25 @@ export default function PortalLayoutClient({ children, apps }: PortalLayoutClien
     /\/portal\/branding\/profiles\/\d+\/guide/.test(pathname);
 
   return (
-    <SessionProvider>
-      <AgencyChromeProvider>
-        <PortalTitle />
-        <ImpersonationBanner />
-        <div className="min-h-screen bg-background overflow-x-hidden">
-          {!previewMode && <PortalSidebar apps={apps} />}
-          <div>
-            {!previewMode && (
-              <div className="flex justify-end items-center gap-1 px-4 sm:px-6 pt-4 pb-0">
-                <PmNotificationBell />
-                <CrmNotificationBell />
-              </div>
-            )}
-            <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
-          </div>
-          {/* AIChatWidget (floating robot/chat toggle) temporarily hidden across
-              the portal per request. Re-enable by uncommenting this line. */}
-          {/* {!previewMode && <AIChatWidget />} */}
+    <AgencyChromeProvider>
+      <PortalTitle />
+      <ImpersonationBanner />
+      <div className="min-h-screen bg-background overflow-x-hidden">
+        {!previewMode && <PortalSidebar apps={apps} />}
+        <div>
+          {!previewMode && (
+            <div className="flex justify-end items-center gap-1 px-4 sm:px-6 pt-4 pb-0">
+              <PmNotificationBell />
+              <CrmNotificationBell />
+            </div>
+          )}
+          <main className={`min-h-screen ${isEditorPage || previewMode ? '' : 'p-4 sm:p-6'}`}>{children}</main>
         </div>
-        <CmdKLauncher apps={apps} />
-      </AgencyChromeProvider>
-    </SessionProvider>
+        {/* AIChatWidget (floating robot/chat toggle) temporarily hidden across
+            the portal per request. Re-enable by uncommenting this line. */}
+        {/* {!previewMode && <AIChatWidget />} */}
+      </div>
+      <CmdKLauncher apps={apps} />
+    </AgencyChromeProvider>
   );
 }
