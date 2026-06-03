@@ -3,9 +3,14 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { sprints, kanbanCards, kanbanColumns, projects } from '@/lib/db/schema';
 import { getPortalClient } from '@/lib/portal-client';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, inArray, isNull } from 'drizzle-orm';
 import { isPortalStaff } from '@/lib/portal';
 import { canUserEditProject } from '@/lib/portal/project-access';
+
+// How many recent (non-active) sprints to include cards for. Older completed
+// sprints still appear in the sprint list (counts only); their cards are
+// fetchable via the per-sprint endpoint if/when needed.
+const RECENT_SPRINT_CARD_LOOKBACK = 5;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function authorizeProject(projectId: number, session: any) {
@@ -38,6 +43,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .where(eq(sprints.projectId, projectId))
       .orderBy(sprints.order);
 
+    // Only load cards for sprints the UI actually renders: all
+    // active/planning sprints + the last N completed sprints. Older
+    // completed sprints stay in the metadata list with empty cards. This
+    // replaces the previous "every card in the project" scan.
+    const activeOrPlanning = sprintList
+      .filter(s => s.status === 'active' || s.status === 'planning')
+      .map(s => s.id);
+    const recentCompleted = sprintList
+      .filter(s => s.status === 'completed')
+      .sort((a, b) => {
+        const aT = a.endDate ? new Date(a.endDate).getTime() : 0;
+        const bT = b.endDate ? new Date(b.endDate).getTime() : 0;
+        if (aT !== bT) return bT - aT;
+        return b.id - a.id;
+      })
+      .slice(0, RECENT_SPRINT_CARD_LOOKBACK)
+      .map(s => s.id);
+    const sprintIdsToLoad = [...activeOrPlanning, ...recentCompleted];
+
+    // Where clause: cards in this project AND (backlog OR card.sprintId in loaded set).
+    const sprintMembership = sprintIdsToLoad.length > 0
+      ? or(isNull(kanbanCards.sprintId), inArray(kanbanCards.sprintId, sprintIdsToLoad))
+      : isNull(kanbanCards.sprintId);
+
     const cards = await db
       .select({
         id: kanbanCards.id,
@@ -57,7 +86,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       })
       .from(kanbanCards)
       .leftJoin(kanbanColumns, eq(kanbanCards.columnId, kanbanColumns.id))
-      .where(eq(kanbanCards.projectId, projectId))
+      .where(and(eq(kanbanCards.projectId, projectId), sprintMembership))
       .orderBy(kanbanCards.sprintOrder, kanbanCards.order);
 
     const cardsBySprintId = cards.reduce<Record<string, typeof cards>>((acc, c) => {
