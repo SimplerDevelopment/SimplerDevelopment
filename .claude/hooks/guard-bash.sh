@@ -38,7 +38,7 @@ fi
 # 3. Hand-editing migrations is forbidden — but hand-editing happens via Edit/Write, not Bash.
 #    Guard against `cat > drizzle/...sql` or `echo ... > drizzle/...sql`.
 if echo "$cmd" | grep -qE '> *drizzle/[^ ]*\.sql'; then
-  block "hand-editing drizzle/*.sql — use lib/db/schema.ts + bun run db:generate"
+  block "hand-editing drizzle/*.sql — edit lib/db/schema/<domain>.ts + bun run db:generate"
 fi
 
 # 4. Reckless removal of load-bearing dirs

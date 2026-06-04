@@ -1,18 +1,24 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Phase 2 complete — Phase 3 next
+milestone_name: surveys-foundation
+status: stale
+stopped_at: Phase 2 complete — Phase 3 not started
 last_updated: "2026-04-29T00:00:00.000Z"
-last_activity: 2026-04-29
+last_activity: 2026-04-06
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 2
   completed_plans: 2
-  percent: 100
+  percent: 22
 ---
+
+> ⚠️ **STALE — do not drive autonomous work off this file.** This tracks the *surveys-foundation*
+> GSD milestone, paused since 2026-04-06. Current work (solutions grooming, the CMS-blocks audit,
+> API docs) is tracked in `.planning/audits/` and on feature branches, NOT here. The `dev-block`
+> loop reads this to pick tasks — until this milestone is resumed and refreshed (or retired), point
+> the loop at open GitHub issues instead. Owner must decide: resume Phase 3, or retire the milestone.
 
 # Project State
 
@@ -25,12 +31,12 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
-Status: Executing Phase 01
+Phase: 2 of 9 complete — Phase 3 not started (milestone PAUSED)
+Plan: None active
+Status: Paused since 2026-04-06 (see stale banner above)
 Last activity: 2026-04-06
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 22%
 
 ## Performance Metrics
 

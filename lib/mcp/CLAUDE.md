@@ -33,7 +33,8 @@ The portal-side MCP server: tool catalogue exposed to AI clients (Claude Code, C
 
 Don't Read these into the main thread:
 
-- `tools/cms.ts` (2184), `tools/crm.ts` (1670), `tools/kanban.ts` (1458), `approvals.ts` (1193)
+- `lib/brain/mcp-sdk-adapter.ts` (5630) — the brain MCP adapter; largest file in the repo. Consumed by the brain registrar.
+- `tools/cms.ts` (2216), `tools/crm.ts` (1670), `tools/kanban.ts` (1484), `approvals.ts` (1193)
 
 ## Pointers
 

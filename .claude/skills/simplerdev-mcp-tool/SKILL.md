@@ -68,7 +68,7 @@ Before writing a `_list`, `_create`, or `_update` whose underlying table contain
 
 1. **Feature domain**: e.g. "invoices", "surveys", "booking". Maps to scope prefix and tool name prefix.
 2. **Tools to add**: list of operations (e.g. "list, get, create, update, delete").
-3. **Schema table(s)**: which Drizzle tables to query. Auto-detect from `lib/db/schema.ts` if user provides a domain.
+3. **Schema table(s)**: which Drizzle tables to query. Auto-detect by grepping `lib/db/schema/` (the schema is split into per-domain modules; the barrel `lib/db/schema/index.ts` re-exports all of them).
 4. **Scope**: existing or new? Check if `domain:read`/`domain:write` already exists in the codebase.
 5. **Pattern A or B?**: Decide based on tool count. 1-4 → A. 5+ → B. If the domain already has an adapter file → always B.
 
@@ -80,7 +80,7 @@ One confirmation round, then generate.
 2. **Always read first**:
    - `Read lib/mcp/server.ts` — understand current structure, find insertion point.
    - `Grep lib/mcp-auth.ts` for existing scopes if relevant.
-   - `Read lib/db/schema.ts` (grep for the table) to understand fields.
+   - Grep `lib/db/schema/` for the table to understand its fields (schema is split into per-domain modules; import from the barrel `@/lib/db/schema`).
 3. If Pattern A:
    - `Edit lib/mcp/server.ts` — add schema import(s) at top if missing.
    - `Edit lib/mcp/server.ts` — insert `server.registerTool(...)` blocks before the `// ── META ──` or `return server;` line (whichever makes sense for the domain's position).
