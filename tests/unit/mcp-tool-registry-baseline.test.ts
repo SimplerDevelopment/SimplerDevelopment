@@ -7,6 +7,12 @@
  * refactor — every tool name, scope guard, and minimum config field must
  * survive the move from the monolith into per-domain tool modules.
  *
+ * Unit-layer on purpose: the registry assertion only builds the server and reads
+ * tool NAMES (handlers never run), so it needs no DB — `@/lib/db` is mocked to
+ * dodge its import-time DATABASE_URL throw. Living in tests/unit/ means it runs
+ * in the DEFAULT gate, so tool drift fails on every commit (it previously sat in
+ * the integration layer, out of the default gate, and drifted red unseen — 131 tools).
+ *
  * @critical
  */
 import { describe, it, expect, vi } from 'vitest';
@@ -25,6 +31,10 @@ vi.mock('@/lib/brain/profiles', () => ({
   getOrCreateBrainProfile: vi.fn(async () => ({ id: 1, clientId: 1 })),
   getBrainProfile: vi.fn(async () => ({ id: 1, clientId: 1 })),
 }));
+// `@/lib/db` throws at import if DATABASE_URL is unset (lib/db/index.ts). Tool
+// handlers reference `db` but never execute here (we only read registered NAMES),
+// so a no-op stub lets this run DB-free in the unit gate.
+vi.mock('@/lib/db', () => ({ db: {} }));
 
 import { buildMcpServer } from '@/lib/mcp/server';
 
