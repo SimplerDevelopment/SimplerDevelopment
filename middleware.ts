@@ -234,7 +234,14 @@ export async function middleware(req: NextRequest) {
     const siteDomain = domainMatch ? domainMatch[1] : '';
     const headers: Record<string, string> = { 'x-site-pathname': sitePath };
     if (siteDomain) headers['x-site-domain'] = siteDomain;
-    const response = NextResponse.next({ headers });
+    // Forward the same markers as REQUEST headers too, so server components
+    // (e.g. the root layout's marketing-chrome detection) can tell this is a
+    // client-site route even on an app host like staging.simplerdevelopment.com,
+    // where the marketing site and client sites share one hostname.
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set('x-site-pathname', sitePath);
+    if (siteDomain) requestHeaders.set('x-site-domain', siteDomain);
+    const response = NextResponse.next({ request: { headers: requestHeaders }, headers });
     return response;
   }
 
