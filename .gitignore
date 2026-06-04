@@ -19,6 +19,9 @@
 /.next/
 /out/
 
+# turborepo
+.turbo/
+
 # production
 /build
 
