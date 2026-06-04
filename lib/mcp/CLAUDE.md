@@ -16,7 +16,7 @@ The portal-side MCP server: tool catalogue exposed to AI clients (Claude Code, C
 ## Load-bearing invariants
 
 - **Adding a tool requires lockstep changes** across (a) handler in `tools/<domain>.ts`, (b) input schema (Zod), (c) scope guard, (d) telemetry. The `simplerdev-mcp-tool` skill produces all four together — use it.
-- **Registry baseline test:** `tests/integration/api/mcp-tool-registry-baseline.test.ts` fails if a tool is added/removed/renamed without updating the expected list. Update intentionally; don't skip the test.
+- **Registry baseline test:** `tests/integration/api/mcp-tool-registry-baseline.test.ts` fails if a tool is added/removed/renamed without updating `EXPECTED_TOOLS`. Update intentionally; don't skip the test. ⚠️ **It is integration-layer, so it is NOT in the default `bun test` / pre-push gate (integration runs only under `--full`).** It can — and did — drift red silently. After ANY tool add/remove/rename, run `bun test:integration:local` and reconcile `EXPECTED_TOOLS`. New tools must also pass the scope-filter sub-tests (every tool gated by `hasScope`).
 - **Token budget per tool response is real.** Default to slim projections (`projections.ts`); add an `include` opt-in flag for heavy fields (body/html/blocks/json blobs). Echoes on write should be compact — the `simplerdev-mcp-token-budget` skill audits these.
 - **Every tool must check scope.** Missing `hasScope(...)` = a tenancy/permission leak.
 - **Echo data, not the world.** A create/update tool should echo `{ id, slug, status }` not the entire row.
