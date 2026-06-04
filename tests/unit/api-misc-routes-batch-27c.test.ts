@@ -13,6 +13,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
+// Auth mock — cuts transitive next-auth import chain:
+//   brain-daily-notes → isBrainEntitled → portal-auth → @/lib/auth → next-auth
+// None of the routes under test call auth() themselves; mock is load-only.
+// ---------------------------------------------------------------------------
+
+vi.mock('@/lib/auth', () => ({
+  auth: vi.fn(),
+}));
+
+// ---------------------------------------------------------------------------
 // drizzle-orm + schema mocks
 // ---------------------------------------------------------------------------
 
@@ -218,6 +228,16 @@ vi.mock('@/lib/google/tenant-credentials', () => ({
 vi.mock('@/lib/google/drive-changes', () => ({
   syncDriveChangesForConnection: (...args: unknown[]) => syncDriveChangesForConnection(...args),
   findMeetRecordingsFolderId: (...args: unknown[]) => findMeetRecordingsFolderId(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// cron-health mock — withCronHealth wraps (opts, handler) => handler.
+// Stub it to a pass-through so its db.insert/db.update calls don't pollute
+// the module-scoped insertCalls / updateSetCalls arrays.
+// ---------------------------------------------------------------------------
+
+vi.mock('@/lib/cron-health', () => ({
+  withCronHealth: (_opts: unknown, fn: (req: Request) => Promise<Response>) => fn,
 }));
 
 // ---------------------------------------------------------------------------

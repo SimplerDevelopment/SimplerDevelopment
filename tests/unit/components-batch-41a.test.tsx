@@ -12,7 +12,7 @@ import { render, screen } from '@testing-library/react';
 // assert src/alt without booting up the real next/image runtime.
 vi.mock('next/image', () => ({
   __esModule: true,
-  default: ({ src, alt, width, height, ...rest }: any) => {
+  default: ({ src, alt, width, height, ...rest }: { src: string; alt: string; width?: number; height?: number; [key: string]: unknown }) => {
     // strip framer-style only props
     const { fill: _fill, sizes: _sizes, priority: _p, placeholder: _pl, blurDataURL: _bd, loader: _l, quality: _q, ...domSafe } = rest;
     void _fill; void _sizes; void _p; void _pl; void _bd; void _l; void _q;
@@ -62,7 +62,7 @@ const base = (id: string, type: string, order = 0) => ({ id, type, order });
 describe('PostContentPlaceholderRender', () => {
   it('renders the static placeholder UI when no slot is provided by context', () => {
     vi.mocked(usePostContentSlot).mockReturnValueOnce(null);
-    const block: any = { ...base('p1', 'post-content') };
+    const block: Record<string, unknown> = { ...base('p1', 'post-content') };
     const { container } = render(<PostContentPlaceholderRender block={block} />);
     // The label text is part of the placeholder ornamentation.
     expect(screen.getByText('Post Content')).toBeTruthy();
@@ -74,7 +74,7 @@ describe('PostContentPlaceholderRender', () => {
     vi.mocked(usePostContentSlot).mockReturnValueOnce(
       <div data-testid="live-post-body">live post body</div>,
     );
-    const block: any = { ...base('p2', 'post-content') };
+    const block: Record<string, unknown> = { ...base('p2', 'post-content') };
     render(<PostContentPlaceholderRender block={block} />);
     // Slot rendered, static placeholder NOT rendered.
     expect(screen.getByTestId('live-post-body').textContent).toBe('live post body');
@@ -83,7 +83,7 @@ describe('PostContentPlaceholderRender', () => {
 
   it('applies combined responsive classes when block.responsive is provided', () => {
     vi.mocked(usePostContentSlot).mockReturnValueOnce(null);
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('p3', 'post-content'),
       responsive: {
         paddingTop: 'pt-4 md:pt-8',
@@ -98,7 +98,7 @@ describe('PostContentPlaceholderRender', () => {
 
   it('renders an empty-class wrapper when block.responsive is absent', () => {
     vi.mocked(usePostContentSlot).mockReturnValueOnce(null);
-    const block: any = { ...base('p4', 'post-content') };
+    const block: Record<string, unknown> = { ...base('p4', 'post-content') };
     const { container } = render(<PostContentPlaceholderRender block={block} />);
     const outer = container.firstChild as HTMLElement;
     expect(outer.className).toBe('');
@@ -111,7 +111,7 @@ describe('PostContentPlaceholderRender', () => {
 
 describe('PalizziFooterBlockRender', () => {
   it('renders the marquee image with the provided src', () => {
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f1', 'palizzi-footer'),
       marqueeImage: '/marquee.png',
       columns: [],
@@ -123,7 +123,7 @@ describe('PalizziFooterBlockRender', () => {
   });
 
   it('renders each column label and html content', () => {
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f2', 'palizzi-footer'),
       marqueeImage: '/m.png',
       columns: [
@@ -140,7 +140,7 @@ describe('PalizziFooterBlockRender', () => {
   });
 
   it('renders link columns as anchor tags with the right href + label', () => {
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f3', 'palizzi-footer'),
       marqueeImage: '/m.png',
       columns: [
@@ -162,7 +162,7 @@ describe('PalizziFooterBlockRender', () => {
   });
 
   it('shifts a link\'s color on mouseenter and restores on mouseleave', () => {
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f4', 'palizzi-footer'),
       marqueeImage: '/m.png',
       columns: [
@@ -184,7 +184,7 @@ describe('PalizziFooterBlockRender', () => {
 
   it('hover handlers swap the link color via React synthetic events', async () => {
     const { fireEvent } = await import('@testing-library/react');
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f5', 'palizzi-footer'),
       marqueeImage: '/m.png',
       columns: [
@@ -201,7 +201,7 @@ describe('PalizziFooterBlockRender', () => {
   });
 
   it('renders bottomText in the footer', () => {
-    const block: any = {
+    const block: Record<string, unknown> = {
       ...base('f6', 'palizzi-footer'),
       marqueeImage: '/m.png',
       columns: [],
@@ -217,7 +217,7 @@ describe('PalizziFooterBlockRender', () => {
 // ---------------------------------------------------------------------------
 
 describe('PalizziHistoryBlockRender', () => {
-  const baseBlock = (overrides: Partial<any> = {}) => ({
+  const baseBlock = (overrides: Partial<Record<string, unknown>> = {}) => ({
     ...base('h1', 'palizzi-history'),
     backgroundImage: '/bg.jpg',
     marqueeImage: '/marquee.png',
@@ -229,7 +229,7 @@ describe('PalizziHistoryBlockRender', () => {
   });
 
   it('renders overline, title, and accent', () => {
-    render(<PalizziHistoryBlockRender block={baseBlock() as any} />);
+    render(<PalizziHistoryBlockRender block={baseBlock() as unknown} />);
     expect(screen.getByText('OUR STORY')).toBeTruthy();
     // Title is split across a text node and a <span> for the accent —
     // verify both fragments are present.
@@ -239,7 +239,7 @@ describe('PalizziHistoryBlockRender', () => {
 
   it('renders background and marquee images with correct src', () => {
     const { container } = render(
-      <PalizziHistoryBlockRender block={baseBlock() as any} />,
+      <PalizziHistoryBlockRender block={baseBlock() as unknown} />,
     );
     const imgs = container.querySelectorAll('img');
     const srcs = Array.from(imgs).map((i) => i.getAttribute('src'));
@@ -250,7 +250,7 @@ describe('PalizziHistoryBlockRender', () => {
   it('renders one <p> per paragraph (with dividers between but not after last)', () => {
     const block = baseBlock({
       paragraphs: ['Alpha', 'Beta', 'Gamma'],
-    }) as any;
+    }) as unknown;
     const { container } = render(<PalizziHistoryBlockRender block={block} />);
     // Paragraphs use dangerouslySetInnerHTML, so check by text content
     expect(container.textContent).toContain('Alpha');
@@ -268,7 +268,7 @@ describe('PalizziHistoryBlockRender', () => {
   });
 
   it('renders no paragraph dividers when there is only one paragraph', () => {
-    const block = baseBlock({ paragraphs: ['Only one'] }) as any;
+    const block = baseBlock({ paragraphs: ['Only one'] }) as unknown;
     const { container } = render(<PalizziHistoryBlockRender block={block} />);
     const dividers = container.querySelectorAll('div[style*="height: 1px"]');
     const paraDividers = Array.from(dividers).filter((d) =>
@@ -279,7 +279,7 @@ describe('PalizziHistoryBlockRender', () => {
 
   it('wraps the section in an element with id="history"', () => {
     const { container } = render(
-      <PalizziHistoryBlockRender block={baseBlock() as any} />,
+      <PalizziHistoryBlockRender block={baseBlock() as unknown} />,
     );
     expect(container.querySelector('section#history')).toBeTruthy();
   });
@@ -290,7 +290,7 @@ describe('PalizziHistoryBlockRender', () => {
 // ---------------------------------------------------------------------------
 
 describe('PalizziWelcomeBlockRender', () => {
-  const baseBlock = (overrides: Partial<any> = {}) => ({
+  const baseBlock = (overrides: Partial<Record<string, unknown>> = {}) => ({
     ...base('w1', 'palizzi-welcome'),
     overline: 'BENVENUTI',
     title: 'Welcome to',
@@ -305,19 +305,19 @@ describe('PalizziWelcomeBlockRender', () => {
   });
 
   it('renders the overline label inside the ornament', () => {
-    render(<PalizziWelcomeBlockRender block={baseBlock() as any} />);
+    render(<PalizziWelcomeBlockRender block={baseBlock() as unknown} />);
     expect(screen.getByText('BENVENUTI')).toBeTruthy();
   });
 
   it('renders the title together with its accent', () => {
-    render(<PalizziWelcomeBlockRender block={baseBlock() as any} />);
+    render(<PalizziWelcomeBlockRender block={baseBlock() as unknown} />);
     expect(screen.getByText(/Welcome to/)).toBeTruthy();
     expect(screen.getByText('Palizzi')).toBeTruthy();
   });
 
   it('renders each paragraph as its own <p>', () => {
     const { container } = render(
-      <PalizziWelcomeBlockRender block={baseBlock() as any} />,
+      <PalizziWelcomeBlockRender block={baseBlock() as unknown} />,
     );
     expect(container.textContent).toContain('A neighborhood institution.');
     expect(container.textContent).toContain('Family-run since 1952.');
@@ -325,7 +325,7 @@ describe('PalizziWelcomeBlockRender', () => {
 
   it('renders the book image with alt = bookTitle', () => {
     const { container } = render(
-      <PalizziWelcomeBlockRender block={baseBlock() as any} />,
+      <PalizziWelcomeBlockRender block={baseBlock() as unknown} />,
     );
     const bookImg = container.querySelector('img[alt="Tales of Palizzi"]') as HTMLImageElement;
     expect(bookImg).toBeTruthy();
@@ -333,7 +333,7 @@ describe('PalizziWelcomeBlockRender', () => {
   });
 
   it('renders book label, subtitle, and authors', () => {
-    render(<PalizziWelcomeBlockRender block={baseBlock() as any} />);
+    render(<PalizziWelcomeBlockRender block={baseBlock() as unknown} />);
     expect(screen.getByText('AS SEEN IN')).toBeTruthy();
     expect(screen.getByText('Tales of Palizzi')).toBeTruthy();
     expect(screen.getByText('A coffee-table memoir')).toBeTruthy();
@@ -341,7 +341,7 @@ describe('PalizziWelcomeBlockRender', () => {
   });
 
   it('renders an empty paragraph list without throwing', () => {
-    const block = baseBlock({ paragraphs: [] }) as any;
+    const block = baseBlock({ paragraphs: [] }) as unknown;
     const { container } = render(<PalizziWelcomeBlockRender block={block} />);
     // Only the structural <p> tags (overline, book label/title/subtitle/authors)
     // should be in the document — none from the paragraphs list.
@@ -351,7 +351,7 @@ describe('PalizziWelcomeBlockRender', () => {
 
   it('wraps the section with id="welcome"', () => {
     const { container } = render(
-      <PalizziWelcomeBlockRender block={baseBlock() as any} />,
+      <PalizziWelcomeBlockRender block={baseBlock() as unknown} />,
     );
     expect(container.querySelector('section#welcome')).toBeTruthy();
   });
